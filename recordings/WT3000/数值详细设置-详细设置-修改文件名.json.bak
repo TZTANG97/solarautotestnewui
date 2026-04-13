@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T14:14:51.914554",
+  "total_duration": 5.919463872909546,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 0.5915517807006836,
+      "x": 869,
+      "y": 391,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 0.69569993019104,
+      "x": 869,
+      "y": 391,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 1.5594420433044434,
+      "x": 785,
+      "y": 623,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 1.6796486377716064,
+      "x": 785,
+      "y": 623,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 2.63948917388916,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 2.7279093265533447,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 2.8229775428771973,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 2.8713650703430176,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 3.4638636112213135,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 3.567937135696411,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "text_input",
+      "timestamp": 3.667937135696411,
+      "is_drag": false,
+      "text": "文件名_1"
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 5.907105302810669,
+      "x": 1115,
+      "y": 839,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 6.0194638729095455,
+      "x": 1115,
+      "y": 839,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 13
+}

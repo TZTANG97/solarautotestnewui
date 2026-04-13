@@ -1,0 +1,144 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T14:08:57.369527",
+  "total_duration": 6.792545557022095,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 0.6721642017364502,
+      "x": 826,
+      "y": 552,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 0.7606587409973145,
+      "x": 826,
+      "y": 552,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 1.080747365951538,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 1.2494163513183594,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 1.4237337112426758,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 1.440709114074707,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 2.2724661827087402,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 2.3686294555664062,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "text_input",
+      "timestamp": 2.4686294555664063,
+      "is_drag": false,
+      "text": "文件保存路径"
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 4.284432744979858,
+      "x": 630,
+      "y": 592,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 4.388400411605835,
+      "x": 630,
+      "y": 592,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 5.220257377624511,
+      "x": 748,
+      "y": 615,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 5.308154439926147,
+      "x": 748,
+      "y": 615,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 5.652578210830688,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 5.844787693023681,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 6.003440237045288,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 6.027831172943115,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 6.819793319702148,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 6.892545557022094,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "text_input",
+      "timestamp": 6.992545557022094,
+      "is_drag": false,
+      "text": "文件名"
+    }
+  ],
+  "action_count": 20
+}

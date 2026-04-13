@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T17:25:30.600371",
+  "total_duration": 5.631730794906616,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 0.7193305492401123,
+      "x": 821,
+      "y": 549,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 0.8156001567840576,
+      "x": 821,
+      "y": 549,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 1.407599687576294,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 1.4957330226898193,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 1.5683343410491943,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 1.616184949874878,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 2.6156415939331055,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 2.6635687351226807,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "text_input",
+      "timestamp": 2.7635687351226808,
+      "is_drag": false,
+      "text": "D:\\xiebodianliu_test"
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 5.636446571350097,
+      "x": 982,
+      "y": 591,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 5.731730794906616,
+      "x": 982,
+      "y": 591,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 11
+}

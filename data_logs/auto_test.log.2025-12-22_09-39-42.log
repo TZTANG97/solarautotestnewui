@@ -1,0 +1,16 @@
+2025-12-22 09:20:36,000 INFO SCPITestWave.py [26099] MainThread :2025-12-22 09:20:36    程式开启
+2025-12-22 09:20:42,590 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--重连
+2025-12-22 09:21:51,170 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--固定PF=1
+2025-12-22 09:23:03,365 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--10min过压保护
+2025-12-22 09:24:24,210 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--谐波电流
+2025-12-22 09:25:16,453 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--电压闪变
+2025-12-22 09:25:41,920 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--过频降载
+2025-12-22 09:26:37,710 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--Test_PU
+2025-12-22 09:27:17,663 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--静态QU
+2025-12-22 09:28:20,292 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--过欠压_过欠频
+2025-12-22 09:29:13,133 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--静态MPPT测试
+2025-12-22 09:29:15,251 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--静态MPPT测试
+2025-12-22 09:29:30,720 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--Cos(φ)_Brazil
+2025-12-22 09:30:04,832 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--静态Cos(φ)
+2025-12-22 09:39:36,390 INFO SCPITestWave.py [26099] MainThread :2025-12-22 09:39:36    程式开启
+2025-12-22 09:39:42,982 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--静态Cos(φ)

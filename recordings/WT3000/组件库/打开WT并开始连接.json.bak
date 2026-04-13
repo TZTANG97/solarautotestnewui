@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T16:32:43.583033",
+  "total_duration": 65.89522767066956,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 1.3748407363891602,
+      "x": 1919,
+      "y": 1072,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 1.5030255317687988,
+      "x": 1919,
+      "y": 1072,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 3.0952465534210205,
+      "x": 101,
+      "y": 523,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 3.1994662284851074,
+      "x": 101,
+      "y": 523,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 3.27958345413208,
+      "x": 101,
+      "y": 523,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 3.3674747943878174,
+      "x": 101,
+      "y": 523,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 6.127670049667358,
+      "x": 953,
+      "y": 575,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 6.182782888412476,
+      "x": 953,
+      "y": 575,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 30.27099847793579,
+      "x": 168,
+      "y": 426,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 30.367520332336426,
+      "x": 168,
+      "y": 426,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 62.39875078201294,
+      "x": 36,
+      "y": 136,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 62.51104760169983,
+      "x": 36,
+      "y": 136,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 12
+}

@@ -1,0 +1,1083 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-14T15:22:36.245013",
+  "total_duration": 65.74193072319031,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "action_count": 121,
+  "actions": [
+    {
+      "id": 1,
+      "action_type": "mouse_click",
+      "duration": 1.183883,
+      "x": 42,
+      "y": 137,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 2,
+      "action_type": "mouse_release",
+      "duration": 0.135198,
+      "x": 42,
+      "y": 137,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 3,
+      "action_type": "mouse_click",
+      "duration": 1.075854,
+      "x": 38,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 4,
+      "action_type": "mouse_release",
+      "duration": 0.120629,
+      "x": 38,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 5,
+      "action_type": "mouse_click",
+      "duration": 1.319468,
+      "x": 170,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 6,
+      "action_type": "mouse_release",
+      "duration": 0.104233,
+      "x": 170,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 7,
+      "action_type": "mouse_click",
+      "duration": 0.999659,
+      "x": 217,
+      "y": 235,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 8,
+      "action_type": "mouse_release",
+      "duration": 0.096358,
+      "x": 217,
+      "y": 235,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 9,
+      "action_type": "mouse_click",
+      "duration": 0.745255,
+      "x": 202,
+      "y": 266,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 10,
+      "action_type": "mouse_release",
+      "duration": 0.103048,
+      "x": 202,
+      "y": 266,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 11,
+      "action_type": "mouse_click",
+      "duration": 1.183563,
+      "x": 1006,
+      "y": 569,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 12,
+      "action_type": "mouse_release",
+      "duration": 0.120193,
+      "x": 1006,
+      "y": 569,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 13,
+      "action_type": "mouse_click",
+      "duration": 0.935769,
+      "x": 298,
+      "y": 238,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 14,
+      "action_type": "mouse_release",
+      "duration": 0.119582,
+      "x": 298,
+      "y": 238,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 15,
+      "action_type": "mouse_click",
+      "duration": 0.832728,
+      "x": 293,
+      "y": 252,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 16,
+      "action_type": "mouse_release",
+      "duration": 0.143348,
+      "x": 293,
+      "y": 252,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 17,
+      "action_type": "mouse_click",
+      "duration": 1.067063,
+      "x": 1002,
+      "y": 576,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 18,
+      "action_type": "mouse_release",
+      "duration": 0.109758,
+      "x": 1002,
+      "y": 576,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 19,
+      "action_type": "mouse_click",
+      "duration": 0.903745,
+      "x": 218,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 20,
+      "action_type": "mouse_release",
+      "duration": 0.111563,
+      "x": 218,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 21,
+      "action_type": "mouse_click",
+      "duration": 0.848283,
+      "x": 204,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 22,
+      "action_type": "mouse_release",
+      "duration": 0.11205,
+      "x": 204,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 23,
+      "action_type": "mouse_click",
+      "duration": 1.240034,
+      "x": 1010,
+      "y": 573,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 24,
+      "action_type": "mouse_release",
+      "duration": 0.12007,
+      "x": 1010,
+      "y": 573,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 25,
+      "action_type": "mouse_click",
+      "duration": 0.936188,
+      "x": 318,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 26,
+      "action_type": "mouse_release",
+      "duration": 0.095752,
+      "x": 318,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 27,
+      "action_type": "mouse_click",
+      "duration": 0.744639,
+      "x": 307,
+      "y": 276,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 28,
+      "action_type": "mouse_release",
+      "duration": 0.095558,
+      "x": 307,
+      "y": 276,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 29,
+      "action_type": "mouse_click",
+      "duration": 1.168571,
+      "x": 1011,
+      "y": 572,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 30,
+      "action_type": "mouse_release",
+      "duration": 0.119445,
+      "x": 1011,
+      "y": 572,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 31,
+      "action_type": "mouse_click",
+      "duration": 0.927384,
+      "x": 307,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 32,
+      "action_type": "mouse_release",
+      "duration": 0.120304,
+      "x": 307,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 33,
+      "action_type": "mouse_click",
+      "duration": 1.072104,
+      "x": 293,
+      "y": 308,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 34,
+      "action_type": "mouse_release",
+      "duration": 0.135687,
+      "x": 293,
+      "y": 308,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 35,
+      "action_type": "mouse_click",
+      "duration": 1.297073,
+      "x": 282,
+      "y": 315,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 36,
+      "action_type": "mouse_release",
+      "duration": 0.111485,
+      "x": 282,
+      "y": 315,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 37,
+      "action_type": "mouse_click",
+      "duration": 1.20774,
+      "x": 283,
+      "y": 330,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 38,
+      "action_type": "mouse_release",
+      "duration": 0.119895,
+      "x": 283,
+      "y": 330,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 39,
+      "action_type": "mouse_click",
+      "duration": 2.063893,
+      "x": 172,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 40,
+      "action_type": "mouse_release",
+      "duration": 0.128427,
+      "x": 172,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 41,
+      "action_type": "mouse_click",
+      "duration": 1.295439,
+      "x": 161,
+      "y": 295,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 42,
+      "action_type": "mouse_release",
+      "duration": 0.111826,
+      "x": 161,
+      "y": 295,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 43,
+      "action_type": "mouse_click",
+      "duration": 1.048425,
+      "x": 245,
+      "y": 322,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 44,
+      "action_type": "mouse_release",
+      "duration": 0.127702,
+      "x": 245,
+      "y": 322,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 45,
+      "action_type": "mouse_click",
+      "duration": 1.19944,
+      "x": 236,
+      "y": 354,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 46,
+      "action_type": "mouse_release",
+      "duration": 0.135941,
+      "x": 236,
+      "y": 354,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 47,
+      "action_type": "mouse_click",
+      "duration": 1.000157,
+      "x": 227,
+      "y": 293,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 48,
+      "action_type": "mouse_release",
+      "duration": 0.128444,
+      "x": 227,
+      "y": 293,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 49,
+      "action_type": "mouse_click",
+      "duration": 0.775948,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 50,
+      "action_type": "mouse_release",
+      "duration": 0.08791,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 51,
+      "action_type": "mouse_click",
+      "duration": 0.439644,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 52,
+      "action_type": "mouse_release",
+      "duration": 0.10423,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 53,
+      "action_type": "mouse_click",
+      "duration": 0.575711,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 54,
+      "action_type": "mouse_release",
+      "duration": 0.095805,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 55,
+      "action_type": "mouse_click",
+      "duration": 0.823474,
+      "x": 905,
+      "y": 456,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "id": 56,
+      "action_type": "mouse_release",
+      "duration": 0.143548,
+      "x": 905,
+      "y": 456,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "id": 57,
+      "action_type": "mouse_click",
+      "duration": 0.999052,
+      "x": 715,
+      "y": 264,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 58,
+      "action_type": "mouse_release",
+      "duration": 0.112343,
+      "x": 715,
+      "y": 264,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 59,
+      "action_type": "mouse_click",
+      "duration": 1.032125,
+      "x": 709,
+      "y": 284,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 60,
+      "action_type": "mouse_release",
+      "duration": 0.112493,
+      "x": 709,
+      "y": 284,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 61,
+      "action_type": "mouse_click",
+      "duration": 1.159417,
+      "x": 664,
+      "y": 381,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 62,
+      "action_type": "mouse_release",
+      "duration": 0.144061,
+      "x": 664,
+      "y": 381,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 63,
+      "action_type": "mouse_click",
+      "duration": 1.119924,
+      "x": 653,
+      "y": 412,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 64,
+      "action_type": "mouse_release",
+      "duration": 0.119954,
+      "x": 653,
+      "y": 412,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 65,
+      "action_type": "mouse_click",
+      "duration": 1.056764,
+      "x": 737,
+      "y": 420,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 66,
+      "action_type": "mouse_release",
+      "duration": 0.103617,
+      "x": 737,
+      "y": 420,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 67,
+      "action_type": "mouse_click",
+      "duration": 1.239257,
+      "x": 731,
+      "y": 435,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 68,
+      "action_type": "mouse_release",
+      "duration": 0.120951,
+      "x": 731,
+      "y": 435,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 69,
+      "action_type": "mouse_click",
+      "duration": 0.831522,
+      "x": 749,
+      "y": 456,
+      "button": "left",
+      "is_drag": true
+    },
+    {
+      "id": 70,
+      "action_type": "mouse_release",
+      "duration": 0.520428,
+      "x": 783,
+      "y": 457,
+      "button": "left",
+      "is_drag": true
+    },
+    {
+      "id": 71,
+      "action_type": "key_press",
+      "duration": 1.472317,
+      "key": "0",
+      "is_drag": false
+    },
+    {
+      "id": 72,
+      "action_type": "key_release",
+      "duration": 0.079451,
+      "key": "0",
+      "is_drag": false
+    },
+    {
+      "id": 73,
+      "action_type": "mouse_click",
+      "duration": 0.719331,
+      "x": 821,
+      "y": 549,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 74,
+      "action_type": "mouse_release",
+      "duration": 0.09627,
+      "x": 821,
+      "y": 549,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 75,
+      "action_type": "key_press",
+      "duration": 0.592,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 76,
+      "action_type": "key_press",
+      "duration": 0.088133,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 77,
+      "action_type": "key_release",
+      "duration": 0.072601,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 78,
+      "action_type": "key_release",
+      "duration": 0.047851,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 79,
+      "action_type": "key_press",
+      "duration": 0.999457,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 80,
+      "action_type": "key_release",
+      "duration": 0.047927,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 81,
+      "action_type": "text_input",
+      "duration": 0.1,
+      "is_drag": false,
+      "text": "111111"
+    },
+    {
+      "id": 82,
+      "action_type": "mouse_click",
+      "duration": 2.872878,
+      "x": 982,
+      "y": 591,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 83,
+      "action_type": "mouse_release",
+      "duration": 0.095284,
+      "x": 982,
+      "y": 591,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 84,
+      "action_type": "mouse_click",
+      "duration": 1.195088,
+      "x": 677,
+      "y": 213,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 85,
+      "action_type": "mouse_release",
+      "duration": 0.119998,
+      "x": 677,
+      "y": 213,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 86,
+      "action_type": "mouse_click",
+      "duration": 0.888065,
+      "x": 612,
+      "y": 255,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 87,
+      "action_type": "mouse_release",
+      "duration": 0.111557,
+      "x": 612,
+      "y": 255,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 88,
+      "action_type": "mouse_click",
+      "duration": 0.720834,
+      "x": 611,
+      "y": 303,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 89,
+      "action_type": "mouse_release",
+      "duration": 0.103154,
+      "x": 611,
+      "y": 303,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 90,
+      "action_type": "mouse_click",
+      "duration": 0.872662,
+      "x": 611,
+      "y": 432,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 91,
+      "action_type": "mouse_release",
+      "duration": 0.087682,
+      "x": 611,
+      "y": 432,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 92,
+      "action_type": "mouse_click",
+      "duration": 0.872009,
+      "x": 614,
+      "y": 589,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 93,
+      "action_type": "mouse_release",
+      "duration": 0.103791,
+      "x": 614,
+      "y": 589,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 94,
+      "action_type": "mouse_click",
+      "duration": 0.815688,
+      "x": 608,
+      "y": 623,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 95,
+      "action_type": "mouse_release",
+      "duration": 0.144675,
+      "x": 609,
+      "y": 623,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 96,
+      "action_type": "mouse_click",
+      "duration": 0.751639,
+      "x": 609,
+      "y": 655,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 97,
+      "action_type": "mouse_release",
+      "duration": 0.120317,
+      "x": 609,
+      "y": 655,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 98,
+      "action_type": "mouse_click",
+      "duration": 1.477399,
+      "x": 728,
+      "y": 270,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 99,
+      "action_type": "mouse_release",
+      "duration": 0.104588,
+      "x": 728,
+      "y": 270,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 100,
+      "action_type": "mouse_click",
+      "duration": 0.623818,
+      "x": 807,
+      "y": 269,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 101,
+      "action_type": "mouse_release",
+      "duration": 0.103993,
+      "x": 807,
+      "y": 269,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 102,
+      "action_type": "mouse_click",
+      "duration": 0.728304,
+      "x": 881,
+      "y": 273,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 103,
+      "action_type": "mouse_release",
+      "duration": 0.111662,
+      "x": 881,
+      "y": 273,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 104,
+      "action_type": "mouse_click",
+      "duration": 0.904188,
+      "x": 726,
+      "y": 289,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 105,
+      "action_type": "mouse_release",
+      "duration": 0.104329,
+      "x": 726,
+      "y": 289,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 106,
+      "action_type": "mouse_click",
+      "duration": 0.655868,
+      "x": 731,
+      "y": 318,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 107,
+      "action_type": "mouse_release",
+      "duration": 0.103936,
+      "x": 731,
+      "y": 318,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 108,
+      "action_type": "mouse_click",
+      "duration": 0.455479,
+      "x": 728,
+      "y": 336,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 109,
+      "action_type": "mouse_release",
+      "duration": 0.120921,
+      "x": 728,
+      "y": 336,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 110,
+      "action_type": "mouse_click",
+      "duration": 0.76753,
+      "x": 727,
+      "y": 367,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 111,
+      "action_type": "mouse_release",
+      "duration": 0.079734,
+      "x": 727,
+      "y": 367,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 112,
+      "action_type": "mouse_click",
+      "duration": 0.599705,
+      "x": 804,
+      "y": 368,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 113,
+      "action_type": "mouse_release",
+      "duration": 0.08784,
+      "x": 804,
+      "y": 368,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 114,
+      "action_type": "mouse_click",
+      "duration": 0.761246,
+      "x": 882,
+      "y": 369,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 115,
+      "action_type": "mouse_release",
+      "duration": 0.071147,
+      "x": 882,
+      "y": 369,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 116,
+      "action_type": "mouse_click",
+      "duration": 0.728471,
+      "x": 960,
+      "y": 369,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 117,
+      "action_type": "mouse_release",
+      "duration": 0.095775,
+      "x": 960,
+      "y": 369,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 118,
+      "action_type": "mouse_click",
+      "duration": 0.768382,
+      "x": 726,
+      "y": 385,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 119,
+      "action_type": "mouse_release",
+      "duration": 0.09574,
+      "x": 726,
+      "y": 385,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 120,
+      "action_type": "mouse_click",
+      "duration": 1.040918,
+      "x": 1111,
+      "y": 848,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 121,
+      "action_type": "mouse_release",
+      "duration": 0.119267,
+      "x": 1111,
+      "y": 849,
+      "button": "left",
+      "is_drag": false
+    }
+  ]
+}

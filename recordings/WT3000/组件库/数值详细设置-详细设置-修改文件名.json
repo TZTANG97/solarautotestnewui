@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T14:14:51.914554",
+  "total_duration": 5.919463872909546,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "action_count": 13,
+  "actions": [
+    {
+      "id": 1,
+      "action_type": "mouse_click",
+      "duration": 0.591552,
+      "x": 869,
+      "y": 391,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "id": 2,
+      "action_type": "mouse_release",
+      "duration": 0.104148,
+      "x": 869,
+      "y": 391,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "id": 3,
+      "action_type": "mouse_click",
+      "duration": 0.863742,
+      "x": 785,
+      "y": 623,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 4,
+      "action_type": "mouse_release",
+      "duration": 0.120207,
+      "x": 785,
+      "y": 623,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 5,
+      "action_type": "key_press",
+      "duration": 0.959841,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 6,
+      "action_type": "key_press",
+      "duration": 0.08842,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 7,
+      "action_type": "key_release",
+      "duration": 0.095068,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 8,
+      "action_type": "key_release",
+      "duration": 0.048388,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 9,
+      "action_type": "key_press",
+      "duration": 0.592499,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 10,
+      "action_type": "key_release",
+      "duration": 0.104074,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 11,
+      "action_type": "text_input",
+      "duration": 0.1,
+      "is_drag": false,
+      "text": "文件名_1"
+    },
+    {
+      "id": 12,
+      "action_type": "mouse_click",
+      "duration": 2.239168,
+      "x": 1115,
+      "y": 839,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 13,
+      "action_type": "mouse_release",
+      "duration": 0.112359,
+      "x": 1115,
+      "y": 839,
+      "button": "left",
+      "is_drag": false
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-14T15:46:55.054893",
+  "total_duration": 1,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 0.5,
+      "x": 632,
+      "y": 596,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 0.6,
+      "x": 632,
+      "y": 596,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 2
+}

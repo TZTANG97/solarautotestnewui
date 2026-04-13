@@ -1,0 +1,6 @@
+2025-11-17 11:31:52,441 INFO SCPITestWave.py [26136] MainThread :2025-11-17 11:31:52    程式开启
+2025-11-17 11:32:02,997 INFO SCPITestWave.py [26136] MainThread :2025-11-17 11:32:02    程式开启
+2025-11-17 11:32:08,688 INFO SCPITestWave.py [1024] MainThread :测试项目--Auto_Test--电压闪变
+2025-11-17 11:32:20,224 INFO SCPITestWave.py [26136] MainThread :2025-11-17 11:32:20    程式开启
+2025-11-17 11:47:46,231 INFO SCPITestWave.py [26136] MainThread :2025-11-17 11:47:46    程式开启
+2025-11-17 14:16:24,981 INFO SCPITestWave.py [1024] MainThread :测试项目--Auto_Test--重连

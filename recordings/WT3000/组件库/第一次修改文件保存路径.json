@@ -1,0 +1,97 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T17:25:30.600371",
+  "total_duration": 5.631730794906616,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "action_count": 11,
+  "actions": [
+    {
+      "id": 1,
+      "action_type": "mouse_click",
+      "duration": 0.719331,
+      "x": 821,
+      "y": 549,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 2,
+      "action_type": "mouse_release",
+      "duration": 0.09627,
+      "x": 821,
+      "y": 549,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 3,
+      "action_type": "key_press",
+      "duration": 0.592,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 4,
+      "action_type": "key_press",
+      "duration": 0.088133,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 5,
+      "action_type": "key_release",
+      "duration": 0.072601,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 6,
+      "action_type": "key_release",
+      "duration": 0.047851,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 7,
+      "action_type": "key_press",
+      "duration": 0.999457,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 8,
+      "action_type": "key_release",
+      "duration": 0.047927,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 9,
+      "action_type": "text_input",
+      "duration": 0.1,
+      "is_drag": false,
+      "text": "D:\\xiebodianliu_test"
+    },
+    {
+      "id": 10,
+      "action_type": "mouse_click",
+      "duration": 2.872878,
+      "x": 982,
+      "y": 591,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 11,
+      "action_type": "mouse_release",
+      "duration": 0.095284,
+      "x": 982,
+      "y": 591,
+      "button": "left",
+      "is_drag": false
+    }
+  ]
+}

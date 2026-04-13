@@ -1,0 +1,12 @@
+2025-12-31 09:22:01,545 INFO SCPITestWave.py [26099] MainThread :2025-12-31 09:22:01    程式开启
+2025-12-31 09:22:05,171 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--电压闪变
+2025-12-31 09:22:10,677 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--Test_PU
+2025-12-31 09:22:32,211 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--Test_PU
+2025-12-31 09:23:01,974 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--谐波电流
+2025-12-31 13:47:45,292 INFO SCPITestWave.py [26099] MainThread :2025-12-31 13:47:45    程式开启
+2025-12-31 13:47:48,420 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--固定PF=1
+2025-12-31 13:48:10,363 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--重连
+2025-12-31 13:48:50,121 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--固定PF=1
+2025-12-31 13:54:05,578 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--固定PF=1
+2025-12-31 14:04:28,875 INFO SCPITestWave.py [26099] MainThread :2025-12-31 14:04:28    程式开启
+2025-12-31 14:04:31,490 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--电压闪变

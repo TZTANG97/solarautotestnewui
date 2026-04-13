@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-14T15:51:31.318843",
+  "total_duration": 5.270927429199219,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 0.6635334491729736,
+      "x": 886,
+      "y": 465,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 0.7589883804321289,
+      "x": 886,
+      "y": 465,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 2.0633232593536377,
+      "x": 747,
+      "y": 619,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 2.151289224624634,
+      "x": 747,
+      "y": 619,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 2.591484308242798,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 2.727876901626587,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 2.8392529487609863,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 2.887749433517456,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 3.2717134952545166,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 3.4236130714416504,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "text_input",
+      "timestamp": 3.5236130714416505,
+      "is_drag": false,
+      "text": "10"
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 5.267929887771606,
+      "x": 1133,
+      "y": 851,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 5.370927429199218,
+      "x": 1133,
+      "y": 851,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 13
+}

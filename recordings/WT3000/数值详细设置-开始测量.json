@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T14:12:34.027915",
+  "total_duration": 1.439620018005371,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "action_count": 4,
+  "actions": [
+    {
+      "id": 1,
+      "action_type": "mouse_click",
+      "duration": 1.30178,
+      "x": 584,
+      "y": 88,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 2,
+      "action_type": "mouse_release",
+      "duration": 0.13784,
+      "x": 584,
+      "y": 88,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 3,
+      "action_type": "key_press",
+      "duration": 1.832093,
+      "key": "enter",
+      "is_drag": false
+    },
+    {
+      "id": 4,
+      "action_type": "key_release",
+      "duration": 0.1519,
+      "key": "enter",
+      "is_drag": false
+    }
+  ]
+}

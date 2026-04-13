@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-14T15:51:31.318843",
+  "total_duration": 5.270927429199219,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "action_count": 13,
+  "actions": [
+    {
+      "id": 1,
+      "action_type": "mouse_click",
+      "duration": 0.663533,
+      "x": 886,
+      "y": 465,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "id": 2,
+      "action_type": "mouse_release",
+      "duration": 0.095455,
+      "x": 886,
+      "y": 465,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "id": 3,
+      "action_type": "mouse_click",
+      "duration": 1.304335,
+      "x": 747,
+      "y": 619,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 4,
+      "action_type": "mouse_release",
+      "duration": 0.087966,
+      "x": 747,
+      "y": 619,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 5,
+      "action_type": "key_press",
+      "duration": 0.440195,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 6,
+      "action_type": "key_press",
+      "duration": 0.136393,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 7,
+      "action_type": "key_release",
+      "duration": 0.111376,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 8,
+      "action_type": "key_release",
+      "duration": 0.048496,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 9,
+      "action_type": "key_press",
+      "duration": 0.383964,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 10,
+      "action_type": "key_release",
+      "duration": 0.1519,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 11,
+      "action_type": "text_input",
+      "duration": 0.1,
+      "is_drag": false,
+      "text": "10"
+    },
+    {
+      "id": 12,
+      "action_type": "mouse_click",
+      "duration": 1.744317,
+      "x": 1133,
+      "y": 851,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 13,
+      "action_type": "mouse_release",
+      "duration": 0.102998,
+      "x": 1133,
+      "y": 851,
+      "button": "left",
+      "is_drag": false
+    }
+  ]
+}

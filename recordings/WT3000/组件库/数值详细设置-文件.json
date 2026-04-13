@@ -1,0 +1,164 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T14:08:57.369527",
+  "total_duration": 6.792545557022095,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "action_count": 20,
+  "actions": [
+    {
+      "id": 1,
+      "action_type": "mouse_click",
+      "duration": 0.672164,
+      "x": 826,
+      "y": 552,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 2,
+      "action_type": "mouse_release",
+      "duration": 0.088495,
+      "x": 826,
+      "y": 552,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 3,
+      "action_type": "key_press",
+      "duration": 0.320089,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 4,
+      "action_type": "key_press",
+      "duration": 0.168669,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 5,
+      "action_type": "key_release",
+      "duration": 0.174317,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 6,
+      "action_type": "key_release",
+      "duration": 0.016975,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 7,
+      "action_type": "key_press",
+      "duration": 0.831757,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 8,
+      "action_type": "key_release",
+      "duration": 0.096163,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 9,
+      "action_type": "text_input",
+      "duration": 0.1,
+      "is_drag": false,
+      "text": "文件保存路径"
+    },
+    {
+      "id": 10,
+      "action_type": "mouse_click",
+      "duration": 1.815803,
+      "x": 630,
+      "y": 592,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 11,
+      "action_type": "mouse_release",
+      "duration": 0.103968,
+      "x": 630,
+      "y": 592,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 12,
+      "action_type": "mouse_click",
+      "duration": 0.831857,
+      "x": 748,
+      "y": 615,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 13,
+      "action_type": "mouse_release",
+      "duration": 0.087897,
+      "x": 748,
+      "y": 615,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 14,
+      "action_type": "key_press",
+      "duration": 0.344424,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 15,
+      "action_type": "key_press",
+      "duration": 0.192209,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 16,
+      "action_type": "key_release",
+      "duration": 0.158653,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 17,
+      "action_type": "key_release",
+      "duration": 0.024391,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 18,
+      "action_type": "key_press",
+      "duration": 0.791962,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 19,
+      "action_type": "key_release",
+      "duration": 0.072752,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 20,
+      "action_type": "text_input",
+      "duration": 0.1,
+      "is_drag": false,
+      "text": "文件名"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+2025-10-27 13:22:00,280 INFO SCPITestWave.py [26098] MainThread :2025-10-27 13:22:00    程式开启
+2025-10-27 13:22:24,003 INFO SCPITestWave.py [998] MainThread :测试项目--Auto_Test--电压闪变
+2025-10-27 14:25:54,529 INFO SCPITestWave.py [26098] MainThread :2025-10-27 14:25:54    程式开启
+2025-10-27 14:25:57,538 INFO SCPITestWave.py [617] MainThread :未发现可连接设备
+2025-10-27 14:25:57,565 INFO SCPITestWave.py [623] MainThread :交流电源 not exit

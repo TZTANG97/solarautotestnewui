@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-07T15:44:40.079483",
+  "total_duration": 2.527316093444824,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 1.1199283599853516,
+      "x": 653,
+      "y": 387,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 1.1988708972930908,
+      "x": 653,
+      "y": 387,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 2.406482219696045,
+      "x": 647,
+      "y": 410,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 2.527316093444824,
+      "x": 647,
+      "y": 410,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 4
+}

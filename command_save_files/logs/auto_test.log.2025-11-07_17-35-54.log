@@ -1,0 +1,15 @@
+2025-11-07 13:33:09,632 INFO SCPITestWave.py [26121] MainThread :2025-11-07 13:33:09    程式开启
+2025-11-07 13:33:20,145 INFO SCPITestWave.py [1018] MainThread :测试项目--Auto_Test--巴西过欠频稳定性
+2025-11-07 13:33:32,344 INFO SCPITestWave.py [26121] MainThread :2025-11-07 13:33:32    程式开启
+2025-11-07 13:33:34,345 INFO SCPITestWave.py [637] MainThread :ASRL5::INSTR
+2025-11-07 13:33:34,357 INFO SCPITestWave.py [647] MainThread :交流电源连接成功
+2025-11-07 13:33:35,628 INFO SCPITestWave.py [656] MainThread :ASRL5::INSTR
+2025-11-07 13:33:42,621 INFO SCPITestWave.py [656] MainThread :ASRL6::INSTR
+2025-11-07 13:33:47,861 INFO SCPITestWave.py [663] MainThread :直流电源1 not exit
+2025-11-07 13:34:04,151 INFO SCPITestWave.py [1018] MainThread :测试项目--Auto_Test--巴西过欠频稳定性
+2025-11-07 13:34:27,671 INFO SCPITestWave.py [21627] MainThread :2025-11-07 13:34:27    设定实验内容完成
+2025-11-07 13:34:39,453 INFO SCPITestWave.py [26121] MainThread :2025-11-07 13:34:39    程式开启
+2025-11-07 13:35:26,505 INFO SCPITestWave.py [1018] MainThread :测试项目--Auto_Test--静态MPPT测试
+2025-11-07 14:24:37,503 INFO SCPITestWave.py [1018] MainThread :测试项目--Auto_Test--重连
+2025-11-07 17:35:40,805 INFO SCPITestWave.py [26121] MainThread :2025-11-07 17:35:40    程式开启
+2025-11-07 17:35:54,185 INFO SCPITestWave.py [1018] MainThread :测试项目--Auto_Test--静态MPPT测试

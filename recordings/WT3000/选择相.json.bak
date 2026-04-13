@@ -1,0 +1,316 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-07T15:39:43.738670",
+  "total_duration": 22.756396055221558,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 1.0758535861968994,
+      "x": 38,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 1.1964824199676514,
+      "x": 38,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 2.5159502029418945,
+      "x": 170,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 2.620183229446411,
+      "x": 170,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 3.6198418140411377,
+      "x": 217,
+      "y": 235,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 3.7161998748779297,
+      "x": 217,
+      "y": 235,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 4.461454391479492,
+      "x": 202,
+      "y": 266,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 4.564502000808716,
+      "x": 202,
+      "y": 266,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 5.748065233230591,
+      "x": 1006,
+      "y": 569,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 5.868257999420166,
+      "x": 1006,
+      "y": 569,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 6.804027080535889,
+      "x": 298,
+      "y": 238,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 6.923608779907227,
+      "x": 298,
+      "y": 238,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 7.75633692741394,
+      "x": 293,
+      "y": 252,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 7.8996851444244385,
+      "x": 293,
+      "y": 252,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 8.966747760772705,
+      "x": 1002,
+      "y": 576,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 9.076505422592163,
+      "x": 1002,
+      "y": 576,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 9.980250120162964,
+      "x": 218,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 10.091813087463379,
+      "x": 218,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 10.940095901489258,
+      "x": 204,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 11.052145719528198,
+      "x": 204,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 12.292179822921753,
+      "x": 1010,
+      "y": 573,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 12.412249565124512,
+      "x": 1010,
+      "y": 573,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 13.348437786102295,
+      "x": 318,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 13.444190263748169,
+      "x": 318,
+      "y": 267,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 14.18882966041565,
+      "x": 307,
+      "y": 276,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 14.284387350082397,
+      "x": 307,
+      "y": 276,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 15.452958345413208,
+      "x": 1011,
+      "y": 572,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 15.57240343093872,
+      "x": 1011,
+      "y": 572,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 16.49978756904602,
+      "x": 307,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 16.620091915130615,
+      "x": 307,
+      "y": 279,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 17.692196369171143,
+      "x": 293,
+      "y": 308,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 17.82788348197937,
+      "x": 293,
+      "y": 308,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 19.124956607818604,
+      "x": 282,
+      "y": 315,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 19.236441373825073,
+      "x": 282,
+      "y": 315,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 20.444181203842163,
+      "x": 283,
+      "y": 330,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 20.56407618522644,
+      "x": 283,
+      "y": 330,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 22.62796902656555,
+      "x": 172,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 22.756396055221558,
+      "x": 172,
+      "y": 143,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 38
+}

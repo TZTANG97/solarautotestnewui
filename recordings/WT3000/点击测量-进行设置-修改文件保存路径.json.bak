@@ -1,0 +1,224 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-07T15:47:31.023992",
+  "total_duration": 9.862728118896484,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 0.9993257522583008,
+      "x": 851,
+      "y": 548,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 1.1031389236450195,
+      "x": 851,
+      "y": 548,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 1.5916438102722168,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 1.7514069080352783,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 1.9431793689727783,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 1.9514329433441162,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 2.627852201461792,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 2.7432851791381836,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 4.615185976028442,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 4.710577964782715,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 4.7911057472229,
+      "key": "67",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 4.879612445831299,
+      "key": "67",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 4.919596195220947,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 5.01505184173584,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 5.3110058307647705,
+      "key": "shift",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 5.496086359024048,
+      "key": "186",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 5.703284502029419,
+      "key": "186",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 5.8226916790008545,
+      "key": "shift",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 6.439427614212036,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 6.543425559997559,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 6.591449022293091,
+      "key": "85",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 6.686888933181763,
+      "key": "85",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 6.7190024852752686,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 6.799192905426025,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 6.943920135498047,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 7.055969715118408,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 7.105335235595703,
+      "key": "69",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 7.231414079666138,
+      "key": "69",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 7.335295915603638,
+      "key": "82",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 7.4474968910217285,
+      "key": "82",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 7.671197175979614,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 7.767170667648315,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 9.75111174583435,
+      "x": 1433,
+      "y": 307,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 9.862728118896484,
+      "x": 1433,
+      "y": 307,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 34
+}

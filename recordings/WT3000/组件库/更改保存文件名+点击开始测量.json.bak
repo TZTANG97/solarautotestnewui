@@ -1,0 +1,171 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-15T11:53:23.491029",
+  "total_duration": 8.789796352386475,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 0.7759478092193604,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 0.8638582229614258,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 1.303502082824707,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 1.4077322483062744,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 1.9834434986114502,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 2.0792489051818848,
+      "x": 35,
+      "y": 222,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 2.7427823543548584,
+      "x": 886,
+      "y": 465,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 2.8382372856140137,
+      "x": 886,
+      "y": 465,
+      "button": "right",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 4.1425721645355225,
+      "x": 747,
+      "y": 619,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 4.2305381298065186,
+      "x": 747,
+      "y": 619,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 4.670733213424683,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 4.807125806808472,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 4.918501853942871,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 4.966998338699341,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 5.350962400436401,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 5.502861976623535,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "action_type": "text_input",
+      "timestamp": 5.602861976623535,
+      "is_drag": false,
+      "text": "10"
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 7.347178792953491,
+      "x": 1133,
+      "y": 851,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 7.450176334381103,
+      "x": 1133,
+      "y": 851,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 8.65195608139038,
+      "x": 584,
+      "y": 88,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 8.789796352386475,
+      "x": 584,
+      "y": 88,
+      "button": "left",
+      "is_drag": false
+    }
+  ],
+  "action_count": 21,
+  "merged_files": [
+    "点击测量.json",
+    "更改保存文件名.json",
+    "数值详细设置-开始测量.json"
+  ]
+}

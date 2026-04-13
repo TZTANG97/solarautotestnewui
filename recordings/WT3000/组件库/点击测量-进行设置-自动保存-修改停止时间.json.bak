@@ -1,0 +1,104 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-07T15:45:04.543547",
+  "total_duration": 7.967663288116455,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "actions": [
+    {
+      "action_type": "mouse_click",
+      "timestamp": 1.159416675567627,
+      "x": 664,
+      "y": 381,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 1.3034777641296387,
+      "x": 664,
+      "y": 381,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 2.4234018325805664,
+      "x": 653,
+      "y": 412,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 2.5433554649353027,
+      "x": 653,
+      "y": 412,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 3.6001195907592773,
+      "x": 737,
+      "y": 420,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 3.7037367820739746,
+      "x": 737,
+      "y": 420,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 4.942993879318237,
+      "x": 731,
+      "y": 435,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 5.063945293426514,
+      "x": 731,
+      "y": 435,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "action_type": "mouse_click",
+      "timestamp": 5.895467519760132,
+      "x": 749,
+      "y": 456,
+      "button": "left",
+      "is_drag": true
+    },
+    {
+      "action_type": "mouse_release",
+      "timestamp": 6.415895700454712,
+      "x": 783,
+      "y": 457,
+      "button": "left",
+      "is_drag": true
+    },
+    {
+      "action_type": "key_press",
+      "timestamp": 7.888212442398071,
+      "key": "0",
+      "is_drag": false
+    },
+    {
+      "action_type": "key_release",
+      "timestamp": 7.967663288116455,
+      "key": "0",
+      "is_drag": false
+    }
+  ],
+  "action_count": 12
+}

@@ -1,0 +1,258 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-07T15:47:31.023992",
+  "total_duration": 9.862728118896484,
+  "recorded_resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "action_count": 34,
+  "actions": [
+    {
+      "id": 1,
+      "action_type": "mouse_click",
+      "duration": 0.999326,
+      "x": 851,
+      "y": 548,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 2,
+      "action_type": "mouse_release",
+      "duration": 0.103813,
+      "x": 851,
+      "y": 548,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 3,
+      "action_type": "key_press",
+      "duration": 0.488505,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 4,
+      "action_type": "key_press",
+      "duration": 0.159763,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 5,
+      "action_type": "key_release",
+      "duration": 0.191772,
+      "key": "65",
+      "is_drag": false
+    },
+    {
+      "id": 6,
+      "action_type": "key_release",
+      "duration": 0.008254,
+      "key": "ctrl",
+      "is_drag": false
+    },
+    {
+      "id": 7,
+      "action_type": "key_press",
+      "duration": 0.676419,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 8,
+      "action_type": "key_release",
+      "duration": 0.115433,
+      "key": "backspace",
+      "is_drag": false
+    },
+    {
+      "id": 9,
+      "action_type": "key_press",
+      "duration": 1.871901,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 10,
+      "action_type": "key_release",
+      "duration": 0.095392,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 11,
+      "action_type": "key_press",
+      "duration": 0.080528,
+      "key": "67",
+      "is_drag": false
+    },
+    {
+      "id": 12,
+      "action_type": "key_release",
+      "duration": 0.088507,
+      "key": "67",
+      "is_drag": false
+    },
+    {
+      "id": 13,
+      "action_type": "key_press",
+      "duration": 0.039984,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 14,
+      "action_type": "key_release",
+      "duration": 0.095456,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 15,
+      "action_type": "key_press",
+      "duration": 0.295954,
+      "key": "shift",
+      "is_drag": false
+    },
+    {
+      "id": 16,
+      "action_type": "key_press",
+      "duration": 0.185081,
+      "key": "186",
+      "is_drag": false
+    },
+    {
+      "id": 17,
+      "action_type": "key_release",
+      "duration": 0.207198,
+      "key": "186",
+      "is_drag": false
+    },
+    {
+      "id": 18,
+      "action_type": "key_release",
+      "duration": 0.119407,
+      "key": "shift",
+      "is_drag": false
+    },
+    {
+      "id": 19,
+      "action_type": "key_press",
+      "duration": 0.616736,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 20,
+      "action_type": "key_release",
+      "duration": 0.103998,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 21,
+      "action_type": "key_press",
+      "duration": 0.048023,
+      "key": "85",
+      "is_drag": false
+    },
+    {
+      "id": 22,
+      "action_type": "key_release",
+      "duration": 0.09544,
+      "key": "85",
+      "is_drag": false
+    },
+    {
+      "id": 23,
+      "action_type": "key_press",
+      "duration": 0.032114,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 24,
+      "action_type": "key_release",
+      "duration": 0.08019,
+      "key": "caps_lock",
+      "is_drag": false
+    },
+    {
+      "id": 25,
+      "action_type": "key_press",
+      "duration": 0.144727,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "id": 26,
+      "action_type": "key_release",
+      "duration": 0.11205,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "id": 27,
+      "action_type": "key_press",
+      "duration": 0.049366,
+      "key": "69",
+      "is_drag": false
+    },
+    {
+      "id": 28,
+      "action_type": "key_release",
+      "duration": 0.126079,
+      "key": "69",
+      "is_drag": false
+    },
+    {
+      "id": 29,
+      "action_type": "key_press",
+      "duration": 0.103882,
+      "key": "82",
+      "is_drag": false
+    },
+    {
+      "id": 30,
+      "action_type": "key_release",
+      "duration": 0.112201,
+      "key": "82",
+      "is_drag": false
+    },
+    {
+      "id": 31,
+      "action_type": "key_press",
+      "duration": 0.2237,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "id": 32,
+      "action_type": "key_release",
+      "duration": 0.095973,
+      "key": "83",
+      "is_drag": false
+    },
+    {
+      "id": 33,
+      "action_type": "mouse_click",
+      "duration": 1.983941,
+      "x": 1433,
+      "y": 307,
+      "button": "left",
+      "is_drag": false
+    },
+    {
+      "id": 34,
+      "action_type": "mouse_release",
+      "duration": 0.111616,
+      "x": 1433,
+      "y": 307,
+      "button": "left",
+      "is_drag": false
+    }
+  ]
+}
