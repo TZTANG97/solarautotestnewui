@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+光伏自动化主启动程序
+"""
 import configparser
 import csv
 import ctypes
