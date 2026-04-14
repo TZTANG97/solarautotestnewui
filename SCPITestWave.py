@@ -24,6 +24,7 @@ import sys
 import psutil
 import threading
 import time
+import traceback
 from logging.handlers import TimedRotatingFileHandler
 
 import numpy as np
@@ -113,6 +114,13 @@ PATH_RECORDINGS = {'WT3000': config.get('PATH', 'recordings_wt3000'),
 #canvas = FigureCanvas(hear_figure)
 
 #AC &DC 设定相关内容
+def _show_connect_message(msg, parent=None):
+    try:
+        QMessageBox.information(parent if parent is not None else dialog_window, "连接提示", msg, QMessageBox.Ok, QMessageBox.Ok)
+    except Exception:
+        # 避免在窗口未初始化时影响主流程
+        pass
+
 def ShowDL850Setting():
     global dialog_windowDLSetting
     dialog_windowDLSetting.show()
@@ -131,6 +139,7 @@ def OpenACOUTPUTON():
             strtimenow = now_to_datenow()
             logger.info(f'AC OUTP ON error--1: {e}')
             print(f'{strtimenow} AC OUTP ON error--1: {e}')
+            _show_connect_message(f"交流电源输出开启失败：{e}", uiACSetting)
         else:
             strtimenow = now_to_datenow()
             logger.info(strArraySetting)
@@ -140,6 +149,8 @@ def OpenACOUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("AC Not Connect")
         print(f'{strtimenow} AC Not Connect')
+        _show_connect_message("交流电源未连接，请先连接AC设备", uiACSetting)
+        _show_connect_message("交流电源未连接，请先连接AC设备")
 
 def SendACMessage():
     global HandleEquAC
@@ -193,15 +204,13 @@ def SendACMessage():
         strtimenow = now_to_datenow()
         logger.info("AC Not Connect")
         print(strtimenow + " AC Not Connect")
+        _show_connect_message("交流电源未连接，请先连接AC设备", uiACSetting)
 
 def SendDCTestMessage():
     global HandleEquDC1, HandleEquDC2, HandleEquDC3, HandleEquDC4
     global uiDC1Setting
     global per_dc_factor, command_list_DC
     global DC_client_1
-
-    if DC_client_1.is_connected:
-        
 
     order_list = []
     DCVmp = uiDC1Setting.textEdit_Vmp.toPlainText()
@@ -243,6 +252,7 @@ def SendDCTestMessage():
             logger.info("DC1 Not Connect")
             print(strtimenow + "DC1 Not Connect")
             uiDC1Setting.textEdit_ReturnMessage.append(f"DC1 Not Connect")
+            _show_connect_message("DC1未连接，请先连接DC1设备", uiDC1Setting)
 
         if DC_Select == 'DC2' and HandleEquDC2 != None:
             order_list.extend(command_list_DC[per_dc_factor.get("1")])
@@ -264,6 +274,7 @@ def SendDCTestMessage():
             logger.info("DC2 Not Connect")
             print(strtimenow + "DC2 Not Connect")
             uiDC1Setting.textEdit_ReturnMessage.append(f"DC2 Not Connect")
+            _show_connect_message("DC2未连接，请先连接DC2设备", uiDC1Setting)
         
         if DC_Select == 'DC3' and HandleEquDC3 != None:
             order_list.extend(command_list_DC[per_dc_factor.get("2")])
@@ -285,6 +296,7 @@ def SendDCTestMessage():
             logger.info("DC3 Not Connect")
             print(strtimenow + "DC3 Not Connect")
             uiDC1Setting.textEdit_ReturnMessage.append(f"DC3 Not Connect")
+            _show_connect_message("DC3未连接，请先连接DC3设备", uiDC1Setting)
 
         if DC_Select == 'DC4' and HandleEquDC4 != None:
             order_list.extend(command_list_DC[per_dc_factor.get("3")])
@@ -306,6 +318,7 @@ def SendDCTestMessage():
             logger.info("DC4 Not Connect")
             print(strtimenow + "DC4 Not Connect")
             uiDC1Setting.textEdit_ReturnMessage.append(f"DC4 Not Connect")
+            _show_connect_message("DC4未连接，请先连接DC4设备", uiDC1Setting)
 
 def SendDC1QueryMessage():
     global HandleEquDC1
@@ -326,6 +339,8 @@ def SendDC1QueryMessage():
         strtimenow = now_to_datenow()
         logger.info("DC1 Not Connect")
         print(strtimenow + " DC1 Not Connect")
+        _show_connect_message("DC1未连接，请先连接DC1设备", uiDC1Setting)
+        _show_connect_message("DC1未连接，请先连接DC1设备", uiDC1Setting)
 
 
 def SendDC2Message():
@@ -348,6 +363,8 @@ def SendDC2Message():
         strtimenow = now_to_datenow()
         logger.info("DC2 Not Connect")
         print(strtimenow + "DC2 Not Connect")
+        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
+        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
 
 def SendDC3Message():
     global HandleEquDC3
@@ -369,6 +386,7 @@ def SendDC3Message():
         strtimenow = now_to_datenow()
         logger.info("DC3 Not Connect")
         print(strtimenow + "DC3 Not Connect")
+        _show_connect_message("DC3未连接，请先连接DC3设备", uiDC3Setting)
 
 def SendDC4Message():
     global HandleEquDC4
@@ -390,6 +408,8 @@ def SendDC4Message():
         strtimenow = now_to_datenow()
         logger.info("DC4 Not Connect")
         print(strtimenow + "DC4 Not Connect")
+        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
+        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
 
 def SendDL850StartMessage():
     global HandleEquDL850
@@ -410,6 +430,8 @@ def SendDL850StartMessage():
         strtimenow = now_to_datenow()
         logger.info("DL850 Not Connect")
         print(strtimenow + "DL850 Not Connect")
+        _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
+        _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
 
 def SendDL850StopMessage():
     global HandleEquDL850
@@ -458,6 +480,7 @@ def CloseACOUTPUTON():
             HandleEquAC.write("OUTP OFF")
         except Exception as e:
             print(e)
+            _show_connect_message(f"交流电源输出关闭失败：{e}", uiACSetting)
         else:
             strtimenow = now_to_datenow()
             logger.info("AC OUTP OFF")
@@ -466,6 +489,7 @@ def CloseACOUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("AC Not Connect")
         print(strtimenow + "AC Not Connect")
+        _show_connect_message("交流电源未连接，请先连接AC设备", uiACSetting)
 
 def ShowDC1Setting():
     global dialog_windowDC1Setting
@@ -473,40 +497,52 @@ def ShowDC1Setting():
 
 def OpenDC1OUTPUTON():
     global HandleEquDC1,DC_client_1
-    if DC_client_1.is_connected():
+
+    # Modbus通道（IP连接）
+    if DC_client_1 is not None and DC_client_1.is_connected():
         DC_client_1.write_register(0x0BB8, 0x00AA)
+
+    # VISA通道（USB/TCP资源）
     if HandleEquDC1 != None:
         try:
             HandleEquDC1.write("OUTP ON")
         except Exception as e:
             print(e)
+            QMessageBox.information(dialog_window, "连接提示", f"DC1输出开启失败：{e}", QMessageBox.Ok, QMessageBox.Ok)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC1 OUTP ON")
             print(strtimenow + "DC1 OUTP ON")
 
-    else:
+    elif DC_client_1 is None:
         strtimenow = now_to_datenow()
         logger.info("DC1 Not Connect")
         print(strtimenow + "DC1 Not Connect")
+        QMessageBox.information(dialog_window, "连接提示", "DC1未连接，请先点击连接DC1设备", QMessageBox.Ok, QMessageBox.Ok)
 
 def CloseDC1OUTPUTON():
     global HandleEquDC1,DC_client_1
-    if DC_client_1.is_connected():
+
+    # Modbus通道（IP连接）
+    if DC_client_1 is not None and DC_client_1.is_connected():
         DC_client_1.write_register(0x0BB8, 0x0055)
+
+    # VISA通道（USB/TCP资源）
     if HandleEquDC1 != None:
         try:
             HandleEquDC1.write("OUTP OFF")
         except Exception as e:
             print(e)
+            QMessageBox.information(dialog_window, "连接提示", f"DC1输出关闭失败：{e}", QMessageBox.Ok, QMessageBox.Ok)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC1 OUTP OFF")
             print(strtimenow + "DC1 OUTP OFF")
-    else:
+    elif DC_client_1 is None:
         strtimenow = now_to_datenow()
         logger.info("DC1 Not Connect")
         print(strtimenow + "DC1 Not Connect")
+        QMessageBox.information(dialog_window, "连接提示", "DC1未连接，请先点击连接DC1设备", QMessageBox.Ok, QMessageBox.Ok)
 
 def ShowDC2Setting():
     global dialog_windowDC2Setting
@@ -519,6 +555,7 @@ def OpenDC2OUTPUTON():
             HandleEquDC2.write("OUTP ON")
         except Exception as e:
             print(e)
+            _show_connect_message(f"DC2输出开启失败：{e}", uiDC2Setting)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC2 OUTP ON")
@@ -528,6 +565,7 @@ def OpenDC2OUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("DC2 Not Connect")
         print(strtimenow + "DC2 Not Connect")
+        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
 
 def CloseDC2OUTPUTON():
     global HandleEquDC2
@@ -536,6 +574,7 @@ def CloseDC2OUTPUTON():
             HandleEquDC2.write("OUTP OFF")
         except Exception as e:
             print(e)
+            _show_connect_message(f"DC2输出关闭失败：{e}", uiDC2Setting)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC2 OUTP OFF")
@@ -544,6 +583,7 @@ def CloseDC2OUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("DC2 Not Connect")
         print(strtimenow + "DC2 Not Connect")
+        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
 
 def ShowDC3Setting():
     global dialog_windowDC3Setting
@@ -556,6 +596,7 @@ def OpenDC3OUTPUTON():
             HandleEquDC3.write("OUTP ON")
         except Exception as e:
             print(e)
+            _show_connect_message(f"DC3输出开启失败：{e}", uiDC3Setting)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC3 OUTP ON")
@@ -565,6 +606,7 @@ def OpenDC3OUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("DC3 Not Connect")
         print(strtimenow + "DC3 Not Connect")
+        _show_connect_message("DC3未连接，请先连接DC3设备", uiDC3Setting)
 
 def CloseDC3OUTPUTON():
     global HandleEquDC3
@@ -573,6 +615,7 @@ def CloseDC3OUTPUTON():
             HandleEquDC3.write("OUTP OFF")
         except Exception as e:
             print(e)
+            _show_connect_message(f"DC3输出关闭失败：{e}", uiDC3Setting)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC3 OUTP OFF")
@@ -581,6 +624,7 @@ def CloseDC3OUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("DC3 Not Connect")
         print(strtimenow + "DC3 Not Connect")
+        _show_connect_message("DC3未连接，请先连接DC3设备", uiDC3Setting)
 
 def ShowDC4Setting():
     global dialog_windowDC4Setting
@@ -593,6 +637,7 @@ def OpenDC4OUTPUTON():
             HandleEquDC4.write("OUTP ON")
         except Exception as e:
             print(e)
+            _show_connect_message(f"DC4输出开启失败：{e}", uiDC4Setting)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC4 OUTP ON")
@@ -602,6 +647,7 @@ def OpenDC4OUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("DC4 Not Connect")
         print(strtimenow + "DC4 Not Connect")
+        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
 
 def CloseDC4OUTPUTON():
     global HandleEquDC4
@@ -610,6 +656,7 @@ def CloseDC4OUTPUTON():
             HandleEquDC4.write("OUTP OFF")
         except Exception as e:
             print(e)
+            _show_connect_message(f"DC4输出关闭失败：{e}", uiDC4Setting)
         else:
             strtimenow = now_to_datenow()
             logger.info("DC4 OUTP OFF")
@@ -618,6 +665,7 @@ def CloseDC4OUTPUTON():
         strtimenow = now_to_datenow()
         logger.info("DC4 Not Connect")
         print(strtimenow + "DC4 Not Connect")
+        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
 
 # def SendRMessage():
 #     if ui.textEdit_SendRCommand.toPlainText() != '':
@@ -645,6 +693,13 @@ def ClearMessage():
     ui.textEdit_ReturnMessage.clear()
     #str = ui.textEdit_SendWCommand.toPlainText()
 
+HandleEquAC = None
+HandleEquDC1 = None
+HandleEquDC2 = None
+HandleEquDC3 = None
+HandleEquDC4 = None
+HandleEquDL850 = None
+HandleEquWT3000 = None
 AC_client = None
 def ConnectEQUAC():
     global HandleEquAC,strConnectAC
@@ -661,11 +716,14 @@ def ConnectEQUAC():
                 logger.info(f"连接成功: {tcp_addr}:502")
             else:
                 logger.error("连接失败")
+                _show_connect_message("交流电源连接失败，请检查IP和端口", ui)
                 AC_client = None  # 连接失败时置空
         except ValueError:
             logger.error("地址格式错误，应为 IP:端口")
+            _show_connect_message("交流电源地址格式错误，应为 IP:端口", ui)
         except Exception as e:
             logger.error(f"连接异常: {e}")
+            _show_connect_message(f"交流电源连接异常：{e}", ui)
             AC_client = None
         else:
             HandleEquAC = AC_client.inst
@@ -677,6 +735,7 @@ def ConnectEQUAC():
             print("device not exit")
             logger.info("交流电源 not exit")
             print("交流电源 not exit")
+            _show_connect_message("交流电源连接失败，请检查设备地址和连线", ui)
             strConnectAC = "0"
         else:
             logger.info("交流电源连接成功")
@@ -701,11 +760,14 @@ def ConnectEQUDC1():
                 logger.info(f"连接成功: {tcp_addr}:502")
             else:
                 logger.error("连接失败")
+                _show_connect_message("直流电源1连接失败，请检查IP和端口", ui)
                 DC_client_1 = None  # 连接失败时置空
         except ValueError:
             logger.error("地址格式错误，应为 IP:端口")
+            _show_connect_message("直流电源1地址格式错误，应为 IP:端口", ui)
         except Exception as e:
             logger.error(f"连接异常: {e}")
+            _show_connect_message(f"直流电源1连接异常：{e}", ui)
             DC_client_1 = None
         else:
             HandleEquDC1 = DC_client_1.inst
@@ -718,6 +780,7 @@ def ConnectEQUDC1():
             print("device not exit")
             logger.info("直流电源1 not exit")
             print("直流电源1 not exit")
+            _show_connect_message("直流电源1连接失败，请检查设备地址和连线", ui)
             strConnectDC1 = "0"
         else:
             try:
@@ -770,11 +833,14 @@ def ConnectEQUDC2():
                 logger.info(f"连接成功: {ip}:{port}")
             else:
                 logger.error("连接失败")
+                _show_connect_message("直流电源2连接失败，请检查IP和端口", ui)
                 DC_client_2 = None  # 连接失败时置空
         except ValueError:
             logger.error("地址格式错误，应为 IP:端口")
+            _show_connect_message("直流电源2地址格式错误，应为 IP:端口", ui)
         except Exception as e:
             logger.error(f"连接异常: {e}")
+            _show_connect_message(f"直流电源2连接异常：{e}", ui)
             DC_client_2 = None
     else:
         try:
@@ -785,6 +851,7 @@ def ConnectEQUDC2():
             print("device not exit")
             logger.info("直流电源2 not exit")
             print("直流电源2 not exit")
+            _show_connect_message("直流电源2连接失败，请检查设备地址和连线", ui)
             strConnectDC2 = "0"
         else:
             # dc_factor = HandleEquDC2.manufacturer_name
@@ -826,6 +893,7 @@ def ConnectEQUDC3():
         print("device not exit")
         logger.info("直流电源2 not exit")
         print("直流电源2 not exit")
+        _show_connect_message("直流电源3连接失败，请检查设备地址和连线", ui)
         strConnectDC3 = "0"
     else:
         # dc_factor = HandleEquDC3.manufacturer_name
@@ -867,6 +935,7 @@ def ConnectEQUDC4():
         print("device not exit")
         logger.info("直流电源4 not exit")
         print("直流电源4 not exit")
+        _show_connect_message("直流电源4连接失败，请检查设备地址和连线", ui)
         strConnectDC4 = "0"
     else:
         # dc_factor = HandleEquDC4.manufacturer_name
@@ -906,6 +975,7 @@ def ConnectEQUDL850():
         print("device not exit")
         logger.info("DL850 not exit")
         print("DL850 not exit")
+        _show_connect_message("DL850连接失败，请检查设备地址和连线", ui)
         strConnectDL850 = "0"
     else:
         logger.info("DL850连接成功")
@@ -924,6 +994,7 @@ def ConnectEQUWT3000():
     except Exception as e:
         logger.info(f"WT3000 connect error {e}")
         print(f"WT3000 connect error {e}")
+        _show_connect_message(f"WT3000连接失败：{e}", ui)
         strConnectWT3000 = "0"
     else:
         logger.info("WT3000连接成功")
@@ -1104,7 +1175,8 @@ def chooseDetailDialog():
         print(f'测试项目--{currentProject}--{currentSecond}')
 
     else:
-        print("请选择选项//变更成messagebox")
+        logger.info("请选择选项")
+        QMessageBox.information(dialog_window, "提示", "请选择有效测试项目后再继续", QMessageBox.Ok, QMessageBox.Ok)
 
 #试验对话框选择函数
 def addtestDialog():
@@ -1168,7 +1240,9 @@ def addtestDialog():
         project_now = ui.comboBox_PS.currentText()
 
     else:
-        print("请选择选项//变更成messagebox")
+        logger.info("请选择选项")
+        print("请选择选项")
+        _show_connect_message("请选择有效测试项目后再继续", ui)
 
 #延时处理函数
 def SetTimeFunction(fSetTime,TIME_UNIT):
@@ -22702,6 +22776,37 @@ def ConProjectPush():
 
 #解析命令并开始试验
 def RunProject():
+    """
+    执行器主循环（命令解释器）：
+    - 把 `strArrayTest` 里的每一行当作“一条待执行命令”顺序执行。
+    - 支持 AC/DC/DL850/WT/MPPT/上位机WT配置 等多种目标。
+    - 在执行过程中监听“暂停/结束”状态，并在需要时等待测量完成。
+
+    ------------------------------
+    strArrayTest 的数据结构（非常关键）
+    ------------------------------
+    `strArrayTest` 是一个二维列表：
+        strArrayTest[i]  -> 第 i 条命令（长度通常为 10）
+    常见字段含义：
+        [0] 目标设备/命令类型
+            例如: "AC" / "DC1" / "DC2" / "DC3" / "DC4" / "DL850" / "WT" / "MPPT..." / "Upper_WT_Config"
+        [1] 动作类型
+            例如: "write" / "query" / "wait" / "stopquery" / "judge"
+        [2] 具体命令字符串（SCPI）或 WT 宏相关参数
+        [3]~[5] 项目扩展字段（按不同项目复用）
+        [6] “自动测量触发 + 首次等待时长（0.1s单位）”
+            - 若非空，RunProject 会置位 `WT_auto_messure_status='1'` 触发 UI 自动测量线程
+            - 首轮分支通常按 [6] 给定时间先等待，再进入“等待测量完成”阶段
+        [7] “自动测量触发（另一种触发模式）/ 或普通等待字段（按分支解释）”
+            - 在 AC write 分支里，[7] 非空会触发一次自动测量并阻塞等待 test_status 回到 '0'
+            - 在 WT 分支里，[7] 常被当作普通等待秒数使用
+        [8] 通用等待时长（0.1s单位）
+        [9] 通用等待时长（0.1s单位）或采样周期（按分支解释）
+
+    注意：
+    - 本函数里 [6]/[7]/[8]/[9] 的解释“与分支相关”，并非全局绝对固定语义。
+    - 你可以把 [8]/[9] 理解成“命令后等待”；把 [6]/[7] 理解成“和 WT 自动测量联动的特殊控制位”。
+    """
     global strArrayTest,ui,strGlobalFlagGetTestTime
     global HandleEquAC,HandleEquDC1,HandleEquDC2,HandleEquDL850,HandleEquWT3000,HandleEquDC3, HandleEquDC4
     global strTestFlag,strTestStatusFlag,strFlagOfCollectAllTestLog
@@ -22716,22 +22821,31 @@ def RunProject():
     global WT_is_checked, flicker_is_test, config_dict, first_test
     global manager,AC_client,DC_client_1
 
+    # 只有点击“开始测试”后，strTestFlag 才会被置为 "1"。
+    # 这里消费一次后立即清零，防止重复进入同一轮。
     if strTestFlag == "1":
         strTestFlag = "0"
+        # 进入执行态（可被暂停/结束按钮改变）
         strTestStatusFlag = "运行"
+        # 当前保存文件索引（给 WT 自动测量流程使用）
         now_save_file = 0
+        # [6] 分支内部使用的“一次性门闩”状态
         auto_end_status = '0'
+        # 逐条解释命令
         for i in range(len(strArrayTest)):
             print(f'正在解析第{i+1}条命令')
+            # ---------------- AC 分支 ----------------
             if strArrayTest[i][0] == "AC":
                 if strArrayTest[i][1] == "write":
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        if AC_client.connect():
+                        if AC_client is not None and AC_client.connect():
                             AC_client.write(strArrayTest[i][2]) #TODO
-                        else:
+                        elif HandleEquAC is not None:
                             HandleEquAC.write(strArrayTest[i][2])
+                        else:
+                            raise RuntimeError("AC未连接，无法发送命令")
                             # HandleEquAC.close()
                             # HandleEquAC.open()
                             strtimenow = now_to_datenow()
@@ -22739,7 +22853,10 @@ def RunProject():
                             print(strtimenow + "AC "+strArrayTest[i][2])
                     except Exception as e:
                         print(e)
+                        logger.error(f"解析第{i+1}条命令失败: {e}")
+                        _show_connect_message(f"自动化执行失败（第{i+1}条）：{e}", ui)
                     else:
+                        # [9]：命令后等待（单位 0.1s）
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
                             iTestTime = int(fTestTime)
@@ -22752,7 +22869,8 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
-                        
+
+                        # [8]：命令后等待（单位 0.1s）
                         if strArrayTest[i][8] != '':
                             fTestTime = strArrayTest[i][8]
                             iTestTime = int(fTestTime)
@@ -22766,6 +22884,11 @@ def RunProject():
                                     break
                                 time.sleep(0.1)
 
+                        # [7]：触发一次 WT 自动测量，并阻塞等待该轮测量结束
+                        # 典型动作：
+                        # 1) 文件索引 +1
+                        # 2) 置位 WT_auto_messure_status='1'（让 messure_testing 线程开始测量）
+                        # 3) 在这里轮询 test_status，直到置回 '0'（表示本轮结束）
                         if strArrayTest[i][7] != '':
                             now_save_file = now_save_file + 1
                             WT_auto_messure_status = '1'
@@ -22790,6 +22913,9 @@ def RunProject():
                                         test_status = ''
                                 time.sleep(0.01)
 
+                        # [6]：另一种自动测量触发协议
+                        # - 首次（auto_end_status == '0'）：先触发测量并按 [6] 等待
+                        # - 再次进入：转为等待 test_status == '0'，并带超时保护
                         if strArrayTest[i][6] != '':
                             if auto_end_status == '0':
                                 now_save_file = now_save_file + 1
@@ -22810,6 +22936,9 @@ def RunProject():
                             else:
                                 loop = True
                                 loop_1 = ''
+                                wait_start = time.time()
+                                last_log_sec = -1
+                                wait_timeout_sec = 60
                                 while loop:
                                     if strTestStatusFlag == "结束":
                                         loop = False
@@ -22824,12 +22953,22 @@ def RunProject():
                                     #             loop_1 = False
                                     #             loop = False
                                     else:
+                                        elapsed = int(time.time() - wait_start)
+                                        if elapsed != last_log_sec and elapsed % 1 == 0:
+                                            logger.info(f"等待测量完成: 第{i+1}条命令, test_status={test_status}, 已等待{elapsed}s")
+                                            last_log_sec = elapsed
+
                                         if test_status == '0':
                                             loop = False
                                             test_status = ''
+                                        elif elapsed >= wait_timeout_sec:
+                                            logger.error(f"等待测量完成超时: 第{i+1}条命令, test_status={test_status}, 超时{wait_timeout_sec}s")
+                                            _show_connect_message(f"自动化等待测量结果超时（第{i+1}条）", ui)
+                                            loop = False
+
                                     time.sleep(0.01)
                                 auto_end_status = '0'
-                        
+
                 if strArrayTest[i][1] == "query":
                     try:
                         if strTestStatusFlag == "结束":
@@ -22843,6 +22982,7 @@ def RunProject():
                         print(e)
                         logger.error(f"AC query error: {e}")
                     else:
+                        # query 后的 [9]/[8] 仍作为等待字段使用
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
                             if fTestTime < 1 and fTestTime >= 1:
@@ -22874,41 +23014,48 @@ def RunProject():
                                     break
                                 time.sleep(0.1)
 
+                        # query 分支里的 [7]：
+                        # - WT 已完成配置时（setting_status/messure_status 均为 '1'），按“自动测量触发位”处理
+                        # - WT 未就绪时，保持历史行为：仅作为普通等待字段
                         if strArrayTest[i][7] != '':
-                            fTestTime = strArrayTest[i][7]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
+                            if setting_status == '1' and messure_status == '1':
+                                now_save_file = now_save_file + 1
+                                WT_auto_messure_status = '1'
+                                loop = True
+                                loop_1 = ''
+                                while loop:
+                                    if strTestStatusFlag == "结束":
+                                        loop = False
+                                    elif strTestStatusFlag == "暂停":
+                                        loop_1 = True
+                                        while loop_1:
+                                            if strTestStatusFlag == "暂停":
+                                                time.sleep(0.1)
+                                            else:
+                                                now_save_file = now_save_file - 1
+                                                i = i - 1
+                                                loop_1 = False
+                                                loop = False
                                     else:
+                                        if test_status == '0':
+                                            loop = False
+                                            test_status = ''
+                                    time.sleep(0.01)
+                            else:
+                                # 兼容历史：WT 未完成自动配置时，[7] 退化为纯等待
+                                fTestTime = strArrayTest[i][7]
+                                iTestTime = int(fTestTime)
+                                for x in range(iTestTime):
+                                    while True:
+                                        if strTestStatusFlag == "暂停":
+                                            time.sleep(0.01)
+                                        else:
+                                            break
+                                    if strTestStatusFlag == "结束":
                                         break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)                            
-                            # now_save_file = now_save_file + 1
-                            # WT_auto_messure_status = '1'
-                            # loop = True
-                            # loop_1 = ''
-                            # while loop:
-                            #     if strTestStatusFlag == "结束":
-                            #         loop = False
-                            #     elif strTestStatusFlag == "暂停":
-                            #         loop_1 = True
-                            #         while loop_1:
-                            #             if strTestStatusFlag == "暂停":
-                            #                 time.sleep(0.1)
-                            #             else:
-                            #                 now_save_file = now_save_file - 1
-                            #                 i = i - 1
-                            #                 loop_1 = False
-                            #                 loop = False
-                            #     else:
-                            #         if test_status == '0':
-                            #             loop = False
-                            #             test_status = ''
-                            #     time.sleep(0.01)
+                                    time.sleep(0.1)
 
+                        # query 分支里的 [6] 仍会触发 WT 自动测量联动
                         if strArrayTest[i][6] != '':
                             if auto_end_status == '0':
                                 now_save_file = now_save_file + 1
@@ -22948,8 +23095,9 @@ def RunProject():
                                             test_status = ''
                                     time.sleep(0.01)
                                 auto_end_status = '0'
-                        
+
                 if strArrayTest[i][1] == "wait":
+                    # AC + wait：不发设备命令，仅作为流程编排等待
                     if strTestStatusFlag == "结束":
                         break
                     strtimenow = now_to_datenow()
@@ -22981,6 +23129,7 @@ def RunProject():
                             total_save_file = total_save_file - now_save_file
                             now_save_file = 0
                             wt_is_check()
+            # ---------------- MPPT 分支 ----------------
             elif 'MPPT' in strArrayTest[i][0]:
                 if 'step1' in strArrayTest[i][0]:
                     Mppt_step1.update({strArrayTest[i][3]:strArrayTest[i][4]})
@@ -23015,6 +23164,7 @@ def RunProject():
                             mppt_during_test(test_number)
                 elif 'stepSe' in strArrayTest[i][0]:
                     mppt_end_test()
+            # ---------------- 上位机 WT 自动配置分支 ----------------
             elif strArrayTest[i][0] == "Upper_WT_Config":
                 print("Upper_WT_Config")
                 config_dict = strArrayTest[i][4]
@@ -23022,6 +23172,7 @@ def RunProject():
                     wt_is_check()
                     time.sleep(0.5)
                     first_test = '1'
+            # ---------------- DC1 分支 ----------------
             elif strArrayTest[i][0] == "DC1":
                 if strArrayTest[i][1] == "write":
                     try:
@@ -23059,6 +23210,7 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+            # ---------------- DC2 分支 ----------------
             elif strArrayTest[i][0] == "DC2":
                 if strArrayTest[i][1] == "write":
                     try:
@@ -23096,6 +23248,7 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+            # ---------------- DC3 分支 ----------------
             elif strArrayTest[i][0] == "DC3":
                 if strArrayTest[i][1] == "write":
                     try:
@@ -23133,6 +23286,7 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+            # ---------------- DC4 分支 ----------------
             elif strArrayTest[i][0] == "DC4":
                 if strArrayTest[i][1] == "write":
                     try:
@@ -23171,6 +23325,7 @@ def RunProject():
                                     break
                                 time.sleep(0.1)
 
+            # ---------------- DL850 分支 ----------------
             elif strArrayTest[i][0] == "DL850":
                 if strArrayTest[i][1] == "write":
                     try:
@@ -23210,6 +23365,7 @@ def RunProject():
                                     break
                                 time.sleep(0.1)
 
+            # ---------------- WT 宏回放分支 ----------------
             elif strArrayTest[i][0] == "WT":
                 global wt_type
                 if strArrayTest[i][2] != '': #这里专用于更改保存名.json
@@ -23223,8 +23379,10 @@ def RunProject():
 
                 filepath = strArrayTest[i][1]
                 if filepath:
+                    # 调用录制回放管理器执行宏文件
                     manager.execute(filepath)
 
+                # WT 分支里的 [7]：此处是纯等待（单位秒），用于给回放/设备预留完成时间
                 if strArrayTest[i][7] != '':
                     fTestTime = strArrayTest[i][7]
                     iTestTime = int(fTestTime)
@@ -23281,6 +23439,7 @@ def RunProject():
             #                     time.sleep(0.1)
                 elif strArrayTest[i][1] == "query":
                     print('query as time')
+                    # 开启 WT 周期查询与采集日志
                     strGlobalFlagGetTestTime = "1"
                     strStartTestWT3000QueryFlag = "1"
                     strTestWT3000QueryFlag = "1"
@@ -23301,6 +23460,7 @@ def RunProject():
                     strArrayWT3000ValueOfCollectAllNameFlag = "1"
                 elif strArrayTest[i][1] == "stopquery":
                     print('stop query')
+                    # 停止采集并触发上传/导出
                     strFlagOfCollectAllTestLog = "Upload"
                     strTestWT3000QueryFlag = "0"
                     strStartTestWT3000QueryFlag = "0"
@@ -23327,6 +23487,7 @@ def RunProject():
                         time.sleep(strArrayTest[i][8])
 
 
+        # 当前整轮 strArrayTest 全部执行完成，复位状态
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    实验完成")
         print(strtimenow + "    实验完成")
@@ -23337,6 +23498,7 @@ def RunProject():
         messure_project_cofig = ''
         strArrayTest = []
 
+    # 维持自循环调度：即便本轮没触发，也会持续监听下一次“开始测试”
     threadRunProjecttimer = threading.Timer(0.001, RunProject)
     threadRunProjecttimer.start()
 
@@ -24693,75 +24855,112 @@ def auto_config():
             pyautogui.doubleClick()
             time.sleep(2)
             pyautogui.click()
-            # time.sleep(2)
-            # setting_set(h)
-            # pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
-            # pyautogui.doubleClick()
-            # time.sleep(2)
-            # pyautogui.click()
-            # time.sleep(2)
-            # win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-            # messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
-            # messured_set(messure_handle_now)
-            # win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_list1)           
+            time.sleep(2)
+            setting_set(h)
+            pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
+            pyautogui.doubleClick()
+            time.sleep(2)
+            pyautogui.click()
+            time.sleep(2)
+            win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
+            messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+            messured_set(messure_handle_now)
+            win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_list1)           
         elif '停止在线连接' in param_dict.values():
             messure_handle_dict = {}
             pyautogui.moveTo(setting_icon[0], setting_icon[1], duration=0.5)
             pyautogui.doubleClick()
             time.sleep(2)
             pyautogui.click()
-            # time.sleep(2)
-            # setting_set(h)
-            # pyautogui.doubleClick(messure_icon[0], messure_icon[1], duration=0.5) 
-            # pyautogui.click()
-            # time.sleep(2)
-            # pyautogui.click()
-            # time.sleep(2)
-            # win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-            # messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
-            # messured_set(messure_handle_now)
+            time.sleep(2)
+            setting_set(h)
+            pyautogui.doubleClick(messure_icon[0], messure_icon[1], duration=0.5) 
+            pyautogui.click()
+            time.sleep(2)
+            pyautogui.click()
+            time.sleep(2)
+            win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
+            messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+            messured_set(messure_handle_now)
 
 
             
-        # elif "数值列表" not in param_dict.values() and "数值" not in param_dict.values():
-        #     messure_handle_dict = {}
-        #     if setting_status == '':
-        #         key_child_setting = list(param_dict.keys())[list(param_dict.values()).index('接线方式')]
-        #         setting_set(h)
-        #     pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
-        #     pyautogui.doubleClick()
-        #     pyautogui.sleep(2)
-        #     pyautogui.click()
-        #     pyautogui.sleep(2)
-        #     win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-        #     key_child_messure = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
-        #     left, top, right, bottom = win32gui.GetWindowRect(key_child_messure)
-        #     messured_set(key_child_messure)
-        # elif "数值列表" in param_dict.values() and "数值" in param_dict.values():
-        #     if setting_status == '':
-        #         messure_handle_dict = {}
-        #         pyautogui.moveTo(setting_icon[0], setting_icon[1], duration=0.5)
-        #         pyautogui.doubleClick()
-        #         pyautogui.sleep(2)
-        #         pyautogui.click()
-        #         pyautogui.sleep(2)
-        #         setting_set(h)
-        #         pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
-        #         pyautogui.doubleClick()
-        #         pyautogui.sleep(2)
-        #         pyautogui.click()
-        #         pyautogui.sleep(2)
-        #         win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-        #         messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
-        #     else:
-        #         messure_handle_now = list(param_dict.keys())[list(param_dict.values()).index('数值')]
-        #     messured_set(messure_handle_now)
+        elif "数值列表" not in param_dict.values() and "数值" not in param_dict.values():
+            messure_handle_dict = {}
+            if setting_status == '':
+                key_child_setting = list(param_dict.keys())[list(param_dict.values()).index('接线方式')]
+                setting_set(h)
+            pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
+            pyautogui.doubleClick()
+            pyautogui.sleep(2)
+            pyautogui.click()
+            pyautogui.sleep(2)
+            win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
+            key_child_messure = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+            left, top, right, bottom = win32gui.GetWindowRect(key_child_messure)
+            messured_set(key_child_messure)
+        elif "数值列表" in param_dict.values() and "数值" in param_dict.values():
+            # 分支含义：当前 WT 主界面里已经同时存在“数值列表”和“数值”控件
+            # 说明测量相关页面基本已打开，只需要判断“设置页参数是否已配置”即可。
+
+            # setting_status == ''：代表“接线方式/更新率”等设置页参数还没做过
+            if setting_status == '':
+                messure_handle_dict = {}
+
+                # 1) 先切到“设置”页签（左侧导航图标）
+                # moveTo + doubleClick + click 是为了提高点击稳定性（不同机型/窗口焦点下，单击可能不生效）
+                pyautogui.moveTo(setting_icon[0], setting_icon[1], duration=0.5)
+                pyautogui.doubleClick()
+                pyautogui.sleep(2)
+                pyautogui.click()
+                pyautogui.sleep(2)
+
+                # 2) 执行设置页自动配置：接线方式、更新率等（按 config_dict 写入）
+                setting_set(h)
+
+                # 3) 再切回“测量/数值”页签
+                pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
+                pyautogui.doubleClick()
+                pyautogui.sleep(2)
+                pyautogui.click()
+                pyautogui.sleep(2)
+
+                # 4) 重新枚举子控件，拿到“数值”控件的最新句柄
+                #    重新获取是为了避免界面切页后句柄失效/变化
+                win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
+                messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+            else:
+                # setting_status != ''：说明设置页之前已经配过
+                # 直接复用当前枚举出来的“数值”句柄，减少重复切页动作
+                messure_handle_now = list(param_dict.keys())[list(param_dict.values()).index('数值')]
+
+            # 5) 进入“数值详细设置”流程：
+            #    - 打开右键菜单中的“数值详细设置”
+            #    - 配置测量项勾选、时间、保存文件名等
+            messured_set(messure_handle_now)
 
 def setting_set(h):
+    """
+    作用：
+    - 在 WT 的“设置”页里自动配置接线方式与更新率。
+    - 配置来源是全局 `config_dict`；不同机型切片范围不同。
+
+    参数：
+    - h: WT 主窗口句柄（用于枚举子控件）
+
+    说明：
+    - 本函数通过“相对坐标 + 鼠标点击”驱动 UI。
+    - 如果界面布局、缩放或版本变化，坐标和步长(step)可能要重新校准。
+    """
     global setting_icon, messure_icon, messure_status, setting_status, config_dict, wt_type
 
+    # connect_mode：从 config_dict 中提取“设置页”对应配置项
+    # 约定：最后一项用于“更新率”，前面若干项用于“接线方式”
     connect_mode = []
+    # parm_dict_set：当前 WT 主窗口子控件文本缓存（用于按文本找控件）
     parm_dict_set = {}
+
+    # 不同 WT 机型在 config_dict 中的字段位置不同，所以切片范围不同
     if wt_type == 'WT3000':
         for i in list(config_dict.values())[1:8]:
             connect_mode.append(i)
@@ -24772,44 +24971,64 @@ def setting_set(h):
         for i in list(config_dict.values())[1:6]:
             connect_mode.append(i)
 
+    # 获取主窗口子控件文本（用于判断“接线方式/更新率”是否可见）
     win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), parm_dict_set)
-    # for i in range(2):
+
+    # 下拉项逐行高度经验步长（接线方式区域）
     step = 14
+
+    # =========================
+    # 第一段：配置“接线方式”
+    # 条件：窗口里存在“接线方式”控件且尚未完成配置(setting_status != '1')
+    # =========================
     if "接线方式" in parm_dict_set.values() and setting_status != '1':
         step = 14
+
+        # 通过文本“接线方式”定位到该区域，得到该控件矩形
         key_child_setting = list(parm_dict_set.keys())[list(parm_dict_set.values()).index('接线方式')]
         left, top, right, bottom = win32gui.GetWindowRect(key_child_setting)
-        # local_per = [(left + 81 + 35, top + 94 + 10), (left + 160 + 45, top + 94 + 10), 
-        #     (left + 81 + 35, top + 120 + 10), (left + 160 + 45, top + 120 + 10), 
-        #     (left + 160 + 35, top + 146 + 10), (left + 160 + 36, top + 172 + 10)]
+
+        # local_per：每个接线方式下拉框的点击基准坐标（相对接线方式控件）
+        # 不同机型接线方式项数量不同，坐标数量也不同
         if wt_type == 'WT1800' or wt_type == 'WT1806E':
-            local_per = [(left + 116, top + 104), (left + 205, top + 104), 
-                (left + 116, top + 130), (left + 205, top + 130), 
-                (left + 116, top + 156), (left + 205, top + 156), 
+            local_per = [(left + 116, top + 104), (left + 205, top + 104),
+                (left + 116, top + 130), (left + 205, top + 130),
+                (left + 116, top + 156), (left + 205, top + 156),
                 (left + 196, top + 182)]
         elif wt_type == 'WT3000':
-            local_per = [(left + 116, top + 104), (left + 205, top + 104), 
-                (left + 116, top + 130), (left + 205, top + 130), 
+            local_per = [(left + 116, top + 104), (left + 205, top + 104),
+                (left + 116, top + 130), (left + 205, top + 130),
                 (left + 195, top + 156), (left + 196, top + 182)]
         elif wt_type == 'WT5000':
-            local_per = [(left + 116, top + 104), (left + 205, top + 104), 
+            local_per = [(left + 116, top + 104), (left + 205, top + 104),
                 (left + 116, top + 130), (left + 205, top + 130)]
-        pyautogui.moveTo( left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
+
+        # 先点击“接线方式”标题区域，使该区域获得焦点
+        pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
         pyautogui.click()
-        
+
         time.sleep(1)
+
+        # 逐个配置接线项：遍历到 len(connect_mode)-1，最后一位预留给“更新率”
         for j in range(len(connect_mode) - 1):
             param_warn_info_win_dict = {}
+
+            # 空字符串表示该项不改，跳过
             if connect_mode[j] != "":
                 handle_now_dict = {}
+
+                # 1) 点击第 j 个下拉框
                 pyautogui.moveTo(local_per[j][0], local_per[j][1], duration=0.5)
                 pyautogui.click()
                 time.sleep(1)
-                
+
+                # 2) 根据配置值计算列表偏移并点击目标选项
                 chose_step = (int(connect_mode[j]) + 1) * step
                 pyautogui.moveTo(local_per[j][0], local_per[j][1] + chose_step, duration=0.5)
                 pyautogui.click()
                 time.sleep(2)
+
+                # 3) 处理弹窗告警：“不能指定接线的模块。”
                 handle_now_dict = get_enumwindows()
                 param_warn_handle = list(handle_now_dict.keys())[list(handle_now_dict.values()).index('WTViewerEfree')]
                 win32gui.EnumChildWindows(param_warn_handle, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_warn_info_win_dict)
@@ -24819,71 +25038,130 @@ def setting_set(h):
                     pyautogui.moveTo(left_warn + (right_warn - left_warn) / 2, top_warn + (bottom_warn - top_warn) / 2, duration=0.5)
                     pyautogui.click()
                 else:
+                    # 无告警则给界面一点稳定等待时间
                     pyautogui.sleep(3)
+
+            # 循环最后一项时，补点一次“接线方式”区域，帮助收起下拉并稳定焦点
             if j == len(connect_mode) - 2:
-                pyautogui.moveTo( left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
+                pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
                 pyautogui.click()
+
+    # =========================
+    # 第二段：配置“更新率”
+    # 条件：窗口里存在“更新率”控件且尚未完成配置(setting_status != '1')
+    # =========================
     if "更新率" in parm_dict_set.values() and setting_status != '1':
+        # 更新率下拉列表的经验步长与接线方式略不同
         step = 13
+
+        # 仍以“接线方式”控件为基准推算更新率区域坐标
         key_child_setting = list(parm_dict_set.keys())[list(parm_dict_set.values()).index('接线方式')]
         left, top, right, bottom = win32gui.GetWindowRect(key_child_setting)
-        # left1, top1, = left + 142, top + 150 + 14
+
+        # 更新率下拉框基准点
         left1, top1, = left + 142, top + 164
+
+        # WT5000 与其它机型在更新率选项列表位置上偏移不同
         if wt_type == 'WT5000':
             local_per = (left1, top1 + 62)
         else:
             local_per = (left1, top1 + 31)
+
+        # 先点击更新率区域
         pyautogui.moveTo(left1, top1, duration=0.5)
         pyautogui.click()
         time.sleep(0.5)
+
         param_warn_info_win_dict = {}
         handle_now_dict = {}
+
+        # connect_mode[-1] 约定为更新率配置值
         if connect_mode[-1] != "":
+            # 1) 展开更新率下拉
             pyautogui.moveTo(local_per[0], local_per[1], duration=0.5)
             pyautogui.click()
             time.sleep(0.2)
+
+            # 2) 按步长选择目标更新率
             chose_step = (int(connect_mode[-1]) + 1) * step
             pyautogui.moveTo(local_per[0], local_per[1] + chose_step, duration=0.5)
             pyautogui.click()
             pyautogui.sleep(3)
+
+            # 3) 同样处理“不能指定接线的模块。”告警
             handle_now_dict = get_enumwindows()
             param_warn_handle = list(handle_now_dict.keys())[list(handle_now_dict.values()).index('WTViewerEfree')]
             win32gui.EnumChildWindows(param_warn_handle, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_warn_info_win_dict)
             if '确定' in param_warn_info_win_dict.values() and '不能指定接线的模块。' in param_warn_info_win_dict.values():
+                # 这里原代码取“确认”按钮（与上段“确定”不一致），保留原逻辑
                 handle_sure = list(param_warn_info_win_dict.keys())[list(param_warn_info_win_dict.values()).index('确认')]
                 left_warn, top_warn, right_warn, bottom_warn = win32gui.GetWindowRect(handle_sure)
                 pyautogui.moveTo(left_warn + (right_warn - left_warn) / 2, top_warn + (bottom_warn - top_warn) / 2, duration=0.5)
                 pyautogui.click()
+
+            # 4) 再点一下更新率区域，帮助收起下拉并锁定状态
             pyautogui.moveTo(left1, top1, duration=0.5)
             pyautogui.click()
+
+    # 标记设置页配置完成，后续流程可按“已配置”分支走
     setting_status = '1'
 
 def messured_set(messure_handle):
+    """
+    作用：
+    - 打开 WT 的“数值详细设置”窗口
+    - 配置“详细参数页”(左页签)与“测量项目页”(右页签)
+    - 按项目配置测量时长、自动保存路径、文件名、测量项勾选等
+    - 最后点击“确认/应用”让配置生效
+
+    参数：
+    - messure_handle: WT 主界面里“数值/数值列表”控件的句柄
+
+    注意：
+    - 本函数大量依赖屏幕坐标+鼠标点击，分辨率/缩放/界面布局变化会影响稳定性
+    - 通过一组全局状态位控制“首次配置”与“每轮仅更新局部参数”
+    """
+    # --- 全局状态/坐标/配置数据 ---
     global setting_icon, messure_icon, messure_status, setting_status, messsure_deatil_cofig, messure_project_cofig
     global cells_coord, test_time_list, save_file_name, save_file_name,\
         config_dict, check_project_status, START_AND_STOP_COORD, wt_type, auto_save_file, test_program, per_test_time_list
     global now_save_file
-    # 过欠压_过欠频第一组测试时间设置状态，0:True
+    # 过欠压_过欠频第一组测试时间设置状态，0: 首轮时间未写入；1: 已写入
     global volt_fz_first_status
 
+    # 当前窗口句柄/控件文本缓存
     handle_now_dict = {}
     parm_dict_set = {}
-    # WT配置中的谐波次数的开始与结束位置
+    # WT配置中的谐波次数“开始/结束”下拉项索引位置（不同机型不同）
     i_list = []
+
+    # 取“数值”控件的屏幕矩形框，用于后续鼠标定位
     left, top, right, bottom = win32gui.GetWindowRect(messure_handle)
     print(left, top, right, bottom)
+
+    # 在“数值”区域中心右键，调出上下文菜单（目标：打开“数值详细设置”）
     pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
     pyautogui.rightClick()
+
+    # 枚举所有顶层窗口，检查“数值详细设置”是否已经弹出
     handle_now_dict = get_enumwindows()
+    # 成功找到“数值详细设置”窗口后，进入自动配置流程
     if "数值详细设置" in handle_now_dict.values():
+        # 获取“数值详细设置”窗口句柄
         deatil_messure_set_handle = list(handle_now_dict.keys())[list(handle_now_dict.values()).index('数值详细设置')]
+        # 窗口恢复并置前，避免被其它窗口遮挡导致点击失败
         win32gui.ShowWindow(deatil_messure_set_handle, win32con.SW_RESTORE)
         win32gui.SetForegroundWindow(deatil_messure_set_handle)
+
+        # 读取详细设置窗口的位置；后续所有点击都基于这个窗口的相对坐标
         left, top, right, bottom = win32gui.GetWindowRect(deatil_messure_set_handle)
+        # 左页签（详细参数）与右页签（测量项目）的大致点击坐标
         t1 = (left + 40, top + 43)
         t2 = (left + 100, top + 43)
 
+        # connect_messure_mode: 从配置字典切片出来的“测量设置参数序列”
         connect_messure_mode = []
+        # 不同机型在 config_dict 里的起始偏移不同，因此切片起点不同
         if wt_type == 'WT3000':
             for i in list(config_dict.values())[8:]:
                 connect_messure_mode.append(i)
@@ -24893,16 +25171,28 @@ def messured_set(messure_handle):
         elif wt_type == 'WT5000':
             for i in list(config_dict.values())[6:]:
                 connect_messure_mode.append(i)
-        # 数值详细设置界面，各数值设置以及勾选
+
+        # =========================
+        # 第一部分：详细参数页（左页签）
+        # messsure_deatil_cofig == '' 表示“首次完整配置”
+        # =========================
         if messsure_deatil_cofig == '':
+            # config_1 对应“详细参数页”的前 6 个配置项
             config_1 = connect_messure_mode[:6]
+
+            # 点击左页签（详细参数）
             pyautogui.moveTo(t1[0], t1[1], duration=0.5)
             pyautogui.click()
+
+            # 逐项写入详细参数
             for i in range(len(config_1)):
+                # 空字符串表示该项不配置，直接跳过
                 if config_1[i] != '':
+                    # i==0: 下拉项（例如接线相关/模式项）
                     if i == 0:
                         pyautogui.moveTo(cells_coord[1][i][0] + left, cells_coord[1][i][1] + top, duration=0.5)
                         pyautogui.click()
+                        # 不同选项在下拉列表里的偏移距离不同，这里按历史经验值处理
                         if int(config_1[i]) == 0:
                             pyautogui.moveTo(cells_coord[1][i][0] + left, cells_coord[1][i][1] + top + 18, duration=0.5)
                             pyautogui.click()
@@ -24916,6 +25206,8 @@ def messured_set(messure_handle):
                                 cells_coord[1][i][0] + left,
                                 cells_coord[1][i][1] + top + 20 + int(config_1[i]) * 11, duration=0.5)
                             pyautogui.click()
+
+                    # i==1: 另一类下拉参数
                     if i == 1:
                         pyautogui.moveTo(cells_coord[1][i][0] + left, cells_coord[1][i][1] + top, duration=0.5)
                         pyautogui.click()
@@ -24927,24 +25219,32 @@ def messured_set(messure_handle):
                                 cells_coord[1][i][0] + left,
                                 cells_coord[1][i][1] + top + 20 + int(config_1[i]) * 11, duration=0.5)
                             pyautogui.click()
+
+                    # i==2: 测量时长（hh:mm:ss）
                     if i == 2:
+                        # 当前这行原逻辑里把 int 和字符串比较，条件几乎不会成立（保留原行为，不在本次注释改动中修）
                         if int(config_1[i-1]) == '0' or int(config_1[i-1]) == '2':
                             continue
                         else:
+                            # 特殊项目（过欠压/过欠频）首轮时长取 per_test_time_list[0]
                             if test_program[0][0] == '7' or test_program[0][0] == '11':
-                                # 过欠压_过欠频第一组测试时间
                                 first_test_time = float(per_test_time_list[0])
                                 m, s = divmod(first_test_time, 60)
                                 h, m = divmod(m, 60)
                                 test_time_list = [int(h), int(m), int(s)]
                                 volt_fz_first_status = 0
                             else:
+                                # 普通项目直接从配置字符串（如 00:05:00）解析
                                 test_time_list = [int(value) for value in config_1[i].split(':')]
+
+                            # 依次写入 时/分/秒 三个输入框
                             for j in range(len(test_time_list)):
                                 pyautogui.moveTo(cells_coord[1][i][j][0] + left, cells_coord[1][i][j][1] + top, duration=0.5)
                                 pyautogui.doubleClick()
                                 pyautogui.typewrite(str(test_time_list[j]))
                                 pyautogui.sleep(0.2)
+
+                    # i==3: 保存路径
                     if i == 3:
                         file_locl = config_1[i]
                         pyautogui.moveTo(cells_coord[1][i][0] + left, cells_coord[1][i][1] + top, duration=0.5)
@@ -24952,10 +25252,14 @@ def messured_set(messure_handle):
                         pyautogui.hotkey('ctrl', 'a', interval=0.5)
                         pyperclip.copy(rf'{file_locl}')
                         pyautogui.hotkey('ctrl', 'V', interval=0.5)
+
+                    # i==4: 自动保存勾选（仅在未勾选状态时操作）
                     if i == 4 and auto_save_file == '':
                         pyautogui.moveTo(cells_coord[1][i][0] + left, cells_coord[1][i][1] + top, duration=0.5)
                         pyautogui.click()
                         auto_save_file = '0'
+
+                    # i==5: 文件名列表，首次写入第一个文件名
                     if i == 5 and auto_save_file == '0':
                         file_name_list = [value for value in config_1[i].split(',')]
                         pyautogui.moveTo(cells_coord[1][i][0] + left, cells_coord[1][i][1] + top, duration=0.5)
@@ -24963,57 +25267,83 @@ def messured_set(messure_handle):
                         pyautogui.hotkey('ctrl', 'a', interval=0.5)
                         pyperclip.copy(f'{file_name_list[0]}')
                         pyautogui.hotkey('ctrl', 'V', interval=0.5)
+
+            # 标记：详细参数页首次配置已完成
             messsure_deatil_cofig = '1'
 
+        # =========================
+        # 第二部分：测量项目页（右页签）
+        # messure_project_cofig == '' 表示“首次完整勾选/设置项目”
+        # =========================
         if messure_project_cofig == '':
+            # config_2 对应“测量项目页”的配置段
             config_2 = connect_messure_mode[6:]
+
+            # 点击右页签（测量项目）
             pyautogui.moveTo(t2[0], t2[1], duration=0.5)
             pyautogui.click()
+
+            # 先把项目区做一次清理/重置（通过批量点击固定坐标）
             if check_project_status == '':
                 for i in range(len(cells_coord[0])):
                     pyautogui.moveTo(cells_coord[0][i][0] + left, cells_coord[0][i][1] + top, duration=0.5)
                     pyautogui.click()
                     check_project_status = '1'
             else:
+                # 非首次时双击一次，尽量把状态拉回预期
                 for i in range(len(cells_coord[0])):
                     pyautogui.moveTo(cells_coord[0][i][0] + left, cells_coord[0][i][1] + top, duration=0.5)
                     pyautogui.click()
                     pyautogui.sleep(1.0)
                     pyautogui.click()
-            
+
+            # i_list 是“谐波开始/结束”这类特殊下拉项在 config_2 里的索引
             if wt_type == 'WT3000':
                 i_list = [38, 39]
             elif wt_type == 'WT1800' or wt_type == 'WT1806E':
                 i_list = [59, 60]
             elif wt_type == 'WT5000':
                 i_list = [65, 66]
+
+            # 逐项应用 config_2
             for i in range(len(config_2)):
                 if config_2[i] != '':
+                    # 特殊下拉项：需要展开后按偏移选择
                     if i in i_list:
                         pyautogui.moveTo(cells_coord[1][i+6][0] + left, cells_coord[1][i+6][1] + top, duration=0.5)
                         pyautogui.doubleClick()
                         pyautogui.moveTo(cells_coord[1][i+6][0] + left, cells_coord[1][i+6][1] + top + 20, duration=0.5)
                         value = config_2[i]
+                        # 先滚回列表顶部附近
                         pyautogui.scroll(3600)
                         if value == '50':
+                            # 某些值需要先滚动到指定区间再点击
                             pyautogui.scroll(START_AND_STOP_COORD[value][0])
                             pyautogui.sleep(0.2)
                             pyautogui.scroll(START_AND_STOP_COORD[value][1])
                             pyautogui.sleep(0.2)
                             pyautogui.click()
                         else:
+                            # 其他值通过预定义偏移量点击
                             offset = START_AND_STOP_COORD[value][1]
                             pyautogui.moveTo(
                                 cells_coord[1][i+6][0] + left,
                                 cells_coord[1][i+6][1] + top + offset, duration=0.5)
                             pyautogui.click()
                     else:
+                        # 普通项目：直接点击勾选
                         pyautogui.moveTo(cells_coord[1][i+6][0] + left, cells_coord[1][i+6][1] + top, duration=0.5)
                         pyautogui.click()
+
+            # 标记：测量项目页首次配置已完成
             messure_project_cofig = '1'
         
+        # =========================
+        # 第三部分：非首次场景的“局部更新”
+        # 当 messsure_deatil_cofig == '0' 时，表示本轮只需更新部分参数
+        # =========================
         if messsure_deatil_cofig == '0':
-            # 当测试项目为过欠压_过欠频时，额外修改每次测试时长
+            # 过欠压/过欠频：每轮测试时长可能不同，这里按 now_save_file 动态改时分秒
             if test_program[0][0] == '7' or test_program[0][0] == '11':
                 test_time_now = float(per_test_time_list[now_save_file])
                 m, s = divmod(test_time_now, 60)
@@ -25024,6 +25354,8 @@ def messured_set(messure_handle):
                     pyautogui.doubleClick()
                     pyautogui.typewrite(str(test_time_list[local]))
                     pyautogui.sleep(0.2)
+
+            # 自动保存开启时，每轮更新当前文件名
             if auto_save_file == '0':
                 pyautogui.moveTo(cells_coord[1][5][0] + left, cells_coord[1][5][1] + top, duration=0.5)
                 pyautogui.click()
@@ -25031,49 +25363,116 @@ def messured_set(messure_handle):
                 pyperclip.copy(save_file_name)
                 pyautogui.hotkey('ctrl', 'V', interval=0.5)
 
+            # 本轮局部更新完成
             messsure_deatil_cofig = '1'
 
+    # 详细页+项目页都就绪后，点击“确认/应用”提交配置
     if  messure_project_cofig == '1' and messsure_deatil_cofig == '1':
         parm_dict_set = {}
         win32gui.EnumChildWindows(deatil_messure_set_handle, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), parm_dict_set)
         if "应用" in parm_dict_set.values():
+            # 代码这里检查“应用”是否存在，但实际点击的是“确认”按钮（沿用原逻辑）
             key_child_setting = list(parm_dict_set.keys())[list(parm_dict_set.values()).index('确认')]
             left, top, right, bottom = win32gui.GetWindowRect(key_child_setting)
             pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
             pyautogui.click()
+            # 等待 WT 应用配置完成
             pyautogui.sleep(10)
+
+        # 标记：测量配置整体完成，可进入后续测量流程
         messure_status = '1'
 
+def _append_debug_log(message):
+    """将关键调试信息追加到项目根目录 log.txt。"""
+    try:
+        with open('log.txt', 'a', encoding='utf-8') as f:
+            f.write(f"{now_to_datenow()} {message}\n")
+    except Exception as e:
+        logger.warning(f"写入log.txt失败: {e}")
+
+
 def messure_testing():
+    """
+    周期性测量调度器（每 0.5 秒自触发一次）。
+
+    主要职责：
+    1) 检查 WT 是否已经完成“可开始测量”的前置状态。
+    2) 计算本轮测量应持续的时间（兼容过欠压/过欠频特殊逻辑）。
+    3) 调用 testing_start() 启动测量，等待到时后调用 testing_stop() 收尾。
+    4) 通过状态位控制“每轮测量后需要重新下发详细配置”。
+
+    关键状态位：
+    - setting_status == '1'：设置页（接线方式/更新率）已配置完成。
+    - messure_status == '1'：数值详细设置页已配置完成。
+    - WT_auto_messure_status == '1'：允许本轮自动测量触发（触发后会被清空，防止重复触发）。
+    """
     global test_time_list, messsure_deatil_cofig, config_dict, messure_status, setting_status, WT_auto_messure_status
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
 
-    if setting_status == '1' and messure_status == '1' and WT_auto_messure_status == '1':
-        WT_auto_messure_status = ''
-        # test_count = config_dict['文件名'].split(',')
-        test_count = re.split(',|，', config_dict['textEdit_FileNameList'])
-        # test_count = re.split(',|，', config_dict['文件名'])
+    # 仅在关键状态变化时记录日志，避免定时器每 0.5 秒刷屏
+    current_state = (setting_status, messure_status, WT_auto_messure_status, now_save_file, total_save_file)
+    last_state = getattr(messure_testing, '_last_state', None)
+    if current_state != last_state:
+        _append_debug_log(
+            f"[messure_testing] state changed setting_status={setting_status}, messure_status={messure_status}, "
+            f"WT_auto_messure_status={WT_auto_messure_status}, now_save_file={now_save_file}, total_save_file={total_save_file}"
+        )
+        messure_testing._last_state = current_state
 
+    # 只有“三个门闩”都满足时才进入本轮自动测量
+    if setting_status == '1' and messure_status == '1' and WT_auto_messure_status == '1':
+        _append_debug_log("[messure_testing] enter measure flow")
+        # 进门后立即清空触发位，避免定时器下一拍重复进入同一轮
+        WT_auto_messure_status = ''
+
+        # 解析待保存文件名列表（支持英文逗号/中文逗号）
+        # 示例："case1,case2，case3" -> ["case1", "case2", "case3"]
+        test_count = re.split(',|，', config_dict['textEdit_FileNameList'])
+        _append_debug_log(f"[messure_testing] file list={test_count}")
+
+        # 计算 loop_time（单位：0.1 秒）
+        # 原因：后面用 for + sleep(0.1) 计时，因此秒数要乘以 10
         if test_program[0][0] == '7' or test_program[0][0] == '11':
+            # 项目 7/11：过欠压/过欠频，首轮和后续轮次时长规则不同
             if volt_fz_first_status == 0:
+                # 首轮沿用界面配置的 h/m/s
                 loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
                 volt_fz_first_status = 1
             else:
+                # 非首轮按每轮配置表 per_test_time_list[now_save_file]
                 loop_time = int(per_test_time_list[now_save_file]) * 10
         else:
+            # 普通项目统一按 h/m/s 计算
             loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
 
+        _append_debug_log(f"[messure_testing] computed loop_time={loop_time} (0.1s unit)")
+
+        # 发起“开始测量”动作（点击 WT 的开始按钮）
         status = testing_start()
+
         if status == '1':
+            current_name = test_count[now_save_file] if now_save_file < len(test_count) else f"INDEX_{now_save_file}"
+            _append_debug_log(f"[messure_testing] testing_start success, current_file={current_name}, index={now_save_file}")
+            # 成功开始后，按 loop_time 阻塞等待本轮测试时长结束
+            # 注意：这里没有暂停/结束中断判断，属于“纯计时等待”
             for j in range(loop_time):
                 time.sleep(0.1)
+
+            # 标记：下一轮进入前需要重新写入详细参数（如文件名/时间）
             messsure_deatil_cofig = '0'
+            # 标记：当前轮已结束，等待后续流程重新置为 '1'
             messure_status = '0'
+
+            # 停止测量 + 保存处理 + 决定是否进入下一轮
+            _append_debug_log(f"[messure_testing] call testing_stop, current_index={now_save_file}, current_file={current_name}")
             testing_stop(test_count, now_save_file)
         else:
+            _append_debug_log("[messure_testing] testing_start failed, set status to reconfigure")
+            # 启动失败时同样把状态置回“待重配”，让后续流程有机会恢复
             messsure_deatil_cofig = '0'
             messure_status = '0'
 
+    # 自循环定时器：0.5 秒后再次检查是否可触发下一轮测量
     messure_test = threading.Timer(0.5, messure_testing)
     messure_test.start()
 
@@ -25081,6 +25480,7 @@ def testing_stop(test_count, count_now):
     global save_file_name, messsure_deatil_cofig, test_status, total_save_file
     global setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig
     global integral_status
+    _append_debug_log(f"[testing_stop] enter count_now={count_now}, total_save_file={total_save_file}, file_list={test_count}")
 
     if messsure_deatil_cofig == '0' and auto_save_file == '0':
         now_child_dict = {}
@@ -25116,58 +25516,108 @@ def testing_stop(test_count, count_now):
         win32gui.EnumChildWindows(now_h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), now_child_dict)
         messure_handle_now = list(now_child_dict.keys())[list(now_child_dict.values()).index('数值')]
     
+        # 1) 当前项目所有文件都测完：总测试结束
         if count_now == total_save_file:
             print('测试结束')
+            _append_debug_log("[testing_stop] all tests finished")
+            # 置位为已配置，防止后续误触发重新配置
             messsure_deatil_cofig = '1'
+            # 当前轮结束
             test_status = '0'
+
+        # 2) 当前“项目”结束，但后面还有其它项目：
+        #    清空 WT 配置状态，让下一个项目重新走 auto_config / messured_set
         elif count_now == len(test_count) and len(test_program) > 1:
             print('此项目测试结束')
+            _append_debug_log("[testing_stop] current project finished, reset WT config status for next project")
             test_status = '0'
             setting_status = '' 
             messure_status = ''
             messsure_deatil_cofig = ''
             messure_project_cofig = ''
+
+        # 3) 当前项目未结束：进入下一轮文件名
         else:
+            # 切换到下一轮保存文件名
             save_file_name = test_count[count_now]
+            _append_debug_log(f"[testing_stop] next round -> file={save_file_name}, next_index={count_now}")
+            # 重新打开“数值详细设置”并写入下一轮参数（主要是文件名/时长）
             messured_set(messure_handle_now)
+            # 标记“详细设置”已完成
             messsure_deatil_cofig = '1'
+            # 当前轮结束，等待下次调度进入 testing_start
             test_status = '0'
 
 def testing_start():
+    """
+    作用：启动 WT 一轮测量。
+
+    主要动作：
+    - 校验 WT 配置状态是否就绪
+    - 切到测量页并点击“开始”
+    - 若开启积分，则先点积分开始
+    - 若弹出“文件已存在，是否覆盖”对话框，自动点“是”
+
+    返回：
+    - '1'：已成功触发开始测量（或完成覆盖确认）
+    """
     global save_file_name, messsure_deatil_cofig, integral_status
 
+    # 首轮触发时 testing_stop 尚未给 save_file_name 赋值，先兜底避免 NameError
+    if 'save_file_name' not in globals():
+        save_file_name = ''
+
+    _append_debug_log(f"[testing_start] enter setting_status={setting_status}, messure_status={messure_status}, save_file_name={save_file_name}")
+
+    # 只有“设置页已配置 + 数值页已配置”时，才允许开始测量
     if setting_status == '1' and messure_status == '1':
         now_handle_dict = {}
         now_child_dict = {}
+
+        # 1) 获取 WT 主窗口句柄
         now_handle_dict = get_enumwindows()
         now_h = list(now_handle_dict.keys())[list(now_handle_dict.values()).index('WTViewerEfree')]
+
+        # 2) 窗口最大化并置前，避免点击打到其他窗口
         win32gui.ShowWindow(now_h, win32con.SW_SHOWMAXIMIZED)
         win32gui.SetForegroundWindow(now_h)
-        # left_wtv, top_wtv, right_wtv, bottom_wtv = win32gui.GetWindowRect(now_h)
+
+        # 3) 点击左侧“测量/数值”图标，确保当前页面在测量页
         pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.1)
         pyautogui.click()
+
+        # 获取窗口矩形，用于后续相对坐标点击
         left, top, right, bottom = win32gui.GetWindowRect(now_h)
-        # 积分开始
+
+        # 4) 若启用积分功能，先执行“积分开始”
         if integral_status == '1':
             pyautogui.moveTo(
                 left + INTEGRAL_COORD['integral_start'][0],
-                top + INTEGRAL_COORD['integral_start'][1], 
+                top + INTEGRAL_COORD['integral_start'][1],
                 duration= 0.1)
             pyautogui.doubleClick()
             pyautogui.sleep(0.5)
+
+        # 5) 点击测量“开始”按钮（固定相对坐标）
         pyautogui.moveTo(left + 586, top + 98, duration= 0.1)
         pyautogui.click()
         pyautogui.sleep(0.2)
-        # win32gui.EnumChildWindows(now_h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), now_child_dict)
-        #判断是否有‘文件已经存在是否覆盖’弹窗出现，默认覆盖重名文件
+
+        # 6) 检查是否出现“重名文件覆盖”弹窗
+        #    逻辑：检测到“是(&Y)”和“否(&N)”按钮即视为覆盖确认框
         now_handle_dict = get_enumwindows()
         now_h = list(now_handle_dict.keys())[list(now_handle_dict.values()).index('WTViewerEfree')]
         win32gui.EnumChildWindows(now_h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), now_child_dict)
         if '是(&Y)' in now_child_dict.values() and '否(&N)' in now_child_dict.values():
+            _append_debug_log(f"[testing_start] overwrite dialog detected for file={save_file_name}, choose YES")
             handle_sure = list(now_child_dict.keys())[list(now_child_dict.values()).index('是(&Y)')]
             left_warn, top_warn, right_warn, bottom_warn = win32gui.GetWindowRect(handle_sure)
+            # 默认选择“是”，允许覆盖旧文件并继续流程
             pyautogui.moveTo(left_warn + (right_warn - left_warn) / 2, top_warn + (bottom_warn - top_warn) / 2, duration=0.5)
             pyautogui.click()
+
+        _append_debug_log(f"[testing_start] started file={save_file_name}")
+        # 启动动作完成
         return '1'
 
 def mppt_config():
@@ -26157,7 +26607,6 @@ if __name__ == "__main__":
     global strFlagOfSendDCCommandTestLog
     global ArrayfDCCurrValue, ArrayfDCPowValue
     global setting_status, messure_status, WT_is_checked
-    global HandleEquAC, test_program, GlobalstrTimeNowLog
     global per_test_time_list, volt_fz_first_status, flicker_is_test
     global manager
 
@@ -26188,6 +26637,62 @@ if __name__ == "__main__":
     )
     logger.addHandler(file_handler)
 
+    # 额外生成单一文件 log.txt：实时查看 + 记录 print 与异常
+    log_txt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log.txt')
+    log_txt_handler = logging.FileHandler(log_txt_path, encoding='utf-8')
+    log_txt_handler.setFormatter(
+        logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    )
+    logger.addHandler(log_txt_handler)
+
+    class _StdoutToLogger:
+        def __init__(self, _logger, _level):
+            self._logger = _logger
+            self._level = _level
+            self._buffer = ''
+
+        def write(self, msg):
+            if msg is None:
+                return
+            self._buffer += msg
+            while '\n' in self._buffer:
+                line, self._buffer = self._buffer.split('\n', 1)
+                line = line.rstrip()
+                if line:
+                    self._logger.log(self._level, line)
+
+        def flush(self):
+            if self._buffer.strip():
+                self._logger.log(self._level, self._buffer.strip())
+                self._buffer = ''
+
+    # 保留控制台输出，同时写入日志
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    class _Tee:
+        def __init__(self, *streams):
+            self._streams = streams
+
+        def write(self, msg):
+            for s in self._streams:
+                s.write(msg)
+
+        def flush(self):
+            for s in self._streams:
+                s.flush()
+
+    sys.stdout = _Tee(original_stdout, _StdoutToLogger(logger, logging.INFO))
+    sys.stderr = _Tee(original_stderr, _StdoutToLogger(logger, logging.ERROR))
+
+    def _handle_exception(exc_type, exc_value, exc_tb):
+        logger.error('Uncaught exception', exc_info=(exc_type, exc_value, exc_tb))
+        # 也保留默认行为
+        if original_stderr is not None:
+            traceback.print_exception(exc_type, exc_value, exc_tb, file=original_stderr)
+
+    sys.excepthook = _handle_exception
+
     #if is_admin():
     if (1):
         
@@ -26215,7 +26720,13 @@ if __name__ == "__main__":
 
         #             if strpythonid == "SZTZ":
             
-            HandleEquAC = ''
+            HandleEquAC = None
+            HandleEquDC1 = None
+            HandleEquDC2 = None
+            HandleEquDC3 = None
+            HandleEquDC4 = None
+            HandleEquDL850 = None
+            HandleEquWT3000 = None
             test_program = []
             ArrayfDCCurrValue = [15.75,15.75,15.75,15.75]
             ArrayfDCPowValue = ["" for i in range(4)]
@@ -26256,6 +26767,7 @@ if __name__ == "__main__":
             test_status = ''
             total_save_file = 0
             now_save_file = 0
+            save_file_name = ''
             WT_is_checked = ''
             GlobalstrTimeNowLog = ''
             project_change = ''

@@ -1,0 +1,16 @@
+# Auto-generated from project import scan (manual cleanup of local modules)
+# Install with: pip install -r requirements.txt
+
+numpy
+psutil
+pyautogui
+pyperclip
+pyvisa
+pymodbus
+pywin32
+PyQt5
+xlwt
+Pillow
+opencv-python
+keyboard
+pynput
