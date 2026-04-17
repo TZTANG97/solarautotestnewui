@@ -65,6 +65,7 @@ from Dialog_thaicosPhi_Brazil import Ui_Dialog_thaicosPhi_Brazil
 from Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
 from Dialog_thaistaticmppttest import Ui_Dialog_thaistaticmppttest
 from Dialog_thaiWT3000E import Ui_Dialog_thai_WT3000E
+from Dialog_thaiWT3000_Setting import Ui_Dialog_thai_WT3000_Setting
 from Dialog_thaiWT1806E import Ui_Dialog_thai_WT1806E
 from Dialog_thaiWT1800 import Ui_Dialog_thai_WT1800
 from Dialog_thaiWT5000 import Ui_Dialog_thai_WT5000
@@ -700,10 +701,119 @@ HandleEquDC3 = None
 HandleEquDC4 = None
 HandleEquDL850 = None
 HandleEquWT3000 = None
+WT3000_setting_window = None
+uiWT3000Setting = None
+WT3000_baud_rate = "9600"
 AC_client = None
+
+
+def _toggle_connection_button(connected_button_name, connected):
+    btn = getattr(ui, connected_button_name, None)
+    if btn is not None:
+        btn.setText("取消连接" if connected else "连接设备")
+
+
+def _safe_close_handle(handle):
+    try:
+        if handle is not None:
+            handle.close()
+    except Exception as e:
+        logger.info(f"关闭设备失败: {e}")
+        print(f"关闭设备失败: {e}")
+
+
+def DisconnectEQUAC():
+    global HandleEquAC, AC_client, strConnectAC
+    _safe_close_handle(HandleEquAC)
+    HandleEquAC = None
+    AC_client = None
+    strConnectAC = "0"
+    _toggle_connection_button("pushButton_ConnectEQUAC", False)
+
+
+def DisconnectEQUDC1():
+    global HandleEquDC1, DC_client_1, strConnectDC1
+    _safe_close_handle(HandleEquDC1)
+    HandleEquDC1 = None
+    DC_client_1 = None
+    strConnectDC1 = "0"
+    _toggle_connection_button("pushButton_ConnectEQUDC1", False)
+
+
+def DisconnectEQUDC2():
+    global HandleEquDC2, DC_client_2, strConnectDC2
+    _safe_close_handle(HandleEquDC2)
+    HandleEquDC2 = None
+    DC_client_2 = None
+    strConnectDC2 = "0"
+    _toggle_connection_button("pushButton_ConnectEQUDC2", False)
+
+
+def DisconnectEQUDC3():
+    global HandleEquDC3, strConnectDC3
+    _safe_close_handle(HandleEquDC3)
+    HandleEquDC3 = None
+    strConnectDC3 = "0"
+    _toggle_connection_button("pushButton_ConnectEQUDC3", False)
+
+
+def DisconnectEQUDC4():
+    global HandleEquDC4, strConnectDC4
+    _safe_close_handle(HandleEquDC4)
+    HandleEquDC4 = None
+    strConnectDC4 = "0"
+    _toggle_connection_button("pushButton_ConnectEQUDC4", False)
+
+
+def DisconnectEQUDL850():
+    global HandleEquDL850, strConnectDL850
+    _safe_close_handle(HandleEquDL850)
+    HandleEquDL850 = None
+    strConnectDL850 = "0"
+    _toggle_connection_button("pushButton_ConnectEQUDL850", False)
+
+
+def DisconnectEQUWT3000():
+    global HandleEquWT3000, strConnectWT3000
+    _safe_close_handle(HandleEquWT3000)
+    HandleEquWT3000 = None
+    strConnectWT3000 = "0"
+    _toggle_connection_button("pushButton_ConnectEQUWT3000", False)
+
+
+def ShowWT3000Setting():
+    global WT3000_setting_window, uiWT3000Setting
+    if WT3000_setting_window is None:
+        WT3000_setting_window = QDialog()
+        uiWT3000Setting = Ui_Dialog_thai_WT3000_Setting()
+        uiWT3000Setting.setupUi(WT3000_setting_window)
+        uiWT3000Setting.pushButton_Confirm.clicked.connect(lambda: ApplyWT3000Setting(close_dialog=True))
+        uiWT3000Setting.comboBox_BaudRate.currentTextChanged.connect(lambda _: ApplyWT3000Setting(close_dialog=False))
+    if uiWT3000Setting is not None:
+        idx = uiWT3000Setting.comboBox_BaudRate.findText(str(WT3000_baud_rate))
+        if idx >= 0:
+            uiWT3000Setting.comboBox_BaudRate.setCurrentIndex(idx)
+    WT3000_setting_window.show()
+    WT3000_setting_window.raise_()
+    WT3000_setting_window.activateWindow()
+
+
+def ApplyWT3000Setting(close_dialog=True):
+    global WT3000_baud_rate
+    if uiWT3000Setting is not None:
+        WT3000_baud_rate = uiWT3000Setting.comboBox_BaudRate.currentText().strip()
+        logger.info(f"WT3000波特率已选择: {WT3000_baud_rate}")
+        print(f"WT3000波特率已选择: {WT3000_baud_rate}")
+        if close_dialog and WT3000_setting_window is not None and WT3000_setting_window.isVisible():
+            WT3000_setting_window.close()
+
+
 def ConnectEQUAC():
     global HandleEquAC,strConnectAC
     global AC_client
+    if ui.pushButton_ConnectEQUAC.text() == "取消连接":
+        DisconnectEQUAC()
+        return
     tcp_addr = ui.comboBox_AC.currentText()
     logger.info(tcp_addr)
     print(tcp_addr)
@@ -742,12 +852,34 @@ def ConnectEQUAC():
             print("交流电源连接成功")
             # HandleEquAC.baud_rate = 115200
             strConnectAC = "1"
+            ui.pushButton_ConnectEQUAC.setText("取消连接")
 
 DC_client_1 = None
+def _configure_scpi_resource(handle):
+    """
+    统一配置基于 VISA 的 SCPI 资源。
+    很多电源/仪表需要行结束符（\\n）才会执行 write/query。
+    """
+    if handle is None:
+        return
+    try:
+        # 这些属性并非所有后端都支持，失败时忽略即可
+        handle.timeout = 10000
+    except Exception:
+        pass
+    try:
+        handle.read_termination = "\n"
+        handle.write_termination = "\n"
+    except Exception:
+        pass
+
 def ConnectEQUDC1():
     global HandleEquDC1,strConnectDC1,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
     global per_dc_factor
     global DC_client_1
+    if ui.pushButton_ConnectEQUDC1.text() == "取消连接":
+        DisconnectEQUDC1()
+        return
     tcp_addr = ui.comboBox_DC1.currentText()
     logger.info(tcp_addr)
     print(tcp_addr)
@@ -776,6 +908,7 @@ def ConnectEQUDC1():
         try:
             dc_info = ""
             HandleEquDC1 = rm.open_resource(tcp_addr)
+            _configure_scpi_resource(HandleEquDC1)
         except Exception as e:
             print("device not exit")
             logger.info("直流电源1 not exit")
@@ -807,6 +940,7 @@ def ConnectEQUDC1():
                 strFlagOfSendDCCommandTestLog = "1"
                 logger.info("直流电源1连接成功")
                 print("直流电源1连接成功")
+                ui.pushButton_ConnectEQUDC1.setText("取消连接")
 
 
 DC_client_2 = None
@@ -814,6 +948,9 @@ def ConnectEQUDC2():
     global HandleEquDC2,strConnectDC2,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
     global per_dc_factor
     global DC_client_2
+    if ui.pushButton_ConnectEQUDC2.text() == "取消连接":
+        DisconnectEQUDC2()
+        return
     tcp_addr = ui.comboBox_DC2.currentText()
     logger.info(tcp_addr)
     print(tcp_addr)
@@ -845,6 +982,7 @@ def ConnectEQUDC2():
     else:
         try:
             HandleEquDC2 = rm.open_resource(tcp_addr)
+            _configure_scpi_resource(HandleEquDC2)
             #ui.pushButton_SendRCommand.setEnabled(True)
             #ui.pushButton_SendWCommand.setEnabled(True)
         except Exception as e:
@@ -878,15 +1016,20 @@ def ConnectEQUDC2():
                 strConnectDC2 = "1"
                 strFlagSendDCCommandInfomation = "1"
                 strFlagOfSendDCCommandTestLog = "2"
+                ui.pushButton_ConnectEQUDC2.setText("取消连接")
 
 def ConnectEQUDC3():
     global HandleEquDC3,strConnectDC3,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
     global per_dc_factor
+    if ui.pushButton_ConnectEQUDC3.text() == "取消连接":
+        DisconnectEQUDC3()
+        return
     tcp_addr = ui.comboBox_DC3.currentText()
     logger.info(tcp_addr)
     print(tcp_addr)
     try:
         HandleEquDC3 = rm.open_resource(tcp_addr)
+        _configure_scpi_resource(HandleEquDC3)
         #ui.pushButton_SendRCommand.setEnabled(True)
         #ui.pushButton_SendWCommand.setEnabled(True)
     except Exception as e:
@@ -924,11 +1067,15 @@ def ConnectEQUDC3():
 def ConnectEQUDC4():
     global HandleEquDC4,strConnectDC4,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
     global per_dc_factor
+    if ui.pushButton_ConnectEQUDC4.text() == "取消连接":
+        DisconnectEQUDC4()
+        return
     tcp_addr = ui.comboBox_DC4.currentText()
     logger.info(tcp_addr)
     print(tcp_addr)
     try:
         HandleEquDC4 = rm.open_resource(tcp_addr)
+        _configure_scpi_resource(HandleEquDC4)
         #ui.pushButton_SendRCommand.setEnabled(True)
         #ui.pushButton_SendWCommand.setEnabled(True)
     except Exception as e:
@@ -965,6 +1112,9 @@ def ConnectEQUDC4():
 
 def ConnectEQUDL850():
     global HandleEquDL850,strConnectDL850
+    if ui.pushButton_ConnectEQUDL850.text() == "取消连接":
+        DisconnectEQUDL850()
+        return
     tcp_addr = ui.comboBox_DL850.currentText()
     logger.info(tcp_addr)
     try:
@@ -982,13 +1132,75 @@ def ConnectEQUDL850():
         print("DL850连接成功")
         strConnectDL850 = "1"
 
+def is_ip_address_format(addr):
+    """判断输入是否为IPv4地址，支持可选端口（如 192.168.40.1:5000）。"""
+    if not addr:
+        return False
+    ip_port_pattern = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}(?::\d{1,5})?$")
+    return bool(ip_port_pattern.match(addr.strip()))
+
 def ConnectEQUWT3000():
     global HandleEquWT3000,strConnectWT3000
-    tcp_addr = ui.comboBox_WT3000.currentText()
+    if ui.pushButton_ConnectEQUWT3000.text() == "取消连接":
+        DisconnectEQUWT3000()
+        return
+    tcp_addr = ui.comboBox_WT3000.currentText().strip()
     logger.info(tcp_addr)
     print(tcp_addr)
+    candidate_resources = []
+    if is_ip_address_format(tcp_addr):
+        if ":" in tcp_addr:
+            ip, port = tcp_addr.split(":", 1)
+            # 传入了明确端口时，优先按SOCKET连接
+            candidate_resources = [
+                f"TCPIP0::{ip}::{port}::SOCKET",
+                f"TCPIP::{ip}::{port}::INSTR",
+                f"TCPIP0::{ip}::inst0::INSTR",
+            ]
+        else:
+            ip = tcp_addr
+            candidate_resources = [
+                f"TCPIP0::{ip}::inst0::INSTR",
+                f"TCPIP::{ip}::INSTR",
+                f"TCPIP0::{ip}::5025::SOCKET",
+                f"TCPIP0::{ip}::10001::SOCKET",
+            ]
+        logger.info(f"WT3000候选VISA资源字符串: {candidate_resources}")
+        print(f"WT3000候选VISA资源字符串: {candidate_resources}")
+    else:
+        candidate_resources = [tcp_addr]
+
+    last_error = None
     try:
-        HandleEquWT3000 = rm.open_resource(tcp_addr)
+        logger.info(f"WT3000准备连接，当前波特率设置: {WT3000_baud_rate}")
+        print(f"WT3000准备连接，当前波特率设置: {WT3000_baud_rate}")
+        HandleEquWT3000 = None
+        for resource_string in candidate_resources:
+            try:
+                logger.info(f"WT3000尝试连接: {resource_string}")
+                print(f"WT3000尝试连接: {resource_string}")
+                HandleEquWT3000 = rm.open_resource(resource_string)
+                HandleEquWT3000.timeout = 10000
+                HandleEquWT3000.read_termination = "\n"
+                HandleEquWT3000.write_termination = "\n"
+                try:
+                    HandleEquWT3000.baud_rate = int(WT3000_baud_rate)
+                    HandleEquWT3000.data_bits = 8
+                    HandleEquWT3000.parity = visa.constants.Parity.none
+                    HandleEquWT3000.stop_bits = visa.constants.StopBits.one
+                    HandleEquWT3000.flow_control = visa.constants.VI_ASRL_FLOW_NONE
+                    logger.info(f"WT3000串口参数已设置: baud={WT3000_baud_rate}, data_bits=8, parity=None, stop_bits=1, flow=None")
+                    print(f"WT3000串口参数已设置: baud={WT3000_baud_rate}, data_bits=8, parity=None, stop_bits=1, flow=None")
+                except Exception as serial_cfg_err:
+                    logger.info(f"WT3000串口参数设置失败: {serial_cfg_err}")
+                    print(f"WT3000串口参数设置失败: {serial_cfg_err}")
+                break
+            except Exception as e:
+                last_error = e
+                logger.info(f"WT3000 connect error {e}")
+                print(f"WT3000 connect error {e}")
+        if HandleEquWT3000 is None:
+            raise last_error if last_error is not None else Exception("WT3000连接失败")
         #ui.pushButton_SendRCommand.setEnabled(True)
         #ui.pushButton_SendWCommand.setEnabled(True)
     except Exception as e:
@@ -1000,6 +1212,7 @@ def ConnectEQUWT3000():
         logger.info("WT3000连接成功")
         print("WT3000连接成功")
         strConnectWT3000 = "1"
+        ui.pushButton_ConnectEQUWT3000.setText("取消连接")
         str1 = ":NUMERIC:FORMAT ASCII"
         try:
             HandleEquWT3000.write(str1)
@@ -1066,6 +1279,7 @@ def ReConnectEQU():
 
     ui.comboBox_WT3000.clear()
     ui.comboBox_WT3000.addItems(EQUList)
+    ui.comboBox_WT3000.setEditable(False)
 
     uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.clear()
     uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.addItems(EQUList)
@@ -1244,16 +1458,21 @@ def addtestDialog():
         print("请选择选项")
         _show_connect_message("请选择有效测试项目后再继续", ui)
 
-#延时处理函数
-def SetTimeFunction(fSetTime,TIME_UNIT):
+# 延时处理函数
+# 说明：
+# - RunProject() 内部把 strArrayTest[i][8]/[9] 当作 “0.1 秒计数” 来 sleep
+# - UI 输入通常是 分钟/秒/毫秒
+# 因此这里统一把 UI 的时间换算成 “0.1 秒计数”（int）
+def SetTimeFunction(fSetTime, TIME_UNIT):
+    seconds = float(fSetTime)
     if TIME_UNIT == "分钟":
-        fSetTime = fSetTime * 60
+        seconds = seconds * 60.0
     elif TIME_UNIT == "秒":
-        fSetTime = fSetTime
+        seconds = seconds
     elif TIME_UNIT == "毫秒":
-        fSetTime = fSetTime/1000
-
-    return fSetTime
+        seconds = seconds / 1000.0
+    # 统一转为 0.1s 计数
+    return int(round(seconds * 10))
 
 # TODO
 # WT3000E配置界面
@@ -1282,6 +1501,39 @@ def thaidianyashanbianSend():
     global strSettingTestFlag, strArrayTestStep
     global strAddTestFlag, flicker_is_test
     global command_save_file_path
+    def _get_wait_seconds(str_array_single):
+        """提取单条命令的等待时间（秒）。
+
+        注意：strArrayTest 的等待字段 [8]/[9] 在 RunProject 中是按 0.1 秒计数解释的。
+        """
+        wait_values = []
+        for idx in (8, 9):
+            if idx < len(str_array_single):
+                value = str_array_single[idx]
+                if value == "" or value is None:
+                    continue
+                try:
+                    wait_values.append(float(value))
+                except (ValueError, TypeError):
+                    pass
+        # 0.1 秒计数 -> 秒
+        return (max(wait_values) * 0.1) if wait_values else 0.0
+
+    def _append_cycle_padding(step_commands, cycle_seconds=600):
+        """将单轮闪变步骤补齐到固定周期（默认10分钟）"""
+        used_seconds = 0.0
+        for command in step_commands:
+            used_seconds += _get_wait_seconds(command)
+        remain_seconds = int(max(0.0, cycle_seconds - used_seconds))
+        if remain_seconds > 0:
+            str_array_single = ["" for _ in range(10)]
+            str_array_single[0] = "AC"
+            str_array_single[1] = "query"
+            str_array_single[2] = "*IDN?"
+            # 秒 -> 0.1 秒计数
+            str_array_single[8] = int(remain_seconds * 10)
+            strArrayTest.append(str_array_single)
+            step_commands.append(str_array_single)
     strShowErrorMessageBoxFlag = "0"
     if strAddTestFlag == "0":
         strArrayTest = []
@@ -1297,6 +1549,16 @@ def thaidianyashanbianSend():
     strArrayTestStep = []
     
     S1ACEACHStatus = uiThaiDianYaShanBian.comboBox_S1_AC_2.currentText()
+    # 预先读取跨 step 复用参数，避免某个 step 未勾选时出现未定义变量
+    S1ACVOLT = uiThaiDianYaShanBian.textEdit_S1_AC_VOLT.toPlainText()
+    S1ACFR = uiThaiDianYaShanBian.textEdit_S1_AC_FR.toPlainText()
+    S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentText()
+    S2_WT3000_Setting = uiThaiDianYaShanBian.comboBox_S2_WT3000_Setting.currentText()
+    S2_WT3000_Single = uiThaiDianYaShanBian.comboBox_S2_WT.currentText()
+    S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText().strip()
+    S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
+    fS2SetTime = 0.0 if S2_TIME_VALUE == "" else float(S2_TIME_VALUE)
+    fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
     strArraySingle = ["" for _ in range(10)]
     # step1
     if uiThaiDianYaShanBian.checkBox_S1.isChecked():
@@ -1598,13 +1860,18 @@ def thaidianyashanbianSend():
         S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
         fS2SetTime = float(S2_TIME_VALUE)
         fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
+        S2_FLICKER_COUNT = "12"
+        if uiThaiDianYaShanBian.checkBox_S3.isChecked():
+            S3_CYCLE_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText().strip()
+            if S3_CYCLE_TIME_VALUE != "":
+                S2_FLICKER_COUNT = S3_CYCLE_TIME_VALUE
 
         S2_WT3000_Setting = uiThaiDianYaShanBian.comboBox_S2_WT3000_Setting.currentText()
 
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = "WT3000"
         strArraySingle[1] = "write"
-        strArraySingle[2] = "DISPLAY:MODE FLIC"
+        strArraySingle[2] = "DISPLAY:MODE FLICker"
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -1692,14 +1959,14 @@ def thaidianyashanbianSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = "WT3000"
         strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:RES"
+        strArraySingle[2] = "FLICKER:RESET"
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = "WT3000"
         strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:COUNT 12"
+        strArraySingle[2] = "FLICKER:COUNT " + S2_FLICKER_COUNT
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -1722,7 +1989,7 @@ def thaidianyashanbianSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = "WT3000"
         strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:INIT"
+        strArraySingle[2] = "FLICKER:INITIALIZE"
         strArraySingle[9] = 1000
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
@@ -1748,7 +2015,7 @@ def thaidianyashanbianSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = "WT3000"
         strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:STAR"
+        strArraySingle[2] = "FLICKER:START"
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -1774,6 +2041,12 @@ def thaidianyashanbianSend():
             fS3SetTime = float(S3_TIME_VALUE)
             fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
 
+            # 后续闪变间隔：使用 step3 UI 配置值（用于组间等待）
+            S3_2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME_2.toPlainText()
+            S3_2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME_2.currentText()
+            fS3_2SetTime = float(S3_2_TIME_VALUE)
+            fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
+
             strArraySingle = ["" for _ in range(10)]
             S1Command = "*IDN?"
             strArraySingle[0] = "AC"
@@ -1781,7 +2054,7 @@ def thaidianyashanbianSend():
             strArraySingle[2] = S1Command
             strArraySingle[9] = fS2SetTime
             strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+            # 首次闪变间隔仅首轮生效，不加入循环模板
 
             # DC1
             if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
@@ -1878,7 +2151,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -1902,7 +2175,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -1926,7 +2199,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -1950,565 +2223,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = fS3_2SetTime + 600
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
-                if S3DC1Status == "开启":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC1Status == "关闭":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
-                if S3DC2Status == "开启":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC2Status == "关闭":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
-                if S3DC3Status == "开启":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC3Status == "关闭":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
-                if S3DC4Status == "开启":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC4Status == "关闭":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
-                if S3DC1_2Status == "开启":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC1_2Status == "关闭":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
-                if S3_2DC2Status == "开启":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC2Status == "关闭":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
-                if S3_2DC3Status == "开启":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC3Status == "关闭":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
-                if S3_2DC4Status == "开启":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC4Status == "关闭":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = fS3_2SetTime + 600
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
-                if S3DC1Status == "开启":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC1Status == "关闭":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
-                if S3DC2Status == "开启":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC2Status == "关闭":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
-                if S3DC3Status == "开启":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC3Status == "关闭":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
-                if S3DC4Status == "开启":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC4Status == "关闭":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
-                if S3DC1_2Status == "开启":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC1_2Status == "关闭":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
-                if S3_2DC2Status == "开启":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC2Status == "关闭":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
-                if S3_2DC3Status == "开启":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC3Status == "关闭":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
-                if S3_2DC4Status == "开启":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC4Status == "关闭":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 1200 - (fS3SetTime * 3)
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            if Int_S3_CYCLETIME >1:
-                for xxx in range(Int_S3_CYCLETIME-2):
-                    for xxxx in range(len(strArrayTestStepSingle)):
-                        strArrayTest.append(strArrayTestStepSingle[xxxx])
-
-        elif S2_PER_FLICK_COUNT == '2':
-            strArrayTestStepSingle = []
-            # 闪变循环次数：12
-            S3_CYCLETIME = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText()
-            Int_S3_CYCLETIME = int(S3_CYCLETIME)
-
-            # 首次闪变间隔：4min
-            fS2SetTime = int(fS2SetTime * 2)
-
-            # 每次闪变持续时间
-            S3_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText()
-            S3_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
-            fS3SetTime = float(S3_TIME_VALUE)
-            fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = fS2SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
-                if S3DC1Status == "开启":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC1Status == "关闭":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
-                if S3DC2Status == "开启":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC2Status == "关闭":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
-                if S3DC3Status == "开启":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC3Status == "关闭":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
-                if S3DC4Status == "开启":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC4Status == "关闭":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            # 第一次闪变后，后续闪变时刻
-            S3_2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME_2.toPlainText()
-            S3_2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME_2.currentText()
-            fS3_2SetTime = float(S3_2_TIME_VALUE)
-            fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
-            fS3_2SetTime = int(fS3_2SetTime * 2)
-
-            # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
-                if S3DC1_2Status == "开启":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3DC1_2Status == "关闭":
-                    strArraySingle[0] = "DC1"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
-                if S3_2DC2Status == "开启":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC2Status == "关闭":
-                    strArraySingle[0] = "DC2"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
-                if S3_2DC3Status == "开启":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC3Status == "关闭":
-                    strArraySingle[0] = "DC3"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
-                strArraySingle = ["" for _ in range(10)]
-                S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
-                if S3_2DC4Status == "开启":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP ON"
-                elif S3_2DC4Status == "关闭":
-                    strArraySingle[0] = "DC4"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "OUTP OFF"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2610,7 +2325,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2634,7 +2349,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2658,7 +2373,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 5
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2682,7 +2397,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2691,36 +2406,7 @@ def thaidianyashanbianSend():
             strArraySingle[0] = "AC"
             strArraySingle[1] = "query"
             strArraySingle[2] = S1Command
-            strArraySingle[8] = int(1200 - fS3SetTime)
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            if Int_S3_CYCLETIME >1:
-                for xxx in range(Int_S3_CYCLETIME-1):
-                    for xxxx in range(len(strArrayTestStepSingle)):
-                        strArrayTest.append(strArrayTestStepSingle[xxxx])
-        
-        elif S2_PER_FLICK_COUNT == '1':
-            strArrayTestStepSingle = []
-            # 闪变循环次数：12
-            S3_CYCLETIME = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText()
-            Int_S3_CYCLETIME = int(S3_CYCLETIME)
-
-            # 首次闪变间隔：5min
-            fS2SetTime = int(fS2SetTime + 1800)
-
-            # 每次闪变持续时间
-            S3_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText()
-            S3_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
-            fS3SetTime = float(S3_TIME_VALUE)
-            fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = fS2SetTime
+            strArraySingle[9] = fS3_2SetTime
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
@@ -2813,7 +2499,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2837,7 +2523,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2861,7 +2547,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2885,7 +2571,7 @@ def thaidianyashanbianSend():
                 strArraySingle[0] = "AC"
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S1Command
-                strArraySingle[8] = 2
+                strArraySingle[8] = 0
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2894,23 +2580,618 @@ def thaidianyashanbianSend():
             strArraySingle[0] = "AC"
             strArraySingle[1] = "query"
             strArraySingle[2] = S1Command
-            strArraySingle[8] = 3000
+            strArraySingle[8] = fS3_2SetTime
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
+            _append_cycle_padding(strArrayTestStepSingle, 600)
+
             if Int_S3_CYCLETIME >1:
+                # 总组数应严格等于 UI 的循环次数
+                # 这里 base cycle 已经执行了 1 组，因此需要补足 Int_S3_CYCLETIME-1 组
                 for xxx in range(Int_S3_CYCLETIME-1):
                     for xxxx in range(len(strArrayTestStepSingle)):
                         strArrayTest.append(strArrayTestStepSingle[xxxx])
+
+        elif S2_PER_FLICK_COUNT == '2':
+            strArrayTestStepSingle = []
+            # 闪变循环次数：12
+            S3_CYCLETIME = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText()
+            Int_S3_CYCLETIME = int(S3_CYCLETIME)
+
+            # 首次闪变间隔：使用 step2 UI 配置值
+
+            # 每次闪变持续时间
+            S3_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText()
+            S3_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
+            fS3SetTime = float(S3_TIME_VALUE)
+            fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
+
+            # 后续闪变间隔：使用 step3 UI 配置值（用于组间等待）
+            S3_2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME_2.toPlainText()
+            S3_2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME_2.currentText()
+            fS3_2SetTime = float(S3_2_TIME_VALUE)
+            fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
 
             strArraySingle = ["" for _ in range(10)]
             S1Command = "*IDN?"
             strArraySingle[0] = "AC"
             strArraySingle[1] = "query"
             strArraySingle[2] = S1Command
-            strArraySingle[8] = 1200
+            strArraySingle[9] = fS2SetTime
+            strArrayTest.append(strArraySingle)
+            # 首次闪变间隔仅首轮生效，不加入循环模板
+
+            # DC1
+            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
+                if S3DC1Status == "开启":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC1Status == "关闭":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            #DC2
+            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
+                if S3DC2Status == "开启":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC2Status == "关闭":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC3
+            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
+                if S3DC3Status == "开启":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC3Status == "关闭":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC4
+            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
+                if S3DC4Status == "开启":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC4Status == "关闭":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            strArraySingle = ["" for _ in range(10)]
+            S1Command = "*IDN?"
+            strArraySingle[0] = "AC"
+            strArraySingle[1] = "query"
+            strArraySingle[2] = S1Command
+            strArraySingle[8] = fS3SetTime
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
+
+            # 第一次闪变后，后续闪变时刻
+            S3_2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME_2.toPlainText()
+            S3_2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME_2.currentText()
+            fS3_2SetTime = float(S3_2_TIME_VALUE)
+            fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
+
+            # DC1
+            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
+                if S3DC1_2Status == "开启":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC1_2Status == "关闭":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC2
+            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
+                if S3_2DC2Status == "开启":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC2Status == "关闭":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC3
+            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
+                if S3_2DC3Status == "开启":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC3Status == "关闭":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC4
+            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
+                if S3_2DC4Status == "开启":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC4Status == "关闭":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            strArraySingle = ["" for _ in range(10)]
+            S1Command = "*IDN?"
+            strArraySingle[0] = "AC"
+            strArraySingle[1] = "query"
+            strArraySingle[2] = S1Command
+            strArraySingle[9] = fS3_2SetTime
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
+            # DC1
+            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
+                if S3DC1Status == "开启":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC1Status == "关闭":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            #DC2
+            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
+                if S3DC2Status == "开启":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC2Status == "关闭":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC3
+            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
+                if S3DC3Status == "开启":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC3Status == "关闭":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC4
+            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
+                if S3DC4Status == "开启":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC4Status == "关闭":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            strArraySingle = ["" for _ in range(10)]
+            S1Command = "*IDN?"
+            strArraySingle[0] = "AC"
+            strArraySingle[1] = "query"
+            strArraySingle[2] = S1Command
+            strArraySingle[8] = fS3SetTime
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
+            # DC1
+            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
+                if S3DC1_2Status == "开启":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC1_2Status == "关闭":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC2
+            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
+                if S3_2DC2Status == "开启":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC2Status == "关闭":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC3
+            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
+                if S3_2DC3Status == "开启":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC3Status == "关闭":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC4
+            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
+                if S3_2DC4Status == "开启":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC4Status == "关闭":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            strArraySingle = ["" for _ in range(10)]
+            S1Command = "*IDN?"
+            strArraySingle[0] = "AC"
+            strArraySingle[1] = "query"
+            strArraySingle[2] = S1Command
+            strArraySingle[8] = fS3_2SetTime
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
+            _append_cycle_padding(strArrayTestStepSingle, 600)
+
+            if Int_S3_CYCLETIME >1:
+                for xxx in range(Int_S3_CYCLETIME-1):
+                    for xxxx in range(len(strArrayTestStepSingle)):
+                        strArrayTest.append(strArrayTestStepSingle[xxxx])
+        
+        elif S2_PER_FLICK_COUNT == '1':
+            strArrayTestStepSingle = []
+            # 闪变循环次数：12
+            S3_CYCLETIME = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText()
+            Int_S3_CYCLETIME = int(S3_CYCLETIME)
+
+            # 首次闪变间隔：使用 step2 UI 配置值
+
+            # 每次闪变持续时间
+            S3_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText()
+            S3_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
+            fS3SetTime = float(S3_TIME_VALUE)
+            fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
+
+            # 后续闪变间隔：使用 step3 UI 配置值（用于组间等待）
+            S3_2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME_2.toPlainText()
+            S3_2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME_2.currentText()
+            fS3_2SetTime = float(S3_2_TIME_VALUE)
+            fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
+
+            strArraySingle = ["" for _ in range(10)]
+            S1Command = "*IDN?"
+            strArraySingle[0] = "AC"
+            strArraySingle[1] = "query"
+            strArraySingle[2] = S1Command
+            strArraySingle[9] = fS2SetTime
+            strArrayTest.append(strArraySingle)
+            # 首次闪变间隔仅首轮生效，不加入循环模板
+
+            # DC1
+            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
+                if S3DC1Status == "开启":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC1Status == "关闭":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            #DC2
+            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
+                if S3DC2Status == "开启":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC2Status == "关闭":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC3
+            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
+                if S3DC3Status == "开启":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC3Status == "关闭":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC4
+            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
+                if S3DC4Status == "开启":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC4Status == "关闭":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            strArraySingle = ["" for _ in range(10)]
+            S1Command = "*IDN?"
+            strArraySingle[0] = "AC"
+            strArraySingle[1] = "query"
+            strArraySingle[2] = S1Command
+            strArraySingle[8] = fS3SetTime
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
+            # DC1
+            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
+                if S3DC1_2Status == "开启":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3DC1_2Status == "关闭":
+                    strArraySingle[0] = "DC1"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC2
+            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
+                if S3_2DC2Status == "开启":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC2Status == "关闭":
+                    strArraySingle[0] = "DC2"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC3
+            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
+                if S3_2DC3Status == "开启":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC3Status == "关闭":
+                    strArraySingle[0] = "DC3"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            # DC4
+            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+                strArraySingle = ["" for _ in range(10)]
+                S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
+                if S3_2DC4Status == "开启":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP ON"
+                elif S3_2DC4Status == "关闭":
+                    strArraySingle[0] = "DC4"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "OUTP OFF"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 0
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            strArraySingle = ["" for _ in range(10)]
+            S1Command = "*IDN?"
+            strArraySingle[0] = "AC"
+            strArraySingle[1] = "query"
+            strArraySingle[2] = S1Command
+            strArraySingle[8] = fS3_2SetTime
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
+            _append_cycle_padding(strArrayTestStepSingle, 600)
+
+            if Int_S3_CYCLETIME >1:
+                for xxx in range(Int_S3_CYCLETIME-1):
+                    for xxxx in range(len(strArrayTestStepSingle)):
+                        strArrayTest.append(strArrayTestStepSingle[xxxx])
 
     if uiThaiDianYaShanBian.checkBox_S4.isChecked():
         # strArrayTestStepSingle = []
@@ -5802,8 +6083,14 @@ def thaixiebodianliuSend():
 
 def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
     global DC_num, command_list_DC, per_dc_factor
-    # I-V曲线命令
-    command_array = command_list_DC[per_dc_factor.get(DC_num[DC])]
+    # I-V曲线命令（按厂家选择）；未配置时避免抛出 KeyError 导致流程中断
+    dc_index = DC_num.get(DC, "")
+    dc_factor = per_dc_factor.get(dc_index, "")
+    command_array = command_list_DC.get(dc_factor, [])
+    if not command_array:
+        strtimenow = now_to_datenow()
+        logger.error(f"{DC} factor is empty or unsupported: '{dc_factor}'")
+        print(f"{strtimenow} {DC} factor is empty or unsupported: '{dc_factor}'")
     
     strArraySingle = ["" for _ in range(10)]
     S1Command = "*IDN?"
@@ -5814,13 +6101,14 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
     strArrayTest.append(strArraySingle)
     strArrayTestStepSingle.append(strArraySingle)
 
-    strArraySingle = ["" for _ in range(10)]
-    S1Command = command_array[0]
-    strArraySingle[0] = DC
-    strArraySingle[1] = "write"
-    strArraySingle[2] = S1Command
-    strArrayTest.append(strArraySingle)
-    strArrayTestStepSingle.append(strArraySingle)
+    if command_array:
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = command_array[0]
+        strArraySingle[0] = DC
+        strArraySingle[1] = "write"
+        strArraySingle[2] = S1Command
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
     for i in range(len(a)):
         strArraySingle = ["" for _ in range(10)]
@@ -22732,6 +23020,7 @@ def SaveFileDialogThaiStaticMPPTTest():
 
 def RunProjectPush():
     global strTestFlag,strSettingTestFlag, WT_is_checked, test_program, heading_handle, flicker_is_test
+    global strArrayTest, strConnectWT3000
     
     # TODO
     print(test_program)
@@ -22739,6 +23028,19 @@ def RunProjectPush():
     print("父句柄更新！")
     logger.info(f"父句柄更新：{heading_handle}")
     if strSettingTestFlag == "1":
+        wt3000_cmd_exists = any(
+            len(cmd) > 1 and cmd[0] == "WT3000" and cmd[1] == "write"
+            for cmd in strArrayTest
+        )
+        if wt3000_cmd_exists and strConnectWT3000 != "1":
+            QMessageBox.warning(
+                None,
+                "连接错误",
+                "检测到WT3000闪变命令，但WT3000未连接，已终止本次试验启动。"
+            )
+            logger.info("WT3000未连接，检测到WT3000 write命令，终止启动。")
+            print("WT3000未连接，检测到WT3000 write命令，终止启动。")
+            return
         strTestFlag = "1"
     else:
         strtimenow = now_to_datenow()
@@ -22840,9 +23142,12 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
+                        print(f"[WT调试] 准备发送第{i+1}条命令: {strArrayTest[i][2]}")
                         if AC_client is not None and AC_client.connect():
+                            print("[WT调试] 使用 AC_client.write 发送")
                             AC_client.write(strArrayTest[i][2]) #TODO
                         elif HandleEquAC is not None:
+                            print("[WT调试] 使用 HandleEquAC.write 发送")
                             HandleEquAC.write(strArrayTest[i][2])
                         else:
                             raise RuntimeError("AC未连接，无法发送命令")
@@ -22890,7 +23195,9 @@ def RunProject():
                         # 2) 置位 WT_auto_messure_status='1'（让 messure_testing 线程开始测量）
                         # 3) 在这里轮询 test_status，直到置回 '0'（表示本轮结束）
                         if strArrayTest[i][7] != '':
-                            now_save_file = now_save_file + 1
+                            # 首轮触发时保持 index=0（首个文件名），后续触发再递增
+                            if not (now_save_file == 0 and save_file_name == ''):
+                                now_save_file = now_save_file + 1
                             WT_auto_messure_status = '1'
                             loop = True
                             loop_1 = ''
@@ -22985,12 +23292,9 @@ def RunProject():
                         # query 后的 [9]/[8] 仍作为等待字段使用
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
-                            if fTestTime < 1 and fTestTime >= 1:
-                                iTestTime = int(fTestTime * 10)
-                                wait_time = 0.01
-                            else:
-                                iTestTime = int(fTestTime)
-                                wait_time = 0.1
+                            # [9] 统一按 0.1 秒计数处理
+                            iTestTime = int(fTestTime)
+                            wait_time = 0.1
                             for x in range(iTestTime):
                                 while True:
                                     if strTestStatusFlag == "暂停":
@@ -22999,6 +23303,11 @@ def RunProject():
                                         break
                                 if strTestStatusFlag == "结束":
                                     break
+                                if x % 100 == 0 and iTestTime > 100:
+                                    # 每 10 秒打印一次等待进度，避免误判为“卡住”
+                                    waited_sec = round(x * wait_time, 1)
+                                    total_sec = round(iTestTime * wait_time, 1)
+                                    logger.info(f"第{i+1}条命令等待中: {waited_sec}/{total_sec}s")
                                 time.sleep(wait_time)
                         
                         if strArrayTest[i][8] != '':
@@ -23178,6 +23487,8 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
+                        if HandleEquDC1 is None:
+                            raise RuntimeError("DC1未连接，跳过该命令")
                         HandleEquDC1.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC1 " + strArrayTest[i][2])
@@ -23216,6 +23527,8 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
+                        if HandleEquDC2 is None:
+                            raise RuntimeError("DC2未连接，跳过该命令")
                         HandleEquDC2.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC2 " + strArrayTest[i][2])
@@ -23254,6 +23567,8 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
+                        if HandleEquDC3 is None:
+                            raise RuntimeError("DC3未连接，跳过该命令")
                         HandleEquDC3.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC3 " + strArrayTest[i][2])
@@ -23292,6 +23607,8 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
+                        if HandleEquDC4 is None:
+                            raise RuntimeError("DC4未连接，跳过该命令")
                         HandleEquDC4.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC4 " + strArrayTest[i][2])
@@ -23398,45 +23715,64 @@ def RunProject():
                         time.sleep(1)
                     
 
-            # elif strArrayTest[i][0] == "WT3000":
-            #     if strArrayTest[i][1] == "write":
-            #         try:
-            #             if strTestStatusFlag == "结束":
-            #                 break
-            #             HandleEquWT3000.write(strArrayTest[i][2])
-            #             strtimenow = now_to_datenow()
-            #             logger.info(strtimenow + "WT3000 " + strArrayTest[i][2])
-            #             print(strtimenow + "WT3000 " + strArrayTest[i][2])
+            elif strArrayTest[i][0] == "WT3000":
+                if strArrayTest[i][1] == "write":
+                    try:
+                        if strTestStatusFlag == "结束":
+                            break
+                        command = strArrayTest[i][2].strip()
+                        wt_resource = getattr(HandleEquWT3000, "resource_name", "UNKNOWN")
+                        wt_baud = getattr(HandleEquWT3000, "baud_rate", "N/A")
+                        wt_data_bits = getattr(HandleEquWT3000, "data_bits", "N/A")
+                        wt_parity = getattr(HandleEquWT3000, "parity", "N/A")
+                        wt_stop_bits = getattr(HandleEquWT3000, "stop_bits", "N/A")
+                        wt_flow = getattr(HandleEquWT3000, "flow_control", "N/A")
+                        wt_debug_msg = (
+                            f"[WT DEBUG] about to write command | resource={wt_resource} | "
+                            f"baud={wt_baud} | data_bits={wt_data_bits} | parity={wt_parity} | "
+                            f"stop_bits={wt_stop_bits} | flow={wt_flow} | command={command}"
+                        )
+                        logger.info(wt_debug_msg)
+                        print(wt_debug_msg)
+                        HandleEquWT3000.write(command)
+                        strtimenow = now_to_datenow()
+                        logger.info(strtimenow + "WT3000 " + command)
+                        print(strtimenow + "WT3000 " + command)
 
-            #         except Exception as e:
-            #             print(e)
-            #         else:
-            #             if strArrayTest[i][9] != '':
-            #                 fTestTime = strArrayTest[i][9]
-            #                 iTestTime = int(fTestTime)
-            #                 print(iTestTime)
-            #                 for x in range(iTestTime):
-            #                     while True:
-            #                         if strTestStatusFlag == "暂停":
-            #                             time.sleep(0.01)
-            #                         else:
-            #                             break
-            #                     if strTestStatusFlag == "结束":
-            #                         break
-            #                     time.sleep(0.1)
-            #             if strArrayTest[i][8] != '':
-            #                 fTestTime = strArrayTest[i][8]
-            #                 iTestTime = int(fTestTime)
-            #                 print(iTestTime)
-            #                 for x in range(iTestTime):
-            #                     while True:
-            #                         if strTestStatusFlag == "暂停":
-            #                             time.sleep(0.01)
-            #                         else:
-            #                             break
-            #                     if strTestStatusFlag == "结束":
-            #                         break
-            #                     time.sleep(0.1)
+                        # 闪变/长耗时命令后不要立刻追加查询，避免串口被设备忙状态阻塞
+                        # 如需确认设备状态，统一通过显式查询命令执行
+                        if command.upper().startswith("FLICKER:"):
+                            time.sleep(0.2)
+
+                    except Exception as e:
+                        print(e)
+                    else:
+                        if strArrayTest[i][9] != '':
+                            fTestTime = strArrayTest[i][9]
+                            iTestTime = int(fTestTime)
+                            print(iTestTime)
+                            for x in range(iTestTime):
+                                while True:
+                                    if strTestStatusFlag == "暂停":
+                                        time.sleep(0.01)
+                                    else:
+                                        break
+                                if strTestStatusFlag == "结束":
+                                    break
+                                time.sleep(0.1)
+                        if strArrayTest[i][8] != '':
+                            fTestTime = strArrayTest[i][8]
+                            iTestTime = int(fTestTime)
+                            print(iTestTime)
+                            for x in range(iTestTime):
+                                while True:
+                                    if strTestStatusFlag == "暂停":
+                                        time.sleep(0.01)
+                                    else:
+                                        break
+                                if strTestStatusFlag == "结束":
+                                    break
+                                time.sleep(0.1)
                 elif strArrayTest[i][1] == "query":
                     print('query as time')
                     # 开启 WT 周期查询与采集日志
@@ -23477,7 +23813,22 @@ def RunProject():
                         if strTestStatusFlag == "结束":
                             break
                         try:
-                            ReturnValue = HandleEquWT3000.query(strArrayTest[i][2])
+                            command = strArrayTest[i][2].strip()
+                            wt_resource = getattr(HandleEquWT3000, "resource_name", "UNKNOWN")
+                            wt_baud = getattr(HandleEquWT3000, "baud_rate", "N/A")
+                            wt_data_bits = getattr(HandleEquWT3000, "data_bits", "N/A")
+                            wt_parity = getattr(HandleEquWT3000, "parity", "N/A")
+                            wt_stop_bits = getattr(HandleEquWT3000, "stop_bits", "N/A")
+                            wt_flow = getattr(HandleEquWT3000, "flow_control", "N/A")
+                            wt_debug_msg = (
+                                f"[WT DEBUG] about to query command | resource={wt_resource} | "
+                                f"baud={wt_baud} | data_bits={wt_data_bits} | parity={wt_parity} | "
+                                f"stop_bits={wt_stop_bits} | flow={wt_flow} | command={command}"
+                            )
+                            logger.info(wt_debug_msg)
+                            print(wt_debug_msg)
+                            ReturnValue = HandleEquWT3000.query(command)
+                            print(f"[WT调试] 第{i+1}条命令返回: {ReturnValue}")
                         except Exception as e:
                             print(e)
                             break
@@ -23520,6 +23871,19 @@ def RunWT3000QueryProject():
         if strStartTestWT3000QueryFlag == "1":
             if strConnectWT3000 == "1":
                 try:
+                    wt_resource = getattr(HandleEquWT3000, "resource_name", "UNKNOWN")
+                    wt_baud = getattr(HandleEquWT3000, "baud_rate", "N/A")
+                    wt_data_bits = getattr(HandleEquWT3000, "data_bits", "N/A")
+                    wt_parity = getattr(HandleEquWT3000, "parity", "N/A")
+                    wt_stop_bits = getattr(HandleEquWT3000, "stop_bits", "N/A")
+                    wt_flow = getattr(HandleEquWT3000, "flow_control", "N/A")
+                    wt_debug_msg = (
+                        f"[WT DEBUG] periodic query | resource={wt_resource} | "
+                        f"baud={wt_baud} | data_bits={wt_data_bits} | parity={wt_parity} | "
+                        f"stop_bits={wt_stop_bits} | flow={wt_flow} | command=:NUMERIC:NORMAL:VALUE?"
+                    )
+                    logger.info(wt_debug_msg)
+                    print(wt_debug_msg)
                     ReturnValue = HandleEquWT3000.query(":NUMERIC:NORMAL:VALUE?")
                 except Exception as e:
                     print(e)
@@ -25408,6 +25772,7 @@ def messure_testing():
     """
     global test_time_list, messsure_deatil_cofig, config_dict, messure_status, setting_status, WT_auto_messure_status
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
+    global save_file_name
 
     # 仅在关键状态变化时记录日志，避免定时器每 0.5 秒刷屏
     current_state = (setting_status, messure_status, WT_auto_messure_status, now_save_file, total_save_file)
@@ -25448,6 +25813,8 @@ def messure_testing():
         _append_debug_log(f"[messure_testing] computed loop_time={loop_time} (0.1s unit)")
 
         # 发起“开始测量”动作（点击 WT 的开始按钮）
+        # 与当前索引对齐文件名，避免首轮出现空文件名
+        save_file_name = test_count[now_save_file] if now_save_file < len(test_count) else ''
         status = testing_start()
 
         if status == '1':
@@ -25538,9 +25905,13 @@ def testing_stop(test_count, count_now):
 
         # 3) 当前项目未结束：进入下一轮文件名
         else:
-            # 切换到下一轮保存文件名
-            save_file_name = test_count[count_now]
-            _append_debug_log(f"[testing_stop] next round -> file={save_file_name}, next_index={count_now}")
+            # 切换到下一轮保存文件名（当前轮是 count_now，下一轮应为 count_now + 1）
+            next_index = count_now + 1
+            if next_index < len(test_count):
+                save_file_name = test_count[next_index]
+            else:
+                save_file_name = test_count[-1]
+            _append_debug_log(f"[testing_stop] next round -> file={save_file_name}, next_index={next_index}")
             # 重新打开“数值详细设置”并写入下一轮参数（主要是文件名/时长）
             messured_set(messure_handle_now)
             # 标记“详细设置”已完成
@@ -26976,6 +27347,7 @@ if __name__ == "__main__":
             ui.comboBox_DC4.addItems(EQUList)
             ui.comboBox_DL850.addItems(EQUList)
             ui.comboBox_WT3000.addItems(EQUList)
+            ui.comboBox_WT3000.setEditable(False)
             uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.addItems(EQUList)
             uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.addItems(EQUList)
             uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT.addItems(EQUList)
@@ -26997,6 +27369,8 @@ if __name__ == "__main__":
             ui.pushButton_ConnectEQUDC4.clicked.connect(ConnectEQUDC4)
             ui.pushButton_ConnectEQUDL850.clicked.connect(ConnectEQUDL850)
             ui.pushButton_ConnectEQUWT3000.clicked.connect(ConnectEQUWT3000)
+            if hasattr(ui, "pushButton_SetWT3000Options"):
+                ui.pushButton_SetWT3000Options.clicked.connect(ShowWT3000Setting)
             ui.pushButton_ClearMessage.clicked.connect(ClearMessage)
             #ui.pushButton_SendWCommand.clicked.connect(SendWMessage)
             #ui.pushButton_SendRCommand.clicked.connect(SendRMessage)

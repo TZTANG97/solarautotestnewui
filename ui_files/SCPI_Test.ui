@@ -372,6 +372,19 @@
     <string>连接设备</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="pushButton_SetWT3000Options">
+   <property name="geometry">
+    <rect>
+     <x>560</x>
+     <y>320</y>
+     <width>121</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>设定WT3000</string>
+   </property>
+  </widget>
   <widget class="QPushButton" name="pushButton_SetDC1Options">
    <property name="geometry">
     <rect>

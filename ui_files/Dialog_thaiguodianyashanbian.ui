@@ -32,7 +32,7 @@
    </property>
    <widget class="QComboBox" name="comboBox_S2_TIME">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
@@ -86,7 +86,7 @@
    </widget>
    <widget class="QTextEdit" name="textEdit_S2_TIME">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
@@ -296,7 +296,7 @@ p, li { white-space: pre-wrap; }
    </widget>
    <widget class="QComboBox" name="comboBox_S3_TIME">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
@@ -324,7 +324,7 @@ p, li { white-space: pre-wrap; }
    </widget>
    <widget class="QComboBox" name="comboBox_S3_TIME_2">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
@@ -392,7 +392,7 @@ p, li { white-space: pre-wrap; }
    </widget>
    <widget class="QTextEdit" name="textEdit_S3_TIME">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
@@ -579,7 +579,7 @@ p, li { white-space: pre-wrap; }
    </widget>
    <widget class="QTextEdit" name="textEdit_S3_TIME_2">
     <property name="enabled">
-     <bool>false</bool>
+     <bool>true</bool>
     </property>
     <property name="geometry">
      <rect>
