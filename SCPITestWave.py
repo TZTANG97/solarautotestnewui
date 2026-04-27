@@ -10,13 +10,6 @@ import datetime
 import logging
 import math
 import os
-#from pyqtgraph.Qt import QtGui, QtCore
-#import pyqtgraph as pg
-#import matplotlib
-#matplotlib.use("Qt5Agg")
-#from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-#from matplotlib.figure import Figure
-#import matplotlib.pyplot as plt
 import random
 import re
 import sqlite3
@@ -90,583 +83,255 @@ from RecPlayer.player.macro_manager import MacroManager
 from config_manager.thaifixedPF_config_manager import ThaiFixedPF_ConfigManager
 from func import *
 from modbus_visa import ModbusVISA
-import configparser
 
-# 创建配置解析器对象
-config = configparser.ConfigParser()
+from config.app_config import config
+from config.path_config import PATH_WT_EXE, PATH_RECORDINGS
+from infra.logging_setup import setup_logging, install_stream_logging
+from infra.exception_handler import install_exception_hook
+from utils.ui_helpers import _show_connect_message, _toggle_connection_button, _safe_close_handle
+from utils.time_helpers import SetTimeFunction
+from devices.scpi_common import _configure_scpi_resource
+from devices.ac_controller import ACController
+from devices.dc_controller import DCController, send_dc_test_message
+from devices.dl850_controller import DL850Controller
+from devices.wt_controller import WT3000Controller
+from app.bootstrap import bootstrap
+from app.context import get_app_context
+from setup.main_setup import initialize_setup_windows
 
-config.read('config_files/config.ini', encoding='utf-8')
-
-PATH_WT_EXE = config.get('PATH', 'wt_exe')
-PATH_RECORDINGS = {'WT3000': config.get('PATH', 'recordings_wt3000'),
-                    'WT1800': config.get('PATH', 'recordings_wt1800'),
-                    'WT1806E': config.get('PATH', 'recordings_wt1806e'),
-                    'WT5000': config.get('PATH', 'recordings_wt5000')
-                }
-
-
-# try:
-#     import thread
-# except ImportError:
-#     import _thread as thread
-
-#hear_figure, hear_figure_x = plt.subplots()
-#hear_figure1, hear_figure_x1 = plt.subplots(212)
-#canvas = FigureCanvas(hear_figure)
 
 #AC &DC 设定相关内容
-def _show_connect_message(msg, parent=None):
-    try:
-        QMessageBox.information(parent if parent is not None else dialog_window, "连接提示", msg, QMessageBox.Ok, QMessageBox.Ok)
-    except Exception:
-        # 避免在窗口未初始化时影响主流程
-        pass
-
 def ShowDL850Setting():
     global dialog_windowDLSetting
     dialog_windowDLSetting.show()
 
 def ShowACSetting():
-    global dialog_windowACSetting
-    dialog_windowACSetting.show()
+    global dialog_windowACSetting, ac_controller
+    return ac_controller.show_setting(dialog_windowACSetting)
+
 
 def OpenACOUTPUTON():
-    global HandleEquAC,AC_client
-    if HandleEquAC != None:
-        strArraySetting="OUTP ON"
-        try:
-            HandleEquAC.write(strArraySetting)
-        except Exception as e:
-            strtimenow = now_to_datenow()
-            logger.info(f'AC OUTP ON error--1: {e}')
-            print(f'{strtimenow} AC OUTP ON error--1: {e}')
-            _show_connect_message(f"交流电源输出开启失败：{e}", uiACSetting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info(strArraySetting)
-            print(f'{strtimenow} {strArraySetting}')
+    global ac_controller
+    return ac_controller.open_output()
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("AC Not Connect")
-        print(f'{strtimenow} AC Not Connect')
-        _show_connect_message("交流电源未连接，请先连接AC设备", uiACSetting)
-        _show_connect_message("交流电源未连接，请先连接AC设备")
 
 def SendACMessage():
-    global HandleEquAC
-    global uiACSetting
-    
-    uiACSetting.textEdit_AC.clear()
-    if HandleEquAC != None:
+    global ac_controller
+    return ac_controller.send_message(uiACSetting)
 
-        ac_voltage = uiACSetting.textEdit_AC_VOLT.toPlainText()
-        ac_frequency = uiACSetting.textEdit_AC_FR.toPlainText()
-        ac_phase = uiACSetting.comboBox_Phase.currentText()
-        if ac_voltage != "" and ac_frequency != "":
-            if ac_phase == '单相':
-                command_list = [
-                    "INST:PHAS SINGLE",
-                    "INST:EDIT ALL",
-                    "VOLT " + ac_voltage,
-                    "FREQ " + ac_frequency
-                ]
-                
-            elif ac_phase == '三相':
-                command_list = [
-                    "INST:PHAS THREE",
-                    "INST:EDIT EACH",
-                    "INST:NSEL 1",
-                    "VOLT " + ac_voltage,
-                    "FREQ " + ac_frequency,
-                    "INST:NSEL 2",
-                    "VOLT " + ac_voltage,
-                    "FREQ " + ac_frequency,
-                    "INST:NSEL 3",
-                    "VOLT " + ac_voltage,
-                    "FREQ " + ac_frequency
-                ]
-
-            for i in range(len(command_list)):
-                try:
-                    HandleEquAC.write(command_list[i])
-                except Exception as e:
-                    strtimenow = now_to_datenow()
-                    logger.info(f'Send command {command_list[i]} to AC error :{e}')
-                    print(f'{strtimenow} Send command {command_list[i]} to AC error :{e}')
-                    uiACSetting.textEdit_AC.append(f'Send command {command_list[i]} to AC error')
-                else:
-                    strtimenow = now_to_datenow()
-                    logger.info("SendCommandToAC:" + command_list[i])
-                    print(strtimenow + "SendCommandToAC:"+ command_list[i])
-        else:
-            QMessageBox.information(uiACSetting, "错误提示信息", "交流源电压or电流输入有误，请确认", QMessageBox.Ok, QMessageBox.Ok)
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("AC Not Connect")
-        print(strtimenow + " AC Not Connect")
-        _show_connect_message("交流电源未连接，请先连接AC设备", uiACSetting)
 
 def SendDCTestMessage():
-    global HandleEquDC1, HandleEquDC2, HandleEquDC3, HandleEquDC4
-    global uiDC1Setting
-    global per_dc_factor, command_list_DC
-    global DC_client_1
+    global dc1_controller, dc2_controller, dc3_controller, dc4_controller
 
-    order_list = []
-    DCVmp = uiDC1Setting.textEdit_Vmp.toPlainText()
-    DCImp = uiDC1Setting.textEdit_Imp.toPlainText()
-    DCVoc = uiDC1Setting.textEdit_Voc.toPlainText()
-    DCIsc = uiDC1Setting.textEdit_Isc.toPlainText()
-    DCPF = uiDC1Setting.textEdit_PF.toPlainText()
+    selected_dc = uiDC1Setting.comboBox_DC_Select.currentText().strip()
+    controller_map = {
+        "DC1": ("0", 0, dc1_controller),
+        "DC2": ("1", 1, dc2_controller),
+        "DC3": ("2", 2, dc3_controller),
+        "DC4": ("3", 3, dc4_controller),
+    }
 
-    a = DCGetIVValueFunction(DCVmp,DCImp,DCVoc,DCIsc,DCPF,0)
-    if a == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-        uiDC1Setting.textEdit_ReturnMessage.append("DC电源1赋值错误,请重新输入")
-    elif a == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-        uiDC1Setting.textEdit_ReturnMessage.append("DC电源1Isc,Imp赋值超范围,请重新输入")
-    else:
-        for i in range(len(a)):
-            order_list.append(a[i])
-        DC_Select = uiDC1Setting.comboBox_DC_Select.currentText()
-        if DC_Select == 'DC1' and HandleEquDC1 != None:
-            # 根据厂家追加I-V曲线命令
-            order_list.extend(command_list_DC[per_dc_factor.get("0")])
-            for i in range(len(order_list)):
-                try:
-                    HandleEquDC1.write(order_list[i])
-                except Exception as e:
-                    strtimenow = now_to_datenow()
-                    logger.info(f"Send message {order_list[i]} to DC1 error :{e}")
-                    print(f'{strtimenow} Send message {order_list[i]} to DC1 error :{e}')
-                else:
-                    strtimenow = now_to_datenow()
-                    logger.info("SendMessageToDC1:"+ order_list[i])
-                    print(strtimenow + "SendMessageToDC1:"+ order_list[i])
-                    uiDC1Setting.textEdit_ReturnMessage.append(f"SendMessageToDC1:{order_list[i]}")
+    if selected_dc not in controller_map:
+        _show_connect_message("请选择有效的直流电源（DC1~DC4）", uiDC1Setting)
+        return []
 
-                time.sleep(0.8)
+    dc_key, dc_index, controller = controller_map[selected_dc]
+    if controller is None:
+        controller = DCController(
+            logger,
+            _show_connect_message,
+            now_to_datenow,
+            ui_setting=uiDC1Setting,
+            rm=rm,
+            configure_scpi_resource=_configure_scpi_resource,
+        )
+
+    if selected_dc == "DC1":
+        dc1_controller = controller
+    elif selected_dc == "DC2":
+        dc2_controller = controller
+    elif selected_dc == "DC3":
+        dc3_controller = controller
+    elif selected_dc == "DC4":
+        dc4_controller = controller
+
+    if controller.handle is None:
+        _show_connect_message(f"{selected_dc}未连接，请先连接{selected_dc}设备", uiDC1Setting)
+        return []
+
+    order_list = send_dc_test_message(
+        controller.handle,
+        uiDC1Setting,
+        per_dc_factor,
+        command_list_DC,
+        DCGetIVValueFunction,
+        logger,
+        now_to_datenow,
+        dc_index=dc_index,
+        dc_label=selected_dc,
+    )
+    if not order_list:
+        return []
+
+    dc_vendor = per_dc_factor.get(dc_key, "")
+    order_list.extend(command_list_DC.get(dc_vendor, []))
+
+    for command in order_list:
+        try:
+            controller.handle.write(command)
+        except Exception as e:
+            strtimenow = now_to_datenow()
+            logger.info(f"Send message {command} to {selected_dc} error :{e}")
+            print(f'{strtimenow} Send message {command} to {selected_dc} error :{e}')
+            _show_connect_message(f"{selected_dc}参数下发失败：{e}", uiDC1Setting)
+            return []
         else:
             strtimenow = now_to_datenow()
-            logger.info("DC1 Not Connect")
-            print(strtimenow + "DC1 Not Connect")
-            uiDC1Setting.textEdit_ReturnMessage.append(f"DC1 Not Connect")
-            _show_connect_message("DC1未连接，请先连接DC1设备", uiDC1Setting)
+            logger.info(f"SendMessageTo{selected_dc}:{command}")
+            print(strtimenow + f"SendMessageTo{selected_dc}:{command}")
+            uiDC1Setting.textEdit_ReturnMessage.append(f"SendMessageTo{selected_dc}:{command}")
+        time.sleep(0.8)
 
-        if DC_Select == 'DC2' and HandleEquDC2 != None:
-            order_list.extend(command_list_DC[per_dc_factor.get("1")])
-            for i in range(len(order_list)):
-                try:
-                    HandleEquDC2.write(order_list[i])
-                except Exception as e:
-                    strtimenow = now_to_datenow()
-                    logger.info(f"Send message {order_list[i]} to DC2 error :{e}")
-                    print(f'{strtimenow} Send message {order_list[i]} to DC2 error :{e}')
-                else:
-                    strtimenow = now_to_datenow()
-                    logger.info("SendMessageToDC2:"+ order_list[i])
-                    print(strtimenow + "SendMessageToDC2:"+ order_list[i])
-                    uiDC1Setting.textEdit_ReturnMessage.append(f"SendMessageToDC2:{order_list[i]}")
-                time.sleep(0.8)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC2 Not Connect")
-            print(strtimenow + "DC2 Not Connect")
-            uiDC1Setting.textEdit_ReturnMessage.append(f"DC2 Not Connect")
-            _show_connect_message("DC2未连接，请先连接DC2设备", uiDC1Setting)
-        
-        if DC_Select == 'DC3' and HandleEquDC3 != None:
-            order_list.extend(command_list_DC[per_dc_factor.get("2")])
-            for i in range(len(order_list)):
-                try:
-                    HandleEquDC3.write(order_list[i])
-                except Exception as e:
-                    strtimenow = now_to_datenow()
-                    logger.info(f"Send message {order_list[i]} to DC3 error :{e}")
-                    print(f'{strtimenow} Send message {order_list[i]} to DC3 error :{e}')
-                else:
-                    strtimenow = now_to_datenow()
-                    logger.info("SendMessageToDC3:"+ order_list[i])
-                    print(strtimenow + "SendMessageToDC3:"+ order_list[i])
-                    uiDC1Setting.textEdit_ReturnMessage.append(f"SendMessageToDC3:{order_list[i]}")
-                time.sleep(0.8)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC3 Not Connect")
-            print(strtimenow + "DC3 Not Connect")
-            uiDC1Setting.textEdit_ReturnMessage.append(f"DC3 Not Connect")
-            _show_connect_message("DC3未连接，请先连接DC3设备", uiDC1Setting)
+    return order_list
 
-        if DC_Select == 'DC4' and HandleEquDC4 != None:
-            order_list.extend(command_list_DC[per_dc_factor.get("3")])
-            for i in range(len(order_list)):
-                try:
-                    HandleEquDC4.write(order_list[i])
-                except Exception as e:
-                    strtimenow = now_to_datenow()
-                    logger.info(f"Send message {order_list[i]} to DC4 error :{e}")
-                    print(f'{strtimenow} Send message {order_list[i]} to DC4 error :{e}')
-                else:
-                    strtimenow = now_to_datenow()
-                    logger.info("SendMessageToDC4:"+ order_list[i])
-                    print(strtimenow + "SendMessageToDC4:"+ order_list[i])
-                    uiDC1Setting.textEdit_ReturnMessage.append(f"SendMessageToDC4:{order_list[i]}")
-                time.sleep(0.8)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC4 Not Connect")
-            print(strtimenow + "DC4 Not Connect")
-            uiDC1Setting.textEdit_ReturnMessage.append(f"DC4 Not Connect")
-            _show_connect_message("DC4未连接，请先连接DC4设备", uiDC1Setting)
 
 def SendDC1QueryMessage():
-    global HandleEquDC1
-    global uiDC1Setting
-    if HandleEquDC1 != None:
-        if uiDC1Setting.textEdit_SendQueryMessage.toPlainText() != "":
-            try:
-                str1 = HandleEquDC1.query(uiDC1Setting.textEdit_SendQueryMessage.toPlainText())
-            except Exception as e:
-                strtimenow = now_to_datenow()
-                logger.info(f"Query message from DC1 error :{e}")
-                print(f'{strtimenow} Query message from DC1 error :{e}')
-            else:
-                strtimenow = now_to_datenow()
-                uiDC1Setting.textEdit_ReturnMessage.append(strtimenow +" ReturnMessageFormDC1 :"+ str1)
-
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC1 Not Connect")
-        print(strtimenow + " DC1 Not Connect")
-        _show_connect_message("DC1未连接，请先连接DC1设备", uiDC1Setting)
-        _show_connect_message("DC1未连接，请先连接DC1设备", uiDC1Setting)
+    global dc1_controller
+    if dc1_controller is None:
+        dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc1_controller.query_message(uiDC1Setting, "DC1", logger)
 
 
 def SendDC2Message():
-    global HandleEquDC2
-    global uiDC2Setting
-    if HandleEquDC2 != None:
-        if uiDC2Setting.textEdit_SendMessage.toPlainText() != "":
-            try:
-                HandleEquDC2.write(uiDC2Setting.textEdit_SendMessage.toPlainText())
-            except Exception as e:
-                strtimenow = now_to_datenow()
-                logger.info(f"Send message to DC2 error :{e}")
-                print(f'{strtimenow} Send message to DC2 error :{e}')
-            else:
-                strtimenow = now_to_datenow()
-                logger.info("SendMessageToDC2:"+ uiDC2Setting.textEdit_SendMessage.toPlainText())
-                print(strtimenow +"SendMessageToDC2:"+ uiDC2Setting.textEdit_SendMessage.toPlainText())
+    global dc2_controller
+    if dc2_controller is None:
+        dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc2_controller.send_message(uiDC2Setting, "DC2", logger)
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC2 Not Connect")
-        print(strtimenow + "DC2 Not Connect")
-        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
-        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
 
 def SendDC3Message():
-    global HandleEquDC3
-    global uiDC3Setting
-    if HandleEquDC3 != None:
-        if uiDC3Setting.textEdit_SendMessage.toPlainText() != "":
-            try:
-                HandleEquDC3.write(uiDC3Setting.textEdit_SendMessage.toPlainText())
-            except Exception as e:
-                strtimenow = now_to_datenow()
-                logger.info(f"Send message to DC3 error :{e}")
-                print(f'{strtimenow} Send message to DC3 error :{e}')
-            else:
-                strtimenow = now_to_datenow()
-                logger.info("SendMessageToDC3:"+ uiDC3Setting.textEdit_SendMessage.toPlainText())
-                print(strtimenow +"SendMessageToDC3:"+ uiDC3Setting.textEdit_SendMessage.toPlainText())
+    global dc3_controller
+    if dc3_controller is None:
+        dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc3_controller.send_message(uiDC3Setting, "DC3", logger)
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC3 Not Connect")
-        print(strtimenow + "DC3 Not Connect")
-        _show_connect_message("DC3未连接，请先连接DC3设备", uiDC3Setting)
 
 def SendDC4Message():
-    global HandleEquDC4
-    global uiDC4Setting
-    if HandleEquDC4 != None:
-        if uiDC4Setting.textEdit_SendMessage.toPlainText() != "":
-            try:
-                HandleEquDC4.write(uiDC4Setting.textEdit_SendMessage.toPlainText())
-            except Exception as e:
-                strtimenow = now_to_datenow()
-                logger.info(f"Send message to DC4 error :{e}")
-                print(f'{strtimenow} Send message to DC4 error :{e}')
-            else:
-                strtimenow = now_to_datenow()
-                logger.info("SendMessageToDC4:"+ uiDC4Setting.textEdit_SendMessage.toPlainText())
-                print(strtimenow +"SendMessageToDC4:"+ uiDC4Setting.textEdit_SendMessage.toPlainText())
-
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC4 Not Connect")
-        print(strtimenow + "DC4 Not Connect")
-        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
-        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
+    global dc4_controller
+    if dc4_controller is None:
+        dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc4_controller.send_message(uiDC4Setting, "DC4", logger)
 
 def SendDL850StartMessage():
-    global HandleEquDL850
+    global dl850_controller
     global uiDL850Setting
-    if HandleEquDL850 != None:
-        try:
-            HandleEquDL850.write("START")
-        except Exception as e:
-            strtimenow = now_to_datenow()
-            logger.info(f"Send start message to DL850 error :{e}")
-            print(f'{strtimenow} Send start message to DL850 error :{e}')
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("SendMessageStartToDL850:"+ "START")
-            print(strtimenow + "SendMessageStartToDL850:"+ "START")
+    if dl850_controller is None:
+        dl850_controller = DL850Controller(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDL850Setting)
+    if not dl850_controller.send_start():
+        _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DL850 Not Connect")
-        print(strtimenow + "DL850 Not Connect")
-        _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
-        _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
 
 def SendDL850StopMessage():
-    global HandleEquDL850
+    global dl850_controller
     global uiDL850Setting
-    if HandleEquDL850 != None:
-        try:
-            HandleEquDL850.write("STOP")
-        except Exception as e:
-            strtimenow = now_to_datenow()
-            logger.info(f"Send stop message to DL850 error :{e}")
-            print(f'{strtimenow} Send stop message to DL850 error :{e}')
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("SendMessageStartToDL850:"+ "STOP")
-            print(strtimenow +"SendMessageStartToDL850:"+ "STOP")
+    if dl850_controller is None:
+        dl850_controller = DL850Controller(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDL850Setting)
+    if not dl850_controller.send_stop():
+        _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DL850 Not Connect")
-        print(strtimenow + "DL850 Not Connect")
 
 def SendDL850SavePictureMessage():
-    global HandleEquDL850
+    global dl850_controller
     global uiDL850Setting
-    if HandleEquDL850 != None:
-        try:
-            HandleEquDL850.write(":IMAGe:EXECute")
-        except Exception as e:
-            strtimenow = now_to_datenow()
-            logger.info(f"Image save message to DL850 error :{e}")
-            print(f'{strtimenow} Image save message to DL850 error :{e}')
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("SendMessageStartToDL850:"+ ":IMAGe:EXECute")
-            print(strtimenow +"SendMessageStartToDL850:"+ ":IMAGe:EXECute")
-
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DL850 Not Connect")
-        print(strtimenow + "DL850 Not Connect")
+    if dl850_controller is None:
+        dl850_controller = DL850Controller(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDL850Setting)
+    if not dl850_controller.send_save_picture():
+        _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
 
 def CloseACOUTPUTON():
-    global HandleEquAC
-    if HandleEquAC != None:
-        try:
-            HandleEquAC.write("OUTP OFF")
-        except Exception as e:
-            print(e)
-            _show_connect_message(f"交流电源输出关闭失败：{e}", uiACSetting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("AC OUTP OFF")
-            print(strtimenow + "AC OUTP OFF")
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("AC Not Connect")
-        print(strtimenow + "AC Not Connect")
-        _show_connect_message("交流电源未连接，请先连接AC设备", uiACSetting)
+    global ac_controller
+    return ac_controller.close_output()
+
 
 def ShowDC1Setting():
-    global dialog_windowDC1Setting
-    dialog_windowDC1Setting.show()
+    global dialog_windowDC1Setting, dc1_controller
+    if dc1_controller is None:
+        return dialog_windowDC1Setting.show()
+    return dc1_controller.show_setting(dialog_windowDC1Setting)
 
 def OpenDC1OUTPUTON():
-    global HandleEquDC1,DC_client_1
-
-    # Modbus通道（IP连接）
-    if DC_client_1 is not None and DC_client_1.is_connected():
-        DC_client_1.write_register(0x0BB8, 0x00AA)
-
-    # VISA通道（USB/TCP资源）
-    if HandleEquDC1 != None:
-        try:
-            HandleEquDC1.write("OUTP ON")
-        except Exception as e:
-            print(e)
-            QMessageBox.information(dialog_window, "连接提示", f"DC1输出开启失败：{e}", QMessageBox.Ok, QMessageBox.Ok)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC1 OUTP ON")
-            print(strtimenow + "DC1 OUTP ON")
-
-    elif DC_client_1 is None:
-        strtimenow = now_to_datenow()
-        logger.info("DC1 Not Connect")
-        print(strtimenow + "DC1 Not Connect")
-        QMessageBox.information(dialog_window, "连接提示", "DC1未连接，请先点击连接DC1设备", QMessageBox.Ok, QMessageBox.Ok)
+    global dc1_controller, uiDC1Setting
+    if dc1_controller is None:
+        dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc1_controller.open_output("DC1", uiDC1Setting, logger)
 
 def CloseDC1OUTPUTON():
-    global HandleEquDC1,DC_client_1
-
-    # Modbus通道（IP连接）
-    if DC_client_1 is not None and DC_client_1.is_connected():
-        DC_client_1.write_register(0x0BB8, 0x0055)
-
-    # VISA通道（USB/TCP资源）
-    if HandleEquDC1 != None:
-        try:
-            HandleEquDC1.write("OUTP OFF")
-        except Exception as e:
-            print(e)
-            QMessageBox.information(dialog_window, "连接提示", f"DC1输出关闭失败：{e}", QMessageBox.Ok, QMessageBox.Ok)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC1 OUTP OFF")
-            print(strtimenow + "DC1 OUTP OFF")
-    elif DC_client_1 is None:
-        strtimenow = now_to_datenow()
-        logger.info("DC1 Not Connect")
-        print(strtimenow + "DC1 Not Connect")
-        QMessageBox.information(dialog_window, "连接提示", "DC1未连接，请先点击连接DC1设备", QMessageBox.Ok, QMessageBox.Ok)
+    global dc1_controller, uiDC1Setting
+    if dc1_controller is None:
+        dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc1_controller.close_output("DC1", uiDC1Setting, logger)
 
 def ShowDC2Setting():
-    global dialog_windowDC2Setting
-    dialog_windowDC2Setting.show()
+    global dialog_windowDC2Setting, dc2_controller
+    if dc2_controller is None:
+        dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc2_controller.show_setting(dialog_windowDC2Setting)
+
 
 def OpenDC2OUTPUTON():
-    global HandleEquDC2
-    if HandleEquDC2 != None:
-        try:
-            HandleEquDC2.write("OUTP ON")
-        except Exception as e:
-            print(e)
-            _show_connect_message(f"DC2输出开启失败：{e}", uiDC2Setting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC2 OUTP ON")
-            print(strtimenow + "DC2 OUTP ON")
+    global dc2_controller
+    if dc2_controller is None:
+        dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc2_controller.open_output("DC2", uiDC2Setting, logger)
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC2 Not Connect")
-        print(strtimenow + "DC2 Not Connect")
-        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
 
 def CloseDC2OUTPUTON():
-    global HandleEquDC2
-    if HandleEquDC2 != None:
-        try:
-            HandleEquDC2.write("OUTP OFF")
-        except Exception as e:
-            print(e)
-            _show_connect_message(f"DC2输出关闭失败：{e}", uiDC2Setting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC2 OUTP OFF")
-            print(strtimenow + "DC2 OUTP OFF")
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC2 Not Connect")
-        print(strtimenow + "DC2 Not Connect")
-        _show_connect_message("DC2未连接，请先连接DC2设备", uiDC2Setting)
+    global dc2_controller
+    if dc2_controller is None:
+        dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc2_controller.close_output("DC2", uiDC2Setting, logger)
+
 
 def ShowDC3Setting():
-    global dialog_windowDC3Setting
-    dialog_windowDC3Setting.show()
+    global dialog_windowDC3Setting, dc3_controller
+    if dc3_controller is None:
+        dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc3_controller.show_setting(dialog_windowDC3Setting)
+
 
 def OpenDC3OUTPUTON():
-    global HandleEquDC3
-    if HandleEquDC3 != None:
-        try:
-            HandleEquDC3.write("OUTP ON")
-        except Exception as e:
-            print(e)
-            _show_connect_message(f"DC3输出开启失败：{e}", uiDC3Setting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC3 OUTP ON")
-            print(strtimenow + "DC3 OUTP ON")
+    global dc3_controller
+    if dc3_controller is None:
+        dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc3_controller.open_output("DC3", uiDC3Setting, logger)
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC3 Not Connect")
-        print(strtimenow + "DC3 Not Connect")
-        _show_connect_message("DC3未连接，请先连接DC3设备", uiDC3Setting)
 
 def CloseDC3OUTPUTON():
-    global HandleEquDC3
-    if HandleEquDC3 != None:
-        try:
-            HandleEquDC3.write("OUTP OFF")
-        except Exception as e:
-            print(e)
-            _show_connect_message(f"DC3输出关闭失败：{e}", uiDC3Setting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC3 OUTP OFF")
-            print(strtimenow + "DC3 OUTP OFF")
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC3 Not Connect")
-        print(strtimenow + "DC3 Not Connect")
-        _show_connect_message("DC3未连接，请先连接DC3设备", uiDC3Setting)
+    global dc3_controller
+    if dc3_controller is None:
+        dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc3_controller.close_output("DC3", uiDC3Setting, logger)
+
 
 def ShowDC4Setting():
-    global dialog_windowDC4Setting
-    dialog_windowDC4Setting.show()
+    global dialog_windowDC4Setting, dc4_controller
+    if dc4_controller is None:
+        dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc4_controller.show_setting(dialog_windowDC4Setting)
+
 
 def OpenDC4OUTPUTON():
-    global HandleEquDC4
-    if HandleEquDC4 != None:
-        try:
-            HandleEquDC4.write("OUTP ON")
-        except Exception as e:
-            print(e)
-            _show_connect_message(f"DC4输出开启失败：{e}", uiDC4Setting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC4 OUTP ON")
-            print(strtimenow + "DC4 OUTP ON")
+    global dc4_controller
+    if dc4_controller is None:
+        dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc4_controller.open_output("DC4", uiDC4Setting, logger)
 
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC4 Not Connect")
-        print(strtimenow + "DC4 Not Connect")
-        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
 
 def CloseDC4OUTPUTON():
-    global HandleEquDC4
-    if HandleEquDC4 != None:
-        try:
-            HandleEquDC4.write("OUTP OFF")
-        except Exception as e:
-            print(e)
-            _show_connect_message(f"DC4输出关闭失败：{e}", uiDC4Setting)
-        else:
-            strtimenow = now_to_datenow()
-            logger.info("DC4 OUTP OFF")
-            print(strtimenow + "DC4 OUTP OFF")
-    else:
-        strtimenow = now_to_datenow()
-        logger.info("DC4 Not Connect")
-        print(strtimenow + "DC4 Not Connect")
-        _show_connect_message("DC4未连接，请先连接DC4设备", uiDC4Setting)
+    global dc4_controller
+    if dc4_controller is None:
+        dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    return dc4_controller.close_output("DC4", uiDC4Setting, logger)
 
 # def SendRMessage():
 #     if ui.textEdit_SendRCommand.toPlainText() != '':
@@ -694,17 +359,30 @@ def ClearMessage():
     ui.textEdit_ReturnMessage.clear()
     #str = ui.textEdit_SendWCommand.toPlainText()
 
-HandleEquAC = None
-HandleEquDC1 = None
-HandleEquDC2 = None
-HandleEquDC3 = None
-HandleEquDC4 = None
-HandleEquDL850 = None
-HandleEquWT3000 = None
 WT3000_setting_window = None
 uiWT3000Setting = None
 WT3000_baud_rate = "9600"
-AC_client = None
+dl850_controller = None
+wt3000_controller = None
+ac_controller = None
+dc1_controller = None
+dc2_controller = None
+dc3_controller = None
+dc4_controller = None
+
+# 过渡期上下文对象：用于把主程序运行时对象同步到 app 层，
+# 方便后续模块化，但不改变现有业务逻辑。
+app_ctx = get_app_context()
+app_ctx.WT3000_setting_window = WT3000_setting_window
+app_ctx.uiWT3000Setting = uiWT3000Setting
+app_ctx.WT3000_baud_rate = WT3000_baud_rate
+app_ctx.dl850_controller = dl850_controller
+app_ctx.wt3000_controller = wt3000_controller
+app_ctx.ac_controller = ac_controller
+app_ctx.dc1_controller = dc1_controller
+app_ctx.dc2_controller = dc2_controller
+app_ctx.dc3_controller = dc3_controller
+app_ctx.dc4_controller = dc4_controller
 
 
 def _toggle_connection_button(connected_button_name, connected):
@@ -722,62 +400,225 @@ def _safe_close_handle(handle):
         print(f"关闭设备失败: {e}")
 
 
+_STATUS_COLOR_CONNECTED = QtGui.QColor(34, 197, 94)
+_STATUS_COLOR_DISCONNECTED = QtGui.QColor(156, 163, 175)
+_STATUS_COLOR_TEXT = QtGui.QColor(17, 24, 39)
+_STATUS_ICON_CACHE = {}
+
+
+def _make_status_icon(color):
+    """生成一个圆点状态图标。"""
+    key = color.name()
+    if key in _STATUS_ICON_CACHE:
+        return _STATUS_ICON_CACHE[key]
+    pixmap = QtGui.QPixmap(12, 12)
+    pixmap.fill(QtCore.Qt.transparent)
+    painter = QtGui.QPainter(pixmap)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing)
+    painter.setBrush(QtGui.QBrush(color))
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.drawEllipse(1, 1, 10, 10)
+    painter.end()
+    icon = QtGui.QIcon(pixmap)
+    _STATUS_ICON_CACHE[key] = icon
+    return icon
+
+
+def _normalize_equ_resource_text(text):
+    """提取下拉框中真正的设备地址文本。"""
+    if not text:
+        return ""
+    cleaned = str(text).strip()
+    cleaned = cleaned.replace('●', '').replace('○', '').strip()
+    if ' [' in cleaned:
+        cleaned = cleaned.split(' [', 1)[0].strip()
+    return cleaned
+
+
+def _connection_state_label(tcp_addr, connected=False):
+    """返回下拉框中资源的显示文本。"""
+    return f'{tcp_addr}'
+
+
+def _default_equ_placeholder():
+    """下拉框默认占位项。"""
+    return '请选择设备'
+
+
+def _refresh_combo_box_with_states(combo, resources, connected_resources, current_value=None):
+    """按连接状态刷新下拉框，已连接资源保持可见但不可选。"""
+    if combo is None:
+        return
+    previous = _normalize_equ_resource_text(current_value or combo.currentText())
+    ordered_resources = [tcp_addr for tcp_addr in resources if tcp_addr and tcp_addr != _default_equ_placeholder()]
+    ordered_resources.sort(key=lambda addr: (addr in connected_resources, addr))
+    combo.blockSignals(True)
+    try:
+        combo.clear()
+        combo.addItem(f'-- {_default_equ_placeholder()} --', '')
+        for tcp_addr in ordered_resources:
+            connected = tcp_addr in connected_resources
+            is_current_choice = previous == tcp_addr
+            item_text = _connection_state_label(tcp_addr, connected)
+            combo.addItem(item_text, tcp_addr)
+            index = combo.findData(tcp_addr)
+            if index >= 0:
+                item = combo.model().item(index)
+                if item is not None:
+                    item.setEnabled((not connected) or is_current_choice)
+                    item.setForeground(QtGui.QBrush(_STATUS_COLOR_CONNECTED if connected else _STATUS_COLOR_DISCONNECTED))
+                    item.setIcon(_make_status_icon(_STATUS_COLOR_CONNECTED if connected else _STATUS_COLOR_DISCONNECTED))
+                    item.setToolTip("已连接，禁止再次选择" if connected and not is_current_choice else "可连接设备")
+        if previous and previous in ordered_resources:
+            target_index = combo.findData(previous)
+        else:
+            target_index = 0
+        if target_index >= 0:
+            combo.setCurrentIndex(target_index)
+    finally:
+        combo.blockSignals(False)
+
+
+def _refresh_all_equ_combo_boxes(resources, connected_resources):
+    """统一刷新所有设备下拉框状态。"""
+    combo_names = [
+        "comboBox_AC",
+        "comboBox_DC1",
+        "comboBox_DC2",
+        "comboBox_DC3",
+        "comboBox_DC4",
+        "comboBox_DL850",
+        "comboBox_WT3000",
+    ]
+    for name in combo_names:
+        combo = getattr(ui, name, None)
+        current = _normalize_equ_resource_text(combo.currentText()) if combo is not None else None
+        _refresh_combo_box_with_states(combo, resources, connected_resources, current)
+
+
+def _set_equ_combo_locked(combo_name, locked):
+    """统一锁定或解锁设备下拉框。"""
+    combo = getattr(ui, combo_name, None)
+    if combo is not None:
+        combo.setEnabled(not locked)
+        combo.setProperty("locked", locked)
+        if locked:
+            combo.setStyleSheet(
+                "QComboBox[locked=\"true\"] { color: #111827; background-color: #F9FAFB; }"
+                "QComboBox[locked=\"true\"]::drop-down { border: none; }"
+            )
+        else:
+            combo.setStyleSheet("")
+
+
+def _remove_equ_from_combo_boxes(tcp_addr):
+    """兼容旧调用，改为刷新所有下拉框状态。"""
+    connected = set(globals().get('_connected_equ_resources', set()))
+    connected.add(tcp_addr)
+    globals()['_connected_equ_resources'] = connected
+    _refresh_all_equ_combo_boxes(globals().get('EQUList', []), connected)
+
+
+def _restore_equ_to_combo_boxes(tcp_addr):
+    """兼容旧调用，断开后恢复设备可选状态。"""
+    connected = set(globals().get('_connected_equ_resources', set()))
+    connected.discard(tcp_addr)
+    globals()['_connected_equ_resources'] = connected
+    _refresh_all_equ_combo_boxes(globals().get('EQUList', []), connected)
+
+
 def DisconnectEQUAC():
-    global HandleEquAC, AC_client, strConnectAC
-    _safe_close_handle(HandleEquAC)
-    HandleEquAC = None
-    AC_client = None
-    strConnectAC = "0"
+    """断开交流电源并解锁选择框。"""
+    global ac_controller
+    if ac_controller is not None:
+        ac_controller.disconnect(_safe_close_handle)
+    else:
+        ac_controller.handle = None
+    _set_equ_combo_locked("comboBox_AC", False)
     _toggle_connection_button("pushButton_ConnectEQUAC", False)
 
 
 def DisconnectEQUDC1():
-    global HandleEquDC1, DC_client_1, strConnectDC1
-    _safe_close_handle(HandleEquDC1)
-    HandleEquDC1 = None
-    DC_client_1 = None
-    strConnectDC1 = "0"
+    """断开 DC1 并解锁选择框。"""
+    global dc1_controller
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
+    if tcp_addr == _default_equ_placeholder() or tcp_addr == '---':
+        tcp_addr = ''
+    if dc1_controller is None:
+        dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    dc1_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    if hasattr(ui, "comboBox_DC1"):
+        ui.comboBox_DC1.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC1", False)
 
 
 def DisconnectEQUDC2():
-    global HandleEquDC2, DC_client_2, strConnectDC2
-    _safe_close_handle(HandleEquDC2)
-    HandleEquDC2 = None
-    DC_client_2 = None
-    strConnectDC2 = "0"
+    """断开 DC2 并解锁选择框。"""
+    global dc2_controller
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC2.currentText())
+    if tcp_addr == _default_equ_placeholder() or tcp_addr == '---':
+        tcp_addr = ''
+    if dc2_controller is None:
+        dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    dc2_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    if hasattr(ui, "comboBox_DC2"):
+        ui.comboBox_DC2.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC2", False)
 
 
 def DisconnectEQUDC3():
-    global HandleEquDC3, strConnectDC3
-    _safe_close_handle(HandleEquDC3)
-    HandleEquDC3 = None
-    strConnectDC3 = "0"
+    """断开 DC3 并解锁选择框。"""
+    global dc3_controller
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC3.currentText())
+    if tcp_addr == _default_equ_placeholder():
+        tcp_addr = ''
+    if dc3_controller is None:
+        dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    dc3_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    if hasattr(ui, "comboBox_DC3"):
+        ui.comboBox_DC3.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC3", False)
 
 
 def DisconnectEQUDC4():
-    global HandleEquDC4, strConnectDC4
-    _safe_close_handle(HandleEquDC4)
-    HandleEquDC4 = None
-    strConnectDC4 = "0"
+    """断开 DC4 并解锁选择框。"""
+    global dc4_controller
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC4.currentText())
+    if tcp_addr == _default_equ_placeholder():
+        tcp_addr = ''
+    if dc4_controller is None:
+        dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    dc4_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    if hasattr(ui, "comboBox_DC4"):
+        ui.comboBox_DC4.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC4", False)
 
 
 def DisconnectEQUDL850():
-    global HandleEquDL850, strConnectDL850
-    _safe_close_handle(HandleEquDL850)
-    HandleEquDL850 = None
-    strConnectDL850 = "0"
+    """断开 DL850 并解锁选择框。"""
+    global dl850_controller
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DL850.currentText())
+    if dl850_controller is None:
+        dl850_controller = DL850Controller(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDL850Setting)
+    dl850_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    _set_equ_combo_locked("comboBox_DL850", False)
     _toggle_connection_button("pushButton_ConnectEQUDL850", False)
 
 
 def DisconnectEQUWT3000():
-    global HandleEquWT3000, strConnectWT3000
-    _safe_close_handle(HandleEquWT3000)
-    HandleEquWT3000 = None
-    strConnectWT3000 = "0"
+    """断开 WT3000 并解锁选择框。"""
+    global wt3000_controller
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_WT3000.currentText())
+    if wt3000_controller is None:
+        wt3000_controller = WT3000Controller(logger, _show_connect_message, rm, WT3000_baud_rate)
+    wt3000_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    _set_equ_combo_locked("comboBox_WT3000", False)
     _toggle_connection_button("pushButton_ConnectEQUWT3000", False)
 
 
@@ -809,52 +650,44 @@ def ApplyWT3000Setting(close_dialog=True):
 
 
 def ConnectEQUAC():
-    global HandleEquAC,strConnectAC
-    global AC_client
+    """连接交流电源。"""
+    global ac_controller
     if ui.pushButton_ConnectEQUAC.text() == "取消连接":
         DisconnectEQUAC()
         return
-    tcp_addr = ui.comboBox_AC.currentText()
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
+    if tcp_addr == _default_equ_placeholder():
+        tcp_addr = ''
     logger.info(tcp_addr)
     print(tcp_addr)
+    if ac_controller is None:
+        ac_controller = ACController(logger, _show_connect_message, now_to_datenow, ui_setting=uiACSetting, rm=rm, modbus_client_cls=ModbusVISA, configure_scpi_resource=_configure_scpi_resource)
     if is_ipv4_stdlib(tcp_addr):
         print("通过")
-        try:
-            AC_client = ModbusVISA(tcp_addr)
-            AC_client.connect()
-            if AC_client.is_connected():
-                logger.info(f"连接成功: {tcp_addr}:502")
-            else:
-                logger.error("连接失败")
-                _show_connect_message("交流电源连接失败，请检查IP和端口", ui)
-                AC_client = None  # 连接失败时置空
-        except ValueError:
-            logger.error("地址格式错误，应为 IP:端口")
-            _show_connect_message("交流电源地址格式错误，应为 IP:端口", ui)
-        except Exception as e:
-            logger.error(f"连接异常: {e}")
-            _show_connect_message(f"交流电源连接异常：{e}", ui)
-            AC_client = None
-        else:
-            HandleEquAC = AC_client.inst
-
+        ac_controller.connect_modbus(tcp_addr, ui)
+        if ac_controller.connected:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_AC", True)
+            ui.pushButton_ConnectEQUAC.setText("取消连接")
     else:
-        try:
-            HandleEquAC = rm.open_resource(tcp_addr)
-        except Exception as e:
-            print("device not exit")
-            logger.info("交流电源 not exit")
-            print("交流电源 not exit")
-            _show_connect_message("交流电源连接失败，请检查设备地址和连线", ui)
-            strConnectAC = "0"
-        else:
-            logger.info("交流电源连接成功")
-            print("交流电源连接成功")
-            # HandleEquAC.baud_rate = 115200
-            strConnectAC = "1"
+        ac_controller.connect_scpi(tcp_addr, ui)
+        if ac_controller.connected:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_AC", True)
             ui.pushButton_ConnectEQUAC.setText("取消连接")
 
-DC_client_1 = None
+def DisconnectEQUAC():
+    """断开交流电源并解锁选择框。"""
+    global ac_controller
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
+    if ac_controller is not None:
+        ac_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    if hasattr(ui, "comboBox_AC"):
+        ui.comboBox_AC.setEnabled(True)
+    _toggle_connection_button("pushButton_ConnectEQUAC", False)
+
+
 def _configure_scpi_resource(handle):
     """
     统一配置基于 VISA 的 SCPI 资源。
@@ -873,264 +706,151 @@ def _configure_scpi_resource(handle):
     except Exception:
         pass
 
+def _set_dc_factor_from_idn(dc_index, handle, fallback=None):
+    """根据 *IDN? 自动识别 DC 厂家类型。"""
+    if handle is None:
+        if fallback is not None:
+            per_dc_factor[str(dc_index)] = fallback
+        return
+    try:
+        dc_info = handle.query('*IDN?')
+    except Exception as e:
+        logger.info(f'DC{int(dc_index)+1} *IDN? 查询失败: {e}')
+        print(f'DC{int(dc_index)+1} *IDN? 查询失败: {e}')
+        if fallback is not None:
+            per_dc_factor[str(dc_index)] = fallback
+        return
+    dc_info = str(dc_info).upper()
+    if 'KEYSIGHT' in dc_info:
+        per_dc_factor[str(dc_index)] = 'Keysight'
+    elif 'CHROMA' in dc_info:
+        per_dc_factor[str(dc_index)] = 'Chroma'
+    elif 'ITECH' in dc_info:
+        per_dc_factor[str(dc_index)] = 'Itech'
+    elif fallback is not None:
+        per_dc_factor[str(dc_index)] = fallback
+    logger.info(f'DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), "")}')
+    print(f'DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), "")}')
+
+
 def ConnectEQUDC1():
-    global HandleEquDC1,strConnectDC1,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
-    global per_dc_factor
-    global DC_client_1
+    """连接 DC1。"""
+    global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation
+    global per_dc_factor, dc1_controller
     if ui.pushButton_ConnectEQUDC1.text() == "取消连接":
         DisconnectEQUDC1()
         return
-    tcp_addr = ui.comboBox_DC1.currentText()
+    if dc1_controller is None:
+        dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
     logger.info(tcp_addr)
     print(tcp_addr)
     if is_ipv4_stdlib(tcp_addr):
         print("通过")
-        try:
-            DC_client_1 = ModbusVISA(tcp_addr)
-            DC_client_1.connect()
-            if DC_client_1.is_connected():
-                logger.info(f"连接成功: {tcp_addr}:502")
-            else:
-                logger.error("连接失败")
-                _show_connect_message("直流电源1连接失败，请检查IP和端口", ui)
-                DC_client_1 = None  # 连接失败时置空
-        except ValueError:
-            logger.error("地址格式错误，应为 IP:端口")
-            _show_connect_message("直流电源1地址格式错误，应为 IP:端口", ui)
-        except Exception as e:
-            logger.error(f"连接异常: {e}")
-            _show_connect_message(f"直流电源1连接异常：{e}", ui)
-            DC_client_1 = None
-        else:
-            HandleEquDC1 = DC_client_1.inst
-
+        dc1_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源1")
+        if dc1_controller.connected:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC1", True)
+            _set_dc_factor_from_idn(0, dc1_controller.handle, fallback='Chroma')
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "1"
+            print("直流电源1连接成功")
+            ui.pushButton_ConnectEQUDC1.setText("取消连接")
     else:
-        try:
-            dc_info = ""
-            HandleEquDC1 = rm.open_resource(tcp_addr)
-            _configure_scpi_resource(HandleEquDC1)
-        except Exception as e:
-            print("device not exit")
-            logger.info("直流电源1 not exit")
-            print("直流电源1 not exit")
-            _show_connect_message("直流电源1连接失败，请检查设备地址和连线", ui)
-            strConnectDC1 = "0"
-        else:
-            try:
-                dc_info = HandleEquDC1.query('*IDN?')
-            except Exception as e:
-                print(e)
-            else:
-                dc_info = dc_info.upper()
-                print(f"DC1---{dc_info}")
-                if "KEYSIGHT" in dc_info:
-                    per_dc_factor.update({"0": "Keysight"})
-                elif "CHROMA" in dc_info:
-                    per_dc_factor.update({"0": "Chroma"})
-                elif "ITECH" in dc_info:
-                    per_dc_factor.update({"0": "Itech"})
-                print(f"per_dc_factor--{per_dc_factor}")
-            # dc_factor = HandleEquDC1.manufacturer_name
-            # if "Keysight" in dc_factor:
-            #     per_dc_factor.update({0: "Keysight"})
-            # elif "Chroma" in dc_factor:
-            #     per_dc_factor.update({0: "Chroma"})
-                strConnectDC1 ="1"
-                strFlagSendDCCommandInfomation = "1"
-                strFlagOfSendDCCommandTestLog = "1"
-                logger.info("直流电源1连接成功")
-                print("直流电源1连接成功")
-                ui.pushButton_ConnectEQUDC1.setText("取消连接")
+        dc1_controller.connect_scpi(tcp_addr, ui)
+        if dc1_controller.connected and dc1_controller.handle is not None:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC1", True)
+            _set_dc_factor_from_idn(0, dc1_controller.handle)
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "1"
+            ui.pushButton_ConnectEQUDC1.setText("取消连接")
 
 
-DC_client_2 = None
 def ConnectEQUDC2():
-    global HandleEquDC2,strConnectDC2,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
+    """连接 DC2。"""
+    global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc2_controller
     global per_dc_factor
-    global DC_client_2
     if ui.pushButton_ConnectEQUDC2.text() == "取消连接":
         DisconnectEQUDC2()
         return
-    tcp_addr = ui.comboBox_DC2.currentText()
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC2.currentText())
     logger.info(tcp_addr)
     print(tcp_addr)
+    if dc2_controller is None:
+        dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     if tcp_addr.startswith("192.168"):
-        try:
-            ip= tcp_addr.split(":")[0]
-            port = tcp_addr.split(":")[1]
-            print("调试IP",ip)
-            print("调试port",port)
-            DC_client_2 = ModbusTcpClient(
-                host=ip,
-                port=int(port),
-                timeout=5,
-                retries=3
-            )
-            if DC_client_2.connect():
-                logger.info(f"连接成功: {ip}:{port}")
-            else:
-                logger.error("连接失败")
-                _show_connect_message("直流电源2连接失败，请检查IP和端口", ui)
-                DC_client_2 = None  # 连接失败时置空
-        except ValueError:
-            logger.error("地址格式错误，应为 IP:端口")
-            _show_connect_message("直流电源2地址格式错误，应为 IP:端口", ui)
-        except Exception as e:
-            logger.error(f"连接异常: {e}")
-            _show_connect_message(f"直流电源2连接异常：{e}", ui)
-            DC_client_2 = None
+        dc2_controller.connect_modbus(tcp_addr, ui, ModbusTcpClient, "直流电源2")
     else:
-        try:
-            HandleEquDC2 = rm.open_resource(tcp_addr)
-            _configure_scpi_resource(HandleEquDC2)
-            #ui.pushButton_SendRCommand.setEnabled(True)
-            #ui.pushButton_SendWCommand.setEnabled(True)
-        except Exception as e:
-            print("device not exit")
-            logger.info("直流电源2 not exit")
-            print("直流电源2 not exit")
-            _show_connect_message("直流电源2连接失败，请检查设备地址和连线", ui)
-            strConnectDC2 = "0"
-        else:
-            # dc_factor = HandleEquDC2.manufacturer_name
-            # if "Keysight" in dc_factor:
-            #     per_dc_factor.update({1: "Keysight"})
-            # elif "Chroma" in dc_factor:
-            #     per_dc_factor.update({1: "Chroma"})
-            try:
-                dc_info = HandleEquDC2.query('*IDN?')
-            except Exception as e:
-                print(e)
-            else:
-                dc_info = dc_info.upper()
-                print(f"DC2---{dc_info}")
-                if "KEYSIGHT" in dc_info:
-                    per_dc_factor.update({"1": "Keysight"})
-                elif "CHROMA" in dc_info:
-                    per_dc_factor.update({"1": "Chroma"})
-                elif "ITECH" in dc_info:
-                    per_dc_factor.update({"1": "Itech"})
-                print(f"per_dc_factor--{per_dc_factor}")
-                logger.info("直流电源2连接成功")
-                print("直流电源2连接成功")
-                strConnectDC2 = "1"
-                strFlagSendDCCommandInfomation = "1"
-                strFlagOfSendDCCommandTestLog = "2"
-                ui.pushButton_ConnectEQUDC2.setText("取消连接")
+        dc2_controller.connect_scpi(tcp_addr, ui)
+    if dc2_controller.connected:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DC2", True)
+        _set_dc_factor_from_idn(1, dc2_controller.handle)
+        strFlagSendDCCommandInfomation = "1"
+        strFlagOfSendDCCommandTestLog = "2"
+        ui.pushButton_ConnectEQUDC2.setText("取消连接")
+
 
 def ConnectEQUDC3():
-    global HandleEquDC3,strConnectDC3,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
+    """连接 DC3。"""
+    global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc3_controller
     global per_dc_factor
     if ui.pushButton_ConnectEQUDC3.text() == "取消连接":
         DisconnectEQUDC3()
         return
-    tcp_addr = ui.comboBox_DC3.currentText()
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC3.currentText())
     logger.info(tcp_addr)
     print(tcp_addr)
-    try:
-        HandleEquDC3 = rm.open_resource(tcp_addr)
-        _configure_scpi_resource(HandleEquDC3)
-        #ui.pushButton_SendRCommand.setEnabled(True)
-        #ui.pushButton_SendWCommand.setEnabled(True)
-    except Exception as e:
-        print("device not exit")
-        logger.info("直流电源2 not exit")
-        print("直流电源2 not exit")
-        _show_connect_message("直流电源3连接失败，请检查设备地址和连线", ui)
-        strConnectDC3 = "0"
-    else:
-        # dc_factor = HandleEquDC3.manufacturer_name
-        # if "Keysight" in dc_factor:
-        #     per_dc_factor.update({2: "Keysight"})
-        # elif "Chroma" in dc_factor:
-        #     per_dc_factor.update({2: "Chroma"})
-        try:
-            dc_info = HandleEquDC3.query('*IDN?')
-        except Exception as e:
-            print(e)
-        else:
-            dc_info = dc_info.upper()
-            print(f"DC3---{dc_info}")
-            if "KEYSIGHT" in dc_info:
-                per_dc_factor.update({"2": "Keysight"})
-            elif "CHROMA" in dc_info:
-                per_dc_factor.update({"2": "Chroma"})
-            elif "ITECH" in dc_info:
-                per_dc_factor.update({"2": "Itech"})
-            print(f"per_dc_factor--{per_dc_factor}")
-            logger.info("直流电源3连接成功")
-            print("直流电源3连接成功")
-            strConnectDC3 = "1"
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "3"
+    if dc3_controller is None:
+        dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    dc3_controller.connect_scpi(tcp_addr, ui)
+    if dc3_controller.connected:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DC3", True)
+        _set_dc_factor_from_idn(2, dc3_controller.handle)
+        strFlagSendDCCommandInfomation = "1"
+        strFlagOfSendDCCommandTestLog = "3"
+        ui.pushButton_ConnectEQUDC3.setText("取消连接")
+
 
 def ConnectEQUDC4():
-    global HandleEquDC4,strConnectDC4,strFlagOfSendDCCommandTestLog,strFlagSendDCCommandInfomation
+    """连接 DC4。"""
+    global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc4_controller
     global per_dc_factor
     if ui.pushButton_ConnectEQUDC4.text() == "取消连接":
         DisconnectEQUDC4()
         return
-    tcp_addr = ui.comboBox_DC4.currentText()
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC4.currentText())
     logger.info(tcp_addr)
     print(tcp_addr)
-    try:
-        HandleEquDC4 = rm.open_resource(tcp_addr)
-        _configure_scpi_resource(HandleEquDC4)
-        #ui.pushButton_SendRCommand.setEnabled(True)
-        #ui.pushButton_SendWCommand.setEnabled(True)
-    except Exception as e:
-        print("device not exit")
-        logger.info("直流电源4 not exit")
-        print("直流电源4 not exit")
-        _show_connect_message("直流电源4连接失败，请检查设备地址和连线", ui)
-        strConnectDC4 = "0"
-    else:
-        # dc_factor = HandleEquDC4.manufacturer_name
-        # if "Keysight" in dc_factor:
-        #     per_dc_factor.update({3: "Keysight"})
-        # elif "Chroma" in dc_factor:
-        #     per_dc_factor.update({3: "Chroma"})
-        try:
-            dc_info = HandleEquDC4.query('*IDN?')
-        except Exception as e:
-            print(e)
-        else:
-            dc_info = dc_info.upper()
-            print(f"DC4---{dc_info}")
-            if "KEYSIGHT" in dc_info:
-                per_dc_factor.update({"3": "Keysight"})
-            elif "CHROMA" in dc_info:
-                per_dc_factor.update({"3": "Chroma"})
-            elif "ITECH" in dc_info:
-                per_dc_factor.update({"3": "Itech"})
-            print(f"per_dc_factor--{per_dc_factor}")
-            logger.info("直流电源4连接成功")
-            print("直流电源4连接成功")
-            strConnectDC4 = "1"
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "4"
+    if dc4_controller is None:
+        dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    dc4_controller.connect_scpi(tcp_addr, ui)
+    if dc4_controller.connected:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DC4", True)
+        _set_dc_factor_from_idn(3, dc4_controller.handle)
+        strFlagSendDCCommandInfomation = "1"
+        strFlagOfSendDCCommandTestLog = "4"
+        ui.pushButton_ConnectEQUDC4.setText("取消连接")
 
 def ConnectEQUDL850():
-    global HandleEquDL850,strConnectDL850
+    """连接 DL850。"""
+    global dl850_controller
     if ui.pushButton_ConnectEQUDL850.text() == "取消连接":
         DisconnectEQUDL850()
         return
-    tcp_addr = ui.comboBox_DL850.currentText()
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_DL850.currentText())
     logger.info(tcp_addr)
-    try:
-        HandleEquDL850 = rm.open_resource(tcp_addr)
-        #ui.pushButton_SendRCommand.setEnabled(True)
-        #ui.pushButton_SendWCommand.setEnabled(True)
-    except Exception as e:
-        print("device not exit")
-        logger.info("DL850 not exit")
-        print("DL850 not exit")
-        _show_connect_message("DL850连接失败，请检查设备地址和连线", ui)
-        strConnectDL850 = "0"
-    else:
-        logger.info("DL850连接成功")
-        print("DL850连接成功")
-        strConnectDL850 = "1"
+    if dl850_controller is None:
+        dl850_controller = DL850Controller(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDL850Setting)
+    dl850_controller.connect(tcp_addr)
+    if dl850_controller.connected:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DL850", True)
+        _toggle_connection_button("pushButton_ConnectEQUDL850", True)
+        ui.pushButton_ConnectEQUDL850.setText("取消连接")
 
 def is_ip_address_format(addr):
     """判断输入是否为IPv4地址，支持可选端口（如 192.168.40.1:5000）。"""
@@ -1140,88 +860,26 @@ def is_ip_address_format(addr):
     return bool(ip_port_pattern.match(addr.strip()))
 
 def ConnectEQUWT3000():
-    global HandleEquWT3000,strConnectWT3000
+    """连接 WT3000。"""
+    global wt3000_controller
     if ui.pushButton_ConnectEQUWT3000.text() == "取消连接":
         DisconnectEQUWT3000()
         return
-    tcp_addr = ui.comboBox_WT3000.currentText().strip()
+    tcp_addr = _normalize_equ_resource_text(ui.comboBox_WT3000.currentText())
+    if tcp_addr == _default_equ_placeholder():
+        tcp_addr = ''
+    if not tcp_addr:
+        tcp_addr = _normalize_equ_resource_text(ui.comboBox_WT3000.currentText())
     logger.info(tcp_addr)
     print(tcp_addr)
-    candidate_resources = []
-    if is_ip_address_format(tcp_addr):
-        if ":" in tcp_addr:
-            ip, port = tcp_addr.split(":", 1)
-            # 传入了明确端口时，优先按SOCKET连接
-            candidate_resources = [
-                f"TCPIP0::{ip}::{port}::SOCKET",
-                f"TCPIP::{ip}::{port}::INSTR",
-                f"TCPIP0::{ip}::inst0::INSTR",
-            ]
-        else:
-            ip = tcp_addr
-            candidate_resources = [
-                f"TCPIP0::{ip}::inst0::INSTR",
-                f"TCPIP::{ip}::INSTR",
-                f"TCPIP0::{ip}::5025::SOCKET",
-                f"TCPIP0::{ip}::10001::SOCKET",
-            ]
-        logger.info(f"WT3000候选VISA资源字符串: {candidate_resources}")
-        print(f"WT3000候选VISA资源字符串: {candidate_resources}")
-    else:
-        candidate_resources = [tcp_addr]
-
-    last_error = None
-    try:
-        logger.info(f"WT3000准备连接，当前波特率设置: {WT3000_baud_rate}")
-        print(f"WT3000准备连接，当前波特率设置: {WT3000_baud_rate}")
-        HandleEquWT3000 = None
-        for resource_string in candidate_resources:
-            try:
-                logger.info(f"WT3000尝试连接: {resource_string}")
-                print(f"WT3000尝试连接: {resource_string}")
-                HandleEquWT3000 = rm.open_resource(resource_string)
-                HandleEquWT3000.timeout = 10000
-                HandleEquWT3000.read_termination = "\n"
-                HandleEquWT3000.write_termination = "\n"
-                try:
-                    HandleEquWT3000.baud_rate = int(WT3000_baud_rate)
-                    HandleEquWT3000.data_bits = 8
-                    HandleEquWT3000.parity = visa.constants.Parity.none
-                    HandleEquWT3000.stop_bits = visa.constants.StopBits.one
-                    HandleEquWT3000.flow_control = visa.constants.VI_ASRL_FLOW_NONE
-                    logger.info(f"WT3000串口参数已设置: baud={WT3000_baud_rate}, data_bits=8, parity=None, stop_bits=1, flow=None")
-                    print(f"WT3000串口参数已设置: baud={WT3000_baud_rate}, data_bits=8, parity=None, stop_bits=1, flow=None")
-                except Exception as serial_cfg_err:
-                    logger.info(f"WT3000串口参数设置失败: {serial_cfg_err}")
-                    print(f"WT3000串口参数设置失败: {serial_cfg_err}")
-                break
-            except Exception as e:
-                last_error = e
-                logger.info(f"WT3000 connect error {e}")
-                print(f"WT3000 connect error {e}")
-        if HandleEquWT3000 is None:
-            raise last_error if last_error is not None else Exception("WT3000连接失败")
-        #ui.pushButton_SendRCommand.setEnabled(True)
-        #ui.pushButton_SendWCommand.setEnabled(True)
-    except Exception as e:
-        logger.info(f"WT3000 connect error {e}")
-        print(f"WT3000 connect error {e}")
-        _show_connect_message(f"WT3000连接失败：{e}", ui)
-        strConnectWT3000 = "0"
-    else:
-        logger.info("WT3000连接成功")
-        print("WT3000连接成功")
-        strConnectWT3000 = "1"
+    if wt3000_controller is None:
+        wt3000_controller = WT3000Controller(logger, _show_connect_message, rm, WT3000_baud_rate)
+    wt3000_controller.connect(tcp_addr)
+    if wt3000_controller.connected:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_WT3000", True)
+        _toggle_connection_button("pushButton_ConnectEQUWT3000", True)
         ui.pushButton_ConnectEQUWT3000.setText("取消连接")
-        str1 = ":NUMERIC:FORMAT ASCII"
-        try:
-            HandleEquWT3000.write(str1)
-        except Exception as e:
-            logger.info(f"command {str1} send failed")
-            print(f"command {str1} send failed")
-        else:
-            logger.info("WT3000 发送ASCII 命令连接成功")
-            print("WT3000 发送ASCII 命令连接成功") 
         time.sleep(0.1)
 
         #str1 = ":RATE 50MS"
@@ -1232,13 +890,14 @@ def ReConnectEQU():
     global EQUList
     global rm
     global local_file_path
+    global _connected_equ_resources
     # rm = visa.ResourceManager(local_file_path + '/visa32.dll')
     rm = visa.ResourceManager(local_file_path + '/visa32.dll')
     str1 = rm.list_resources()
     if len(str1) > 0:
         iNumber = len(str1)
         print(iNumber)
-        EQUList = str1
+        EQUList = list(str1)
         ui.pushButton_ConnectEQUAC.setEnabled(True)
         ui.pushButton_ConnectEQUDC1.setEnabled(True)
         ui.pushButton_ConnectEQUDC2.setEnabled(True)
@@ -1246,8 +905,6 @@ def ReConnectEQU():
         ui.pushButton_ConnectEQUDC4.setEnabled(True)
         ui.pushButton_ConnectEQUDL850.setEnabled(True)
         ui.pushButton_ConnectEQUWT3000.setEnabled(True)
-        #ui.pushButton_SendRCommand.setEnabled(True)
-        #ui.pushButton_SendWCommand.setEnabled(True)
     else:
         EQUList = ['未发现可连接设备']
         ui.pushButton_ConnectEQUAC.setEnabled(False)
@@ -1257,30 +914,8 @@ def ReConnectEQU():
         ui.pushButton_ConnectEQUDC4.setEnabled(False)
         ui.pushButton_ConnectEQUDL850.setEnabled(False)
         ui.pushButton_ConnectEQUWT3000.setEnabled(False)
-        #ui.pushButton_SendRCommand.setEnabled(False)
-        #ui.pushButton_SendWCommand.setEnabled(False)
-    ui.comboBox_AC.clear()
-    ui.comboBox_AC.addItems(EQUList)
-
-    ui.comboBox_DC1.clear()
-    ui.comboBox_DC1.addItems(EQUList)
-
-    ui.comboBox_DC2.clear()
-    ui.comboBox_DC2.addItems(EQUList)
-
-    ui.comboBox_DC3.clear()
-    ui.comboBox_DC3.addItems(EQUList)
-
-    ui.comboBox_DC4.clear()
-    ui.comboBox_DC4.addItems(EQUList)
-
-    ui.comboBox_DL850.clear()
-    ui.comboBox_DL850.addItems(EQUList)
-
-    ui.comboBox_WT3000.clear()
-    ui.comboBox_WT3000.addItems(EQUList)
+    _refresh_all_equ_combo_boxes(EQUList, _connected_equ_resources)
     ui.comboBox_WT3000.setEditable(False)
-
     uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.clear()
     uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.addItems(EQUList)
     uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.clear()
@@ -1319,11 +954,28 @@ def SecondProjectSet():
     currentText = ui.comboBox_P.currentText()
     if currentText == "Auto_Test":
         projectSecondList = [
-            '重连','电压闪变', '谐波电流', '固定PF=1', 'overloads',
+            '重连','电压闪变', '谐波电流', '固定PF=1', '过载能力测试',
             '直流分量', '静态QU', 'Test_PU', '静态Cos(φ)', 'Cos(φ)_Brazil',
             '10min过压保护', '过频降载', '过欠压_过欠频', '巴西过欠频稳定性',
             '静态MPPT测试']
     ui.comboBox_PS.addItems(projectSecondList)
+
+def reset_wt_automation_state():
+    """提交设定后重置WT自动化状态，确保下次开始会重新走自动化配置。"""
+    global first_test, setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig, WT_auto_messure_status
+    global strTestStatusFlag
+    # 运行中不允许重置自动化状态，避免中途把门闩清空导致后续命令无法触发测量。
+    if 'strTestStatusFlag' in globals() and strTestStatusFlag == "运行":
+        _append_debug_log(
+            "[state_guard][skip] reset_wt_automation_state ignored because test is running"
+        )
+        return
+    first_test = ''
+    setting_status = ''
+    messure_status = ''
+    messsure_deatil_cofig = ''
+    messure_project_cofig = ''
+    WT_auto_messure_status = ''
 
 #试验对话框选择函数
 def chooseDetailDialog():
@@ -1363,7 +1015,7 @@ def chooseDetailDialog():
             dialog_windowxiebodianliu.show()
         elif currentSecond == '固定PF=1':
             dialog_windowfixedpf.show()
-        elif currentSecond == 'overloads':
+        elif currentSecond in ('overloads', '过载能力测试'):
             dialog_windowoverloads.show()
         elif currentSecond == '直流分量':
             dialog_windowzhiliufenliang.show()
@@ -1426,7 +1078,7 @@ def addtestDialog():
             dialog_windowxiebodianliu.show()
         elif currentSecond == '固定PF=1':
             dialog_windowfixedpf.show()
-        elif currentSecond == 'overloads':
+        elif currentSecond in ('overloads', '过载能力测试'):
             dialog_windowoverloads.show()
         elif currentSecond == '直流分量':
             dialog_windowzhiliufenliang.show()
@@ -1463,17 +1115,6 @@ def addtestDialog():
 # - RunProject() 内部把 strArrayTest[i][8]/[9] 当作 “0.1 秒计数” 来 sleep
 # - UI 输入通常是 分钟/秒/毫秒
 # 因此这里统一把 UI 的时间换算成 “0.1 秒计数”（int）
-def SetTimeFunction(fSetTime, TIME_UNIT):
-    seconds = float(fSetTime)
-    if TIME_UNIT == "分钟":
-        seconds = seconds * 60.0
-    elif TIME_UNIT == "秒":
-        seconds = seconds
-    elif TIME_UNIT == "毫秒":
-        seconds = seconds / 1000.0
-    # 统一转为 0.1s 计数
-    return int(round(seconds * 10))
-
 # TODO
 # WT3000E配置界面
 def wt_3000E_show():
@@ -3510,6 +3151,7 @@ def thaidianyashanbianSend():
             logger.info(" 累加设定实验内容完成")
             print(strtimenow + "    累加设定实验内容完成")
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'dianyashanbian_commands{now_time}.csv'
         # directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
@@ -3538,7 +3180,6 @@ def OpenFileDialogThaiDianYaShanBian():
 def thaichonglianSend():
     global uithaichonglian,dialog_window,strArrayTest,Ui_Dialog_thaichonglian
     global strSettingTestFlag,strArrayTestStep
-    global strConnectDL850,strConnectDC2,strConnectDC1,strConnectAC
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
@@ -4629,6 +4270,7 @@ def thaichonglianSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'chonglian_commands{now_time}.csv'
@@ -6065,6 +5707,7 @@ def thaixiebodianliuSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'xiebodianliu_commands{now_time}.csv'
@@ -6084,6 +5727,11 @@ def thaixiebodianliuSend():
 def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
     global DC_num, command_list_DC, per_dc_factor
     # I-V曲线命令（按厂家选择）；未配置时避免抛出 KeyError 导致流程中断
+    if a is None:
+        strtimenow = now_to_datenow()
+        logger.error(f"{DC} IV command list is empty")
+        print(f"{strtimenow} {DC} IV command list is empty")
+        return strArrayTestStepSingle
     dc_index = DC_num.get(DC, "")
     dc_factor = per_dc_factor.get(dc_index, "")
     command_array = command_list_DC.get(dc_factor, [])
@@ -6091,6 +5739,7 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
         strtimenow = now_to_datenow()
         logger.error(f"{DC} factor is empty or unsupported: '{dc_factor}'")
         print(f"{strtimenow} {DC} factor is empty or unsupported: '{dc_factor}'")
+        return strArrayTestStepSingle
     
     strArraySingle = ["" for _ in range(10)]
     S1Command = "*IDN?"
@@ -7850,6 +7499,7 @@ def thaifixedpfSend():
             print('\n')
             print(strArrayTest)
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'fixedpf_commands{now_time}.csv'
@@ -8467,6 +8117,7 @@ def thaioverloadsSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'overloads_commands{now_time}.csv'
@@ -9378,6 +9029,7 @@ def thaizhiliufenliangSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'zhiliufenliang_commands{now_time}.csv'
@@ -9429,7 +9081,6 @@ def OpenFileDialogThaiZhiLiuFenLiang():
 def thaistaticQUSend():
     global uiThaiStaticQU,dialog_windowstaticQU,strArrayTest,Ui_Dialog_thaiStaticQU
     global strSettingTestFlag,strArrayTestStep
-    global strConnectDL850,strConnectDC2,strConnectDC1,strConnectAC,strConnectDC3,strConnectDC4
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
@@ -10510,6 +10161,7 @@ def thaistaticQUSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'staticQU_commands{now_time}.csv'
@@ -10560,7 +10212,6 @@ def SaveFileDialogThaiStaticQU():
 def thaistaticcosPhiSend():
     global uiThaiStaticCosPhi,dialog_windowstaticcosPhi,strArrayTest,Ui_Dialog_thaistaticcosPhi
     global strSettingTestFlag,strArrayTestStep
-    global strConnectDL850,strConnectDC2,strConnectDC1,strConnectAC,strConnectDC3,strConnectDC4
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
@@ -11611,6 +11262,7 @@ def thaistaticcosPhiSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'staticcosPhi_commands{now_time}.csv'
@@ -11661,7 +11313,6 @@ def SaveFileDialogThaiStaticCosPhi():
 def thaicosPhiBrazilSend():
     global uiThaiCosPhiBrazil,dialog_windowcosPhiBrazil,strArrayTest,Ui_Dialog_thaicosPhiBrazil
     global strSettingTestFlag,strArrayTestStep
-    global strConnectDL850,strConnectDC2,strConnectDC1,strConnectAC,strConnectDC3,strConnectDC4
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
@@ -12688,6 +12339,7 @@ def thaicosPhiBrazilSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'cosPhiBrazil_commands{now_time}.csv'
@@ -12739,7 +12391,6 @@ def SaveFileDialogThaiCosPhiBrazil():
 def thaivoltprotect10minSend():
     global uiThaiVoltProtect10min,dialog_windowvoltprotect10min,strArrayTest,Ui_Dialog_thaivoltprotect10min
     global strSettingTestFlag,strArrayTestStep
-    global strConnectDL850,strConnectDC2,strConnectDC1,strConnectAC,strConnectDC3,strConnectDC4
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
@@ -13429,6 +13080,7 @@ def thaivoltprotect10minSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'voltprotect10min_commands{now_time}.csv'
@@ -13479,7 +13131,6 @@ def SaveFileDialogThaiVoltProtect10min():
 def thaiguopinjiangzaiSend():
     global uiThaiGuoPinJiangZai,dialog_windowguopinjiangzai,strArrayTest,Ui_Dialog_thaiguopinjiangzai
     global strSettingTestFlag,strArrayTestStep
-    global strConnectDL850,strConnectDC2,strConnectDC1,strConnectAC
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
@@ -15700,6 +15351,7 @@ def thaiguopinjiangzaiSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'guopinjiangzai_commands{now_time}.csv'
@@ -15750,7 +15402,6 @@ def SaveFileDialogThaiGuoPinJiangZai():
 def thaitestPUSend():
     global uiThaiTestPU,dialog_windowtestPU,strArrayTest,Ui_Dialog_thaitestPU
     global strSettingTestFlag,strArrayTestStep
-    global strConnectDL850,strConnectDC2,strConnectDC1,strConnectAC
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
@@ -17835,6 +17486,7 @@ def thaitestPUSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'testPU_commands{now_time}.csv'
@@ -20908,6 +20560,7 @@ def thaiguoqianya_pinSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'guoqianya_pin_commands{now_time}.csv'
@@ -22405,6 +22058,7 @@ def thaiguoqianpin_immunSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'guoqianpin_immun_commands{now_time}.csv'
@@ -22974,6 +22628,7 @@ def thaistaticMPPTtestSend():
             print(strtimenow + "    累加设定实验内容完成")
             project_change = '0'
         strSettingTestFlag = "1"
+        reset_wt_automation_state()
         # print(strArrayTest)
         now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
         commands_file_name = f'mppt_test_commands{now_time}.csv'
@@ -23020,7 +22675,7 @@ def SaveFileDialogThaiStaticMPPTTest():
 
 def RunProjectPush():
     global strTestFlag,strSettingTestFlag, WT_is_checked, test_program, heading_handle, flicker_is_test
-    global strArrayTest, strConnectWT3000
+    global strArrayTest
     
     # TODO
     print(test_program)
@@ -23032,7 +22687,7 @@ def RunProjectPush():
             len(cmd) > 1 and cmd[0] == "WT3000" and cmd[1] == "write"
             for cmd in strArrayTest
         )
-        if wt3000_cmd_exists and strConnectWT3000 != "1":
+        if wt3000_cmd_exists and not (wt3000_controller is not None and wt3000_controller.connected):
             QMessageBox.warning(
                 None,
                 "连接错误",
@@ -23110,18 +22765,18 @@ def RunProject():
     - 你可以把 [8]/[9] 理解成“命令后等待”；把 [6]/[7] 理解成“和 WT 自动测量联动的特殊控制位”。
     """
     global strArrayTest,ui,strGlobalFlagGetTestTime
-    global HandleEquAC,HandleEquDC1,HandleEquDC2,HandleEquDL850,HandleEquWT3000,HandleEquDC3, HandleEquDC4
+    global dl850_controller
     global strTestFlag,strTestStatusFlag,strFlagOfCollectAllTestLog
     global threadRunProjecttimer,strTestWT3000QueryFlag,fSaveTestLogTime
     global strTestWT3000QueryFlag, fWT3000QueryTime,strStartTestWT3000QueryFlag
     global strArrayWT3000InformationOfCollect, strArrayWT3000ValueOfCollect,strArrayWT3000ValueOfCollectAll
     global strArrayWT3000ValueOfCollectAllNameFlag,strArrayWT3000ValueOfCollectAllName
     global WT_auto_messure_status, setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig, test_status
-    global total_save_file, now_save_file
+    global total_save_file, now_save_file, save_file_name
     global test_program, flicker_is_test
     global Mppt_step1, Mppt_step2, Mppt_step_end
     global WT_is_checked, flicker_is_test, config_dict, first_test
-    global manager,AC_client,DC_client_1
+    global manager
 
     # 只有点击“开始测试”后，strTestFlag 才会被置为 "1"。
     # 这里消费一次后立即清零，防止重复进入同一轮。
@@ -23131,11 +22786,23 @@ def RunProject():
         strTestStatusFlag = "运行"
         # 当前保存文件索引（给 WT 自动测量流程使用）
         now_save_file = 0
+        # 重置当前文件名，确保 col6/col7 首轮触发判断 (now_save_file==0 and save_file_name=='')
+        # 能正确生效；否则上一次测试残留的文件名会让首轮被误判为"非首轮"，
+        # 导致 now_save_file 提前递增到 1，第一段被错误地存成 file_list[1]，
+        # 而 testing_stop 又因为 count_now>=total-1 判定全部结束（详见谐波多段测试 bug）。
+        save_file_name = ''
+        _append_debug_log(
+            f"[run_loop] reset on start: now_save_file=0, save_file_name='', total_save_file={total_save_file}"
+        )
         # [6] 分支内部使用的“一次性门闩”状态
         auto_end_status = '0'
         # 逐条解释命令
         for i in range(len(strArrayTest)):
             print(f'正在解析第{i+1}条命令')
+            _append_debug_log(
+                f"[run_loop] parse command#{i+1}/{len(strArrayTest)}, now_save_file={now_save_file}, "
+                f"WT_auto_messure_status={WT_auto_messure_status}, test_status={test_status}"
+            )
             # ---------------- AC 分支 ----------------
             if strArrayTest[i][0] == "AC":
                 if strArrayTest[i][1] == "write":
@@ -23143,19 +22810,11 @@ def RunProject():
                         if strTestStatusFlag == "结束":
                             break
                         print(f"[WT调试] 准备发送第{i+1}条命令: {strArrayTest[i][2]}")
-                        if AC_client is not None and AC_client.connect():
-                            print("[WT调试] 使用 AC_client.write 发送")
-                            AC_client.write(strArrayTest[i][2]) #TODO
-                        elif HandleEquAC is not None:
-                            print("[WT调试] 使用 HandleEquAC.write 发送")
-                            HandleEquAC.write(strArrayTest[i][2])
+                        if ac_controller is not None and ac_controller.handle is not None:
+                            print("[WT调试] 使用 ac_controller.handle.write 发送")
+                            ac_controller.handle.write(strArrayTest[i][2])
                         else:
                             raise RuntimeError("AC未连接，无法发送命令")
-                            # HandleEquAC.close()
-                            # HandleEquAC.open()
-                            strtimenow = now_to_datenow()
-                            logger.info(strtimenow + "AC "+strArrayTest[i][2])
-                            print(strtimenow + "AC "+strArrayTest[i][2])
                     except Exception as e:
                         print(e)
                         logger.error(f"解析第{i+1}条命令失败: {e}")
@@ -23195,10 +22854,20 @@ def RunProject():
                         # 2) 置位 WT_auto_messure_status='1'（让 messure_testing 线程开始测量）
                         # 3) 在这里轮询 test_status，直到置回 '0'（表示本轮结束）
                         if strArrayTest[i][7] != '':
+                            _append_debug_log(
+                                f"[run_loop] col7 detected at command#{i+1}, gate setting_status={setting_status}, "
+                                f"messure_status={messure_status}, WT_auto_messure_status={WT_auto_messure_status}, "
+                                f"now_save_file={now_save_file}, test_status={test_status}"
+                            )
                             # 首轮触发时保持 index=0（首个文件名），后续触发再递增
+                            prev_index = now_save_file
                             if not (now_save_file == 0 and save_file_name == ''):
                                 now_save_file = now_save_file + 1
                             WT_auto_messure_status = '1'
+                            _append_debug_log(
+                                f"[run_loop] trigger measure by col7 at command#{i+1}, index {prev_index}->{now_save_file}, "
+                                f"save_file_name={save_file_name}"
+                            )
                             loop = True
                             loop_1 = ''
                             while loop:
@@ -23217,6 +22886,10 @@ def RunProject():
                                 else:
                                     if test_status == '0':
                                         loop = False
+                                        _append_debug_log(
+                                            f"[run_loop] measure wait done by col7 at command#{i+1}, "
+                                            f"final_index={now_save_file}, final_test_status={test_status}"
+                                        )
                                         test_status = ''
                                 time.sleep(0.01)
 
@@ -23224,9 +22897,19 @@ def RunProject():
                         # - 首次（auto_end_status == '0'）：先触发测量并按 [6] 等待
                         # - 再次进入：转为等待 test_status == '0'，并带超时保护
                         if strArrayTest[i][6] != '':
+                            _append_debug_log(
+                                f"[run_loop] col6 detected at command#{i+1}, auto_end_status={auto_end_status}, "
+                                f"setting_status={setting_status}, messure_status={messure_status}, "
+                                f"now_save_file={now_save_file}, test_status={test_status}"
+                            )
                             if auto_end_status == '0':
+                                prev_index = now_save_file
                                 now_save_file = now_save_file + 1
                                 WT_auto_messure_status = '1'
+                                _append_debug_log(
+                                    f"[run_loop] trigger measure by col6 at command#{i+1}, index {prev_index}->{now_save_file}, "
+                                    f"save_file_name={save_file_name}"
+                                )
                                 if strArrayTest[i][6] != '':
                                     fTestTime = strArrayTest[i][6]
                                     iTestTime = int(fTestTime)
@@ -23280,7 +22963,7 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        result = HandleEquAC.query(strArrayTest[i][2])
+                        result = ac_controller.handle.query(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "AC "+ strArrayTest[i][2])
                         logger.info(f"AC query result: {result}")
@@ -23328,8 +23011,15 @@ def RunProject():
                         # - WT 未就绪时，保持历史行为：仅作为普通等待字段
                         if strArrayTest[i][7] != '':
                             if setting_status == '1' and messure_status == '1':
-                                now_save_file = now_save_file + 1
+                                prev_index = now_save_file
+                                # 首轮触发时保持 index=0（首个文件名），后续触发再递增
+                                if not (now_save_file == 0 and save_file_name == ''):
+                                    now_save_file = now_save_file + 1
                                 WT_auto_messure_status = '1'
+                                _append_debug_log(
+                                    f"[run_loop] trigger measure(query,col7) command#{i+1}, index {prev_index}->{now_save_file}, "
+                                    f"save_file_name={save_file_name}"
+                                )
                                 loop = True
                                 loop_1 = ''
                                 while loop:
@@ -23348,27 +23038,110 @@ def RunProject():
                                     else:
                                         if test_status == '0':
                                             loop = False
+                                            _append_debug_log(
+                                                f"[run_loop] measure wait done by query col7 at command#{i+1}, "
+                                                f"final_index={now_save_file}, final_test_status={test_status}"
+                                            )
                                             test_status = ''
                                     time.sleep(0.01)
                             else:
-                                # 兼容历史：WT 未完成自动配置时，[7] 退化为纯等待
-                                fTestTime = strArrayTest[i][7]
-                                iTestTime = int(fTestTime)
-                                for x in range(iTestTime):
-                                    while True:
-                                        if strTestStatusFlag == "暂停":
-                                            time.sleep(0.01)
+                                # 自恢复：若仅缺测量页状态，先尝试补一次 messured_set，再继续触发测量。
+                                recovered = False
+                                if setting_status == '1' and messure_status == '0':
+                                    _append_debug_log(
+                                        f"[run_loop][recover] try reconfigure measure page before query col7 trigger, "
+                                        f"command#{i+1}, now_save_file={now_save_file}"
+                                    )
+                                    try:
+                                        now_handle_dict = get_enumwindows()
+                                        now_h = list(now_handle_dict.keys())[list(now_handle_dict.values()).index('WTViewerEfree')]
+                                        win32gui.ShowWindow(now_h, win32con.SW_SHOWMAXIMIZED)
+                                        win32gui.SetForegroundWindow(now_h)
+
+                                        now_child_dict = {}
+                                        win32gui.EnumChildWindows(
+                                            now_h,
+                                            lambda hwnd, parm: parm.update({hwnd: win32gui.GetWindowText(hwnd)}),
+                                            now_child_dict
+                                        )
+                                        if '数值' in now_child_dict.values():
+                                            messure_handle_now = list(now_child_dict.keys())[list(now_child_dict.values()).index('数值')]
+                                            messured_set(messure_handle_now)
+                                            recovered = (messure_status == '1')
+                                            _append_debug_log(
+                                                f"[run_loop][recover] messured_set done, recovered={recovered}, "
+                                                f"setting_status={setting_status}, messure_status={messure_status}"
+                                            )
                                         else:
+                                            _append_debug_log(
+                                                "[run_loop][recover][warn] WT child '数值' not found, cannot reconfigure"
+                                            )
+                                    except Exception as e:
+                                        _append_debug_log(f"[run_loop][recover][error] messured_set failed: {e}")
+
+                                if setting_status == '1' and messure_status == '1':
+                                    prev_index = now_save_file
+                                    # 首轮触发时保持 index=0（首个文件名），后续触发再递增
+                                    if not (now_save_file == 0 and save_file_name == ''):
+                                        now_save_file = now_save_file + 1
+                                    WT_auto_messure_status = '1'
+                                    _append_debug_log(
+                                        f"[run_loop] trigger measure(query,col7) after recover command#{i+1}, "
+                                        f"index {prev_index}->{now_save_file}, save_file_name={save_file_name}"
+                                    )
+                                    loop = True
+                                    loop_1 = ''
+                                    while loop:
+                                        if strTestStatusFlag == "结束":
+                                            loop = False
+                                        elif strTestStatusFlag == "暂停":
+                                            loop_1 = True
+                                            while loop_1:
+                                                if strTestStatusFlag == "暂停":
+                                                    time.sleep(0.1)
+                                                else:
+                                                    now_save_file = now_save_file - 1
+                                                    i = i - 1
+                                                    loop_1 = False
+                                                    loop = False
+                                        else:
+                                            if test_status == '0':
+                                                loop = False
+                                                _append_debug_log(
+                                                    f"[run_loop] measure wait done by query col7(recovered) at command#{i+1}, "
+                                                    f"final_index={now_save_file}, final_test_status={test_status}"
+                                                )
+                                                test_status = ''
+                                        time.sleep(0.01)
+                                else:
+                                    # 兼容历史：WT 未完成自动配置时，[7] 退化为纯等待
+                                    _append_debug_log(
+                                        f"[run_loop][warn] fallback to pure wait by query col7 at command#{i+1}, "
+                                        f"because setting_status={setting_status}, messure_status={messure_status}, "
+                                        f"WT_auto_messure_status={WT_auto_messure_status}, now_save_file={now_save_file}"
+                                    )
+                                    fTestTime = strArrayTest[i][7]
+                                    iTestTime = int(fTestTime)
+                                    for x in range(iTestTime):
+                                        while True:
+                                            if strTestStatusFlag == "暂停":
+                                                time.sleep(0.01)
+                                            else:
+                                                break
+                                        if strTestStatusFlag == "结束":
                                             break
-                                    if strTestStatusFlag == "结束":
-                                        break
-                                    time.sleep(0.1)
+                                        time.sleep(0.1)
 
                         # query 分支里的 [6] 仍会触发 WT 自动测量联动
                         if strArrayTest[i][6] != '':
                             if auto_end_status == '0':
+                                prev_index = now_save_file
                                 now_save_file = now_save_file + 1
                                 WT_auto_messure_status = '1'
+                                _append_debug_log(
+                                    f"[run_loop] trigger measure(query,col6) command#{i+1}, index {prev_index}->{now_save_file}, "
+                                    f"save_file_name={save_file_name}"
+                                )
                                 if strArrayTest[i][6] != '':
                                     fTestTime = strArrayTest[i][6]
                                     iTestTime = int(fTestTime)
@@ -23401,6 +23174,10 @@ def RunProject():
                                     else:
                                         if test_status == '0':
                                             loop = False
+                                            _append_debug_log(
+                                                f"[run_loop] measure wait done by query col6 at command#{i+1}, "
+                                                f"final_index={now_save_file}, final_test_status={test_status}"
+                                            )
                                             test_status = ''
                                     time.sleep(0.01)
                                 auto_end_status = '0'
@@ -23487,13 +23264,14 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        if HandleEquDC1 is None:
+                        if dc1_controller is None:
+                            raise RuntimeError("DC1控制器未初始化，跳过该命令")
+                        if dc1_controller.handle is None:
                             raise RuntimeError("DC1未连接，跳过该命令")
-                        HandleEquDC1.write(strArrayTest[i][2])
+                        dc1_controller.handle.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC1 " + strArrayTest[i][2])
                         print(strtimenow + "DC1 " + strArrayTest[i][2])
-                        #print(strtimenow + "DC1 "+strArrayTest[i][2])
                     except Exception as e:
                         print(e)
                     else:
@@ -23527,13 +23305,14 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        if HandleEquDC2 is None:
+                        if dc2_controller is None:
+                            raise RuntimeError("DC2控制器未初始化，跳过该命令")
+                        if dc2_controller.handle is None:
                             raise RuntimeError("DC2未连接，跳过该命令")
-                        HandleEquDC2.write(strArrayTest[i][2])
+                        dc2_controller.handle.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC2 " + strArrayTest[i][2])
                         print(strtimenow + "DC2 " + strArrayTest[i][2])
-                        #print(strtimenow + "DC2 "+strArrayTest[i][2])
                     except Exception as e:
                         print(e)
                     else:
@@ -23567,13 +23346,14 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        if HandleEquDC3 is None:
+                        if dc3_controller is None:
+                            raise RuntimeError("DC3控制器未初始化，跳过该命令")
+                        if dc3_controller.handle is None:
                             raise RuntimeError("DC3未连接，跳过该命令")
-                        HandleEquDC3.write(strArrayTest[i][2])
+                        dc3_controller.handle.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC3 " + strArrayTest[i][2])
                         print(strtimenow + "DC3 " + strArrayTest[i][2])
-                        #print(strtimenow + "DC2 "+strArrayTest[i][2])
                     except Exception as e:
                         print(e)
                     else:
@@ -23607,13 +23387,14 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        if HandleEquDC4 is None:
+                        if dc4_controller is None:
+                            raise RuntimeError("DC4控制器未初始化，跳过该命令")
+                        if dc4_controller.handle is None:
                             raise RuntimeError("DC4未连接，跳过该命令")
-                        HandleEquDC4.write(strArrayTest[i][2])
+                        dc4_controller.handle.write(strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC4 " + strArrayTest[i][2])
                         print(strtimenow + "DC4 " + strArrayTest[i][2])
-                        #print(strtimenow + "DC4 "+strArrayTest[i][2])
                     except Exception as e:
                         print(e)
                     else:
@@ -23648,7 +23429,10 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        HandleEquDL850.write(strArrayTest[i][2])
+                        if dl850_controller is not None and dl850_controller.handle is not None:
+                            dl850_controller.handle.write(strArrayTest[i][2])
+                        else:
+                            raise RuntimeError("DL850未连接，无法发送命令")
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DL850 " + strArrayTest[i][2])
                         #print(strtimenow + "DL850 "+strArrayTest[i][2])
@@ -23721,12 +23505,12 @@ def RunProject():
                         if strTestStatusFlag == "结束":
                             break
                         command = strArrayTest[i][2].strip()
-                        wt_resource = getattr(HandleEquWT3000, "resource_name", "UNKNOWN")
-                        wt_baud = getattr(HandleEquWT3000, "baud_rate", "N/A")
-                        wt_data_bits = getattr(HandleEquWT3000, "data_bits", "N/A")
-                        wt_parity = getattr(HandleEquWT3000, "parity", "N/A")
-                        wt_stop_bits = getattr(HandleEquWT3000, "stop_bits", "N/A")
-                        wt_flow = getattr(HandleEquWT3000, "flow_control", "N/A")
+                        wt_resource = getattr(wt3000_controller.handle, "resource_name", "UNKNOWN") if wt3000_controller and wt3000_controller.handle is not None else "UNKNOWN"
+                        wt_baud = getattr(wt3000_controller.handle, "baud_rate", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                        wt_data_bits = getattr(wt3000_controller.handle, "data_bits", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                        wt_parity = getattr(wt3000_controller.handle, "parity", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                        wt_stop_bits = getattr(wt3000_controller.handle, "stop_bits", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                        wt_flow = getattr(wt3000_controller.handle, "flow_control", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
                         wt_debug_msg = (
                             f"[WT DEBUG] about to write command | resource={wt_resource} | "
                             f"baud={wt_baud} | data_bits={wt_data_bits} | parity={wt_parity} | "
@@ -23734,7 +23518,7 @@ def RunProject():
                         )
                         logger.info(wt_debug_msg)
                         print(wt_debug_msg)
-                        HandleEquWT3000.write(command)
+                        wt3000_controller.handle.write(command)
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "WT3000 " + command)
                         print(strtimenow + "WT3000 " + command)
@@ -23814,12 +23598,12 @@ def RunProject():
                             break
                         try:
                             command = strArrayTest[i][2].strip()
-                            wt_resource = getattr(HandleEquWT3000, "resource_name", "UNKNOWN")
-                            wt_baud = getattr(HandleEquWT3000, "baud_rate", "N/A")
-                            wt_data_bits = getattr(HandleEquWT3000, "data_bits", "N/A")
-                            wt_parity = getattr(HandleEquWT3000, "parity", "N/A")
-                            wt_stop_bits = getattr(HandleEquWT3000, "stop_bits", "N/A")
-                            wt_flow = getattr(HandleEquWT3000, "flow_control", "N/A")
+                            wt_resource = getattr(wt3000_controller.handle, "resource_name", "UNKNOWN") if wt3000_controller and wt3000_controller.handle is not None else "UNKNOWN"
+                            wt_baud = getattr(wt3000_controller.handle, "baud_rate", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                            wt_data_bits = getattr(wt3000_controller.handle, "data_bits", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                            wt_parity = getattr(wt3000_controller.handle, "parity", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                            wt_stop_bits = getattr(wt3000_controller.handle, "stop_bits", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                            wt_flow = getattr(wt3000_controller.handle, "flow_control", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
                             wt_debug_msg = (
                                 f"[WT DEBUG] about to query command | resource={wt_resource} | "
                                 f"baud={wt_baud} | data_bits={wt_data_bits} | parity={wt_parity} | "
@@ -23827,7 +23611,7 @@ def RunProject():
                             )
                             logger.info(wt_debug_msg)
                             print(wt_debug_msg)
-                            ReturnValue = HandleEquWT3000.query(command)
+                            ReturnValue = wt3000_controller.handle.query(command)
                             print(f"[WT调试] 第{i+1}条命令返回: {ReturnValue}")
                         except Exception as e:
                             print(e)
@@ -23864,19 +23648,19 @@ def RunProjectTime():
 def RunWT3000QueryProject():
     global threadRunWT3000QueryProjecttimer,strStartTestWT3000QueryFlag
     global strTestWT3000QueryFlag,fWT3000QueryTime
-    global strConnectWT3000,HandleEquWT3000,strArrayWT3000ValueOfCollect
+    global wt3000_controller,strArrayWT3000ValueOfCollect
 
     if strTestWT3000QueryFlag == "1":
         strTestWT3000QueryFlag == "0"
         if strStartTestWT3000QueryFlag == "1":
-            if strConnectWT3000 == "1":
+            if wt3000_controller is not None and wt3000_controller.connected:
                 try:
-                    wt_resource = getattr(HandleEquWT3000, "resource_name", "UNKNOWN")
-                    wt_baud = getattr(HandleEquWT3000, "baud_rate", "N/A")
-                    wt_data_bits = getattr(HandleEquWT3000, "data_bits", "N/A")
-                    wt_parity = getattr(HandleEquWT3000, "parity", "N/A")
-                    wt_stop_bits = getattr(HandleEquWT3000, "stop_bits", "N/A")
-                    wt_flow = getattr(HandleEquWT3000, "flow_control", "N/A")
+                    wt_resource = getattr(wt3000_controller.handle, "resource_name", "UNKNOWN") if wt3000_controller and wt3000_controller.handle is not None else "UNKNOWN"
+                    wt_baud = getattr(wt3000_controller.handle, "baud_rate", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                    wt_data_bits = getattr(wt3000_controller.handle, "data_bits", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                    wt_parity = getattr(wt3000_controller.handle, "parity", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                    wt_stop_bits = getattr(wt3000_controller.handle, "stop_bits", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
+                    wt_flow = getattr(wt3000_controller.handle, "flow_control", "N/A") if wt3000_controller and wt3000_controller.handle is not None else "N/A"
                     wt_debug_msg = (
                         f"[WT DEBUG] periodic query | resource={wt_resource} | "
                         f"baud={wt_baud} | data_bits={wt_data_bits} | parity={wt_parity} | "
@@ -23884,7 +23668,7 @@ def RunWT3000QueryProject():
                     )
                     logger.info(wt_debug_msg)
                     print(wt_debug_msg)
-                    ReturnValue = HandleEquWT3000.query(":NUMERIC:NORMAL:VALUE?")
+                    ReturnValue = wt3000_controller.handle.query(":NUMERIC:NORMAL:VALUE?")
                 except Exception as e:
                     print(e)
                 else:
@@ -24226,7 +24010,6 @@ def ThreadCollectTestInfomation():
 def ThreadSendDCCommandInfomationTimer():
 
     global strFlagSendDCCommandInfomation,strFlagOfSendDCCommandTestLog
-    global HandleEquDC1,HandleEquDC2,HandleEquDC3, HandleEquDC4
     global ArrayfDCCurrValue,ArrayfDCPowValue, per_dc_factor
 
     if strFlagSendDCCommandInfomation == "1":
@@ -24292,51 +24075,45 @@ def ThreadSendDCCommandInfomationTimer():
         if strFlagOfSendDCCommandTestLog == "1":
             if per_dc_factor.get("0") == "Chroma":
                 for i in range(len(strArraySetting)):
-                    if HandleEquDC1 != None:
+                    if dc1_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
                             try:
-                                HandleEquDC1.write(strArraySetting[i])
+                                dc1_controller.handle.write(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
                                 strtimenow = now_to_datenow()
-                                logger.info(
-                                    strtimenow + "SendMessageToDC1:" + strArraySetting[i])
-                                print(
-                                    strtimenow + "SendMessageToDC1:" + strArraySetting[i])
+                                logger.info(strtimenow + "SendMessageToDC1:" + strArraySetting[i])
+                                print(strtimenow + "SendMessageToDC1:" + strArraySetting[i])
                         elif strArraySettingFlag[i] == "2":
                             ArrayfDCCurrValue[0] = fDCCurrValue
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC1.write(strCurrMessage)
+                                dc1_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
                                 strtimenow = now_to_datenow()
-                                logger.info(
-                                    strtimenow + "SendMessageToDC1:" + strCurrMessage)
-                                print(
-                                    strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                                logger.info(strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                                print(strtimenow + "SendMessageToDC1:" + strCurrMessage)
                         elif strArraySettingFlag[i] == "3":
                             ArrayfDCPowValue[0] = fDCPowValue
                             strCurrValue = round(fDCPowValue, 1)
                             strCurrValue = '%.1f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC1.write(strCurrMessage)
+                                dc1_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
                                 strtimenow = now_to_datenow()
-                                logger.info(
-                                    strtimenow + "SendMessageToDC1:" + strCurrMessage)
-                                print(
-                                    strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                                logger.info(strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                                print(strtimenow + "SendMessageToDC1:" + strCurrMessage)
                         elif strArraySettingFlag[i] == "1":
                             try:
-                                strReturnMessage = HandleEquDC1.query(strArraySetting[i])
+                                strReturnMessage = dc1_controller.handle.query(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
@@ -24358,49 +24135,43 @@ def ThreadSendDCCommandInfomationTimer():
                                         fDCPowValue = fDCPowValue * 4
 
                                 strtimenow = now_to_datenow()
-                                logger.info(
-                                    strtimenow + "ReturnMessageFromDC1:" + strReturnMessage)
-                                print(
-                                    strtimenow + "ReturnMessageFromDC1:" + strReturnMessage)
+                                logger.info(strtimenow + "ReturnMessageFromDC1:" + strReturnMessage)
+                                print(strtimenow + "ReturnMessageFromDC1:" + strReturnMessage)
 
                         #time.sleep(0.2)
             elif per_dc_factor.get("0") == "Keysight":
                 for i in range(len(strArraySettingKeysight)):
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
-                        HandleEquDC1.write(strCurrMessage)
+                        dc1_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
                     else:
                         strtimenow = now_to_datenow()
-                        logger.info(
-                            strtimenow + "SendMessageToDC1:" + strCurrMessage)
-                        print(
-                            strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                        logger.info(strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                        print(strtimenow + "SendMessageToDC1:" + strCurrMessage)
 
             elif per_dc_factor.get("0") == "Itech":
                 for i in range(len(strArraySettingItech)):
                     strCurrMessage = strArraySettingItech[i]
                     try:
-                        HandleEquDC1.write(strCurrMessage)
+                        dc1_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
                     else:
                         strtimenow = now_to_datenow()
-                        logger.info(
-                            strtimenow + "SendMessageToDC1:" + strCurrMessage)
-                        print(
-                            strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                        logger.info(strtimenow + "SendMessageToDC1:" + strCurrMessage)
+                        print(strtimenow + "SendMessageToDC1:" + strCurrMessage)
 
         elif strFlagOfSendDCCommandTestLog == "2":
             if per_dc_factor.get("1") == "Chroma":
                 for i in range(len(strArraySetting)):
-                    if HandleEquDC2 != None:
+                    if dc2_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
                             try:
-                                HandleEquDC2.write(strArraySetting[i])
+                                dc2_controller.handle.write(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
@@ -24415,7 +24186,7 @@ def ThreadSendDCCommandInfomationTimer():
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC2.write(strCurrMessage)
+                                dc2_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
@@ -24430,7 +24201,7 @@ def ThreadSendDCCommandInfomationTimer():
                             strCurrValue = '%.1f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC2.write(strCurrMessage)
+                                dc2_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
@@ -24441,7 +24212,7 @@ def ThreadSendDCCommandInfomationTimer():
                                     strtimenow + "SendMessageToDC2:" + strCurrMessage)
                         elif strArraySettingFlag[i] == "1":
                             try:
-                                strReturnMessage = HandleEquDC2.query(strArraySetting[i])
+                                strReturnMessage = dc2_controller.handle.query(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
@@ -24470,7 +24241,7 @@ def ThreadSendDCCommandInfomationTimer():
                 for i in range(len(strArraySettingKeysight)):
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
-                        HandleEquDC2.write(strCurrMessage)
+                        dc2_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
@@ -24484,7 +24255,7 @@ def ThreadSendDCCommandInfomationTimer():
                 for i in range(len(strArraySettingItech)):
                     strCurrMessage = strArraySettingItech[i]
                     try:
-                        HandleEquDC2.write(strCurrMessage)
+                        dc2_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
@@ -24498,10 +24269,10 @@ def ThreadSendDCCommandInfomationTimer():
         elif strFlagOfSendDCCommandTestLog == "3":
             if per_dc_factor.get("2") == "Chroma":
                 for i in range(len(strArraySetting)):
-                    if HandleEquDC3 != None:
+                    if dc3_controller is not None and dc3_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
                             try:
-                                HandleEquDC3.write(strArraySetting[i])
+                                dc3_controller.handle.write(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
@@ -24516,7 +24287,7 @@ def ThreadSendDCCommandInfomationTimer():
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC3.write(strCurrMessage)
+                                dc3_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
@@ -24531,7 +24302,7 @@ def ThreadSendDCCommandInfomationTimer():
                             strCurrValue = '%.1f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC3.write(strCurrMessage)
+                                dc3_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
@@ -24542,7 +24313,7 @@ def ThreadSendDCCommandInfomationTimer():
                                     strtimenow + "SendMessageToDC3:" + strCurrMessage)
                         elif strArraySettingFlag[i] == "1":
                             try:
-                                strReturnMessage = HandleEquDC3.query(strArraySetting[i])
+                                strReturnMessage = dc3_controller.handle.query(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
@@ -24571,7 +24342,7 @@ def ThreadSendDCCommandInfomationTimer():
                 for i in range(len(strArraySettingKeysight)):
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
-                        HandleEquDC3.write(strCurrMessage)
+                        dc3_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
@@ -24585,7 +24356,7 @@ def ThreadSendDCCommandInfomationTimer():
                 for i in range(len(strArraySettingItech)):
                     strCurrMessage = strArraySettingItech[i]
                     try:
-                        HandleEquDC3.write(strCurrMessage)
+                        dc3_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
@@ -24600,10 +24371,10 @@ def ThreadSendDCCommandInfomationTimer():
         elif strFlagOfSendDCCommandTestLog == "4":
             if per_dc_factor.get("3") == "Chroma":
                 for i in range(len(strArraySetting)):
-                    if HandleEquDC4 != None:
+                    if dc4_controller is not None and dc4_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
                             try:
-                                HandleEquDC4.write(strArraySetting[i])
+                                dc4_controller.handle.write(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
@@ -24618,7 +24389,7 @@ def ThreadSendDCCommandInfomationTimer():
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC4.write(strCurrMessage)
+                                dc4_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
@@ -24633,7 +24404,7 @@ def ThreadSendDCCommandInfomationTimer():
                             strCurrValue = '%.1f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
                             try:
-                                HandleEquDC4.write(strCurrMessage)
+                                dc4_controller.handle.write(strCurrMessage)
                             except Exception as e:
                                 print(e)
                             else:
@@ -24644,7 +24415,7 @@ def ThreadSendDCCommandInfomationTimer():
                                     strtimenow + "SendMessageToDC4:" + strCurrMessage)
                         elif strArraySettingFlag[i] == "1":
                             try:
-                                strReturnMessage = HandleEquDC4.query(strArraySetting[i])
+                                strReturnMessage = dc4_controller.handle.query(strArraySetting[i])
                             except Exception as e:
                                 print(e)
                             else:
@@ -24673,7 +24444,7 @@ def ThreadSendDCCommandInfomationTimer():
                 for i in range(len(strArraySettingKeysight)):
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
-                        HandleEquDC4.write(strCurrMessage)
+                        dc4_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
@@ -24687,7 +24458,7 @@ def ThreadSendDCCommandInfomationTimer():
                 for i in range(len(strArraySettingItech)):
                     strCurrMessage = strArraySettingItech[i]
                     try:
-                        HandleEquDC4.write(strCurrMessage)
+                        dc4_controller.handle.write(strCurrMessage)
                         time.sleep(0.2)
                     except Exception as e:
                         print(e)
@@ -25128,6 +24899,23 @@ def auto_config():
     global setting_icon, messure_icon, messure_status, setting_status, heading_handle, param_dict,manager,ui
     # cells_crood = cell_crood
     wt_running = False
+
+    def _get_child_handle_by_text(parent_hwnd, target_text, retry_times=8, retry_interval=0.5):
+        """重试获取指定文本的子控件句柄，避免界面尚未渲染时直接抛异常。"""
+        for attempt in range(retry_times):
+            child_dict = {}
+            win32gui.EnumChildWindows(
+                parent_hwnd,
+                lambda hwnd, parm: parm.update({hwnd: win32gui.GetWindowText(hwnd)}),
+                child_dict
+            )
+            if target_text in child_dict.values():
+                return list(child_dict.keys())[list(child_dict.values()).index(target_text)]
+            _append_debug_log(
+                f"[auto_config][wait] child '{target_text}' not found, attempt={attempt + 1}/{retry_times}"
+            )
+            time.sleep(retry_interval)
+        return None
     wt_guiconnect = True
     for proc in psutil.process_iter(['pid', 'name']):
         try:
@@ -25226,8 +25014,10 @@ def auto_config():
             time.sleep(2)
             pyautogui.click()
             time.sleep(2)
-            win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-            messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+            messure_handle_now = _get_child_handle_by_text(h, '数值')
+            if messure_handle_now is None:
+                _append_debug_log("[auto_config][error] child '数值' not found after reconnect flow")
+                return False
             messured_set(messure_handle_now)
             win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_list1)           
         elif '停止在线连接' in param_dict.values():
@@ -25243,8 +25033,10 @@ def auto_config():
             time.sleep(2)
             pyautogui.click()
             time.sleep(2)
-            win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-            messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+            messure_handle_now = _get_child_handle_by_text(h, '数值')
+            if messure_handle_now is None:
+                _append_debug_log("[auto_config][error] child '数值' not found in already-connected flow")
+                return False
             messured_set(messure_handle_now)
 
 
@@ -25259,8 +25051,10 @@ def auto_config():
             pyautogui.sleep(2)
             pyautogui.click()
             pyautogui.sleep(2)
-            win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-            key_child_messure = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+            key_child_messure = _get_child_handle_by_text(h, '数值')
+            if key_child_messure is None:
+                _append_debug_log("[auto_config][error] child '数值' not found in open-measure-page flow")
+                return False
             left, top, right, bottom = win32gui.GetWindowRect(key_child_messure)
             messured_set(key_child_messure)
         elif "数值列表" in param_dict.values() and "数值" in param_dict.values():
@@ -25291,12 +25085,17 @@ def auto_config():
 
                 # 4) 重新枚举子控件，拿到“数值”控件的最新句柄
                 #    重新获取是为了避免界面切页后句柄失效/变化
-                win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), messure_handle_dict)
-                messure_handle_now = list(messure_handle_dict.keys())[list(messure_handle_dict.values()).index('数值')]
+                messure_handle_now = _get_child_handle_by_text(h, '数值')
+                if messure_handle_now is None:
+                    _append_debug_log("[auto_config][error] child '数值' not found after setting page config")
+                    return False
             else:
                 # setting_status != ''：说明设置页之前已经配过
                 # 直接复用当前枚举出来的“数值”句柄，减少重复切页动作
-                messure_handle_now = list(param_dict.keys())[list(param_dict.values()).index('数值')]
+                messure_handle_now = _get_child_handle_by_text(h, '数值')
+                if messure_handle_now is None:
+                    _append_debug_log("[auto_config][error] child '数值' not found in direct-use flow")
+                    return False
 
             # 5) 进入“数值详细设置”流程：
             #    - 打开右键菜单中的“数值详细设置”
@@ -25678,18 +25477,35 @@ def messured_set(messure_handle):
                         pyautogui.doubleClick()
                         pyautogui.moveTo(cells_coord[1][i+6][0] + left, cells_coord[1][i+6][1] + top + 20, duration=0.5)
                         value = config_2[i]
+                        # START_AND_STOP_COORD 的 key 目前是 'DC' / '1' / '50' 等，
+                        # 用户配置里可能输入 'dc'（大小写不同）或带空格，做一次规范化避免 KeyError。
+                        value_key = str(value).strip()
+                        if value_key not in START_AND_STOP_COORD:
+                            value_key_upper = value_key.upper()
+                            if value_key_upper in START_AND_STOP_COORD:
+                                _append_debug_log(
+                                    f"[messured_set][warn] normalize START_AND_STOP key '{value_key}' -> '{value_key_upper}'"
+                                )
+                                value_key = value_key_upper
+                            else:
+                                _append_debug_log(
+                                    f"[messured_set][error] unknown START_AND_STOP key '{value_key}', "
+                                    f"available={list(START_AND_STOP_COORD.keys())}"
+                                )
+                                # 不抛异常，避免整条配置流程崩溃；跳过该项由人工检查配置
+                                continue
                         # 先滚回列表顶部附近
                         pyautogui.scroll(3600)
-                        if value == '50':
+                        if value_key == '50':
                             # 某些值需要先滚动到指定区间再点击
-                            pyautogui.scroll(START_AND_STOP_COORD[value][0])
+                            pyautogui.scroll(START_AND_STOP_COORD[value_key][0])
                             pyautogui.sleep(0.2)
-                            pyautogui.scroll(START_AND_STOP_COORD[value][1])
+                            pyautogui.scroll(START_AND_STOP_COORD[value_key][1])
                             pyautogui.sleep(0.2)
                             pyautogui.click()
                         else:
                             # 其他值通过预定义偏移量点击
-                            offset = START_AND_STOP_COORD[value][1]
+                            offset = START_AND_STOP_COORD[value_key][1]
                             pyautogui.moveTo(
                                 cells_coord[1][i+6][0] + left,
                                 cells_coord[1][i+6][1] + top + offset, duration=0.5)
@@ -25769,10 +25585,13 @@ def messure_testing():
     - setting_status == '1'：设置页（接线方式/更新率）已配置完成。
     - messure_status == '1'：数值详细设置页已配置完成。
     - WT_auto_messure_status == '1'：允许本轮自动测量触发（触发后会被清空，防止重复触发）。
+
+    重要：本函数在任意异常或分支后都必须继续 0.5s 自调度，否则 run_loop 会永久卡在
+    “等待 col7 测量结束 (test_status=0)”，表现成“已触发测量但不点 WT 开始、不再往下走”。
     """
     global test_time_list, messsure_deatil_cofig, config_dict, messure_status, setting_status, WT_auto_messure_status
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
-    global save_file_name
+    global test_status, save_file_name
 
     # 仅在关键状态变化时记录日志，避免定时器每 0.5 秒刷屏
     current_state = (setting_status, messure_status, WT_auto_messure_status, now_save_file, total_save_file)
@@ -25784,64 +25603,106 @@ def messure_testing():
         )
         messure_testing._last_state = current_state
 
-    # 只有“三个门闩”都满足时才进入本轮自动测量
-    if setting_status == '1' and messure_status == '1' and WT_auto_messure_status == '1':
-        _append_debug_log("[messure_testing] enter measure flow")
-        # 进门后立即清空触发位，避免定时器下一拍重复进入同一轮
-        WT_auto_messure_status = ''
+    try:
+        # 只有“三个门闩”都满足时才进入本轮自动测量
+        if setting_status == '1' and messure_status == '1' and WT_auto_messure_status == '1':
+            _append_debug_log("[messure_testing] enter measure flow")
+            # 进门后立即清空触发位，避免定时器下一拍重复进入同一轮
+            WT_auto_messure_status = ''
 
-        # 解析待保存文件名列表（支持英文逗号/中文逗号）
-        # 示例："case1,case2，case3" -> ["case1", "case2", "case3"]
-        test_count = re.split(',|，', config_dict['textEdit_FileNameList'])
-        _append_debug_log(f"[messure_testing] file list={test_count}")
-
-        # 计算 loop_time（单位：0.1 秒）
-        # 原因：后面用 for + sleep(0.1) 计时，因此秒数要乘以 10
-        if test_program[0][0] == '7' or test_program[0][0] == '11':
-            # 项目 7/11：过欠压/过欠频，首轮和后续轮次时长规则不同
-            if volt_fz_first_status == 0:
-                # 首轮沿用界面配置的 h/m/s
-                loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
-                volt_fz_first_status = 1
+            # 解析待保存文件名列表（支持英文逗号/中文逗号）
+            # 示例："case1,case2，case3" -> ["case1", "case2", "case3"]
+            test_count = re.split(',|，', config_dict['textEdit_FileNameList'])
+            _append_debug_log(f"[messure_testing] file list={test_count}")
+            if len(test_count) != total_save_file:
+                _append_debug_log(
+                    f"[messure_testing][warn] file_list_count({len(test_count)}) != total_save_file({total_save_file})"
+                )
+            if len(test_count) == 0:
+                _append_debug_log(
+                    "[messure_testing][error] empty file list, skip this round (WT trigger consumed; check UI filename list)"
+                )
             else:
-                # 非首轮按每轮配置表 per_test_time_list[now_save_file]
-                loop_time = int(per_test_time_list[now_save_file]) * 10
-        else:
-            # 普通项目统一按 h/m/s 计算
-            loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
+                # 计算 loop_time（单位：0.1 秒）
+                # 原因：后面用 for + sleep(0.1) 计时，因此秒数要乘以 10
+                if test_program[0][0] == '7' or test_program[0][0] == '11':
+                    # 项目 7/11：过欠压/过欠频，首轮和后续轮次时长规则不同
+                    if volt_fz_first_status == 0:
+                        # 首轮沿用界面配置的 h/m/s
+                        loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
+                        volt_fz_first_status = 1
+                    else:
+                        # 非首轮按每轮配置表 per_test_time_list[now_save_file]
+                        loop_time = int(per_test_time_list[now_save_file]) * 10
+                else:
+                    # 普通项目统一按 h/m/s 计算
+                    loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
 
-        _append_debug_log(f"[messure_testing] computed loop_time={loop_time} (0.1s unit)")
+                _append_debug_log(f"[messure_testing] computed loop_time={loop_time} (0.1s unit)")
 
-        # 发起“开始测量”动作（点击 WT 的开始按钮）
-        # 与当前索引对齐文件名，避免首轮出现空文件名
-        save_file_name = test_count[now_save_file] if now_save_file < len(test_count) else ''
-        status = testing_start()
+                # 发起“开始测量”动作（点击 WT 的开始按钮）
+                # 与当前索引对齐文件名，避免首轮出现空文件名
+                if now_save_file < 0 or now_save_file >= len(test_count):
+                    clamped_index = max(0, min(now_save_file, len(test_count) - 1))
+                    _append_debug_log(
+                        f"[messure_testing][warn] index out of range: now_save_file={now_save_file}, "
+                        f"clamped_to={clamped_index}, file_count={len(test_count)}"
+                    )
+                    now_save_file = clamped_index
+                save_file_name = test_count[now_save_file]
+                try:
+                    status = testing_start()
+                except Exception as e:
+                    _append_debug_log(f"[messure_testing][error] testing_start exception: {e}")
+                    logger.exception("messure_testing: testing_start")
+                    status = '0'
+                    messsure_deatil_cofig = '0'
+                    messure_status = '0'
+                    test_status = '0'
 
-        if status == '1':
-            current_name = test_count[now_save_file] if now_save_file < len(test_count) else f"INDEX_{now_save_file}"
-            _append_debug_log(f"[messure_testing] testing_start success, current_file={current_name}, index={now_save_file}")
-            # 成功开始后，按 loop_time 阻塞等待本轮测试时长结束
-            # 注意：这里没有暂停/结束中断判断，属于“纯计时等待”
-            for j in range(loop_time):
-                time.sleep(0.1)
+                if status == '1':
+                    current_name = test_count[now_save_file] if now_save_file < len(test_count) else f"INDEX_{now_save_file}"
+                    _append_debug_log(f"[messure_testing] testing_start success, current_file={current_name}, index={now_save_file}")
+                    # 成功开始后，按 loop_time 阻塞等待本轮测试时长结束
+                    # 注意：这里没有暂停/结束中断判断，属于“纯计时等待”
+                    for j in range(loop_time):
+                        time.sleep(0.1)
 
-            # 标记：下一轮进入前需要重新写入详细参数（如文件名/时间）
-            messsure_deatil_cofig = '0'
-            # 标记：当前轮已结束，等待后续流程重新置为 '1'
-            messure_status = '0'
+                    # 标记：下一轮进入前需要重新写入详细参数（如文件名/时间）
+                    messsure_deatil_cofig = '0'
+                    # 标记：当前轮已结束，等待后续流程重新置为 '1'
+                    messure_status = '0'
 
-            # 停止测量 + 保存处理 + 决定是否进入下一轮
-            _append_debug_log(f"[messure_testing] call testing_stop, current_index={now_save_file}, current_file={current_name}")
-            testing_stop(test_count, now_save_file)
-        else:
-            _append_debug_log("[messure_testing] testing_start failed, set status to reconfigure")
-            # 启动失败时同样把状态置回“待重配”，让后续流程有机会恢复
-            messsure_deatil_cofig = '0'
-            messure_status = '0'
-
-    # 自循环定时器：0.5 秒后再次检查是否可触发下一轮测量
-    messure_test = threading.Timer(0.5, messure_testing)
-    messure_test.start()
+                    # 停止测量 + 保存处理 + 决定是否进入下一轮
+                    _append_debug_log(
+                        f"[messure_testing] call testing_stop, current_index={now_save_file}, current_file={current_name}"
+                    )
+                    try:
+                        testing_stop(test_count, now_save_file)
+                    except Exception as e:
+                        # 若抛错不调度下次 Timer，会导致测量线程链永久断掉
+                        _append_debug_log(f"[messure_testing][error] testing_stop exception: {e}")
+                        logger.exception("messure_testing: testing_stop")
+                        messsure_deatil_cofig = '0'
+                        messure_status = '0'
+                        test_status = '0'
+                else:
+                    _append_debug_log("[messure_testing] testing_start failed, set status to reconfigure")
+                    # 启动失败时同样把状态置回“待重配”，让后续流程有机会恢复
+                    messsure_deatil_cofig = '0'
+                    messure_status = '0'
+                    # 释放 run_loop 的 col6/col7 等待
+                    test_status = '0'
+    except Exception as e:
+        _append_debug_log(f"[messure_testing][error] unexpected: {e}")
+        logger.exception("messure_testing")
+        messure_status = '0'
+        messsure_deatil_cofig = '0'
+        test_status = '0'
+    finally:
+        # 自循环定时器：0.5 秒后再次检查（**必须**执行，不能因 return/异常而漏掉）
+        messure_test = threading.Timer(0.5, messure_testing)
+        messure_test.start()
 
 def testing_stop(test_count, count_now):
     global save_file_name, messsure_deatil_cofig, test_status, total_save_file
@@ -25880,11 +25741,62 @@ def testing_stop(test_count, count_now):
                 duration= 0.1)
             pyautogui.doubleClick()
             pyautogui.sleep(1)
-        win32gui.EnumChildWindows(now_h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), now_child_dict)
-        messure_handle_now = list(now_child_dict.keys())[list(now_child_dict.values()).index('数值')]
+        # 停止后需要重新打开“数值详细设置”来写入下一轮参数。
+        # 但 WT 在连续运行/窗口焦点切换后，“数值”子控件可能短暂不存在或标题不完全一致，
+        # 这里做重试和兼容匹配，避免 ValueError 直接把定时线程打崩。
+        messure_handle_now = None
+        last_children_snapshot = None
+        for attempt in range(1, 6):
+            now_child_dict = {}
+            win32gui.EnumChildWindows(
+                now_h,
+                lambda hwnd, parm: parm.update({hwnd: win32gui.GetWindowText(hwnd)}),
+                now_child_dict
+            )
+            child_titles = list(now_child_dict.values())
+            last_children_snapshot = child_titles
+
+            # 1) 精确匹配
+            if '数值' in child_titles:
+                messure_handle_now = list(now_child_dict.keys())[child_titles.index('数值')]
+                break
+            # 2) 兼容：包含“数值”的标题（例如“数值列表”等）
+            for idx, title in enumerate(child_titles):
+                if isinstance(title, str) and ('数值' in title):
+                    messure_handle_now = list(now_child_dict.keys())[idx]
+                    break
+            if messure_handle_now is not None:
+                break
+
+            _append_debug_log(
+                f"[testing_stop][warn] WT child not ready (attempt {attempt}/5): "
+                f"'数值' not found, children_count={len(child_titles)}"
+            )
+            # 尝试重新点一次“测量/数值”页签，让控件重新出现
+            try:
+                pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.1)
+                pyautogui.click()
+            except Exception:
+                pass
+            pyautogui.sleep(0.2)
+
+        if messure_handle_now is None:
+            _append_debug_log(
+                f"[testing_stop][error] WT child '数值' still not found after retries. "
+                f"children_sample={last_children_snapshot[:20] if last_children_snapshot else []}"
+            )
+            # 兜底：至少释放 run_loop 的等待，避免整条自动化卡死
+            test_status = '0'
+            # 并把 WT 配置状态打回未就绪，让后续流程重新走配置/恢复
+            setting_status = ''
+            messure_status = ''
+            messsure_deatil_cofig = ''
+            messure_project_cofig = ''
+            return
     
         # 1) 当前项目所有文件都测完：总测试结束
-        if count_now == total_save_file:
+        # count_now 是 0-based 索引；total_save_file 是数量，末轮索引应为 total_save_file - 1
+        if count_now >= total_save_file - 1:
             print('测试结束')
             _append_debug_log("[testing_stop] all tests finished")
             # 置位为已配置，防止后续误触发重新配置
@@ -25894,7 +25806,7 @@ def testing_stop(test_count, count_now):
 
         # 2) 当前“项目”结束，但后面还有其它项目：
         #    清空 WT 配置状态，让下一个项目重新走 auto_config / messured_set
-        elif count_now == len(test_count) and len(test_program) > 1:
+        elif count_now >= len(test_count) - 1 and len(test_program) > 1:
             print('此项目测试结束')
             _append_debug_log("[testing_stop] current project finished, reset WT config status for next project")
             test_status = '0'
@@ -25905,13 +25817,14 @@ def testing_stop(test_count, count_now):
 
         # 3) 当前项目未结束：进入下一轮文件名
         else:
-            # 切换到下一轮保存文件名（当前轮是 count_now，下一轮应为 count_now + 1）
-            next_index = count_now + 1
-            if next_index < len(test_count):
-                save_file_name = test_count[next_index]
-            else:
-                save_file_name = test_count[-1]
-            _append_debug_log(f"[testing_stop] next round -> file={save_file_name}, next_index={next_index}")
+            # 未结束时进入下一轮，应当由当前索引推进到下一索引。
+            # 加边界保护，避免异常情况下写出 INDEX_x 越界文件名。
+            next_index = max(0, min(count_now + 1, len(test_count) - 1))
+            save_file_name = test_count[next_index]
+            _append_debug_log(
+                f"[testing_stop] next round transition index {count_now}->{next_index}, "
+                f"file={save_file_name}, total={len(test_count)}"
+            )
             # 重新打开“数值详细设置”并写入下一轮参数（主要是文件名/时长）
             messured_set(messure_handle_now)
             # 标记“详细设置”已完成
@@ -26803,88 +26716,47 @@ def mppt_end_test():
             return 1
 
 def system_error_info():
-    global strConnectAC, strConnectDC1, strConnectDC2, strConnectDC3
-    global strConnectDC4, strConnectDL850, strConnectWT3000
-    global HandleEquAC, HandleEquDC1, HandleEquDC2, HandleEquDC3, HandleEquDC4
+    """周期性轮询设备系统错误并尝试重连。"""
+    global ac_controller
     while True:
-        if strConnectAC == "1":
+        if ac_controller is not None and ac_controller.connected:
             information_AC = ''
             try:
-                information_AC = HandleEquAC.query("SYST:ERR?")
+                information_AC = ac_controller.handle.query("SYST:ERR?")
                 time.sleep(1)
             except Exception as e:
                 print(e)
                 logger.error(e)
                 tcp_addr = ui.comboBox_AC.currentText()
-                HandleEquAC = rm.open_resource(tcp_addr)
-                print(f'HandleEquAC---reconnect---{HandleEquAC}')
-                logger.info(f'HandleEquAC---reconnect---{HandleEquAC}')
+                ac_controller.handle = rm.open_resource(tcp_addr)
+                print(f'AC---reconnect---{ac_controller.handle}')
+                logger.info(f'AC---reconnect---{ac_controller.handle}')
                 time.sleep(2)
             else:
                 logger.info(f'AC return error message: {information_AC}')
         
-        if strConnectDC1 == "1":
-            information_DC1 = ''
-            try:
-                information_DC1 = HandleEquDC1.query("SYST:ERR?")
-                time.sleep(1)
-            except Exception as e:
-                print(f"DC1 error: {e}")
-                logger.error(f"DC1 error: {e}")
-                tcp_addr_dc1 = ui.comboBox_DC1.currentText()
-                HandleEquDC1 = rm.open_resource(tcp_addr_dc1)
-                print(f'HandleEquDC1---reconnect---{HandleEquDC1}')
-                logger.info(f'HandleEquDC1---reconnect---{HandleEquDC1}')
-                time.sleep(2)
-            else:
+        if dc1_controller is not None and dc1_controller.connected:
+            tcp_addr_dc1 = ui.comboBox_DC1.currentText()
+            _, information_DC1 = dc1_controller.poll_syst_err(tcp_addr_dc1, 'DC1')
+            if information_DC1 is not None:
                 logger.info(f'DC1 return error message: {information_DC1}')
         
-        if strConnectDC2 == "1":
-            information_DC2 = ''
-            try:
-                information_DC2 = HandleEquDC2.query("SYST:ERR?")
-                time.sleep(1)
-            except Exception as e:
-                print(f"DC2 error: {e}")
-                logger.error(f"DC2 error: {e}")
-                tcp_addr_dc2 = ui.comboBox_DC2.currentText()
-                HandleEquDC2 = rm.open_resource(tcp_addr_dc2)
-                print(f'HandleEquDC2---reconnect---{HandleEquDC2}')
-                logger.info(f'HandleEquDC2---reconnect---{HandleEquDC2}')
-                time.sleep(2)
-            else:
+        if dc2_controller is not None and dc2_controller.connected:
+            tcp_addr_dc2 = ui.comboBox_DC2.currentText()
+            _, information_DC2 = dc2_controller.poll_syst_err(tcp_addr_dc2, 'DC2')
+            if information_DC2 is not None:
                 logger.info(f'DC2 return error message: {information_DC2}')
         
-        if strConnectDC3 == "1":
-            information_DC3 = ''
-            try:
-                information_DC3 = HandleEquDC3.query("SYST:ERR?")
-                time.sleep(1)
-            except Exception as e:
-                print(f"DC3 error: {e}")
-                logger.error(f"DC3 error: {e}")
-                tcp_addr_dc3 = ui.comboBox_DC3.currentText()
-                HandleEquDC3 = rm.open_resource(tcp_addr_dc3)
-                print(f'HandleEquDC3---reconnect---{HandleEquDC3}')
-                logger.info(f'HandleEquDC3---reconnect---{HandleEquDC3}')
-                time.sleep(2)
-            else:
+        if dc3_controller is not None and dc3_controller.connected:
+            tcp_addr_dc3 = ui.comboBox_DC3.currentText()
+            _, information_DC3 = dc3_controller.poll_syst_err(tcp_addr_dc3, 'DC3')
+            if information_DC3 is not None:
                 logger.info(f'DC3 return error message: {information_DC3}')
         
-        if strConnectDC4 == "1":
-            information_DC4 = ''
-            try:
-                information_DC4 = HandleEquDC4.query("SYST:ERR?")
-                time.sleep(1)
-            except Exception as e:
-                print(f"DC4 error: {e}")
-                logger.error(f"DC4 error: {e}")
-                tcp_addr_dc4 = ui.comboBox_DC4.currentText()
-                HandleEquDC4 = rm.open_resource(tcp_addr_dc4)
-                print(f'HandleEquDC4---reconnect---{HandleEquDC4}')
-                logger.info(f'HandleEquDC4---reconnect---{HandleEquDC4}')
-                time.sleep(2)
-            else:
+        if dc4_controller is not None and dc4_controller.connected:
+            tcp_addr_dc4 = ui.comboBox_DC4.currentText()
+            _, information_DC4 = dc4_controller.poll_syst_err(tcp_addr_dc4, 'DC4')
+            if information_DC4 is not None:
                 logger.info(f'DC4 return error message: {information_DC4}')
         
         time.sleep(33.33)
@@ -26911,16 +26783,15 @@ def is_admin():
 
 def translate_to_Itech(text):
     """SCPI转爱科交流源"""
-    global AC_client
     if text == "OUTP ON":
-        AC_client
+        pass
     elif text == "OUTP OFF":
         pass
     elif "VOLT" in text:
         pass
     elif "FREQ" in text:
         pass
-    elif"INST:NSEL" in text:
+    elif "INST:NSEL" in text:
         pass
     elif text == "INST:EDIT EACH":
         pass
@@ -26968,7 +26839,6 @@ if __name__ == "__main__":
     global strTestFlag,strSettingTestFlag
     global threadStartTestFunction,strMSTSLVFlag
     global threadStartQueryWT3000Function,strStartTestWT3000QueryFlag
-    global strConnectWT3000,strConnectDL850,strConnectDC3,strConnectDC2,strConnectDC1,strConnectDC4,strConnectAC
     global threadSaveTestDataFunction,threadSendDCStartCommandFunction
     global fSaveTestLogTime,strArrayWT3000ValueOfCollectAllNameFlag
     global strFlagOfCollectAllTestLog,strGlobalFlagGetTestTime
@@ -26990,79 +26860,9 @@ if __name__ == "__main__":
     # local_file_path = "D:/project/photovoltaic_automation_t"
     # command_save_file_path = "D:/data_logs/photovoltaic_automation_t"
 
-    logger = logging.getLogger('auto_test')
-    logger.setLevel(logging.INFO)
-    # 每12h切分日志，至多同时存在14份切分的日志
-    file_handler = TimedRotatingFileHandler(
-        # filename=command_save_file_path + '/logs/auto_test.log',
-        filename=command_save_file_path + '/auto_test.log',
-        when='H',
-        interval=24,
-    )
-    # 避免log日志文件名重复
-    file_handler.suffix = r'%Y-%m-%d_%H-%M-%S.log'
-    # 正则表达式匹配log日志，匹配格式与suffix保持一致
-    file_handler.extMatch = re.compile(r'^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}.log$')
-    file_handler.setFormatter(
-        logging.Formatter('%(asctime)s %(levelname)s %(filename)s [%(lineno)d] %(threadName)s :%(message)s')
-    )
-    logger.addHandler(file_handler)
-
-    # 额外生成单一文件 log.txt：实时查看 + 记录 print 与异常
-    log_txt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log.txt')
-    log_txt_handler = logging.FileHandler(log_txt_path, encoding='utf-8')
-    log_txt_handler.setFormatter(
-        logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    )
-    logger.addHandler(log_txt_handler)
-
-    class _StdoutToLogger:
-        def __init__(self, _logger, _level):
-            self._logger = _logger
-            self._level = _level
-            self._buffer = ''
-
-        def write(self, msg):
-            if msg is None:
-                return
-            self._buffer += msg
-            while '\n' in self._buffer:
-                line, self._buffer = self._buffer.split('\n', 1)
-                line = line.rstrip()
-                if line:
-                    self._logger.log(self._level, line)
-
-        def flush(self):
-            if self._buffer.strip():
-                self._logger.log(self._level, self._buffer.strip())
-                self._buffer = ''
-
-    # 保留控制台输出，同时写入日志
-    original_stdout = sys.stdout
-    original_stderr = sys.stderr
-
-    class _Tee:
-        def __init__(self, *streams):
-            self._streams = streams
-
-        def write(self, msg):
-            for s in self._streams:
-                s.write(msg)
-
-        def flush(self):
-            for s in self._streams:
-                s.flush()
-
-    sys.stdout = _Tee(original_stdout, _StdoutToLogger(logger, logging.INFO))
-    sys.stderr = _Tee(original_stderr, _StdoutToLogger(logger, logging.ERROR))
-
-    def _handle_exception(exc_type, exc_value, exc_tb):
-        logger.error('Uncaught exception', exc_info=(exc_type, exc_value, exc_tb))
-        # 也保留默认行为
-        if original_stderr is not None:
-            traceback.print_exception(exc_type, exc_value, exc_tb, file=original_stderr)
-
-    sys.excepthook = _handle_exception
+    logger = setup_logging(os.path.dirname(os.path.abspath(__file__)))
+    original_stdout, original_stderr = install_stream_logging(logger)
+    install_exception_hook(logger, original_stderr)
 
     #if is_admin():
     if (1):
@@ -27091,13 +26891,32 @@ if __name__ == "__main__":
 
         #             if strpythonid == "SZTZ":
             
-            HandleEquAC = None
-            HandleEquDC1 = None
-            HandleEquDC2 = None
-            HandleEquDC3 = None
-            HandleEquDC4 = None
-            HandleEquDL850 = None
-            HandleEquWT3000 = None
+            if ac_controller is not None:
+                ac_controller.handle = None
+            if dc1_controller is not None:
+                dc1_controller.handle = None
+            if dc2_controller is not None:
+                dc2_controller.handle = None
+            if dc3_controller is not None:
+                dc3_controller.handle = None
+            if dc4_controller is not None:
+                dc4_controller.handle = None
+            if ac_controller is not None:
+                ac_controller.handle = None
+            if dc1_controller is not None:
+                dc1_controller.handle = None
+            if dc2_controller is not None:
+                dc2_controller.handle = None
+            if dc3_controller is not None:
+                dc3_controller.handle = None
+            if dc4_controller is not None:
+                dc4_controller.handle = None
+            if dl850_controller is not None:
+                dl850_controller.handle = None
+                dl850_controller.connected = False
+            if wt3000_controller is not None:
+                wt3000_controller.handle = None
+                wt3000_controller.connected = False
             test_program = []
             ArrayfDCCurrValue = [15.75,15.75,15.75,15.75]
             ArrayfDCPowValue = ["" for i in range(4)]
@@ -27197,13 +27016,20 @@ if __name__ == "__main__":
 
             strFlagOfCollectAllTestLog = "Stop"
             strGlobalFlagGetTestTime = "0"
-            strConnectWT3000 = "0"
-            strConnectDL850 = "0"
-            strConnectDC4 = "0"
-            strConnectDC3 = "0"
-            strConnectDC2 = "0"
-            strConnectDC1 = "0"
-            strConnectAC = "0"
+            if wt3000_controller is not None:
+                wt3000_controller.connected = False
+            if dl850_controller is not None:
+                dl850_controller.connected = False
+            if ac_controller is not None:
+                ac_controller.connected = False
+            if dc1_controller is not None:
+                dc1_controller.connected = False
+            if dc2_controller is not None:
+                dc2_controller.connected = False
+            if dc3_controller is not None:
+                dc3_controller.connected = False
+            if dc4_controller is not None:
+                dc4_controller.connected = False
             strArrayWT3000ValueOfCollectAllNameFlag = "0"
             strArrayTestStep = []
             strArrayWT3000ValueOfCollectAllName = []
@@ -27230,128 +27056,91 @@ if __name__ == "__main__":
             main_window = QMainWindow()
             ui = Ui_Dialog()
             ui.setupUi(main_window)
+            # 将主窗口、日志对象和资源管理器写入应用上下文，避免继续散落全局状态
+            app_ctx = bootstrap(ui=ui, logger=logger, rm=rm)
+            # 启动阶段同步核心运行对象，确保 app_ctx 保存的是当前这次启动的状态
+            app_ctx.main_window = main_window
+            app_ctx.ui = ui
+            app_ctx.logger = logger
+            app_ctx.rm = rm
+            # 启动阶段同步当前运行状态，避免 app_ctx 在初始化阶段引用到尚未创建的局部变量
+            app_ctx.per_dc_factor = per_dc_factor
+            app_ctx.command_list_DC = command_list_DC
+            app_ctx.DC_num = DC_num
+            app_ctx.ArrayfDCCurrValue = ArrayfDCCurrValue
+            app_ctx.ArrayfDCPowValue = ArrayfDCPowValue
+            app_ctx.WT_is_checked = WT_is_checked
+            app_ctx.flicker_is_test = flicker_is_test
+            app_ctx.heading_handle = heading_handle
 
-            dialog_WT3000E = QDialog()
-            uiThiaWT3000E = Ui_Dialog_thai_WT3000E()
-            uiThiaWT3000E.setupUi(dialog_WT3000E)
-
-            dialog_WT1806E = QDialog()
-            uiThiaWT1806E = Ui_Dialog_thai_WT1806E()
-            uiThiaWT1806E.setupUi(dialog_WT1806E)
-
-            dialog_WT1800 = QDialog()
-            uiThiaWT1800 = Ui_Dialog_thai_WT1800()
-            uiThiaWT1800.setupUi(dialog_WT1800)
-
-            dialog_WT5000 = QDialog()
-            uiThiaWT5000 = Ui_Dialog_thai_WT5000()
-            uiThiaWT5000.setupUi(dialog_WT5000)
-
-            dialog_window = QDialog()
-            uithaichonglian = Ui_Dialog_thaichonglian()
-            uithaichonglian.setupUi(dialog_window)
-
-            # dialog_windowguoqianpin = QDialog()
-            # uithaiguoqianpin = Ui_Dialog_thaiguoqianpin()
-            # uithaiguoqianpin.setupUi(dialog_windowguoqianpin)
-
-            # dialog_windowguoqianya = QDialog()
-            # uithaiguoqianya = Ui_Dialog_thaiguoqianya()
-            # uithaiguoqianya.setupUi(dialog_windowguoqianya)
-
-            dialog_windowxiebodianliu = QDialog()
-            uiThaiXieBoDianLiu = Ui_Dialog_thaixiebodianliu()
-            uiThaiXieBoDianLiu.setupUi(dialog_windowxiebodianliu)
-            
-            dialog_windowzhiliufenliang = QDialog()
-            uiThaiZhiLiuFenLiang = Ui_Dialog_thaizhiliufenliang()
-            uiThaiZhiLiuFenLiang.setupUi(dialog_windowzhiliufenliang)
-
-            dialog_windowstaticQU = QDialog()
-            uiThaiStaticQU = Ui_Dialog_thaiStaticQU()
-            uiThaiStaticQU.setupUi(dialog_windowstaticQU)
-
-            dialog_windowstaticcosPhi = QDialog()
-            uiThaiStaticCosPhi = Ui_Dialog_thaistaticcosPhi()
-            uiThaiStaticCosPhi.setupUi(dialog_windowstaticcosPhi)
-
-            dialog_windowvoltprotect10min = QDialog()
-            uiThaiVoltProtect10min = Ui_Dialog_thaivoltprotect10min()
-            uiThaiVoltProtect10min.setupUi(dialog_windowvoltprotect10min)
-
-            dialog_windowguopinjiangzai = QDialog()
-            uiThaiGuoPinJiangZai = Ui_Dialog_thaiguopinjiangzai()
-            uiThaiGuoPinJiangZai.setupUi(dialog_windowguopinjiangzai)
-            
-            dialog_windowtestPU = QDialog()
-            uiThaiTestPU = Ui_Dialog_thaitestPU()
-            uiThaiTestPU.setupUi(dialog_windowtestPU)
-
-            dialog_windowguoqianya_pin = QDialog()
-            uiThaiGuoQianYa_Pin = Ui_Dialog_thaiguoqianya_pin()
-            uiThaiGuoQianYa_Pin.setupUi(dialog_windowguoqianya_pin)
-
-            dialog_windowDLSetting = QDialog()
-            uiDL850Setting = Ui_Dialog_DL850_Setting()
-            uiDL850Setting.setupUi(dialog_windowDLSetting)
-
-            dialog_windowACSetting = QDialog()
-            uiACSetting = Ui_Dialog_AC_Setting()
-            uiACSetting.setupUi(dialog_windowACSetting)
-
-            dialog_windowDC1Setting = QDialog()
-            uiDC1Setting = Ui_Dialog_DC1_Setting()
-            uiDC1Setting.setupUi(dialog_windowDC1Setting)
-
-            dialog_windowDC2Setting = QDialog()
-            uiDC2Setting = Ui_Dialog_DC2_Setting()
-            uiDC2Setting.setupUi(dialog_windowDC2Setting)
-
-            dialog_windowDC3Setting = QDialog()
-            uiDC3Setting = Ui_Dialog_DC3_Setting()
-            uiDC3Setting.setupUi(dialog_windowDC3Setting)
-            
-            dialog_windowDC4Setting = QDialog()
-            uiDC4Setting = Ui_Dialog_DC4_Setting()
-            uiDC4Setting.setupUi(dialog_windowDC4Setting)
-
-            dialog_windowTdianyashanbian = QDialog()
-            uiThaiDianYaShanBian = Ui_Dialog_thaiguodianyashanbian()
-            uiThaiDianYaShanBian.setupUi(dialog_windowTdianyashanbian)
-            
-            dialog_windowfixedpf = QDialog()
-            uiThaiFixedPF = Ui_Dialog_thaifixedPF()
-            uiThaiFixedPF.setupUi(dialog_windowfixedpf)
-
-            dialog_windowoverloads = QDialog()
-            uiThaiOverLoads = Ui_Dialog_thaioverloads()
-            uiThaiOverLoads.setupUi(dialog_windowoverloads)
-
-            dialog_windowcosPhiBrazil = QDialog()
-            uiThaiCosPhiBrazil = Ui_Dialog_thaicosPhi_Brazil()
-            uiThaiCosPhiBrazil.setupUi(dialog_windowcosPhiBrazil)
-
-            dialog_windowguoqianpin_immun = QDialog()
-            uiThaiGuoQianPin_Immun = Ui_Dialog_thaiguoqianpin_immun()
-            uiThaiGuoQianPin_Immun.setupUi(dialog_windowguoqianpin_immun)
-
-            dialog_windowstaticmppttest = QDialog()
-            uiThaiStaticMPPTTest = Ui_Dialog_thaistaticmppttest()
-            uiThaiStaticMPPTTest.setupUi(dialog_windowstaticmppttest)
+            setup_windows = initialize_setup_windows(app_ctx)
+            dialog_WT3000E = setup_windows["dialog_WT3000E"]
+            uiThiaWT3000E = setup_windows["uiThiaWT3000E"]
+            dialog_WT1806E = setup_windows["dialog_WT1806E"]
+            uiThiaWT1806E = setup_windows["uiThiaWT1806E"]
+            dialog_WT1800 = setup_windows["dialog_WT1800"]
+            uiThiaWT1800 = setup_windows["uiThiaWT1800"]
+            dialog_WT5000 = setup_windows["dialog_WT5000"]
+            uiThiaWT5000 = setup_windows["uiThiaWT5000"]
+            dialog_window = setup_windows["dialog_window"]
+            uithaichonglian = setup_windows["uithaichonglian"]
+            dialog_windowxiebodianliu = setup_windows["dialog_windowxiebodianliu"]
+            uiThaiXieBoDianLiu = setup_windows["uiThaiXieBoDianLiu"]
+            dialog_windowzhiliufenliang = setup_windows["dialog_windowzhiliufenliang"]
+            uiThaiZhiLiuFenLiang = setup_windows["uiThaiZhiLiuFenLiang"]
+            dialog_windowstaticQU = setup_windows["dialog_windowstaticQU"]
+            uiThaiStaticQU = setup_windows["uiThaiStaticQU"]
+            dialog_windowstaticcosPhi = setup_windows["dialog_windowstaticcosPhi"]
+            uiThaiStaticCosPhi = setup_windows["uiThaiStaticCosPhi"]
+            dialog_windowvoltprotect10min = setup_windows["dialog_windowvoltprotect10min"]
+            uiThaiVoltProtect10min = setup_windows["uiThaiVoltProtect10min"]
+            dialog_windowguopinjiangzai = setup_windows["dialog_windowguopinjiangzai"]
+            uiThaiGuoPinJiangZai = setup_windows["uiThaiGuoPinJiangZai"]
+            dialog_windowtestPU = setup_windows["dialog_windowtestPU"]
+            uiThaiTestPU = setup_windows["uiThaiTestPU"]
+            dialog_windowguoqianya_pin = setup_windows["dialog_windowguoqianya_pin"]
+            uiThaiGuoQianYa_Pin = setup_windows["uiThaiGuoQianYa_Pin"]
+            dialog_windowDLSetting = setup_windows["dialog_windowDLSetting"]
+            uiDL850Setting = setup_windows["uiDL850Setting"]
+            dialog_windowACSetting = setup_windows["dialog_windowACSetting"]
+            uiACSetting = setup_windows["uiACSetting"]
+            dialog_windowDC1Setting = setup_windows["dialog_windowDC1Setting"]
+            uiDC1Setting = setup_windows["uiDC1Setting"]
+            dialog_windowDC2Setting = setup_windows["dialog_windowDC2Setting"]
+            uiDC2Setting = setup_windows["uiDC2Setting"]
+            dialog_windowDC3Setting = setup_windows["dialog_windowDC3Setting"]
+            uiDC3Setting = setup_windows["uiDC3Setting"]
+            dialog_windowDC4Setting = setup_windows["dialog_windowDC4Setting"]
+            uiDC4Setting = setup_windows["uiDC4Setting"]
+            dialog_windowTdianyashanbian = setup_windows["dialog_windowTdianyashanbian"]
+            uiThaiDianYaShanBian = setup_windows["uiThaiDianYaShanBian"]
+            dialog_windowfixedpf = setup_windows["dialog_windowfixedpf"]
+            uiThaiFixedPF = setup_windows["uiThaiFixedPF"]
+            dialog_windowoverloads = setup_windows["dialog_windowoverloads"]
+            uiThaiOverLoads = setup_windows["uiThaiOverLoads"]
+            dialog_windowcosPhiBrazil = setup_windows["dialog_windowcosPhiBrazil"]
+            uiThaiCosPhiBrazil = setup_windows["uiThaiCosPhiBrazil"]
+            dialog_windowguoqianpin_immun = setup_windows["dialog_windowguoqianpin_immun"]
+            uiThaiGuoQianPin_Immun = setup_windows["uiThaiGuoQianPin_Immun"]
+            dialog_windowstaticmppttest = setup_windows["dialog_windowstaticmppttest"]
+            uiThaiStaticMPPTTest = setup_windows["uiThaiStaticMPPTTest"]
 
             # ui.gridLayout.addWidget(canvas)
-            ui.comboBox_AC.addItems(EQUList)
-            ui.comboBox_DC1.addItems(EQUList)
-            ui.comboBox_DC2.addItems(EQUList)
-            ui.comboBox_DC3.addItems(EQUList)
-            ui.comboBox_DC4.addItems(EQUList)
-            ui.comboBox_DL850.addItems(EQUList)
-            ui.comboBox_WT3000.addItems(EQUList)
+            _connected_equ_resources = set()
+            _refresh_all_equ_combo_boxes(EQUList, _connected_equ_resources)
+            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT, EQUList, _connected_equ_resources)
+            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT, EQUList, _connected_equ_resources)
+            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT, EQUList, _connected_equ_resources)
+            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT, EQUList, _connected_equ_resources)
+            for combo_name in ["comboBox_AC", "comboBox_DC1", "comboBox_DC2", "comboBox_DC3", "comboBox_DC4", "comboBox_DL850", "comboBox_WT3000"]:
+                combo = getattr(ui, combo_name, None)
+                if combo is not None and combo.count() > 0:
+                    combo.setCurrentIndex(0)
+            for combo_name in ["comboBox_S1_DC1_PORT", "comboBox_S1_DC2_PORT", "comboBox_S1_DC3_PORT", "comboBox_S1_DC4_PORT"]:
+                combo = getattr(uiThaiStaticMPPTTest, combo_name, None)
+                if combo is not None and combo.count() > 0:
+                    combo.setCurrentIndex(0)
             ui.comboBox_WT3000.setEditable(False)
-            uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.addItems(EQUList)
-            uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.addItems(EQUList)
-            uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT.addItems(EQUList)
-            uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT.addItems(EQUList)
             ui.comboBox_P.addItems(projectlist)
 
             ui.comboBox_P.currentIndexChanged.connect(SecondProjectSet)
