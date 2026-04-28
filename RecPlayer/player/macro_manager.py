@@ -1,25 +1,20 @@
 import sys
 import time
 from pathlib import Path
+
 from .src.models import MacroConfig
 from .src.player import MacroPlayer
-import configparser
-
-config = configparser.ConfigParser()
-
-# 读取INI文件（文件路径可以是相对路径或绝对路径）
-config.read('config_files/config.ini', encoding='utf-8')
-PATH_RECORDINGS_WT3000 = config.get('PATH', 'recordings_wt3000') 
+from config.path_config import PATH_RECORDINGS
 
 class MacroManager:
     """宏播放器管理类，封装宏加载、执行和控制逻辑"""
     
-    def __init__(self, config_file: str = None, path = PATH_RECORDINGS_WT3000, repeat: int = 1, smooth_move: bool = True):
+    def __init__(self, config_file: str = None, path: str = None, repeat: int = 1, smooth_move: bool = True):
         """
         初始化宏管理器
         
         :param config_file: 配置文件路径（可选，可在play_file中指定）
-        :param path: 录制文件路径,默认WT3000
+        :param path: 录制文件路径,默认 WT3000（项目内 recordings/WT3000/）
         :param repeat: 默认重复执行次数
         :param smooth_move: 默认是否启用平滑移动
         """
@@ -28,15 +23,16 @@ class MacroManager:
         self.smooth_move = smooth_move
         self.player = None
         self.config = None
-        self.RECORDING_PATH = path
+        self.RECORDING_PATH = path or PATH_RECORDINGS["WT3000"]
 
     def change_wt_type(self, type: str):
-        try:
-            self.RECORDING_PATH = config.get('PATH', f'recordings_{type.lower()}')
-        except Exception as e:
-            print(f"Error changing WT type: {e}")
-        else:
-            print(f"已切换到WT{type}")
+        """根据 WT 机型切换到项目内对应 recordings 子目录。"""
+        key = type.strip()
+        if key not in PATH_RECORDINGS:
+            print(f"Error changing WT type: unknown type={type}")
+            return
+        self.RECORDING_PATH = PATH_RECORDINGS[key]
+        print(f"已切换到WT{key}")
     
 
     @classmethod

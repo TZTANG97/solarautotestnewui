@@ -159,7 +159,8 @@ class KeyboardSimulator:
     def paste_text_via_clipboard(text: str):
         """通过剪贴板粘贴文本"""
         try:
-            print("📋 正在使用剪贴板粘贴...")
+            # 避免控制台/日志使用 GBK 时因 emoji 导致 UnicodeEncodeError
+            print("正在使用剪贴板粘贴...")
             
             # 保存原始剪贴板内容
             old_clipboard = pyperclip.paste()
@@ -180,9 +181,9 @@ class KeyboardSimulator:
             
             # 恢复原始剪贴板内容
             pyperclip.copy(old_clipboard)
-            print("✅ 剪贴板粘贴成功")
+            print("剪贴板粘贴成功")
         except Exception as e:
-            print(f"❌ 剪贴板粘贴失败: {e}")
+            print(f"剪贴板粘贴失败: {e}")
 
 
 class ActionPlayer:
@@ -366,7 +367,8 @@ class ActionPlayer:
             self.mouse_sim.move_to(action.x, action.y)
             time.sleep(0.05)
         
-        print(f"📋 正在粘贴文本: {action.text}")
+        # 避免控制台/日志使用 GBK 时因 emoji 导致 UnicodeEncodeError
+        print(f"正在粘贴文本: {action.text}")
         # 直接调用剪贴板粘贴方法
         self.keyboard_sim.paste_text_via_clipboard(action.text)
         time.sleep(len(action.text) * 0.02 + 0.15)

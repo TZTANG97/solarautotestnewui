@@ -15,7 +15,8 @@
       "x": 886,
       "y": 465,
       "button": "right",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 0.663533
     },
     {
       "id": 2,
@@ -24,7 +25,8 @@
       "x": 886,
       "y": 465,
       "button": "right",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 0.758988
     },
     {
       "id": 3,
@@ -33,7 +35,8 @@
       "x": 747,
       "y": 619,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.063323
     },
     {
       "id": 4,
@@ -42,56 +45,64 @@
       "x": 747,
       "y": 619,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.1512890000000002
     },
     {
       "id": 5,
       "action_type": "key_press",
       "duration": 0.440195,
       "key": "ctrl",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.5914840000000003
     },
     {
       "id": 6,
       "action_type": "key_press",
       "duration": 0.136393,
       "key": "65",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.7278770000000003
     },
     {
       "id": 7,
       "action_type": "key_release",
       "duration": 0.111376,
       "key": "ctrl",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.8392530000000002
     },
     {
       "id": 8,
       "action_type": "key_release",
       "duration": 0.048496,
       "key": "65",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.8877490000000003
     },
     {
       "id": 9,
       "action_type": "key_press",
       "duration": 0.383964,
       "key": "backspace",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 3.2717130000000005
     },
     {
       "id": 10,
       "action_type": "key_release",
       "duration": 0.1519,
       "key": "backspace",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 3.4236130000000005
     },
     {
       "id": 11,
       "action_type": "text_input",
       "duration": 0.1,
       "is_drag": false,
-      "text": "10"
+      "text": "10",
+      "timestamp": 3.5236130000000006
     },
     {
       "id": 12,
@@ -100,7 +111,8 @@
       "x": 1133,
       "y": 851,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 5.267930000000001
     },
     {
       "id": 13,
@@ -109,7 +121,8 @@
       "x": 1133,
       "y": 851,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 5.370928000000001
     }
   ]
 }

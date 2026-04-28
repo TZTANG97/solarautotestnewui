@@ -5736,10 +5736,10 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
     dc_factor = per_dc_factor.get(dc_index, "")
     command_array = command_list_DC.get(dc_factor, [])
     if not command_array:
+        # 仍然继续下发 IVC 曲线命令（a 内通常是 IVC:IT / IVC:VT），否则会表现为“功率变化命令没生成”
         strtimenow = now_to_datenow()
-        logger.error(f"{DC} factor is empty or unsupported: '{dc_factor}'")
-        print(f"{strtimenow} {DC} factor is empty or unsupported: '{dc_factor}'")
-        return strArrayTestStepSingle
+        logger.warning(f"{DC} factor is empty or unsupported: '{dc_factor}', will send IVC commands only")
+        print(f"{strtimenow} {DC} factor is empty or unsupported: '{dc_factor}', will send IVC commands only")
     
     strArraySingle = ["" for _ in range(10)]
     S1Command = "*IDN?"
@@ -5783,13 +5783,14 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
     # strArrayTest.append(strArraySingle)
     # strArrayTestStepSingle.append(strArraySingle)
 
-    strArraySingle = ["" for _ in range(10)]
-    S1Command = command_array[1]
-    strArraySingle[0] = DC
-    strArraySingle[1] = "write"
-    strArraySingle[2] = S1Command
-    strArrayTest.append(strArraySingle)
-    strArrayTestStepSingle.append(strArraySingle)
+    if command_array:
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = command_array[1]
+        strArraySingle[0] = DC
+        strArraySingle[1] = "write"
+        strArraySingle[2] = S1Command
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
     strArraySingle = ["" for _ in range(10)]
     S1Command = "*IDN?"
@@ -6235,16 +6236,28 @@ def thaifixedpfSend():
 
     manager.change_wt_type(wt_type)
 
-    modify_json_text_by_timestamp(
-        file_path = PATH_RECORDINGS["WT3000"] + json_path,
-        new_text  = new_wt_save_path,
-        target_timestamp = 45.15636858940125,
-        timestamp_tolerance = 0.1
+    # 固定PF：保存设定时会根据选择的 WT 宏(json)把“保存路径”字段写入
+    # 若宏文件不存在，直接提示并停止继续生成该项目，避免后续日志刷屏
+    _macro_path = PATH_RECORDINGS["WT3000"] + json_path
+    ok = modify_json_text_by_timestamp(
+        file_path=_macro_path,
+        new_text=new_wt_save_path,
+        target_timestamp=45.15636858940125,
+        timestamp_tolerance=0.1
     )
+    if not ok:
+        QMessageBox.warning(
+            dialog_window,
+            "错误提示信息",
+            f"WT宏文件不存在或修改失败，请检查:\n{_macro_path}",
+            QMessageBox.Ok,
+            QMessageBox.Ok
+        )
+        return
 
     # step2
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-    #     if uiThaiFixedPF.checkBox_S2_WT3000.isChecked():
+        #     if uiThaiFixedPF.checkBox_S2_WT3000.isChecked():
     #         wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
     #     elif uiThaiFixedPF.checkBox_S2_WT1800.isChecked():
     #         wt_config_dict = WT1800_params_config(uiThiaWT1800)
@@ -6306,111 +6319,129 @@ def thaifixedpfSend():
 
         S3DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_3.toPlainText()
         print(f'S3DCPF---{S3DCPF}')
-        if S3DCPF in DC_PF_VALUE_LIST:
+        # 调试：确认是否进入 DC 下发逻辑，以及 DCGetIVValueFunction 结果
+        try:
+            _append_debug_log(
+                "[fixedPF][S3] pf_input="
+                f"{S3DCPF!r}, "
+                f"DC1_3={uiThaiFixedPF.checkBox_S1_DC1_3.isChecked()}, "
+                f"DC2_3={uiThaiFixedPF.checkBox_S1_DC2_3.isChecked()}, "
+                f"DC3_3={uiThaiFixedPF.checkBox_S1_DC3_3.isChecked()}, "
+                f"DC4_3={uiThaiFixedPF.checkBox_S1_DC4_3.isChecked()}"
+            )
+        except Exception:
+            pass
+        # step3 的 DC 功率(百分比)应始终按当前输入下发（只要勾选了对应 DC 通道）
+        # 原先的 “if S3DCPF in DC_PF_VALUE_LIST” 会直接跳过 DC 下发，导致命令文件看不到功率变化命令。
+        # DC1
+        if uiThaiFixedPF.checkBox_S1_DC1_3.isChecked():
+            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF, 0)
+            try:
+                _append_debug_log(f"[fixedPF][S3][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 10
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+            if a == "1":
+                strShowErrorMessageBoxFlag = "1"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "2"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
+        
+        if uiThaiFixedPF.checkBox_S1_DC2_3.isChecked():
+            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
+            try:
+                _append_debug_log(f"[fixedPF][S3][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
-        else:
-            # DC1
-            if uiThaiFixedPF.checkBox_S1_DC1_3.isChecked():
-                a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF, 0)
+            if a == "1":
+                strShowErrorMessageBoxFlag = "3"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "4"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
+        
+        if uiThaiFixedPF.checkBox_S1_DC3_3.isChecked():
+            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
+            try:
+                _append_debug_log(f"[fixedPF][S3][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "1"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "2"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-            
-            if uiThaiFixedPF.checkBox_S1_DC2_3.isChecked():
-                a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
+            if a == "1":
+                strShowErrorMessageBoxFlag = "5"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "6"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "3"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "4"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-            
-            if uiThaiFixedPF.checkBox_S1_DC3_3.isChecked():
-                a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
+        if uiThaiFixedPF.checkBox_S1_DC4_3.isChecked():
+            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
+            try:
+                _append_debug_log(f"[fixedPF][S3][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "5"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "6"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
+            if a == "1":
+                strShowErrorMessageBoxFlag = "7"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "8"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
-            if uiThaiFixedPF.checkBox_S1_DC4_3.isChecked():
-                a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
+        # step3 的 WT 宏流程（改文件名/开始/结束）应当总是追加到命令表中，
+        # 不应依赖是否勾选 DC4_3（之前缩进错误会导致 step3 完整流程丢失）。
+        strArrayTestStepSingle = []
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[9] = S3_times[1]
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "7"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "8"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
+        new_S3_file_name = uiThaiFixedPF.lE_S3_filename.text()
+        json_1 = uiThaiFixedPF.cB_S3_json_1.currentText()
+        json_2 = uiThaiFixedPF.cB_S3_json_2.currentText()
+        json_3 = uiThaiFixedPF.cB_S3_json_3.currentText()
 
-            strArrayTestStepSingle = []
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = S3_times[1]
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        # 更改文件保存名
+        strArraySingle = ["" for _ in range(10)]
+        strArraySingle[0] = 'WT'
+        strArraySingle[1] = json_1
+        strArraySingle[2] = new_S3_file_name
+        strArraySingle[7] = S3_times[2]
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            
-            new_S3_file_name = uiThaiFixedPF.lE_S3_filename.text()
-            json_1 = uiThaiFixedPF.cB_S3_json_1.currentText()
-            json_2 = uiThaiFixedPF.cB_S3_json_2.currentText()
-            json_3 = uiThaiFixedPF.cB_S3_json_3.currentText()
+        # 开始测量
+        strArraySingle = ["" for _ in range(10)]
+        strArraySingle[0] = 'WT'
+        strArraySingle[1] = json_2
+        strArraySingle[7] = S3_times[3]
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            # 更改文件保存名
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = 'WT'
-            strArraySingle[1] = json_1
-            strArraySingle[2] = new_S3_file_name
-            strArraySingle[7] = S3_times[2]
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[8] = 10
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            # 开始测量
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = 'WT'
-            strArraySingle[1] = json_2
-            strArraySingle[7] = S3_times[3]
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)            
+        # 结束测量
+        strArraySingle = ["" for _ in range(10)]
+        strArraySingle[0] = 'WT'
+        strArraySingle[1] = json_3
+        strArraySingle[7] = S3_times[4]
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 10
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            # 结束测量
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = 'WT'
-            strArraySingle[1] = json_3
-            strArraySingle[7] = S3_times[4]
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArrayTestStep.append(strArrayTestStepSingle)
+        strArrayTestStep.append(strArrayTestStepSingle)
 
     # step4
     if uiThaiFixedPF.checkBox_S4.isChecked():
@@ -6424,9 +6455,24 @@ def thaifixedpfSend():
 
         S4DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_4.toPlainText()
         print(f'S4DCPF---{S4DCPF}')
+        try:
+            _append_debug_log(
+                "[fixedPF][S4] pf_input="
+                f"{S4DCPF!r}, "
+                f"DC1_4={uiThaiFixedPF.checkBox_S1_DC1_4.isChecked()}, "
+                f"DC2_4={uiThaiFixedPF.checkBox_S1_DC2_4.isChecked()}, "
+                f"DC3_4={uiThaiFixedPF.checkBox_S1_DC3_4.isChecked()}, "
+                f"DC4_4={uiThaiFixedPF.checkBox_S1_DC4_4.isChecked()}"
+            )
+        except Exception:
+            pass
         # DC1
         if uiThaiFixedPF.checkBox_S1_DC1_4.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S4DCPF, 0)
+            try:
+                _append_debug_log(f"[fixedPF][S4][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
@@ -6437,6 +6483,10 @@ def thaifixedpfSend():
         
         if uiThaiFixedPF.checkBox_S1_DC2_4.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S4DCPF, 1)
+            try:
+                _append_debug_log(f"[fixedPF][S4][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
@@ -6447,6 +6497,10 @@ def thaifixedpfSend():
         
         if uiThaiFixedPF.checkBox_S1_DC3_4.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S4DCPF, 2)
+            try:
+                _append_debug_log(f"[fixedPF][S4][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
@@ -6457,6 +6511,10 @@ def thaifixedpfSend():
         
         if uiThaiFixedPF.checkBox_S1_DC4_4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S4DCPF, 3)
+            try:
+                _append_debug_log(f"[fixedPF][S4][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
@@ -6527,9 +6585,24 @@ def thaifixedpfSend():
 
         S5DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_5.toPlainText()
         print(f'S5DCPF---{S5DCPF}')
+        try:
+            _append_debug_log(
+                "[fixedPF][S5] pf_input="
+                f"{S5DCPF!r}, "
+                f"DC1_5={uiThaiFixedPF.checkBox_S1_DC1_5.isChecked()}, "
+                f"DC2_5={uiThaiFixedPF.checkBox_S1_DC2_5.isChecked()}, "
+                f"DC3_5={uiThaiFixedPF.checkBox_S1_DC3_5.isChecked()}, "
+                f"DC4_5={uiThaiFixedPF.checkBox_S1_DC4_5.isChecked()}"
+            )
+        except Exception:
+            pass
         # DC1
         if uiThaiFixedPF.checkBox_S1_DC1_5.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S5DCPF, 0)
+            try:
+                _append_debug_log(f"[fixedPF][S5][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
@@ -6540,6 +6613,10 @@ def thaifixedpfSend():
         
         if uiThaiFixedPF.checkBox_S1_DC2_5.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
+            try:
+                _append_debug_log(f"[fixedPF][S5][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
@@ -6550,6 +6627,10 @@ def thaifixedpfSend():
         
         if uiThaiFixedPF.checkBox_S1_DC3_5.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S5DCPF, 2)
+            try:
+                _append_debug_log(f"[fixedPF][S5][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
@@ -6560,6 +6641,10 @@ def thaifixedpfSend():
         
         if uiThaiFixedPF.checkBox_S1_DC4_5.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S5DCPF, 3)
+            try:
+                _append_debug_log(f"[fixedPF][S5][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
+            except Exception:
+                pass
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
@@ -11342,6 +11427,9 @@ def thaicosPhiBrazilSend():
         strArraySingle[3] = "config_dict"
         strArraySingle[4] = S1Command
         strArrayTest.append(strArraySingle)
+
+        # 巴西 CosPhi：此处走“上位机自动配置 WTViewerEfree”的逻辑（Upper_WT_Config + auto_config），不依赖 RecPlayer 宏文件
+        _append_debug_log("[cosPhiBrazil] WT config via Upper_WT_Config (no macro replay file in this project)")
     
     if strAddTestFlag == '1' and project_change == '1':
         strArraySingle = ["" for _ in range(10)]
@@ -23253,7 +23341,22 @@ def RunProject():
             # ---------------- 上位机 WT 自动配置分支 ----------------
             elif strArrayTest[i][0] == "Upper_WT_Config":
                 print("Upper_WT_Config")
+                # 兼容两种来源：
+                # 1) 直接传 dict（推荐）
+                # 2) 传 dict 的字符串表示（例如从 csv 读回/旧逻辑残留）
                 config_dict = strArrayTest[i][4]
+                if isinstance(config_dict, str):
+                    _raw = config_dict.strip()
+                    if _raw:
+                        try:
+                            import ast
+                            config_dict = ast.literal_eval(_raw)
+                        except Exception:
+                            # 保底：解析失败就给空 dict，避免后续 .values() 崩溃
+                            _append_debug_log(f"[Upper_WT_Config][warn] config_dict parse failed, raw={_raw[:200]}")
+                            config_dict = {}
+                    else:
+                        config_dict = {}
                 if first_test == '':
                     wt_is_check()
                     time.sleep(0.5)
@@ -23481,9 +23584,16 @@ def RunProject():
                 filepath = strArrayTest[i][1]
                 if filepath:
                     # 调用录制回放管理器执行宏文件
+                    try:
+                        macro_abs_path = PATH_RECORDINGS.get(wt_type, "") + filepath
+                    except Exception:
+                        macro_abs_path = filepath
+                    _append_debug_log(f"[WT macro] execute file={filepath}, wt_type={wt_type}, abs={macro_abs_path}")
                     manager.execute(filepath)
 
-                # WT 分支里的 [7]：此处是纯等待（单位秒），用于给回放/设备预留完成时间
+                # WT 分支里的 [7]：纯等待，用于给回放/设备预留完成时间
+                # 注意：UI 时间值经过 SetTimeFunction() 统一转换为 “0.1 秒单位”(seconds*10)。
+                # 因此这里按 0.1 秒单位等待，避免出现“配置 15 秒却等待 150 秒”的 10 倍问题。
                 if strArrayTest[i][7] != '':
                     fTestTime = strArrayTest[i][7]
                     iTestTime = int(fTestTime)
@@ -23496,7 +23606,7 @@ def RunProject():
                                 break
                         if strTestStatusFlag == "结束":
                             break
-                        time.sleep(1)
+                        time.sleep(0.1)
                     
 
             elif strArrayTest[i][0] == "WT3000":
@@ -24491,8 +24601,32 @@ def thaichongliancheckBox1():
 
 def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
     global ArrayfDCCurrValue, per_dc_factor, command_list_DC
+    # 兼容功率百分比输入格式：
+    # - "80" / "80%" / "80 %"
+    # - "0.8"（按 80% 处理）
+    def _parse_percent(v):
+        if v is None:
+            raise ValueError("percent is None")
+        vs = str(v).strip()
+        if vs.endswith('%'):
+            vs = vs[:-1].strip()
+        p = float(vs)
+        # 兼容 0~1 的小数写法（0.8 -> 80%）
+        if 0 < p <= 1:
+            p *= 100.0
+        return p
+
     dc_type = ""
     dc_type = per_dc_factor.get(str(DCNumber))
+    # 如果 DC 厂家类型未配置/未知，旧逻辑会直接走到函数末尾返回 None，
+    # 进而导致命令文件里完全没有 I-V/功率变化命令。
+    # 这里做一个保底：默认按 Chroma 的 IVC:IT / IVC:VT 方式生成曲线命令。
+    if not dc_type or dc_type not in ("Chroma", "Keysight", "Itech"):
+        try:
+            _append_debug_log(f"[DCGetIVValueFunction][warn] unknown dc_type={dc_type!r} for DC{DCNumber}, fallback to 'Chroma'")
+        except Exception:
+            pass
+        dc_type = "Chroma"
     if dc_type and dc_type == "Chroma":
         print(f"dc_type--{dc_type}")
         DCParArray = ["" for ii in range(128)]
@@ -24504,7 +24638,7 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
             fDCImp = float(strImp)
             fDCVoc = float(strVoc)
             fDCIsc = float(strIsc)
-            fPf = float(strPF)
+            fPf = _parse_percent(strPF)
 
         except Exception as e:
             return "1"
@@ -24563,7 +24697,7 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
             fDCImp = float(strImp)
             fDCVoc = float(strVoc)
             fDCIsc = float(strIsc)
-            fPf = float(strPF)
+            fPf = _parse_percent(strPF)
 
         except Exception as e:
             return "1"
@@ -24610,15 +24744,34 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
                 strArrayIVValue.append(str1)
                 return strArrayIVValue
     elif dc_type and dc_type == "Itech":
-        command_voc = "SOL:USER:VOC " + str(strVoc)
-        command_imp = "SOL:USER:IMP " + str(strImp)
-        command_vmp = "SOL:USER:VMP " + str(strVmp)
-        command_isc = "SOL:USER:ISC " + str(strIsc)
-        strArrayIVValue.append(command_voc)
-        strArrayIVValue.append(command_imp)
-        strArrayIVValue.append(command_vmp)
-        strArrayIVValue.append(command_isc)
-        return strArrayIVValue
+        # Itech：使用 SOL:USER:* 方式写入四参数（同样按功率百分比缩放电流）
+        strArrayIVValue = []
+        try:
+            fDCVmp = float(strVmp)
+            fDCImp = float(strImp)
+            fDCVoc = float(strVoc)
+            fDCIsc = float(strIsc)
+            fPf = _parse_percent(strPF)
+        except Exception:
+            return "1"
+        else:
+            fPf = 0.01 * fPf
+            fDCIsc = fDCIsc * fPf
+            fDCImp = fDCImp * fPf
+            # 电流上限检查（若数组未初始化则跳过）
+            try:
+                if ArrayfDCCurrValue[int(DCNumber)] <= fDCIsc:
+                    return "2"
+            except Exception:
+                pass
+            strArrayIVValue.append(f"SOL:USER:VOC {fDCVoc}")
+            strArrayIVValue.append(f"SOL:USER:IMP {fDCImp}")
+            strArrayIVValue.append(f"SOL:USER:VMP {fDCVmp}")
+            strArrayIVValue.append(f"SOL:USER:ISC {fDCIsc}")
+            return strArrayIVValue
+
+    # 兜底：理论上不会走到这里
+    return "1"
 
 def get_enumwindows():
     hwnd_list = {}
@@ -25117,6 +25270,14 @@ def setting_set(h):
     """
     global setting_icon, messure_icon, messure_status, setting_status, config_dict, wt_type
 
+    # 兼容“上位机WT配置”为**空字符串/空字典**的场景：
+    # - 这种情况下用户期望仅完成 WT 连接并继续后续宏回放/测量流程
+    # - 不应进入设置页去解析/点击接线方式、更新率等参数
+    if not config_dict:
+        setting_status = '1'
+        _append_debug_log("[setting_set] empty config_dict -> skip setting page config")
+        return
+
     # connect_mode：从 config_dict 中提取“设置页”对应配置项
     # 约定：最后一项用于“更新率”，前面若干项用于“接线方式”
     connect_mode = []
@@ -25133,6 +25294,12 @@ def setting_set(h):
     elif wt_type == 'WT5000':
         for i in list(config_dict.values())[1:6]:
             connect_mode.append(i)
+
+    # 若提取不到任何“设置页”参数，同样跳过配置（避免 connect_mode[-1] 等越界）
+    if not connect_mode:
+        setting_status = '1'
+        _append_debug_log("[setting_set] connect_mode empty -> skip setting page config")
+        return
 
     # 获取主窗口子控件文本（用于判断“接线方式/更新率”是否可见）
     win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), parm_dict_set)
@@ -25239,7 +25406,7 @@ def setting_set(h):
         handle_now_dict = {}
 
         # connect_mode[-1] 约定为更新率配置值
-        if connect_mode[-1] != "":
+        if connect_mode and connect_mode[-1] != "":
             # 1) 展开更新率下拉
             pyautogui.moveTo(local_per[0], local_per[1], duration=0.5)
             pyautogui.click()
@@ -25291,6 +25458,17 @@ def messured_set(messure_handle):
     global now_save_file
     # 过欠压_过欠频第一组测试时间设置状态，0: 首轮时间未写入；1: 已写入
     global volt_fz_first_status
+
+    # 兼容“上位机WT配置”为**空字符串/空字典**的场景：
+    # - Upper_WT_Config 可能只用于触发 WT 连接/置前，而不希望改动任何“数值详细设置/测量项目”的勾选
+    # - 原逻辑会先清理(批量点击)测量项目区；若 config_dict 为空则不会再勾回来，导致“全部反选/清空”
+    # - 因此这里直接跳过 UI 配置，但把状态位置为已就绪，避免 run_loop 的恢复逻辑反复调用本函数
+    if not config_dict:
+        messsure_deatil_cofig = '1'
+        messure_project_cofig = '1'
+        messure_status = '1'
+        _append_debug_log("[messured_set] empty config_dict -> skip measure detail/project config")
+        return
 
     # 当前窗口句柄/控件文本缓存
     handle_now_dict = {}

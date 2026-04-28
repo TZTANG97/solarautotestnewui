@@ -45,10 +45,27 @@ class RecordedAction:
     def from_dict(cls, data: Dict[str, Any]) -> 'RecordedAction':
         """从字典创建对象"""
         data = data.copy()
-        data['action_type'] = ActionType(data['action_type'])
-        if 'is_drag' not in data:
-            data['is_drag'] = False
-        return cls(**data)
+        # 兼容字段：
+        # - 外部/旧宏可能包含 id、duration 等 RecordedAction 未声明字段
+        # - 这些字段不参与回放逻辑，加载时直接忽略，避免 __init__ unexpected keyword
+        allowed_keys = {
+            "action_type",
+            "timestamp",
+            "x",
+            "y",
+            "button",
+            "dx",
+            "dy",
+            "key",
+            "is_drag",
+            "text",
+        }
+        filtered = {k: v for k, v in data.items() if k in allowed_keys}
+
+        filtered['action_type'] = ActionType(filtered['action_type'])
+        if 'is_drag' not in filtered:
+            filtered['is_drag'] = False
+        return cls(**filtered)
 
 
 class MacroConfig:
@@ -105,7 +122,22 @@ class MacroConfig:
             config.recorded_resolution = data.get("recorded_resolution", {"width": 0, "height": 0})
             
             # 加载动作列表
+            # 兼容两种格式：
+            # - 旧格式：action 内带 timestamp (秒)
+            # - 新格式：action 内带 duration (秒)，不带 timestamp
+            last_timestamp = 0.0
             for action_data in data.get("actions", []):
+                print("新模式")
+                if "timestamp" not in action_data and "duration" in action_data:
+                    # duration -> timestamp（累加）
+                    last_timestamp = float(last_timestamp) + float(action_data.get("duration", 0.0))
+                    action_data = dict(action_data)
+                    action_data["timestamp"] = last_timestamp
+                else:
+                    print("旧模式")
+                    # 即使是旧格式，也维护 last_timestamp，便于混合格式文件
+                    last_timestamp = float(action_data.get("timestamp", last_timestamp))
+
                 action = RecordedAction.from_dict(action_data)
                 config.actions.append(action)
             

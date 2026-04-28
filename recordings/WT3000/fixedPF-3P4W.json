@@ -15,7 +15,8 @@
       "x": 42,
       "y": 137,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 1.183883
     },
     {
       "id": 2,
@@ -24,7 +25,8 @@
       "x": 42,
       "y": 137,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 1.319081
     },
     {
       "id": 3,
@@ -33,7 +35,8 @@
       "x": 38,
       "y": 143,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.3949350000000003
     },
     {
       "id": 4,
@@ -42,7 +45,8 @@
       "x": 38,
       "y": 143,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 2.5155640000000004
     },
     {
       "id": 5,
@@ -51,7 +55,8 @@
       "x": 170,
       "y": 143,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 3.8350320000000004
     },
     {
       "id": 6,
@@ -60,7 +65,8 @@
       "x": 170,
       "y": 143,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 3.9392650000000002
     },
     {
       "id": 7,
@@ -69,7 +75,8 @@
       "x": 217,
       "y": 235,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 4.938924
     },
     {
       "id": 8,
@@ -78,7 +85,8 @@
       "x": 217,
       "y": 235,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 5.0352820000000005
     },
     {
       "id": 9,
@@ -87,7 +95,8 @@
       "x": 202,
       "y": 266,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 5.780537000000001
     },
     {
       "id": 10,
@@ -96,7 +105,8 @@
       "x": 202,
       "y": 266,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 5.883585000000001
     },
     {
       "id": 11,
@@ -105,7 +115,8 @@
       "x": 1006,
       "y": 569,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 7.067148000000001
     },
     {
       "id": 12,
@@ -114,7 +125,8 @@
       "x": 1006,
       "y": 569,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 7.187341000000002
     },
     {
       "id": 13,
@@ -123,7 +135,8 @@
       "x": 298,
       "y": 238,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 8.123110000000002
     },
     {
       "id": 14,
@@ -132,7 +145,8 @@
       "x": 298,
       "y": 238,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 8.242692000000002
     },
     {
       "id": 15,
@@ -141,7 +155,8 @@
       "x": 293,
       "y": 252,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 9.075420000000001
     },
     {
       "id": 16,
@@ -150,7 +165,8 @@
       "x": 293,
       "y": 252,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 9.218768
     },
     {
       "id": 17,
@@ -159,7 +175,8 @@
       "x": 1002,
       "y": 576,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 10.285831000000002
     },
     {
       "id": 18,
@@ -168,7 +185,8 @@
       "x": 1002,
       "y": 576,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 10.395589000000001
     },
     {
       "id": 19,
@@ -177,7 +195,8 @@
       "x": 218,
       "y": 267,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 11.299334000000002
     },
     {
       "id": 20,
@@ -186,7 +205,8 @@
       "x": 218,
       "y": 267,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 11.410897000000002
     },
     {
       "id": 21,
@@ -195,7 +215,8 @@
       "x": 204,
       "y": 279,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 12.259180000000002
     },
     {
       "id": 22,
@@ -204,7 +225,8 @@
       "x": 204,
       "y": 279,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 12.371230000000002
     },
     {
       "id": 23,
@@ -213,7 +235,8 @@
       "x": 1010,
       "y": 573,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 13.611264000000002
     },
     {
       "id": 24,
@@ -222,7 +245,8 @@
       "x": 1010,
       "y": 573,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 13.731334000000002
     },
     {
       "id": 25,
@@ -231,7 +255,8 @@
       "x": 318,
       "y": 267,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 14.667522000000002
     },
     {
       "id": 26,
@@ -240,7 +265,8 @@
       "x": 318,
       "y": 267,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 14.763274000000001
     },
     {
       "id": 27,
@@ -249,7 +275,8 @@
       "x": 307,
       "y": 276,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 15.507913
     },
     {
       "id": 28,
@@ -258,7 +285,8 @@
       "x": 307,
       "y": 276,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 15.603471
     },
     {
       "id": 29,
@@ -267,7 +295,8 @@
       "x": 1011,
       "y": 572,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 16.772042
     },
     {
       "id": 30,
@@ -276,7 +305,8 @@
       "x": 1011,
       "y": 572,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 16.891486999999998
     },
     {
       "id": 31,
@@ -285,7 +315,8 @@
       "x": 307,
       "y": 279,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 17.818870999999998
     },
     {
       "id": 32,
@@ -294,7 +325,8 @@
       "x": 307,
       "y": 279,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 17.939175
     },
     {
       "id": 33,
@@ -303,7 +335,8 @@
       "x": 293,
       "y": 308,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 19.011279
     },
     {
       "id": 34,
@@ -312,7 +345,8 @@
       "x": 293,
       "y": 308,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 19.146966
     },
     {
       "id": 35,
@@ -321,7 +355,8 @@
       "x": 282,
       "y": 315,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 20.444039
     },
     {
       "id": 36,
@@ -330,7 +365,8 @@
       "x": 282,
       "y": 315,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 20.555524
     },
     {
       "id": 37,
@@ -339,7 +375,8 @@
       "x": 283,
       "y": 330,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 21.763264
     },
     {
       "id": 38,
@@ -348,7 +385,8 @@
       "x": 283,
       "y": 330,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 21.883159
     },
     {
       "id": 39,
@@ -357,7 +395,8 @@
       "x": 172,
       "y": 143,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 23.947052
     },
     {
       "id": 40,
@@ -366,7 +405,8 @@
       "x": 172,
       "y": 143,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 24.075478999999998
     },
     {
       "id": 41,
@@ -375,7 +415,8 @@
       "x": 161,
       "y": 295,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 25.370917999999996
     },
     {
       "id": 42,
@@ -384,7 +425,8 @@
       "x": 161,
       "y": 295,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 25.482743999999997
     },
     {
       "id": 43,
@@ -393,7 +435,8 @@
       "x": 245,
       "y": 322,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 26.531169
     },
     {
       "id": 44,
@@ -402,7 +445,8 @@
       "x": 245,
       "y": 322,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 26.658870999999998
     },
     {
       "id": 45,
@@ -411,7 +455,8 @@
       "x": 236,
       "y": 354,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 27.858310999999997
     },
     {
       "id": 46,
@@ -420,7 +465,8 @@
       "x": 236,
       "y": 354,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 27.994251999999996
     },
     {
       "id": 47,
@@ -429,7 +475,8 @@
       "x": 227,
       "y": 293,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 28.994408999999997
     },
     {
       "id": 48,
@@ -438,7 +485,8 @@
       "x": 227,
       "y": 293,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 29.122853
     },
     {
       "id": 49,
@@ -447,7 +495,8 @@
       "x": 35,
       "y": 222,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 29.898801
     },
     {
       "id": 50,
@@ -456,7 +505,8 @@
       "x": 35,
       "y": 222,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 29.986711
     },
     {
       "id": 51,
@@ -465,7 +515,8 @@
       "x": 35,
       "y": 222,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 30.426355
     },
     {
       "id": 52,
@@ -474,7 +525,8 @@
       "x": 35,
       "y": 222,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 30.530585000000002
     },
     {
       "id": 53,
@@ -483,7 +535,8 @@
       "x": 35,
       "y": 222,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 31.106296
     },
     {
       "id": 54,
@@ -492,7 +545,8 @@
       "x": 35,
       "y": 222,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 31.202101
     },
     {
       "id": 55,
@@ -501,7 +555,8 @@
       "x": 905,
       "y": 456,
       "button": "right",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 32.025574999999996
     },
     {
       "id": 56,
@@ -510,7 +565,8 @@
       "x": 905,
       "y": 456,
       "button": "right",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 32.169123
     },
     {
       "id": 57,
@@ -519,7 +575,8 @@
       "x": 715,
       "y": 264,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 33.168175
     },
     {
       "id": 58,
@@ -528,7 +585,8 @@
       "x": 715,
       "y": 264,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 33.280518
     },
     {
       "id": 59,
@@ -537,7 +595,8 @@
       "x": 709,
       "y": 284,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 34.312643
     },
     {
       "id": 60,
@@ -546,7 +605,8 @@
       "x": 709,
       "y": 284,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 34.425136
     },
     {
       "id": 61,
@@ -555,7 +615,8 @@
       "x": 664,
       "y": 381,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 35.584553
     },
     {
       "id": 62,
@@ -564,7 +625,8 @@
       "x": 664,
       "y": 381,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 35.728614
     },
     {
       "id": 63,
@@ -573,7 +635,8 @@
       "x": 653,
       "y": 412,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 36.848538
     },
     {
       "id": 64,
@@ -582,7 +645,8 @@
       "x": 653,
       "y": 412,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 36.968492
     },
     {
       "id": 65,
@@ -591,7 +655,8 @@
       "x": 737,
       "y": 420,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 38.025256
     },
     {
       "id": 66,
@@ -600,7 +665,8 @@
       "x": 737,
       "y": 420,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 38.128873
     },
     {
       "id": 67,
@@ -609,7 +675,8 @@
       "x": 731,
       "y": 435,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 39.36813
     },
     {
       "id": 68,
@@ -618,7 +685,8 @@
       "x": 731,
       "y": 435,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 39.489081
     },
     {
       "id": 69,
@@ -627,7 +695,8 @@
       "x": 749,
       "y": 456,
       "button": "left",
-      "is_drag": true
+      "is_drag": true,
+      "timestamp": 40.320603
     },
     {
       "id": 70,
@@ -636,21 +705,24 @@
       "x": 783,
       "y": 457,
       "button": "left",
-      "is_drag": true
+      "is_drag": true,
+      "timestamp": 40.841031
     },
     {
       "id": 71,
       "action_type": "key_press",
       "duration": 1.472317,
       "key": "0",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 42.313348
     },
     {
       "id": 72,
       "action_type": "key_release",
       "duration": 0.079451,
       "key": "0",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 42.392799
     },
     {
       "id": 73,
@@ -659,7 +731,8 @@
       "x": 821,
       "y": 549,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 43.11212999999999
     },
     {
       "id": 74,
@@ -668,56 +741,64 @@
       "x": 821,
       "y": 549,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 43.20839999999999
     },
     {
       "id": 75,
       "action_type": "key_press",
       "duration": 0.592,
       "key": "ctrl",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 43.80039999999999
     },
     {
       "id": 76,
       "action_type": "key_press",
       "duration": 0.088133,
       "key": "65",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 43.88853299999999
     },
     {
       "id": 77,
       "action_type": "key_release",
       "duration": 0.072601,
       "key": "ctrl",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 43.96113399999999
     },
     {
       "id": 78,
       "action_type": "key_release",
       "duration": 0.047851,
       "key": "65",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 44.00898499999999
     },
     {
       "id": 79,
       "action_type": "key_press",
       "duration": 0.999457,
       "key": "backspace",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 45.00844199999999
     },
     {
       "id": 80,
       "action_type": "key_release",
       "duration": 0.047927,
       "key": "backspace",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 45.05636899999999
     },
     {
       "id": 81,
       "action_type": "text_input",
       "duration": 0.1,
       "is_drag": false,
-      "text": "D:/EnergyTest/wt_file_save_path"
+      "text": "D:\\Desktop\\光伏自动化\\固定PF=1\\data",
+      "timestamp": 45.15636899999999
     },
     {
       "id": 82,
@@ -726,7 +807,8 @@
       "x": 982,
       "y": 591,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 48.02924699999999
     },
     {
       "id": 83,
@@ -735,7 +817,8 @@
       "x": 982,
       "y": 591,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 48.12453099999999
     },
     {
       "id": 84,
@@ -744,7 +827,8 @@
       "x": 632,
       "y": 596,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 48.52453099999999
     },
     {
       "id": 85,
@@ -753,7 +837,8 @@
       "x": 632,
       "y": 596,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 48.62453099999999
     },
     {
       "id": 86,
@@ -762,7 +847,8 @@
       "x": 677,
       "y": 213,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 50.31961899999999
     },
     {
       "id": 87,
@@ -771,7 +857,8 @@
       "x": 677,
       "y": 213,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 50.43961699999999
     },
     {
       "id": 88,
@@ -780,7 +867,8 @@
       "x": 612,
       "y": 255,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 51.32768199999999
     },
     {
       "id": 89,
@@ -789,7 +877,8 @@
       "x": 612,
       "y": 255,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 51.439238999999986
     },
     {
       "id": 90,
@@ -798,7 +887,8 @@
       "x": 611,
       "y": 303,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 52.16007299999998
     },
     {
       "id": 91,
@@ -807,7 +897,8 @@
       "x": 611,
       "y": 303,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 52.263226999999986
     },
     {
       "id": 92,
@@ -816,7 +907,8 @@
       "x": 611,
       "y": 432,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 53.135888999999985
     },
     {
       "id": 93,
@@ -825,7 +917,8 @@
       "x": 611,
       "y": 432,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 53.223570999999986
     },
     {
       "id": 94,
@@ -834,7 +927,8 @@
       "x": 614,
       "y": 589,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 54.095579999999984
     },
     {
       "id": 95,
@@ -843,7 +937,8 @@
       "x": 614,
       "y": 589,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 54.199370999999985
     },
     {
       "id": 96,
@@ -852,7 +947,8 @@
       "x": 608,
       "y": 623,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 55.01505899999999
     },
     {
       "id": 97,
@@ -861,7 +957,8 @@
       "x": 609,
       "y": 623,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 55.159733999999986
     },
     {
       "id": 98,
@@ -870,7 +967,8 @@
       "x": 609,
       "y": 655,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 55.91137299999998
     },
     {
       "id": 99,
@@ -879,7 +977,8 @@
       "x": 609,
       "y": 655,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 56.03168999999998
     },
     {
       "id": 100,
@@ -888,7 +987,8 @@
       "x": 728,
       "y": 270,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 57.50908899999998
     },
     {
       "id": 101,
@@ -897,7 +997,8 @@
       "x": 728,
       "y": 270,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 57.61367699999998
     },
     {
       "id": 102,
@@ -906,7 +1007,8 @@
       "x": 807,
       "y": 269,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 58.23749499999998
     },
     {
       "id": 103,
@@ -915,7 +1017,8 @@
       "x": 807,
       "y": 269,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 58.341487999999984
     },
     {
       "id": 104,
@@ -924,7 +1027,8 @@
       "x": 881,
       "y": 273,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 59.069791999999985
     },
     {
       "id": 105,
@@ -933,7 +1037,8 @@
       "x": 881,
       "y": 273,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 59.18145399999999
     },
     {
       "id": 106,
@@ -942,7 +1047,8 @@
       "x": 726,
       "y": 289,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 60.085641999999986
     },
     {
       "id": 107,
@@ -951,7 +1057,8 @@
       "x": 726,
       "y": 289,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 60.189970999999986
     },
     {
       "id": 108,
@@ -960,7 +1067,8 @@
       "x": 731,
       "y": 318,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 60.845838999999984
     },
     {
       "id": 109,
@@ -969,7 +1077,8 @@
       "x": 731,
       "y": 318,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 60.94977499999998
     },
     {
       "id": 110,
@@ -978,7 +1087,8 @@
       "x": 728,
       "y": 336,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 61.40525399999998
     },
     {
       "id": 111,
@@ -987,7 +1097,8 @@
       "x": 728,
       "y": 336,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 61.52617499999998
     },
     {
       "id": 112,
@@ -996,7 +1107,8 @@
       "x": 727,
       "y": 367,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 62.29370499999998
     },
     {
       "id": 113,
@@ -1005,7 +1117,8 @@
       "x": 727,
       "y": 367,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 62.37343899999998
     },
     {
       "id": 114,
@@ -1014,7 +1127,8 @@
       "x": 804,
       "y": 368,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 62.973143999999984
     },
     {
       "id": 115,
@@ -1023,7 +1137,8 @@
       "x": 804,
       "y": 368,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 63.06098399999998
     },
     {
       "id": 116,
@@ -1032,7 +1147,8 @@
       "x": 882,
       "y": 369,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 63.82222999999998
     },
     {
       "id": 117,
@@ -1041,7 +1157,8 @@
       "x": 882,
       "y": 369,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 63.89337699999999
     },
     {
       "id": 118,
@@ -1050,7 +1167,8 @@
       "x": 960,
       "y": 369,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 64.62184799999999
     },
     {
       "id": 119,
@@ -1059,7 +1177,8 @@
       "x": 960,
       "y": 369,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 64.71762299999999
     },
     {
       "id": 120,
@@ -1068,7 +1187,8 @@
       "x": 726,
       "y": 385,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 65.48600499999999
     },
     {
       "id": 121,
@@ -1077,7 +1197,8 @@
       "x": 726,
       "y": 385,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 65.581745
     },
     {
       "id": 122,
@@ -1086,7 +1207,8 @@
       "x": 1111,
       "y": 848,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 66.622663
     },
     {
       "id": 123,
@@ -1095,7 +1217,8 @@
       "x": 1111,
       "y": 849,
       "button": "left",
-      "is_drag": false
+      "is_drag": false,
+      "timestamp": 66.74193
     }
   ]
 }

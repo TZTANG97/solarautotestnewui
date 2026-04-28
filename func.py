@@ -45,16 +45,39 @@ def modify_json_text_by_timestamp(file_path, new_text, target_timestamp, timesta
         backup: bool, 是否创建备份文件
     """
     try:
+        # 先判断文件是否存在，避免后续异常导致日志刷屏
+        if not os.path.exists(file_path):
+            print(f"错误: 文件不存在: {file_path}")
+            return False
+
         # 读取JSON文件
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+
+        # 兼容两种宏格式：
+        # - 旧格式：action 内带 timestamp (秒)
+        # - 新格式：action 内仅带 duration (秒)，不带 timestamp
+        # 这里将 actions 统一补齐 timestamp，避免后续 KeyError('timestamp')
+        actions = data.get("actions", [])
+        last_ts = 0.0
+        normalized_actions = []
+        for a in actions:
+            if isinstance(a, dict) and "timestamp" not in a and "duration" in a:
+                last_ts += float(a.get("duration", 0.0))
+                a = dict(a)
+                a["timestamp"] = last_ts
+            else:
+                if isinstance(a, dict) and "timestamp" in a:
+                    last_ts = float(a.get("timestamp", last_ts))
+            normalized_actions.append(a)
+        data["actions"] = normalized_actions
         
         # 创建备份
         if backup:
             backup_path = file_path + '.backup'
             with open(backup_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            print(f"✅ 已创建备份: {backup_path}")
+            print(f"已创建备份: {backup_path}")
         
         # 查找匹配的text_input动作
         target_action = None
@@ -70,12 +93,15 @@ def modify_json_text_by_timestamp(file_path, new_text, target_timestamp, timesta
                     break
         
         if target_action is None:
-            print(f"❌ 错误: 未找到timestamp为 {target_timestamp} 的text_input动作")
+            print(f"错误: 未找到 timestamp={target_timestamp} 的 text_input 动作")
             # 列出所有text_input的timestamp供参考
-            text_inputs = [(i, a['timestamp']) for i, a in enumerate(data.get('actions', [])) 
-                          if a.get('action_type') == 'text_input']
+            text_inputs = [
+                (i, a.get("timestamp"))
+                for i, a in enumerate(data.get("actions", []))
+                if isinstance(a, dict) and a.get("action_type") == "text_input"
+            ]
             if text_inputs:
-                print("可用的text_input timestamp:")
+                print("可用的 text_input timestamp:")
                 for idx, ts in text_inputs:
                     print(f"  - 动作索引{idx}: {ts}")
             return False
@@ -88,23 +114,23 @@ def modify_json_text_by_timestamp(file_path, new_text, target_timestamp, timesta
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         
-        print(f"✅ 修改成功!")
-        print(f"📁 文件: {file_path}")
-        print(f"⏱️  Timestamp: {target_timestamp}")
-        print(f"📝 动作索引: {action_index}")
-        print(f"🔤 旧文本: {old_text}")
-        print(f"✨ 新文本: {new_text}")
+        print("修改成功!")
+        print(f"文件: {file_path}")
+        print(f"Timestamp: {target_timestamp}")
+        print(f"动作索引: {action_index}")
+        print(f"旧文本: {old_text}")
+        print(f"新文本: {new_text}")
         
         return True
         
     except FileNotFoundError:
-        print(f"❌ 错误: 文件 '{file_path}' 不存在")
+        print(f"错误: 文件不存在: {file_path}")
         return False
     except json.JSONDecodeError:
-        print(f"❌ 错误: 文件 '{file_path}' 不是有效的JSON格式")
+        print(f"错误: 文件不是有效的 JSON 格式: {file_path}")
         return False
     except Exception as e:
-        print(f"❌ 错误: {e}")
+        print(f"错误: {e}")
         return False
 
 

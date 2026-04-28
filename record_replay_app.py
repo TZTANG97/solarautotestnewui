@@ -195,6 +195,50 @@ class ActionReplayer(QThread):
         scale_y = current_height / self.recorded_resolution[1]
         
         try:
+            def _normalize_key(k):
+                """
+                兼容键值格式：
+                - 录制模式通常是字符串（keyboard event.name）
+                - 部分旧/外部宏可能把 key 存成虚拟键码(int)或数字字符串（如 65 表示 'a'）
+                """
+                if k is None:
+                    return None
+                if isinstance(k, str):
+                    ks = k.strip()
+                    if ks.isdigit():
+                        k = int(ks)
+                    else:
+                        return ks
+                if isinstance(k, int):
+                    # 常见 VK 映射
+                    vk_map = {
+                        8: "backspace",
+                        9: "tab",
+                        13: "enter",
+                        16: "shift",
+                        17: "ctrl",
+                        18: "alt",
+                        27: "esc",
+                        32: "space",
+                        37: "left",
+                        38: "up",
+                        39: "right",
+                        40: "down",
+                        46: "delete",
+                    }
+                    if k in vk_map:
+                        return vk_map[k]
+                    # A-Z
+                    if 65 <= k <= 90:
+                        return chr(k + 32)
+                    # 0-9
+                    if 48 <= k <= 57:
+                        return chr(k)
+                    # numpad 0-9
+                    if 96 <= k <= 105:
+                        return str(k - 96)
+                return str(k)
+
             total_actions = len(self.actions)
             for i, action in enumerate(self.actions):
                 if not self.is_replaying:
@@ -229,12 +273,14 @@ class ActionReplayer(QThread):
                     pyautogui.scroll(dy)
                 
                 elif action_type == "key_press":
-                    key = action["key"]
-                    keyboard.press(key)
+                    key = _normalize_key(action.get("key"))
+                    if key:
+                        keyboard.press(key)
                 
                 elif action_type == "key_release":
-                    key = action["key"]
-                    keyboard.release(key)
+                    key = _normalize_key(action.get("key"))
+                    if key:
+                        keyboard.release(key)
             
             self.replay_finished.emit()
         except Exception as e:
@@ -776,16 +822,51 @@ class MainWindow(QMainWindow):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                 
-                self.recorded_actions = config.get("actions", [])
+                # 兼容两种录制格式：
+                # - 旧格式：每个 action 带 timestamp (秒)
+                # - 新格式：每个 action 仅带 duration (秒)，不带 timestamp
+                actions = config.get("actions", [])
+                last_ts = 0.0
+                normalized_actions = []
+                for a in actions:
+                    if "timestamp" not in a and "duration" in a:
+                        # duration -> timestamp（累加）
+                        last_ts += float(a.get("duration", 0.0))
+                        a = dict(a)
+                        a["timestamp"] = last_ts
+                    else:
+                        # 兜底：保证 timestamp 至少存在（避免 KeyError）
+                        last_ts = float(a.get("timestamp", last_ts))
+                        if "timestamp" not in a:
+                            a = dict(a)
+                            a["timestamp"] = last_ts
+                    normalized_actions.append(a)
+
+                self.recorded_actions = normalized_actions
                 self.recorded_resolution = (
                     config["recorded_resolution"]["width"],
                     config["recorded_resolution"]["height"]
                 )
                 
                 # 更新UI
+                # 注意：这里不能复用 on_action_recorded()，因为它会把 action 追加到 recorded_actions，
+                # 导致在遍历 self.recorded_actions 的同时又往里 append，出现“越遍历越长”的卡死现象。
                 self.actions_list.clear()
                 for action in self.recorded_actions:
-                    self.on_action_recorded(action)
+                    action_str = f"[{action['timestamp']:.2f}] {action['action_type']}"
+                    if action['action_type'] == 'mouse_move':
+                        action_str += f" - 位置: ({action.get('x')}, {action.get('y')})"
+                    elif action['action_type'] == 'mouse_click':
+                        action_str += f" - 位置: ({action.get('x')}, {action.get('y')}), 按钮: {action.get('button')}"
+                    elif action['action_type'] == 'key_press' or action['action_type'] == 'key_release':
+                        action_str += f" - 键: {action.get('key')}"
+                    self.actions_list.append(action_str)
+
+                # 更新统计信息
+                self.actions_count_label.setText(f"动作数量: {len(self.recorded_actions)}")
+                if self.recorded_actions:
+                    duration = self.recorded_actions[-1].get('timestamp', 0.0)
+                    self.duration_label.setText(f"录制时长: {duration:.2f}秒")
                 
                 self.save_btn.setEnabled(True)
                 self.replay_btn.setEnabled(True)
