@@ -17637,6 +17637,9 @@ def thaiguoqianya_pinSend():
     if strAddTestFlag == "0":
         strArrayTest = []
         total_save_file = 0
+        # 新一轮“非累加”配置时，需要清空每轮时长列表。
+        # 否则 WT 自动化首轮会取 per_test_time_list[0] 的旧值，导致停止时间与当前配置不一致。
+        per_test_time_list = []
         test_program = []
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
@@ -21102,9 +21105,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS3SetTime, S3_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S3_RATE.isChecked():
-            S3_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS3StepSize = round(delta_S3_FR_abs / S3_total_test_count, 2)
+            S3_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS3StepSize = delta_S3_FR_abs / S3_total_test_count
             S3FR_loop = True
             fS3ACFR_start = float(S3ACFR_start)
             fS3ACFR_end = float(S3ACFR_end)
@@ -21212,9 +21214,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS4SetTime, S4_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S4_RATE.isChecked():
-            S4_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS4StepSize = round(delta_S4_FR_abs / S4_total_test_count, 2)
+            S4_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS4StepSize = delta_S4_FR_abs / S4_total_test_count
             S4FR_loop = True
             fS4ACFR_start = float(S4ACFR_start)
             fS4ACFR_end = float(S4ACFR_end)
@@ -21311,9 +21312,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS5SetTime, S5_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S5_RATE.isChecked():
-            S5_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS5StepSize = round(delta_S5_FR_abs / S5_total_test_count, 2)
+            S5_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS5StepSize = delta_S5_FR_abs / S5_total_test_count
             S5FR_loop = True
             fS5ACFR_start = float(S5ACFR_start)
             fS5ACFR_end = float(S5ACFR_end)
@@ -21410,9 +21410,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS6SetTime, S6_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S6_RATE.isChecked():
-            S6_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS6StepSize = round(delta_S6_FR_abs / S6_total_test_count, 2)
+            S6_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS6StepSize = delta_S6_FR_abs / S6_total_test_count
             S6FR_loop = True
             fS6ACFR_start = float(S6ACFR_start)
             fS6ACFR_end = float(S6ACFR_end)
@@ -21509,9 +21508,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS7SetTime, S7_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S7_RATE.isChecked():
-            S7_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS7StepSize = round(delta_S7_FR_abs / S7_total_test_count, 2)
+            S7_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS7StepSize = delta_S7_FR_abs / S7_total_test_count
             S7FR_loop = True
             fS7ACFR_start = float(S7ACFR_start)
             fS7ACFR_end = float(S7ACFR_end)
@@ -21609,9 +21607,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS8SetTime, S8_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S8_RATE.isChecked():
-            S8_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS8StepSize = round(delta_S8_FR_abs / S8_total_test_count, 2)
+            S8_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS8StepSize = delta_S8_FR_abs / S8_total_test_count
             S8FR_loop = True
             fS8ACFR_start = float(S8ACFR_start)
             fS8ACFR_end = float(S8ACFR_end)
@@ -21708,9 +21705,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS9SetTime, S9_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S9_RATE.isChecked():
-            S9_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS9StepSize = round(delta_S9_FR_abs / S9_total_test_count, 2)
+            S9_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS9StepSize = delta_S9_FR_abs / S9_total_test_count
             S9FR_loop = True
             fS9ACFR_start = float(S9ACFR_start)
             fS9ACFR_end = float(S9ACFR_end)
@@ -21808,9 +21804,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS10SetTime, S10_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S10_RATE.isChecked():
-            S10_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS10StepSize = round(delta_S10_FR_abs / S10_total_test_count, 2)
+            S10_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS10StepSize = delta_S10_FR_abs / S10_total_test_count
             S10FR_loop = True
             fS10ACFR_start = float(S10ACFR_start)
             fS10ACFR_end = float(S10ACFR_end)
@@ -21907,9 +21902,8 @@ def thaiguoqianpin_immunSend():
         real_test_time = SetTimeFunction(fS11SetTime, S11_TIME_UNIT) / 10
         
         if uiThaiGuoQianPin_Immun.checkBox_S11_RATE.isChecked():
-            S11_total_test_count = int(real_test_time * per_second_range)
-            # 步长
-            fS11StepSize = round(delta_S11_FR_abs / S11_total_test_count, 2)
+            S11_total_test_count = max(1, int(real_test_time * per_second_range))
+            fS11StepSize = delta_S11_FR_abs / S11_total_test_count
             S11FR_loop = True
             fS11ACFR_start = float(S11ACFR_start)
             fS11ACFR_end = float(S11ACFR_end)
@@ -22981,71 +22975,63 @@ def RunProject():
                                         test_status = ''
                                 time.sleep(0.01)
 
-                        # [6]：另一种自动测量触发协议
-                        # - 首次（auto_end_status == '0'）：先触发测量并按 [6] 等待
-                        # - 再次进入：转为等待 test_status == '0'，并带超时保护
+                        # [6]：自动测量触发协议（过欠压/过欠频等常用）
+                        # 目标：触发 WT 测量后，必须阻塞等待测量结束（test_status 回到 '0'）再继续执行后续命令，
+                        # 否则会出现“WT 正在测量，但 AC 仍在扫频/扫压”，WT 侧极易报 PLL sync error 并停止测量。
                         if strArrayTest[i][6] != '':
                             _append_debug_log(
                                 f"[run_loop] col6 detected at command#{i+1}, auto_end_status={auto_end_status}, "
                                 f"setting_status={setting_status}, messure_status={messure_status}, "
                                 f"now_save_file={now_save_file}, test_status={test_status}"
                             )
-                            if auto_end_status == '0':
-                                prev_index = now_save_file
+                            # 1) 文件索引：首轮触发时保持 index=0（对应 file_list[0]），后续触发再递增
+                            prev_index = now_save_file
+                            if not (now_save_file == 0 and save_file_name == ''):
                                 now_save_file = now_save_file + 1
-                                WT_auto_messure_status = '1'
-                                _append_debug_log(
-                                    f"[run_loop] trigger measure by col6 at command#{i+1}, index {prev_index}->{now_save_file}, "
-                                    f"save_file_name={save_file_name}"
-                                )
-                                if strArrayTest[i][6] != '':
-                                    fTestTime = strArrayTest[i][6]
-                                    iTestTime = int(fTestTime)
-                                    for x in range(iTestTime):
-                                        # while True:
-                                        #     if strTestStatusFlag == "暂停":
-                                        #         time.sleep(0.01)
-                                        #     else:
-                                        #         break
-                                        if strTestStatusFlag == "结束":
-                                            break
-                                        time.sleep(0.1)
-                                    auto_end_status = '1'
-                            else:
-                                loop = True
-                                loop_1 = ''
-                                wait_start = time.time()
-                                last_log_sec = -1
-                                wait_timeout_sec = 60
-                                while loop:
-                                    if strTestStatusFlag == "结束":
+                            # 2) 标记“正在测量”，让 run_loop 能正确阻塞等待
+                            test_status = '1'
+                            # 3) 触发测量线程
+                            WT_auto_messure_status = '1'
+                            _append_debug_log(
+                                f"[run_loop] trigger measure by col6 at command#{i+1}, index {prev_index}->{now_save_file}, "
+                                f"save_file_name={save_file_name}"
+                            )
+
+                            # 4) 先按 col6 给定的等待时长等待（常用作“触发后最短稳定时间”）
+                            fTestTime = strArrayTest[i][6]
+                            iTestTime = int(fTestTime)
+                            for x in range(iTestTime):
+                                if strTestStatusFlag == "结束":
+                                    break
+                                time.sleep(0.1)
+
+                            # 5) 再等待测量真正结束（由 messure_testing 在 testing_stop 后置 test_status='0'）
+                            loop = True
+                            wait_start = time.time()
+                            last_log_sec = -1
+                            # 默认给足 1 小时超时（避免长测量被误判）；需要更严格可再按项目细化
+                            wait_timeout_sec = 3600
+                            while loop:
+                                if strTestStatusFlag == "结束":
+                                    loop = False
+                                else:
+                                    elapsed = int(time.time() - wait_start)
+                                    if elapsed != last_log_sec and elapsed % 5 == 0:
+                                        logger.info(
+                                            f"等待测量完成: 第{i+1}条命令(col6), test_status={test_status}, 已等待{elapsed}s"
+                                        )
+                                        last_log_sec = elapsed
+
+                                    if test_status == '0':
                                         loop = False
-                                    # elif strTestStatusFlag == "暂停":
-                                    #     loop_1 = True
-                                    #     while loop_1:
-                                    #         if strTestStatusFlag == "暂停":
-                                    #             time.sleep(0.1)
-                                    #         else:
-                                    #             now_save_file = now_save_file - 1
-                                    #             i = i - 1
-                                    #             loop_1 = False
-                                    #             loop = False
-                                    else:
-                                        elapsed = int(time.time() - wait_start)
-                                        if elapsed != last_log_sec and elapsed % 1 == 0:
-                                            logger.info(f"等待测量完成: 第{i+1}条命令, test_status={test_status}, 已等待{elapsed}s")
-                                            last_log_sec = elapsed
-
-                                        if test_status == '0':
-                                            loop = False
-                                            test_status = ''
-                                        elif elapsed >= wait_timeout_sec:
-                                            logger.error(f"等待测量完成超时: 第{i+1}条命令, test_status={test_status}, 超时{wait_timeout_sec}s")
-                                            _show_connect_message(f"自动化等待测量结果超时（第{i+1}条）", ui)
-                                            loop = False
-
-                                    time.sleep(0.01)
-                                auto_end_status = '0'
+                                        test_status = ''
+                                    elif elapsed >= wait_timeout_sec:
+                                        logger.error(
+                                            f"等待测量完成超时: 第{i+1}条命令(col6), test_status={test_status}, 超时{wait_timeout_sec}s"
+                                        )
+                                        _show_connect_message(f"自动化等待测量结果超时（第{i+1}条,col6）", ui)
+                                        loop = False
+                                time.sleep(0.05)
 
                 if strArrayTest[i][1] == "query":
                     try:
@@ -25787,6 +25773,8 @@ def messure_testing():
             _append_debug_log("[messure_testing] enter measure flow")
             # 进门后立即清空触发位，避免定时器下一拍重复进入同一轮
             WT_auto_messure_status = ''
+            # 置位“测量进行中”，供 run_loop(col6/col7) 阻塞等待
+            test_status = '1'
 
             # 解析待保存文件名列表（支持英文逗号/中文逗号）
             # 示例："case1,case2，case3" -> ["case1", "case2", "case3"]
