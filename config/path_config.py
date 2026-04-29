@@ -7,6 +7,8 @@ from .app_config import config
 
 # WT 可执行文件路径仍从 config.ini 读取（便于不同电脑安装路径不同）
 PATH_WT_EXE = config.get('PATH', 'wt_exe')
+# MPPT 上位机可执行文件路径（可选）
+PATH_MPPT_EXE = config.get('PATH', 'mppt_exe', fallback='')
 
 
 def _with_trailing_sep(p: str) -> str:

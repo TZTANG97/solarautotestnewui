@@ -85,7 +85,7 @@ from func import *
 from modbus_visa import ModbusVISA
 
 from config.app_config import config
-from config.path_config import PATH_WT_EXE, PATH_RECORDINGS
+from config.path_config import PATH_WT_EXE, PATH_RECORDINGS, PATH_MPPT_EXE
 from infra.logging_setup import setup_logging, install_stream_logging
 from infra.exception_handler import install_exception_hook
 from utils.ui_helpers import _show_connect_message, _toggle_connection_button, _safe_close_handle
@@ -22395,93 +22395,98 @@ def thaistaticMPPTtestSend():
             test_DC_count = test_DC_count + 1
             DC1_port = uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.currentText()
             DC_port_list.append(DC1_port)
+            # 6槽位对齐：0=Vmin, 1=Vnom, 2=Vmax, 3=Vdc1, 4=Vdc2, 5=Vdc3
+            DC1_config_file = ['' for _ in range(6)]
             if uiThaiStaticMPPTTest.checkBox_S1_DC1_Vmin.isChecked():
                 DC1_Vmin_file = uiThaiStaticMPPTTest.textEdit_S1_DC1_Vmin.toPlainText()
-                DC1_config_file.append(DC1_Vmin_file)
+                DC1_config_file[0] = DC1_Vmin_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC1_Vnom.isChecked():
                 DC1_Vnom_file = uiThaiStaticMPPTTest.textEdit_S1_DC1_Vnom.toPlainText()
-                DC1_config_file.append(DC1_Vnom_file)
+                DC1_config_file[1] = DC1_Vnom_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC1_Vmax.isChecked():
                 DC1_Vmax_file = uiThaiStaticMPPTTest.textEdit_S1_DC1_Vmax.toPlainText()
-                DC1_config_file.append(DC1_Vmax_file)
+                DC1_config_file[2] = DC1_Vmax_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC1_Vdc1.isChecked():
                 DC1_Vdc1_file = uiThaiStaticMPPTTest.textEdit_S1_DC1_Vdc1.toPlainText()
-                DC1_config_file.append(DC1_Vdc1_file)
+                DC1_config_file[3] = DC1_Vdc1_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC1_Vdc2.isChecked():
                 DC1_Vdc2_file = uiThaiStaticMPPTTest.textEdit_S1_DC1_Vdc2.toPlainText()
-                DC1_config_file.append(DC1_Vdc2_file)
+                DC1_config_file[4] = DC1_Vdc2_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC1_Vdc3.isChecked():
                 DC1_Vdc3_file = uiThaiStaticMPPTTest.textEdit_S1_DC1_Vdc3.toPlainText()
-                DC1_config_file.append(DC1_Vdc3_file)
+                DC1_config_file[5] = DC1_Vdc3_file
         # DC2
         if uiThaiStaticMPPTTest.checkBox_S1_DC2.isChecked():
             test_DC_count = test_DC_count + 1
             DC2_port = uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.currentText()
             DC_port_list.append(DC2_port)
+            DC2_config_file = ['' for _ in range(6)]
             if uiThaiStaticMPPTTest.checkBox_S1_DC2_Vmin.isChecked():
                 DC2_Vmin_file = uiThaiStaticMPPTTest.textEdit_S1_DC2_Vmin.toPlainText()
-                DC2_config_file.append(DC2_Vmin_file)
+                DC2_config_file[0] = DC2_Vmin_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC2_Vnom.isChecked():
                 DC2_Vnom_file = uiThaiStaticMPPTTest.textEdit_S1_DC2_Vnom.toPlainText()
-                DC2_config_file.append(DC2_Vnom_file)
+                DC2_config_file[1] = DC2_Vnom_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC2_Vmax.isChecked():
                 DC2_Vmax_file = uiThaiStaticMPPTTest.textEdit_S1_DC2_Vmax.toPlainText()
-                DC2_config_file.append(DC2_Vmax_file)
+                DC2_config_file[2] = DC2_Vmax_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC2_Vdc1.isChecked():
                 DC2_Vdc1_file = uiThaiStaticMPPTTest.textEdit_S1_DC2_Vdc1.toPlainText()
-                DC2_config_file.append(DC2_Vdc1_file)
+                DC2_config_file[3] = DC2_Vdc1_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC2_Vdc2.isChecked():
                 DC2_Vdc2_file = uiThaiStaticMPPTTest.textEdit_S1_DC2_Vdc2.toPlainText()
-                DC2_config_file.append(DC2_Vdc2_file)
+                DC2_config_file[4] = DC2_Vdc2_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC2_Vdc3.isChecked():
                 DC2_Vdc3_file = uiThaiStaticMPPTTest.textEdit_S1_DC2_Vdc3.toPlainText()
-                DC2_config_file.append(DC2_Vdc3_file)
+                DC2_config_file[5] = DC2_Vdc3_file
         # DC3
         if uiThaiStaticMPPTTest.checkBox_S1_DC3.isChecked():
             test_DC_count = test_DC_count + 1
             DC3_port = uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT.currentText()
             DC_port_list.append(DC3_port)
+            DC3_config_file = ['' for _ in range(6)]
             if uiThaiStaticMPPTTest.checkBox_S1_DC3_Vmin.isChecked():
                 DC3_Vmin_file = uiThaiStaticMPPTTest.textEdit_S1_DC3_Vmin.toPlainText()
-                DC3_config_file.append(DC3_Vmin_file)
+                DC3_config_file[0] = DC3_Vmin_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC3_Vnom.isChecked():
                 DC3_Vnom_file = uiThaiStaticMPPTTest.textEdit_S1_DC3_Vnom.toPlainText()
-                DC3_config_file.append(DC3_Vnom_file)
+                DC3_config_file[1] = DC3_Vnom_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC3_Vmax.isChecked():
                 DC3_Vmax_file = uiThaiStaticMPPTTest.textEdit_S1_DC3_Vmax.toPlainText()
-                DC3_config_file.append(DC3_Vmax_file)
+                DC3_config_file[2] = DC3_Vmax_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC3_Vdc1.isChecked():
                 DC3_Vdc1_file = uiThaiStaticMPPTTest.textEdit_S1_DC3_Vdc1.toPlainText()
-                DC3_config_file.append(DC3_Vdc1_file)
+                DC3_config_file[3] = DC3_Vdc1_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC3_Vdc2.isChecked():
                 DC3_Vdc2_file = uiThaiStaticMPPTTest.textEdit_S1_DC3_Vdc2.toPlainText()
-                DC3_config_file.append(DC3_Vdc2_file)
+                DC3_config_file[4] = DC3_Vdc2_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC3_Vdc3.isChecked():
                 DC3_Vdc3_file = uiThaiStaticMPPTTest.textEdit_S1_DC3_Vdc3.toPlainText()
-                DC3_config_file.append(DC3_Vdc3_file)
+                DC3_config_file[5] = DC3_Vdc3_file
         # DC4
         if uiThaiStaticMPPTTest.checkBox_S1_DC4.isChecked():
             test_DC_count = test_DC_count + 1
             DC4_port = uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT.currentText()
             DC_port_list.append(DC4_port)
+            DC4_config_file = ['' for _ in range(6)]
             if uiThaiStaticMPPTTest.checkBox_S1_DC4_Vmin.isChecked():
                 DC4_Vmin_file = uiThaiStaticMPPTTest.textEdit_S1_DC4_Vmin.toPlainText()
-                DC4_config_file.append(DC4_Vmin_file)
+                DC4_config_file[0] = DC4_Vmin_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC4_Vnom.isChecked():
                 DC4_Vnom_file = uiThaiStaticMPPTTest.textEdit_S1_DC4_Vnom.toPlainText()
-                DC4_config_file.append(DC4_Vnom_file)
+                DC4_config_file[1] = DC4_Vnom_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC4_Vmax.isChecked():
                 DC4_Vmax_file = uiThaiStaticMPPTTest.textEdit_S1_DC4_Vmax.toPlainText()
-                DC4_config_file.append(DC4_Vmax_file)
+                DC4_config_file[2] = DC4_Vmax_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC4_Vdc1.isChecked():
                 DC4_Vdc1_file = uiThaiStaticMPPTTest.textEdit_S1_DC4_Vdc1.toPlainText()
-                DC4_config_file.append(DC4_Vdc1_file)
+                DC4_config_file[3] = DC4_Vdc1_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC4_Vdc2.isChecked():
                 DC4_Vdc2_file = uiThaiStaticMPPTTest.textEdit_S1_DC4_Vdc2.toPlainText()
-                DC4_config_file.append(DC4_Vdc2_file)
+                DC4_config_file[4] = DC4_Vdc2_file
             if uiThaiStaticMPPTTest.checkBox_S1_DC4_Vdc3.isChecked():
                 DC4_Vdc3_file = uiThaiStaticMPPTTest.textEdit_S1_DC4_Vdc3.toPlainText()
-                DC4_config_file.append(DC4_Vdc3_file)
+                DC4_config_file[5] = DC4_Vdc3_file
         
         strArraySingle = ["" for _ in range(10)]
         S1Config = test_DC_count
@@ -22497,6 +22502,13 @@ def thaistaticMPPTtestSend():
         strArraySingle[4] = S1Config
         strArrayTest.append(strArraySingle)
 
+        if PATH_MPPT_EXE:
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "MPPT_step1"
+            strArraySingle[3] = "dc_upper_path"
+            strArraySingle[4] = PATH_MPPT_EXE
+            strArrayTest.append(strArraySingle)
+
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = "MPPT_stepS1"
         strArrayTest.append(strArraySingle)
@@ -22508,7 +22520,7 @@ def thaistaticMPPTtestSend():
         strArraySingle[4] = S2Config
         strArrayTest.append(strArraySingle)
 
-        if len(DC1_config_file) > 0:
+        if any(x != '' for x in DC1_config_file):
             strArraySingle = ["" for _ in range(10)]
             S2Config = DC1_config_file
             strArraySingle[0] = "MPPT_step2"
@@ -22516,7 +22528,7 @@ def thaistaticMPPTtestSend():
             strArraySingle[4] = S2Config
             strArrayTest.append(strArraySingle)
 
-        if len(DC2_config_file) > 0:
+        if any(x != '' for x in DC2_config_file):
             strArraySingle = ["" for _ in range(10)]
             S2Config = DC2_config_file
             strArraySingle[0] = "MPPT_step2"
@@ -22524,7 +22536,7 @@ def thaistaticMPPTtestSend():
             strArraySingle[4] = S2Config
             strArrayTest.append(strArraySingle)
 
-        if len(DC3_config_file) > 0:
+        if any(x != '' for x in DC3_config_file):
             strArraySingle = ["" for _ in range(10)]
             S2Config = DC3_config_file
             strArraySingle[0] = "MPPT_step2"
@@ -22532,7 +22544,7 @@ def thaistaticMPPTtestSend():
             strArraySingle[4] = S2Config
             strArrayTest.append(strArraySingle)
 
-        if len(DC4_config_file) > 0:
+        if any(x != '' for x in DC4_config_file):
             strArraySingle = ["" for _ in range(10)]
             S2Config = DC4_config_file
             strArraySingle[0] = "MPPT_step2"
@@ -23312,16 +23324,20 @@ def RunProject():
                         if strTestStatusFlag == "结束":
                             break
                         result = mppt_before_test(test_number)
+                        _append_debug_log(f"IV Run 点击之后，结果: [{result}]")
                         if result != 1:
-                            logger.info(strtimenow + result)
-                            print(strtimenow + result)
+                            msg = f"[MPPT_stepS2][before_test_error] {result}"
+                            logger.info(msg)
+                            print(msg)
                             break
                         else:
                             for wait_time1 in range(wait_for_dc):
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+                            _append_debug_log(f"IV Run 等待1秒之后，点击：mppt_during_test按钮")
                             mppt_during_test(test_number)
+                            _append_debug_log(f"IV Run 点击：mppt_during_test按钮之后，结果: [{result}]")
                 elif 'stepSe' in strArrayTest[i][0]:
                     mppt_end_test()
             # ---------------- 上位机 WT 自动配置分支 ----------------
@@ -26149,11 +26165,33 @@ def mppt_config():
     elif 'MutiChannel Active' in handle_upper_dict.values():
         return 0
     else:
-        dc_app_location = pyautogui.locateCenterOnScreen('./config_files/dc_upper.jpg', grayscale=False, confidence=0.9)
+        # 优先使用配置路径拉起上位机，避免依赖图像识别位置
+        dc_upper_path = (
+            Mppt_step1.get('dc_upper_path')
+            or Mppt_step1.get('mppt_upper_path')
+            or Mppt_step1.get('upper_path')
+            or ''
+        )
 
-        if dc_app_location != 'None':
-            pyautogui.moveTo(dc_app_location, duration=1)
-            pyautogui.doubleClick()
+        if dc_upper_path:
+            if os.path.exists(dc_upper_path):
+                _append_debug_log(f"[mppt_config] launch DC upper by path: {dc_upper_path}")
+                os.startfile(dc_upper_path)
+            else:
+                _append_debug_log(f"[mppt_config][error] dc upper path not found: {dc_upper_path}")
+                return f"MPPT上位机路径不存在: {dc_upper_path}"
+        else:
+            try:
+                dc_app_location = pyautogui.locateCenterOnScreen(
+                    './config_files/dc_upper.jpg',
+                    grayscale=False,
+                    confidence=0.8
+                )
+                pyautogui.moveTo(dc_app_location, duration=1)
+                pyautogui.doubleClick()
+            except pyautogui.ImageNotFoundException:
+                _append_debug_log("[mppt_config][error] dc_upper.jpg not found on screen and no dc_upper_path provided")
+                return "未找到MPPT上位机图标，且未配置dc_upper_path"
         
         dc_handle = ''
         loop = True
@@ -26248,22 +26286,70 @@ def mppt_before_test(test_vdc_now):
                 time.sleep(1)
 
                 print(test_vdc_now, d_number, vdc_list)
+                _append_debug_log(f"点击：Open 按钮，根据配置路径读取配置文件，然后导入，等待3秒")
+                time.sleep(3) 
                 result = mppt_read_config_file(test_vdc_now, d_number, vdc_list)
+                _append_debug_log(f"配置文件读取之后：结果：{[result]}")
                 if result == 1:
-                    pyautogui.moveTo(
-                        ch_local[0] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm'][0], 
-                        ch_local[1] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm'][1], 
-                        duration=0.5)
-                    pyautogui.click()
-                    pyautogui.click()
-                    time.sleep(11)
+                    _append_debug_log("配置文件读取之后，点击：确认按钮")
+                    _append_debug_log("[mppt_before_test] file imported, try click import-confirm dialog by handle")
+                    handled_by_dialog = False
+                    # 优先按弹窗按钮句柄点击，避免旧坐标点击失效
+                    for _ in range(8):
+                        handle_upper_dict = get_enumwindows()
+                        import_all_handle = None
+                        for hwnd, title in handle_upper_dict.items():
+                            title_text = str(title).lower()
+                            if ('import' in title_text and 'iv' in title_text and 'file' in title_text) or ('import all' in title_text):
+                                import_all_handle = hwnd
+                                break
+                        if import_all_handle:
+                            import_child_dict = {}
+                            win32gui.ShowWindow(import_all_handle, win32con.SW_SHOWNORMAL)
+                            win32gui.SetForegroundWindow(import_all_handle)
+                            win32gui.EnumChildWindows(
+                                import_all_handle,
+                                lambda hwnd, parm: parm.update({hwnd: win32gui.GetWindowText(hwnd)}),
+                                import_child_dict
+                            )
+                            btn_handle = None
+                            for child_hwnd, child_text in import_child_dict.items():
+                                child_text_l = str(child_text).strip().lower()
+                                if child_text_l in ('import', '导入', '确定', 'ok'):
+                                    btn_handle = child_hwnd
+                                    break
+                            if btn_handle:
+                                left_ether, top_ether, right_ether, bottom_ether = win32gui.GetWindowRect(btn_handle)
+                                pyautogui.moveTo(
+                                    left_ether + (right_ether - left_ether) / 2,
+                                    top_ether + (bottom_ether - top_ether) / 2,
+                                    duration=0.4
+                                )
+                                pyautogui.click()
+                                _append_debug_log("[mppt_before_test] clicked import-confirm by button handle")
+                            else:
+                                pyautogui.press('enter', interval=0.3)
+                                _append_debug_log("[mppt_before_test] import dialog button not found, pressed ENTER")
+                            handled_by_dialog = True
+                            break
+                        time.sleep(0.5)
 
-                    pyautogui.moveTo(
-                        ch_local[0] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm2'][0], 
-                        ch_local[1] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm2'][1], 
-                        duration=0.5 
-                    )
-                    pyautogui.click()
+                    # 兜底：按旧坐标连点
+                    if not handled_by_dialog:
+                        _append_debug_log("[mppt_before_test][fallback] import dialog not found, click confirm by legacy coordinates")
+                        pyautogui.moveTo(
+                            ch_local[0] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm'][0],
+                            ch_local[1] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm'][1],
+                            duration=0.5)
+                        pyautogui.click()
+                        pyautogui.click()
+                        pyautogui.moveTo(
+                            ch_local[0] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm2'][0],
+                            ch_local[1] + DC_STATIC_MPPT_TEST['CH_IV_read_confirm2'][1],
+                            duration=0.5
+                        )
+                        pyautogui.click()
+                    time.sleep(2)
                 error_page = ''
                 for i in range(60):
                     handle_error = get_enumwindows()
@@ -26288,17 +26374,87 @@ def mppt_before_test(test_vdc_now):
                     else:
                         break
 
+                # # 处理“import all IV file”确认弹窗（不同版本标题/按钮文案可能不同）
+                # import_all_handle = None
+                # handle_upper_dict = get_enumwindows()
+                # for hwnd, title in handle_upper_dict.items():
+                #     title_text = str(title).lower()
+                #     if ('import' in title_text and 'iv' in title_text and 'file' in title_text) or ('import all' in title_text):
+                #         import_all_handle = hwnd
+                #         break
+
+                # if import_all_handle:
+                #     try:
+                #         _append_debug_log(f"[mppt_before_test][import] dialog detected: hwnd={import_all_handle}, title={handle_upper_dict.get(import_all_handle, '')}")
+                #         win32gui.ShowWindow(import_all_handle, win32con.SW_SHOWNORMAL)
+                #         win32gui.SetForegroundWindow(import_all_handle)
+                #         import_child_dict = {}
+                #         win32gui.EnumChildWindows(
+                #             import_all_handle,
+                #             lambda hwnd, parm: parm.update({hwnd: win32gui.GetWindowText(hwnd)}),
+                #             import_child_dict
+                #         )
+                #         _append_debug_log(f"[mppt_before_test][import] child texts={list(import_child_dict.values())}")
+                #         import_btn_handle = None
+                #         import_btn_text = ''
+                #         for child_hwnd, child_text in import_child_dict.items():
+                #             child_text_l = str(child_text).strip().lower()
+                #             if child_text_l in ('import', '导入', '确定', 'ok'):
+                #                 import_btn_handle = child_hwnd
+                #                 import_btn_text = str(child_text)
+                #                 break
+
+                #         if import_btn_handle:
+                #             left_ether, top_ether, right_ether, bottom_ether = win32gui.GetWindowRect(import_btn_handle)
+                #             pyautogui.moveTo(
+                #                 left_ether + (right_ether - left_ether) / 2,
+                #                 top_ether + (bottom_ether - top_ether) / 2,
+                #                 duration=0.5
+                #             )
+                #             pyautogui.click()
+                #             _append_debug_log(f"[mppt_before_test][import] clicked button: text={import_btn_text}, hwnd={import_btn_handle}")
+                #         else:
+                #             # 文案不匹配时回车兜底，避免流程卡死
+                #             pyautogui.press('enter', interval=0.3)
+                #             _append_debug_log("[mppt_before_test][import][fallback] no known button text, pressed ENTER")
+                #         time.sleep(1)
+                #         handle_after_click = get_enumwindows()
+                #         if import_all_handle in handle_after_click.keys():
+                #             _append_debug_log("[mppt_before_test][import][warn] dialog still exists after click/enter")
+                #         else:
+                #             _append_debug_log("[mppt_before_test][import] dialog closed after click/enter")
+                #     except Exception as e:
+                #         _append_debug_log(f"[mppt_before_test][warn] import-all dialog handle failed: {e}")
+                # else:
+                #     _append_debug_log("[mppt_before_test][import] import-all dialog not detected")
+
                 # 重新获取句柄，避免句柄更新或窗口位置改变
-                handle_upper_dict = get_enumwindows()
-                ch_handle = list(handle_upper_dict.keys())[
-                        list(handle_upper_dict.values()).index(f'CH{d_number+1}_Solar Array Main Panel.vi')]
+                _append_debug_log("重新获取句柄，避免句柄更新或窗口位置改变")
+                ch_handle = None
+                retry = 30
+                while retry > 0:
+                    handle_upper_dict = get_enumwindows()
+                    ch_title = f'CH{d_number+1}_Solar Array Main Panel.vi'
+                    if ch_title in handle_upper_dict.values():
+                        ch_handle = list(handle_upper_dict.keys())[
+                            list(handle_upper_dict.values()).index(ch_title)
+                        ]
+                        _append_debug_log(f"重新获取句柄，避免句柄更新或窗口位置改变：{ch_handle}")
+                        break
+                    retry -= 1
+                    time.sleep(0.5)
+
+                if ch_handle is None:
+                    _append_debug_log(f"[mppt_before_test][error] cannot find CH window after import: CH{d_number+1}_Solar Array Main Panel.vi")
+                    _append_debug_log(f"未找到CH{d_number+1}主窗口，导入后可能停留在确认弹窗")
+                    return f"未找到CH{d_number+1}主窗口，导入后可能停留在确认弹窗"
                 
                 win32gui.ShowWindow(ch_handle, win32con.SW_SHOWNORMAL)
                 win32gui.SetForegroundWindow(ch_handle)
 
                 left_ether, top_ether, right_ether, bottom_ether = win32gui.GetWindowRect(ch_handle)
                 print(left_ether, top_ether, right_ether, bottom_ether)
-
+                _append_debug_log(f"点击：Pn_100按钮，等待1秒")
                 pyautogui.moveTo(
                         left_ether + DC_STATIC_MPPT_TEST['CH_Pn_100'][0], 
                         top_ether + DC_STATIC_MPPT_TEST['CH_Pn_100'][1], 
@@ -26306,6 +26462,7 @@ def mppt_before_test(test_vdc_now):
                 pyautogui.doubleClick()
                 time.sleep(1)
 
+                _append_debug_log(f"点击：IV_write按钮，等待1秒")
                 pyautogui.moveTo(
                         left_ether + DC_STATIC_MPPT_TEST['CH_IV_write'][0], 
                         top_ether + DC_STATIC_MPPT_TEST['CH_IV_write'][1], 
@@ -26315,6 +26472,7 @@ def mppt_before_test(test_vdc_now):
                 pyautogui.click()
                 time.sleep(1)
 
+                _append_debug_log(f"点击：IV_read按钮，等待1秒")
                 pyautogui.moveTo(
                         left_ether + DC_STATIC_MPPT_TEST['CH_IV_read'][0], 
                         top_ether + DC_STATIC_MPPT_TEST['CH_IV_read'][1], 
@@ -26324,6 +26482,7 @@ def mppt_before_test(test_vdc_now):
                 pyautogui.click()
                 time.sleep(1)
 
+                _append_debug_log(f"点击：total_H按钮，等待1秒")
                 pyautogui.moveTo(
                         left_ether + DC_STATIC_MPPT_TEST['CH_total_H'][0] - step_CH, 
                         top_ether + DC_STATIC_MPPT_TEST['CH_total_H'][1], 
@@ -26332,6 +26491,7 @@ def mppt_before_test(test_vdc_now):
                 pyautogui.typewrite(total_test_time[0])
                 time.sleep(1)
 
+                _append_debug_log(f"点击：total_M按钮，等待1秒")
                 pyautogui.moveTo(
                         left_ether + DC_STATIC_MPPT_TEST['CH_total_M'][0] - step_CH, 
                         top_ether + DC_STATIC_MPPT_TEST['CH_total_M'][1], 
@@ -26349,7 +26509,7 @@ def mppt_before_test(test_vdc_now):
 
         left_ether, top_ether, right_ether, bottom_ether = win32gui.GetWindowRect(dc_handle)
         print(left_ether, top_ether, right_ether, bottom_ether)
-
+        _append_debug_log(f"点击：sync_on按钮，等待1秒")
         pyautogui.moveTo(
             left_ether + DC_STATIC_MPPT_TEST['sync_on'][0], 
             top_ether + DC_STATIC_MPPT_TEST['sync_on'][1],
@@ -26405,6 +26565,14 @@ def mppt_read_config_file(test_vdc_now, d_number, vdc_list):
     time.sleep(1)
 
     if '文件名(&N):' in test_tt.values():
+        # file_path 是固定6槽位（Vmin/Vnom/Vmax/Vdc1/Vdc2/Vdc3），但未勾选的槽位是空字符串。
+        # 为了让 test_vdc_now 与“实际被勾选的槽位”对齐，这里按非空槽位映射索引。
+        file_path_list = Mppt_step2.get('file_path', []) if 'Mppt_step2' in globals() else []
+        slot_indices = [i for i, p in enumerate(file_path_list) if str(p).strip() != '']
+        if test_vdc_now >= len(slot_indices):
+            return f"未找到对应Vdc配置槽位: test_vdc_now={test_vdc_now}, slot_indices={slot_indices}"
+        file_slot = slot_indices[test_vdc_now]
+
         file_name_input_handle = list(test_tt.keys())[
             list(test_tt.values()).index('文件名(&N):')]
 
@@ -26417,7 +26585,12 @@ def mppt_read_config_file(test_vdc_now, d_number, vdc_list):
 
         pyautogui.doubleClick()
         pyautogui.hotkey('ctrl', 'a', interval=0.5)
-        pyperclip.copy(vdc_list[d_number][test_vdc_now])
+        if d_number >= len(vdc_list) or file_slot >= len(vdc_list[d_number]):
+            return f"vdc_list索引越界: d_number={d_number}, file_slot={file_slot}, vdc_list_len={len(vdc_list)}"
+        vdc_value = vdc_list[d_number][file_slot]
+        if str(vdc_value).strip() == '':
+            return f"该槽位未配置Vdc文件: d_number={d_number}, file_slot={file_slot}"
+        pyperclip.copy(vdc_value)
         pyautogui.hotkey('ctrl', 'v', interval=0.5)
         confirm_buttom_handle =  list(test_tt.keys())[
             list(test_tt.values()).index('确定')]
@@ -26438,6 +26611,11 @@ def mppt_during_test(test_vdc_now):
     handle_upper_dict = {}
 
     flie_path_list = Mppt_step2['file_path']
+    # file_path 是固定6槽位（未勾选为 ''）。用非空槽位列表做映射，保证 test_vdc_now 与实际路径对齐。
+    slot_indices = [i for i, p in enumerate(flie_path_list) if str(p).strip() != '']
+    if test_vdc_now >= len(slot_indices):
+        _append_debug_log(f"[mppt_during_test][error] test_vdc_now out of slot range: test_vdc_now={test_vdc_now}, slot_indices={slot_indices}")
+        return
 
     Pn_list = Mppt_step2['Pn']
 
@@ -26487,6 +26665,7 @@ def mppt_during_test(test_vdc_now):
 
                     left_ether, top_ether, right_ether, bottom_ether = win32gui.GetWindowRect(dc_handle)
                     print(left_ether, top_ether, right_ether, bottom_ether)
+                    _append_debug_log(f"点击：CH_active按钮，等待1秒")
                     pyautogui.moveTo(
                                 left_ether + DC_STATIC_MPPT_TEST['CH_active'][0] + (channel_select_step * d_number), 
                                 top_ether + DC_STATIC_MPPT_TEST['CH_active'][1],
@@ -26496,6 +26675,7 @@ def mppt_during_test(test_vdc_now):
 
                     handle_upper_dict = get_enumwindows()
                     if f'CH{d_number+1}_Solar Array Main Panel.vi' in handle_upper_dict.values():
+                        _append_debug_log(f"找到：CH{d_number+1}_Solar Array Main Panel.vi句柄")
                         # 直流源句柄
                         ch_handle = list(handle_upper_dict.keys())[
                                 list(handle_upper_dict.values()).index(f'CH{d_number+1}_Solar Array Main Panel.vi')]
@@ -26507,6 +26687,7 @@ def mppt_during_test(test_vdc_now):
                         print(left_ether, top_ether, right_ether, bottom_ether)
                         
                         if first_count == 0:
+                            _append_debug_log(f"点击：CH_IV_write按钮，等待1秒")
                             pyautogui.moveTo(
                                     left_ether + DC_STATIC_MPPT_TEST['CH_IV_write'][0], 
                                     top_ether + DC_STATIC_MPPT_TEST['CH_IV_write'][1], 
@@ -26516,6 +26697,7 @@ def mppt_during_test(test_vdc_now):
                             pyautogui.click()
                             time.sleep(1)
 
+                            _append_debug_log(f"点击：CH_IV_read按钮，等待1秒")
                             pyautogui.moveTo(
                                     left_ether + DC_STATIC_MPPT_TEST['CH_IV_read'][0] + 10, 
                                     top_ether + DC_STATIC_MPPT_TEST['CH_IV_read'][1], 
@@ -26525,6 +26707,7 @@ def mppt_during_test(test_vdc_now):
                             pyautogui.click()
                             time.sleep(1)
 
+                            _append_debug_log(f"点击：CH_MPPT_test按钮，等待1秒")
                             pyautogui.moveTo(
                                         left_ether + DC_STATIC_MPPT_TEST['CH_MPPT_test'][0] - step_CH,
                                         top_ether + DC_STATIC_MPPT_TEST['CH_MPPT_test'][1],
@@ -26532,6 +26715,7 @@ def mppt_during_test(test_vdc_now):
                             pyautogui.click()
                             time.sleep(1)
 
+                            _append_debug_log(f"点击：CH_total_H按钮，等待1秒")
                             pyautogui.moveTo(
                                         left_ether + DC_STATIC_MPPT_TEST['CH_total_H'][0] - step_CH,
                                         top_ether + DC_STATIC_MPPT_TEST['CH_total_H'][1],
@@ -26541,6 +26725,7 @@ def mppt_during_test(test_vdc_now):
                             pyautogui.typewrite(total_test_time[0])
                             time.sleep(1)
 
+                            _append_debug_log(f"点击：CH_total_M按钮，等待1秒")
                             pyautogui.moveTo(
                                     left_ether + DC_STATIC_MPPT_TEST['CH_total_M'][0] - step_CH,
                                     top_ether + DC_STATIC_MPPT_TEST['CH_total_M'][1],
@@ -26551,6 +26736,7 @@ def mppt_during_test(test_vdc_now):
                             pyautogui.typewrite(total_test_time[1])
                             time.sleep(1)
 
+                            _append_debug_log(f"点击：CH_Report按钮，等待1秒")
                             pyautogui.moveTo(
                                         left_ether + DC_STATIC_MPPT_TEST['CH_Report'][0],
                                         top_ether + DC_STATIC_MPPT_TEST['CH_Report'][1],
@@ -26560,6 +26746,7 @@ def mppt_during_test(test_vdc_now):
 
                             handle_upper_dict = get_enumwindows()
                             if f'CH{d_number+1}_IV Report Generator Control.vi' in handle_upper_dict.values():
+                                _append_debug_log(f"找到：CH{d_number+1}_IV Report Generator Control.vi句柄")
                                 # 直流源句柄
                                 ch_handle = list(handle_upper_dict.keys())[
                                         list(handle_upper_dict.values()).index(f'CH{d_number+1}_IV Report Generator Control.vi')]
@@ -26570,6 +26757,7 @@ def mppt_during_test(test_vdc_now):
                                 left_ether, top_ether, right_ether, bottom_ether = win32gui.GetWindowRect(ch_handle)
                                 print(left_ether, top_ether, right_ether, bottom_ether)
                                 
+                                _append_debug_log(f"点击：per_time_H按钮，等待1秒")
                                 pyautogui.moveTo(
                                         left_ether + DC_STATIC_MPPT_TEST['per_time_H'][0],
                                         top_ether + DC_STATIC_MPPT_TEST['per_time_H'][1],
@@ -26579,6 +26767,7 @@ def mppt_during_test(test_vdc_now):
                                 pyautogui.typewrite(per_test_time[0])
                                 time.sleep(1)
 
+                                _append_debug_log(f"点击：per_time_M按钮，等待1秒")
                                 pyautogui.moveTo(
                                         left_ether + DC_STATIC_MPPT_TEST['per_time_M'][0],
                                         top_ether + DC_STATIC_MPPT_TEST['per_time_M'][1],
@@ -26588,6 +26777,7 @@ def mppt_during_test(test_vdc_now):
                                 pyautogui.typewrite(per_test_time[1])
                                 time.sleep(1)
 
+                                _append_debug_log(f"点击：per_Browse按钮，等待1秒")
                                 pyautogui.moveTo(
                                         left_ether + DC_STATIC_MPPT_TEST['per_Browse'][0],
                                         top_ether + DC_STATIC_MPPT_TEST['per_Browse'][1],
@@ -26598,6 +26788,7 @@ def mppt_during_test(test_vdc_now):
                                 # 选择当次效率测试保存路径，以及保存的文件名
                                 handle_upper_dict = get_enumwindows()
                                 if '选择或输入文件路径' in handle_upper_dict.values():
+                                    _append_debug_log(f"找到：选择或输入文件路径句柄")
                                     test_tt = {}
                                     confirm_handle = list(handle_upper_dict.keys())[
                                             list(handle_upper_dict.values()).index('选择或输入文件路径')]
@@ -26618,7 +26809,8 @@ def mppt_during_test(test_vdc_now):
                                             duration=0.5)
                                     pyautogui.click()
                                     pyautogui.hotkey('ctrl', 'a', interval=0.5)
-                                    pyperclip.copy(flie_path_list[test_vdc_now])
+                                    file_slot = slot_indices[test_vdc_now]
+                                    pyperclip.copy(flie_path_list[file_slot])
                                     pyautogui.hotkey('ctrl', 'v', interval=0.5)
                                     time.sleep(1)
                                     # try:
@@ -26755,7 +26947,8 @@ def mppt_during_test(test_vdc_now):
                                             duration=0.5)
                                     pyautogui.click()
                                     pyautogui.hotkey('ctrl', 'a', interval=0.5)
-                                    pyperclip.copy(flie_path_list[test_vdc_now])
+                                    file_slot = slot_indices[test_vdc_now]
+                                    pyperclip.copy(flie_path_list[file_slot])
                                     pyautogui.hotkey('ctrl', 'v', interval=0.5)
                                     time.sleep(1)
                                     # try:
