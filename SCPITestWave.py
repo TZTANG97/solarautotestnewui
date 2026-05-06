@@ -72,7 +72,8 @@ from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
                    Open_Save_ThaiVoltProtect10min, Open_Save_ThaiGuoPinJiangZai,
                    Open_Save_ThaiGuoQianYa_Pin,Open_Save_ThaiOverLoads,
                    Open_Save_ThaiCosPhiBrazil, Open_Save_ThaiGuoQianPin_Immun,
-                   Open_Save_ThaiStaticMPPTTest, Open_Save_ThaitestPU)
+                   Open_Save_ThaiStaticMPPTTest, Open_Save_ThaitestPU,
+                   Open_Save_ThaiFrequencyAdaptability)
 from utils.Open_Save_ThaiWT3000_Config import WT3000E_params_config
 from utils.Open_Save_ThaiWT1800_Config import WT1800_params_config
 from utils.Open_Save_ThaiWT1806E_Config import WT1806E_params_config
@@ -423,7 +424,6 @@ def _make_status_icon(color):
     _STATUS_ICON_CACHE[key] = icon
     return icon
 
-
 def _normalize_equ_resource_text(text):
     """提取下拉框中真正的设备地址文本。"""
     if not text:
@@ -434,16 +434,13 @@ def _normalize_equ_resource_text(text):
         cleaned = cleaned.split(' [', 1)[0].strip()
     return cleaned
 
-
 def _connection_state_label(tcp_addr, connected=False):
     """返回下拉框中资源的显示文本。"""
     return f'{tcp_addr}'
 
-
 def _default_equ_placeholder():
     """下拉框默认占位项。"""
     return '请选择设备'
-
 
 def _refresh_combo_box_with_states(combo, resources, connected_resources, current_value=None):
     """按连接状态刷新下拉框，已连接资源保持可见但不可选。"""
@@ -478,7 +475,6 @@ def _refresh_combo_box_with_states(combo, resources, connected_resources, curren
     finally:
         combo.blockSignals(False)
 
-
 def _refresh_all_equ_combo_boxes(resources, connected_resources):
     """统一刷新所有设备下拉框状态。"""
     combo_names = [
@@ -495,7 +491,6 @@ def _refresh_all_equ_combo_boxes(resources, connected_resources):
         current = _normalize_equ_resource_text(combo.currentText()) if combo is not None else None
         _refresh_combo_box_with_states(combo, resources, connected_resources, current)
 
-
 def _set_equ_combo_locked(combo_name, locked):
     """统一锁定或解锁设备下拉框。"""
     combo = getattr(ui, combo_name, None)
@@ -510,7 +505,6 @@ def _set_equ_combo_locked(combo_name, locked):
         else:
             combo.setStyleSheet("")
 
-
 def _remove_equ_from_combo_boxes(tcp_addr):
     """兼容旧调用，改为刷新所有下拉框状态。"""
     connected = set(globals().get('_connected_equ_resources', set()))
@@ -518,14 +512,12 @@ def _remove_equ_from_combo_boxes(tcp_addr):
     globals()['_connected_equ_resources'] = connected
     _refresh_all_equ_combo_boxes(globals().get('EQUList', []), connected)
 
-
 def _restore_equ_to_combo_boxes(tcp_addr):
     """兼容旧调用，断开后恢复设备可选状态。"""
     connected = set(globals().get('_connected_equ_resources', set()))
     connected.discard(tcp_addr)
     globals()['_connected_equ_resources'] = connected
     _refresh_all_equ_combo_boxes(globals().get('EQUList', []), connected)
-
 
 def DisconnectEQUAC():
     """断开交流电源并解锁选择框。"""
@@ -536,7 +528,6 @@ def DisconnectEQUAC():
         ac_controller.handle = None
     _set_equ_combo_locked("comboBox_AC", False)
     _toggle_connection_button("pushButton_ConnectEQUAC", False)
-
 
 def DisconnectEQUDC1():
     """断开 DC1 并解锁选择框。"""
@@ -552,7 +543,6 @@ def DisconnectEQUDC1():
         ui.comboBox_DC1.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC1", False)
 
-
 def DisconnectEQUDC2():
     """断开 DC2 并解锁选择框。"""
     global dc2_controller
@@ -566,7 +556,6 @@ def DisconnectEQUDC2():
     if hasattr(ui, "comboBox_DC2"):
         ui.comboBox_DC2.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC2", False)
-
 
 def DisconnectEQUDC3():
     """断开 DC3 并解锁选择框。"""
@@ -582,7 +571,6 @@ def DisconnectEQUDC3():
         ui.comboBox_DC3.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC3", False)
 
-
 def DisconnectEQUDC4():
     """断开 DC4 并解锁选择框。"""
     global dc4_controller
@@ -597,7 +585,6 @@ def DisconnectEQUDC4():
         ui.comboBox_DC4.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC4", False)
 
-
 def DisconnectEQUDL850():
     """断开 DL850 并解锁选择框。"""
     global dl850_controller
@@ -609,7 +596,6 @@ def DisconnectEQUDL850():
     _set_equ_combo_locked("comboBox_DL850", False)
     _toggle_connection_button("pushButton_ConnectEQUDL850", False)
 
-
 def DisconnectEQUWT3000():
     """断开 WT3000 并解锁选择框。"""
     global wt3000_controller
@@ -620,7 +606,6 @@ def DisconnectEQUWT3000():
     _restore_equ_to_combo_boxes(tcp_addr)
     _set_equ_combo_locked("comboBox_WT3000", False)
     _toggle_connection_button("pushButton_ConnectEQUWT3000", False)
-
 
 def ShowWT3000Setting():
     global WT3000_setting_window, uiWT3000Setting
@@ -638,7 +623,6 @@ def ShowWT3000Setting():
     WT3000_setting_window.raise_()
     WT3000_setting_window.activateWindow()
 
-
 def ApplyWT3000Setting(close_dialog=True):
     global WT3000_baud_rate
     if uiWT3000Setting is not None:
@@ -647,7 +631,6 @@ def ApplyWT3000Setting(close_dialog=True):
         print(f"WT3000波特率已选择: {WT3000_baud_rate}")
         if close_dialog and WT3000_setting_window is not None and WT3000_setting_window.isVisible():
             WT3000_setting_window.close()
-
 
 def ConnectEQUAC():
     """连接交流电源。"""
@@ -686,7 +669,6 @@ def DisconnectEQUAC():
     if hasattr(ui, "comboBox_AC"):
         ui.comboBox_AC.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUAC", False)
-
 
 def _configure_scpi_resource(handle):
     """
@@ -744,7 +726,6 @@ def ConnectEQUDC1():
         dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
     logger.info(tcp_addr)
-    print(tcp_addr)
     if is_ipv4_stdlib(tcp_addr):
         print("通过")
         dc1_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源1")
@@ -765,7 +746,6 @@ def ConnectEQUDC1():
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "1"
             ui.pushButton_ConnectEQUDC1.setText("取消连接")
-
 
 def ConnectEQUDC2():
     """连接 DC2。"""
@@ -791,7 +771,6 @@ def ConnectEQUDC2():
         strFlagOfSendDCCommandTestLog = "2"
         ui.pushButton_ConnectEQUDC2.setText("取消连接")
 
-
 def ConnectEQUDC3():
     """连接 DC3。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc3_controller
@@ -812,7 +791,6 @@ def ConnectEQUDC3():
         strFlagSendDCCommandInfomation = "1"
         strFlagOfSendDCCommandTestLog = "3"
         ui.pushButton_ConnectEQUDC3.setText("取消连接")
-
 
 def ConnectEQUDC4():
     """连接 DC4。"""
@@ -884,7 +862,6 @@ def ConnectEQUWT3000():
 
         #str1 = ":RATE 50MS"
  
-
 #重新刷新接口函数
 def ReConnectEQU():
     global EQUList
@@ -957,7 +934,7 @@ def SecondProjectSet():
             '重连','电压闪变', '谐波电流', '固定PF=1', '过载能力测试',
             '直流分量', '静态QU', 'Test_PU', '静态Cos(φ)', 'Cos(φ)_Brazil',
             '10min过压保护', '过频降载', '过欠压_过欠频', '巴西过欠频稳定性',
-            '静态MPPT测试']
+            '静态MPPT测试', '频率适应性']
     ui.comboBox_PS.addItems(projectSecondList)
 
 def reset_wt_automation_state():
@@ -1037,6 +1014,8 @@ def chooseDetailDialog():
             dialog_windowguoqianpin_immun.show()
         elif currentSecond == '静态MPPT测试':
             dialog_windowstaticmppttest.show()
+        elif currentSecond == '频率适应性':
+            dialog_windowfrequencyadaptability.show()
         logger.info(f'测试项目--{currentProject}--{currentSecond}')
         print(f'测试项目--{currentProject}--{currentSecond}')
 
@@ -1100,6 +1079,8 @@ def addtestDialog():
             dialog_windowguoqianpin_immun.show()
         elif currentSecond == '静态MPPT测试':
             dialog_windowstaticmppttest.show()
+        elif currentSecond == '频率适应性':
+            dialog_windowfrequencyadaptability.show()
 
         logger.info(f'测试项目--{currentProject}--{currentSecond}')
         print(f'测试项目--{currentProject}--{currentSecond}')
@@ -22749,6 +22730,50 @@ def SaveFileDialogThaiStaticMPPTTest():
     global dialog_windowstaticmppttest, uiThaiStaticMPPTTest
     Open_Save_ThaiStaticMPPTTest.Save_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uiThaiStaticMPPTTest)
 
+
+# 频率适应性（试验设定壳）
+def thaifrequencyadaptabilitySend():
+    global dialog_windowfrequencyadaptability
+    strtimenow = now_to_datenow()
+    logger.info(strtimenow + "    频率适应性提交（占位，尚未生成试验命令）")
+    QMessageBox.information(
+        dialog_windowfrequencyadaptability,
+        "提示",
+        "频率适应性试验逻辑尚未实现，当前为界面占位。",
+        QMessageBox.Ok,
+        QMessageBox.Ok,
+    )
+    dialog_windowfrequencyadaptability.close()
+
+
+def OpenFileDialogThaiFrequencyAdaptability():
+    global dialog_windowfrequencyadaptability, uiThaiFrequencyAdaptability
+    global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
+    kwargs = {
+        "dialog_window": dialog_windowfrequencyadaptability,
+        "uiThaiFrequencyAdaptability": uiThaiFrequencyAdaptability,
+        "uiThiaWT3000E": uiThiaWT3000E,
+        "uiThiaWT1800": uiThiaWT1800,
+        "uiThiaWT1806E": uiThiaWT1806E,
+        "uiThiaWT5000": uiThiaWT5000,
+    }
+    Open_Save_ThaiFrequencyAdaptability.Open_File_ThaiFrequencyAdaptability(kwargs)
+
+
+def SaveFileDialogThaiFrequencyAdaptability():
+    global dialog_windowfrequencyadaptability, uiThaiFrequencyAdaptability
+    global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
+    kwargs = {
+        "dialog_window": dialog_windowfrequencyadaptability,
+        "uiThaiFrequencyAdaptability": uiThaiFrequencyAdaptability,
+        "uiThiaWT3000E": uiThiaWT3000E,
+        "uiThiaWT1800": uiThiaWT1800,
+        "uiThiaWT1806E": uiThiaWT1806E,
+        "uiThiaWT5000": uiThiaWT5000,
+    }
+    Open_Save_ThaiFrequencyAdaptability.Save_File_ThaiFrequencyAdaptability(kwargs)
+
+
 #开始试验按钮按下
 # def RunProjectPush():
 #     global strTestFlag,strSettingTestFlag, WT_is_checked, test_program, heading_handle, flicker_is_test
@@ -27483,6 +27508,8 @@ if __name__ == "__main__":
             uiThaiGuoQianPin_Immun = setup_windows["uiThaiGuoQianPin_Immun"]
             dialog_windowstaticmppttest = setup_windows["dialog_windowstaticmppttest"]
             uiThaiStaticMPPTTest = setup_windows["uiThaiStaticMPPTTest"]
+            dialog_windowfrequencyadaptability = setup_windows["dialog_windowfrequencyadaptability"]
+            uiThaiFrequencyAdaptability = setup_windows["uiThaiFrequencyAdaptability"]
 
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
@@ -27722,6 +27749,17 @@ if __name__ == "__main__":
             # 静态MPPT测试的配置档读取写入
             uiThaiStaticMPPTTest.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiStaticMPPTTest)
             uiThaiStaticMPPTTest.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiStaticMPPTTest)
+
+            # 频率适应性
+            uiThaiFrequencyAdaptability.pushButton_Send.clicked.connect(thaifrequencyadaptabilitySend)
+            uiThaiFrequencyAdaptability.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
+            uiThaiFrequencyAdaptability.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
+            uiThaiFrequencyAdaptability.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
+            uiThaiFrequencyAdaptability.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 频率适应性的配置档读取写入
+            uiThaiFrequencyAdaptability.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiFrequencyAdaptability)
+            uiThaiFrequencyAdaptability.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiFrequencyAdaptability)
 
             # 打开DL850Setting对话框
             ui.pushButton_SetDL850Options.clicked.connect(ShowDL850Setting)

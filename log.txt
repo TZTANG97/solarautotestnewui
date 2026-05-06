@@ -484,3 +484,490 @@
 2026-04-29 15:58:59,212 INFO AC return error message: 0,"No error"
 2026-04-29 15:59:33,611 INFO AC return error message: 0,"No error"
 2026-04-29 16:00:07,993 INFO AC return error message: 0,"No error"
+2026-04-29 17:30:44,492 ERROR Z:\solarautotestdev\SCPITestWave.py:27352: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-29 17:30:44,528 ERROR   threadStartTestFunction.setDaemon(True)
+2026-04-29 17:30:44,590 ERROR Z:\solarautotestdev\SCPITestWave.py:27368: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-29 17:30:44,625 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-04-29 17:30:44,661 ERROR Z:\solarautotestdev\SCPITestWave.py:27373: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-29 17:30:44,696 ERROR   thread_messure_testing.setDaemon(True)
+2026-04-29 17:30:44 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-04-29 17:30:44,953 INFO ('ASRL8::INSTR',)
+2026-04-29 17:30:45,030 INFO 1
+2026-04-29 17:30:46,056 ERROR Z:\solarautotestdev\SCPITestWave.py:27812: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-29 17:30:46,092 ERROR   thread_error_info.setDaemon(True)
+2026-04-29 17:30:46,145 INFO 2026-04-29 17:30:46    程式开启
+2026-04-29 17:30:46,185 INFO 2026-04-29 17:30:46    程式开启
+2026-04-30 17:48:40,211 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27352: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-30 17:48:40,212 ERROR   threadStartTestFunction.setDaemon(True)
+2026-04-30 17:48:40,213 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27368: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-30 17:48:40,213 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-04-30 17:48:40,213 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27373: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-30 17:48:40,214 ERROR   thread_messure_testing.setDaemon(True)
+2026-04-30 17:48:40 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-04-30 17:48:40,552 INFO ('ASRL3::INSTR', 'ASRL4::INSTR')
+2026-04-30 17:48:40,552 INFO 2
+2026-04-30 17:48:40,897 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27812: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-04-30 17:48:40,897 ERROR   thread_error_info.setDaemon(True)
+2026-04-30 17:48:40,898 INFO 2026-04-30 17:48:40    程式开启
+2026-04-30 17:48:40,898 INFO 2026-04-30 17:48:40    程式开启
+2026-05-06 10:26:33,533 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27351: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 10:26:33,534 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 10:26:33,535 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27367: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 10:26:33,535 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 10:26:33,536 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27372: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 10:26:33,536 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 10:26:33 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 10:26:33,809 INFO ()
+2026-05-06 10:26:33,969 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27811: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 10:26:33,969 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 10:26:33,969 INFO 2026-05-06 10:26:33    程式开启
+2026-05-06 10:26:33,970 INFO 2026-05-06 10:26:33    程式开启
+2026-05-06 10:26:39,260 INFO 测试项目--Auto_Test--固定PF=1
+2026-05-06 10:26:39,260 INFO 测试项目--Auto_Test--固定PF=1
+2026-05-06 11:11:47,203 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27328: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:11:47,203 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:11:47,204 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27344: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:11:47,204 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:11:47,204 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27349: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:11:47,205 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:11:47 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:11:47,450 INFO ()
+2026-05-06 11:11:47,630 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27788: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:11:47,630 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:11:47,630 INFO 2026-05-06 11:11:47    程式开启
+2026-05-06 11:11:47,631 INFO 2026-05-06 11:11:47    程式开启
+2026-05-06 11:11:53,268 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:53,268 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,236 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,236 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,620 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,620 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,798 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,798 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,967 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:54,967 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:55,128 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:55,128 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:55,301 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:55,302 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:55,478 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:55,478 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:56,512 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:56,513 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:57,107 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:57,107 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:57,455 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:11:57,456 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:18:18,730 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:18:18,730 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:18:18,731 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:18:18,731 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:18:18,732 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:18:18,732 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:18:18 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:18:18,964 INFO ()
+2026-05-06 11:18:19,149 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:18:19,150 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:18:19,150 INFO 2026-05-06 11:18:19    程式开启
+2026-05-06 11:18:19,150 INFO 2026-05-06 11:18:19    程式开启
+2026-05-06 11:18:27,167 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:18:27,167 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:26:07,925 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:26:07,926 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:26:07,926 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:26:07,927 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:26:07,927 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:26:07,927 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:26:07 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:26:08,181 INFO ()
+2026-05-06 11:26:08,385 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:26:08,385 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:26:08,385 INFO 2026-05-06 11:26:08    程式开启
+2026-05-06 11:26:08,386 INFO 2026-05-06 11:26:08    程式开启
+2026-05-06 11:26:11,907 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:26:11,907 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:26:22,122 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:26:22,123 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:29:52,389 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:29:52,389 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:29:52,390 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:29:52,390 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:29:52,390 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:29:52,390 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:29:52 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:29:52,614 INFO ()
+2026-05-06 11:29:52,760 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27848: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:29:52,760 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:29:52,760 INFO 2026-05-06 11:29:52    程式开启
+2026-05-06 11:29:52,760 INFO 2026-05-06 11:29:52    程式开启
+2026-05-06 11:29:56,611 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:29:56,611 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:30:01,497 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\workspace\solarautotestdev\SCPITestWave.py", line 110, in ShowACSetting
+    return ac_controller.show_setting(dialog_windowACSetting)
+AttributeError: 'NoneType' object has no attribute 'show_setting'
+2026-05-06 11:30:12,583 INFO 测试项目--Auto_Test--静态Cos(φ)
+2026-05-06 11:30:12,583 INFO 测试项目--Auto_Test--静态Cos(φ)
+2026-05-06 11:30:36,724 INFO 测试项目--Auto_Test--10min过压保护
+2026-05-06 11:30:36,724 INFO 测试项目--Auto_Test--10min过压保护
+2026-05-06 11:36:03,587 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:36:03,587 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:36:03,588 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:36:03,588 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:36:03,589 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:36:03,589 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:36:03 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:36:03,799 INFO ()
+2026-05-06 11:36:03,948 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:36:03,948 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:36:03,948 INFO 2026-05-06 11:36:03    程式开启
+2026-05-06 11:36:03,948 INFO 2026-05-06 11:36:03    程式开启
+2026-05-06 11:36:08,485 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:36:08,485 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:36:26,849 INFO 测试项目--Auto_Test--巴西过欠频稳定性
+2026-05-06 11:36:26,849 INFO 测试项目--Auto_Test--巴西过欠频稳定性
+2026-05-06 11:36:36,079 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:36:36,080 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:38:26,396 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:38:26,397 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:38:26,397 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:38:26,397 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:38:26,397 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:38:26,397 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:38:26 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:38:26,615 INFO ()
+2026-05-06 11:38:26,772 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:38:26,772 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:38:26,773 INFO 2026-05-06 11:38:26    程式开启
+2026-05-06 11:38:26,773 INFO 2026-05-06 11:38:26    程式开启
+2026-05-06 11:38:31,769 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:38:31,769 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:38:42,936 INFO 测试项目--Auto_Test--静态MPPT测试
+2026-05-06 11:38:42,937 INFO 测试项目--Auto_Test--静态MPPT测试
+2026-05-06 11:38:46,908 INFO 测试项目--Auto_Test--巴西过欠频稳定性
+2026-05-06 11:38:46,909 INFO 测试项目--Auto_Test--巴西过欠频稳定性
+2026-05-06 11:38:54,265 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:38:54,266 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:39:14,610 INFO 测试项目--Auto_Test--巴西过欠频稳定性
+2026-05-06 11:39:14,610 INFO 测试项目--Auto_Test--巴西过欠频稳定性
+2026-05-06 11:43:57,634 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:43:57,634 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:43:57,635 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:43:57,635 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:43:57,636 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:43:57,636 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:43:57 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:43:57,879 INFO ()
+2026-05-06 11:43:58,085 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27839: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:43:58,085 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:43:58,085 INFO 2026-05-06 11:43:58    程式开启
+2026-05-06 11:43:58,085 INFO 2026-05-06 11:43:58    程式开启
+2026-05-06 11:44:04,732 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:44:04,732 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:44:32,643 INFO 测试项目--Auto_Test--过欠压_过欠频
+2026-05-06 11:44:32,643 INFO 测试项目--Auto_Test--过欠压_过欠频
+2026-05-06 11:46:14,770 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:46:14,770 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 11:46:14,771 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:46:14,771 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 11:46:14,772 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:46:14,772 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 11:46:14 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 11:46:15,070 INFO ()
+2026-05-06 11:46:15,288 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27839: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 11:46:15,288 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 11:46:15,288 INFO 2026-05-06 11:46:15    程式开启
+2026-05-06 11:46:15,288 INFO 2026-05-06 11:46:15    程式开启
+2026-05-06 11:46:19,286 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 11:46:19,286 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:17:42,392 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:17:42,392 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:24:08,911 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:24:08,911 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:24:08,912 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:24:08,912 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:24:08,913 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:24:08,913 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:24:08 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:24:09,189 INFO ()
+2026-05-06 12:24:09,431 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27839: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:24:09,431 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:24:09,432 INFO 2026-05-06 12:24:09    程式开启
+2026-05-06 12:24:09,432 INFO 2026-05-06 12:24:09    程式开启
+2026-05-06 12:24:15,214 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:24:15,214 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:25:04,872 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:25:04,872 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:25:04,873 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:25:04,873 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:25:04,873 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:25:04,873 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:25:04 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:25:05,097 INFO ()
+2026-05-06 12:25:05,250 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27839: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:25:05,250 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:25:05,251 INFO 2026-05-06 12:25:05    程式开启
+2026-05-06 12:25:05,251 INFO 2026-05-06 12:25:05    程式开启
+2026-05-06 12:25:09,785 INFO 测试项目--Auto_Test--电压闪变
+2026-05-06 12:25:09,785 INFO 测试项目--Auto_Test--电压闪变
+2026-05-06 12:25:19,722 INFO 测试项目--Auto_Test--直流分量
+2026-05-06 12:25:19,722 INFO 测试项目--Auto_Test--直流分量
+2026-05-06 12:27:26,074 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:27:26,074 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:27:26,075 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:27:26,075 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:27:26,076 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:27:26,076 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:27:26 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:27:26,319 INFO ()
+2026-05-06 12:27:26,482 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:27:26,482 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:27:26,482 INFO 2026-05-06 12:27:26    程式开启
+2026-05-06 12:27:26,482 INFO 2026-05-06 12:27:26    程式开启
+2026-05-06 12:27:34,438 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:27:34,438 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:28:27,521 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:28:27,521 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:37:33,147 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:37:33,147 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:37:33,148 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:37:33,148 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:37:33,148 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:37:33,149 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:37:33 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:37:33,389 INFO ()
+2026-05-06 12:37:33,620 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:37:33,621 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:37:33,621 INFO 2026-05-06 12:37:33    程式开启
+2026-05-06 12:37:33,621 INFO 2026-05-06 12:37:33    程式开启
+2026-05-06 12:37:37,469 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:37:37,469 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:41:25,793 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:41:25,793 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:41:25,794 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:41:25,794 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:41:25,794 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:41:25,794 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:41:25 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:41:26,015 INFO ()
+2026-05-06 12:41:26,203 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:41:26,203 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:41:26,204 INFO 2026-05-06 12:41:26    程式开启
+2026-05-06 12:41:26,204 INFO 2026-05-06 12:41:26    程式开启
+2026-05-06 12:41:31,188 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:41:31,188 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:42:15,631 INFO 测试项目--Auto_Test--过频降载
+2026-05-06 12:42:15,631 INFO 测试项目--Auto_Test--过频降载
+2026-05-06 12:49:19,001 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:49:19,001 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:49:19,002 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:49:19,002 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:49:19,002 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:49:19,002 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:49:19 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:49:19,233 INFO ()
+2026-05-06 12:49:19,410 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:49:19,410 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:49:19,411 INFO 2026-05-06 12:49:19    程式开启
+2026-05-06 12:49:19,411 INFO 2026-05-06 12:49:19    程式开启
+2026-05-06 12:49:25,500 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:49:25,500 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:51:17,448 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:51:17,448 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:51:17,449 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:51:17,449 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:51:17,449 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:51:17,449 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:51:17 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:51:17,679 INFO ()
+2026-05-06 12:51:17,865 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:51:17,865 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:51:17,866 INFO 2026-05-06 12:51:17    程式开启
+2026-05-06 12:51:17,866 INFO 2026-05-06 12:51:17    程式开启
+2026-05-06 12:51:22,982 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:51:22,982 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:52:02,245 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:52:02,245 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:54:37,888 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:54:37,888 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 12:54:37,889 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:54:37,889 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 12:54:37,889 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:54:37,889 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 12:54:37 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 12:54:38,139 INFO ()
+2026-05-06 12:54:38,319 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 12:54:38,319 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 12:54:38,319 INFO 2026-05-06 12:54:38    程式开启
+2026-05-06 12:54:38,319 INFO 2026-05-06 12:54:38    程式开启
+2026-05-06 12:54:47,445 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:54:47,445 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:54:57,856 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 12:54:57,856 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:09:21,557 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27370: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:09:21,558 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:09:21,558 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:09:21,559 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:09:21,559 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27391: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:09:21,559 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:09:21 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:09:21,836 INFO ()
+2026-05-06 13:09:22,068 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27843: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:09:22,068 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:09:22,068 INFO 2026-05-06 13:09:22    程式开启
+2026-05-06 13:09:22,069 INFO 2026-05-06 13:09:22    程式开启
+2026-05-06 13:09:27,216 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\workspace\solarautotestdev\SCPITestWave.py", line 22821, in PauseProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-05-06 13:09:35,084 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:09:35,084 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:26:56,148 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27365: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:26:56,148 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:26:56,149 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27381: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:26:56,149 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:26:56,149 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:26:56,150 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:26:56 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:26:56,384 INFO ()
+2026-05-06 13:26:56,567 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27838: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:26:56,567 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:26:56,567 INFO 2026-05-06 13:26:56    程式开启
+2026-05-06 13:26:56,568 INFO 2026-05-06 13:26:56    程式开启
+2026-05-06 13:27:01,024 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:27:01,026 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:27:49,095 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27365: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:27:49,095 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:27:49,096 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27381: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:27:49,096 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:27:49,096 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:27:49,096 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:27:49 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:27:49,337 INFO ()
+2026-05-06 13:27:49,495 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27838: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:27:49,495 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:27:49,495 INFO 2026-05-06 13:27:49    程式开启
+2026-05-06 13:27:49,495 INFO 2026-05-06 13:27:49    程式开启
+2026-05-06 13:27:54,565 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:27:54,566 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:29:14,240 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:29:14,240 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:30:30,713 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27365: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:30:30,713 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:30:30,714 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27381: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:30:30,714 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:30:30,714 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27386: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:30:30,714 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:30:30 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:30:30,935 INFO ()
+2026-05-06 13:30:31,119 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27838: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:30:31,119 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:30:31,120 INFO 2026-05-06 13:30:31    程式开启
+2026-05-06 13:30:31,120 INFO 2026-05-06 13:30:31    程式开启
+2026-05-06 13:30:37,122 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:30:37,123 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:43:58,560 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:43:58,561 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:43:58,561 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:43:58,561 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:43:58,561 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:43:58,561 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:43:58 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:43:58,786 INFO ()
+2026-05-06 13:43:58,965 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:43:58,966 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:43:58,966 INFO 2026-05-06 13:43:58    程式开启
+2026-05-06 13:43:58,966 INFO 2026-05-06 13:43:58    程式开启
+2026-05-06 13:44:00,972 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\workspace\solarautotestdev\SCPITestWave.py", line 22828, in PauseProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-05-06 13:44:04,724 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:44:04,724 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:44:41,942 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:44:41,942 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:44:53,162 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:53,162 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:44:53,163 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:53,164 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:44:53,164 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:53,164 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:44:53 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:44:53,411 INFO ()
+2026-05-06 13:44:53,572 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:53,572 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:44:53,573 INFO 2026-05-06 13:44:53    程式开启
+2026-05-06 13:44:53,573 INFO 2026-05-06 13:44:53    程式开启
+2026-05-06 13:44:58,124 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:58,124 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:44:58,125 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:58,125 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:44:58,125 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:58,125 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:44:58 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:44:58,335 INFO ()
+2026-05-06 13:44:58,496 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:44:58,496 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:44:58,496 INFO 2026-05-06 13:44:58    程式开启
+2026-05-06 13:44:58,497 INFO 2026-05-06 13:44:58    程式开启
+2026-05-06 13:45:03,198 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:03,199 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:45:03,199 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:03,199 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:45:03,200 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:03,200 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:45:03 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:45:03,424 INFO ()
+2026-05-06 13:45:03,592 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:03,592 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:45:03,592 INFO 2026-05-06 13:45:03    程式开启
+2026-05-06 13:45:03,592 INFO 2026-05-06 13:45:03    程式开启
+2026-05-06 13:45:07,607 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:45:07,607 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:45:35,758 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:35,759 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:45:35,760 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:35,760 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:45:35,761 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:35,761 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:45:35 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:45:35,994 INFO ()
+2026-05-06 13:45:36,167 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:45:36,167 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:45:36,167 INFO 2026-05-06 13:45:36    程式开启
+2026-05-06 13:45:36,167 INFO 2026-05-06 13:45:36    程式开启
+2026-05-06 13:45:38,371 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\workspace\solarautotestdev\SCPITestWave.py", line 22828, in PauseProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-05-06 13:45:42,901 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:45:42,901 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:48:22,718 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:48:22,718 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 13:48:22,719 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:48:22,719 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 13:48:22,720 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:48:22,720 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 13:48:22 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 13:48:22,955 INFO ()
+2026-05-06 13:48:23,127 ERROR d:\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 13:48:23,128 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 13:48:23,128 INFO 2026-05-06 13:48:23    程式开启
+2026-05-06 13:48:23,128 INFO 2026-05-06 13:48:23    程式开启
+2026-05-06 13:48:27,735 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:48:27,735 INFO 测试项目--Auto_Test--频率适应性
+2026-05-06 13:48:58,491 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\workspace\solarautotestdev\SCPITestWave.py", line 22774, in SaveFileDialogThaiFrequencyAdaptability
+    Open_Save_ThaiFrequencyAdaptability.Save_File_ThaiFrequencyAdaptability(kwargs)
+  File "d:\workspace\solarautotestdev\utils\Open_Save_ThaiFrequencyAdaptability.py", line 155, in Save_File_ThaiFrequencyAdaptability
+    row.append(_widget_to_csv(ui, col))
+  File "d:\workspace\solarautotestdev\utils\Open_Save_ThaiFrequencyAdaptability.py", line 107, in _widget_to_csv
+    w = _resolve_widget(ui, name)
+  File "d:\workspace\solarautotestdev\utils\Open_Save_ThaiFrequencyAdaptability.py", line 98, in _resolve_widget
+    return ui.findChild(QCheckBox, name)
+AttributeError: 'Ui_Dialog_thaifrequencyadaptability' object has no attribute 'findChild'

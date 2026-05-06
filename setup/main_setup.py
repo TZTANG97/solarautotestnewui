@@ -35,6 +35,7 @@ from Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
 from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
 from Dialog_thaistaticmppttest import Ui_Dialog_thaistaticmppttest
+from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
 from Dialog_thaiWT3000E import Ui_Dialog_thai_WT3000E
 from Dialog_thaiWT1806E import Ui_Dialog_thai_WT1806E
 from Dialog_thaiWT1800 import Ui_Dialog_thai_WT1800
@@ -148,6 +149,18 @@ class MainSetup(BaseSetup):
 
         dialog_windowstaticmppttest, uiThaiStaticMPPTTest = MainSetup._build_dialog(Ui_Dialog_thaistaticmppttest)
         MainSetup._register_window(created, app_ctx, "dialog_windowstaticmppttest", "uiThaiStaticMPPTTest", dialog_windowstaticmppttest, uiThaiStaticMPPTTest)
+
+        dialog_windowfrequencyadaptability, uiThaiFrequencyAdaptability = MainSetup._build_dialog(
+            Ui_Dialog_thaifrequencyadaptability
+        )
+        MainSetup._register_window(
+            created,
+            app_ctx,
+            "dialog_windowfrequencyadaptability",
+            "uiThaiFrequencyAdaptability",
+            dialog_windowfrequencyadaptability,
+            uiThaiFrequencyAdaptability,
+        )
 
         return created
 

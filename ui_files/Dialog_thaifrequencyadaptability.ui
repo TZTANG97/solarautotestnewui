@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog_thaifrequencyadaptability</class>
+ <widget class="QDialog" name="Dialog_thaifrequencyadaptability">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1410</width>
+    <height>780</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>频率适应性（试验设定）</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>logo.jpg</normaloff>
+   </iconset>
+  </property>
+  <widget class="QLabel" name="label_ui_hint">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>20</y>
+     <width>1360</width>
+     <height>60</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>说明：step1（交流/直流/等待时间/启机时间）及 WT 区由 Dialog_thaifrequencyadaptability.py 代码生成，与巴西过欠频稳定性对话框首段同源。若用 pyuic5 从本文件生成 .py，请先在本 ui 中补全控件。</string>
+   </property>
+   <property name="wordWrap">
+    <bool>true</bool>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
