@@ -267,7 +267,6 @@ class ItechTranslator:
         return True
 
 
-
 host = "192.168.40.211"
 port = 8080
 obj = ItechTranslator(ModbusTcpClient(host=host, port=port))
