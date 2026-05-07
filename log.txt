@@ -971,3 +971,16 @@ Traceback (most recent call last):
   File "d:\workspace\solarautotestdev\utils\Open_Save_ThaiFrequencyAdaptability.py", line 98, in _resolve_widget
     return ui.findChild(QCheckBox, name)
 AttributeError: 'Ui_Dialog_thaifrequencyadaptability' object has no attribute 'findChild'
+2026-05-06 15:54:16,179 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 15:54:16,179 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-06 15:54:16,180 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 15:54:16,180 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-06 15:54:16,180 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 15:54:16,181 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-06 15:54:16 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-06 15:54:16,263 INFO ('ASRL1::INSTR',)
+2026-05-06 15:54:16,263 INFO 1
+2026-05-06 15:54:16,541 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-06 15:54:16,541 ERROR   thread_error_info.setDaemon(True)
+2026-05-06 15:54:16,541 INFO 2026-05-06 15:54:16    程式开启
+2026-05-06 15:54:16,542 INFO 2026-05-06 15:54:16    程式开启
