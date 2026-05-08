@@ -1,2 +1,5 @@
 *.pyc
 log.txt
+
+# command_save_files 下生成的日志（不参与版本库）
+command_save_files/**/*.log
