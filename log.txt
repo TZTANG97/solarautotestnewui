@@ -984,3 +984,2277 @@ AttributeError: 'Ui_Dialog_thaifrequencyadaptability' object has no attribute 'f
 2026-05-06 15:54:16,541 ERROR   thread_error_info.setDaemon(True)
 2026-05-06 15:54:16,541 INFO 2026-05-06 15:54:16    程式开启
 2026-05-06 15:54:16,542 INFO 2026-05-06 15:54:16    程式开启
+2026-05-07 12:38:05,577 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27377: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:38:05,578 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 12:38:05,579 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27393: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:38:05,579 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 12:38:05,580 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27398: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:38:05,580 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 12:38:05 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 12:38:05,764 INFO ('ASRL1::INSTR',)
+2026-05-07 12:38:05,765 INFO 1
+2026-05-07 12:38:06,388 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27850: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:38:06,389 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 12:38:06,389 INFO 2026-05-07 12:38:06    程式开启
+2026-05-07 12:38:06,389 INFO 2026-05-07 12:38:06    程式开启
+2026-05-07 12:43:29,245 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 111, in ShowACSetting
+    return ac_controller.show_setting(dialog_windowACSetting)
+AttributeError: 'NoneType' object has no attribute 'show_setting'
+2026-05-07 12:43:30,661 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 111, in ShowACSetting
+    return ac_controller.show_setting(dialog_windowACSetting)
+AttributeError: 'NoneType' object has no attribute 'show_setting'
+2026-05-07 12:43:33,044 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 111, in ShowACSetting
+    return ac_controller.show_setting(dialog_windowACSetting)
+AttributeError: 'NoneType' object has no attribute 'show_setting'
+2026-05-07 12:44:31,804 INFO 192.168.40.221
+2026-05-07 12:44:31,805 INFO 192.168.40.221
+2026-05-07 12:44:31,805 INFO 通过
+2026-05-07 12:44:33,839 INFO [ERROR] 连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-05-07 12:44:33,840 ERROR 连接失败
+2026-05-07 12:46:22,528 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27378: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:46:22,529 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 12:46:22,530 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27394: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:46:22,530 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 12:46:22,531 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27399: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:46:22,531 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 12:46:22 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 12:46:22,576 INFO ('ASRL1::INSTR',)
+2026-05-07 12:46:22,576 INFO 1
+2026-05-07 12:46:22,867 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27851: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:46:22,867 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 12:46:22,867 INFO 2026-05-07 12:46:22    程式开启
+2026-05-07 12:46:22,867 INFO 2026-05-07 12:46:22    程式开启
+2026-05-07 12:46:37,764 INFO 192.168.40.221:8080
+2026-05-07 12:46:37,765 INFO 192.168.40.221:8080
+2026-05-07 12:46:37,766 INFO device not exit
+2026-05-07 12:46:37,766 INFO 交流电源 not exit
+2026-05-07 12:46:37,766 INFO 交流电源 not exit
+2026-05-07 12:46:45,653 INFO 192.168.40.221:8080
+2026-05-07 12:46:45,653 INFO 192.168.40.221:8080
+2026-05-07 12:46:45,654 INFO device not exit
+2026-05-07 12:46:45,655 INFO 交流电源 not exit
+2026-05-07 12:46:45,655 INFO 交流电源 not exit
+2026-05-07 12:47:24,429 INFO 192.168.40.211:8080
+2026-05-07 12:47:24,429 INFO 192.168.40.211:8080
+2026-05-07 12:47:24,430 INFO device not exit
+2026-05-07 12:47:24,430 INFO 交流电源 not exit
+2026-05-07 12:47:24,431 INFO 交流电源 not exit
+2026-05-07 12:47:25,188 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,189 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,190 INFO device not exit
+2026-05-07 12:47:25,190 INFO 交流电源 not exit
+2026-05-07 12:47:25,190 INFO 交流电源 not exit
+2026-05-07 12:47:25,396 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,397 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,397 INFO device not exit
+2026-05-07 12:47:25,397 INFO 交流电源 not exit
+2026-05-07 12:47:25,398 INFO 交流电源 not exit
+2026-05-07 12:47:25,581 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,581 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,582 INFO device not exit
+2026-05-07 12:47:25,582 INFO 交流电源 not exit
+2026-05-07 12:47:25,582 INFO 交流电源 not exit
+2026-05-07 12:47:25,757 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,757 INFO 192.168.40.211:8080
+2026-05-07 12:47:25,758 INFO device not exit
+2026-05-07 12:47:25,758 INFO 交流电源 not exit
+2026-05-07 12:47:25,758 INFO 交流电源 not exit
+2026-05-07 12:52:26,594 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 27859, in <module>
+    uiDL850Setting.pushButton_StartTest.clicked.connect(SendDL850StartMessage)
+KeyboardInterrupt
+2026-05-07 12:52:30,827 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27399: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:52:30,827 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 12:52:30,828 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27415: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:52:30,828 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 12:52:30,829 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27420: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:52:30,829 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 12:52:30 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 12:52:30,874 INFO ('ASRL1::INSTR',)
+2026-05-07 12:52:30,874 INFO 1
+2026-05-07 12:52:31,119 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27872: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:52:31,119 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 12:52:31,120 INFO 2026-05-07 12:52:31    程式开启
+2026-05-07 12:52:31,120 INFO 2026-05-07 12:52:31    程式开启
+2026-05-07 12:52:54,548 INFO 192.168.40.211:8080
+2026-05-07 12:52:54,549 INFO 192.168.40.211:8080
+2026-05-07 12:52:54,549 INFO 通过
+2026-05-07 12:52:56,566 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 12:52:56,566 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 12:53:04,457 INFO VI_ERROR_IO (-1073807298): Could not perform operation because of I/O error.
+2026-05-07 12:53:04,457 ERROR VI_ERROR_IO (-1073807298): Could not perform operation because of I/O error.
+2026-05-07 12:53:04,458 ERROR Exception in thread Thread-15 (system_error_info):
+2026-05-07 12:53:04,458 ERROR Traceback (most recent call last):
+2026-05-07 12:53:04,458 ERROR   File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 27131, in system_error_info
+2026-05-07 12:53:04,464 ERROR     information_AC = ac_controller.handle.query("SYST:ERR?")
+2026-05-07 12:53:04,464 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 702, in query
+2026-05-07 12:53:04,476 ERROR     return self.read()
+2026-05-07 12:53:04,476 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 521, in read
+2026-05-07 12:53:04,477 ERROR     message = self._read_raw().decode(enco)
+2026-05-07 12:53:04,477 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 475, in _read_raw
+2026-05-07 12:53:04,478 ERROR     chunk, status = self.visalib.read(self.session, size)
+2026-05-07 12:53:04,478 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\functions.py", line 2339, in read
+2026-05-07 12:53:04,491 ERROR     ret = library.viRead(session, buffer, count, byref(return_count))
+2026-05-07 12:53:04,491 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\highlevel.py", line 227, in _return_handler
+2026-05-07 12:53:04,499 ERROR     return self.handle_return_value(session, ret_value)  # type: ignore
+2026-05-07 12:53:04,500 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 252, in handle_return_value
+2026-05-07 12:53:04,500 ERROR     raise errors.VisaIOError(rv)
+2026-05-07 12:53:04,501 ERROR pyvisa.errors.VisaIOError: VI_ERROR_IO (-1073807298): Could not perform operation because of I/O error.
+2026-05-07 12:53:04,501 ERROR During handling of the above exception, another exception occurred:
+2026-05-07 12:53:04,501 ERROR Traceback (most recent call last):
+2026-05-07 12:53:04,501 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\threading.py", line 1016, in _bootstrap_inner
+2026-05-07 12:53:04,511 ERROR     self.run()
+2026-05-07 12:53:04,512 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\threading.py", line 953, in run
+2026-05-07 12:53:04,512 ERROR     self._target(*self._args, **self._kwargs)
+2026-05-07 12:53:04,513 ERROR   File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 27137, in system_error_info
+2026-05-07 12:53:04,518 ERROR     ac_controller.handle = rm.open_resource(tcp_addr)
+2026-05-07 12:53:04,518 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 3265, in open_resource
+2026-05-07 12:53:04,519 ERROR     info = self.resource_info(resource_name, extended=True)
+2026-05-07 12:53:04,519 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 3190, in resource_info
+2026-05-07 12:53:04,520 ERROR     ret, _err = self.visalib.parse_resource_extended(
+2026-05-07 12:53:04,521 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\functions.py", line 2079, in parse_resource_extended
+2026-05-07 12:53:04,521 ERROR     ret = library.viParseRsrcEx(
+2026-05-07 12:53:04,521 ERROR ctypes.ArgumentError: argument 2: UnicodeEncodeError: 'ascii' codec can't encode characters in position 3-7: ordinal not in range(128)
+2026-05-07 12:56:18,135 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27425: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:56:18,135 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 12:56:18,136 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27441: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:56:18,136 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 12:56:18,136 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:56:18,136 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 12:56:18 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 12:56:18,176 INFO ('ASRL1::INSTR',)
+2026-05-07 12:56:18,177 INFO 1
+2026-05-07 12:56:18,480 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27898: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 12:56:18,480 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 12:56:18,480 INFO 2026-05-07 12:56:18    程式开启
+2026-05-07 12:56:18,480 INFO 2026-05-07 12:56:18    程式开启
+2026-05-07 12:56:29,973 INFO 192.168.40.211:8080
+2026-05-07 12:56:29,973 INFO 192.168.40.211:8080
+2026-05-07 12:56:29,973 INFO 通过
+2026-05-07 12:56:31,982 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 12:56:31,982 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 12:56:38,332 INFO OUTP ON
+2026-05-07 12:56:38,333 INFO 2026-05-07 12:56:38 OUTP ON
+2026-05-07 12:56:43,861 INFO OUTP OFF
+2026-05-07 12:56:43,861 INFO 2026-05-07 12:56:43 OUTP OFF
+2026-05-07 12:56:46,453 INFO AC OUTP ON error--1: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 12:56:46,454 INFO 2026-05-07 12:56:46 AC OUTP ON error--1: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 12:56:49,053 INFO AC OUTP OFF error--1: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 12:56:49,053 INFO 2026-05-07 12:56:49 AC OUTP OFF error--1: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 12:56:51,220 INFO AC OUTP ON error--1: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 12:56:51,221 INFO 2026-05-07 12:56:51 AC OUTP ON error--1: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:01:43,239 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:01:43,239 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:01:43,240 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:01:43,240 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:01:43,241 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:01:43,241 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:01:43 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:01:43,283 INFO ('ASRL1::INSTR',)
+2026-05-07 13:01:43,283 INFO 1
+2026-05-07 13:01:43,590 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:01:43,590 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:01:43,591 INFO 2026-05-07 13:01:43    程式开启
+2026-05-07 13:01:43,591 INFO 2026-05-07 13:01:43    程式开启
+2026-05-07 13:01:55,852 INFO 192.168.40.211:8080
+2026-05-07 13:01:55,853 INFO 192.168.40.211:8080
+2026-05-07 13:01:55,853 INFO 通过
+2026-05-07 13:01:57,861 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:01:57,861 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:02:08,692 INFO OUTP ON
+2026-05-07 13:02:08,693 INFO 2026-05-07 13:02:08 OUTP ON
+2026-05-07 13:02:38,653 INFO [ERROR] 发送失败: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:02:38,654 INFO OUTP OFF
+2026-05-07 13:02:38,654 INFO 2026-05-07 13:02:38 OUTP OFF
+2026-05-07 13:04:09,780 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:04:09,781 INFO OUTP ON
+2026-05-07 13:04:09,781 INFO 2026-05-07 13:04:09 OUTP ON
+2026-05-07 13:04:11,733 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:04:11,733 INFO OUTP ON
+2026-05-07 13:04:11,733 INFO 2026-05-07 13:04:11 OUTP ON
+2026-05-07 13:04:26,564 INFO 192.168.40.211:8080
+2026-05-07 13:04:26,565 INFO 192.168.40.211:8080
+2026-05-07 13:04:26,565 INFO 通过
+2026-05-07 13:04:28,576 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:04:28,576 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:04:30,021 INFO OUTP ON
+2026-05-07 13:04:30,021 INFO 2026-05-07 13:04:30 OUTP ON
+2026-05-07 13:07:23,108 INFO OUTP OFF
+2026-05-07 13:07:23,109 INFO 2026-05-07 13:07:23 OUTP OFF
+2026-05-07 13:07:38,085 INFO [ERROR] 发送失败: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:07:38,085 INFO OUTP OFF
+2026-05-07 13:07:38,085 INFO 2026-05-07 13:07:38 OUTP OFF
+2026-05-07 13:07:41,277 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:07:41,277 INFO OUTP ON
+2026-05-07 13:07:41,278 INFO 2026-05-07 13:07:41 OUTP ON
+2026-05-07 13:07:43,053 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:07:43,053 INFO OUTP OFF
+2026-05-07 13:07:43,053 INFO 2026-05-07 13:07:43 OUTP OFF
+2026-05-07 13:08:16,404 INFO 192.168.40.211:8080
+2026-05-07 13:08:16,405 INFO 192.168.40.211:8080
+2026-05-07 13:08:16,405 INFO 通过
+2026-05-07 13:08:18,415 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:08:18,415 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:08:24,717 INFO OUTP OFF
+2026-05-07 13:08:24,717 INFO 2026-05-07 13:08:24 OUTP OFF
+2026-05-07 13:08:33,860 INFO OUTP ON
+2026-05-07 13:08:33,861 INFO 2026-05-07 13:08:33 OUTP ON
+2026-05-07 13:08:40,956 INFO [ERROR] 发送失败: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:08:40,957 INFO OUTP ON
+2026-05-07 13:08:40,957 INFO 2026-05-07 13:08:40 OUTP ON
+2026-05-07 13:08:41,885 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:08:41,885 INFO OUTP ON
+2026-05-07 13:08:41,886 INFO 2026-05-07 13:08:41 OUTP ON
+2026-05-07 13:08:43,101 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:08:43,101 INFO OUTP ON
+2026-05-07 13:08:43,102 INFO 2026-05-07 13:08:43 OUTP ON
+2026-05-07 13:12:18,173 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:12:18,173 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:12:18,174 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:12:18,174 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:12:18,175 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:12:18,175 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:12:18 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:12:18,217 INFO ('ASRL1::INSTR',)
+2026-05-07 13:12:18,217 INFO 1
+2026-05-07 13:12:18,486 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:12:18,486 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:12:18,486 INFO 2026-05-07 13:12:18    程式开启
+2026-05-07 13:12:18,487 INFO 2026-05-07 13:12:18    程式开启
+2026-05-07 13:12:29,141 INFO 192.168.40.211:8080
+2026-05-07 13:12:29,141 INFO 192.168.40.211:8080
+2026-05-07 13:12:29,141 INFO 通过
+2026-05-07 13:12:31,149 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:12:31,149 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:12:33,572 INFO OUTP ON
+2026-05-07 13:12:33,572 INFO 2026-05-07 13:12:33 OUTP ON
+2026-05-07 13:12:37,666 INFO OUTP OFF
+2026-05-07 13:12:37,666 INFO 2026-05-07 13:12:37 OUTP OFF
+2026-05-07 13:12:43,308 INFO OUTP ON
+2026-05-07 13:12:43,309 INFO 2026-05-07 13:12:43 OUTP ON
+2026-05-07 13:12:58,269 INFO [ERROR] 发送失败: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:12:58,269 ERROR 爱科: 输出吸合 Modbus 写入失败
+2026-05-07 13:12:58,269 INFO AC OUTP ON error (Modbus translate failed)
+2026-05-07 13:12:58,269 INFO 2026-05-07 13:12:58 AC OUTP ON error (Modbus translate failed)
+2026-05-07 13:13:03,780 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:13:03,781 ERROR 爱科: 输出吸合 Modbus 写入失败
+2026-05-07 13:13:03,781 INFO AC OUTP ON error (Modbus translate failed)
+2026-05-07 13:13:03,781 INFO 2026-05-07 13:13:03 AC OUTP ON error (Modbus translate failed)
+2026-05-07 13:23:41,459 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:23:41,459 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:23:41,460 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:23:41,461 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:23:41,461 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:23:41,461 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:23:41 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:23:41,503 INFO ('ASRL1::INSTR',)
+2026-05-07 13:23:41,503 INFO 1
+2026-05-07 13:23:41,750 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:23:41,750 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:23:41,751 INFO 2026-05-07 13:23:41    程式开启
+2026-05-07 13:23:41,751 INFO 2026-05-07 13:23:41    程式开启
+2026-05-07 13:23:52,756 INFO 192.168.40.211:8080
+2026-05-07 13:23:52,757 INFO 192.168.40.211:8080
+2026-05-07 13:23:52,757 INFO 通过
+2026-05-07 13:23:54,768 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:23:54,768 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:24:00,428 INFO OUTP ON
+2026-05-07 13:24:00,428 INFO 2026-05-07 13:24:00 OUTP ON
+2026-05-07 13:24:37,621 INFO OUTP OFF
+2026-05-07 13:24:37,621 INFO 2026-05-07 13:24:37 OUTP OFF
+2026-05-07 13:24:44,869 INFO [WARN] Modbus TCP 会话丢失，自动重连并重试…
+2026-05-07 13:25:49,473 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:25:49,473 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:25:49,474 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:25:49,474 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:25:49,474 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:25:49,475 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:25:49 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:25:49,522 INFO ('ASRL1::INSTR',)
+2026-05-07 13:25:49,523 INFO 1
+2026-05-07 13:25:49,771 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:25:49,772 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:25:49,772 INFO 2026-05-07 13:25:49    程式开启
+2026-05-07 13:25:49,773 INFO 2026-05-07 13:25:49    程式开启
+2026-05-07 13:25:52,141 ERROR Uncaught exception
+Traceback (most recent call last):
+  File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 112, in ShowACSetting
+    return ac_controller.show_setting(dialog_windowACSetting)
+AttributeError: 'NoneType' object has no attribute 'show_setting'
+2026-05-07 13:26:01,541 INFO 192.168.40.211:8080
+2026-05-07 13:26:01,542 INFO 192.168.40.211:8080
+2026-05-07 13:26:01,542 INFO 通过
+2026-05-07 13:26:03,549 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:26:03,549 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:29:20,268 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:29:20,268 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:29:20,269 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:29:20,269 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:29:20,270 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:29:20,270 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:29:20 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:29:20,312 INFO ('ASRL1::INSTR',)
+2026-05-07 13:29:20,312 INFO 1
+2026-05-07 13:29:20,579 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:29:20,579 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:29:20,579 INFO 2026-05-07 13:29:20    程式开启
+2026-05-07 13:29:20,580 INFO 2026-05-07 13:29:20    程式开启
+2026-05-07 13:29:29,981 INFO 192.168.40.211:8080
+2026-05-07 13:29:29,981 INFO 192.168.40.211:8080
+2026-05-07 13:29:29,981 INFO 通过
+2026-05-07 13:29:31,991 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:29:31,991 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:29:35,323 INFO OUTP ON
+2026-05-07 13:29:35,323 INFO 2026-05-07 13:29:35 OUTP ON
+2026-05-07 13:29:43,141 INFO OUTP OFF
+2026-05-07 13:29:43,141 INFO 2026-05-07 13:29:43 OUTP OFF
+2026-05-07 13:29:51,124 INFO [WARN] Modbus TCP 会话丢失，自动重连并重试…
+2026-05-07 13:31:33,713 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:31:33,714 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:31:33,715 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:31:33,715 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:31:33,716 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:31:33,716 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:31:33 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:31:33,766 INFO ('ASRL1::INSTR',)
+2026-05-07 13:31:33,766 INFO 1
+2026-05-07 13:31:34,036 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:31:34,036 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:31:34,037 INFO 2026-05-07 13:31:34    程式开启
+2026-05-07 13:31:34,037 INFO 2026-05-07 13:31:34    程式开启
+2026-05-07 13:31:44,453 INFO 192.168.40.211:8080
+2026-05-07 13:31:44,453 INFO 192.168.40.211:8080
+2026-05-07 13:31:44,454 INFO 通过
+2026-05-07 13:31:46,468 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:31:46,468 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:31:48,820 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 13:31:48,821 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000100000006010609090008
+2026-05-07 13:31:49,126 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:31:49,127 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 13:31:49,127 INFO 2026-05-07 13:31:49 [AC Modbus] OUTP ON translate_ok=True
+2026-05-07 13:31:49,127 INFO 2026-05-07 13:31:49 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 13:31:49,127 INFO OUTP ON
+2026-05-07 13:31:49,128 INFO 2026-05-07 13:31:49 OUTP ON
+2026-05-07 13:31:53,269 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 13:31:53,269 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000200000006010609090009
+2026-05-07 13:31:53,573 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:31:53,573 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-07 13:31:53,573 INFO 2026-05-07 13:31:53 [AC Modbus] OUTP OFF translate_ok=True
+2026-05-07 13:31:53,574 INFO 2026-05-07 13:31:53 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-07 13:31:53,574 INFO OUTP OFF
+2026-05-07 13:31:53,574 INFO 2026-05-07 13:31:53 OUTP OFF
+2026-05-07 13:32:01,596 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 13:32:01,597 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000300000006010609090008
+2026-05-07 13:32:01,597 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:32:01,598 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 13:32:01,598 INFO 2026-05-07 13:32:01 [AC Modbus] OUTP ON translate_ok=True
+2026-05-07 13:32:01,598 INFO 2026-05-07 13:32:01 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 13:32:01,598 INFO OUTP ON
+2026-05-07 13:32:01,598 INFO 2026-05-07 13:32:01 OUTP ON
+2026-05-07 13:32:30,068 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 13:32:30,069 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000400000006010609090009
+2026-05-07 13:32:30,069 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:32:30,070 INFO [WARN] Modbus TCP 会话丢失，自动重连并重试…
+2026-05-07 13:35:20,789 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:35:20,789 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:35:20,791 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:35:20,791 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:35:20,791 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:35:20,791 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:35:20 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:35:20,842 INFO ('ASRL1::INSTR',)
+2026-05-07 13:35:20,842 INFO 1
+2026-05-07 13:35:21,104 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:35:21,104 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:35:21,104 INFO 2026-05-07 13:35:21    程式开启
+2026-05-07 13:35:21,105 INFO 2026-05-07 13:35:21    程式开启
+2026-05-07 13:35:31,389 INFO 192.169.40.211
+2026-05-07 13:35:31,390 INFO 192.169.40.211
+2026-05-07 13:35:31,390 INFO 通过
+2026-05-07 13:35:33,402 INFO [ERROR] 连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-05-07 13:35:33,403 ERROR 连接失败
+2026-05-07 13:35:34,556 INFO AC Not Connect
+2026-05-07 13:35:34,556 INFO 2026-05-07 13:35:34 AC Not Connect
+2026-05-07 13:35:37,636 INFO 192.169.40.211
+2026-05-07 13:35:37,637 INFO 192.169.40.211
+2026-05-07 13:35:37,637 INFO 通过
+2026-05-07 13:35:39,645 INFO [ERROR] 连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-05-07 13:35:39,646 ERROR 连接失败
+2026-05-07 13:35:45,764 INFO 192.169.40.211:8080
+2026-05-07 13:35:45,765 INFO 192.169.40.211:8080
+2026-05-07 13:35:45,765 INFO 通过
+2026-05-07 13:35:47,771 INFO [ERROR] 连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-05-07 13:35:47,771 ERROR 连接失败
+2026-05-07 13:36:26,300 INFO 192.168.40.211:8080
+2026-05-07 13:36:26,301 INFO 192.168.40.211:8080
+2026-05-07 13:36:26,301 INFO 通过
+2026-05-07 13:36:28,307 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:36:28,307 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:36:32,021 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 13:36:32,021 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000100000006010609090008
+2026-05-07 13:36:32,325 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:36:32,325 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 13:36:32,326 INFO 2026-05-07 13:36:32 [AC Modbus] OUTP ON translate_ok=True
+2026-05-07 13:36:32,326 INFO 2026-05-07 13:36:32 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 13:36:32,326 INFO OUTP ON
+2026-05-07 13:36:32,326 INFO 2026-05-07 13:36:32 OUTP ON
+2026-05-07 13:36:44,773 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:36:44,773 INFO 2026-05-07 13:36:44SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:36:44,774 INFO 爱科: 设置1相电压 220.0V
+2026-05-07 13:36:44,774 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:36:44,774 INFO phase 1
+2026-05-07 13:36:44,774 INFO res 3072
+2026-05-07 13:36:44,775 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00020000000B01100C00000204000055F0
+2026-05-07 13:36:44,775 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:36:44,775 INFO 爱科: 设置A相电压 220.0V
+2026-05-07 13:36:44,775 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0003000000060106090B0001
+2026-05-07 13:36:44,776 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:36:44,776 INFO [WARN] Modbus TCP 会话丢失，自动重连并重试…
+2026-05-07 13:36:46,779 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0003000000060106090B0001
+2026-05-07 13:36:47,081 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:36:47,081 INFO SendCommandToAC:VOLT 220
+2026-05-07 13:36:47,081 INFO 2026-05-07 13:36:47SendCommandToAC:VOLT 220
+2026-05-07 13:36:47,082 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00040000000B01100C0F0002040000EA60
+2026-05-07 13:36:47,384 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:36:47,384 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0005000000060106090B0001
+2026-05-07 13:36:47,688 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:36:47,688 INFO SendCommandToAC:FREQ 60
+2026-05-07 13:36:47,688 INFO 2026-05-07 13:36:47SendCommandToAC:FREQ 60
+2026-05-07 13:37:38,253 INFO SendCommandToAC:INST:PHASE THREE
+2026-05-07 13:37:38,253 INFO 2026-05-07 13:37:38SendCommandToAC:INST:PHASE THREE
+2026-05-07 13:37:38,254 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00060000000601060C480002
+2026-05-07 13:37:38,255 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:38,255 INFO SendCommandToAC:INST:EDIT EACH
+2026-05-07 13:37:38,255 INFO 2026-05-07 13:37:38SendCommandToAC:INST:EDIT EACH
+2026-05-07 13:37:38,256 INFO SendCommandToAC:INST:NSEL 1
+2026-05-07 13:37:38,256 INFO 2026-05-07 13:37:38SendCommandToAC:INST:NSEL 1
+2026-05-07 13:37:38,256 INFO 爱科: 设置1相电压 220.0V
+2026-05-07 13:37:38,257 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:37:38,257 INFO phase 1
+2026-05-07 13:37:38,258 INFO res 3072
+2026-05-07 13:37:38,258 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00070000000B01100C00000204000055F0
+2026-05-07 13:37:38,259 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:37:38,259 INFO [WARN] Modbus TCP 会话丢失，自动重连并重试…
+2026-05-07 13:37:40,266 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00070000000B01100C00000204000055F0
+2026-05-07 13:37:40,568 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:40,568 INFO 爱科: 设置A相电压 220.0V
+2026-05-07 13:37:40,568 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0008000000060106090B0001
+2026-05-07 13:37:40,873 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:40,873 INFO SendCommandToAC:VOLT 220
+2026-05-07 13:37:40,873 INFO 2026-05-07 13:37:40SendCommandToAC:VOLT 220
+2026-05-07 13:37:40,874 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00090000000B01100C0F0002040000C350
+2026-05-07 13:37:41,176 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:41,176 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000A000000060106090B0001
+2026-05-07 13:37:41,480 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:41,480 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:37:41,481 INFO 2026-05-07 13:37:41SendCommandToAC:FREQ 50
+2026-05-07 13:37:41,481 INFO SendCommandToAC:INST:NSEL 2
+2026-05-07 13:37:41,481 INFO 2026-05-07 13:37:41SendCommandToAC:INST:NSEL 2
+2026-05-07 13:37:41,481 INFO 爱科: 设置2相电压 220.0V
+2026-05-07 13:37:41,482 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:37:41,482 INFO phase 2
+2026-05-07 13:37:41,482 INFO res 3074
+2026-05-07 13:37:41,482 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000B0000000B01100C02000204000055F0
+2026-05-07 13:37:41,787 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:41,788 INFO 爱科: 设置B相电压 220.0V
+2026-05-07 13:37:41,788 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000C000000060106090B0001
+2026-05-07 13:37:42,092 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:42,092 INFO SendCommandToAC:VOLT 220
+2026-05-07 13:37:42,092 INFO 2026-05-07 13:37:42SendCommandToAC:VOLT 220
+2026-05-07 13:37:42,092 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000D0000000B01100C0F0002040000C350
+2026-05-07 13:37:42,398 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:42,398 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000E000000060106090B0001
+2026-05-07 13:37:42,703 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:42,703 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:37:42,703 INFO 2026-05-07 13:37:42SendCommandToAC:FREQ 50
+2026-05-07 13:37:42,703 INFO SendCommandToAC:INST:NSEL 3
+2026-05-07 13:37:42,704 INFO 2026-05-07 13:37:42SendCommandToAC:INST:NSEL 3
+2026-05-07 13:37:42,704 INFO 爱科: 设置3相电压 220.0V
+2026-05-07 13:37:42,704 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:37:42,704 INFO phase 3
+2026-05-07 13:37:42,704 INFO res 3076
+2026-05-07 13:37:42,705 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=000F0000000B01100C04000204000055F0
+2026-05-07 13:37:43,009 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:43,010 INFO 爱科: 设置C相电压 220.0V
+2026-05-07 13:37:43,010 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0010000000060106090B0001
+2026-05-07 13:37:43,315 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:43,315 INFO SendCommandToAC:VOLT 220
+2026-05-07 13:37:43,315 INFO 2026-05-07 13:37:43SendCommandToAC:VOLT 220
+2026-05-07 13:37:43,316 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00110000000B01100C0F0002040000C350
+2026-05-07 13:37:43,616 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:43,616 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0012000000060106090B0001
+2026-05-07 13:37:43,921 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:37:43,921 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:37:43,921 INFO 2026-05-07 13:37:43SendCommandToAC:FREQ 50
+2026-05-07 13:38:15,628 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:38:15,629 INFO 2026-05-07 13:38:15SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:38:15,629 INFO 爱科: 设置3相电压 230.0V
+2026-05-07 13:38:15,629 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:38:15,630 INFO phase 3
+2026-05-07 13:38:15,630 INFO res 3076
+2026-05-07 13:38:15,630 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00130000000B01100C04000204000059D8
+2026-05-07 13:38:15,631 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:15,631 INFO 爱科: 设置C相电压 230.0V
+2026-05-07 13:38:15,631 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0014000000060106090B0001
+2026-05-07 13:38:15,632 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:38:15,632 INFO [WARN] Modbus TCP 会话丢失，自动重连并重试…
+2026-05-07 13:38:17,636 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0014000000060106090B0001
+2026-05-07 13:38:17,938 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:17,938 INFO SendCommandToAC:VOLT 230
+2026-05-07 13:38:17,938 INFO 2026-05-07 13:38:17SendCommandToAC:VOLT 230
+2026-05-07 13:38:17,938 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00150000000B01100C0F0002040000C350
+2026-05-07 13:38:18,242 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:18,242 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0016000000060106090B0001
+2026-05-07 13:38:18,547 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:18,547 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:38:18,547 INFO 2026-05-07 13:38:18SendCommandToAC:FREQ 50
+2026-05-07 13:38:43,421 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:38:43,421 INFO 2026-05-07 13:38:43SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:38:43,421 INFO 爱科: 设置3相电压 230.0V
+2026-05-07 13:38:43,422 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:38:43,422 INFO phase 3
+2026-05-07 13:38:43,422 INFO res 3076
+2026-05-07 13:38:43,422 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00170000000B01100C04000204000059D8
+2026-05-07 13:38:43,423 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:43,423 INFO 爱科: 设置C相电压 230.0V
+2026-05-07 13:38:43,423 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0018000000060106090B0001
+2026-05-07 13:38:43,423 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:38:43,424 INFO [WARN] Modbus TCP 会话丢失，自动重连并重试…
+2026-05-07 13:38:45,428 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=0018000000060106090B0001
+2026-05-07 13:38:45,733 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:45,733 INFO SendCommandToAC:VOLT 230
+2026-05-07 13:38:45,733 INFO 2026-05-07 13:38:45SendCommandToAC:VOLT 230
+2026-05-07 13:38:45,734 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=00190000000B01100C0F0002040000C350
+2026-05-07 13:38:46,035 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:46,035 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=300 adu=001A000000060106090B0001
+2026-05-07 13:38:46,339 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:38:46,339 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:38:46,339 INFO 2026-05-07 13:38:46SendCommandToAC:FREQ 50
+2026-05-07 13:44:26,592 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:44:26,592 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:44:26,593 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:44:26,593 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:44:26,594 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:44:26,594 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:44:26 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:44:26,637 INFO ('ASRL1::INSTR',)
+2026-05-07 13:44:26,637 INFO 1
+2026-05-07 13:44:26,890 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:44:26,890 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:44:26,890 INFO 2026-05-07 13:44:26    程式开启
+2026-05-07 13:44:26,891 INFO 2026-05-07 13:44:26    程式开启
+2026-05-07 13:44:42,269 INFO 192.168.40.211:8080
+2026-05-07 13:44:42,270 INFO 192.168.40.211:8080
+2026-05-07 13:44:42,270 INFO 通过
+2026-05-07 13:44:44,280 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:44:44,280 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:44:45,884 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 13:44:45,885 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=True to_ms=2500 adu=000100000006010609090008
+2026-05-07 13:44:48,387 INFO [ModbusVISA] RX expect_resp=True empty/timeout
+2026-05-07 13:44:48,387 INFO [ModbusVISA] send 异常: OSError: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-07 13:44:48,387 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 13:44:50,393 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=True to_ms=2500 adu=000100000006010609090008
+2026-05-07 13:44:51,911 INFO [ModbusVISA] RX expect_resp=True empty/timeout
+2026-05-07 13:44:51,911 INFO [ModbusVISA] send 异常: OSError: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-07 13:44:51,912 INFO [ERROR] 发送失败: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-07 13:44:51,912 INFO [Itech] _send_control 输出吸合 write_register ret=None
+2026-05-07 13:44:51,912 ERROR 爱科: 输出吸合 Modbus 写入失败
+2026-05-07 13:44:51,912 INFO 2026-05-07 13:44:51 [AC Modbus] OUTP ON translate_ok=False
+2026-05-07 13:44:51,913 INFO 2026-05-07 13:44:51 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 13:44:51,913 INFO AC OUTP ON error (Modbus translate failed)
+2026-05-07 13:44:51,913 INFO 2026-05-07 13:44:51 AC OUTP ON error (Modbus translate failed)
+2026-05-07 13:44:55,173 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 13:44:55,173 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:44:55,174 INFO [Itech] _send_control 输出断开 write_register ret=None
+2026-05-07 13:44:55,174 ERROR 爱科: 输出断开 Modbus 写入失败
+2026-05-07 13:44:55,174 INFO 2026-05-07 13:44:55 [AC Modbus] OUTP OFF translate_ok=False
+2026-05-07 13:44:55,175 INFO 2026-05-07 13:44:55 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-07 13:44:55,175 INFO AC OUTP OFF error (Modbus translate failed)
+2026-05-07 13:44:55,175 INFO 2026-05-07 13:44:55 AC OUTP OFF error (Modbus translate failed)
+2026-05-07 13:45:05,708 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 13:45:05,709 INFO [ERROR] 未连接，请先调用 connect()
+2026-05-07 13:45:05,709 INFO [Itech] _send_control 输出断开 write_register ret=None
+2026-05-07 13:45:05,709 ERROR 爱科: 输出断开 Modbus 写入失败
+2026-05-07 13:45:05,709 INFO 2026-05-07 13:45:05 [AC Modbus] OUTP OFF translate_ok=False
+2026-05-07 13:45:05,709 INFO 2026-05-07 13:45:05 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-07 13:45:05,709 INFO AC OUTP OFF error (Modbus translate failed)
+2026-05-07 13:45:05,709 INFO 2026-05-07 13:45:05 AC OUTP OFF error (Modbus translate failed)
+2026-05-07 13:46:30,578 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:46:30,578 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:46:30,580 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:46:30,580 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:46:30,580 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:46:30,580 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:46:30 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:46:30,630 INFO ('ASRL1::INSTR',)
+2026-05-07 13:46:30,630 INFO 1
+2026-05-07 13:46:30,954 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:46:30,954 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:46:30,955 INFO 2026-05-07 13:46:30    程式开启
+2026-05-07 13:46:30,955 INFO 2026-05-07 13:46:30    程式开启
+2026-05-07 13:46:41,741 INFO 192.168.40.211:8080
+2026-05-07 13:46:41,741 INFO 192.168.40.211:8080
+2026-05-07 13:46:41,742 INFO 通过
+2026-05-07 13:46:43,750 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:46:43,750 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:46:45,829 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 13:46:45,829 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090008
+2026-05-07 13:46:46,634 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:46:46,634 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 13:46:46,634 INFO 2026-05-07 13:46:46 [AC Modbus] OUTP ON translate_ok=True
+2026-05-07 13:46:46,634 INFO 2026-05-07 13:46:46 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 13:46:46,634 INFO OUTP ON
+2026-05-07 13:46:46,634 INFO 2026-05-07 13:46:46 OUTP ON
+2026-05-07 13:46:49,365 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 13:46:49,365 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000200000006010609090009
+2026-05-07 13:46:50,168 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:46:50,168 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-07 13:46:50,168 INFO 2026-05-07 13:46:50 [AC Modbus] OUTP OFF translate_ok=True
+2026-05-07 13:46:50,169 INFO 2026-05-07 13:46:50 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-07 13:46:50,169 INFO OUTP OFF
+2026-05-07 13:46:50,169 INFO 2026-05-07 13:46:50 OUTP OFF
+2026-05-07 13:46:54,789 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 13:46:54,789 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000300000006010609090008
+2026-05-07 13:46:54,789 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:46:54,791 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 13:46:54,791 INFO 2026-05-07 13:46:54 [AC Modbus] OUTP ON translate_ok=True
+2026-05-07 13:46:54,791 INFO 2026-05-07 13:46:54 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 13:46:54,792 INFO OUTP ON
+2026-05-07 13:46:54,792 INFO 2026-05-07 13:46:54 OUTP ON
+2026-05-07 13:47:19,229 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 13:47:19,229 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000400000006010609090008
+2026-05-07 13:47:19,229 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:47:19,230 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 13:47:21,237 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000400000006010609090008
+2026-05-07 13:47:22,041 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:22,041 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 13:47:22,041 INFO 2026-05-07 13:47:22 [AC Modbus] OUTP ON translate_ok=True
+2026-05-07 13:47:22,042 INFO 2026-05-07 13:47:22 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 13:47:22,042 INFO OUTP ON
+2026-05-07 13:47:22,042 INFO 2026-05-07 13:47:22 OUTP ON
+2026-05-07 13:47:28,061 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:47:28,061 INFO 2026-05-07 13:47:28SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:47:28,062 INFO 爱科: 设置1相电压 220.0V
+2026-05-07 13:47:28,062 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:47:28,062 INFO phase 1
+2026-05-07 13:47:28,063 INFO res 3072
+2026-05-07 13:47:28,063 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00050000000B01100C00000204000055F0
+2026-05-07 13:47:28,063 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:28,063 INFO 爱科: 设置A相电压 220.0V
+2026-05-07 13:47:28,064 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0006000000060106090B0001
+2026-05-07 13:47:28,064 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:47:28,064 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 13:47:30,068 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0006000000060106090B0001
+2026-05-07 13:47:30,869 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:30,869 INFO SendCommandToAC:VOLT 220
+2026-05-07 13:47:30,869 INFO 2026-05-07 13:47:30SendCommandToAC:VOLT 220
+2026-05-07 13:47:30,869 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00070000000B01100C0F0002040000EA60
+2026-05-07 13:47:31,671 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:31,671 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0008000000060106090B0001
+2026-05-07 13:47:32,474 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:32,474 INFO SendCommandToAC:FREQ 60
+2026-05-07 13:47:32,474 INFO 2026-05-07 13:47:32SendCommandToAC:FREQ 60
+2026-05-07 13:47:55,524 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:47:55,525 INFO 2026-05-07 13:47:55SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:47:55,525 INFO 爱科: 设置1相电压 230.0V
+2026-05-07 13:47:55,525 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:47:55,525 INFO phase 1
+2026-05-07 13:47:55,526 INFO res 3072
+2026-05-07 13:47:55,526 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00090000000B01100C00000204000059D8
+2026-05-07 13:47:55,527 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:55,527 INFO 爱科: 设置A相电压 230.0V
+2026-05-07 13:47:55,527 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000A000000060106090B0001
+2026-05-07 13:47:55,528 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:47:55,528 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 13:47:57,532 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000A000000060106090B0001
+2026-05-07 13:47:58,334 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:58,334 INFO SendCommandToAC:VOLT 230
+2026-05-07 13:47:58,334 INFO 2026-05-07 13:47:58SendCommandToAC:VOLT 230
+2026-05-07 13:47:58,335 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000B0000000B01100C0F0002040000C350
+2026-05-07 13:47:59,139 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:59,139 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000C000000060106090B0001
+2026-05-07 13:47:59,943 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:47:59,943 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:47:59,943 INFO 2026-05-07 13:47:59SendCommandToAC:FREQ 50
+2026-05-07 13:53:29,997 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:53:29,998 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 13:53:29,999 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:53:29,999 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 13:53:29,999 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:53:29,999 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 13:53:30 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 13:53:30,040 INFO ('ASRL1::INSTR',)
+2026-05-07 13:53:30,041 INFO 1
+2026-05-07 13:53:30,295 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 13:53:30,296 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 13:53:30,296 INFO 2026-05-07 13:53:30    程式开启
+2026-05-07 13:53:30,296 INFO 2026-05-07 13:53:30    程式开启
+2026-05-07 13:53:39,612 INFO 192.168.40.211:8080
+2026-05-07 13:53:39,613 INFO 192.168.40.211:8080
+2026-05-07 13:53:39,613 INFO 通过
+2026-05-07 13:53:41,622 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 13:53:41,622 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 13:53:54,437 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00010000000601060C480002
+2026-05-07 13:53:54,437 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:53:54,437 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:53:54,438 INFO 2026-05-07 13:53:54SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:53:54,438 INFO 爱科: 设置1相电压 230.0V
+2026-05-07 13:53:54,438 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:53:54,438 INFO phase 1
+2026-05-07 13:53:54,439 INFO res 3072
+2026-05-07 13:53:54,439 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00020000000B01100C00000204000059D8
+2026-05-07 13:53:54,439 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:53:54,440 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 13:53:56,444 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00020000000B01100C00000204000059D8
+2026-05-07 13:53:57,246 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:53:57,247 INFO 爱科: 设置A相电压 230.0V
+2026-05-07 13:53:57,247 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0003000000060106090B0001
+2026-05-07 13:53:58,052 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:53:58,052 INFO SendCommandToAC:VOLT 230
+2026-05-07 13:53:58,052 INFO 2026-05-07 13:53:58SendCommandToAC:VOLT 230
+2026-05-07 13:53:58,052 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00040000000B01100C0F0002040000C350
+2026-05-07 13:53:58,857 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:53:58,858 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0005000000060106090B0001
+2026-05-07 13:53:59,662 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:53:59,662 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:53:59,662 INFO 2026-05-07 13:53:59SendCommandToAC:FREQ 50
+2026-05-07 13:54:18,260 INFO SendCommandToAC:INST:PHASE THREE
+2026-05-07 13:54:18,261 INFO 2026-05-07 13:54:18SendCommandToAC:INST:PHASE THREE
+2026-05-07 13:54:18,261 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00060000000601060C480002
+2026-05-07 13:54:18,262 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:18,262 INFO SendCommandToAC:INST:EDIT EACH
+2026-05-07 13:54:18,262 INFO 2026-05-07 13:54:18SendCommandToAC:INST:EDIT EACH
+2026-05-07 13:54:18,262 INFO SendCommandToAC:INST:NSEL 1
+2026-05-07 13:54:18,262 INFO 2026-05-07 13:54:18SendCommandToAC:INST:NSEL 1
+2026-05-07 13:54:18,262 INFO 爱科: 设置1相电压 230.0V
+2026-05-07 13:54:18,263 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:54:18,263 INFO phase 1
+2026-05-07 13:54:18,263 INFO res 3072
+2026-05-07 13:54:18,263 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00070000000B01100C00000204000059D8
+2026-05-07 13:54:18,264 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:54:18,264 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 13:54:20,269 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00070000000B01100C00000204000059D8
+2026-05-07 13:54:21,072 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:21,072 INFO 爱科: 设置A相电压 230.0V
+2026-05-07 13:54:21,072 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0008000000060106090B0001
+2026-05-07 13:54:21,877 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:21,877 INFO SendCommandToAC:VOLT 230
+2026-05-07 13:54:21,878 INFO 2026-05-07 13:54:21SendCommandToAC:VOLT 230
+2026-05-07 13:54:21,878 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00090000000B01100C0F0002040000EA60
+2026-05-07 13:54:22,682 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:22,682 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000A000000060106090B0001
+2026-05-07 13:54:23,487 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:23,487 INFO SendCommandToAC:FREQ 60
+2026-05-07 13:54:23,487 INFO 2026-05-07 13:54:23SendCommandToAC:FREQ 60
+2026-05-07 13:54:23,487 INFO SendCommandToAC:INST:NSEL 2
+2026-05-07 13:54:23,487 INFO 2026-05-07 13:54:23SendCommandToAC:INST:NSEL 2
+2026-05-07 13:54:23,488 INFO 爱科: 设置2相电压 230.0V
+2026-05-07 13:54:23,488 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:54:23,488 INFO phase 2
+2026-05-07 13:54:23,488 INFO res 3074
+2026-05-07 13:54:23,489 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000B0000000B01100C02000204000059D8
+2026-05-07 13:54:24,293 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:24,293 INFO 爱科: 设置B相电压 230.0V
+2026-05-07 13:54:24,293 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000C000000060106090B0001
+2026-05-07 13:54:25,097 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:25,097 INFO SendCommandToAC:VOLT 230
+2026-05-07 13:54:25,097 INFO 2026-05-07 13:54:25SendCommandToAC:VOLT 230
+2026-05-07 13:54:25,098 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000D0000000B01100C0F0002040000EA60
+2026-05-07 13:54:25,903 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:25,903 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000E000000060106090B0001
+2026-05-07 13:54:26,707 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:26,707 INFO SendCommandToAC:FREQ 60
+2026-05-07 13:54:26,708 INFO 2026-05-07 13:54:26SendCommandToAC:FREQ 60
+2026-05-07 13:54:26,708 INFO SendCommandToAC:INST:NSEL 3
+2026-05-07 13:54:26,708 INFO 2026-05-07 13:54:26SendCommandToAC:INST:NSEL 3
+2026-05-07 13:54:26,708 INFO 爱科: 设置3相电压 230.0V
+2026-05-07 13:54:26,708 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:54:26,709 INFO phase 3
+2026-05-07 13:54:26,709 INFO res 3076
+2026-05-07 13:54:26,709 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000F0000000B01100C04000204000059D8
+2026-05-07 13:54:27,142 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:27,143 INFO 爱科: 设置C相电压 230.0V
+2026-05-07 13:54:27,143 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0010000000060106090B0001
+2026-05-07 13:54:27,144 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:27,144 INFO SendCommandToAC:VOLT 230
+2026-05-07 13:54:27,144 INFO 2026-05-07 13:54:27SendCommandToAC:VOLT 230
+2026-05-07 13:54:27,145 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00110000000B01100C0F0002040000EA60
+2026-05-07 13:54:27,145 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 13:54:27,145 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 13:54:29,150 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00110000000B01100C0F0002040000EA60
+2026-05-07 13:54:29,952 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:29,952 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0012000000060106090B0001
+2026-05-07 13:54:30,754 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:54:30,754 INFO SendCommandToAC:FREQ 60
+2026-05-07 13:54:30,754 INFO 2026-05-07 13:54:30SendCommandToAC:FREQ 60
+2026-05-07 13:54:57,444 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-07 13:54:59,448 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00130000000601060C480002
+2026-05-07 13:55:00,251 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:55:00,251 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:55:00,251 INFO 2026-05-07 13:55:00SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 13:55:00,251 INFO 爱科: 设置1相电压 220.0V
+2026-05-07 13:55:00,252 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 13:55:00,252 INFO phase 1
+2026-05-07 13:55:00,252 INFO res 3072
+2026-05-07 13:55:00,252 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00140000000B01100C00000204000055F0
+2026-05-07 13:55:01,057 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:55:01,057 INFO 爱科: 设置A相电压 220.0V
+2026-05-07 13:55:01,057 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0015000000060106090B0001
+2026-05-07 13:55:01,861 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:55:01,862 INFO SendCommandToAC:VOLT 220
+2026-05-07 13:55:01,862 INFO 2026-05-07 13:55:01SendCommandToAC:VOLT 220
+2026-05-07 13:55:01,862 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00160000000B01100C0F0002040000C350
+2026-05-07 13:55:02,663 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:55:02,663 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0017000000060106090B0001
+2026-05-07 13:55:03,465 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:55:03,465 INFO SendCommandToAC:FREQ 50
+2026-05-07 13:55:03,465 INFO 2026-05-07 13:55:03SendCommandToAC:FREQ 50
+2026-05-07 13:55:44,052 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 13:55:44,053 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-07 13:55:46,058 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001800000006010609090009
+2026-05-07 13:55:46,859 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 13:55:46,859 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-07 13:55:46,859 INFO 2026-05-07 13:55:46 [AC Modbus] OUTP OFF translate_ok=True
+2026-05-07 13:55:46,860 INFO 2026-05-07 13:55:46 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-07 13:55:46,860 INFO OUTP OFF
+2026-05-07 13:55:46,860 INFO 2026-05-07 13:55:46 OUTP OFF
+2026-05-07 14:02:02,767 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27430: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:02:02,767 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 14:02:02,767 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:02:02,767 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 14:02:02,768 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:02:02,768 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 14:02:02 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 14:02:02,811 INFO ('ASRL1::INSTR',)
+2026-05-07 14:02:02,811 INFO 1
+2026-05-07 14:02:03,054 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27903: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:02:03,054 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 14:02:03,054 INFO 2026-05-07 14:02:03    程式开启
+2026-05-07 14:02:03,055 INFO 2026-05-07 14:02:03    程式开启
+2026-05-07 14:02:12,844 INFO 192.168.40.211:8080
+2026-05-07 14:02:12,845 INFO 192.168.40.211:8080
+2026-05-07 14:02:12,845 INFO 通过
+2026-05-07 14:02:14,855 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 14:02:14,855 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 14:02:18,660 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 14:02:18,661 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090008
+2026-05-07 14:02:19,463 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:02:19,463 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 14:02:19,463 INFO 2026-05-07 14:02:19 [AC Modbus] OUTP ON translate_ok=True
+2026-05-07 14:02:19,463 INFO 2026-05-07 14:02:19 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 14:02:19,464 INFO OUTP ON
+2026-05-07 14:02:19,464 INFO 2026-05-07 14:02:19 OUTP ON
+2026-05-07 14:02:41,541 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-07 14:02:43,548 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00020000000601060C480002
+2026-05-07 14:02:44,349 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:02:44,349 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 14:02:44,349 INFO 2026-05-07 14:02:44SendCommandToAC:INST:PHASE SINGLE
+2026-05-07 14:02:44,350 INFO 爱科: 设置1相电压 230.0V
+2026-05-07 14:02:44,350 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 14:02:44,350 INFO phase 1
+2026-05-07 14:02:44,350 INFO res 3072
+2026-05-07 14:02:44,351 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00030000000B01100C00000204000059D8
+2026-05-07 14:02:45,154 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:02:45,154 INFO 爱科: 设置A相电压 230.0V
+2026-05-07 14:02:45,155 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0004000000060106090B0001
+2026-05-07 14:02:45,960 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:02:45,960 INFO SendCommandToAC:VOLT 230	
+2026-05-07 14:02:45,961 INFO 2026-05-07 14:02:45SendCommandToAC:VOLT 230
+2026-05-07 14:02:45,961 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00050000000B01100C0F0002040000C350
+2026-05-07 14:02:46,763 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:02:46,763 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0006000000060106090B0001
+2026-05-07 14:02:47,567 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:02:47,567 INFO SendCommandToAC:FREQ 50
+2026-05-07 14:02:47,567 INFO 2026-05-07 14:02:47SendCommandToAC:FREQ 50
+2026-05-07 14:04:50,734 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27435: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:04:50,735 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 14:04:50,736 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:04:50,736 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 14:04:50,736 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27456: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:04:50,736 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 14:04:50 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 14:04:50,778 INFO ('ASRL1::INSTR',)
+2026-05-07 14:04:50,778 INFO 1
+2026-05-07 14:04:51,021 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27908: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:04:51,021 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 14:04:51,021 INFO 2026-05-07 14:04:51    程式开启
+2026-05-07 14:04:51,022 INFO 2026-05-07 14:04:51    程式开启
+2026-05-07 14:05:03,420 INFO 192.168.40.211:8080
+2026-05-07 14:05:03,420 INFO 192.168.40.211:8080
+2026-05-07 14:05:03,421 INFO 通过
+2026-05-07 14:05:05,433 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 14:05:05,433 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 14:05:17,372 INFO SendCommandToAC:INST:PHASE THREE
+2026-05-07 14:05:17,373 INFO 2026-05-07 14:05:17SendCommandToAC:INST:PHASE THREE
+2026-05-07 14:05:17,373 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00010000000601060C480002
+2026-05-07 14:05:17,373 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:17,374 INFO SendCommandToAC:INST:EDIT EACH
+2026-05-07 14:05:17,374 INFO 2026-05-07 14:05:17SendCommandToAC:INST:EDIT EACH
+2026-05-07 14:05:17,374 INFO SendCommandToAC:INST:NSEL 1
+2026-05-07 14:05:17,374 INFO 2026-05-07 14:05:17SendCommandToAC:INST:NSEL 1
+2026-05-07 14:05:17,374 INFO 爱科: 设置1相电压 200.0V
+2026-05-07 14:05:17,375 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 14:05:17,375 INFO phase 1
+2026-05-07 14:05:17,375 INFO res 3072
+2026-05-07 14:05:17,375 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00020000000B01100C0000020400004E20
+2026-05-07 14:05:17,376 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 14:05:17,376 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 14:05:19,382 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00020000000B01100C0000020400004E20
+2026-05-07 14:05:20,186 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:20,186 INFO 爱科: 设置A相电压 200.0V
+2026-05-07 14:05:20,186 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0003000000060106090B0001
+2026-05-07 14:05:20,987 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:20,987 INFO SendCommandToAC:VOLT 200
+2026-05-07 14:05:20,987 INFO 2026-05-07 14:05:20SendCommandToAC:VOLT 200
+2026-05-07 14:05:20,988 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00040000000B01100C0F0002040000C350
+2026-05-07 14:05:21,793 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:21,793 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0005000000060106090B0001
+2026-05-07 14:05:22,598 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:22,598 INFO SendCommandToAC:FREQ 50
+2026-05-07 14:05:22,598 INFO 2026-05-07 14:05:22SendCommandToAC:FREQ 50
+2026-05-07 14:05:22,598 INFO SendCommandToAC:INST:NSEL 2
+2026-05-07 14:05:22,599 INFO 2026-05-07 14:05:22SendCommandToAC:INST:NSEL 2
+2026-05-07 14:05:22,599 INFO 爱科: 设置2相电压 200.0V
+2026-05-07 14:05:22,599 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 14:05:22,600 INFO phase 2
+2026-05-07 14:05:22,600 INFO res 3074
+2026-05-07 14:05:22,600 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00060000000B01100C0200020400004E20
+2026-05-07 14:05:23,402 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:23,402 INFO 爱科: 设置B相电压 200.0V
+2026-05-07 14:05:23,402 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0007000000060106090B0001
+2026-05-07 14:05:24,207 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:24,207 INFO SendCommandToAC:VOLT 200
+2026-05-07 14:05:24,207 INFO 2026-05-07 14:05:24SendCommandToAC:VOLT 200
+2026-05-07 14:05:24,208 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00080000000B01100C0F0002040000C350
+2026-05-07 14:05:25,012 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:25,012 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0009000000060106090B0001
+2026-05-07 14:05:25,818 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:25,818 INFO SendCommandToAC:FREQ 50
+2026-05-07 14:05:25,819 INFO 2026-05-07 14:05:25SendCommandToAC:FREQ 50
+2026-05-07 14:05:25,819 INFO SendCommandToAC:INST:NSEL 3
+2026-05-07 14:05:25,819 INFO 2026-05-07 14:05:25SendCommandToAC:INST:NSEL 3
+2026-05-07 14:05:25,819 INFO 爱科: 设置3相电压 200.0V
+2026-05-07 14:05:25,820 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-07 14:05:25,820 INFO phase 3
+2026-05-07 14:05:25,820 INFO res 3076
+2026-05-07 14:05:25,820 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000A0000000B01100C0400020400004E20
+2026-05-07 14:05:25,923 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:25,923 INFO 爱科: 设置C相电压 200.0V
+2026-05-07 14:05:25,924 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000B000000060106090B0001
+2026-05-07 14:05:25,924 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:25,925 INFO SendCommandToAC:VOLT 200
+2026-05-07 14:05:25,925 INFO 2026-05-07 14:05:25SendCommandToAC:VOLT 200
+2026-05-07 14:05:25,925 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000C0000000B01100C0F0002040000C350
+2026-05-07 14:05:25,925 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-07 14:05:25,926 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-07 14:05:27,929 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000C0000000B01100C0F0002040000C350
+2026-05-07 14:05:28,731 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:28,731 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000D000000060106090B0001
+2026-05-07 14:05:29,537 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:05:29,537 INFO SendCommandToAC:FREQ 50
+2026-05-07 14:05:29,538 INFO 2026-05-07 14:05:29SendCommandToAC:FREQ 50
+2026-05-07 14:11:43,756 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27435: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:11:43,757 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 14:11:43,759 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:11:43,759 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 14:11:43,760 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27456: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:11:43,760 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 14:11:43 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 14:11:43,816 INFO ('ASRL1::INSTR',)
+2026-05-07 14:11:43,817 INFO 1
+2026-05-07 14:11:44,064 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27908: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:11:44,064 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 14:11:44,064 INFO 2026-05-07 14:11:44    程式开启
+2026-05-07 14:11:44,065 INFO 2026-05-07 14:11:44    程式开启
+2026-05-07 14:12:39,204 INFO 192.168.40.211:8080
+2026-05-07 14:12:39,204 INFO 192.168.40.211:8080
+2026-05-07 14:12:39,205 INFO 通过
+2026-05-07 14:12:41,215 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 14:12:41,215 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 14:12:43,413 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-07 14:12:43,413 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090003
+2026-05-07 14:12:44,215 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:12:44,215 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-07 14:12:44,215 INFO 2026-05-07 14:12:43 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-07 14:12:44,216 INFO 2026-05-07 14:12:43 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-07 14:12:44,216 INFO SYST:RUN
+2026-05-07 14:12:44,216 INFO 2026-05-07 14:12:43 SYST:RUN
+2026-05-07 14:12:44,216 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-07 14:12:44,216 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000200000006010609090008
+2026-05-07 14:12:45,021 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:12:45,021 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-07 14:12:45,021 INFO 2026-05-07 14:12:43 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-07 14:12:45,021 INFO 2026-05-07 14:12:43 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-07 14:12:45,022 INFO OUTP ON
+2026-05-07 14:12:45,022 INFO 2026-05-07 14:12:43 OUTP ON
+2026-05-07 14:15:09,205 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 14:15:09,205 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-07 14:15:11,211 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000300000006010609090009
+2026-05-07 14:15:12,013 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:15:12,013 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-07 14:15:12,013 INFO 2026-05-07 14:15:12 [AC Modbus] OUTP OFF translate_ok=True
+2026-05-07 14:15:12,013 INFO 2026-05-07 14:15:12 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-07 14:15:12,014 INFO OUTP OFF
+2026-05-07 14:15:12,014 INFO 2026-05-07 14:15:12 OUTP OFF
+2026-05-07 14:17:03,406 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27435: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:17:03,406 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 14:17:03,407 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27451: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:17:03,407 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 14:17:03,408 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27456: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:17:03,408 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 14:17:03 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 14:17:03,455 INFO ('ASRL1::INSTR',)
+2026-05-07 14:17:03,456 INFO 1
+2026-05-07 14:17:03,749 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27908: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:17:03,749 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 14:17:03,750 INFO 2026-05-07 14:17:03    程式开启
+2026-05-07 14:17:03,750 INFO 2026-05-07 14:17:03    程式开启
+2026-05-07 14:17:13,925 INFO 192.168.40.211:8080
+2026-05-07 14:17:13,926 INFO 192.168.40.211:8080
+2026-05-07 14:17:13,926 INFO 通过
+2026-05-07 14:17:15,934 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-07 14:17:15,934 INFO 连接成功: 192.168.40.211:8080
+2026-05-07 14:17:18,580 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-07 14:17:18,581 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090009
+2026-05-07 14:17:19,386 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:17:19,386 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-07 14:17:19,386 INFO 2026-05-07 14:17:18 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-07 14:17:19,386 INFO 2026-05-07 14:17:18 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-07 14:17:19,386 INFO OUTP OFF
+2026-05-07 14:17:19,387 INFO 2026-05-07 14:17:18 OUTP OFF
+2026-05-07 14:17:19,387 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-07 14:17:19,387 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000200000006010609090004
+2026-05-07 14:17:20,192 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-07 14:17:20,192 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-07 14:17:20,192 INFO 2026-05-07 14:17:18 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-07 14:17:20,192 INFO 2026-05-07 14:17:18 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-07 14:17:20,192 INFO SYST:STANDBY
+2026-05-07 14:17:20,193 INFO 2026-05-07 14:17:18 SYST:STANDBY
+2026-05-07 14:24:34,485 INFO ASRL1::INSTR
+2026-05-07 14:24:34,492 INFO 直流电源连接成功
+2026-05-07 14:24:34,492 INFO 直流电源连接成功
+2026-05-07 14:24:44,494 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:24:44,494 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:25:53,581 INFO ASRL1::INSTR
+2026-05-07 14:25:53,583 INFO 直流电源连接成功
+2026-05-07 14:25:53,584 INFO 直流电源连接成功
+2026-05-07 14:26:03,586 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:26:03,586 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:26:23,301 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:26:23,302 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:26:23,303 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:26:23,303 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:27:07,668 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:27:07,668 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:27:07,670 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:27:07,670 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:27:52,025 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:27:52,025 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:27:52,027 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:27:52,027 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:28:36,376 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:28:36,376 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:28:36,378 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:28:36,378 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:29:20,733 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:29:20,733 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:29:20,734 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:29:20,735 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:29:52,609 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27465: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:29:52,609 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 14:29:52,610 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27481: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:29:52,611 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 14:29:52,611 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27486: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:29:52,611 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 14:29:52 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 14:29:52,652 INFO ('ASRL1::INSTR',)
+2026-05-07 14:29:52,652 INFO 1
+2026-05-07 14:29:52,904 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27938: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:29:52,904 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 14:29:52,906 INFO 2026-05-07 14:29:52    程式开启
+2026-05-07 14:29:52,906 INFO 2026-05-07 14:29:52    程式开启
+2026-05-07 14:29:57,197 INFO ASRL1::INSTR
+2026-05-07 14:29:57,198 INFO 直流电源连接成功
+2026-05-07 14:29:57,199 INFO 直流电源连接成功
+2026-05-07 14:30:12,201 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:30:12,202 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:30:41,244 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:30:41,244 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:30:41,246 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:30:41,247 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:30:45,173 INFO ASRL1::INSTR
+2026-05-07 14:30:45,174 INFO 直流电源连接成功
+2026-05-07 14:30:45,175 INFO 直流电源连接成功
+2026-05-07 14:31:00,177 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:31:00,177 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:31:29,581 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:31:29,581 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:31:29,582 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:31:29,582 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:32:06,084 INFO ASRL1::INSTR
+2026-05-07 14:32:06,086 INFO 直流电源连接成功
+2026-05-07 14:32:06,087 INFO 直流电源连接成功
+2026-05-07 14:32:21,090 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:32:21,090 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:32:51,269 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:32:51,270 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 14:32:51,271 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:32:51,271 INFO DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-07 14:33:32,690 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27499: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:33:32,691 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 14:33:32,692 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27515: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:33:32,692 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 14:33:32,693 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27520: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:33:32,693 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 14:33:32 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 14:33:32,733 INFO ('ASRL1::INSTR',)
+2026-05-07 14:33:32,733 INFO 1
+2026-05-07 14:33:32,981 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27972: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 14:33:32,981 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 14:33:32,981 INFO 2026-05-07 14:33:32    程式开启
+2026-05-07 14:33:32,981 INFO 2026-05-07 14:33:32    程式开启
+2026-05-07 14:33:36,380 INFO ASRL1::INSTR
+2026-05-07 14:33:36,383 INFO 直流电源连接成功
+2026-05-07 14:33:36,383 INFO 直流电源连接成功
+2026-05-07 15:13:49,733 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27465: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 15:13:49,733 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-07 15:13:49,734 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27481: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 15:13:49,734 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-07 15:13:49,734 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27486: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 15:13:49,735 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-07 15:13:49 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-07 15:13:49,778 INFO ('ASRL1::INSTR',)
+2026-05-07 15:13:49,779 INFO 1
+2026-05-07 15:13:50,046 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27938: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-07 15:13:50,047 ERROR   thread_error_info.setDaemon(True)
+2026-05-07 15:13:50,047 INFO 2026-05-07 15:13:50    程式开启
+2026-05-07 15:13:50,048 INFO 2026-05-07 15:13:50    程式开启
+2026-05-07 15:14:24,732 INFO 192.168.40.25
+2026-05-07 15:14:24,733 INFO 通过
+2026-05-07 15:14:26,745 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.25:502
+2026-05-07 15:14:26,745 INFO 连接成功: 192.168.40.25:502
+2026-05-07 15:14:28,749 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 15:14:28,749 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 15:14:28,750 INFO 直流电源1连接成功
+2026-05-07 15:14:28,962 INFO 2026-05-07 15:14:28SendMessageToDC1:*CLS
+2026-05-07 15:14:28,962 INFO 2026-05-07 15:14:28SendMessageToDC1:*CLS
+2026-05-07 15:14:28,963 INFO 2026-05-07 15:14:28SendMessageToDC1:*RST
+2026-05-07 15:14:28,963 INFO 2026-05-07 15:14:28SendMessageToDC1:*RST
+2026-05-07 15:14:28,963 INFO 2026-05-07 15:14:28SendMessageToDC1:OUTP OFF
+2026-05-07 15:14:28,964 INFO 2026-05-07 15:14:28SendMessageToDC1:OUTP OFF
+2026-05-07 15:14:30,965 INFO VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 15:14:32,973 INFO VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 15:14:32,974 INFO 2026-05-07 15:14:32SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-05-07 15:14:32,974 INFO 2026-05-07 15:14:32SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-05-07 15:14:32,975 INFO 2026-05-07 15:14:32SendMessageToDC1:Source:Volt 0.00
+2026-05-07 15:14:32,975 INFO 2026-05-07 15:14:32SendMessageToDC1:Source:Volt 0.00
+2026-05-07 15:14:32,976 INFO 2026-05-07 15:14:32SendMessageToDC1:Source:Curr 0.000
+2026-05-07 15:14:32,976 INFO 2026-05-07 15:14:32SendMessageToDC1:Source:Curr 0.000
+2026-05-07 15:14:32,976 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:volt:prot:high max
+2026-05-07 15:14:32,977 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:volt:prot:high max
+2026-05-07 15:14:32,977 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:curr:prot:high max
+2026-05-07 15:14:32,978 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:curr:prot:high max
+2026-05-07 15:14:32,978 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:pow:prot:high max
+2026-05-07 15:14:32,978 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:pow:prot:high max
+2026-05-07 15:14:32,979 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-05-07 15:14:32,979 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-05-07 15:14:32,980 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:curr:prot:high 15.75
+2026-05-07 15:14:32,980 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:curr:prot:high 15.75
+2026-05-07 15:14:32,980 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:pow:prot:high 15750.0
+2026-05-07 15:14:32,981 INFO 2026-05-07 15:14:32SendMessageToDC1::sour:pow:prot:high 15750.0
+2026-05-07 15:14:32,981 INFO 2026-05-07 15:14:32SendMessageToDC1:OUTP OFF
+2026-05-07 15:14:32,981 INFO 2026-05-07 15:14:32SendMessageToDC1:OUTP OFF
+2026-05-07 15:14:32,982 INFO 2026-05-07 15:14:32SendMessageToDC1:OUTP:MODE TABLE
+2026-05-07 15:14:32,982 INFO 2026-05-07 15:14:32SendMessageToDC1:OUTP:MODE TABLE
+2026-05-07 15:14:32,983 INFO 2026-05-07 15:14:32SendMessageToDC1:IVC:EDIT 1
+2026-05-07 15:14:32,983 INFO 2026-05-07 15:14:32SendMessageToDC1:IVC:EDIT 1
+2026-05-07 15:14:32,983 INFO 2026-05-07 15:14:32SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-05-07 15:14:32,984 INFO 2026-05-07 15:14:32SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-05-07 15:14:58,723 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 15:14:58,723 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 15:14:58,724 ERROR Exception in thread Thread-15 (system_error_info):
+2026-05-07 15:14:58,724 ERROR Traceback (most recent call last):
+2026-05-07 15:14:58,724 ERROR   File "d:\DXL\workspace\solarautotestdev\devices\dc_controller.py", line 160, in poll_syst_err
+2026-05-07 15:14:58,725 ERROR     information = self.handle.query('SYST:ERR?')
+2026-05-07 15:14:58,725 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 702, in query
+2026-05-07 15:14:58,725 ERROR     return self.read()
+2026-05-07 15:14:58,726 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 521, in read
+2026-05-07 15:14:58,726 ERROR     message = self._read_raw().decode(enco)
+2026-05-07 15:14:58,726 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 475, in _read_raw
+2026-05-07 15:14:58,727 ERROR     chunk, status = self.visalib.read(self.session, size)
+2026-05-07 15:14:58,727 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\functions.py", line 2339, in read
+2026-05-07 15:14:58,728 ERROR     ret = library.viRead(session, buffer, count, byref(return_count))
+2026-05-07 15:14:58,728 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\highlevel.py", line 227, in _return_handler
+2026-05-07 15:14:58,728 ERROR     return self.handle_return_value(session, ret_value)  # type: ignore
+2026-05-07 15:14:58,729 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 252, in handle_return_value
+2026-05-07 15:14:58,730 ERROR     raise errors.VisaIOError(rv)
+2026-05-07 15:14:58,730 ERROR pyvisa.errors.VisaIOError: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-07 15:14:58,730 ERROR During handling of the above exception, another exception occurred:
+2026-05-07 15:14:58,731 ERROR Traceback (most recent call last):
+2026-05-07 15:14:58,731 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\threading.py", line 1016, in _bootstrap_inner
+2026-05-07 15:14:58,732 ERROR     self.run()
+2026-05-07 15:14:58,733 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\threading.py", line 953, in run
+2026-05-07 15:14:58,734 ERROR     self._target(*self._args, **self._kwargs)
+2026-05-07 15:14:58,734 ERROR   File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 27214, in system_error_info
+2026-05-07 15:14:58,743 ERROR     _, information_DC1 = dc1_controller.poll_syst_err(tcp_addr_dc1, 'DC1')
+2026-05-07 15:14:58,744 ERROR   File "d:\DXL\workspace\solarautotestdev\devices\dc_controller.py", line 165, in poll_syst_err
+2026-05-07 15:14:58,745 ERROR     new_handle = self.rm.open_resource(tcp_addr)
+2026-05-07 15:14:58,745 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 3265, in open_resource
+2026-05-07 15:14:58,746 ERROR     info = self.resource_info(resource_name, extended=True)
+2026-05-07 15:14:58,746 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 3190, in resource_info
+2026-05-07 15:14:58,748 ERROR     ret, _err = self.visalib.parse_resource_extended(
+2026-05-07 15:14:58,748 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\functions.py", line 2079, in parse_resource_extended
+2026-05-07 15:14:58,748 ERROR     ret = library.viParseRsrcEx(
+2026-05-07 15:14:58,749 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\highlevel.py", line 227, in _return_handler
+2026-05-07 15:14:58,749 ERROR     return self.handle_return_value(session, ret_value)  # type: ignore
+2026-05-07 15:14:58,749 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 252, in handle_return_value
+2026-05-07 15:14:58,749 ERROR     raise errors.VisaIOError(rv)
+2026-05-07 15:14:58,750 ERROR pyvisa.errors.VisaIOError: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-05-08 09:13:01,169 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27465: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:13:01,169 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 09:13:01,170 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27481: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:13:01,170 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 09:13:01,170 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27486: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:13:01,170 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 09:13:01 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 09:13:01,380 INFO ('ASRL1::INSTR',)
+2026-05-08 09:13:01,381 INFO 1
+2026-05-08 09:13:02,042 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27938: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:13:02,042 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 09:13:02,042 INFO 2026-05-08 09:13:02    程式开启
+2026-05-08 09:13:02,043 INFO 2026-05-08 09:13:02    程式开启
+2026-05-08 09:13:13,147 INFO 192.168.40.211:8080
+2026-05-08 09:13:13,147 INFO 192.168.40.211:8080
+2026-05-08 09:13:13,147 INFO 通过
+2026-05-08 09:13:15,172 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-08 09:13:15,172 INFO 连接成功: 192.168.40.211:8080
+2026-05-08 09:13:21,691 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 09:13:21,691 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090003
+2026-05-08 09:13:22,454 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:22,455 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 09:13:22,455 INFO 2026-05-08 09:13:21 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 09:13:22,455 INFO 2026-05-08 09:13:21 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 09:13:22,455 INFO SYST:RUN
+2026-05-08 09:13:22,455 INFO 2026-05-08 09:13:21 SYST:RUN
+2026-05-08 09:13:22,455 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 09:13:22,456 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000200000006010609090008
+2026-05-08 09:13:22,456 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:22,456 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 09:13:22,456 INFO 2026-05-08 09:13:21 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 09:13:22,456 INFO 2026-05-08 09:13:21 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 09:13:22,456 INFO OUTP ON
+2026-05-08 09:13:22,457 INFO 2026-05-08 09:13:21 OUTP ON
+2026-05-08 09:13:24,091 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00030000000601060C480002
+2026-05-08 09:13:24,091 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-08 09:13:24,091 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-08 09:13:26,098 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00030000000601060C480002
+2026-05-08 09:13:26,901 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:26,901 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 09:13:26,901 INFO 2026-05-08 09:13:26SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 09:13:26,901 INFO 爱科: 设置1相电压 220.0V
+2026-05-08 09:13:26,902 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 09:13:26,902 INFO phase 1
+2026-05-08 09:13:26,902 INFO res 3072
+2026-05-08 09:13:26,902 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00040000000B01100C00000204000055F0
+2026-05-08 09:13:27,704 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:27,704 INFO 爱科: 设置A相电压 220.0V
+2026-05-08 09:13:27,704 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0005000000060106090B0001
+2026-05-08 09:13:28,508 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:28,508 INFO SendCommandToAC:VOLT 220
+2026-05-08 09:13:28,508 INFO 2026-05-08 09:13:28SendCommandToAC:VOLT 220
+2026-05-08 09:13:28,508 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00060000000B01100C0F0002040000EA60
+2026-05-08 09:13:29,310 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:29,310 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0007000000060106090B0001
+2026-05-08 09:13:30,113 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:30,113 INFO SendCommandToAC:FREQ 60
+2026-05-08 09:13:30,113 INFO 2026-05-08 09:13:30SendCommandToAC:FREQ 60
+2026-05-08 09:13:56,827 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 09:13:58,833 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00080000000601060C480002
+2026-05-08 09:13:59,636 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:13:59,636 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 09:13:59,636 INFO 2026-05-08 09:13:59SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 09:13:59,636 INFO 爱科: 设置1相电压 220.0V
+2026-05-08 09:13:59,637 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 09:13:59,637 INFO phase 1
+2026-05-08 09:13:59,637 INFO res 3072
+2026-05-08 09:13:59,637 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00090000000B01100C00000204000055F0
+2026-05-08 09:14:00,442 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:14:00,442 INFO 爱科: 设置A相电压 220.0V
+2026-05-08 09:14:00,443 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000A000000060106090B0001
+2026-05-08 09:14:01,248 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:14:01,248 INFO SendCommandToAC:VOLT 220
+2026-05-08 09:14:01,248 INFO 2026-05-08 09:14:01SendCommandToAC:VOLT 220
+2026-05-08 09:14:01,249 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000B0000000B01100C0F0002040000EA60
+2026-05-08 09:14:02,053 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:14:02,053 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000C000000060106090B0001
+2026-05-08 09:14:02,858 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:14:02,858 INFO SendCommandToAC:FREQ 60
+2026-05-08 09:14:02,858 INFO 2026-05-08 09:14:02SendCommandToAC:FREQ 60
+2026-05-08 09:16:14,339 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 09:16:14,340 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 09:16:16,345 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000D00000006010609090003
+2026-05-08 09:16:17,146 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:16:17,146 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 09:16:17,146 INFO 2026-05-08 09:16:14 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 09:16:17,146 INFO 2026-05-08 09:16:14 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 09:16:17,146 INFO SYST:RUN
+2026-05-08 09:16:17,146 INFO 2026-05-08 09:16:14 SYST:RUN
+2026-05-08 09:16:17,146 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 09:16:17,147 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000E00000006010609090008
+2026-05-08 09:16:17,949 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:16:17,949 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 09:16:17,949 INFO 2026-05-08 09:16:14 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 09:16:17,949 INFO 2026-05-08 09:16:14 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 09:16:17,949 INFO OUTP ON
+2026-05-08 09:16:17,949 INFO 2026-05-08 09:16:14 OUTP ON
+2026-05-08 09:16:40,467 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 09:16:42,473 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000F0000000601060C480002
+2026-05-08 09:16:43,275 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:16:43,275 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 09:16:43,275 INFO 2026-05-08 09:16:43SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 09:16:43,275 INFO 爱科: 设置1相电压 220.0V
+2026-05-08 09:16:43,276 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 09:16:43,276 INFO phase 1
+2026-05-08 09:16:43,276 INFO res 3072
+2026-05-08 09:16:43,276 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00100000000B01100C00000204000055F0
+2026-05-08 09:16:44,082 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:16:44,082 INFO 爱科: 设置A相电压 220.0V
+2026-05-08 09:16:44,082 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0011000000060106090B0001
+2026-05-08 09:16:44,887 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:16:44,887 INFO SendCommandToAC:VOLT 220
+2026-05-08 09:16:44,887 INFO 2026-05-08 09:16:44SendCommandToAC:VOLT 220
+2026-05-08 09:16:44,887 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00120000000B01100C0F0002040000EA60
+2026-05-08 09:16:45,691 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:16:45,691 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0013000000060106090B0001
+2026-05-08 09:16:46,493 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:16:46,493 INFO SendCommandToAC:FREQ 60
+2026-05-08 09:16:46,493 INFO 2026-05-08 09:16:46SendCommandToAC:FREQ 60
+2026-05-08 09:17:07,083 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 09:17:07,083 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001400000006010609090009
+2026-05-08 09:17:07,084 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:17:07,084 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 09:17:07,084 INFO 2026-05-08 09:17:07 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 09:17:07,084 INFO 2026-05-08 09:17:07 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 09:17:07,085 INFO OUTP OFF
+2026-05-08 09:17:07,085 INFO 2026-05-08 09:17:07 OUTP OFF
+2026-05-08 09:17:07,085 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 09:17:07,085 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001500000006010609090004
+2026-05-08 09:17:07,085 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-08 09:17:07,086 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-08 09:17:09,092 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001500000006010609090004
+2026-05-08 09:17:09,895 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:17:09,895 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 09:17:09,895 INFO 2026-05-08 09:17:07 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 09:17:09,895 INFO 2026-05-08 09:17:07 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 09:17:09,895 INFO SYST:STANDBY
+2026-05-08 09:17:09,896 INFO 2026-05-08 09:17:07 SYST:STANDBY
+2026-05-08 09:18:00,899 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 09:18:00,899 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 09:18:02,903 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001600000006010609090003
+2026-05-08 09:18:03,705 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:03,705 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 09:18:03,705 INFO 2026-05-08 09:18:00 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 09:18:03,705 INFO 2026-05-08 09:18:00 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 09:18:03,705 INFO SYST:RUN
+2026-05-08 09:18:03,705 INFO 2026-05-08 09:18:00 SYST:RUN
+2026-05-08 09:18:03,705 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 09:18:03,706 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001700000006010609090008
+2026-05-08 09:18:04,511 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:04,511 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 09:18:04,511 INFO 2026-05-08 09:18:00 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 09:18:04,511 INFO 2026-05-08 09:18:00 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 09:18:04,511 INFO OUTP ON
+2026-05-08 09:18:04,511 INFO 2026-05-08 09:18:00 OUTP ON
+2026-05-08 09:18:30,251 INFO SendCommandToAC:INST:PHASE THREE
+2026-05-08 09:18:30,251 INFO 2026-05-08 09:18:30SendCommandToAC:INST:PHASE THREE
+2026-05-08 09:18:30,251 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 09:18:32,255 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00180000000601060C480002
+2026-05-08 09:18:33,057 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:33,057 INFO SendCommandToAC:INST:EDIT EACH
+2026-05-08 09:18:33,057 INFO 2026-05-08 09:18:33SendCommandToAC:INST:EDIT EACH
+2026-05-08 09:18:33,057 INFO SendCommandToAC:INST:NSEL 1
+2026-05-08 09:18:33,057 INFO 2026-05-08 09:18:33SendCommandToAC:INST:NSEL 1
+2026-05-08 09:18:33,057 INFO 爱科: 设置1相电压 230.0V
+2026-05-08 09:18:33,057 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 09:18:33,057 INFO phase 1
+2026-05-08 09:18:33,058 INFO res 3072
+2026-05-08 09:18:33,058 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00190000000B01100C00000204000059D8
+2026-05-08 09:18:33,860 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:33,860 INFO 爱科: 设置A相电压 230.0V
+2026-05-08 09:18:33,860 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001A000000060106090B0001
+2026-05-08 09:18:34,665 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:34,665 INFO SendCommandToAC:VOLT 230
+2026-05-08 09:18:34,665 INFO 2026-05-08 09:18:34SendCommandToAC:VOLT 230
+2026-05-08 09:18:34,665 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001B0000000B01100C0F0002040000C350
+2026-05-08 09:18:35,467 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:35,467 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001C000000060106090B0001
+2026-05-08 09:18:36,269 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:36,269 INFO SendCommandToAC:FREQ 50
+2026-05-08 09:18:36,269 INFO 2026-05-08 09:18:36SendCommandToAC:FREQ 50
+2026-05-08 09:18:36,269 INFO SendCommandToAC:INST:NSEL 2
+2026-05-08 09:18:36,269 INFO 2026-05-08 09:18:36SendCommandToAC:INST:NSEL 2
+2026-05-08 09:18:36,270 INFO 爱科: 设置2相电压 230.0V
+2026-05-08 09:18:36,270 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 09:18:36,270 INFO phase 2
+2026-05-08 09:18:36,270 INFO res 3074
+2026-05-08 09:18:36,271 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001D0000000B01100C02000204000059D8
+2026-05-08 09:18:37,075 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:37,075 INFO 爱科: 设置B相电压 230.0V
+2026-05-08 09:18:37,075 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001E000000060106090B0001
+2026-05-08 09:18:37,877 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:37,877 INFO SendCommandToAC:VOLT 230
+2026-05-08 09:18:37,877 INFO 2026-05-08 09:18:37SendCommandToAC:VOLT 230
+2026-05-08 09:18:37,877 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001F0000000B01100C0F0002040000C350
+2026-05-08 09:18:38,678 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:38,678 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0020000000060106090B0001
+2026-05-08 09:18:39,162 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:39,162 INFO SendCommandToAC:FREQ 50
+2026-05-08 09:18:39,163 INFO 2026-05-08 09:18:39SendCommandToAC:FREQ 50
+2026-05-08 09:18:39,163 INFO SendCommandToAC:INST:NSEL 3
+2026-05-08 09:18:39,163 INFO 2026-05-08 09:18:39SendCommandToAC:INST:NSEL 3
+2026-05-08 09:18:39,163 INFO 爱科: 设置3相电压 230.0V
+2026-05-08 09:18:39,163 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 09:18:39,163 INFO phase 3
+2026-05-08 09:18:39,163 INFO res 3076
+2026-05-08 09:18:39,163 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00210000000B01100C04000204000059D8
+2026-05-08 09:18:39,164 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:39,164 INFO 爱科: 设置C相电压 230.0V
+2026-05-08 09:18:39,164 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0022000000060106090B0001
+2026-05-08 09:18:39,164 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-08 09:18:39,164 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-08 09:18:41,169 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0022000000060106090B0001
+2026-05-08 09:18:41,971 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:41,971 INFO SendCommandToAC:VOLT 230
+2026-05-08 09:18:41,971 INFO 2026-05-08 09:18:41SendCommandToAC:VOLT 230
+2026-05-08 09:18:41,971 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00230000000B01100C0F0002040000C350
+2026-05-08 09:18:42,772 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:42,772 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0024000000060106090B0001
+2026-05-08 09:18:43,574 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:18:43,574 INFO SendCommandToAC:FREQ 50
+2026-05-08 09:18:43,574 INFO 2026-05-08 09:18:43SendCommandToAC:FREQ 50
+2026-05-08 09:20:18,571 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 09:20:18,572 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 09:20:20,589 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=002500000006010609090009
+2026-05-08 09:20:21,399 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:20:21,399 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 09:20:21,400 INFO 2026-05-08 09:20:18 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 09:20:21,400 INFO 2026-05-08 09:20:18 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 09:20:21,400 INFO OUTP OFF
+2026-05-08 09:20:21,401 INFO 2026-05-08 09:20:18 OUTP OFF
+2026-05-08 09:20:21,401 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 09:20:21,401 INFO [ModbusVISA] TX ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=002600000006010609090004
+2026-05-08 09:20:22,218 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 09:20:22,218 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 09:20:22,218 INFO 2026-05-08 09:20:18 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 09:20:22,218 INFO 2026-05-08 09:20:18 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 09:20:22,218 INFO SYST:STANDBY
+2026-05-08 09:20:22,219 INFO 2026-05-08 09:20:18 SYST:STANDBY
+2026-05-08 09:24:16,751 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27465: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:24:16,752 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 09:24:16,752 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27481: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:24:16,752 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 09:24:16,753 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27486: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:24:16,753 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 09:24:16 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 09:24:16,794 INFO ('ASRL1::INSTR',)
+2026-05-08 09:24:16,795 INFO 1
+2026-05-08 09:24:17,052 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27938: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 09:24:17,052 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 09:24:17,053 INFO 2026-05-08 09:24:17    程式开启
+2026-05-08 09:24:17,053 INFO 2026-05-08 09:24:17    程式开启
+2026-05-08 10:27:11,348 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27467: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:27:11,348 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 10:27:11,349 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27483: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:27:11,349 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 10:27:11,349 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27488: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:27:11,350 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 10:27:11 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 10:27:11,525 INFO ('ASRL1::INSTR',)
+2026-05-08 10:27:11,526 INFO 1
+2026-05-08 10:27:12,086 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27940: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:27:12,086 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 10:27:12,087 INFO 2026-05-08 10:27:12    程式开启
+2026-05-08 10:27:12,087 INFO 2026-05-08 10:27:12    程式开启
+2026-05-08 10:27:27,372 INFO 192.168.40.25
+2026-05-08 10:27:27,372 INFO 通过IP访问直流源
+2026-05-08 10:27:29,397 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.25:502
+2026-05-08 10:27:29,398 INFO 连接成功: 192.168.40.25:502
+2026-05-08 10:27:29,398 INFO 直流源连接成功
+2026-05-08 10:27:31,399 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:27:31,399 INFO DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:27:31,400 INFO 直流电源1连接成功
+2026-05-08 10:27:31,458 INFO 2026-05-08 10:27:31SendMessageToDC1:*CLS
+2026-05-08 10:27:31,458 INFO 2026-05-08 10:27:31SendMessageToDC1:*CLS
+2026-05-08 10:27:31,458 INFO 2026-05-08 10:27:31SendMessageToDC1:*RST
+2026-05-08 10:27:31,458 INFO 2026-05-08 10:27:31SendMessageToDC1:*RST
+2026-05-08 10:27:31,459 INFO 2026-05-08 10:27:31SendMessageToDC1:OUTP OFF
+2026-05-08 10:27:31,459 INFO 2026-05-08 10:27:31SendMessageToDC1:OUTP OFF
+2026-05-08 10:27:33,460 INFO VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:27:35,465 INFO VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:27:35,465 INFO 2026-05-08 10:27:35SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-05-08 10:27:35,466 INFO 2026-05-08 10:27:35SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-05-08 10:27:35,466 INFO 2026-05-08 10:27:35SendMessageToDC1:Source:Volt 0.00
+2026-05-08 10:27:35,466 INFO 2026-05-08 10:27:35SendMessageToDC1:Source:Volt 0.00
+2026-05-08 10:27:35,467 INFO 2026-05-08 10:27:35SendMessageToDC1:Source:Curr 0.000
+2026-05-08 10:27:35,467 INFO 2026-05-08 10:27:35SendMessageToDC1:Source:Curr 0.000
+2026-05-08 10:27:35,468 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:volt:prot:high max
+2026-05-08 10:27:35,468 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:volt:prot:high max
+2026-05-08 10:27:35,468 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:curr:prot:high max
+2026-05-08 10:27:35,469 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:curr:prot:high max
+2026-05-08 10:27:35,469 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:pow:prot:high max
+2026-05-08 10:27:35,470 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:pow:prot:high max
+2026-05-08 10:27:35,470 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-05-08 10:27:35,470 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-05-08 10:27:35,472 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:curr:prot:high 15.75
+2026-05-08 10:27:35,472 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:curr:prot:high 15.75
+2026-05-08 10:27:35,472 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:pow:prot:high 15750.0
+2026-05-08 10:27:35,473 INFO 2026-05-08 10:27:35SendMessageToDC1::sour:pow:prot:high 15750.0
+2026-05-08 10:27:35,473 INFO 2026-05-08 10:27:35SendMessageToDC1:OUTP OFF
+2026-05-08 10:27:35,473 INFO 2026-05-08 10:27:35SendMessageToDC1:OUTP OFF
+2026-05-08 10:27:35,474 INFO 2026-05-08 10:27:35SendMessageToDC1:OUTP:MODE TABLE
+2026-05-08 10:27:35,474 INFO 2026-05-08 10:27:35SendMessageToDC1:OUTP:MODE TABLE
+2026-05-08 10:27:35,474 INFO 2026-05-08 10:27:35SendMessageToDC1:IVC:EDIT 1
+2026-05-08 10:27:35,475 INFO 2026-05-08 10:27:35SendMessageToDC1:IVC:EDIT 1
+2026-05-08 10:27:35,475 INFO 2026-05-08 10:27:35SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-05-08 10:27:35,475 INFO 2026-05-08 10:27:35SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-05-08 10:27:47,434 INFO DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:27:47,434 ERROR DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:27:47,435 ERROR Exception in thread Thread-30 (system_error_info):
+2026-05-08 10:27:47,435 ERROR Traceback (most recent call last):
+2026-05-08 10:27:47,435 ERROR   File "d:\DXL\workspace\solarautotestdev\devices\dc_controller.py", line 160, in poll_syst_err
+2026-05-08 10:27:47,448 ERROR     information = self.handle.query('SYST:ERR?')
+2026-05-08 10:27:47,448 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 702, in query
+2026-05-08 10:27:47,452 ERROR     return self.read()
+2026-05-08 10:27:47,453 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 521, in read
+2026-05-08 10:27:47,454 ERROR     message = self._read_raw().decode(enco)
+2026-05-08 10:27:47,454 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\resources\messagebased.py", line 475, in _read_raw
+2026-05-08 10:27:47,455 ERROR     chunk, status = self.visalib.read(self.session, size)
+2026-05-08 10:27:47,455 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\functions.py", line 2339, in read
+2026-05-08 10:27:47,472 ERROR     ret = library.viRead(session, buffer, count, byref(return_count))
+2026-05-08 10:27:47,472 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\highlevel.py", line 227, in _return_handler
+2026-05-08 10:27:47,480 ERROR     return self.handle_return_value(session, ret_value)  # type: ignore
+2026-05-08 10:27:47,480 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 252, in handle_return_value
+2026-05-08 10:27:47,492 ERROR     raise errors.VisaIOError(rv)
+2026-05-08 10:27:47,492 ERROR pyvisa.errors.VisaIOError: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:27:47,492 ERROR During handling of the above exception, another exception occurred:
+2026-05-08 10:27:47,493 ERROR Traceback (most recent call last):
+2026-05-08 10:27:47,493 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\threading.py", line 1016, in _bootstrap_inner
+2026-05-08 10:27:47,503 ERROR     self.run()
+2026-05-08 10:27:47,503 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\threading.py", line 953, in run
+2026-05-08 10:27:47,503 ERROR     self._target(*self._args, **self._kwargs)
+2026-05-08 10:27:47,504 ERROR   File "d:\DXL\workspace\solarautotestdev\SCPITestWave.py", line 27216, in system_error_info
+2026-05-08 10:27:47,509 ERROR     _, information_DC1 = dc1_controller.poll_syst_err(tcp_addr_dc1, 'DC1')
+2026-05-08 10:27:47,509 ERROR   File "d:\DXL\workspace\solarautotestdev\devices\dc_controller.py", line 165, in poll_syst_err
+2026-05-08 10:27:47,509 ERROR     new_handle = self.rm.open_resource(tcp_addr)
+2026-05-08 10:27:47,509 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 3265, in open_resource
+2026-05-08 10:27:47,510 ERROR     info = self.resource_info(resource_name, extended=True)
+2026-05-08 10:27:47,510 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 3190, in resource_info
+2026-05-08 10:27:47,510 ERROR     ret, _err = self.visalib.parse_resource_extended(
+2026-05-08 10:27:47,512 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\functions.py", line 2079, in parse_resource_extended
+2026-05-08 10:27:47,512 ERROR     ret = library.viParseRsrcEx(
+2026-05-08 10:27:47,512 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\ctwrapper\highlevel.py", line 227, in _return_handler
+2026-05-08 10:27:47,512 ERROR     return self.handle_return_value(session, ret_value)  # type: ignore
+2026-05-08 10:27:47,513 ERROR   File "D:\HZJ\software\miniconda\envs\solarTestEnv\lib\site-packages\pyvisa\highlevel.py", line 252, in handle_return_value
+2026-05-08 10:27:47,513 ERROR     raise errors.VisaIOError(rv)
+2026-05-08 10:27:47,513 ERROR pyvisa.errors.VisaIOError: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-05-08 10:31:15,166 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27510: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:31:15,166 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 10:31:15,167 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27526: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:31:15,167 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 10:31:15,168 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:31:15,168 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 10:31:15 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 10:31:15,212 INFO ('ASRL1::INSTR',)
+2026-05-08 10:31:15,212 INFO 1
+2026-05-08 10:31:15,468 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27983: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:31:15,468 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 10:31:15,469 INFO 2026-05-08 10:31:15    程式开启
+2026-05-08 10:31:15,469 INFO 2026-05-08 10:31:15    程式开启
+2026-05-08 10:31:22,380 INFO 192.168.40.25
+2026-05-08 10:31:22,380 INFO 通过IP访问直流源
+2026-05-08 10:31:24,391 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.25:502
+2026-05-08 10:31:24,391 INFO 连接成功: 192.168.40.25:502
+2026-05-08 10:31:24,392 INFO 直流源连接成功
+2026-05-08 10:31:24,394 INFO [ModbusVISA] TX ip=192.168.40.25:502 expect_resp=True to_ms=300 adu=000100000006010409D30008
+2026-05-08 10:31:24,696 INFO [ModbusVISA] RX expect_resp=True empty/timeout
+2026-05-08 10:31:24,696 INFO [ModbusVISA] send 异常: OSError: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-08 10:31:24,696 INFO [ERROR] 发送失败: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-08 10:31:24,697 ERROR 蓝点 *IDN?: FC04 读输入寄存器 0x09D3×8 失败
+2026-05-08 10:31:24,698 INFO DC1 *IDN? 失败: *IDN?: FC04 读输入寄存器 0x09D3×8 失败
+2026-05-08 10:31:24,698 INFO DC1 *IDN? 失败: *IDN?: FC04 读输入寄存器 0x09D3×8 失败
+2026-05-08 10:31:24,698 INFO DC1 厂家识别结果(默认): Chroma
+2026-05-08 10:31:24,698 INFO 直流电源1连接成功
+2026-05-08 10:31:25,232 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,233 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,234 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,234 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,235 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,235 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,236 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,236 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,237 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,237 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,237 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,238 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,238 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,239 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,239 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,240 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,240 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:31:25,241 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:26,874 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27510: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:32:26,874 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 10:32:26,875 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27526: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:32:26,875 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 10:32:26,876 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:32:26,876 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 10:32:26 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 10:32:26,915 INFO ('ASRL1::INSTR',)
+2026-05-08 10:32:26,915 INFO 1
+2026-05-08 10:32:27,167 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27983: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:32:27,168 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 10:32:27,168 INFO 2026-05-08 10:32:27    程式开启
+2026-05-08 10:32:27,168 INFO 2026-05-08 10:32:27    程式开启
+2026-05-08 10:32:33,387 INFO 192.168.40.25
+2026-05-08 10:32:33,387 INFO 通过IP访问直流源
+2026-05-08 10:32:35,397 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.25:502
+2026-05-08 10:32:35,397 INFO 连接成功: 192.168.40.25:502
+2026-05-08 10:32:35,398 INFO 直流源连接成功
+2026-05-08 10:32:35,401 INFO [ModbusVISA] TX ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 10:32:38,401 INFO [ModbusVISA] RX expect_resp=True empty/timeout
+2026-05-08 10:32:38,402 INFO [ModbusVISA] send 异常: OSError: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-08 10:32:38,402 INFO [ERROR] 发送失败: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-08 10:32:38,403 ERROR 蓝点 *IDN?: FC04 读输入寄存器 0x09D3×8 失败
+2026-05-08 10:32:38,403 INFO DC1 *IDN? 失败: *IDN?: FC04 读输入寄存器 0x09D3×8 失败
+2026-05-08 10:32:38,404 INFO DC1 *IDN? 失败: *IDN?: FC04 读输入寄存器 0x09D3×8 失败
+2026-05-08 10:32:38,404 INFO DC1 厂家识别结果(默认): Chroma
+2026-05-08 10:32:38,404 INFO 直流电源1连接成功
+2026-05-08 10:32:38,926 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,927 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,927 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,928 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,928 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,928 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,929 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,929 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,929 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,930 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,930 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,930 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,931 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,931 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,932 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,932 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,932 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:32:38,932 INFO Invalid session handle. The resource might be closed.
+2026-05-08 10:34:16,602 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27510: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:16,602 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 10:34:16,603 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27526: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:16,603 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 10:34:16,604 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:16,605 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 10:34:16 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 10:34:16,650 INFO ('ASRL1::INSTR',)
+2026-05-08 10:34:16,650 INFO 1
+2026-05-08 10:34:16,950 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27983: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:16,950 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 10:34:16,951 INFO 2026-05-08 10:34:16    程式开启
+2026-05-08 10:34:16,951 INFO 2026-05-08 10:34:16    程式开启
+2026-05-08 10:34:21,554 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27510: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:21,555 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 10:34:21,556 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27526: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:21,556 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 10:34:21,556 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:21,556 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 10:34:21 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 10:34:21,600 INFO ('ASRL1::INSTR',)
+2026-05-08 10:34:21,600 INFO 1
+2026-05-08 10:34:21,875 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27983: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:34:21,875 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 10:34:21,875 INFO 2026-05-08 10:34:21    程式开启
+2026-05-08 10:34:21,876 INFO 2026-05-08 10:34:21    程式开启
+2026-05-08 10:34:33,555 INFO 192.168.40.25
+2026-05-08 10:34:33,556 INFO 通过IP访问直流源
+2026-05-08 10:34:35,563 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.25:502
+2026-05-08 10:34:35,563 INFO 连接成功: 192.168.40.25:502
+2026-05-08 10:34:35,564 INFO 直流源连接成功
+2026-05-08 10:34:35,566 INFO [ModbusVISA] TX ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 10:34:38,567 INFO [ModbusVISA] RX expect_resp=True empty/timeout
+2026-05-08 10:34:38,567 INFO [ModbusVISA] send 异常: OSError: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-08 10:34:38,568 INFO [WARN] Modbus 读应答为空或超时，保持连接（可重试 FC03/FC04）
+2026-05-08 10:34:38,568 INFO [ModbusVISA] TX ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000200000006010309D30008
+2026-05-08 10:34:41,572 INFO [ModbusVISA] RX expect_resp=True empty/timeout
+2026-05-08 10:34:41,572 INFO [ModbusVISA] send 异常: OSError: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-08 10:34:41,572 INFO [WARN] Modbus 读应答为空或超时，保持连接（可重试 FC03/FC04）
+2026-05-08 10:34:41,572 INFO [ModbusVISA] TX ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=0003000000060104104C0008
+2026-05-08 10:34:44,592 INFO [ModbusVISA] RX expect_resp=True empty/timeout
+2026-05-08 10:34:44,597 INFO [ModbusVISA] send 异常: OSError: MODBUS_EMPTY_RESPONSE: 应答缺失或过短，无法与设备帧同步
+2026-05-08 10:34:44,598 INFO [WARN] Modbus 读应答为空或超时，保持连接（可重试 FC03/FC04）
+2026-05-08 10:34:44,598 ERROR 蓝点 *IDN?: 读型号失败（已试 FC04 0x09D3×8 | FC03 0x09D3×8 | FC04 0x104C×8），请确认 IP/端口、站号=1 及手册寄存器区
+2026-05-08 10:34:44,598 INFO DC1 *IDN? 失败: *IDN?: 读型号失败（已试 FC04 0x09D3×8 | FC03 0x09D3×8 | FC04 0x104C×8），请确认 IP/端口、站号=1 及手册寄存器区
+2026-05-08 10:34:44,601 INFO DC1 *IDN? 失败: *IDN?: 读型号失败（已试 FC04 0x09D3×8 | FC03 0x09D3×8 | FC04 0x104C×8），请确认 IP/端口、站号=1 及手册寄存器区
+2026-05-08 10:34:44,602 INFO DC1 厂家识别结果(默认): Chroma
+2026-05-08 10:34:44,602 INFO 直流电源1连接成功
+2026-05-08 10:34:44,633 INFO 2026-05-08 10:34:44SendMessageToDC1:*CLS
+2026-05-08 10:34:44,634 INFO 2026-05-08 10:34:44SendMessageToDC1:*CLS
+2026-05-08 10:34:44,634 INFO 2026-05-08 10:34:44SendMessageToDC1:*RST
+2026-05-08 10:34:44,634 INFO 2026-05-08 10:34:44SendMessageToDC1:*RST
+2026-05-08 10:34:44,635 INFO 2026-05-08 10:34:44SendMessageToDC1:OUTP OFF
+2026-05-08 10:34:44,635 INFO 2026-05-08 10:34:44SendMessageToDC1:OUTP OFF
+2026-05-08 10:34:47,636 INFO VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:34:50,641 INFO VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 10:34:50,642 INFO 2026-05-08 10:34:50SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-05-08 10:34:50,642 INFO 2026-05-08 10:34:50SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-05-08 10:34:50,642 INFO 2026-05-08 10:34:50SendMessageToDC1:Source:Volt 0.00
+2026-05-08 10:34:50,643 INFO 2026-05-08 10:34:50SendMessageToDC1:Source:Volt 0.00
+2026-05-08 10:34:50,643 INFO 2026-05-08 10:34:50SendMessageToDC1:Source:Curr 0.000
+2026-05-08 10:34:50,644 INFO 2026-05-08 10:34:50SendMessageToDC1:Source:Curr 0.000
+2026-05-08 10:34:50,644 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:volt:prot:high max
+2026-05-08 10:34:50,644 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:volt:prot:high max
+2026-05-08 10:34:50,645 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:curr:prot:high max
+2026-05-08 10:34:50,645 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:curr:prot:high max
+2026-05-08 10:34:50,645 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:pow:prot:high max
+2026-05-08 10:34:50,647 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:pow:prot:high max
+2026-05-08 10:34:50,647 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-05-08 10:34:50,647 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-05-08 10:34:50,648 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:curr:prot:high 15.75
+2026-05-08 10:34:50,648 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:curr:prot:high 15.75
+2026-05-08 10:34:50,649 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:pow:prot:high 15750.0
+2026-05-08 10:34:50,649 INFO 2026-05-08 10:34:50SendMessageToDC1::sour:pow:prot:high 15750.0
+2026-05-08 10:34:50,649 INFO 2026-05-08 10:34:50SendMessageToDC1:OUTP OFF
+2026-05-08 10:34:50,650 INFO 2026-05-08 10:34:50SendMessageToDC1:OUTP OFF
+2026-05-08 10:34:50,650 INFO 2026-05-08 10:34:50SendMessageToDC1:OUTP:MODE TABLE
+2026-05-08 10:34:50,651 INFO 2026-05-08 10:34:50SendMessageToDC1:OUTP:MODE TABLE
+2026-05-08 10:34:50,651 INFO 2026-05-08 10:34:50SendMessageToDC1:IVC:EDIT 1
+2026-05-08 10:34:50,651 INFO 2026-05-08 10:34:50SendMessageToDC1:IVC:EDIT 1
+2026-05-08 10:34:50,652 INFO 2026-05-08 10:34:50SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-05-08 10:34:50,652 INFO 2026-05-08 10:34:50SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-05-08 10:49:22,985 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27510: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:49:22,986 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 10:49:22,986 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27526: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:49:22,986 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 10:49:22,987 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:49:22,987 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 10:49:22 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 10:49:23,035 INFO ('ASRL1::INSTR',)
+2026-05-08 10:49:23,035 INFO 1
+2026-05-08 10:49:23,315 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27983: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:49:23,316 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 10:49:23,316 INFO 2026-05-08 10:49:23    程式开启
+2026-05-08 10:49:23,316 INFO 2026-05-08 10:49:23    程式开启
+2026-05-08 10:49:36,404 INFO 192.168.40.211:8080
+2026-05-08 10:49:36,404 INFO 192.168.40.211:8080
+2026-05-08 10:49:36,405 INFO 通过
+2026-05-08 10:49:38,416 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-08 10:49:38,416 INFO 连接成功: 192.168.40.211:8080
+2026-05-08 10:49:44,668 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 10:49:44,668 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090003
+2026-05-08 10:49:45,473 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:49:45,473 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 10:49:45,474 INFO 2026-05-08 10:49:44 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 10:49:45,474 INFO 2026-05-08 10:49:44 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 10:49:45,475 INFO SYST:RUN
+2026-05-08 10:49:45,475 INFO 2026-05-08 10:49:44 SYST:RUN
+2026-05-08 10:49:45,475 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 10:49:45,476 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000200000006010609090008
+2026-05-08 10:49:46,280 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:49:46,280 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 10:49:46,281 INFO 2026-05-08 10:49:44 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 10:49:46,281 INFO 2026-05-08 10:49:44 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 10:49:46,281 INFO OUTP ON
+2026-05-08 10:49:46,282 INFO 2026-05-08 10:49:44 OUTP ON
+2026-05-08 10:49:57,340 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 10:49:57,340 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000300000006010609090009
+2026-05-08 10:49:58,144 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:49:58,145 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 10:49:58,145 INFO 2026-05-08 10:49:57 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 10:49:58,146 INFO 2026-05-08 10:49:57 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 10:49:58,146 INFO OUTP OFF
+2026-05-08 10:49:58,146 INFO 2026-05-08 10:49:57 OUTP OFF
+2026-05-08 10:49:58,146 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 10:49:58,147 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000400000006010609090004
+2026-05-08 10:49:58,951 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:49:58,951 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 10:49:58,952 INFO 2026-05-08 10:49:57 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 10:49:58,952 INFO 2026-05-08 10:49:57 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 10:49:58,952 INFO SYST:STANDBY
+2026-05-08 10:49:58,953 INFO 2026-05-08 10:49:57 SYST:STANDBY
+2026-05-08 10:50:31,603 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 10:50:31,604 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 10:50:33,608 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000500000006010609090003
+2026-05-08 10:50:34,410 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:50:34,410 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 10:50:34,410 INFO 2026-05-08 10:50:31 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 10:50:34,410 INFO 2026-05-08 10:50:31 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 10:50:34,410 INFO SYST:RUN
+2026-05-08 10:50:34,410 INFO 2026-05-08 10:50:31 SYST:RUN
+2026-05-08 10:50:34,410 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 10:50:34,410 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000600000006010609090008
+2026-05-08 10:50:35,213 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:50:35,213 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 10:50:35,213 INFO 2026-05-08 10:50:31 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 10:50:35,213 INFO 2026-05-08 10:50:31 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 10:50:35,214 INFO OUTP ON
+2026-05-08 10:50:35,214 INFO 2026-05-08 10:50:31 OUTP ON
+2026-05-08 10:50:59,579 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 10:51:01,584 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00070000000601060C480002
+2026-05-08 10:51:02,385 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:02,385 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 10:51:02,385 INFO 2026-05-08 10:51:02SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 10:51:02,385 INFO 爱科: 设置1相电压 220.0V
+2026-05-08 10:51:02,385 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 10:51:02,386 INFO phase 1
+2026-05-08 10:51:02,386 INFO res 3072
+2026-05-08 10:51:02,386 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00080000000B01100C00000204000055F0
+2026-05-08 10:51:03,191 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:03,192 INFO 爱科: 设置A相电压 220.0V
+2026-05-08 10:51:03,192 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0009000000060106090B0001
+2026-05-08 10:51:03,995 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:03,995 INFO SendCommandToAC:VOLT 220
+2026-05-08 10:51:03,995 INFO 2026-05-08 10:51:03SendCommandToAC:VOLT 220
+2026-05-08 10:51:03,995 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000A0000000B01100C0F0002040000EA60
+2026-05-08 10:51:04,801 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:04,801 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000B000000060106090B0001
+2026-05-08 10:51:05,606 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:05,606 INFO SendCommandToAC:FREQ 60
+2026-05-08 10:51:05,606 INFO 2026-05-08 10:51:05SendCommandToAC:FREQ 60
+2026-05-08 10:51:26,291 INFO SendCommandToAC:INST:PHASE THREE
+2026-05-08 10:51:26,292 INFO 2026-05-08 10:51:26SendCommandToAC:INST:PHASE THREE
+2026-05-08 10:51:26,292 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000C0000000601060C480002
+2026-05-08 10:51:26,292 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:26,292 INFO SendCommandToAC:INST:EDIT EACH
+2026-05-08 10:51:26,292 INFO 2026-05-08 10:51:26SendCommandToAC:INST:EDIT EACH
+2026-05-08 10:51:26,293 INFO SendCommandToAC:INST:NSEL 1
+2026-05-08 10:51:26,293 INFO 2026-05-08 10:51:26SendCommandToAC:INST:NSEL 1
+2026-05-08 10:51:26,293 INFO 爱科: 设置1相电压 230.0V
+2026-05-08 10:51:26,294 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 10:51:26,294 INFO phase 1
+2026-05-08 10:51:26,295 INFO res 3072
+2026-05-08 10:51:26,295 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000D0000000B01100C00000204000059D8
+2026-05-08 10:51:26,295 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-08 10:51:26,295 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-08 10:51:28,301 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000D0000000B01100C00000204000059D8
+2026-05-08 10:51:29,104 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:29,104 INFO 爱科: 设置A相电压 230.0V
+2026-05-08 10:51:29,104 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000E000000060106090B0001
+2026-05-08 10:51:29,909 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:29,909 INFO SendCommandToAC:VOLT 230
+2026-05-08 10:51:29,909 INFO 2026-05-08 10:51:29SendCommandToAC:VOLT 230
+2026-05-08 10:51:29,909 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000F0000000B01100C0F0002040000C350
+2026-05-08 10:51:30,713 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:30,713 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0010000000060106090B0001
+2026-05-08 10:51:31,516 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:31,516 INFO SendCommandToAC:FREQ 50
+2026-05-08 10:51:31,516 INFO 2026-05-08 10:51:31SendCommandToAC:FREQ 50
+2026-05-08 10:51:31,516 INFO SendCommandToAC:INST:NSEL 2
+2026-05-08 10:51:31,516 INFO 2026-05-08 10:51:31SendCommandToAC:INST:NSEL 2
+2026-05-08 10:51:31,517 INFO 爱科: 设置2相电压 230.0V
+2026-05-08 10:51:31,517 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 10:51:31,517 INFO phase 2
+2026-05-08 10:51:31,517 INFO res 3074
+2026-05-08 10:51:31,517 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00110000000B01100C02000204000059D8
+2026-05-08 10:51:32,322 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:32,322 INFO 爱科: 设置B相电压 230.0V
+2026-05-08 10:51:32,322 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0012000000060106090B0001
+2026-05-08 10:51:33,126 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:33,126 INFO SendCommandToAC:VOLT 230
+2026-05-08 10:51:33,126 INFO 2026-05-08 10:51:33SendCommandToAC:VOLT 230
+2026-05-08 10:51:33,126 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00130000000B01100C0F0002040000C350
+2026-05-08 10:51:33,928 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:33,928 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0014000000060106090B0001
+2026-05-08 10:51:34,730 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:34,730 INFO SendCommandToAC:FREQ 50
+2026-05-08 10:51:34,730 INFO 2026-05-08 10:51:34SendCommandToAC:FREQ 50
+2026-05-08 10:51:34,730 INFO SendCommandToAC:INST:NSEL 3
+2026-05-08 10:51:34,730 INFO 2026-05-08 10:51:34SendCommandToAC:INST:NSEL 3
+2026-05-08 10:51:34,731 INFO 爱科: 设置3相电压 230.0V
+2026-05-08 10:51:34,731 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 10:51:34,731 INFO phase 3
+2026-05-08 10:51:34,731 INFO res 3076
+2026-05-08 10:51:34,731 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00150000000B01100C04000204000059D8
+2026-05-08 10:51:35,200 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:35,201 INFO 爱科: 设置C相电压 230.0V
+2026-05-08 10:51:35,201 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0016000000060106090B0001
+2026-05-08 10:51:35,201 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:35,201 INFO SendCommandToAC:VOLT 230
+2026-05-08 10:51:35,202 INFO 2026-05-08 10:51:35SendCommandToAC:VOLT 230
+2026-05-08 10:51:35,202 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00170000000B01100C0F0002040000C350
+2026-05-08 10:51:35,202 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-08 10:51:35,202 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-08 10:51:37,206 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00170000000B01100C0F0002040000C350
+2026-05-08 10:51:38,008 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:38,008 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0018000000060106090B0001
+2026-05-08 10:51:38,810 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:38,810 INFO SendCommandToAC:FREQ 50
+2026-05-08 10:51:38,810 INFO 2026-05-08 10:51:38SendCommandToAC:FREQ 50
+2026-05-08 10:51:53,204 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 10:51:53,205 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001900000006010609090009
+2026-05-08 10:51:53,205 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:53,206 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 10:51:53,206 INFO 2026-05-08 10:51:53 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 10:51:53,206 INFO 2026-05-08 10:51:53 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 10:51:53,207 INFO OUTP OFF
+2026-05-08 10:51:53,207 INFO 2026-05-08 10:51:53 OUTP OFF
+2026-05-08 10:51:53,207 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 10:51:53,208 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001A00000006010609090004
+2026-05-08 10:51:53,208 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-08 10:51:53,209 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-08 10:51:55,213 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=001A00000006010609090004
+2026-05-08 10:51:56,017 INFO [ModbusVISA] RX expect_resp=False empty/timeout
+2026-05-08 10:51:56,017 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 10:51:56,017 INFO 2026-05-08 10:51:53 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 10:51:56,017 INFO 2026-05-08 10:51:53 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 10:51:56,018 INFO SYST:STANDBY
+2026-05-08 10:51:56,018 INFO 2026-05-08 10:51:53 SYST:STANDBY
+2026-05-08 10:57:03,100 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27510: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:57:03,101 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 10:57:03,102 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27526: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:57:03,102 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 10:57:03,102 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:57:03,102 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 10:57:03 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 10:57:03,146 INFO ('ASRL1::INSTR',)
+2026-05-08 10:57:03,146 INFO 1
+2026-05-08 10:57:03,414 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27983: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 10:57:03,414 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 10:57:03,415 INFO 2026-05-08 10:57:03    程式开启
+2026-05-08 10:57:03,415 INFO 2026-05-08 10:57:03    程式开启
+2026-05-08 10:57:12,844 INFO 192.168.40.211:8080
+2026-05-08 10:57:12,844 INFO 192.168.40.211:8080
+2026-05-08 10:57:12,845 INFO 通过
+2026-05-08 10:57:14,852 INFO [OK] 连接建立（设备可能不响应测试地址）: 192.168.40.211:8080
+2026-05-08 10:57:14,853 INFO 连接成功: 192.168.40.211:8080
+2026-05-08 10:57:20,187 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 10:57:20,188 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090003
+2026-05-08 10:57:20,189 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:57:20,189 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 10:57:20,189 INFO 2026-05-08 10:57:20 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 10:57:20,189 INFO 2026-05-08 10:57:20 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 10:57:20,189 INFO SYST:RUN
+2026-05-08 10:57:20,190 INFO 2026-05-08 10:57:20 SYST:RUN
+2026-05-08 10:57:20,190 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 10:57:20,190 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000200000006010609090008
+2026-05-08 10:57:20,190 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:57:20,190 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 10:57:20,191 INFO 2026-05-08 10:57:20 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 10:57:20,191 INFO 2026-05-08 10:57:20 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 10:57:20,191 INFO OUTP ON
+2026-05-08 10:57:20,191 INFO 2026-05-08 10:57:20 OUTP ON
+2026-05-08 10:57:42,267 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 10:57:42,267 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 10:57:44,273 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000300000006010609090003
+2026-05-08 10:57:44,273 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:57:44,274 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 10:57:44,274 INFO 2026-05-08 10:57:42 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 10:57:44,274 INFO 2026-05-08 10:57:42 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 10:57:44,274 INFO SYST:RUN
+2026-05-08 10:57:44,274 INFO 2026-05-08 10:57:42 SYST:RUN
+2026-05-08 10:57:44,275 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 10:57:44,275 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000400000006010609090008
+2026-05-08 10:57:44,275 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:57:44,276 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 10:57:44,276 INFO 2026-05-08 10:57:42 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 10:57:44,276 INFO 2026-05-08 10:57:42 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 10:57:44,276 INFO OUTP ON
+2026-05-08 10:57:44,276 INFO 2026-05-08 10:57:42 OUTP ON
+2026-05-08 10:58:00,627 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 10:58:00,628 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000500000006010609090009
+2026-05-08 10:58:00,628 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:58:00,628 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 10:58:00,629 INFO 2026-05-08 10:58:00 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 10:58:00,629 INFO 2026-05-08 10:58:00 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 10:58:00,629 INFO OUTP OFF
+2026-05-08 10:58:00,629 INFO 2026-05-08 10:58:00 OUTP OFF
+2026-05-08 10:58:00,831 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 10:58:00,831 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000600000006010609090004
+2026-05-08 10:58:00,831 INFO [ModbusVISA] send 异常: VisaIOError: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-05-08 10:58:00,832 INFO [WARN] Modbus TCP 传输异常，自动重连并重试…
+2026-05-08 10:58:02,836 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000600000006010609090004
+2026-05-08 10:58:02,836 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:58:02,837 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 10:58:02,837 INFO 2026-05-08 10:58:00 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 10:58:02,837 INFO 2026-05-08 10:58:00 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 10:58:02,837 INFO SYST:STANDBY
+2026-05-08 10:58:02,837 INFO 2026-05-08 10:58:00 SYST:STANDBY
+2026-05-08 10:59:27,012 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 10:59:27,012 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 10:59:29,018 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000700000006010609090009
+2026-05-08 10:59:29,018 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:59:29,019 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 10:59:29,019 INFO 2026-05-08 10:59:27 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 10:59:29,019 INFO 2026-05-08 10:59:27 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 10:59:29,019 INFO OUTP OFF
+2026-05-08 10:59:29,019 INFO 2026-05-08 10:59:27 OUTP OFF
+2026-05-08 10:59:29,220 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 10:59:29,221 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000800000006010609090004
+2026-05-08 10:59:29,221 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 10:59:29,221 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 10:59:29,222 INFO 2026-05-08 10:59:27 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 10:59:29,222 INFO 2026-05-08 10:59:27 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 10:59:29,222 INFO SYST:STANDBY
+2026-05-08 10:59:29,222 INFO 2026-05-08 10:59:27 SYST:STANDBY
+2026-05-08 11:00:48,716 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 11:00:48,716 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 11:00:50,721 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000900000006010609090009
+2026-05-08 11:00:50,722 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:00:50,722 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 11:00:50,722 INFO 2026-05-08 11:00:48 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 11:00:50,722 INFO 2026-05-08 11:00:48 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 11:00:50,723 INFO OUTP OFF
+2026-05-08 11:00:50,723 INFO 2026-05-08 11:00:48 OUTP OFF
+2026-05-08 11:00:50,923 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 11:00:50,924 INFO [ModbusVISA] TX visa ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000A00000006010609090004
+2026-05-08 11:00:50,924 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:00:50,924 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 11:00:50,924 INFO 2026-05-08 11:00:48 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 11:00:50,925 INFO 2026-05-08 11:00:48 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 11:00:50,925 INFO SYST:STANDBY
+2026-05-08 11:00:50,925 INFO 2026-05-08 11:00:48 SYST:STANDBY
+2026-05-08 11:02:57,933 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27515: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:02:57,933 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 11:02:57,934 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:02:57,935 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 11:02:57,935 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27536: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:02:57,935 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 11:02:57 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 11:02:57,980 INFO ('ASRL1::INSTR',)
+2026-05-08 11:02:57,980 INFO 1
+2026-05-08 11:02:58,275 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27988: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:02:58,275 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 11:02:58,275 INFO 2026-05-08 11:02:58    程式开启
+2026-05-08 11:02:58,276 INFO 2026-05-08 11:02:58    程式开启
+2026-05-08 11:03:10,755 INFO 192.168.40.211:8080
+2026-05-08 11:03:10,755 INFO 192.168.40.211:8080
+2026-05-08 11:03:10,756 INFO 通过
+2026-05-08 11:03:10,760 INFO [OK] 连接成功(socket): 192.168.40.211:8080
+2026-05-08 11:03:10,761 INFO 连接成功: 192.168.40.211:8080
+2026-05-08 11:03:15,507 INFO [Itech] _send_control 运行 REG_CONTROL=0x0909 cmd_val=0x0003 client=ModbusVISA
+2026-05-08 11:03:15,507 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000100000006010609090003
+2026-05-08 11:03:15,508 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:03:15,508 INFO [Itech] _send_control 运行 write_register ret=True
+2026-05-08 11:03:15,509 INFO 2026-05-08 11:03:15 [AC Modbus] SYST:RUN (运行/输出使能) translate_ok=True
+2026-05-08 11:03:15,509 INFO 2026-05-08 11:03:15 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0003 device_id=1 | PDU(hex)=0609090003
+2026-05-08 11:03:15,509 INFO SYST:RUN
+2026-05-08 11:03:15,509 INFO 2026-05-08 11:03:15 SYST:RUN
+2026-05-08 11:03:17,509 INFO [Itech] _send_control 输出吸合 REG_CONTROL=0x0909 cmd_val=0x0008 client=ModbusVISA
+2026-05-08 11:03:17,510 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000200000006010609090008
+2026-05-08 11:03:17,510 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:03:17,510 INFO [Itech] _send_control 输出吸合 write_register ret=True
+2026-05-08 11:03:17,510 INFO 2026-05-08 11:03:15 [AC Modbus] OUTP ON (输出吸合) translate_ok=True
+2026-05-08 11:03:17,511 INFO 2026-05-08 11:03:15 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0008 device_id=1 | PDU(hex)=0609090008
+2026-05-08 11:03:17,511 INFO OUTP ON
+2026-05-08 11:03:17,511 INFO 2026-05-08 11:03:15 OUTP ON
+2026-05-08 11:03:41,732 INFO [ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 11:03:41,734 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00030000000601060C480002
+2026-05-08 11:03:41,735 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:03:41,735 INFO SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 11:03:41,735 INFO 2026-05-08 11:03:41SendCommandToAC:INST:PHASE SINGLE
+2026-05-08 11:03:41,735 INFO 爱科: 设置1相电压 230.0V
+2026-05-08 11:03:41,736 INFO addr_map {1: 3072, 2: 3074, 3: 3076}
+2026-05-08 11:03:41,736 INFO phase 1
+2026-05-08 11:03:41,736 INFO res 3072
+2026-05-08 11:03:41,736 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00040000000B01100C00000204000059D8
+2026-05-08 11:03:41,737 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:03:41,737 INFO 爱科: 设置A相电压 230.0V
+2026-05-08 11:03:41,737 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0005000000060106090B0001
+2026-05-08 11:03:41,738 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:03:41,738 INFO SendCommandToAC:VOLT 230
+2026-05-08 11:03:41,738 INFO 2026-05-08 11:03:41SendCommandToAC:VOLT 230
+2026-05-08 11:03:41,738 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=00060000000B01100C0F0002040000C350
+2026-05-08 11:03:41,739 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:03:41,739 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=0007000000060106090B0001
+2026-05-08 11:03:41,739 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:03:41,739 INFO SendCommandToAC:FREQ 50
+2026-05-08 11:03:41,740 INFO 2026-05-08 11:03:41SendCommandToAC:FREQ 50
+2026-05-08 11:04:01,134 INFO [Itech] _send_control 输出断开 REG_CONTROL=0x0909 cmd_val=0x0009 client=ModbusVISA
+2026-05-08 11:04:01,135 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000800000006010609090009
+2026-05-08 11:04:01,135 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:04:01,135 INFO [Itech] _send_control 输出断开 write_register ret=True
+2026-05-08 11:04:01,136 INFO 2026-05-08 11:04:01 [AC Modbus] OUTP OFF (输出断开/释放吸合) translate_ok=True
+2026-05-08 11:04:01,136 INFO 2026-05-08 11:04:01 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0009 device_id=1 | PDU(hex)=0609090009
+2026-05-08 11:04:01,136 INFO OUTP OFF
+2026-05-08 11:04:01,136 INFO 2026-05-08 11:04:01 OUTP OFF
+2026-05-08 11:04:03,137 INFO [Itech] _send_control 待机 REG_CONTROL=0x0909 cmd_val=0x0004 client=ModbusVISA
+2026-05-08 11:04:03,137 INFO [ModbusVISA] TX socket ip=192.168.40.211:8080 expect_resp=False to_ms=800 adu=000900000006010609090004
+2026-05-08 11:04:03,137 INFO [ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 11:04:03,138 INFO [Itech] _send_control 待机 write_register ret=True
+2026-05-08 11:04:03,138 INFO 2026-05-08 11:04:01 [AC Modbus] SYST:STANDBY (待机/关闭输出回路) translate_ok=True
+2026-05-08 11:04:03,138 INFO 2026-05-08 11:04:01 [AC Modbus]   trace: FC06 写单寄存器 addr=0x0909 value=0x0004 device_id=1 | PDU(hex)=0609090004
+2026-05-08 11:04:03,138 INFO SYST:STANDBY
+2026-05-08 11:04:03,138 INFO 2026-05-08 11:04:01 SYST:STANDBY
+2026-05-08 11:07:31,052 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27515: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:07:31,053 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 11:07:31,053 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27531: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:07:31,054 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 11:07:31,054 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27536: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:07:31,054 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 11:07:31 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 11:07:31,097 INFO ('ASRL1::INSTR',)
+2026-05-08 11:07:31,097 INFO 1
+2026-05-08 11:07:31,342 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27988: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:07:31,342 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 11:07:31,342 INFO 2026-05-08 11:07:31    程式开启
+2026-05-08 11:07:31,343 INFO 2026-05-08 11:07:31    程式开启
+2026-05-08 11:07:47,539 INFO 192.168.40.25
+2026-05-08 11:07:47,540 INFO 通过IP访问直流源
+2026-05-08 11:07:47,549 INFO [OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 11:07:47,549 INFO 连接成功: 192.168.40.25:502
+2026-05-08 11:07:47,550 INFO 直流源连接成功
+2026-05-08 11:07:47,554 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 11:07:47,555 INFO [ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 11:07:47,555 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 11:07:47,556 INFO [ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 11:07:47,557 INFO DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 11:07:47,557 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:07:47,557 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:07:47,557 INFO 直流电源1连接成功
+2026-05-08 11:07:58,195 INFO 关闭设备失败: 'ModbusVISA' object has no attribute 'close'
+2026-05-08 11:07:58,196 INFO 关闭设备失败: 'ModbusVISA' object has no attribute 'close'
+2026-05-08 11:08:12,523 INFO 192.168.40.25
+2026-05-08 11:08:12,524 INFO 192.168.40.25
+2026-05-08 11:08:12,525 ERROR 连接异常: 'ModbusTcpClient' object has no attribute 'is_connected'
+2026-05-08 11:08:16,155 INFO 192.168.40.25
+2026-05-08 11:08:16,156 INFO 192.168.40.25
+2026-05-08 11:08:16,157 ERROR 连接异常: 'ModbusTcpClient' object has no attribute 'is_connected'
+2026-05-08 11:08:16,747 INFO 192.168.40.25
+2026-05-08 11:08:16,748 INFO 192.168.40.25
+2026-05-08 11:08:16,749 ERROR 连接异常: 'ModbusTcpClient' object has no attribute 'is_connected'
+2026-05-08 11:08:18,379 INFO 192.168.40.25
+2026-05-08 11:08:18,380 INFO 192.168.40.25
+2026-05-08 11:08:18,381 ERROR 连接异常: 'ModbusTcpClient' object has no attribute 'is_connected'
+2026-05-08 11:10:38,340 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27530: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:10:38,341 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 11:10:38,341 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27546: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:10:38,342 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 11:10:38,342 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27551: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:10:38,342 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 11:10:38 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 11:10:38,385 INFO ('ASRL1::INSTR',)
+2026-05-08 11:10:38,386 INFO 1
+2026-05-08 11:10:38,625 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28003: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:10:38,625 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 11:10:38,625 INFO 2026-05-08 11:10:38    程式开启
+2026-05-08 11:10:38,625 INFO 2026-05-08 11:10:38    程式开启
+2026-05-08 11:10:46,468 INFO 192.168.40.25
+2026-05-08 11:10:46,469 INFO 通过IP访问直流源
+2026-05-08 11:10:46,476 INFO [OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 11:10:46,478 INFO 连接成功: 192.168.40.25:502
+2026-05-08 11:10:46,478 INFO 直流源连接成功
+2026-05-08 11:10:46,482 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 11:10:46,485 INFO [ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 11:10:46,487 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 11:10:46,488 INFO [ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 11:10:46,489 INFO DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 11:10:46,489 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:10:46,490 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:10:46,490 INFO 直流电源1连接成功
+2026-05-08 11:11:21,265 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27532: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:11:21,265 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 11:11:21,266 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27548: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:11:21,266 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 11:11:21,267 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27553: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:11:21,267 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 11:11:21 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 11:11:21,309 INFO ('ASRL1::INSTR',)
+2026-05-08 11:11:21,309 INFO 1
+2026-05-08 11:11:21,565 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28005: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:11:21,566 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 11:11:21,567 INFO 2026-05-08 11:11:21    程式开启
+2026-05-08 11:11:21,567 INFO 2026-05-08 11:11:21    程式开启
+2026-05-08 11:11:27,796 INFO 192.168.40.25
+2026-05-08 11:11:27,796 INFO 通过IP访问直流源
+2026-05-08 11:11:27,801 INFO [OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 11:11:27,802 INFO 连接成功: 192.168.40.25:502
+2026-05-08 11:11:27,802 INFO 直流源连接成功
+2026-05-08 11:11:27,804 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 11:11:27,806 INFO [ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 11:11:27,806 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 11:11:27,808 INFO [ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 11:11:27,809 INFO DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 11:11:27,809 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:11:27,809 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:11:27,809 INFO 直流电源1连接成功
+2026-05-08 11:11:30,763 INFO 断开设备成功
+2026-05-08 11:11:35,340 INFO -- 请选择设备 --
+2026-05-08 11:11:35,341 INFO device not exit
+2026-05-08 11:11:35,341 INFO 直流电源 not exit
+2026-05-08 11:11:35,341 INFO 直流电源 not exit
+2026-05-08 11:11:42,475 INFO -- 请选择设备 --
+2026-05-08 11:11:42,476 INFO device not exit
+2026-05-08 11:11:42,476 INFO 直流电源 not exit
+2026-05-08 11:11:42,476 INFO 直流电源 not exit
+2026-05-08 11:11:50,700 INFO 192.168.40.25
+2026-05-08 11:11:50,700 INFO 通过IP访问直流源
+2026-05-08 11:11:50,704 INFO [OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 11:11:50,704 INFO 连接成功: 192.168.40.25:502
+2026-05-08 11:11:50,704 INFO 直流源连接成功
+2026-05-08 11:11:50,707 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 11:11:50,709 INFO [ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 11:11:50,709 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 11:11:50,710 INFO [ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 11:11:50,711 INFO DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 11:11:50,711 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:11:50,711 INFO DC1 厂家识别结果: Bluesight
+2026-05-08 11:11:50,712 INFO 直流电源1连接成功
+2026-05-08 11:12:20,980 INFO 断开设备成功
+2026-05-08 11:14:27,334 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27575: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:14:27,334 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 11:14:27,335 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27591: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:14:27,335 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 11:14:27,335 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27596: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:14:27,335 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 11:14:27 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 11:14:27,377 INFO ('ASRL1::INSTR',)
+2026-05-08 11:14:27,377 INFO 1
+2026-05-08 11:14:27,631 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28048: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:14:27,631 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 11:14:27,631 INFO 2026-05-08 11:14:27    程式开启
+2026-05-08 11:14:27,631 INFO 2026-05-08 11:14:27    程式开启
+2026-05-08 11:14:34,492 INFO 192.168.40.25
+2026-05-08 11:14:34,492 INFO 192.168.40.25
+2026-05-08 11:14:34,493 INFO 通过IP访问直流源
+2026-05-08 11:14:34,501 INFO [OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 11:14:34,502 INFO 连接成功: 192.168.40.25:502
+2026-05-08 11:14:34,506 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 11:14:34,509 INFO [ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 11:14:34,509 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 11:14:34,511 INFO [ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 11:14:34,511 INFO DC2 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 11:14:34,512 INFO DC2 厂家识别结果: Bluesight
+2026-05-08 11:14:34,512 INFO DC2 厂家识别结果: Bluesight
+2026-05-08 11:14:34,512 INFO 直流电源2连接成功
+2026-05-08 11:14:36,411 INFO 断开设备成功
+2026-05-08 11:15:25,669 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27575: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:15:25,670 ERROR   threadStartTestFunction.setDaemon(True)
+2026-05-08 11:15:25,670 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27591: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:15:25,671 ERROR   threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 11:15:25,671 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27596: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:15:25,672 ERROR   thread_messure_testing.setDaemon(True)
+2026-05-08 11:15:25 [messure_testing] state changed setting_status=, messure_status=, WT_auto_messure_status=, now_save_file=0, total_save_file=0
+2026-05-08 11:15:25,713 INFO ('ASRL1::INSTR',)
+2026-05-08 11:15:25,713 INFO 1
+2026-05-08 11:15:25,956 ERROR d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28048: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 11:15:25,957 ERROR   thread_error_info.setDaemon(True)
+2026-05-08 11:15:25,957 INFO 2026-05-08 11:15:25    程式开启
+2026-05-08 11:15:25,957 INFO 2026-05-08 11:15:25    程式开启
+2026-05-08 11:15:33,148 INFO 192.168.40.25
+2026-05-08 11:15:33,148 INFO 192.168.40.25
+2026-05-08 11:15:33,149 INFO 通过IP访问直流源
+2026-05-08 11:15:33,156 INFO [OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 11:15:33,156 INFO 连接成功: 192.168.40.25:502
+2026-05-08 11:15:33,160 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 11:15:33,161 INFO [ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 11:15:33,162 INFO [ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 11:15:33,163 INFO [ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 11:15:33,164 INFO DC4 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 11:15:33,164 INFO DC4 厂家识别结果: Bluesight
+2026-05-08 11:15:33,164 INFO DC4 厂家识别结果: Bluesight
+2026-05-08 11:15:33,166 INFO 直流电源4连接成功
+2026-05-08 11:15:34,835 INFO 断开设备成功

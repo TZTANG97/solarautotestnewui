@@ -32,7 +32,6 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow,
                              QMessageBox)
 from pyvisa import *
-from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException, ConnectionException
 import struct
 
@@ -84,6 +83,7 @@ from RecPlayer.player.macro_manager import MacroManager
 from config_manager.thaifixedPF_config_manager import ThaiFixedPF_ConfigManager
 from func import *
 from modbus_visa import ModbusVISA
+from scpi_to_modbustcp import BluesightTranslator, ItechTranslator
 
 from config.app_config import config
 from config.path_config import PATH_WT_EXE, PATH_RECORDINGS, PATH_MPPT_EXE
@@ -363,6 +363,8 @@ def ClearMessage():
 WT3000_setting_window = None
 uiWT3000Setting = None
 WT3000_baud_rate = "9600"
+# 直流等 SCPI 串口(ASRL/COM)*IDN? 若超时，请按电源说明书改为 115200 等
+DC_ASRL_DEFAULT_BAUD = 9600
 dl850_controller = None
 wt3000_controller = None
 ac_controller = None
@@ -393,9 +395,26 @@ def _toggle_connection_button(connected_button_name, connected):
 
 
 def _safe_close_handle(handle):
+    """关闭设备句柄：PyVISA（串口/USB/GPIB 等）用 ``close()``；ModbusVISA 仅有 ``disconnect()``。
+
+    不可用 ``isinstance(ModbusVISA)``：避免与部分路径的句柄类型耦合；统一按「有 close 先 close，否则 disconnect」。
+    """
     try:
-        if handle is not None:
-            handle.close()
+        if handle is None:
+            return
+        close_fn = getattr(handle, "close", None)
+        if callable(close_fn):
+            close_fn()
+            print("关闭设备成功")
+            return
+        disconnect_fn = getattr(handle, "disconnect", None)
+        if callable(disconnect_fn):
+            try:
+                disconnect_fn(quiet=True)
+            except TypeError:
+                disconnect_fn()
+            print("断开设备成功")
+            return
     except Exception as e:
         logger.info(f"关闭设备失败: {e}")
         print(f"关闭设备失败: {e}")
@@ -442,12 +461,37 @@ def _default_equ_placeholder():
     """下拉框默认占位项。"""
     return '请选择设备'
 
+def _split_ipv4_tcp_endpoint(addr):
+    """
+    解析 Modbus TCP 地址：纯 IPv4，或 IPv4:端口。
+    返回 (host, port_str)；不是此类地址时返回 None。
+    解决 is_ipv4_stdlib 无法识别 \"192.168.x.x:端口\" 导致误走 VISA/SCPI 的问题。
+    """
+    if not addr or not isinstance(addr, str):
+        return None
+    addr = addr.strip()
+    if ':' in addr:
+        host, port = addr.rsplit(':', 1)
+        if is_ipv4_stdlib(host) and port.isdigit():
+            p = int(port)
+            if 1 <= p <= 65535:
+                return host, port
+        return None
+    if is_ipv4_stdlib(addr):
+        return addr, '502'
+    return None
+
 def _refresh_combo_box_with_states(combo, resources, connected_resources, current_value=None):
     """按连接状态刷新下拉框，已连接资源保持可见但不可选。"""
     if combo is None:
         return
     previous = _normalize_equ_resource_text(current_value or combo.currentText())
     ordered_resources = [tcp_addr for tcp_addr in resources if tcp_addr and tcp_addr != _default_equ_placeholder()]
+    # 手工输入的 IP:端口 / VISA 字符串可能不在 EQUList 里；已连接地址仍须出现在下拉项里才能正确回显
+    if connected_resources:
+        for addr in connected_resources:
+            if addr and addr not in ordered_resources:
+                ordered_resources.append(addr)
     ordered_resources.sort(key=lambda addr: (addr in connected_resources, addr))
     combo.blockSignals(True)
     try:
@@ -645,9 +689,11 @@ def ConnectEQUAC():
     print(tcp_addr)
     if ac_controller is None:
         ac_controller = ACController(logger, _show_connect_message, now_to_datenow, ui_setting=uiACSetting, rm=rm, modbus_client_cls=ModbusVISA, configure_scpi_resource=_configure_scpi_resource)
-    if is_ipv4_stdlib(tcp_addr):
+    endpoint = _split_ipv4_tcp_endpoint(tcp_addr)
+    if endpoint is not None:
+        host, port = endpoint
         print("通过")
-        ac_controller.connect_modbus(tcp_addr, ui)
+        ac_controller.connect_modbus(host, port, ui)
         if ac_controller.connected:
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_AC", True)
@@ -674,12 +720,17 @@ def _configure_scpi_resource(handle):
     """
     统一配置基于 VISA 的 SCPI 资源。
     很多电源/仪表需要行结束符（\\n）才会执行 write/query。
+    串口 ASRL 若不设波特率，默认可能与电源不一致，导致 *IDN? / SYST:ERR? 超时(VI_ERROR_TMO)。
     """
     if handle is None:
         return
     try:
-        # 这些属性并非所有后端都支持，失败时忽略即可
-        handle.timeout = 10000
+        rname = str(getattr(handle, 'resource_name', '') or '')
+    except Exception:
+        rname = ''
+    is_asrl = 'ASRL' in rname.upper()
+    try:
+        handle.timeout = 15000 if is_asrl else 10000
     except Exception:
         pass
     try:
@@ -687,32 +738,95 @@ def _configure_scpi_resource(handle):
         handle.write_termination = "\n"
     except Exception:
         pass
+    if is_asrl:
+        vc = __import__('pyvisa').constants
+        try:
+            handle.baud_rate = int(DC_ASRL_DEFAULT_BAUD)
+        except Exception:
+            try:
+                handle.baud_rate = 9600
+            except Exception:
+                pass
+        try:
+            handle.data_bits = 8
+        except Exception:
+            pass
+        try:
+            handle.parity = vc.Parity.none
+        except Exception:
+            pass
+        try:
+            handle.stop_bits = vc.StopBits.one
+        except Exception:
+            pass
+        try:
+            handle.flow_control = vc.VI_ASRL_FLOW_NONE
+        except Exception:
+            pass
 
-def _set_dc_factor_from_idn(dc_index, handle, fallback=None):
-    """根据 *IDN? 自动识别 DC 厂家类型。"""
+def _set_dc_factor_from_idn(dc_index, handle, fallback=None, modbus_client=None):
+    """根据 *IDN? 自动识别 DC 厂家类型。IP+Modbus 时传 ``modbus_client``（蓝点 ``ModbusVISA``/PyVISA + ``BluesightTranslator``），勿对 SOCKET 句柄发 SCPI。"""
+    if modbus_client is not None:
+        try:
+            tr = BluesightTranslator(modbus_client, device_id=1)
+            ok, dc_text = tr.translate("*IDN?")
+        except Exception as e:
+            logger.info(f"DC{int(dc_index)+1} Modbus *IDN? 异常: {e}")
+            print(f"DC{int(dc_index)+1} Modbus *IDN? 异常: {e}")
+            if fallback is not None:
+                per_dc_factor[str(dc_index)] = fallback
+                logger.info(f"DC{int(dc_index)+1} 厂家识别结果(默认): {fallback}")
+                print(f"DC{int(dc_index)+1} 厂家识别结果(默认): {fallback}")
+            return
+        if not ok:
+            logger.info(f"DC{int(dc_index)+1} *IDN? 失败: {dc_text}")
+            print(f"DC{int(dc_index)+1} *IDN? 失败: {dc_text}")
+            if fallback is not None:
+                per_dc_factor[str(dc_index)] = fallback
+                print(f"DC{int(dc_index)+1} 厂家识别结果(默认): {fallback}")
+            return
+        dc_raw = str(dc_text)
+        print(f"DC{int(dc_index)+1} *IDN? 查询结果: {dc_raw}")
+        u = dc_raw.upper()
+        if "KEYSIGHT" in u:
+            per_dc_factor[str(dc_index)] = "Keysight"
+        elif "CHROMA" in u:
+            per_dc_factor[str(dc_index)] = "Chroma"
+        elif "ITECH" in u:
+            per_dc_factor[str(dc_index)] = "Itech"
+        elif "LC30" in u or "PM30" in u or "DSP_" in u or "ARM_PM" in u:
+            per_dc_factor[str(dc_index)] = "Bluesight"
+        elif fallback is not None:
+            per_dc_factor[str(dc_index)] = fallback
+        logger.info(f"DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), '')}")
+        print(f"DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), '')}")
+        return
+
     if handle is None:
         if fallback is not None:
             per_dc_factor[str(dc_index)] = fallback
         return
     try:
-        dc_info = handle.query('*IDN?')
+        dc_info = handle.query("*IDN?")
     except Exception as e:
-        logger.info(f'DC{int(dc_index)+1} *IDN? 查询失败: {e}')
-        print(f'DC{int(dc_index)+1} *IDN? 查询失败: {e}')
+        logger.info(f"DC{int(dc_index)+1} *IDN? 查询失败: {e}")
+        print(f"DC{int(dc_index)+1} *IDN? 查询失败: {e}")
         if fallback is not None:
             per_dc_factor[str(dc_index)] = fallback
+            print(f"DC{int(dc_index)+1} 厂家识别结果(默认): {fallback}")
         return
     dc_info = str(dc_info).upper()
-    if 'KEYSIGHT' in dc_info:
-        per_dc_factor[str(dc_index)] = 'Keysight'
-    elif 'CHROMA' in dc_info:
-        per_dc_factor[str(dc_index)] = 'Chroma'
-    elif 'ITECH' in dc_info:
-        per_dc_factor[str(dc_index)] = 'Itech'
+    print(f"DC{int(dc_index)+1} *IDN? 查询结果: {dc_info}")
+    if "KEYSIGHT" in dc_info:
+        per_dc_factor[str(dc_index)] = "Keysight"
+    elif "CHROMA" in dc_info:
+        per_dc_factor[str(dc_index)] = "Chroma"
+    elif "ITECH" in dc_info:
+        per_dc_factor[str(dc_index)] = "Itech"
     elif fallback is not None:
         per_dc_factor[str(dc_index)] = fallback
-    logger.info(f'DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), "")}')
-    print(f'DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), "")}')
+    logger.info(f"DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), '')}")
+    print(f"DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), '')}")
 
 
 def ConnectEQUDC1():
@@ -727,12 +841,15 @@ def ConnectEQUDC1():
     tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
     logger.info(tcp_addr)
     if is_ipv4_stdlib(tcp_addr):
-        print("通过")
+        print("通过IP访问直流源")
         dc1_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源1")
         if dc1_controller.connected:
+            print("直流源连接成功")
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_DC1", True)
-            _set_dc_factor_from_idn(0, dc1_controller.handle, fallback='Chroma')
+            _set_dc_factor_from_idn(
+                0, dc1_controller.handle, fallback="Chroma", modbus_client=dc1_controller.client
+            )
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "1"
             print("直流电源1连接成功")
@@ -748,7 +865,7 @@ def ConnectEQUDC1():
             ui.pushButton_ConnectEQUDC1.setText("取消连接")
 
 def ConnectEQUDC2():
-    """连接 DC2。"""
+    """连接 DC2（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc2_controller
     global per_dc_factor
     if ui.pushButton_ConnectEQUDC2.text() == "取消连接":
@@ -759,20 +876,34 @@ def ConnectEQUDC2():
     print(tcp_addr)
     if dc2_controller is None:
         dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    if tcp_addr.startswith("192.168"):
-        dc2_controller.connect_modbus(tcp_addr, ui, ModbusTcpClient, "直流电源2")
+    if is_ipv4_stdlib(tcp_addr):
+        print("通过IP访问直流源")
+        dc2_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源2")
+        if dc2_controller.connected:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC2", True)
+            _set_dc_factor_from_idn(
+                1,
+                dc2_controller.handle,
+                fallback="Chroma",
+                modbus_client=dc2_controller.client,
+            )
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "2"
+            print("直流电源2连接成功")
+            ui.pushButton_ConnectEQUDC2.setText("取消连接")
     else:
         dc2_controller.connect_scpi(tcp_addr, ui)
-    if dc2_controller.connected:
-        _remove_equ_from_combo_boxes(tcp_addr)
-        _set_equ_combo_locked("comboBox_DC2", True)
-        _set_dc_factor_from_idn(1, dc2_controller.handle)
-        strFlagSendDCCommandInfomation = "1"
-        strFlagOfSendDCCommandTestLog = "2"
-        ui.pushButton_ConnectEQUDC2.setText("取消连接")
+        if dc2_controller.connected and dc2_controller.handle is not None:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC2", True)
+            _set_dc_factor_from_idn(1, dc2_controller.handle)
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "2"
+            ui.pushButton_ConnectEQUDC2.setText("取消连接")
 
 def ConnectEQUDC3():
-    """连接 DC3。"""
+    """连接 DC3（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc3_controller
     global per_dc_factor
     if ui.pushButton_ConnectEQUDC3.text() == "取消连接":
@@ -783,17 +914,34 @@ def ConnectEQUDC3():
     print(tcp_addr)
     if dc3_controller is None:
         dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    dc3_controller.connect_scpi(tcp_addr, ui)
-    if dc3_controller.connected:
-        _remove_equ_from_combo_boxes(tcp_addr)
-        _set_equ_combo_locked("comboBox_DC3", True)
-        _set_dc_factor_from_idn(2, dc3_controller.handle)
-        strFlagSendDCCommandInfomation = "1"
-        strFlagOfSendDCCommandTestLog = "3"
-        ui.pushButton_ConnectEQUDC3.setText("取消连接")
+    if is_ipv4_stdlib(tcp_addr):
+        print("通过IP访问直流源")
+        dc3_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源3")
+        if dc3_controller.connected:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC3", True)
+            _set_dc_factor_from_idn(
+                2,
+                dc3_controller.handle,
+                fallback="Chroma",
+                modbus_client=dc3_controller.client,
+            )
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "3"
+            print("直流电源3连接成功")
+            ui.pushButton_ConnectEQUDC3.setText("取消连接")
+    else:
+        dc3_controller.connect_scpi(tcp_addr, ui)
+        if dc3_controller.connected and dc3_controller.handle is not None:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC3", True)
+            _set_dc_factor_from_idn(2, dc3_controller.handle)
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "3"
+            ui.pushButton_ConnectEQUDC3.setText("取消连接")
 
 def ConnectEQUDC4():
-    """连接 DC4。"""
+    """连接 DC4（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc4_controller
     global per_dc_factor
     if ui.pushButton_ConnectEQUDC4.text() == "取消连接":
@@ -804,14 +952,31 @@ def ConnectEQUDC4():
     print(tcp_addr)
     if dc4_controller is None:
         dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    dc4_controller.connect_scpi(tcp_addr, ui)
-    if dc4_controller.connected:
-        _remove_equ_from_combo_boxes(tcp_addr)
-        _set_equ_combo_locked("comboBox_DC4", True)
-        _set_dc_factor_from_idn(3, dc4_controller.handle)
-        strFlagSendDCCommandInfomation = "1"
-        strFlagOfSendDCCommandTestLog = "4"
-        ui.pushButton_ConnectEQUDC4.setText("取消连接")
+    if is_ipv4_stdlib(tcp_addr):
+        print("通过IP访问直流源")
+        dc4_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源4")
+        if dc4_controller.connected:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC4", True)
+            _set_dc_factor_from_idn(
+                3,
+                dc4_controller.handle,
+                fallback="Chroma",
+                modbus_client=dc4_controller.client,
+            )
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "4"
+            print("直流电源4连接成功")
+            ui.pushButton_ConnectEQUDC4.setText("取消连接")
+    else:
+        dc4_controller.connect_scpi(tcp_addr, ui)
+        if dc4_controller.connected and dc4_controller.handle is not None:
+            _remove_equ_from_combo_boxes(tcp_addr)
+            _set_equ_combo_locked("comboBox_DC4", True)
+            _set_dc_factor_from_idn(3, dc4_controller.handle)
+            strFlagSendDCCommandInfomation = "1"
+            strFlagOfSendDCCommandTestLog = "4"
+            ui.pushButton_ConnectEQUDC4.setText("取消连接")
 
 def ConnectEQUDL850():
     """连接 DL850。"""
@@ -27104,41 +27269,76 @@ def system_error_info():
     global ac_controller
     while True:
         if ac_controller is not None and ac_controller.connected:
-            information_AC = ''
-            try:
-                information_AC = ac_controller.handle.query("SYST:ERR?")
+            # Modbus TCP（ModbusVISA）：句柄为 SOCKET，不支持 SCPI SYST:ERR?；勿用下拉框原文 open_resource（含中文会触发 PyVISA ascii 错误）
+            if ac_controller.client is not None:
                 time.sleep(1)
-            except Exception as e:
-                print(e)
-                logger.error(e)
-                tcp_addr = ui.comboBox_AC.currentText()
-                ac_controller.handle = rm.open_resource(tcp_addr)
-                print(f'AC---reconnect---{ac_controller.handle}')
-                logger.info(f'AC---reconnect---{ac_controller.handle}')
-                time.sleep(2)
             else:
-                logger.info(f'AC return error message: {information_AC}')
+                information_AC = ''
+                try:
+                    information_AC = ac_controller.handle.query("SYST:ERR?")
+                    time.sleep(1)
+                except Exception as e:
+                    print(e)
+                    logger.error(e)
+                    tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
+                    try:
+                        endpoint = _split_ipv4_tcp_endpoint(tcp_addr)
+                        if endpoint is not None:
+                            host, port = endpoint
+                            _safe_close_handle(ac_controller.handle)
+                            client = ModbusVISA(
+                                host,
+                                port,
+                                on_session_renewed=ac_controller._set_handle,
+                                use_plain_socket=True,
+                            )
+                            client.connect()
+                            if client.is_connected():
+                                ac_controller.client = client
+                                ac_controller._set_handle(client.inst or client)
+                                ac_controller._itech = ItechTranslator(client)
+                                ac_controller.resource = f'{host}:{port}'
+                                print(f'AC---reconnect(modbus)---{ac_controller.handle}')
+                                logger.info(f'AC---reconnect(modbus)---{ac_controller.handle}')
+                            else:
+                                ac_controller.client = None
+                                ac_controller._itech = None
+                                ac_controller._set_handle(None)
+                        else:
+                            handle = rm.open_resource(tcp_addr)
+                            _configure_scpi_resource(handle)
+                            ac_controller.client = None
+                            ac_controller._itech = None
+                            ac_controller.handle = handle
+                            print(f'AC---reconnect---{ac_controller.handle}')
+                            logger.info(f'AC---reconnect---{ac_controller.handle}')
+                    except Exception as e2:
+                        logger.error(e2)
+                        print(e2)
+                    time.sleep(2)
+                else:
+                    logger.info(f'AC return error message: {information_AC}')
         
         if dc1_controller is not None and dc1_controller.connected:
-            tcp_addr_dc1 = ui.comboBox_DC1.currentText()
+            tcp_addr_dc1 = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
             _, information_DC1 = dc1_controller.poll_syst_err(tcp_addr_dc1, 'DC1')
             if information_DC1 is not None:
                 logger.info(f'DC1 return error message: {information_DC1}')
         
         if dc2_controller is not None and dc2_controller.connected:
-            tcp_addr_dc2 = ui.comboBox_DC2.currentText()
+            tcp_addr_dc2 = _normalize_equ_resource_text(ui.comboBox_DC2.currentText())
             _, information_DC2 = dc2_controller.poll_syst_err(tcp_addr_dc2, 'DC2')
             if information_DC2 is not None:
                 logger.info(f'DC2 return error message: {information_DC2}')
         
         if dc3_controller is not None and dc3_controller.connected:
-            tcp_addr_dc3 = ui.comboBox_DC3.currentText()
+            tcp_addr_dc3 = _normalize_equ_resource_text(ui.comboBox_DC3.currentText())
             _, information_DC3 = dc3_controller.poll_syst_err(tcp_addr_dc3, 'DC3')
             if information_DC3 is not None:
                 logger.info(f'DC3 return error message: {information_DC3}')
         
         if dc4_controller is not None and dc4_controller.connected:
-            tcp_addr_dc4 = ui.comboBox_DC4.currentText()
+            tcp_addr_dc4 = _normalize_equ_resource_text(ui.comboBox_DC4.currentText())
             _, information_DC4 = dc4_controller.poll_syst_err(tcp_addr_dc4, 'DC4')
             if information_DC4 is not None:
                 logger.info(f'DC4 return error message: {information_DC4}')
@@ -27208,8 +27408,6 @@ def translate_to_bluesight(text, value=None):
         return (addr, value)
     else:
         return (addr, default_val)
-
-
 
 
 if __name__ == "__main__":

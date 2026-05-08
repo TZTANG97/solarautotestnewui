@@ -1,5 +1,7 @@
 from PyQt5.QtWidgets import QMessageBox
 
+from modbus_visa import ModbusVISA
+
 
 class DCController:
     """直流电源控制器，封装连接、断开、输出、查询与轮询逻辑。"""
@@ -109,12 +111,20 @@ class DCController:
 
     def connect_modbus(self, tcp_addr, ui, modbus_client_cls, fail_label):
         try:
-            client = modbus_client_cls(tcp_addr)
+            if modbus_client_cls is ModbusVISA:
+                # 与 test_guochan / 蓝点联调一致：原生 TCP 避免 PyVISA SOCKET 读不到应答、半断
+                client = modbus_client_cls(
+                    tcp_addr,
+                    on_session_renewed=self._set_handle,
+                    use_plain_socket=True,
+                )
+            else:
+                client = modbus_client_cls(tcp_addr)
             client.connect()
             if client.is_connected():
                 self.logger.info(f'连接成功: {tcp_addr}:502')
                 self.client = client
-                self._set_handle(client.inst)
+                self._set_handle(client.inst or client)
                 self.resource = tcp_addr
                 return self.client, self.handle, '1'
             self.logger.error('连接失败')
@@ -156,6 +166,9 @@ class DCController:
         return None, None, '0'
 
     def poll_syst_err(self, tcp_addr, reconnect_message_prefix):
+        """轮询 SYST:ERR?。Modbus TCP 句柄为 SOCKET，无 SCPI，直接返回不重连。"""
+        if self.client is not None:
+            return self.handle, None
         try:
             information = self.handle.query('SYST:ERR?')
             return self.handle, information
