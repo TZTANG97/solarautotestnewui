@@ -3802,3 +3802,22 @@ TypeError: QDialog(parent: Optional[QWidget] = None, flags: Union[Qt.WindowFlags
 2026-05-08 14:34:55,210 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0015000000130104104C4333302D323030302D363000000000
 2026-05-08 14:34:55,210 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00160000000601040A15004B
 2026-05-08 14:34:55,212 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00160000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 15:17:12,482 ERROR logging_setup.py [47] MainThread :D:\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 15:17:12,482 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 15:17:12,484 ERROR logging_setup.py [47] MainThread :D:\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 15:17:12,484 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 15:17:12,484 ERROR logging_setup.py [47] MainThread :D:\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 15:17:12,485 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 15:17:12,904 INFO logging_setup.py [47] MainThread :()
+2026-05-08 15:17:13,325 ERROR logging_setup.py [47] MainThread :D:\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 15:17:13,325 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 15:17:13,326 INFO SCPITestWave.py [28088] MainThread :2026-05-08 15:17:13    程式开启
+2026-05-08 15:17:13,326 INFO logging_setup.py [47] MainThread :2026-05-08 15:17:13    程式开启
+2026-05-08 15:17:27,864 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 15:17:27,865 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 15:17:30,878 INFO logging_setup.py [47] MainThread :[ERROR] 连接失败: timed out
+2026-05-08 15:17:30,878 ERROR dc_controller.py [135] MainThread :连接失败
+2026-05-08 15:18:13,122 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 15:18:13,122 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 15:18:16,124 INFO logging_setup.py [47] MainThread :[ERROR] 连接失败: timed out
+2026-05-08 15:18:16,130 ERROR dc_controller.py [135] MainThread :连接失败
