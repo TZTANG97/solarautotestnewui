@@ -40,6 +40,7 @@ from Dialog_DC1_Setting import Ui_Dialog_DC1_Setting
 from Dialog_DC2_Setting import Ui_Dialog_DC2_Setting
 from Dialog_DC3_Setting import Ui_Dialog_DC3_Setting
 from Dialog_DC4_Setting import Ui_Dialog_DC4_Setting
+from Dialog_Bluesight_DC_Setting import run_bluesight_dc_setting_dialog
 from Dialog_DL850_Setting import Ui_Dialog_DL850_Setting
 from Dialog_thaichonglian import Ui_Dialog_thaichonglian
 from Dialog_thaiguodianyashanbian import Ui_Dialog_thaiguodianyashanbian
@@ -254,8 +255,32 @@ def CloseACOUTPUTON():
     return ac_controller.close_output()
 
 
+def _show_bluesight_dc_settings_dialog(dc_slot_index: int, open_fn, close_fn) -> None:
+    """dc_slot_index: 0~3 对应 DC1~DC4。父窗口须为 QWidget（如 QMainWindow），勿传 Ui_Dialog。"""
+    global dc1_controller, dc2_controller, dc3_controller, dc4_controller
+    ctx = get_app_context()
+    parent = getattr(ctx, "main_window", None)
+    if parent is None or not isinstance(parent, QtWidgets.QWidget):
+        qapp = QtWidgets.QApplication.instance()
+        aw = qapp.activeWindow() if qapp else None
+        parent = aw if isinstance(aw, QtWidgets.QWidget) else None
+    ctrls = (dc1_controller, dc2_controller, dc3_controller, dc4_controller)
+    ctrl = ctrls[dc_slot_index] if 0 <= dc_slot_index < 4 else None
+    client = getattr(ctrl, "client", None) if ctrl is not None else None
+    run_bluesight_dc_setting_dialog(
+        parent,
+        dc_slot_index + 1,
+        open_fn,
+        close_fn,
+        modbus_client=client,
+    )
+
+
 def ShowDC1Setting():
-    global dialog_windowDC1Setting, dc1_controller
+    global dialog_windowDC1Setting, dc1_controller, per_dc_factor
+    if per_dc_factor.get("0") == "Bluesight":
+        _show_bluesight_dc_settings_dialog(0, OpenDC1OUTPUTON, CloseDC1OUTPUTON)
+        return
     if dc1_controller is None:
         return dialog_windowDC1Setting.show()
     return dc1_controller.show_setting(dialog_windowDC1Setting)
@@ -273,7 +298,10 @@ def CloseDC1OUTPUTON():
     return dc1_controller.close_output("DC1", uiDC1Setting, logger)
 
 def ShowDC2Setting():
-    global dialog_windowDC2Setting, dc2_controller
+    global dialog_windowDC2Setting, dc2_controller, per_dc_factor
+    if per_dc_factor.get("1") == "Bluesight":
+        _show_bluesight_dc_settings_dialog(1, OpenDC2OUTPUTON, CloseDC2OUTPUTON)
+        return
     if dc2_controller is None:
         dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     return dc2_controller.show_setting(dialog_windowDC2Setting)
@@ -294,7 +322,10 @@ def CloseDC2OUTPUTON():
 
 
 def ShowDC3Setting():
-    global dialog_windowDC3Setting, dc3_controller
+    global dialog_windowDC3Setting, dc3_controller, per_dc_factor
+    if per_dc_factor.get("2") == "Bluesight":
+        _show_bluesight_dc_settings_dialog(2, OpenDC3OUTPUTON, CloseDC3OUTPUTON)
+        return
     if dc3_controller is None:
         dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     return dc3_controller.show_setting(dialog_windowDC3Setting)
@@ -315,7 +346,10 @@ def CloseDC3OUTPUTON():
 
 
 def ShowDC4Setting():
-    global dialog_windowDC4Setting, dc4_controller
+    global dialog_windowDC4Setting, dc4_controller, per_dc_factor
+    if per_dc_factor.get("3") == "Bluesight":
+        _show_bluesight_dc_settings_dialog(3, OpenDC4OUTPUTON, CloseDC4OUTPUTON)
+        return
     if dc4_controller is None:
         dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     return dc4_controller.show_setting(dialog_windowDC4Setting)
