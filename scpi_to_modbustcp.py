@@ -344,6 +344,21 @@ class BluesightTranslator:
     MODE_SAS = 0x0001
     MODE_BATTERY_SIMULATOR = 0x0002
 
+    # 原载参数：CV 先 FC06 再 FC16 0x0FAA×4；CC 先 FC16 0x0FAE×2 再 FC06；CP 先 FC06 再 FC16 0x0FB0×2；CR 先 FC16 0x0FB2×2 再 FC06
+    REG_ORIG_SUBMODE = 0x0FA9
+    REG_ORIG_PARAM_BLOCK_START = 0x0FAA
+    REG_ORIG_PARAM_BLOCK_COUNT = 4
+    REG_ORIG_CC_PARAM_START = 0x0FAE
+    REG_ORIG_CC_PARAM_COUNT = 2
+    REG_ORIG_CP_PARAM_START = 0x0FB0
+    REG_ORIG_CR_PARAM_START = 0x0FB2
+    # 恒功率输出功率上限（kW），与界面一致
+    ORIG_CP_MAX_KW = 30.0
+    ORIG_LOAD_FUNC_CV = 0x0000
+    ORIG_LOAD_FUNC_CC = 0x0001
+    ORIG_LOAD_FUNC_CP = 0x0002
+    ORIG_LOAD_FUNC_CR = 0x0003
+
     # *IDN?：抓包校验 FC04 读输入寄存器 — 订货型号 / 固件信息串（蓝点与上位机一致）
     REG_IDN_MODEL = 0x09D3
     REG_IDN_MODEL_COUNT = 8
@@ -603,6 +618,150 @@ class BluesightTranslator:
         if getattr(r2, "isError", lambda: False)():
             return False, f"曲线块已写但 APPLY 失败: {r2}"
         return True, "FC16 曲线块 + APPLY 成功"
+
+    def build_original_load_param_words(
+        self,
+        func_index: int,
+        *,
+        voltage_v: float | None = None,
+        r_internal_ohm: float | None = None,
+        current_a: float | None = None,
+        power_kw: float | None = None,
+        r_load_ohm: float | None = None,
+    ) -> list[int]:
+        """原载保持寄存器内容。
+        恒压：4 字起 ``REG_ORIG_PARAM_BLOCK_START``：[字0]=电压×100，字1=0，[字2]=电源内阻×100，字3=0。
+        恒流：2 字 ``0x0FAE``：[字0]=电流×100，字1=0（07D0 0000 → 20.00A）。
+        恒功率：2 字 ``0x0FB0``：[字0]=功率(kW)×1000（上限 ``ORIG_CP_MAX_KW``），字1=0。
+        恒阻：2 字 ``0x0FB2``：[字0]=负载电阻×100，字1=0（00C8 0000 → 2.00Ω）。
+        """
+        z4 = [0, 0, 0, 0]
+        if func_index == 0:
+            v = float(voltage_v or 0.0)
+            r = float(r_internal_ohm or 0.0)
+            z4[0] = int(round(v * 100.0)) & 0xFFFF
+            z4[1] = 0
+            z4[2] = int(round(r * 100.0)) & 0xFFFF
+            z4[3] = 0
+            return z4
+        if func_index == 1:
+            i0 = int(round(float(current_a or 0.0) * 100.0)) & 0xFFFF
+            return [i0, 0]
+        if func_index == 2:
+            pk = min(max(0.0, float(power_kw or 0.0)), self.ORIG_CP_MAX_KW)
+            p0 = int(round(pk * 1000.0)) & 0xFFFF
+            return [p0, 0]
+        if func_index == 3:
+            rl = float(r_load_ohm or 0.0)
+            r0 = int(round(rl * 100.0)) & 0xFFFF
+            return [r0, 0]
+        return z4
+
+    def write_original_load_params(
+        self,
+        func_index: int,
+        *,
+        voltage_v: float | None = None,
+        r_internal_ohm: float | None = None,
+        current_a: float | None = None,
+        power_kw: float | None = None,
+        r_load_ohm: float | None = None,
+    ) -> tuple[bool, str]:
+        """原载下发（与上位机抓包一致）；无额外 APPLY。
+        恒压：FC06 ``0x0FA9`` 再 FC16 ``0x0FAA``×4。
+        恒流：FC16 ``0x0FAE``×2 再 FC06。
+        恒功率：FC06 ``0x0FA9`` 再 FC16 ``0x0FB0``×2。
+        恒阻：FC16 ``0x0FB2``×2 再 FC06。
+        """
+        if func_index < 0 or func_index > 3:
+            return False, f"原载输出模式须在 0~3（恒压/恒流/恒功率/恒阻），当前 {func_index}"
+        names = ("CV/恒压", "CC/恒流", "CP/恒功率", "CR/恒阻")
+        label = names[func_index]
+        words = self.build_original_load_param_words(
+            func_index,
+            voltage_v=voltage_v,
+            r_internal_ohm=r_internal_ohm,
+            current_a=current_a,
+            power_kw=power_kw,
+            r_load_ohm=r_load_ohm,
+        )
+        sub = func_index & 0xFFFF
+
+        def _fc06_then_fc16(addr: int, wds: list[int], addr_label: str) -> tuple[bool, str]:
+            r_a = self._write_register(self.REG_ORIG_SUBMODE, sub)
+            if getattr(r_a, "isError", lambda: False)():
+                return False, f"FC06 原载子模式 0x{self.REG_ORIG_SUBMODE:04X}={sub} 失败: {r_a}"
+            r_b = self._write_registers(addr, wds)
+            if getattr(r_b, "isError", lambda: False)():
+                return False, f"FC16 {addr_label} 0x{addr:04X}×{len(wds)} 失败: {r_b}"
+            logger.info(
+                "蓝点 原载 %s -> FC06 0x%04X=0x%04X then FC16 0x%04X words=%s",
+                label,
+                self.REG_ORIG_SUBMODE,
+                sub,
+                addr,
+                [f"0x{w:04X}" for w in wds],
+            )
+            return (
+                True,
+                f"成功: 原载 {label} FC06 0x{self.REG_ORIG_SUBMODE:04X}=0x{sub:04X} "
+                f"FC16 0x{addr:04X}=[{','.join(f'0x{w:04X}' for w in wds)}]",
+            )
+
+        def _fc16_then_fc06(addr: int, wds: list[int], addr_label: str) -> tuple[bool, str]:
+            r_a = self._write_registers(addr, wds)
+            if getattr(r_a, "isError", lambda: False)():
+                return False, f"FC16 {addr_label} 0x{addr:04X}×{len(wds)} 失败: {r_a}"
+            r_b = self._write_register(self.REG_ORIG_SUBMODE, sub)
+            if getattr(r_b, "isError", lambda: False)():
+                return False, f"FC06 原载子模式 0x{self.REG_ORIG_SUBMODE:04X}={sub} 失败: {r_b}"
+            logger.info(
+                "蓝点 原载 %s -> FC16 0x%04X words=%s then FC06 0x%04X=0x%04X",
+                label,
+                addr,
+                [f"0x{w:04X}" for w in wds],
+                self.REG_ORIG_SUBMODE,
+                sub,
+            )
+            return (
+                True,
+                f"成功: 原载 {label} FC16 0x{addr:04X}="
+                f"[{','.join(f'0x{w:04X}' for w in wds)}] "
+                f"FC06 0x{self.REG_ORIG_SUBMODE:04X}=0x{sub:04X}",
+            )
+
+        if func_index == 0:
+            if len(words) != self.REG_ORIG_PARAM_BLOCK_COUNT:
+                return False, f"恒压参数须 {self.REG_ORIG_PARAM_BLOCK_COUNT} 字"
+            return _fc06_then_fc16(self.REG_ORIG_PARAM_BLOCK_START, words, "恒压")
+
+        if func_index == 1:
+            if len(words) != self.REG_ORIG_CC_PARAM_COUNT:
+                return False, f"恒流参数须 {self.REG_ORIG_CC_PARAM_COUNT} 字"
+            return _fc16_then_fc06(self.REG_ORIG_CC_PARAM_START, words, "恒流")
+
+        if func_index == 2:
+            if len(words) != self.REG_ORIG_CC_PARAM_COUNT:
+                return False, f"恒功率参数须 {self.REG_ORIG_CC_PARAM_COUNT} 字"
+            return _fc06_then_fc16(self.REG_ORIG_CP_PARAM_START, words, "恒功率")
+
+        if func_index == 3:
+            if len(words) != self.REG_ORIG_CC_PARAM_COUNT:
+                return False, f"恒阻参数须 {self.REG_ORIG_CC_PARAM_COUNT} 字"
+            return _fc16_then_fc06(self.REG_ORIG_CR_PARAM_START, words, "恒阻")
+
+        return False, f"未知原载模式: {func_index}"
+
+    def write_original_load_output_func(self, func_index: int) -> tuple[bool, str]:
+        """兼容：仅写子模式 + 全零参数块（无 UI 数值时使用）。"""
+        return self.write_original_load_params(
+            func_index,
+            voltage_v=0.0,
+            r_internal_ohm=0.0,
+            current_a=0.0,
+            power_kw=0.0,
+            r_load_ohm=0.0,
+        )
 
     def translate(self, text: str, value: Any = None) -> tuple[bool, str]:
         t = text.strip()

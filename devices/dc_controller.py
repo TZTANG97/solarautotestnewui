@@ -26,8 +26,8 @@ class DCController:
         dialog.show()
 
     def _write_modbus_output_register(self, label, logger, is_on):
-        """兼容 DC1 的 Modbus 输出控制寄存器写入。"""
-        if label != 'DC1' or self.client is None:
+        """蓝点等 Modbus TCP：保持寄存器 0x0BB8 控制输出（与 BluesightTranslator 一致）。"""
+        if self.client is None:
             return
         try:
             if hasattr(self.client, 'is_connected') and not self.client.is_connected():
@@ -38,7 +38,6 @@ class DCController:
             logger.info(f'{label} MODBUS REG 0x0BB8 <- 0x{register_value:04X}')
             print(strtimenow + f'{label} MODBUS REG 0x0BB8 <- 0x{register_value:04X}')
         except Exception as e:
-            # 保持现有逻辑：寄存器写失败不阻断后续 SCPI OUTP 命令
             strtimenow = self.now_to_datenow()
             logger.info(f'{label} MODBUS output register write failed: {e}')
             print(strtimenow + f'{label} MODBUS output register write failed: {e}')
@@ -46,6 +45,12 @@ class DCController:
     def _output_dc(self, label, ui_setting, logger, is_on):
         command = 'OUTP ON' if is_on else 'OUTP OFF'
         self._write_modbus_output_register(label, logger, is_on)
+        # Modbus 路径（ModbusVISA 无 SCPI write）：仅寄存器控制，禁止走 handle.write
+        if self.client is not None:
+            strtimenow = self.now_to_datenow()
+            logger.info(f'{label} {command} (Modbus)')
+            print(strtimenow + f'{label} {command} (Modbus)')
+            return
         if self.handle is not None:
             try:
                 self.handle.write(command)

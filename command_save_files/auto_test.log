@@ -2913,3 +2913,887 @@ TypeError: QDialog(parent: Optional[QWidget] = None, flags: Union[Qt.WindowFlags
 2026-05-08 11:46:18,413 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
 2026-05-08 11:46:18,413 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00220000000601061B750055
 2026-05-08 11:46:18,414 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 12:18:00,789 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 12:18:00,793 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=002300000006010409D30008
+2026-05-08 12:18:00,795 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0023000000130104104C4333302D323030302D363000000000
+2026-05-08 12:18:00,795 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00240000000601040A15004B
+2026-05-08 12:18:00,797 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00240000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 12:18:06,701 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00250000000601060F950001
+2026-05-08 12:18:06,702 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 12:18:06,703 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00260000000601061B750055
+2026-05-08 12:18:06,703 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:11:29,894 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 13:11:29,899 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=002700000006010409D30008
+2026-05-08 13:11:29,901 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0027000000130104104C4333302D323030302D363000000000
+2026-05-08 13:11:29,901 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00280000000601040A15004B
+2026-05-08 13:11:29,903 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00280000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:11:31,229 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00290000000601060F950001
+2026-05-08 13:11:31,230 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:11:31,230 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=002A0000000601061B750055
+2026-05-08 13:11:31,230 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:11:38,333 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=002B0000001901101B6100091200021F400000FDE80000271000FA00010352
+2026-05-08 13:11:38,334 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:11:38,334 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=002C0000000601061B750055
+2026-05-08 13:11:38,335 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:11:54,558 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=002D0000001901101B6100091200021F400000FDE80000271000FA00010320
+2026-05-08 13:11:54,558 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:11:54,559 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=002E0000000601061B750055
+2026-05-08 13:11:54,559 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:12:08,918 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=002F0000000601060BB800AA
+2026-05-08 13:12:08,919 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:12:08,919 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:12:08,919 INFO logging_setup.py [47] MainThread :2026-05-08 13:12:08DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:12:08,920 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:12:11,045 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00300000000601060BB80055
+2026-05-08 13:12:11,046 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:12:11,046 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:12:11,047 INFO logging_setup.py [47] MainThread :2026-05-08 13:12:11DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:12:11,047 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:23:35,468 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27609: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:23:35,468 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:23:35,469 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27625: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:23:35,469 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:23:35,470 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27630: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:23:35,470 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:23:35,612 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:23:35,612 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:23:36,215 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28082: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:23:36,215 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:23:36,215 INFO SCPITestWave.py [28086] MainThread :2026-05-08 13:23:36    程式开启
+2026-05-08 13:23:36,216 INFO logging_setup.py [47] MainThread :2026-05-08 13:23:36    程式开启
+2026-05-08 13:23:42,910 INFO SCPITestWave.py [876] MainThread :192.168.40.25
+2026-05-08 13:23:42,910 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:23:42,937 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:23:42,937 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:23:42,938 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:23:42,939 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:23:42,940 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:23:42,940 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:23:42,941 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:23:42,942 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:23:42,942 INFO SCPITestWave.py [835] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:23:42,942 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:23:42,942 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:23:45,887 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:23:45,888 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:23:45,888 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:23:45,890 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:23:48,821 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 13:23:48,822 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:23:48,822 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:23:48,822 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:28:15,914 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27609: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:28:15,914 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:28:15,914 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27625: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:28:15,914 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:28:15,915 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27630: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:28:15,915 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:28:15,959 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:28:15,959 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:28:16,234 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28082: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:28:16,234 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:28:16,234 INFO SCPITestWave.py [28086] MainThread :2026-05-08 13:28:16    程式开启
+2026-05-08 13:28:16,235 INFO logging_setup.py [47] MainThread :2026-05-08 13:28:16    程式开启
+2026-05-08 13:28:23,853 INFO SCPITestWave.py [876] MainThread :192.168.40.25
+2026-05-08 13:28:23,853 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:28:23,869 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:28:23,869 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:28:23,869 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:28:23,871 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:28:23,874 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:28:23,875 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:28:23,876 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:28:23,876 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:28:23,876 INFO SCPITestWave.py [835] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:28:23,877 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:28:23,877 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:28:24,871 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:28:24,873 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:28:24,873 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:28:24,875 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:28:26,759 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 13:28:26,759 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:28:26,759 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:28:26,760 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:30:33,609 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27609: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:30:33,609 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:30:33,610 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27625: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:30:33,611 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:30:33,611 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27630: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:30:33,611 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:30:33,661 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:30:33,662 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:30:33,963 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28082: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:30:33,963 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:30:33,963 INFO SCPITestWave.py [28086] MainThread :2026-05-08 13:30:33    程式开启
+2026-05-08 13:30:33,964 INFO logging_setup.py [47] MainThread :2026-05-08 13:30:33    程式开启
+2026-05-08 13:30:40,701 INFO SCPITestWave.py [876] MainThread :192.168.40.25
+2026-05-08 13:30:40,702 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:30:40,708 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:30:40,708 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:30:40,709 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:30:40,710 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:30:40,711 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:30:40,712 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:30:40,713 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:30:40,714 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:30:40,714 INFO SCPITestWave.py [835] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:30:40,714 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:30:40,714 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:30:41,296 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:30:41,296 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:30:41,297 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:30:41,298 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:30:44,574 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 13:30:44,574 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:30:44,575 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:30:44,575 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:32:57,351 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27609: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:32:57,352 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:32:57,352 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27625: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:32:57,352 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:32:57,353 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27630: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:32:57,353 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:32:57,392 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:32:57,392 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:32:57,648 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28082: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:32:57,648 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:32:57,649 INFO SCPITestWave.py [28086] MainThread :2026-05-08 13:32:57    程式开启
+2026-05-08 13:32:57,649 INFO logging_setup.py [47] MainThread :2026-05-08 13:32:57    程式开启
+2026-05-08 13:33:05,766 INFO SCPITestWave.py [876] MainThread :192.168.40.25
+2026-05-08 13:33:05,766 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:33:05,772 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:33:05,773 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:33:05,773 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:33:05,776 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:33:05,777 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:33:05,778 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:33:05,779 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:33:05,780 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:33:05,780 INFO SCPITestWave.py [835] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:33:05,780 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:33:05,780 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:33:06,195 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:33:06,198 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:33:06,199 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:33:06,200 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:33:08,086 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 13:33:08,086 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:33:08,086 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:33:08,087 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:35:31,172 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27609: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:35:31,173 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:35:31,174 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27625: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:35:31,174 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:35:31,175 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27630: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:35:31,175 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:35:31,222 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:35:31,223 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:35:31,478 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28082: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:35:31,478 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:35:31,478 INFO SCPITestWave.py [28086] MainThread :2026-05-08 13:35:31    程式开启
+2026-05-08 13:35:31,478 INFO logging_setup.py [47] MainThread :2026-05-08 13:35:31    程式开启
+2026-05-08 13:35:38,373 INFO SCPITestWave.py [876] MainThread :192.168.40.25
+2026-05-08 13:35:38,374 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:35:38,380 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:35:38,380 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:35:38,380 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:35:38,382 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:35:38,385 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:35:38,385 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:35:38,387 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:35:38,388 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:35:38,388 INFO SCPITestWave.py [835] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:35:38,388 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:35:38,388 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:35:38,959 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:35:38,962 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:35:38,962 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:35:38,964 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:35:40,141 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950001
+2026-05-08 13:35:40,142 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:35:40,142 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:35:40,142 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:35:45,686 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000601060F950000
+2026-05-08 13:35:45,686 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:35:45,687 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000601061B750055
+2026-05-08 13:35:45,687 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:38:56,159 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27609: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:38:56,159 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:38:56,160 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27625: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:38:56,160 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:38:56,161 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27630: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:38:56,161 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:38:56,200 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:38:56,200 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:38:56,448 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28082: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:38:56,448 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:38:56,449 INFO SCPITestWave.py [28086] MainThread :2026-05-08 13:38:56    程式开启
+2026-05-08 13:38:56,449 INFO logging_setup.py [47] MainThread :2026-05-08 13:38:56    程式开启
+2026-05-08 13:39:08,150 INFO SCPITestWave.py [876] MainThread :192.168.40.25
+2026-05-08 13:39:08,150 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:39:08,158 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:39:08,158 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:39:08,159 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:39:08,161 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:39:08,163 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:39:08,165 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:39:08,166 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:39:08,167 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:39:08,167 INFO SCPITestWave.py [835] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:39:08,167 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:39:08,168 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:39:08,888 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:39:08,889 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:39:08,890 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:39:08,891 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:39:10,717 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 13:39:10,718 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:10,719 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:39:10,719 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:15,013 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000601060F950001
+2026-05-08 13:39:15,014 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:15,014 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000601061B750055
+2026-05-08 13:39:15,015 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:19,054 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000001901101B6100091200021F400000FDE80000271000FA00010320
+2026-05-08 13:39:19,055 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:19,055 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601061B750055
+2026-05-08 13:39:19,055 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:40,182 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000B0000001901101B6100091200021F400000FDE80000271000FA00010352
+2026-05-08 13:39:40,182 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:40,183 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000C0000000601061B750055
+2026-05-08 13:39:40,183 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:51,909 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000D0000001901101B6100091200021F400000FDE80000271000FA00010352
+2026-05-08 13:39:51,910 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:39:51,910 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000E0000000601061B750055
+2026-05-08 13:39:51,910 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:07,510 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000F0000000601060F950001
+2026-05-08 13:40:07,510 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:07,511 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00100000000601061B750055
+2026-05-08 13:40:07,511 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:18,526 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00110000000601060BB800AA
+2026-05-08 13:40:18,526 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:18,527 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:40:18,527 INFO logging_setup.py [47] MainThread :2026-05-08 13:40:18DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:40:18,528 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:40:22,109 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00120000000601060BB80055
+2026-05-08 13:40:22,110 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:22,110 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:40:22,110 INFO logging_setup.py [47] MainThread :2026-05-08 13:40:22DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:40:22,110 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:40:26,062 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00130000000601060F950000
+2026-05-08 13:40:26,063 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:26,063 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00140000000601061B750055
+2026-05-08 13:40:26,064 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:56,574 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 13:40:56,578 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00150000000601060F950001
+2026-05-08 13:40:56,579 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:40:56,579 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00160000000601061B750055
+2026-05-08 13:40:56,580 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:41:10,374 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00170000001901101B6100091200021F400000FDE80000271000FA00010352
+2026-05-08 13:41:10,374 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:41:10,375 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00180000000601061B750055
+2026-05-08 13:41:10,375 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:41:50,917 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 13:41:50,923 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00190000000601060F950000
+2026-05-08 13:41:50,924 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:41:50,925 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001A0000000601061B750055
+2026-05-08 13:41:50,925 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:42:01,086 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001B0000000601060F950000
+2026-05-08 13:42:01,087 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:42:01,087 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001C0000000601061B750055
+2026-05-08 13:42:01,088 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:42:35,222 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 13:42:35,226 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001D0000000601060F950000
+2026-05-08 13:42:35,226 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:42:35,227 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001E0000000601061B750055
+2026-05-08 13:42:35,227 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:47:06,052 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:47:06,052 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:47:06,053 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:47:06,053 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:47:06,054 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:47:06,054 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:47:06,114 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:47:06,114 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:47:06,392 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:47:06,392 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:47:06,393 INFO SCPITestWave.py [28088] MainThread :2026-05-08 13:47:06    程式开启
+2026-05-08 13:47:06,393 INFO logging_setup.py [47] MainThread :2026-05-08 13:47:06    程式开启
+2026-05-08 13:47:14,797 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 13:47:14,798 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:47:14,803 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:47:14,803 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:47:14,803 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:47:14,806 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:47:14,808 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:47:14,808 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:47:14,810 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:47:14,810 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:47:14,811 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:47:14,811 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:47:14,811 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:47:15,359 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:47:15,362 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:47:15,362 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:47:15,364 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:47:31,422 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950001
+2026-05-08 13:47:31,422 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:47:31,423 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:47:31,423 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:47:37,206 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000601060F950000
+2026-05-08 13:47:37,206 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:47:37,206 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000601061B750055
+2026-05-08 13:47:37,207 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:47:57,294 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000601060F950001
+2026-05-08 13:47:57,294 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:47:57,295 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601061B750055
+2026-05-08 13:47:57,295 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:48:36,206 INFO logging_setup.py [47] MainThread :断开设备成功
+2026-05-08 13:48:38,421 INFO SCPITestWave.py [878] MainThread :ASRL1::INSTR
+2026-05-08 13:48:38,433 INFO dc_controller.py [155] MainThread :直流电源连接成功
+2026-05-08 13:48:38,434 INFO logging_setup.py [47] MainThread :直流电源连接成功
+2026-05-08 13:48:53,437 INFO SCPITestWave.py [848] MainThread :DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 13:48:53,437 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询失败: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 13:49:08,439 INFO logging_setup.py [47] Thread-17 (system_error_info) :DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 13:49:08,439 ERROR dc_controller.py [177] Thread-17 (system_error_info) :DC1 error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-05-08 13:49:08,441 INFO logging_setup.py [47] Thread-17 (system_error_info) :DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-08 13:49:08,441 INFO dc_controller.py [183] Thread-17 (system_error_info) :DC1---reconnect---SerialInstrument at ASRL1::INSTR
+2026-05-08 13:49:35,753 INFO logging_setup.py [47] MainThread :关闭设备成功
+2026-05-08 13:49:52,598 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 13:49:52,598 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:49:52,601 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:49:52,601 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:49:52,602 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:49:52,605 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:49:52,606 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:49:52,607 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:49:52,609 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:49:52,611 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:49:52,612 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:49:52,615 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:49:52,616 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:49:54,480 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:49:54,481 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:49:54,482 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:49:54,483 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:49:57,046 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 13:49:57,046 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:49:57,047 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:49:57,047 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:51:22,822 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 13:51:22,825 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000700000006010409D30008
+2026-05-08 13:51:22,827 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0007000000130104104C4333302D323030302D363000000000
+2026-05-08 13:51:22,828 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00080000000601040A15004B
+2026-05-08 13:51:22,829 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00080000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:51:41,326 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000601060F950000
+2026-05-08 13:51:41,326 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:51:41,326 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601061B750055
+2026-05-08 13:51:41,327 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:58:27,191 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:58:27,191 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 13:58:27,192 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:58:27,192 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 13:58:27,193 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:58:27,193 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 13:58:27,231 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 13:58:27,231 INFO logging_setup.py [47] MainThread :1
+2026-05-08 13:58:27,480 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 13:58:27,480 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 13:58:27,480 INFO SCPITestWave.py [28088] MainThread :2026-05-08 13:58:27    程式开启
+2026-05-08 13:58:27,480 INFO logging_setup.py [47] MainThread :2026-05-08 13:58:27    程式开启
+2026-05-08 13:58:33,325 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 13:58:33,326 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 13:58:33,334 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 13:58:33,334 INFO dc_controller.py [125] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 13:58:33,335 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 13:58:33,339 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 13:58:33,342 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 13:58:33,343 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 13:58:33,344 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:58:33,344 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 13:58:33,344 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:58:33,345 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 13:58:33,345 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 13:58:34,017 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 13:58:34,018 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 13:58:34,019 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 13:58:34,020 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 13:58:36,414 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 13:58:36,414 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:58:36,415 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 13:58:36,415 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:58:54,294 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000F01100FAA00040807D0006400000000
+2026-05-08 13:58:54,295 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:58:54,296 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000601060FA90000
+2026-05-08 13:58:54,296 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:29,934 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 13:59:29,939 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000601060BB800AA
+2026-05-08 13:59:29,939 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:29,940 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:29,940 INFO logging_setup.py [47] MainThread :2026-05-08 13:59:29DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:29,941 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:59:36,334 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601060BB80055
+2026-05-08 13:59:36,335 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:36,335 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:59:36,336 INFO logging_setup.py [47] MainThread :2026-05-08 13:59:36DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:59:36,336 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:59:37,726 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000B0000000601060BB800AA
+2026-05-08 13:59:37,727 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:37,727 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:37,727 INFO logging_setup.py [47] MainThread :2026-05-08 13:59:37DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:37,728 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:59:38,862 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000C0000000601060BB80055
+2026-05-08 13:59:38,862 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:38,863 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:59:38,863 INFO logging_setup.py [47] MainThread :2026-05-08 13:59:38DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 13:59:38,863 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:59:50,246 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000D0000000601060F950001
+2026-05-08 13:59:50,246 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:50,247 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000E0000000601061B750055
+2026-05-08 13:59:50,247 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:53,206 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000F0000001901101B6100091200021F400000FDE80000271000FA00010320
+2026-05-08 13:59:53,206 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:53,207 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00100000000601061B750055
+2026-05-08 13:59:53,207 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:54,622 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00110000000601060BB800AA
+2026-05-08 13:59:54,622 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:54,623 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:54,623 INFO logging_setup.py [47] MainThread :2026-05-08 13:59:54DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:54,623 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 13:59:56,214 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00120000000601060BB800AA
+2026-05-08 13:59:56,214 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 13:59:56,215 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:56,215 INFO logging_setup.py [47] MainThread :2026-05-08 13:59:56DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 13:59:56,215 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 14:00:00,742 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00130000001901101B6100091200021F400000FDE80000271000FA00010320
+2026-05-08 14:00:00,743 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:00:00,743 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00140000000601061B750055
+2026-05-08 14:00:00,744 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:00:15,301 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00150000000601060BB80055
+2026-05-08 14:00:15,302 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:00:15,302 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:00:15,303 INFO logging_setup.py [47] MainThread :2026-05-08 14:00:15DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:00:15,303 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 14:00:20,989 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00160000000601060BB800AA
+2026-05-08 14:00:20,990 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:00:20,990 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:00:20,991 INFO logging_setup.py [47] MainThread :2026-05-08 14:00:20DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:00:20,991 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 14:00:35,478 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00170000000601060BB80055
+2026-05-08 14:00:35,479 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:00:35,479 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:00:35,479 INFO logging_setup.py [47] MainThread :2026-05-08 14:00:35DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:00:35,480 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 14:00:42,694 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00180000000601060BB800AA
+2026-05-08 14:00:42,694 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:00:42,695 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:00:42,695 INFO logging_setup.py [47] MainThread :2026-05-08 14:00:42DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:00:42,696 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 14:00:44,053 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00190000000601060BB80055
+2026-05-08 14:00:44,054 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:00:44,054 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:00:44,055 INFO logging_setup.py [47] MainThread :2026-05-08 14:00:44DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:00:44,055 INFO logging_setup.py [47] MainThread :'ModbusVISA' object has no attribute 'write'
+2026-05-08 14:03:35,120 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:03:35,120 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 14:03:35,121 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:03:35,121 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 14:03:35,122 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:03:35,122 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 14:03:35,162 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 14:03:35,163 INFO logging_setup.py [47] MainThread :1
+2026-05-08 14:03:35,412 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:03:35,413 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 14:03:35,413 INFO SCPITestWave.py [28088] MainThread :2026-05-08 14:03:35    程式开启
+2026-05-08 14:03:35,413 INFO logging_setup.py [47] MainThread :2026-05-08 14:03:35    程式开启
+2026-05-08 14:03:42,005 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 14:03:42,006 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 14:03:42,011 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 14:03:42,012 INFO dc_controller.py [130] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 14:03:42,012 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 14:03:42,015 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 14:03:42,016 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 14:03:42,017 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 14:03:42,018 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:03:42,019 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 14:03:42,019 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:03:42,019 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:03:42,019 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 14:03:42,640 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 14:03:42,642 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 14:03:42,642 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 14:03:42,644 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:03:46,485 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950001
+2026-05-08 14:03:46,486 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:03:46,487 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 14:03:46,487 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:03:48,397 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000001901101B6100091200021F400000FDE80000271000FA00010320
+2026-05-08 14:03:48,398 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:03:48,398 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000601061B750055
+2026-05-08 14:03:48,398 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:03:52,358 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000601060BB800AA
+2026-05-08 14:03:52,358 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:03:52,359 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:03:52,359 INFO logging_setup.py [47] MainThread :2026-05-08 14:03:52DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:03:52,359 INFO dc_controller.py [51] MainThread :DC1 OUTP ON (Modbus)
+2026-05-08 14:03:52,360 INFO logging_setup.py [47] MainThread :2026-05-08 14:03:52DC1 OUTP ON (Modbus)
+2026-05-08 14:04:37,382 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 14:04:37,386 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601060BB80055
+2026-05-08 14:04:37,387 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:04:37,387 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:04:37,387 INFO logging_setup.py [47] MainThread :2026-05-08 14:04:37DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:04:37,388 INFO dc_controller.py [51] MainThread :DC1 OUTP OFF (Modbus)
+2026-05-08 14:04:37,388 INFO logging_setup.py [47] MainThread :2026-05-08 14:04:37DC1 OUTP OFF (Modbus)
+2026-05-08 14:04:40,646 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000B0000000601060F950000
+2026-05-08 14:04:40,646 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:04:40,647 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000C0000000601061B750055
+2026-05-08 14:04:40,647 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:04:52,582 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000D0000000F01100FAA0004080000000000000000
+2026-05-08 14:04:52,583 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:04:52,583 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000E0000000601060FA90001
+2026-05-08 14:04:52,584 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:01,302 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000F0000000601060F950000
+2026-05-08 14:05:01,302 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:01,302 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00100000000601061B750055
+2026-05-08 14:05:01,303 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:04,597 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00110000000F01100FAA0004080000000000000000
+2026-05-08 14:05:04,598 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:04,598 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00120000000601060FA90002
+2026-05-08 14:05:04,599 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:13,070 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00130000000F01100FAA0004080000000000000000
+2026-05-08 14:05:13,070 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:13,071 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00140000000601060FA90003
+2026-05-08 14:05:13,071 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:32,182 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00150000000F01100FAA00040805DC01F400000000
+2026-05-08 14:05:32,182 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:32,183 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00160000000601060FA90000
+2026-05-08 14:05:32,183 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:45,141 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00170000000601060BB800AA
+2026-05-08 14:05:45,142 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:05:45,142 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:05:45,143 INFO logging_setup.py [47] MainThread :2026-05-08 14:05:45DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:05:45,143 INFO dc_controller.py [51] MainThread :DC1 OUTP ON (Modbus)
+2026-05-08 14:05:45,143 INFO logging_setup.py [47] MainThread :2026-05-08 14:05:45DC1 OUTP ON (Modbus)
+2026-05-08 14:06:06,230 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00180000000601060BB80055
+2026-05-08 14:06:06,231 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:06:06,231 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:06:06,232 INFO logging_setup.py [47] MainThread :2026-05-08 14:06:06DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:06:06,232 INFO dc_controller.py [51] MainThread :DC1 OUTP OFF (Modbus)
+2026-05-08 14:06:06,232 INFO logging_setup.py [47] MainThread :2026-05-08 14:06:06DC1 OUTP OFF (Modbus)
+2026-05-08 14:07:30,126 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 14:07:30,130 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00190000000F01100FAA00040805DC019000000000
+2026-05-08 14:07:30,131 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:07:30,131 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001A0000000601060FA90000
+2026-05-08 14:07:30,131 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:08:30,478 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 14:08:30,482 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001B0000000F01100FAA0004080000000000000000
+2026-05-08 14:08:30,482 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:08:30,483 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001C0000000601060FA90001
+2026-05-08 14:08:30,483 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:08:38,870 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001D0000000F01100FAA0004080000000000000000
+2026-05-08 14:08:38,870 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:08:38,871 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001E0000000601060FA90001
+2026-05-08 14:08:38,871 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:08:41,918 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001F0000000F01100FAA00040805DC019000000000
+2026-05-08 14:08:41,918 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:08:41,918 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00200000000601060FA90000
+2026-05-08 14:08:41,919 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:30,217 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:11:30,217 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 14:11:30,218 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:11:30,218 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 14:11:30,219 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:11:30,219 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 14:11:30,261 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 14:11:30,262 INFO logging_setup.py [47] MainThread :1
+2026-05-08 14:11:30,513 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:11:30,514 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 14:11:30,514 INFO SCPITestWave.py [28088] MainThread :2026-05-08 14:11:30    程式开启
+2026-05-08 14:11:30,514 INFO logging_setup.py [47] MainThread :2026-05-08 14:11:30    程式开启
+2026-05-08 14:11:37,446 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 14:11:37,446 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 14:11:37,454 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 14:11:37,454 INFO dc_controller.py [130] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 14:11:37,454 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 14:11:37,456 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 14:11:37,458 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 14:11:37,459 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 14:11:37,460 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:11:37,461 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 14:11:37,461 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:11:37,461 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:11:37,462 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 14:11:37,824 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 14:11:37,826 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 14:11:37,826 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 14:11:37,828 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:11:39,967 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 14:11:39,967 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:39,967 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 14:11:39,968 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:47,534 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000F01100FAA0004080000000000000000
+2026-05-08 14:11:47,535 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:47,535 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000601060FA90001
+2026-05-08 14:11:47,536 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:47,536 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000601061B750055
+2026-05-08 14:11:47,536 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:50,870 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000F01100FAA0004080000000000000000
+2026-05-08 14:11:50,871 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:50,871 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000B0000000601060FA90000
+2026-05-08 14:11:50,872 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:50,872 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000C0000000601061B750055
+2026-05-08 14:11:50,872 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:57,662 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000D0000000F01100FAA00040805DC01F400000000
+2026-05-08 14:11:57,662 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:57,663 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000E0000000601060FA90000
+2026-05-08 14:11:57,663 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:11:57,664 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000F0000000601061B750055
+2026-05-08 14:11:57,665 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:01,854 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00100000000F01100FAA00040805DC01F400000000
+2026-05-08 14:12:01,854 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:01,854 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00110000000601060FA90000
+2026-05-08 14:12:01,855 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:01,855 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00120000000601061B750055
+2026-05-08 14:12:01,855 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:11,958 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00130000000F01100FAA0004080000000000000000
+2026-05-08 14:12:11,958 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:11,959 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00140000000601060FA90001
+2026-05-08 14:12:11,959 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:11,960 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00150000000601061B750055
+2026-05-08 14:12:11,960 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:17,934 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00160000000F01100FAA00040805DC01F400000000
+2026-05-08 14:12:17,935 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:17,935 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00170000000601060FA90000
+2026-05-08 14:12:17,936 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:17,936 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00180000000601061B750055
+2026-05-08 14:12:17,936 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:20,637 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00190000000F01100FAA00040805DC01F400000000
+2026-05-08 14:12:20,638 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:20,638 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001A0000000601060FA90000
+2026-05-08 14:12:20,639 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:20,639 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001B0000000601061B750055
+2026-05-08 14:12:20,640 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:42,358 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001C0000000F01100FAA00040805DC01F400000000
+2026-05-08 14:12:42,358 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:42,359 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001D0000000601060FA90000
+2026-05-08 14:12:42,359 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:12:42,359 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=001E0000000601061B750055
+2026-05-08 14:12:42,360 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:14:58,940 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:14:58,940 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 14:14:58,941 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:14:58,942 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 14:14:58,942 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:14:58,942 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 14:14:58,984 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 14:14:58,985 INFO logging_setup.py [47] MainThread :1
+2026-05-08 14:14:59,245 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:14:59,246 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 14:14:59,246 INFO SCPITestWave.py [28088] MainThread :2026-05-08 14:14:59    程式开启
+2026-05-08 14:14:59,246 INFO logging_setup.py [47] MainThread :2026-05-08 14:14:59    程式开启
+2026-05-08 14:15:05,605 INFO SCPITestWave.py [878] MainThread :192.168.40.5
+2026-05-08 14:15:05,606 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 14:15:08,610 INFO logging_setup.py [47] MainThread :[ERROR] 连接失败: timed out
+2026-05-08 14:15:08,610 ERROR dc_controller.py [135] MainThread :连接失败
+2026-05-08 14:15:12,421 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 14:15:12,422 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 14:15:12,425 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 14:15:12,425 INFO dc_controller.py [130] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 14:15:12,425 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 14:15:12,429 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 14:15:12,430 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 14:15:12,430 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 14:15:12,432 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:15:12,433 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 14:15:12,433 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:15:12,433 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:15:12,433 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 14:15:13,208 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 14:15:13,210 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 14:15:13,210 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 14:15:13,212 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:15:15,206 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 14:15:15,207 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:15:15,207 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 14:15:15,208 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:15:24,998 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000601060F950001
+2026-05-08 14:15:24,998 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:15:24,999 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000601061B750055
+2026-05-08 14:15:24,999 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:15:38,494 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000601060F950000
+2026-05-08 14:15:38,495 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:15:38,495 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601061B750055
+2026-05-08 14:15:38,496 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:15:54,805 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000B0000000601060FA90000
+2026-05-08 14:15:54,806 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:15:54,807 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000C0000000F01100FAA00040805DC000001F40000
+2026-05-08 14:15:54,807 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:16:10,550 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000D0000000601060FA90000
+2026-05-08 14:16:10,550 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:16:10,551 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000E0000000F01100FAA00040807D00000012C0000
+2026-05-08 14:16:10,551 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:16:23,277 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000F0000000601060FA90001
+2026-05-08 14:16:23,278 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:16:23,278 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00100000000F01100FAA00040801F4000000000000
+2026-05-08 14:16:23,278 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:17:10,685 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:17:10,686 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 14:17:10,686 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:17:10,687 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 14:17:10,687 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:17:10,687 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 14:17:10,727 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 14:17:10,728 INFO logging_setup.py [47] MainThread :1
+2026-05-08 14:17:10,975 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:17:10,975 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 14:17:10,975 INFO SCPITestWave.py [28088] MainThread :2026-05-08 14:17:10    程式开启
+2026-05-08 14:17:10,975 INFO logging_setup.py [47] MainThread :2026-05-08 14:17:10    程式开启
+2026-05-08 14:17:17,557 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 14:17:17,557 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 14:17:17,572 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 14:17:17,573 INFO dc_controller.py [130] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 14:17:17,573 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 14:17:17,575 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 14:17:17,575 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 14:17:17,576 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 14:17:17,578 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:17:17,578 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 14:17:17,578 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:17:17,579 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:17:17,579 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 14:17:18,175 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 14:17:18,178 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 14:17:18,178 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 14:17:18,180 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:17:21,221 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 14:17:21,222 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:17:21,222 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 14:17:21,223 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:17:29,670 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000601060FA90000
+2026-05-08 14:17:29,671 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:17:29,671 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000F01100FAA0004080514000003200000
+2026-05-08 14:17:29,671 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:17:43,926 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000601060FA90001
+2026-05-08 14:17:43,926 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:17:43,927 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000F01100FAA0004080000000000000000
+2026-05-08 14:17:43,927 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:20,219 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:20:20,220 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 14:20:20,221 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:20:20,221 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 14:20:20,221 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:20:20,222 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 14:20:20,263 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 14:20:20,263 INFO logging_setup.py [47] MainThread :1
+2026-05-08 14:20:20,543 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:20:20,544 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 14:20:20,544 INFO SCPITestWave.py [28088] MainThread :2026-05-08 14:20:20    程式开启
+2026-05-08 14:20:20,544 INFO logging_setup.py [47] MainThread :2026-05-08 14:20:20    程式开启
+2026-05-08 14:20:26,478 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 14:20:26,478 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 14:20:26,485 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 14:20:26,486 INFO dc_controller.py [130] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 14:20:26,486 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 14:20:26,488 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 14:20:26,490 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 14:20:26,490 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 14:20:26,492 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:20:26,492 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 14:20:26,493 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:20:26,493 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:20:26,493 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 14:20:26,856 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 14:20:26,858 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 14:20:26,858 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 14:20:26,860 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:20:28,550 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 14:20:28,550 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:28,551 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 14:20:28,551 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:35,453 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000601060FA90000
+2026-05-08 14:20:35,454 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:35,454 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000F01100FAA00040807D0000001F40000
+2026-05-08 14:20:35,455 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:42,710 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000B01100FAE00020405140000
+2026-05-08 14:20:42,710 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:42,711 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601060FA90001
+2026-05-08 14:20:42,711 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:55,526 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000B0000000B01100FAE00020404B00000
+2026-05-08 14:20:55,526 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:20:55,527 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000C0000000601060FA90001
+2026-05-08 14:20:55,527 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:21:03,030 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000D0000000601060BB800AA
+2026-05-08 14:21:03,030 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:21:03,031 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:21:03,031 INFO logging_setup.py [47] MainThread :2026-05-08 14:21:03DC1 MODBUS REG 0x0BB8 <- 0x00AA
+2026-05-08 14:21:03,031 INFO dc_controller.py [51] MainThread :DC1 OUTP ON (Modbus)
+2026-05-08 14:21:03,032 INFO logging_setup.py [47] MainThread :2026-05-08 14:21:03DC1 OUTP ON (Modbus)
+2026-05-08 14:21:11,589 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000E0000000601060BB80055
+2026-05-08 14:21:11,590 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:21:11,590 INFO dc_controller.py [38] MainThread :DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:21:11,591 INFO logging_setup.py [47] MainThread :2026-05-08 14:21:11DC1 MODBUS REG 0x0BB8 <- 0x0055
+2026-05-08 14:21:11,591 INFO dc_controller.py [51] MainThread :DC1 OUTP OFF (Modbus)
+2026-05-08 14:21:11,592 INFO logging_setup.py [47] MainThread :2026-05-08 14:21:11DC1 OUTP OFF (Modbus)
+2026-05-08 14:23:41,751 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27611: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:23:41,751 ERROR logging_setup.py [47] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-05-08 14:23:41,752 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27627: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:23:41,753 ERROR logging_setup.py [47] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-05-08 14:23:41,753 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:27632: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:23:41,754 ERROR logging_setup.py [47] MainThread :  thread_messure_testing.setDaemon(True)
+2026-05-08 14:23:41,801 INFO logging_setup.py [47] MainThread :('ASRL1::INSTR',)
+2026-05-08 14:23:41,801 INFO logging_setup.py [47] MainThread :1
+2026-05-08 14:23:42,051 ERROR logging_setup.py [47] MainThread :d:\DXL\workspace\solarautotestdev\SCPITestWave.py:28084: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-05-08 14:23:42,051 ERROR logging_setup.py [47] MainThread :  thread_error_info.setDaemon(True)
+2026-05-08 14:23:42,052 INFO SCPITestWave.py [28088] MainThread :2026-05-08 14:23:42    程式开启
+2026-05-08 14:23:42,052 INFO logging_setup.py [47] MainThread :2026-05-08 14:23:42    程式开启
+2026-05-08 14:23:50,021 INFO SCPITestWave.py [878] MainThread :192.168.40.25
+2026-05-08 14:23:50,021 INFO logging_setup.py [47] MainThread :通过IP访问直流源
+2026-05-08 14:23:50,028 INFO logging_setup.py [47] MainThread :[OK] 连接成功(socket): 192.168.40.25:502
+2026-05-08 14:23:50,028 INFO dc_controller.py [130] MainThread :连接成功: 192.168.40.25:502
+2026-05-08 14:23:50,029 INFO logging_setup.py [47] MainThread :直流源连接成功
+2026-05-08 14:23:50,031 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000100000006010409D30008
+2026-05-08 14:23:50,033 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0001000000130104104C4333302D323030302D363000000000
+2026-05-08 14:23:50,034 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00020000000601040A15004B
+2026-05-08 14:23:50,035 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00020000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:23:50,036 INFO logging_setup.py [47] MainThread :DC1 *IDN? 查询结果: LC30-2000-60, ARM_PM30KW-A-V21_V1_J; MDSP_PM30KW-A-V13_V1_G; SDSP_PM30KW-A-V13_V1_C; LCD_PM30KW-A-V21_V2_E; HMI_PM30KW-A-V21_V2_D
+2026-05-08 14:23:50,036 INFO SCPITestWave.py [837] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:23:50,036 INFO logging_setup.py [47] MainThread :DC1 厂家识别结果: Bluesight
+2026-05-08 14:23:50,036 INFO logging_setup.py [47] MainThread :直流电源1连接成功
+2026-05-08 14:23:50,495 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=000300000006010409D30008
+2026-05-08 14:23:50,496 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=25 hex=0003000000130104104C4333302D323030302D363000000000
+2026-05-08 14:23:50,496 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=True to_ms=3000 adu=00040000000601040A15004B
+2026-05-08 14:23:50,498 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=True len=159 hex=00040000009901049641524D5F504D33304B572D412D5632315F56315F4A0000000000000000004D4453505F504D3330…
+2026-05-08 14:23:52,333 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00050000000601060F950000
+2026-05-08 14:23:52,334 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:23:52,334 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00060000000601061B750055
+2026-05-08 14:23:52,334 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:23:59,406 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00070000000601060FA90000
+2026-05-08 14:23:59,406 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:23:59,407 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00080000000F01100FAA00040805DC0000012C0000
+2026-05-08 14:23:59,407 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:24:18,270 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00090000000B01100FAE00020409C40000
+2026-05-08 14:24:18,271 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:24:18,271 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000A0000000601060FA90001
+2026-05-08 14:24:18,272 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:24:33,150 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000B0000000601060FA90002
+2026-05-08 14:24:33,151 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:24:33,151 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000C0000000B01100FB000020494700000
+2026-05-08 14:24:33,152 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:24:59,046 INFO logging_setup.py [47] MainThread :[ModbusVISA] 空闲超过 22s，主动重连（避免对端空闲掐线）
+2026-05-08 14:24:59,050 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000D0000000B01100FAE0002040C800000
+2026-05-08 14:24:59,051 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:24:59,051 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000E0000000601060FA90001
+2026-05-08 14:24:59,051 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:25:14,694 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=000F0000000601060FA90002
+2026-05-08 14:25:14,695 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:25:14,695 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00100000000B01100FB000020494700000
+2026-05-08 14:25:14,696 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:25:21,423 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00110000000601060FA90002
+2026-05-08 14:25:21,423 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:25:21,423 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00120000000B01100FB00002044E200000
+2026-05-08 14:25:21,424 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:25:39,630 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00130000000B01100FB200020401F40000
+2026-05-08 14:25:39,630 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)
+2026-05-08 14:25:39,631 INFO logging_setup.py [47] MainThread :[ModbusVISA] TX socket ip=192.168.40.25:502 expect_resp=False to_ms=800 adu=00140000000601060FA90003
+2026-05-08 14:25:39,631 INFO logging_setup.py [47] MainThread :[ModbusVISA] RX expect_resp=False (宽松写，不等待读应答)

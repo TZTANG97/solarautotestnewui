@@ -267,12 +267,14 @@ def _show_bluesight_dc_settings_dialog(dc_slot_index: int, open_fn, close_fn) ->
     ctrls = (dc1_controller, dc2_controller, dc3_controller, dc4_controller)
     ctrl = ctrls[dc_slot_index] if 0 <= dc_slot_index < 4 else None
     client = getattr(ctrl, "client", None) if ctrl is not None else None
+    ip_disp = (getattr(ctrl, "resource", None) or "").strip()
     run_bluesight_dc_setting_dialog(
         parent,
         dc_slot_index + 1,
         open_fn,
         close_fn,
         modbus_client=client,
+        device_ip=ip_disp or None,
     )
 
 
