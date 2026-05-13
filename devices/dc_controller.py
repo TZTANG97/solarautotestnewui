@@ -1,5 +1,8 @@
+import time
+
 from PyQt5.QtWidgets import QMessageBox
 
+from .handle_release import release_resource_handle
 from modbus_visa import ModbusVISA
 
 
@@ -160,6 +163,7 @@ class DCController:
             self.logger.info('直流电源连接成功')
             print('直流电源连接成功')
             self._set_handle(handle)
+            self.resource = tcp_addr
             return self.handle, '1'
 
     def disconnect(self, safe_close_handle):
@@ -171,7 +175,7 @@ class DCController:
         return None, None, '0'
 
     def poll_syst_err(self, tcp_addr, reconnect_message_prefix):
-        """轮询 SYST:ERR?。Modbus TCP 句柄为 SOCKET，无 SCPI，直接返回不重连。"""
+        """轮询 SYST:ERR?；USB/VISA 失败时先释放旧句柄再重连。Modbus TCP 无 SCPI，不重连。"""
         if self.client is not None:
             return self.handle, None
         try:
@@ -180,10 +184,18 @@ class DCController:
         except Exception as e:
             print(f'{reconnect_message_prefix} error: {e}')
             self.logger.error(f'{reconnect_message_prefix} error: {e}')
-            new_handle = self.rm.open_resource(tcp_addr)
+            release_resource_handle(self.handle)
+            self._set_handle(None)
+            time.sleep(0.12)
+            try:
+                new_handle = self.rm.open_resource(tcp_addr)
+            except Exception as e2:
+                self.logger.error(e2)
+                return None, None
             if self.configure_scpi_resource is not None:
                 self.configure_scpi_resource(new_handle)
             self._set_handle(new_handle)
+            self.resource = tcp_addr
             print(f'{reconnect_message_prefix}---reconnect---{new_handle}')
             self.logger.info(f'{reconnect_message_prefix}---reconnect---{new_handle}')
             return new_handle, None

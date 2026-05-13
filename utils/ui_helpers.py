@@ -13,8 +13,10 @@ def _toggle_connection_button(connected_button_name, connected):
 
 
 def _safe_close_handle(handle):
+    """释放 VISA/Modbus 句柄；与 ``devices.handle_release`` 对齐（勿仅 ``close()``，否则 Modbus 包装无法断开）。"""
     try:
-        if handle is not None:
-            handle.close()
+        from devices.handle_release import release_resource_handle
+
+        release_resource_handle(handle)
     except Exception:
         pass

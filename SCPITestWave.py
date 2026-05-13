@@ -90,13 +90,14 @@ from config.app_config import config
 from config.path_config import PATH_WT_EXE, PATH_RECORDINGS, PATH_MPPT_EXE
 from infra.logging_setup import setup_logging, install_stream_logging
 from infra.exception_handler import install_exception_hook
-from utils.ui_helpers import _show_connect_message, _toggle_connection_button, _safe_close_handle
+from utils.ui_helpers import _show_connect_message, _toggle_connection_button
 from utils.time_helpers import SetTimeFunction
 from devices.scpi_common import _configure_scpi_resource
 from devices.ac_controller import ACController
 from devices.dc_controller import DCController, send_dc_test_message
 from devices.dl850_controller import DL850Controller
 from devices.wt_controller import WT3000Controller
+from devices.handle_release import release_resource_handle
 from app.bootstrap import bootstrap
 from app.context import get_app_context
 from setup.main_setup import initialize_setup_windows
@@ -431,26 +432,9 @@ def _toggle_connection_button(connected_button_name, connected):
 
 
 def _safe_close_handle(handle):
-    """关闭设备句柄：PyVISA（串口/USB/GPIB 等）用 ``close()``；ModbusVISA 仅有 ``disconnect()``。
-
-    不可用 ``isinstance(ModbusVISA)``：避免与部分路径的句柄类型耦合；统一按「有 close 先 close，否则 disconnect」。
-    """
+    """关闭设备句柄：委托 ``devices.handle_release``，与 AC/DC 控制器内重连前释放逻辑一致。"""
     try:
-        if handle is None:
-            return
-        close_fn = getattr(handle, "close", None)
-        if callable(close_fn):
-            close_fn()
-            print("关闭设备成功")
-            return
-        disconnect_fn = getattr(handle, "disconnect", None)
-        if callable(disconnect_fn):
-            try:
-                disconnect_fn(quiet=True)
-            except TypeError:
-                disconnect_fn()
-            print("断开设备成功")
-            return
+        release_resource_handle(handle)
     except Exception as e:
         logger.info(f"关闭设备失败: {e}")
         print(f"关闭设备失败: {e}")
@@ -27300,11 +27284,25 @@ def mppt_end_test():
 
             return 1
 
+def _should_poll_equ_ctrl_for_syst_err(ctrl, connect_btn):
+    """句柄已丢但 UI 仍为「已连接」时也要轮询：open_resource 失败后 connected=False 时不能永久跳过。"""
+    if ctrl is None:
+        return False
+    if ctrl.connected:
+        return True
+    if not (getattr(ctrl, "resource", "") or "").strip():
+        return False
+    try:
+        return connect_btn.text() == "取消连接"
+    except Exception:
+        return False
+
+
 def system_error_info():
     """周期性轮询设备系统错误并尝试重连。"""
     global ac_controller
     while True:
-        if ac_controller is not None and ac_controller.connected:
+        if _should_poll_equ_ctrl_for_syst_err(ac_controller, ui.pushButton_ConnectEQUAC):
             # Modbus TCP（ModbusVISA）：句柄为 SOCKET，不支持 SCPI SYST:ERR?；勿用下拉框原文 open_resource（含中文会触发 PyVISA ascii 错误）
             if ac_controller.client is not None:
                 time.sleep(1)
@@ -27322,6 +27320,9 @@ def system_error_info():
                         if endpoint is not None:
                             host, port = endpoint
                             _safe_close_handle(ac_controller.handle)
+                            ac_controller.client = None
+                            ac_controller._itech = None
+                            ac_controller._set_handle(None)
                             client = ModbusVISA(
                                 host,
                                 port,
@@ -27341,11 +27342,16 @@ def system_error_info():
                                 ac_controller._itech = None
                                 ac_controller._set_handle(None)
                         else:
+                            # USB/GPIB 等：必须先释放旧 VISA 会话再 open，否则常出现 VI_ERROR_SYSTEM_ERROR 且反复重连无效
+                            _safe_close_handle(ac_controller.handle)
+                            ac_controller._set_handle(None)
+                            time.sleep(0.12)
                             handle = rm.open_resource(tcp_addr)
                             _configure_scpi_resource(handle)
                             ac_controller.client = None
                             ac_controller._itech = None
-                            ac_controller.handle = handle
+                            ac_controller._set_handle(handle)
+                            ac_controller.resource = tcp_addr
                             print(f'AC---reconnect---{ac_controller.handle}')
                             logger.info(f'AC---reconnect---{ac_controller.handle}')
                     except Exception as e2:
@@ -27355,25 +27361,25 @@ def system_error_info():
                 else:
                     logger.info(f'AC return error message: {information_AC}')
         
-        if dc1_controller is not None and dc1_controller.connected:
+        if _should_poll_equ_ctrl_for_syst_err(dc1_controller, ui.pushButton_ConnectEQUDC1):
             tcp_addr_dc1 = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
             _, information_DC1 = dc1_controller.poll_syst_err(tcp_addr_dc1, 'DC1')
             if information_DC1 is not None:
                 logger.info(f'DC1 return error message: {information_DC1}')
         
-        if dc2_controller is not None and dc2_controller.connected:
+        if _should_poll_equ_ctrl_for_syst_err(dc2_controller, ui.pushButton_ConnectEQUDC2):
             tcp_addr_dc2 = _normalize_equ_resource_text(ui.comboBox_DC2.currentText())
             _, information_DC2 = dc2_controller.poll_syst_err(tcp_addr_dc2, 'DC2')
             if information_DC2 is not None:
                 logger.info(f'DC2 return error message: {information_DC2}')
         
-        if dc3_controller is not None and dc3_controller.connected:
+        if _should_poll_equ_ctrl_for_syst_err(dc3_controller, ui.pushButton_ConnectEQUDC3):
             tcp_addr_dc3 = _normalize_equ_resource_text(ui.comboBox_DC3.currentText())
             _, information_DC3 = dc3_controller.poll_syst_err(tcp_addr_dc3, 'DC3')
             if information_DC3 is not None:
                 logger.info(f'DC3 return error message: {information_DC3}')
         
-        if dc4_controller is not None and dc4_controller.connected:
+        if _should_poll_equ_ctrl_for_syst_err(dc4_controller, ui.pushButton_ConnectEQUDC4):
             tcp_addr_dc4 = _normalize_equ_resource_text(ui.comboBox_DC4.currentText())
             _, information_DC4 = dc4_controller.poll_syst_err(tcp_addr_dc4, 'DC4')
             if information_DC4 is not None:

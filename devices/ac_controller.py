@@ -2,6 +2,7 @@ import time
 
 from PyQt5.QtWidgets import QMessageBox
 
+from .handle_release import release_resource_handle
 from modbus_visa import ModbusVISA
 from scpi_to_modbustcp import ItechTranslator
 
@@ -96,17 +97,25 @@ class ACController:
         return None, None, '0'
 
     def poll_syst_err(self, tcp_addr):
-        """轮询交流电源 SYST:ERR?，失败时尝试重新连接。"""
+        """轮询交流电源 SYST:ERR?，失败时先释放旧会话再 ``open_resource`` 重连。"""
         try:
             information = self.handle.query('SYST:ERR?')
             return self.handle, information
         except Exception as e:
             print(e)
             self.logger.error(e)
-            new_handle = self.rm.open_resource(tcp_addr)
+            release_resource_handle(self.handle)
+            self._set_handle(None)
+            time.sleep(0.12)
+            try:
+                new_handle = self.rm.open_resource(tcp_addr)
+            except Exception as e2:
+                self.logger.error(e2)
+                return None, None
             if self.configure_scpi_resource is not None:
                 self.configure_scpi_resource(new_handle)
             self._set_handle(new_handle)
+            self.resource = tcp_addr
             print(f'HandleEquAC---reconnect---{new_handle}')
             self.logger.info(f'HandleEquAC---reconnect---{new_handle}')
             return new_handle, None
