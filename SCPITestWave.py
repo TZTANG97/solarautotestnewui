@@ -27347,7 +27347,11 @@ def system_error_info():
                             ac_controller._set_handle(None)
                             time.sleep(0.12)
                             handle = rm.open_resource(tcp_addr)
-                            _configure_scpi_resource(handle)
+                            try:
+                                _configure_scpi_resource(handle)
+                            except Exception:
+                                release_resource_handle(handle)
+                                raise
                             ac_controller.client = None
                             ac_controller._itech = None
                             ac_controller._set_handle(handle)

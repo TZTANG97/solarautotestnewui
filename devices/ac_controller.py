@@ -69,8 +69,6 @@ class ACController:
         """通过 VISA/SCPI 连接交流电源。"""
         try:
             handle = self.rm.open_resource(tcp_addr)
-            if self.configure_scpi_resource is not None:
-                self.configure_scpi_resource(handle)
         except Exception:
             print('device not exit')
             self.logger.info('交流电源 not exit')
@@ -78,13 +76,22 @@ class ACController:
             self.show_message('交流电源连接失败，请检查设备地址和连线', ui)
             self._set_handle(None)
             return None, '0'
-        else:
-            self.logger.info('交流电源连接成功')
-            print('交流电源连接成功')
-            self._set_handle(handle)
-            self._itech = None
-            self.resource = tcp_addr
-            return self.handle, '1'
+        try:
+            if self.configure_scpi_resource is not None:
+                self.configure_scpi_resource(handle)
+        except Exception:
+            self.logger.info('交流电源 not exit')
+            print('交流电源 not exit')
+            self.show_message('交流电源连接失败，请检查设备地址和连线', ui)
+            release_resource_handle(handle)
+            self._set_handle(None)
+            return None, '0'
+        self.logger.info('交流电源连接成功')
+        print('交流电源连接成功')
+        self._set_handle(handle)
+        self._itech = None
+        self.resource = tcp_addr
+        return self.handle, '1'
 
     def disconnect(self, safe_close_handle):
         """断开交流电源并重置状态。"""
@@ -112,8 +119,13 @@ class ACController:
             except Exception as e2:
                 self.logger.error(e2)
                 return None, None
-            if self.configure_scpi_resource is not None:
-                self.configure_scpi_resource(new_handle)
+            try:
+                if self.configure_scpi_resource is not None:
+                    self.configure_scpi_resource(new_handle)
+            except Exception as e3:
+                self.logger.error(e3)
+                release_resource_handle(new_handle)
+                return None, None
             self._set_handle(new_handle)
             self.resource = tcp_addr
             print(f'HandleEquAC---reconnect---{new_handle}')
