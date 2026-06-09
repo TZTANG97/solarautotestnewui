@@ -300,6 +300,11 @@ def SaveDEWETRONConfig():
 
     _log("=== 开始保存配置 ===")
 
+    # 0. 先锁定用户在 UI 上选择的值（设备读取后会覆盖 combobox，必须提前保存）
+    acquisition_rate = uiDewetronSetting.comboBox_maxRefreshRate.currentText()
+    downsampling = uiDewetronSetting.comboBox_downsampling.currentText()
+    _log(f"用户选择 - 最大刷新率: {acquisition_rate}, 通道二次采样: {downsampling}")
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
     bootstrap_path = os.path.join(base_dir, 'config_files', 'dewetron.xml')
 
@@ -333,6 +338,15 @@ def SaveDEWETRONConfig():
     else:
         _log(f"从设备读取配置: {len(xml_string)} 字符, {len(channel_id_map)} 个通道ID")
 
+    # 从 XML 读取设备当前值（仅日志，不覆盖 UI 选择）
+    import re as _re
+    rate_match = _re.search(r'<Property name="POWER/MaxUpdateRate"><StringValue>"?(\d+)"?</StringValue>', xml_string)
+    if rate_match:
+        _log(f"设备当前刷新率: {rate_match.group(1)} (UI 使用用户选择: {acquisition_rate})")
+    ds_match = _re.search(r'<Property name="POWER/DataSubsampling"><StringValue>"?([^"<]+)"?</StringValue>', xml_string)
+    if ds_match:
+        _log(f"设备当前二次采样: {ds_match.group(1)} (UI 使用用户选择: {downsampling})")
+
     # 2. 获取 UI 设置
     # 接线类型
     wiring_type = 0
@@ -345,13 +359,18 @@ def SaveDEWETRONConfig():
 
     # 通道映射
     channel_map = {}
+    empty_slots = []
     for slot_name, le in uiDewetronSetting._slot_input_widgets.items():
         ch = le._channel
         channel_map[slot_name] = ch
         if ch:
             _log(f"  {slot_name} <- {ch}")
-    if not channel_map:
-        _log("警告: 没有通道映射!")
+        else:
+            empty_slots.append(slot_name)
+    if empty_slots:
+        _log(f"以下通道未填写: {', '.join(empty_slots)}")
+        _show_connect_message(f"请填写所有通道，以下槽位为空: {', '.join(empty_slots)}", uiDewetronSetting)
+        return
 
     # 3. 从设备 XML 中读取 InputChannels 映射
     input_channels = dewetron_controller.read_input_channels(xml_string)
@@ -376,7 +395,8 @@ def SaveDEWETRONConfig():
             _log(f"  {slot_name} <- (未选择)")
 
     # 4. 修改 XML（使用设备原始 InputChannels 映射）
-    modified_xml = DewetronController.modify_xml(xml_string, wiring_type, channel_map, channel_id_map, input_channels)
+    modified_xml = DewetronController.modify_xml(xml_string, wiring_type, channel_map, channel_id_map, input_channels,
+                                                 acquisition_rate=acquisition_rate, downsampling=downsampling)
     _log(f"XML已修改: {len(modified_xml)} 字符")
 
     # 4. 保存到 command_save_files/dewetron_data/（按小时命名）

@@ -186,7 +186,8 @@ class DewetronController:
             return False
 
     @staticmethod
-    def modify_xml(xml_string, wiring_type, channel_map, channel_id_map=None, input_channels=None):
+    def modify_xml(xml_string, wiring_type, channel_map, channel_id_map=None, input_channels=None,
+                   acquisition_rate=None, downsampling=None):
         """根据 UI 设置修改 XML 配置字符串。
 
         Args:
@@ -195,6 +196,8 @@ class DewetronController:
             channel_map: dict，键为 slot_name (如 'U1', 'I1')，值为通道名 (如 'AI 1/U1')
             channel_id_map: dict，ShortId -> ChannelID 映射（从设备读取）。为 None 时跳过 InputChannels 映射。
             input_channels: dict，设备原始 InputChannels 映射 {slot: channel_id}。为 None 时跳过。
+            acquisition_rate: 最大刷新率 (如 '100', 'Default')，为 None 时不修改。
+            downsampling: 通道二次采样 (如 'Auto', '2', '关')，为 None 时不修改。
         Returns:
             修改后的 XML 字符串
         """
@@ -293,6 +296,32 @@ class DewetronController:
                 print("[DEWETRON] InputChannels 映射无需修改（已与 UI 一致）")
         else:
             print("[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改")
+
+        # 6. 最大刷新率 (POWER/MaxUpdateRate) — PowerModule 全局属性，单位 ms
+        if acquisition_rate is not None and acquisition_rate != 'Default':
+            mu_replacements = []
+            for m in re.finditer(r'(<Property name="POWER/MaxUpdateRate"><StringValue>")"?(\d+)"?(</StringValue>)', xml):
+                if m.group(2) != acquisition_rate:
+                    mu_replacements.append((m.start(2), m.end(2), acquisition_rate, 'POWER/MaxUpdateRate'))
+            mu_replacements.sort(key=lambda x: x[0], reverse=True)
+            for start, end, val, label in mu_replacements:
+                xml = xml[:start] + val + xml[end:]
+                print(f"[DEWETRON] {label} -> {val} ms")
+            if not mu_replacements:
+                print("[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）")
+
+        # 7. 通道二次采样 (POWER/DataSubsampling) — PowerModule 全局属性
+        if downsampling is not None:
+            ds_replacements = []
+            for m in re.finditer(r'(<Property name="POWER/DataSubsampling"><StringValue>")"?([^"<]+)"?(</StringValue>)', xml):
+                if m.group(2) != downsampling:
+                    ds_replacements.append((m.start(2), m.end(2), downsampling, 'POWER/DataSubsampling'))
+            ds_replacements.sort(key=lambda x: x[0], reverse=True)
+            for start, end, val, label in ds_replacements:
+                xml = xml[:start] + val + xml[end:]
+                print(f"[DEWETRON] {label} -> {val}")
+            if not ds_replacements:
+                print("[DEWETRON] POWER/DataSubsampling 无需修改（已与 UI 一致）")
 
         return xml
 

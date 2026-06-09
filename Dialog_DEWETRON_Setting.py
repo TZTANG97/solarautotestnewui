@@ -364,17 +364,12 @@ class Ui_Dialog_DEWETRON_Setting(object):
         # Tab 2: 设置
         # ============================================================
         self.tab_settings = QWidget()
-        tab2_layout = QHBoxLayout(self.tab_settings)
+        tab2_layout = QVBoxLayout(self.tab_settings)
         tab2_layout.setContentsMargins(10, 10, 10, 10)
         tab2_layout.setSpacing(10)
 
-        # --- 左列：基本配置 + 采样与测量配置 ---
-        left_col = QVBoxLayout()
-        left_col.setSpacing(8)
-
-        # GroupBox 1: 基本配置
+        # 基本配置（IP + 端口）
         self.groupBox_basicConfig = QtWidgets.QGroupBox("基本配置")
-        self.groupBox_basicConfig.setMinimumHeight(190)
         bc_layout = QtWidgets.QFormLayout(self.groupBox_basicConfig)
         bc_layout.setSpacing(8)
 
@@ -385,125 +380,29 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.lineEdit_port.setMaximumWidth(120)
         bc_layout.addRow("端口号:", self.lineEdit_port)
 
-        file_row = QHBoxLayout()
-        self.pushButton_selectConfigFile = QtWidgets.QPushButton("选择文件...")
-        self.pushButton_selectConfigFile.setMaximumWidth(90)
-        file_row.addWidget(self.pushButton_selectConfigFile)
-        self.label_configFilePath = QtWidgets.QLabel("")
-        self.label_configFilePath.setStyleSheet("color: gray;")
-        file_row.addWidget(self.label_configFilePath, 1)
-        bc_layout.addRow("配置文件:", file_row)
+        tab2_layout.addWidget(self.groupBox_basicConfig)
 
-        left_col.addWidget(self.groupBox_basicConfig)
+        # 设备参数
+        self.groupBox_deviceParams = QtWidgets.QGroupBox("设备参数")
+        dp_layout = QtWidgets.QFormLayout(self.groupBox_deviceParams)
+        dp_layout.setSpacing(8)
 
-        # GroupBox 2: 采样与测量配置
-        self.groupBox_samplingConfig = QtWidgets.QGroupBox("采样与测量配置")
-        sc_layout = QtWidgets.QVBoxLayout(self.groupBox_samplingConfig)
-        sc_layout.setSpacing(4)
+        # 最大刷新率
+        self.comboBox_maxRefreshRate = QtWidgets.QComboBox()
+        self.comboBox_maxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1"])
+        self.comboBox_maxRefreshRate.setCurrentText("Default")
+        self.comboBox_maxRefreshRate.setMaximumWidth(150)
+        dp_layout.addRow("最大刷新率:", self.comboBox_maxRefreshRate)
 
-        # 采样率
-        sr_row = QHBoxLayout()
-        sr_row.addWidget(QtWidgets.QLabel("采样率:"))
-        self.comboBox_samplingRate = QtWidgets.QComboBox()
-        self.comboBox_samplingRate.addItems(["10ms", "50ms", "100ms", "500ms", "1000ms"])
-        self.comboBox_samplingRate.setCurrentText("100ms")
-        self.comboBox_samplingRate.setMaximumWidth(120)
-        sr_row.addWidget(self.comboBox_samplingRate)
-        sr_row.addStretch()
-        sc_layout.addLayout(sr_row)
+        # 通道二次采样
+        self.comboBox_downsampling = QtWidgets.QComboBox()
+        self.comboBox_downsampling.addItems(["Auto", "关", "2", "3", "4", "5"])
+        self.comboBox_downsampling.setCurrentText("Auto")
+        self.comboBox_downsampling.setMaximumWidth(150)
+        dp_layout.addRow("通道二次采样:", self.comboBox_downsampling)
 
-        # 测量通道
-        sc_layout.addWidget(QtWidgets.QLabel("测量通道:"))
-        ch_grid = QtWidgets.QGridLayout()
-        ch_grid.setSpacing(4)
-
-        self.checkBox_uTRMS = QtWidgets.QCheckBox("电压有效值 (U_tRMS)")
-        self.checkBox_uTRMS.setChecked(True)
-        ch_grid.addWidget(self.checkBox_uTRMS, 0, 0)
-
-        self.checkBox_S = QtWidgets.QCheckBox("视在功率 (S)")
-        ch_grid.addWidget(self.checkBox_S, 0, 1)
-
-        self.checkBox_iTRMS = QtWidgets.QCheckBox("电流有效值 (I_tRMS)")
-        self.checkBox_iTRMS.setChecked(True)
-        ch_grid.addWidget(self.checkBox_iTRMS, 1, 0)
-
-        self.checkBox_Q = QtWidgets.QCheckBox("无功功率 (Q)")
-        ch_grid.addWidget(self.checkBox_Q, 1, 1)
-
-        self.checkBox_Pt = QtWidgets.QCheckBox("有功功率 (P_t)")
-        self.checkBox_Pt.setChecked(True)
-        ch_grid.addWidget(self.checkBox_Pt, 2, 0)
-
-        self.checkBox_PF = QtWidgets.QCheckBox("功率因数 (PF)")
-        ch_grid.addWidget(self.checkBox_PF, 2, 1)
-
-        self.checkBox_F = QtWidgets.QCheckBox("频率 (F)")
-        ch_grid.addWidget(self.checkBox_F, 3, 0)
-
-        sc_layout.addLayout(ch_grid)
-
-        # 录制设置
-        rec_row = QHBoxLayout()
-        rec_row.addWidget(QtWidgets.QLabel("录制设置:"))
-        self.checkBox_enableRecording = QtWidgets.QCheckBox("启用录制")
-        self.checkBox_enableRecording.setChecked(True)
-        rec_row.addWidget(self.checkBox_enableRecording)
-        rec_row.addStretch()
-        sc_layout.addLayout(rec_row)
-
-        fn_row = QHBoxLayout()
-        fn_row.addWidget(QtWidgets.QLabel("文件名:"))
-        self.lineEdit_recordingFileName = QtWidgets.QLineEdit("电力测量")
-        self.lineEdit_recordingFileName.setMaximumWidth(200)
-        fn_row.addWidget(self.lineEdit_recordingFileName)
-        fn_row.addStretch()
-        sc_layout.addLayout(fn_row)
-
-        left_col.addWidget(self.groupBox_samplingConfig)
-        left_col.addStretch()
-
-        tab2_layout.addLayout(left_col, 1)
-
-        # --- 右列：比例系数配置 ---
-        right_col = QVBoxLayout()
-        right_col.setSpacing(8)
-
-        # GroupBox: 比例系数配置
-        self.groupBox_ratioConfig = QtWidgets.QGroupBox("比例系数配置")
-        rc_layout = QtWidgets.QFormLayout(self.groupBox_ratioConfig)
-        rc_layout.setSpacing(8)
-
-        self.doubleSpinBox_vRatio = QtWidgets.QDoubleSpinBox()
-        self.doubleSpinBox_vRatio.setMinimum(0.001)
-        self.doubleSpinBox_vRatio.setMaximum(9999.0)
-        self.doubleSpinBox_vRatio.setDecimals(3)
-        self.doubleSpinBox_vRatio.setValue(1.0)
-        rc_layout.addRow("电压比例系数:", self.doubleSpinBox_vRatio)
-
-        self.doubleSpinBox_iRatio = QtWidgets.QDoubleSpinBox()
-        self.doubleSpinBox_iRatio.setMinimum(0.001)
-        self.doubleSpinBox_iRatio.setMaximum(9999.0)
-        self.doubleSpinBox_iRatio.setDecimals(3)
-        self.doubleSpinBox_iRatio.setValue(1.0)
-        rc_layout.addRow("电流比例系数:", self.doubleSpinBox_iRatio)
-
-        self.spinBox_ctRatio = QtWidgets.QSpinBox()
-        self.spinBox_ctRatio.setMinimum(1)
-        self.spinBox_ctRatio.setMaximum(9999)
-        self.spinBox_ctRatio.setValue(1)
-        rc_layout.addRow("CT变比:", self.spinBox_ctRatio)
-
-        self.spinBox_ptRatio = QtWidgets.QSpinBox()
-        self.spinBox_ptRatio.setMinimum(1)
-        self.spinBox_ptRatio.setMaximum(9999)
-        self.spinBox_ptRatio.setValue(1)
-        rc_layout.addRow("PT变比:", self.spinBox_ptRatio)
-
-        right_col.addWidget(self.groupBox_ratioConfig)
-        right_col.addStretch()
-
-        tab2_layout.addLayout(right_col, 1)
+        tab2_layout.addWidget(self.groupBox_deviceParams)
+        tab2_layout.addStretch()
 
         self.tabWidget.addTab(self.tab_settings, "设置")
 
