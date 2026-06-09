@@ -96,6 +96,7 @@ from devices.scpi_common import _configure_scpi_resource
 from devices.ac_controller import ACController
 from devices.dc_controller import DCController, send_dc_test_message
 from devices.dl850_controller import DL850Controller
+from devices.dewetron_controller import DewetronController
 from devices.wt_controller import WT3000Controller
 from devices.handle_release import release_resource_handle
 from app.bootstrap import bootstrap
@@ -107,6 +108,10 @@ from setup.main_setup import initialize_setup_windows
 def ShowDL850Setting():
     global dialog_windowDLSetting
     dialog_windowDLSetting.show()
+
+def ShowDEWETRONSetting():
+    global dialog_windowDewetronSetting
+    dialog_windowDewetronSetting.show()
 
 def ShowACSetting():
     global dialog_windowACSetting, ac_controller
@@ -250,6 +255,62 @@ def SendDL850SavePictureMessage():
         dl850_controller = DL850Controller(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDL850Setting)
     if not dl850_controller.send_save_picture():
         _show_connect_message("DL850未连接，请先连接DL850设备", uiDL850Setting)
+
+def SendDEWETRONStartMessage():
+    global dewetron_controller
+    global uiDewetronSetting
+    if dewetron_controller is None:
+        dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
+    if not dewetron_controller.send_start():
+        _show_connect_message("DEWETRON未连接，请先连接DEWETRON设备", uiDewetronSetting)
+
+def SendDEWETRONStopMessage():
+    global dewetron_controller
+    global uiDewetronSetting
+    if dewetron_controller is None:
+        dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
+    if not dewetron_controller.send_stop():
+        _show_connect_message("DEWETRON未连接，请先连接DEWETRON设备", uiDewetronSetting)
+
+def SaveDEWETRONConfig():
+    """保存 DEWETRON 配置并发送 :SETUP:LOAD 命令重新加载。
+
+    每小时生成一个配置文件，同小时内覆盖写入。
+    文件名格式: dewetron_YYYYMMDD_HH.dms
+    保存目录: command_save_files/dewetron_data/
+    """
+    global dewetron_controller
+    global uiDewetronSetting
+    import shutil
+    from datetime import datetime
+
+    # 源模板文件
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(base_dir, 'config_files', 'dewetron.dms')
+    if not os.path.exists(template_path):
+        _show_connect_message("模板文件不存在: config_files/dewetron.dms", uiDewetronSetting)
+        return
+
+    # 按小时生成目标文件名
+    now = datetime.now()
+    hour_dir = os.path.join(base_dir, 'command_save_files', 'dewetron_data')
+    os.makedirs(hour_dir, exist_ok=True)
+    filename = now.strftime("dewetron_%Y%m%d_%H.dms")
+    target_path = os.path.join(hour_dir, filename)
+
+    # 同小时内覆盖写入
+    shutil.copy2(template_path, target_path)
+
+    # 发送 :SETUP:LOAD 命令
+    if dewetron_controller is None:
+        dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
+    if not dewetron_controller.connected:
+        _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
+        return
+    if dewetron_controller.send_load_config(target_path):
+        _show_connect_message(f"配置已加载: {filename}", uiDewetronSetting)
+    else:
+        _show_connect_message("配置加载失败", uiDewetronSetting)
 
 def CloseACOUTPUTON():
     global ac_controller
@@ -403,6 +464,7 @@ WT3000_baud_rate = "9600"
 # 直流等 SCPI 串口(ASRL/COM)*IDN? 若超时，请按电源说明书改为 115200 等
 DC_ASRL_DEFAULT_BAUD = 9600
 dl850_controller = None
+dewetron_controller = None
 wt3000_controller = None
 ac_controller = None
 dc1_controller = None
@@ -417,6 +479,7 @@ app_ctx.WT3000_setting_window = WT3000_setting_window
 app_ctx.uiWT3000Setting = uiWT3000Setting
 app_ctx.WT3000_baud_rate = WT3000_baud_rate
 app_ctx.dl850_controller = dl850_controller
+app_ctx.dewetron_controller = dewetron_controller
 app_ctx.wt3000_controller = wt3000_controller
 app_ctx.ac_controller = ac_controller
 app_ctx.dc1_controller = dc1_controller
@@ -549,6 +612,7 @@ def _refresh_all_equ_combo_boxes(resources, connected_resources):
         "comboBox_DC4",
         "comboBox_DL850",
         "comboBox_WT3000",
+        "comboBox_DEWETRON",
     ]
     for name in combo_names:
         combo = getattr(ui, name, None)
@@ -659,6 +723,22 @@ def DisconnectEQUDL850():
     _restore_equ_to_combo_boxes(tcp_addr)
     _set_equ_combo_locked("comboBox_DL850", False)
     _toggle_connection_button("pushButton_ConnectEQUDL850", False)
+
+def DisconnectEQUDEWETRON():
+    """断开 DEWETRON 并解锁选择框。"""
+    global dewetron_controller
+    setting_ip = uiDewetronSetting.lineEdit_deviceIP.text().strip()
+    setting_port = uiDewetronSetting.lineEdit_port.text().strip()
+    if setting_ip:
+        tcp_addr = f"{setting_ip}:{setting_port}" if setting_port else setting_ip
+    else:
+        tcp_addr = _normalize_equ_resource_text(ui.comboBox_DEWETRON.currentText())
+    if dewetron_controller is None:
+        dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
+    dewetron_controller.disconnect(_safe_close_handle)
+    _restore_equ_to_combo_boxes(tcp_addr)
+    _set_equ_combo_locked("comboBox_DEWETRON", False)
+    _toggle_connection_button("pushButton_ConnectEQUDEWETRON", False)
 
 def DisconnectEQUWT3000():
     """断开 WT3000 并解锁选择框。"""
@@ -1015,6 +1095,28 @@ def ConnectEQUDL850():
         _toggle_connection_button("pushButton_ConnectEQUDL850", True)
         ui.pushButton_ConnectEQUDL850.setText("取消连接")
 
+def ConnectEQUDEWETRON():
+    """连接 DEWETRON。"""
+    global dewetron_controller
+    if ui.pushButton_ConnectEQUDEWETRON.text() == "取消连接":
+        DisconnectEQUDEWETRON()
+        return
+    setting_ip = uiDewetronSetting.lineEdit_deviceIP.text().strip()
+    setting_port = uiDewetronSetting.lineEdit_port.text().strip()
+    if setting_ip:
+        tcp_addr = f"{setting_ip}:{setting_port}" if setting_port else setting_ip
+    else:
+        tcp_addr = _normalize_equ_resource_text(ui.comboBox_DEWETRON.currentText())
+    logger.info(tcp_addr)
+    if dewetron_controller is None:
+        dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
+    dewetron_controller.connect(tcp_addr)
+    if dewetron_controller.connected:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DEWETRON", True)
+        _toggle_connection_button("pushButton_ConnectEQUDEWETRON", True)
+        ui.pushButton_ConnectEQUDEWETRON.setText("取消连接")
+
 def is_ip_address_format(addr):
     """判断输入是否为IPv4地址，支持可选端口（如 192.168.40.1:5000）。"""
     if not addr:
@@ -1067,6 +1169,7 @@ def ReConnectEQU():
         ui.pushButton_ConnectEQUDC4.setEnabled(True)
         ui.pushButton_ConnectEQUDL850.setEnabled(True)
         ui.pushButton_ConnectEQUWT3000.setEnabled(True)
+        ui.pushButton_ConnectEQUDEWETRON.setEnabled(True)
     else:
         EQUList = ['未发现可连接设备']
         ui.pushButton_ConnectEQUAC.setEnabled(False)
@@ -1076,6 +1179,7 @@ def ReConnectEQU():
         ui.pushButton_ConnectEQUDC4.setEnabled(False)
         ui.pushButton_ConnectEQUDL850.setEnabled(False)
         ui.pushButton_ConnectEQUWT3000.setEnabled(False)
+        ui.pushButton_ConnectEQUDEWETRON.setEnabled(False)
     _refresh_all_equ_combo_boxes(EQUList, _connected_equ_resources)
     ui.comboBox_WT3000.setEditable(False)
     uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.clear()
@@ -27542,6 +27646,9 @@ if __name__ == "__main__":
             if dl850_controller is not None:
                 dl850_controller.handle = None
                 dl850_controller.connected = False
+            if dewetron_controller is not None:
+                dewetron_controller.handle = None
+                dewetron_controller.connected = False
             if wt3000_controller is not None:
                 wt3000_controller.handle = None
                 wt3000_controller.connected = False
@@ -27648,6 +27755,8 @@ if __name__ == "__main__":
                 wt3000_controller.connected = False
             if dl850_controller is not None:
                 dl850_controller.connected = False
+            if dewetron_controller is not None:
+                dewetron_controller.connected = False
             if ac_controller is not None:
                 ac_controller.connected = False
             if dc1_controller is not None:
@@ -27730,6 +27839,8 @@ if __name__ == "__main__":
             uiThaiGuoQianYa_Pin = setup_windows["uiThaiGuoQianYa_Pin"]
             dialog_windowDLSetting = setup_windows["dialog_windowDLSetting"]
             uiDL850Setting = setup_windows["uiDL850Setting"]
+            dialog_windowDewetronSetting = setup_windows["dialog_windowDewetronSetting"]
+            uiDewetronSetting = setup_windows["uiDewetronSetting"]
             dialog_windowACSetting = setup_windows["dialog_windowACSetting"]
             uiACSetting = setup_windows["uiACSetting"]
             dialog_windowDC1Setting = setup_windows["dialog_windowDC1Setting"]
@@ -27762,7 +27873,7 @@ if __name__ == "__main__":
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT, EQUList, _connected_equ_resources)
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT, EQUList, _connected_equ_resources)
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT, EQUList, _connected_equ_resources)
-            for combo_name in ["comboBox_AC", "comboBox_DC1", "comboBox_DC2", "comboBox_DC3", "comboBox_DC4", "comboBox_DL850", "comboBox_WT3000"]:
+            for combo_name in ["comboBox_AC", "comboBox_DC1", "comboBox_DC2", "comboBox_DC3", "comboBox_DC4", "comboBox_DL850", "comboBox_WT3000", "comboBox_DEWETRON"]:
                 combo = getattr(ui, combo_name, None)
                 if combo is not None and combo.count() > 0:
                     combo.setCurrentIndex(0)
@@ -27788,6 +27899,7 @@ if __name__ == "__main__":
             ui.pushButton_ConnectEQUDC4.clicked.connect(ConnectEQUDC4)
             ui.pushButton_ConnectEQUDL850.clicked.connect(ConnectEQUDL850)
             ui.pushButton_ConnectEQUWT3000.clicked.connect(ConnectEQUWT3000)
+            ui.pushButton_ConnectEQUDEWETRON.clicked.connect(ConnectEQUDEWETRON)
             if hasattr(ui, "pushButton_SetWT3000Options"):
                 ui.pushButton_SetWT3000Options.clicked.connect(ShowWT3000Setting)
             ui.pushButton_ClearMessage.clicked.connect(ClearMessage)
@@ -28007,6 +28119,13 @@ if __name__ == "__main__":
 
             # 打开DL850Setting对话框
             ui.pushButton_SetDL850Options.clicked.connect(ShowDL850Setting)
+
+            # 打开DEWETRON Setting对话框
+            ui.pushButton_SetDEWETRONOptions.clicked.connect(ShowDEWETRONSetting)
+            # 连接/断开 DEWETRON
+            ui.pushButton_ConnectEQUDEWETRON.clicked.connect(ConnectEQUDEWETRON)
+            # 保存 DEWETRON 配置
+            uiDewetronSetting.pushButton_ApplySettings.clicked.connect(SaveDEWETRONConfig)
 
             # 打开ACSetting对话框
             ui.pushButton_SetACOptions.clicked.connect(ShowACSetting)

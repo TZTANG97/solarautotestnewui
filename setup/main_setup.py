@@ -20,6 +20,7 @@ from Dialog_DC2_Setting import Ui_Dialog_DC2_Setting
 from Dialog_DC3_Setting import Ui_Dialog_DC3_Setting
 from Dialog_DC4_Setting import Ui_Dialog_DC4_Setting
 from Dialog_DL850_Setting import Ui_Dialog_DL850_Setting
+from Dialog_DEWETRON_Setting import Ui_Dialog_DEWETRON_Setting
 from Dialog_thaichonglian import Ui_Dialog_thaichonglian
 from Dialog_thaiguodianyashanbian import Ui_Dialog_thaiguodianyashanbian
 from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
@@ -116,6 +117,9 @@ class MainSetup(BaseSetup):
 
         dialog_windowDLSetting, uiDL850Setting = MainSetup._build_dialog(Ui_Dialog_DL850_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowDLSetting", "uiDL850Setting", dialog_windowDLSetting, uiDL850Setting, sync_dialog_attr="dialog_windowDLSetting")
+
+        dialog_windowDewetronSetting, uiDewetronSetting = MainSetup._build_dialog(Ui_Dialog_DEWETRON_Setting)
+        MainSetup._register_window(created, app_ctx, "dialog_windowDewetronSetting", "uiDewetronSetting", dialog_windowDewetronSetting, uiDewetronSetting, sync_dialog_attr="dialog_windowDewetronSetting", sync_ui_attr="uiDewetronSetting")
 
         dialog_windowACSetting, uiACSetting = MainSetup._build_dialog(Ui_Dialog_AC_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowACSetting", "uiACSetting", dialog_windowACSetting, uiACSetting, sync_dialog_attr="dialog_windowACSetting", sync_ui_attr="uiACSetting")

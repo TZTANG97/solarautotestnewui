@@ -33,6 +33,7 @@ class AppContext:
     dc3_controller: Any = None
     dc4_controller: Any = None
     dl850_controller: Any = None
+    dewetron_controller: Any = None
     wt3000_controller: Any = None
 
     # 设置窗口 / 子窗口
@@ -42,6 +43,8 @@ class AppContext:
     dialog_windowDC3Setting: Any = None
     dialog_windowDC4Setting: Any = None
     dialog_windowDLSetting: Any = None
+    dialog_windowDewetronSetting: Any = None
+    uiDewetronSetting: Any = None
     WT3000_setting_window: Any = None
     uiWT3000Setting: Any = None
 
@@ -61,6 +64,7 @@ class AppContext:
     strFlagOfSendDCCommandTestLog: str = ""
     strFlagSendDCCommandInfomation: str = ""
     strConnectDL850: str = "0"
+    strConnectDEWETRON: str = "0"
     strConnectWT3000: str = "0"
 
     def reset_connection_flags(self) -> None:
@@ -70,6 +74,7 @@ class AppContext:
         适合在全局结束、重连或异常恢复时调用。
         """
         self.strConnectDL850 = "0"
+        self.strConnectDEWETRON = "0"
         self.strConnectWT3000 = "0"
         self.strFlagOfSendDCCommandTestLog = ""
         self.strFlagSendDCCommandInfomation = ""
