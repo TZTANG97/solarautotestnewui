@@ -35,21 +35,36 @@ class StdoutToLogger:
         self._logger = logger
         self._level = level
         self._buffer = ''
+        self._in_write = False  # 防止递归
 
     def write(self, msg):
-        if msg is None:
+        if msg is None or self._in_write:
             return
-        self._buffer += msg
-        while '\n' in self._buffer:
-            line, self._buffer = self._buffer.split('\n', 1)
-            line = line.rstrip()
-            if line:
-                self._logger.log(self._level, line)
+        self._in_write = True
+        try:
+            self._buffer += msg
+            while '\n' in self._buffer:
+                line, self._buffer = self._buffer.split('\n', 1)
+                line = line.rstrip()
+                if line:
+                    self._logger.log(self._level, line)
+        except Exception:
+            pass
+        finally:
+            self._in_write = False
 
     def flush(self):
-        if self._buffer.strip():
-            self._logger.log(self._level, self._buffer.strip())
-            self._buffer = ''
+        if self._in_write:
+            return
+        self._in_write = True
+        try:
+            if self._buffer.strip():
+                self._logger.log(self._level, self._buffer.strip())
+                self._buffer = ''
+        except Exception:
+            pass
+        finally:
+            self._in_write = False
 
 
 class Tee:

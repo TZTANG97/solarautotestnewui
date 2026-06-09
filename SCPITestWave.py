@@ -273,44 +273,160 @@ def SendDEWETRONStopMessage():
         _show_connect_message("DEWETRON未连接，请先连接DEWETRON设备", uiDewetronSetting)
 
 def SaveDEWETRONConfig():
-    """保存 DEWETRON 配置并发送 :SETUP:LOAD 命令重新加载。
-
-    每小时生成一个配置文件，同小时内覆盖写入。
-    文件名格式: dewetron_YYYYMMDD_HH.dms
-    保存目录: command_save_files/dewetron_data/
-    """
+    """从设备读取当前配置，根据 UI 设置修改，再通过 :SETUP:APPLY 上传到设备。"""
     global dewetron_controller
     global uiDewetronSetting
-    import shutil
     from datetime import datetime
+    import re as _re
 
-    # 源模板文件
+    def _log(msg):
+        print(f"[SaveDEWETRONConfig] {msg}")
+        if uiDewetronSetting and hasattr(uiDewetronSetting, 'log'):
+            uiDewetronSetting.log(msg)
+
+    def _parse_channel_ids(xml):
+        """从 XML 中解析 ShortId -> ChannelID 映射。"""
+        cmap = {}
+        for ch_match in _re.finditer(r'<Channel id="(\d+)">(.*?)</Channel>', xml, _re.DOTALL):
+            ch_id = ch_match.group(1)
+            ch_body = ch_match.group(2)
+            sid_match = _re.search(r'ShortId"><StringValue>"([^"]+)"', ch_body)
+            if sid_match:
+                short_id = sid_match.group(1)
+                cmap[short_id] = int(ch_id)
+                if '/I' in short_id:
+                    cmap[short_id.replace('/I', '/l')] = int(ch_id)
+        return cmap
+
+    _log("=== 开始保存配置 ===")
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    template_path = os.path.join(base_dir, 'config_files', 'dewetron.dms')
-    if not os.path.exists(template_path):
-        _show_connect_message("模板文件不存在: config_files/dewetron.dms", uiDewetronSetting)
-        return
+    bootstrap_path = os.path.join(base_dir, 'config_files', 'dewetron.xml')
 
-    # 按小时生成目标文件名
-    now = datetime.now()
-    hour_dir = os.path.join(base_dir, 'command_save_files', 'dewetron_data')
-    os.makedirs(hour_dir, exist_ok=True)
-    filename = now.strftime("dewetron_%Y%m%d_%H.dms")
-    target_path = os.path.join(hour_dir, filename)
-
-    # 同小时内覆盖写入
-    shutil.copy2(template_path, target_path)
-
-    # 发送 :SETUP:LOAD 命令
+    # 1. 从设备读取当前配置
     if dewetron_controller is None:
         dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
     if not dewetron_controller.connected:
+        _log("DEWETRON未连接")
         _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
         return
-    if dewetron_controller.send_load_config(target_path):
-        _show_connect_message(f"配置已加载: {filename}", uiDewetronSetting)
+    channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
+
+    # 2. 判断设备 XML 是否可用（太小或没有接线方式 → 用本地引导模板）
+    has_wiring = xml_string and _re.search(r'POWER/WiringType', xml_string)
+    if not xml_string or len(xml_string) < 10000 or not has_wiring:
+        reason = "读取失败" if not xml_string else f"太小({len(xml_string)}字符)" if len(xml_string) < 10000 else "无接线方式"
+        _log(f"设备 XML 不可用: {reason}，使用本地引导模板")
+        if os.path.exists(bootstrap_path):
+            with open(bootstrap_path, 'r', encoding='utf-8') as f:
+                xml_string = f.read()
+            decl_pos = xml_string.find('<?xml')
+            if decl_pos > 0:
+                xml_string = xml_string[decl_pos:]
+            # 从引导模板解析 ChannelID
+            channel_id_map = _parse_channel_ids(xml_string)
+            _log(f"已读取引导模板: {len(xml_string)} 字符, {len(channel_id_map)} 个通道ID")
+        else:
+            _log("引导模板不存在，无法继续")
+            _show_connect_message("无可用配置，请先在 OXYGEN 中配置设备", uiDewetronSetting)
+            return
     else:
-        _show_connect_message("配置加载失败", uiDewetronSetting)
+        _log(f"从设备读取配置: {len(xml_string)} 字符, {len(channel_id_map)} 个通道ID")
+
+    # 2. 获取 UI 设置
+    # 接线类型
+    wiring_type = 0
+    for type_id, btn in uiDewetronSetting._wiring_buttons:
+        if btn.isChecked():
+            wiring_type = type_id
+            break
+    wiring_names = {0: '1P2W', 1: '1P3W', 2: '2V2A', 3: '3P3W', 4: '3P4W'}
+    _log(f"接线类型: {wiring_names.get(wiring_type, wiring_type)}")
+
+    # 通道映射
+    channel_map = {}
+    for slot_name, le in uiDewetronSetting._slot_input_widgets.items():
+        ch = le._channel
+        channel_map[slot_name] = ch
+        if ch:
+            _log(f"  {slot_name} <- {ch}")
+    if not channel_map:
+        _log("警告: 没有通道映射!")
+
+    # 3. 从设备 XML 中读取 InputChannels 映射
+    input_channels = dewetron_controller.read_input_channels(xml_string)
+    _log(f"设备 InputChannels 映射: {len(input_channels)} 个槽位")
+    for slot, ch_id in sorted(input_channels.items()):
+        _log(f"  {slot} -> ID={ch_id}")
+
+    # 在 UI 上显示设备原始映射
+    if uiDewetronSetting and hasattr(uiDewetronSetting, 'show_device_mapping'):
+        uiDewetronSetting.show_device_mapping(input_channels, channel_id_map)
+
+    # 打印配对结果
+    _log("--- 通道配对 ---")
+    for slot_name, ch_name in channel_map.items():
+        if ch_name:
+            ch_id = channel_id_map.get(ch_name) or channel_id_map.get(ch_name.replace('/l', '/I'))
+            if ch_id:
+                _log(f"  {slot_name} <- {ch_name} -> ID={ch_id}")
+            else:
+                _log(f"  {slot_name} <- {ch_name} -> [未找到ID]")
+        else:
+            _log(f"  {slot_name} <- (未选择)")
+
+    # 4. 修改 XML（使用设备原始 InputChannels 映射）
+    modified_xml = DewetronController.modify_xml(xml_string, wiring_type, channel_map, channel_id_map, input_channels)
+    _log(f"XML已修改: {len(modified_xml)} 字符")
+
+    # 4. 保存到 command_save_files/dewetron_data/（按小时命名）
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    now = datetime.now()
+    save_dir = os.path.join(base_dir, 'command_save_files', 'dewetron_data')
+    os.makedirs(save_dir, exist_ok=True)
+    filename = now.strftime("dewetron_%Y%m%d_%H.xml")
+    save_path = os.path.join(save_dir, filename)
+    with open(save_path, 'w', encoding='utf-8') as f:
+        f.write(modified_xml)
+    _log(f"已保存: {filename}")
+
+    # 5. 发送 :SETUP:APPLY
+    if dewetron_controller.send_apply_config(modified_xml):
+        _log("APPLY 发送成功，等待设备处理...")
+        # 等待设备处理配置
+        import time
+        time.sleep(3)
+        # 读回配置验证
+        try:
+            read_back = dewetron_controller._query(":SETUP:READ?")
+            if read_back:
+                # 去掉 SCPI 前缀
+                decl_pos = read_back.find('<?xml')
+                if decl_pos > 0:
+                    read_back = read_back[decl_pos:]
+                # 保存读回的配置
+                verify_path = os.path.join(save_dir, f"dewetron_verify_{now.strftime('%Y%m%d_%H')}.xml")
+                with open(verify_path, 'w', encoding='utf-8') as f:
+                    f.write(read_back)
+                _log(f"已读回配置: {len(read_back)} 字符")
+                # 比较关键内容
+                expected_wiring = wiring_names.get(wiring_type, 'AC_1P2W')
+                if expected_wiring in read_back:
+                    _log(f"[OK] 接线类型已应用: {expected_wiring}")
+                else:
+                    _log(f"[FAIL] 接线类型未找到 {expected_wiring}")
+                # 保存读回的 XML 作为下次的引导模板
+                with open(bootstrap_path, 'w', encoding='utf-8') as f:
+                    f.write(read_back)
+                _log(f"已更新引导模板: {len(read_back)} 字符")
+            else:
+                _log(":SETUP:READ? 返回空")
+        except Exception as e:
+            _log(f"验证读取失败: {e}")
+        _show_connect_message("配置已应用", uiDewetronSetting)
+    else:
+        _log("APPLY 发送失败")
+        _show_connect_message("配置应用失败", uiDewetronSetting)
 
 def CloseACOUTPUTON():
     global ac_controller
@@ -28122,8 +28238,6 @@ if __name__ == "__main__":
 
             # 打开DEWETRON Setting对话框
             ui.pushButton_SetDEWETRONOptions.clicked.connect(ShowDEWETRONSetting)
-            # 连接/断开 DEWETRON
-            ui.pushButton_ConnectEQUDEWETRON.clicked.connect(ConnectEQUDEWETRON)
             # 保存 DEWETRON 配置
             uiDewetronSetting.pushButton_ApplySettings.clicked.connect(SaveDEWETRONConfig)
 

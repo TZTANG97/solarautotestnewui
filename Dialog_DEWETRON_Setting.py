@@ -234,10 +234,21 @@ class Ui_Dialog_DEWETRON_Setting(object):
         power_group.setExpanded(True)
         pw0 = QtWidgets.QTreeWidgetItem(power_group, ["POWER/0"])
         pw0.setExpanded(True)
-        for ch in ["AI 1/l1", "AI 1/l2", "AI 1/l3", "AI 1/l4",
-                    "AI 1/U1", "AI 1/U2", "AI 1/U3", "AI 1/U4"]:
-            item = QtWidgets.QTreeWidgetItem(pw0, [ch])
+
+        # 电流通道 (I)
+        current_group = QtWidgets.QTreeWidgetItem(pw0, ["电流 (I)"])
+        current_group.setExpanded(True)
+        for ch in ["AI 1/l1", "AI 1/l2", "AI 1/l3", "AI 1/l4"]:
+            item = QtWidgets.QTreeWidgetItem(current_group, [ch])
             item.setFlags(item.flags() | QtCore.Qt.ItemIsDragEnabled)
+
+        # 电压通道 (U)
+        voltage_group = QtWidgets.QTreeWidgetItem(pw0, ["电压 (U)"])
+        voltage_group.setExpanded(True)
+        for ch in ["AI 1/U1", "AI 1/U2", "AI 1/U3", "AI 1/U4"]:
+            item = QtWidgets.QTreeWidgetItem(voltage_group, [ch])
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsDragEnabled)
+
         left_panel.addWidget(self.treeWidget_channels, 1)
 
         # 保留 checkbox 用于信号绑定（隐藏）
@@ -335,25 +346,17 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         tab1_layout.addLayout(bottom_layout)
 
-        # --- 底部：操作按钮 ---
-        btn_row = QHBoxLayout()
-        self.pushButton_StartTest = QtWidgets.QPushButton(self.tab_wiring)
-        self.pushButton_StartTest.setText("START")
-        self.pushButton_StartTest.setMinimumSize(130, 40)
-        btn_row.addWidget(self.pushButton_StartTest)
-
-        self.pushButton_StopTest = QtWidgets.QPushButton(self.tab_wiring)
-        self.pushButton_StopTest.setText("STOP")
-        self.pushButton_StopTest.setMinimumSize(130, 40)
-        btn_row.addWidget(self.pushButton_StopTest)
-
-        self.pushButton_ApplySettings = QtWidgets.QPushButton(self.tab_wiring)
-        self.pushButton_ApplySettings.setText("应用设置")
-        self.pushButton_ApplySettings.setMinimumSize(130, 40)
-        btn_row.addWidget(self.pushButton_ApplySettings)
-
-        btn_row.addStretch()
-        tab1_layout.addLayout(btn_row)
+        # -- 日志区域 --
+        log_group = QtWidgets.QGroupBox("日志")
+        log_layout = QVBoxLayout(log_group)
+        log_layout.setContentsMargins(4, 4, 4, 4)
+        self.textEdit_log = QtWidgets.QTextEdit()
+        self.textEdit_log.setReadOnly(True)
+        self.textEdit_log.setMaximumHeight(120)
+        self.textEdit_log.setFont(QtGui.QFont("Consolas", 9))
+        self.textEdit_log.setStyleSheet("QTextEdit { background: #1e1e1e; color: #d4d4d4; }")
+        log_layout.addWidget(self.textEdit_log)
+        tab1_layout.addWidget(log_group)
 
         self.tabWidget.addTab(self.tab_wiring, "接线图")
 
@@ -523,7 +526,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
             self.checkBox_ch_u3, self.checkBox_ch_u4,
         ]
         for cb in ch_boxes:
-            cb.toggled.connect(self._on_channel_toggled)
+            cb.toggled.connect(lambda checked, text=cb.text(): self._on_channel_toggled(checked, text))
 
         QtCore.QMetaObject.connectSlotsByName(Dialog_DEWETRON_Setting)
 
@@ -535,6 +538,8 @@ class Ui_Dialog_DEWETRON_Setting(object):
             if b.isChecked():
                 self.wiringDiagramCanvas.set_wiring_type(type_id)
                 self._create_slot_inputs(type_id)
+                self._update_mapping_display()
+                self._highlight_bound_channels()
                 break
 
     def _on_tree_item_clicked(self, item, column):
@@ -551,22 +556,37 @@ class Ui_Dialog_DEWETRON_Setting(object):
             cb.setChecked(not cb.isChecked())
 
     def _on_tree_context_menu(self, pos):
-        """通道树右键 → 弹出输入框选择菜单，选中后绑定通道到该输入框。"""
+        """通道树右键 → 弹出输入框选择菜单，选中后绑定通道到该输入框。
+        过滤规则：I 通道只显示 I 槽位，U 通道只显示 U 槽位。
+        树结构: Power Groups > POWER/0 > 电流/电压 > 通道"""
         item = self.treeWidget_channels.itemAt(pos)
-        if not item or not item.parent() or not item.parent().parent():
-            return  # 只对叶子节点（通道项）弹出菜单
+        # 检查是否为通道叶子节点（需要有 parent > parent > parent）
+        if not item or not item.parent() or not item.parent().parent() or not item.parent().parent().parent():
+            return
         ch_text = item.text(0)
+
+        # 根据通道名判断类型：AI 1/U* → U 槽位，AI 1/l* / AI 1/I* → I 槽位
+        is_voltage = '/U' in ch_text
+        is_current = '/l' in ch_text or '/I' in ch_text
 
         menu = QtWidgets.QMenu(self.treeWidget_channels)
         menu.setStyleSheet("QMenu { font-size: 11px; padding: 4px; }")
 
+        # 槽位 -> 组号映射
+        slot_group_map = {'U1': '1', 'I1': '1', 'U2': '2', 'I2': '2', 'U3': '3', 'I3': '3'}
+
         for slot_name, le in self._slot_input_widgets.items():
-            # 显示当前已绑定的通道
+            # 过滤：U 通道只显示 U 槽位，I 通道只显示 I 槽位
+            if is_voltage and not slot_name.startswith('U'):
+                continue
+            if is_current and not slot_name.startswith('I'):
+                continue
+            group = slot_group_map.get(slot_name, '?')
             current = le._channel
             if current:
-                label = f"{slot_name}  (当前: {current})"
+                label = f"组{group} {slot_name}  (当前: {current})"
             else:
-                label = f"{slot_name}"
+                label = f"组{group} {slot_name}"
             action = menu.addAction(label)
             action.setData(slot_name)
 
@@ -578,7 +598,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
                 self._highlight_bound_channels()
 
     def _create_slot_inputs(self, type_id):
-        """根据接线类型创建对应的输入框（水平排列在图片下方）。"""
+        """根据接线类型创建对应的输入框（水平排列在图片下方），每组前加组号标签。"""
         # 清除旧的输入框
         while self._slot_list_layout.count():
             item = self._slot_list_layout.takeAt(0)
@@ -588,34 +608,43 @@ class Ui_Dialog_DEWETRON_Setting(object):
                 w.deleteLater()
         self._slot_input_widgets.clear()
 
-        slot_defs = {
-            0: [('U1', 'U1'), ('I1', 'I1')],                                              # 1P2W
-            1: [('U1', 'U1'), ('I1', 'I1'), ('U2', 'U2'), ('I2', 'I2')],                  # 1P3W
-            2: [('U1', 'U1'), ('I1', 'I1'), ('U3', 'U3'), ('I3', 'I3')],                  # 2V2A
-            3: [('U1', 'U1'), ('I1', 'I1'), ('U2', 'U2'), ('I2', 'I2'),
-                ('U3', 'U3'), ('I3', 'I3')],                                              # 3P3W
-            4: [('U1', 'U1'), ('I1', 'I1'), ('U2', 'U2'), ('I2', 'I2'),
-                ('U3', 'U3'), ('I3', 'I3')],                                              # 3P4W
+        # 每个接线类型的分组定义: [(group_label, [slot_defs])]
+        group_defs = {
+            0: [('1', [('U1', 'U1'), ('I1', 'I1')])],                                                    # 1P2W
+            1: [('1', [('U1', 'U1'), ('I1', 'I1')]),
+                ('2', [('U2', 'U2'), ('I2', 'I2')])],                                                     # 1P3W
+            2: [('1', [('U1', 'U1'), ('I1', 'I1')]),
+                ('3', [('U3', 'U3'), ('I3', 'I3')])],                                                     # 2V2A
+            3: [('1', [('U1', 'U1'), ('I1', 'I1')]),
+                ('2', [('U2', 'U2'), ('I2', 'I2')]),
+                ('3', [('U3', 'U3'), ('I3', 'I3')])],                                                     # 3P3W
+            4: [('1', [('U1', 'U1'), ('I1', 'I1')]),
+                ('2', [('U2', 'U2'), ('I2', 'I2')]),
+                ('3', [('U3', 'U3'), ('I3', 'I3')])],                                                     # 3P4W
         }
-        slots = slot_defs.get(type_id, [])
+        groups = group_defs.get(type_id, [])
 
-        for slot_name, placeholder in slots:
-            le = DraggableInputBox(slot_name)
-            le.setPlaceholderText(placeholder)
-            le.channelChanged.connect(lambda *_: self._update_mapping_display())
-            le.channelChanged.connect(lambda *_: self._highlight_bound_channels())
-            self._slot_input_widgets[slot_name] = le
-            self._slot_list_layout.addWidget(le)
+        for group_label, slots in groups:
+            # 组号标签
+            lbl = QtWidgets.QLabel(f"组{group_label}")
+            lbl.setFont(QtGui.QFont("Arial", 9, QtGui.QFont.Bold))
+            lbl.setStyleSheet("color: #555; padding: 0 4px;")
+            lbl.setAlignment(QtCore.Qt.AlignCenter)
+            self._slot_list_layout.addWidget(lbl)
+            # 该组的输入框
+            for slot_name, placeholder in slots:
+                le = DraggableInputBox(slot_name)
+                le.setPlaceholderText(placeholder)
+                le.channelChanged.connect(lambda *_: self._update_mapping_display())
+                le.channelChanged.connect(lambda *_: self._highlight_bound_channels())
+                self._slot_input_widgets[slot_name] = le
+                self._slot_list_layout.addWidget(le)
 
         self._slot_list_layout.addStretch()
         self._update_mapping_display()
 
-    def _on_channel_toggled(self, checked):
+    def _on_channel_toggled(self, checked, text):
         """checkbox 勾选/取消时，自动映射到对应输入框。"""
-        sender = self.sender()
-        if not sender:
-            return
-        text = sender.text()
         # 确定映射的 slot
         slot = None
         if text == 'AI 1/l1': slot = 'I1'
@@ -655,6 +684,46 @@ class Ui_Dialog_DEWETRON_Setting(object):
             self._mapping_layout.addRow(row_label, row_val)
             self._mapping_labels[slot_name] = row_val
 
+    def log(self, message):
+        """向日志区域追加一行消息。"""
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.textEdit_log.append(f"[{timestamp}] {message}")
+        # 自动滚动到底部
+        sb = self.textEdit_log.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
+    def show_device_mapping(self, input_channels, channel_id_map):
+        """显示设备原始 InputChannels 映射到对应关系区域。
+
+        Args:
+            input_channels: dict {slot: channel_id}，设备原始映射
+            channel_id_map: dict {short_id: channel_id}，通道名到 ID 的映射
+        """
+        # 清除旧行
+        while self._mapping_layout.rowCount():
+            self._mapping_layout.removeRow(0)
+        self._mapping_labels.clear()
+
+        # 反向映射: channel_id -> short_id
+        id_to_short = {cid: sid for sid, cid in channel_id_map.items()}
+
+        for slot_name in sorted(input_channels.keys()):
+            ch_id = input_channels[slot_name]
+            if ch_id and ch_id != 18446744073709551615:  # UNUSED_CHANNEL_ID
+                ch_name = id_to_short.get(ch_id, f'ID={ch_id}')
+            else:
+                ch_name = 'N/A'
+
+            row_label = QtWidgets.QLabel(f"{slot_name}:")
+            row_label.setFont(QtGui.QFont("Arial", 9, QtGui.QFont.Bold))
+            row_val = QtWidgets.QLabel(ch_name)
+            row_val.setFont(QtGui.QFont("Arial", 9))
+            if ch_name == 'N/A':
+                row_val.setStyleSheet("color: gray;")
+            self._mapping_layout.addRow(row_label, row_val)
+            self._mapping_labels[slot_name] = row_val
+
     def _highlight_bound_channels(self):
         """高亮通道树中已被绑定的通道，清除未绑定的高亮。"""
         # 收集所有已绑定的通道
@@ -663,16 +732,18 @@ class Ui_Dialog_DEWETRON_Setting(object):
             if le._channel:
                 bound_channels.add(le._channel)
 
-        # 遍历树中所有叶子节点
+        # 遍历树中所有叶子节点（结构: Power Groups > POWER/0 > 电流/电压 > 通道）
         root = self.treeWidget_channels.invisibleRootItem()
         for i in range(root.childCount()):
             group = root.child(i)
             for j in range(group.childCount()):
                 pw = group.child(j)
                 for k in range(pw.childCount()):
-                    item = pw.child(k)
-                    ch_text = item.text(0)
-                    if ch_text in bound_channels:
-                        item.setBackground(0, QtGui.QColor(200, 230, 255))
-                    else:
-                        item.setBackground(0, QtCore.Qt.transparent)
+                    subgroup = pw.child(k)
+                    for m in range(subgroup.childCount()):
+                        item = subgroup.child(m)
+                        ch_text = item.text(0)
+                        if ch_text in bound_channels:
+                            item.setBackground(0, QtGui.QColor(200, 230, 255))
+                        else:
+                            item.setBackground(0, QtCore.Qt.transparent)

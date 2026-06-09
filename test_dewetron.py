@@ -23,36 +23,6 @@ except ImportError:
     sys.exit(1)
 
 
-def try_raw_socket(ip, port, timeout=5):
-    """先用原生 socket 测试 TCP 连接是否可达。"""
-    import socket
-
-    print(f"\n--- 测试 TCP 连接: {ip}:{port} ---")
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        sock.connect((ip, port))
-        print(f"[OK] TCP 连接成功")
-
-        # 尝试发送 SCPI 查询
-        sock.sendall(b"*IDN?\r\n")
-        time.sleep(1)
-        response = sock.recv(1024)
-        print(f"[OK] 收到响应: {response.decode('ascii', errors='replace').strip()}")
-
-        sock.close()
-        return True
-    except socket.timeout:
-        print(f"[FAIL] 连接超时，请检查设备 IP 和网络")
-        return False
-    except ConnectionRefusedError:
-        print(f"[FAIL] 连接被拒绝，端口 {port} 可能不对")
-        return False
-    except Exception as e:
-        print(f"[FAIL] 连接失败: {e}")
-        return False
-
-
 def try_visa_connect(visa_addr, port=10001):
     """用 PyVISA 连接德威创并测试基本命令。"""
     print(f"\n--- 测试 VISA 连接: {visa_addr} ---")
@@ -60,9 +30,9 @@ def try_visa_connect(visa_addr, port=10001):
     rm = pyvisa.ResourceManager()
     try:
         handle = rm.open_resource(visa_addr)
-        handle.timeout = 10000
-        handle.read_termination = '\n'
-        handle.write_termination = '\n'
+        handle.timeout = 15000
+        handle.read_termination = '\r\n'
+        handle.write_termination = '\r\n'
         # ASCII 编码
         try:
             handle.encoding = 'ascii'
@@ -118,28 +88,54 @@ def try_visa_connect(visa_addr, port=10001):
             pass
 
 def test_cmds(handle):
-    """
-    测试命令函数
-    """
-    # 1. 查询所有通道
-    channels = []
+    """测试 SCPI 命令，下载当前配置 XML。"""
+    # 1. *IDN? 查询设备信息
     try:
-        handle.write("*IDN?")
-        print("保存配置信息xml到: E://dewetron.xml")
-        handle.write("SETUP:SAVE 'E://dewetron.xml'")
-        time.sleep(0.5)
-        resp = handle.read()
-        channels = [ch.strip() for ch in resp.split(',') if ch.strip()]
-        print(f"[OK] 查询通道成功: {channels}")
+        resp = handle.query("*IDN?")
+        print(f"[OK] *IDN? -> {resp.strip()}")
     except Exception as e:
-        print(f"[FAIL] 查询通道失败: {e}")
+        print(f"[FAIL] *IDN? 失败: {e}")
+
+    # 2. :SYSTEM:VERSION? 查询固件版本
+    try:
+        resp = handle.query(":SYSTEM:VERSION?")
+        print(f"[OK] :SYSTEM:VERSION? -> {resp.strip()}")
+    except Exception as e:
+        print(f"[FAIL] :SYSTEM:VERSION? 失败: {e}")
+
+    # 3. 清空错误队列
+    try:
+        handle.write("*CLS")
+        time.sleep(0.5)
+        print(f"[OK] *CLS 错误队列已清空")
+    except Exception as e:
+        print(f"[FAIL] *CLS 失败: {e}")
+
+    # 4. 基本查询
+    print("\n--- 基本查询 ---")
+    try:
+        resp = handle.query(":SETUP:NAME?")
+        print(f"  :SETUP:NAME? -> {resp.strip()}")
+    except Exception as e:
+        print(f"  :SETUP:NAME? -> {str(e)[:80]}")
+
+    # 5. :SETUP:READ? 下载当前配置
+    try:
+        handle.encoding = 'utf-8'
+        resp = handle.query(":SETUP:READ?")
+        handle.encoding = 'ascii'
+        print(f"[OK] :SETUP:READ? -> 长度 {len(resp)} 字符")
+        with open("config_files/dewetron.xml", "w", encoding="utf-8") as f:
+            f.write(resp)
+        print(f"  已保存到: dewetron_config_read.xml")
+    except Exception as e:
+        print(f"[FAIL] :SETUP:READ? 失败: {e}")
 
 
 def main():
     parser = argparse.ArgumentParser(description="DEWETRON 测试脚本")
     parser.add_argument("ip", nargs="?", default="192.168.40.21", help="德威创设备 IP（默认 192.168.40.21）")
     parser.add_argument("port", type=int, nargs="?", default=10001, help="SCPI 端口（默认 10001）")
-    parser.add_argument("--no-socket", action="store_true", help="跳过原生 socket 测试，只使用 VISA")
     args = parser.parse_args()
 
     print("=" * 50)
@@ -150,7 +146,7 @@ def main():
     print()
 
 
-    # 第二步：VISA 连接和命令测试
+    # VISA 连接和命令测试
     visa_addr = f"TCPIP0::{args.ip}::{args.port}::SOCKET"
     success = try_visa_connect(visa_addr, args.port)
 
