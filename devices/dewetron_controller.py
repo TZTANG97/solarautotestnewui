@@ -243,15 +243,7 @@ class DewetronController:
             xml = xml[:start] + new_val + xml[end:]
             print(f"[DEWETRON] {label} -> True")
 
-        # 4. LineToLineVoltageInput — 设备不允许更改此属性
-        xml = re.sub(
-            r'(<Property name="POWER/LineToLineVoltageInput"><BooleanValue>)[^<]*(</BooleanValue>)',
-            '\\g<1>False\\2',
-            xml
-        )
-        print("[DEWETRON] LineToLineVoltageInput -> False")
-
-        # 5. InputChannels 映射 — 用 UI 选择的通道 + 当前设备 ChannelID 构建
+        # 4. InputChannels 映射 — 用 UI 选择的通道 + 当前设备 ChannelID 构建
         # channel_map: {'U1': 'AI 1/U2', 'I1': 'AI 1/l2'}
         # channel_id_map: {'AI 1/U2': 13800436624556818457, ...}
         if channel_id_map:

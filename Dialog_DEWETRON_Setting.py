@@ -235,18 +235,18 @@ class Ui_Dialog_DEWETRON_Setting(object):
         pw0 = QtWidgets.QTreeWidgetItem(power_group, ["POWER/0"])
         pw0.setExpanded(True)
 
-        # 电流通道 (I)
-        current_group = QtWidgets.QTreeWidgetItem(pw0, ["电流 (I)"])
-        current_group.setExpanded(True)
-        for ch in ["AI 1/l1", "AI 1/l2", "AI 1/l3", "AI 1/l4"]:
-            item = QtWidgets.QTreeWidgetItem(current_group, [ch])
-            item.setFlags(item.flags() | QtCore.Qt.ItemIsDragEnabled)
-
         # 电压通道 (U)
         voltage_group = QtWidgets.QTreeWidgetItem(pw0, ["电压 (U)"])
         voltage_group.setExpanded(True)
         for ch in ["AI 1/U1", "AI 1/U2", "AI 1/U3", "AI 1/U4"]:
             item = QtWidgets.QTreeWidgetItem(voltage_group, [ch])
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsDragEnabled)
+
+        # 电流通道 (I)
+        current_group = QtWidgets.QTreeWidgetItem(pw0, ["电流 (I)"])
+        current_group.setExpanded(True)
+        for ch in ["AI 1/l1", "AI 1/l2", "AI 1/l3", "AI 1/l4"]:
+            item = QtWidgets.QTreeWidgetItem(current_group, [ch])
             item.setFlags(item.flags() | QtCore.Qt.ItemIsDragEnabled)
 
         left_panel.addWidget(self.treeWidget_channels, 1)
@@ -575,16 +575,28 @@ class Ui_Dialog_DEWETRON_Setting(object):
         # 槽位 -> 组号映射
         slot_group_map = {'U1': '1', 'I1': '1', 'U2': '2', 'I2': '2', 'U3': '3', 'I3': '3'}
 
+        # 检查此通道是否已被某个槽位占用
+        occupied_slot = None
+        for sname, sle in self._slot_input_widgets.items():
+            if sle._channel == ch_text:
+                occupied_slot = sname
+                break
+
         for slot_name, le in self._slot_input_widgets.items():
             # 过滤：U 通道只显示 U 槽位，I 通道只显示 I 槽位
             if is_voltage and not slot_name.startswith('U'):
                 continue
             if is_current and not slot_name.startswith('I'):
                 continue
+            # 如果通道已被占用，只显示占用的那个槽位
+            if occupied_slot and slot_name != occupied_slot:
+                continue
+            # 如果通道未被占用，跳过已有其他通道的槽位
+            if not occupied_slot and le._channel:
+                continue
             group = slot_group_map.get(slot_name, '?')
-            current = le._channel
-            if current:
-                label = f"组{group} {slot_name}  (当前: {current})"
+            if le._channel:
+                label = f"组{group} {slot_name}  (当前: {le._channel})"
             else:
                 label = f"组{group} {slot_name}"
             action = menu.addAction(label)
