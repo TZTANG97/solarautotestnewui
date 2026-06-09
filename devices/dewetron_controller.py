@@ -311,11 +311,14 @@ class DewetronController:
                 print("[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）")
 
         # 7. 通道二次采样 (POWER/DataSubsampling) — PowerModule 全局属性
+        # UI 显示 "关"，设备 XML 需要 "Off"
+        DS_VALUE_MAP = {'关': 'Off', 'Auto': 'Auto'}
         if downsampling is not None:
+            xml_value = DS_VALUE_MAP.get(downsampling, downsampling)
             ds_replacements = []
             for m in re.finditer(r'(<Property name="POWER/DataSubsampling"><StringValue>")"?([^"<]+)"?(</StringValue>)', xml):
-                if m.group(2) != downsampling:
-                    ds_replacements.append((m.start(2), m.end(2), downsampling, 'POWER/DataSubsampling'))
+                if m.group(2) != xml_value:
+                    ds_replacements.append((m.start(2), m.end(2), xml_value, 'POWER/DataSubsampling'))
             ds_replacements.sort(key=lambda x: x[0], reverse=True)
             for start, end, val, label in ds_replacements:
                 xml = xml[:start] + val + xml[end:]
