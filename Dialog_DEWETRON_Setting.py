@@ -278,7 +278,19 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self._tips_timer.timeout.connect(self._rotate_tips)
         self._tips_timer.start(3000)
 
-        # --- 中间区域：左(通道树) + 中(接线图+输入框) + 右(输出标签) + 下(对应关系) ---
+        # ================================================================
+        # 左右布局：左侧（通道+接线图+对应关系） | 右侧（设备参数+日志）
+        # ================================================================
+        content_area = QHBoxLayout()
+        content_area.setSpacing(8)
+
+        # ============================================================
+        # 左侧：通道树 + 接线图 + 输出标签 + 对应关系 + 按钮
+        # ============================================================
+        left_side = QVBoxLayout()
+        left_side.setSpacing(4)
+
+        # --- 中间区域：左(通道树) + 中(接线图+输入框) + 右(输出标签) ---
         main_area = QHBoxLayout()
         main_area.setSpacing(4)
 
@@ -293,20 +305,17 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.treeWidget_channels.setHeaderLabel("通道列表")
         self.treeWidget_channels.setMinimumWidth(160)
         self.treeWidget_channels.setMaximumWidth(220)
-        # 构建通道树
         power_group = QtWidgets.QTreeWidgetItem(self.treeWidget_channels, ["Power Groups"])
         power_group.setExpanded(True)
         pw0 = QtWidgets.QTreeWidgetItem(power_group, ["POWER/0"])
         pw0.setExpanded(True)
 
-        # 电压通道 (U)
         voltage_group = QtWidgets.QTreeWidgetItem(pw0, ["电压 (U)"])
         voltage_group.setExpanded(True)
         for ch in ["AI 1/U1", "AI 1/U2", "AI 1/U3", "AI 1/U4"]:
             item = QtWidgets.QTreeWidgetItem(voltage_group, [ch])
             item.setFlags(item.flags() | QtCore.Qt.ItemIsDragEnabled)
 
-        # 电流通道 (I)
         current_group = QtWidgets.QTreeWidgetItem(pw0, ["电流 (I)"])
         current_group.setExpanded(True)
         for ch in ["AI 1/l1", "AI 1/l2", "AI 1/l3", "AI 1/l4"]:
@@ -315,7 +324,6 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         left_panel.addWidget(self.treeWidget_channels, 1)
 
-        # 保留 checkbox 用于信号绑定（隐藏）
         self.checkBox_ch_l1 = DraggableCheckBox("AI 1/l1")
         self.checkBox_ch_l1.setChecked(True)
         self.checkBox_ch_l1.setVisible(False)
@@ -349,7 +357,6 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.wiringDiagramCanvas.setMinimumHeight(500)
         center_panel.addWidget(self.wiringDiagramCanvas, 1)
 
-        # 输入框列（在图片下方）
         self._slot_list_layout = QHBoxLayout()
         self._slot_list_layout.setSpacing(8)
         self._slot_input_widgets = {}
@@ -380,12 +387,11 @@ class Ui_Dialog_DEWETRON_Setting(object):
         right_panel.addStretch()
         main_area.addLayout(right_panel)
 
-        tab1_layout.addLayout(main_area, 1)
+        left_side.addLayout(main_area, 1)
 
         # -- 底部：对应关系 + 操作按钮 --
         bottom_layout = QHBoxLayout()
 
-        # 对应关系
         mapping_group = QtWidgets.QGroupBox("对应关系")
         mapping_group.setMaximumHeight(120)
         self._mapping_layout = QtWidgets.QFormLayout(mapping_group)
@@ -398,7 +404,6 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self._create_slot_inputs(0)
         self._update_mapping_display()
 
-        # 操作按钮
         btn_col = QVBoxLayout()
         btn_col.setSpacing(6)
         self.pushButton_ApplySettings = QtWidgets.QPushButton(self.tab_wiring)
@@ -412,14 +417,23 @@ class Ui_Dialog_DEWETRON_Setting(object):
         btn_col.addStretch()
         bottom_layout.addLayout(btn_col)
 
-        tab1_layout.addLayout(bottom_layout)
+        left_side.addLayout(bottom_layout)
+        content_area.addLayout(left_side, 1)
 
-        # -- 设备参数区域（IP + 端口 + 输入通道 + 最大刷新率 + 通道二次采样）--
+        # ============================================================
+        # 右侧：设备参数 + 日志
+        # ============================================================
+        right_side_widget = QWidget()
+        right_side = QVBoxLayout(right_side_widget)
+        right_side.setSpacing(6)
+        right_side.setContentsMargins(0, 0, 0, 0)
+        right_side_widget.setMaximumWidth(320)
+
+        # -- 设备参数 --
         params_group = QtWidgets.QGroupBox("设备参数")
         params_layout = QtWidgets.QFormLayout(params_group)
         params_layout.setSpacing(8)
 
-        # 设备IP + 端口
         ip_row = QtWidgets.QHBoxLayout()
         self.lineEdit_deviceIP = QtWidgets.QLineEdit("192.168.40.21")
         self.lineEdit_deviceIP.setMaximumWidth(160)
@@ -433,40 +447,39 @@ class Ui_Dialog_DEWETRON_Setting(object):
         ip_row.addStretch()
         params_layout.addRow("设备IP:", ip_row)
 
-        # 输入通道（频率测量通道，默认组1的U通道）
         self.comboBox_frequencyChannel = QtWidgets.QComboBox()
         self.comboBox_frequencyChannel.addItems(["AI 1/U1", "AI 1/U2", "AI 1/U3", "AI 1/U4"])
         self.comboBox_frequencyChannel.setCurrentText("AI 1/U1")
         self.comboBox_frequencyChannel.setMaximumWidth(200)
         params_layout.addRow("输入通道:", self.comboBox_frequencyChannel)
 
-        # 最大刷新率
         self.comboBox_maxRefreshRate = QtWidgets.QComboBox()
         self.comboBox_maxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1"])
         self.comboBox_maxRefreshRate.setCurrentText("Default")
         self.comboBox_maxRefreshRate.setMaximumWidth(150)
         params_layout.addRow("最大刷新率:", self.comboBox_maxRefreshRate)
 
-        # 通道二次采样
         self.comboBox_downsampling = QtWidgets.QComboBox()
         self.comboBox_downsampling.addItems(["Auto", "关", "2", "3", "4", "5"])
         self.comboBox_downsampling.setCurrentText("Auto")
         self.comboBox_downsampling.setMaximumWidth(150)
         params_layout.addRow("通道二次采样:", self.comboBox_downsampling)
 
-        tab1_layout.addWidget(params_group)
+        right_side.addWidget(params_group)
 
-        # -- 日志区域 --
+        # -- 日志 --
         log_group = QtWidgets.QGroupBox("日志")
         log_layout = QVBoxLayout(log_group)
         log_layout.setContentsMargins(4, 4, 4, 4)
         self.textEdit_log = QtWidgets.QTextEdit()
         self.textEdit_log.setReadOnly(True)
-        self.textEdit_log.setMaximumHeight(120)
         self.textEdit_log.setFont(QtGui.QFont("Consolas", 9))
         self.textEdit_log.setStyleSheet("QTextEdit { background: #1e1e1e; color: #d4d4d4; }")
         log_layout.addWidget(self.textEdit_log)
-        tab1_layout.addWidget(log_group)
+        right_side.addWidget(log_group, 1)
+
+        content_area.addWidget(right_side_widget)
+        tab1_layout.addLayout(content_area, 1)
 
         # ============================================================
         # 信号连接
