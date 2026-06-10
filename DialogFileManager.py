@@ -110,10 +110,12 @@ class FileListWidget(QtWidgets.QWidget):
 
     def refresh(self):
         """刷新文件列表。"""
-        # 清除旧的复选框
-        for cb in self._checkboxes:
-            cb.setParent(None)
-            cb.deleteLater()
+        # 清除旧的列表项（保留末尾的 stretch）
+        while self._list_layout.count() > 1:
+            item = self._list_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
         self._checkboxes.clear()
 
         # 获取文件列表
@@ -125,7 +127,11 @@ class FileListWidget(QtWidgets.QWidget):
         for f in os.listdir(self._directory):
             if any(fnmatch.fnmatch(f, pat) for pat in self._file_filter):
                 files.append(f)
-        files.sort(reverse=True)  # 最新的在前
+        # 按日期排序（最新的在前），无日期的排最后
+        def _sort_key(fname):
+            dt = _parse_date_from_filename(fname)
+            return dt if dt else datetime.datetime.min
+        files.sort(key=_sort_key, reverse=True)
 
         self._label.setText(f"共 {len(files)} 个文件")
 
@@ -254,27 +260,54 @@ class FileListWidget(QtWidgets.QWidget):
         dialog.exec_()
 
     def _preview_csv(self, dialog, layout, file_path):
-        """预览 CSV/XLSX 文件。"""
-        text_edit = QtWidgets.QTextEdit()
-        text_edit.setReadOnly(True)
-        text_edit.setFont(QtGui.QFont("Consolas", 9))
+        """预览 CSV 文件，以表格形式展示（含行号）。"""
+        table = QtWidgets.QTableWidget()
+        table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table.setFont(QtGui.QFont("Consolas", 9))
 
         try:
-            # 尝试用 csv 模块读取
             import csv
             with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                 reader = csv.reader(f)
-                rows = []
+                all_rows = []
                 for i, row in enumerate(reader):
                     if i >= 200:
-                        rows.append("... (超过200行，已截断)")
                         break
-                    rows.append("\t".join(row))
-                text_edit.setPlainText("\n".join(rows))
-        except Exception as e:
-            text_edit.setPlainText(f"读取失败: {e}")
+                    all_rows.append(row)
 
-        layout.addWidget(text_edit)
+            if not all_rows:
+                table.setRowCount(1)
+                table.setColumnCount(1)
+                table.setItem(0, 0, QtWidgets.QTableWidgetItem("(空文件)"))
+            else:
+                # 第一行作为表头
+                headers = all_rows[0]
+                data_rows = all_rows[1:] if len(all_rows) > 1 else []
+                table.setColumnCount(len(headers))
+                table.setHorizontalHeaderLabels(headers)
+                table.setRowCount(len(data_rows))
+                for r, row in enumerate(data_rows):
+                    for c, val in enumerate(row):
+                        if c < len(headers):
+                            table.setItem(r, c, QtWidgets.QTableWidgetItem(val))
+
+                table.resizeColumnsToContents()
+                table.horizontalHeader().setStretchLastSection(True)
+                # 行号从 1 开始
+                row_labels = [str(i + 1) for i in range(len(data_rows))]
+                table.setVerticalHeaderLabels(row_labels)
+                table.verticalHeader().setDefaultSectionSize(24)
+
+            if len(all_rows) >= 200:
+                label = QtWidgets.QLabel("（显示前 199 行数据）")
+                label.setStyleSheet("color: #888;")
+                layout.addWidget(label)
+        except Exception as e:
+            err_label = QtWidgets.QLabel(f"读取失败: {e}")
+            layout.addWidget(err_label)
+
+        layout.addWidget(table)
 
     def _preview_xml(self, dialog, layout, file_path):
         """预览 XML 文件（显示前 500 行）。"""
