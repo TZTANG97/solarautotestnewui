@@ -456,7 +456,7 @@ def BuildDEWETRONTestPageWithLoading():
 def BuildDEWETRONTestPage():
     """构造 DEWETRON 电力组测试页面（独立补丁，不修改现有逻辑）。"""
     global dewetron_controller
-    from devices.dewetron_test_page import build_test_page_from_device
+    from DewetronTestPage import build_test_page_from_device
     from PyQt5.QtWidgets import QMessageBox
 
     if dewetron_controller is None or not dewetron_controller.connected:
