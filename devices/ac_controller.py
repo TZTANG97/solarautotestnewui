@@ -33,8 +33,8 @@ class ACController:
         self.connected = handle is not None
 
     def show_setting(self, dialog_windowACSetting):
-        """显示 AC 设置窗口。"""
-        dialog_windowACSetting.show()
+        """设置已嵌入设备页面，无需弹窗。"""
+        pass
 
     def connect_modbus(self, tcp_addr, port, ui):
         """通过 Modbus 客户端连接交流电源。"""

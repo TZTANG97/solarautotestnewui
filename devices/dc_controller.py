@@ -26,7 +26,8 @@ class DCController:
         self.connected = handle is not None
 
     def show_setting(self, dialog):
-        dialog.show()
+        """设置已嵌入设备页面，无需弹窗。"""
+        pass
 
     def _write_modbus_output_register(self, label, logger, is_on):
         """蓝点等 Modbus TCP：保持寄存器 0x0BB8 控制输出（与 BluesightTranslator 一致）。"""

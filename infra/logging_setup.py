@@ -1,31 +1,56 @@
 import logging
 import os
-import re
 import sys
 import traceback
-from logging.handlers import TimedRotatingFileHandler
+from datetime import datetime
+
+
+class DailyFileHandler(logging.Handler):
+    """按天写入日志文件：data_logs/auto_test_YYYY-MM-DD.log"""
+
+    def __init__(self, log_dir):
+        super().__init__()
+        self.log_dir = log_dir
+        self._current_date = None
+        self._stream = None
+        self._rotate()
+
+    def _rotate(self):
+        if self._stream:
+            self._stream.close()
+        today = datetime.now().strftime('%Y-%m-%d')
+        self._current_date = today
+        os.makedirs(self.log_dir, exist_ok=True)
+        filepath = os.path.join(self.log_dir, f'auto_test_{today}.log')
+        self._stream = open(filepath, 'a', encoding='utf-8')
+
+    def emit(self, record):
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            if today != self._current_date:
+                self._rotate()
+            msg = self.format(record)
+            self._stream.write(msg + '\n')
+            self._stream.flush()
+        except Exception:
+            self.handleError(record)
+
+    def close(self):
+        if self._stream:
+            self._stream.close()
+        super().close()
 
 
 def setup_logging(base_dir):
     logger = logging.getLogger('auto_test')
     logger.setLevel(logging.INFO)
 
-    file_handler = TimedRotatingFileHandler(
-        filename=os.path.join(base_dir, 'command_save_files', 'auto_test.log'),
-        when='H',
-        interval=24,
-    )
-    file_handler.suffix = r'%Y-%m-%d_%H-%M-%S.log'
-    file_handler.extMatch = re.compile(r'^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}.log$')
+    log_dir = os.path.join(base_dir, 'data_logs')
+    file_handler = DailyFileHandler(log_dir)
     file_handler.setFormatter(
         logging.Formatter('%(asctime)s %(levelname)s %(filename)s [%(lineno)d] %(threadName)s :%(message)s')
     )
     logger.addHandler(file_handler)
-
-    log_txt_path = os.path.join(base_dir, 'log.txt')
-    log_txt_handler = logging.FileHandler(log_txt_path, encoding='utf-8')
-    log_txt_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
-    logger.addHandler(log_txt_handler)
 
     return logger
 

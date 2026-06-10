@@ -72,7 +72,7 @@ from Dialog_thaiWT5000 import Ui_Dialog_thai_WT5000
 from enums.wt_auto_enums import (CELLS_COORD_WT1800, CELLS_COORD_WT1806E, CELLS_COORD_WT3000, CELLS_COORD_WT5000,
                                  START_AND_STOP_COORD, DC_STATIC_MPPT_TEST,
                                  INTEGRAL_COORD)
-from SCPI_Test import Ui_Dialog
+from ui_files.SCPI_Test import Ui_Dialog
 from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
                    Open_Save_ThaiStaticQU, Open_Save_ThaiXieBoDianLiu,
                    Open_Save_ThaiZhiLiuFenLiang, Open_Save_ThaiStaticCosPhi,

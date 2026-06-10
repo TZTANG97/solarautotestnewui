@@ -63,9 +63,20 @@ Each instrument type has a controller class that encapsulates connect/disconnect
 
 ### UI Files
 
-- `ui_files/` — `.ui` files for Qt Designer. Generated Python UI classes live at the repo root as `Dialog_*.py` files (e.g., `Dialog_thaiWT3000E.py`).
+- `ui_files/SCPI_Test.py` — **V1.1 主 UI**（手写，非 pyuic5 生成）。侧边栏 + QStackedWidget 布局，1600x900 固定分辨率。类 `Ui_Dialog`，`setupUi(self, Dialog)` 接收 `QMainWindow`。
+- `ui_files/` 下其他 `.ui` 文件供 Qt Designer 使用，生成的 Python UI 类在根目录 `Dialog_*.py`。
 - Regenerate with: `pyuic5 ui_files/Foo.ui -o Dialog_Foo.py`
 - **Never edit generated `Dialog_*.py` files directly** — changes will be overwritten.
+
+### V1.1 UI 架构
+
+主 UI `ui_files/SCPI_Test.py` 采用侧边栏 + QStackedWidget 布局：
+
+- **侧边栏**：可折叠两级菜单（首页/设备管理/Auto_Test/其他），包裹在 QScrollArea 中，底部固定刷新按钮
+- **QStackedWidget**：11 页（首页=0, 设备1-8=1-8, 项目配置=9, 命令文件=10）
+- **首页**：2x4 设备状态卡片网格（写死 8 设备）+ 当前测试项目卡片
+- **status.json**（根目录）：设备连接状态和项目信息的单一数据源，首页通过 `_load_home_status()` 读取显示
+- **Auto_Test 动态菜单**：`ui.add_auto_test_item(text, page_index)` 供 SCPITestWave.py 调用
 
 ### Test Configurations
 
@@ -83,6 +94,22 @@ Each test type has:
 - `config_files/config.ini` — Paths to external executables (WTViewerEfree, Chroma MPPT tool).
 - `config/app_config.py` — Reads the INI file via `configparser`.
 - `config/path_config.py` — Derives recording paths from the repo root (`recordings/WT3000/`, etc.).
+
+### DEWETRON 相关文件
+
+- `devices/dewetron_controller.py` — DewetronController 类，connect/disconnect/modify_xml
+- `Dialog_DEWETRON_Setting.py` — DEWETRON 设置 UI（单页左布局，含接线图+设备参数）
+- `DewetronTestPage.py` — 测试界面构造模块（MeasurementScreens 注入）
+- `DialogFileManager.py` — 文件管理对话框（含自动化命令+DEWETRON配置两个 Tab）
+
+### status.json
+
+根目录 `status.json` 是设备连接状态和项目信息的单一数据源。首页通过 `_load_home_status()` 读取并显示：
+
+- `devices[]`：每个设备的 name、resource、connected、page、last_connected
+- `project`：当前测试项目的 name、status、progress、estimated_time
+
+设备连接/断开时应更新此文件，首页自动反映变化。
 
 ## Key Patterns
 
@@ -138,14 +165,28 @@ Each test type has:
 - 正确流程：
   1. `read_channel_id_map()` → 从设备读取当前 XML 和 ChannelID 映射
   2. `read_input_channels(xml)` → 从同一个 XML 解析 InputChannels
-  3. `modify_xml()` → 修改 WiringType、Used/Neon/Active、InputChannels
+  3. `modify_xml()` → 修改 WiringType、Used/Neon/Active、InputChannels、MaxUpdateRate、DataSubsampling、FrequencyChannel
   4. `send_apply_config()` → 发送到设备
+  5. APPLY 成功后，将 XML 保存为本地文件（`command_save_files/dewetron_data/`）
 
 ### InputChannels 映射
 - `modify_xml()` 根据 UI 选择的通道（channel_map）+ 当前设备 ChannelID 构建 InputChannels
 - UI 选择 `U1 <- AI 1/U2` → `InputChannels/U1` 的 ChannelID 设为 AI 1/U2 的当前 ChannelID
 - 未在 UI 中选择的槽位设为 UNUSED
 - 设备接受 SCPI 写入的 InputChannels 更改
+
+### DEWETRON XML Key 映射（modify_xml 处理）
+- `POWER/FrequencyChannel` — ChannelID 格式，频率测量通道，默认为组 1 的 U 通道
+- `POWER/MaxUpdateRate` — StringValue，最大刷新率（单位 ms）
+- `POWER/DataSubsampling` — StringValue，通道二次采样（"Auto"/"Off"/"2"~"5"）
+- **不要用的 Key：** `AcquisitionRate`（Hz，每通道）、`TRION/Oversampling`（每通道）、`POWER/LineToLineVoltageInput`（设备不允许 SCPI 更改）
+
+### DEWETRON 配置文件命名
+- 标准格式：`dewetron_YYYYMMDD_HH.xml`
+- 校验格式：`dewetron_verify_YYYYMMDD_HH.xml`
+- 文件必须以 `dewetron_` 开头才能被加载列表和文件管理器识别
+- 另存为时自动加上 `dewetron_YYYYMMDD_HH_` 前缀
+- 存储目录：`command_save_files/dewetron_data/`（已加入 .gitignore）
 
 ### `modify_xml` 位置偏移修复
 - 不能在 `re.finditer` 遍历时直接修改 xml 字符串（位置会偏移）
@@ -159,3 +200,16 @@ Each test type has:
 
 - Every function in `devices/dc_controller.py` must include a short docstring describing its purpose.
 - Keep functions small and focused; extract shared logic into reusable helpers.
+
+## 目录结构规则
+
+- `devices/` 是**设备控制专用目录**，只放设备控制器代码（如 `dewetron_controller.py`、`ac_controller.py`）
+- **不要**在 `devices/` 中放入配置、UI、工具类等非设备控制代码
+- UI 对话框 → 根目录 `Dialog_*.py`（如 `DialogFileManager.py`、`Dialog_DEWETRON_Setting.py`）
+- 独立工具模块 → 根目录（如 `DewetronTestPage.py`）
+
+## PyQt5 布局注意事项
+
+- `QVBoxLayout` 没有 `setMaximumWidth` 方法，需要在外层包 `QWidget` 再设宽度
+- 辅助方法（如 `_rotate_tips`）必须在类末尾定义，**不能放在 `setupUi` 内部**，否则会把后续代码吞入方法体
+- `setupUi` 的最后几行应该是布局组装代码（`layout.addWidget(...)`），不是新方法定义

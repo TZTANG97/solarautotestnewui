@@ -1,0 +1,19 @@
+{
+  "devices": [
+    {"name": "交流电源", "resource": "TCPIP0::192.168.1.100::inst0::INSTR", "connected": false, "page": 1, "last_connected": "2026-06-10 14:30:00"},
+    {"name": "直流电源1", "resource": "TCPIP0::192.168.1.101::inst0::INSTR", "connected": false, "page": 2, "last_connected": "2026-06-10 14:30:00"},
+    {"name": "直流电源2", "resource": "", "connected": false, "page": 3, "last_connected": ""},
+    {"name": "直流电源3", "resource": "", "connected": false, "page": 4, "last_connected": ""},
+    {"name": "直流电源4", "resource": "", "connected": false, "page": 5, "last_connected": ""},
+    {"name": "DL850", "resource": "", "connected": false, "page": 6, "last_connected": ""},
+    {"name": "WT3000", "resource": "", "connected": false, "page": 7, "last_connected": ""},
+    {"name": "DEWETRON", "resource": "TCPIP0::192.168.1.200::10001::SOCKET", "connected": false, "page": 8, "last_connected": ""}
+  ],
+  "project": {
+    "name": "电压闪变",
+    "status": "进行中",
+    "progress": 64,
+    "start_time": "2026-06-10 14:00:00",
+    "estimated_end_time": "2026-06-10 14:03:00"
+  }
+}

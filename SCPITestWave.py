@@ -65,7 +65,7 @@ from Dialog_thaiWT5000 import Ui_Dialog_thai_WT5000
 from enums.wt_auto_enums import (CELLS_COORD_WT1800, CELLS_COORD_WT1806E, CELLS_COORD_WT3000, CELLS_COORD_WT5000,
                                  START_AND_STOP_COORD, DC_STATIC_MPPT_TEST,
                                  INTEGRAL_COORD)
-from SCPI_Test import Ui_Dialog
+from ui_files.SCPI_Test import Ui_Dialog
 from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
                    Open_Save_ThaiStaticQU, Open_Save_ThaiXieBoDianLiu,
                    Open_Save_ThaiZhiLiuFenLiang, Open_Save_ThaiStaticCosPhi,
@@ -106,16 +106,13 @@ from setup.main_setup import initialize_setup_windows
 
 #AC &DC 设定相关内容
 def ShowDL850Setting():
-    global dialog_windowDLSetting
-    dialog_windowDLSetting.show()
+    pass  # 设置已嵌入设备页面，无需弹窗
 
 def ShowDEWETRONSetting():
-    global dialog_windowDewetronSetting
-    dialog_windowDewetronSetting.show()
+    pass  # 设置已嵌入设备页面，无需弹窗
 
 def ShowACSetting():
-    global dialog_windowACSetting, ac_controller
-    return ac_controller.show_setting(dialog_windowACSetting)
+    pass  # 设置已嵌入设备页面，无需弹窗
 
 
 def OpenACOUTPUTON():
@@ -500,13 +497,7 @@ def _show_bluesight_dc_settings_dialog(dc_slot_index: int, open_fn, close_fn) ->
 
 
 def ShowDC1Setting():
-    global dialog_windowDC1Setting, dc1_controller, per_dc_factor
-    if per_dc_factor.get("0") == "Bluesight":
-        _show_bluesight_dc_settings_dialog(0, OpenDC1OUTPUTON, CloseDC1OUTPUTON)
-        return
-    if dc1_controller is None:
-        return dialog_windowDC1Setting.show()
-    return dc1_controller.show_setting(dialog_windowDC1Setting)
+    pass  # 设置已嵌入设备页面，无需弹窗
 
 def OpenDC1OUTPUTON():
     global dc1_controller, uiDC1Setting
@@ -521,13 +512,7 @@ def CloseDC1OUTPUTON():
     return dc1_controller.close_output("DC1", uiDC1Setting, logger)
 
 def ShowDC2Setting():
-    global dialog_windowDC2Setting, dc2_controller, per_dc_factor
-    if per_dc_factor.get("1") == "Bluesight":
-        _show_bluesight_dc_settings_dialog(1, OpenDC2OUTPUTON, CloseDC2OUTPUTON)
-        return
-    if dc2_controller is None:
-        dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc2_controller.show_setting(dialog_windowDC2Setting)
+    pass  # 设置已嵌入设备页面，无需弹窗
 
 
 def OpenDC2OUTPUTON():
@@ -545,13 +530,7 @@ def CloseDC2OUTPUTON():
 
 
 def ShowDC3Setting():
-    global dialog_windowDC3Setting, dc3_controller, per_dc_factor
-    if per_dc_factor.get("2") == "Bluesight":
-        _show_bluesight_dc_settings_dialog(2, OpenDC3OUTPUTON, CloseDC3OUTPUTON)
-        return
-    if dc3_controller is None:
-        dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc3_controller.show_setting(dialog_windowDC3Setting)
+    pass  # 设置已嵌入设备页面，无需弹窗
 
 
 def OpenDC3OUTPUTON():
@@ -569,13 +548,7 @@ def CloseDC3OUTPUTON():
 
 
 def ShowDC4Setting():
-    global dialog_windowDC4Setting, dc4_controller, per_dc_factor
-    if per_dc_factor.get("3") == "Bluesight":
-        _show_bluesight_dc_settings_dialog(3, OpenDC4OUTPUTON, CloseDC4OUTPUTON)
-        return
-    if dc4_controller is None:
-        dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc4_controller.show_setting(dialog_windowDC4Setting)
+    pass  # 设置已嵌入设备页面，无需弹窗
 
 
 def OpenDC4OUTPUTON():
@@ -27953,19 +27926,6 @@ if __name__ == "__main__":
             ui = Ui_Dialog()
             ui.setupUi(main_window)
 
-            # 文件管理齿轮按钮（右上角，刷新设备按钮右侧）
-            from PyQt5.QtWidgets import QPushButton
-            from DialogFileManager import open_file_manager
-            btn_file_manager = QPushButton("⚙", main_window)  # ⚙ 齿轮图标
-            btn_file_manager.setGeometry(825, 20, 36, 36)
-            btn_file_manager.setFont(QtGui.QFont("Arial", 16))
-            btn_file_manager.setToolTip("文件管理")
-            btn_file_manager.setStyleSheet(
-                "QPushButton { border: 1px solid #ccc; border-radius: 4px; }"
-                "QPushButton:hover { background-color: #e0e0e0; }"
-            )
-            btn_file_manager.clicked.connect(lambda: open_file_manager(main_window))
-
             # 将主窗口、日志对象和资源管理器写入应用上下文，避免继续散落全局状态
             app_ctx = bootstrap(ui=ui, logger=logger, rm=rm)
             # 启动阶段同步核心运行对象，确保 app_ctx 保存的是当前这次启动的状态
@@ -28039,6 +27999,27 @@ if __name__ == "__main__":
             dialog_windowfrequencyadaptability = setup_windows["dialog_windowfrequencyadaptability"]
             uiThaiFrequencyAdaptability = setup_windows["uiThaiFrequencyAdaptability"]
 
+            # ── 将设备设置对话框内容嵌入到对映的设备页面中（替代弹窗） ──
+            from setup.main_setup import MainSetup as _MS
+            _device_embed_map = {
+                "dialog_windowACSetting": (1, "comboBox_AC"),
+                "dialog_windowDC1Setting": (2, "comboBox_DC1"),
+                "dialog_windowDC2Setting": (3, "comboBox_DC2"),
+                "dialog_windowDC3Setting": (4, "comboBox_DC3"),
+                "dialog_windowDC4Setting": (5, "comboBox_DC4"),
+                "dialog_windowDLSetting": (6, "comboBox_DL850"),
+                "dialog_windowDewetronSetting": (8, "comboBox_DEWETRON"),
+                # WT3000 (page 7) 跳过 — dialog_WT3000E 被多个测试页面共享
+            }
+            for _dlg_key, (_page_idx, _combo_name) in _device_embed_map.items():
+                _dlg = setup_windows.get(_dlg_key)
+                if _dlg:
+                    _page = ui.stackedWidget.widget(_page_idx)
+                    print(f"[EMBED] {_dlg_key} -> page {_page_idx}, settings_{_combo_name}")
+                    _MS.embed_dialog_content(_dlg, _page, _combo_name)
+                else:
+                    print(f"[EMBED] SKIP {_dlg_key} (not found in setup_windows)")
+
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
             _refresh_all_equ_combo_boxes(EQUList, _connected_equ_resources)
@@ -28056,6 +28037,16 @@ if __name__ == "__main__":
                     combo.setCurrentIndex(0)
             ui.comboBox_WT3000.setEditable(False)
             ui.comboBox_P.addItems(projectlist)
+
+            # 填充 Auto_Test 侧边栏子项
+            _auto_sidebar_items = [
+                '重连', '电压闪变', '谐波电流', '固定PF=1', '过载能力测试',
+                '直流分量', '静态QU', 'Test_PU', '静态Cos(φ)', 'Cos(φ)_Brazil',
+                '10min过压保护', '过频降载', '过欠压_过欠频', '巴西过欠频稳定性',
+                '静态MPPT测试', '频率适应性'
+            ]
+            for _item_text in _auto_sidebar_items:
+                ui.add_auto_test_item(_item_text, page_index=8)
 
             ui.comboBox_P.currentIndexChanged.connect(SecondProjectSet)
             '''

@@ -10,7 +10,7 @@
 
 from typing import Any, Dict
 
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QDialog, QWidget
 
 from setup.base_setup import BaseSetup
 
@@ -50,11 +50,35 @@ class MainSetup(BaseSetup):
         return self.initialize_windows(app_ctx)
 
     @staticmethod
-    def _build_dialog(ui_cls: Any) -> tuple[QDialog, Any]:
-        dialog = QDialog()
+    def _build_dialog(ui_cls: Any, container=None) -> tuple:
+        if container is None:
+            container = QDialog()
         ui = ui_cls()
-        ui.setupUi(dialog)
-        return dialog, ui
+        ui.setupUi(container)
+        return container, ui
+
+    @staticmethod
+    def embed_dialog_content(dialog, page_widget, settings_attr_name):
+        """将 dialog 的内容嵌入到 page_widget 的 _settings_{name} 占位区域。"""
+        settings_area = getattr(page_widget, f"_settings_{settings_attr_name}", None)
+        if settings_area is None:
+            return
+        target_layout = settings_area.layout()
+
+        dlg_layout = dialog.layout()
+        if dlg_layout is not None:
+            # 布局型对话框（如 DEWETRON）：提取布局中的所有控件
+            while dlg_layout.count():
+                item = dlg_layout.takeAt(0)
+                w = item.widget()
+                if w is not None:
+                    target_layout.addWidget(w)
+        else:
+            # 绝对定位型对话框（pyuic5 生成）：重新设置父控件
+            for child in list(dialog.findChildren(QWidget)):
+                if child.parent() is dialog:
+                    child.setParent(settings_area)
+                    target_layout.addWidget(child)
 
     @staticmethod
     def _register_window(created: Dict[str, Any], app_ctx: Any, dialog_key: str, ui_key: str, dialog: QDialog, ui: Any, sync_dialog_attr: str | None = None, sync_ui_attr: str | None = None) -> None:
