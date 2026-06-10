@@ -953,3 +953,18 @@ NameError: name 'QtWidgets' is not defined
 2026-06-10 16:19:12,461 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
 2026-06-10 16:19:12,461 INFO SCPITestWave.py [28452] MainThread :2026-06-10 16:19:12    程式开启
 2026-06-10 16:19:12,461 INFO logging_setup.py [75] MainThread :2026-06-10 16:19:12    程式开启
+2026-06-10 16:22:07,936 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27867: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:22:07,937 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 16:22:07,938 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27883: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:22:07,938 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 16:22:07,938 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:22:07,938 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 16:22:08,175 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-10 16:22:08,175 INFO logging_setup.py [75] MainThread :1
+2026-06-10 16:22:08,828 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28448: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:22:08,828 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 16:22:08,828 INFO SCPITestWave.py [28452] MainThread :2026-06-10 16:22:08    程式开启
+2026-06-10 16:22:08,828 INFO logging_setup.py [75] MainThread :2026-06-10 16:22:08    程式开启
+2026-06-10 16:22:20,645 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] === 开始保存配置 ===
+2026-06-10 16:22:20,647 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 用户选择 - 输入通道: AI 1/U1, 最大刷新率: Default, 通道二次采样: Auto
+2026-06-10 16:22:20,647 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] DEWETRON未连接

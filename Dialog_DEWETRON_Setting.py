@@ -305,6 +305,11 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.treeWidget_channels.setHeaderLabel("通道列表")
         self.treeWidget_channels.setMinimumWidth(160)
         self.treeWidget_channels.setMaximumWidth(220)
+        self.treeWidget_channels.setStyleSheet(
+            "QTreeWidget { color: #1e293b; background: #ffffff; border: 1px solid #d1d5db; }"
+            "QTreeWidget::item:selected { background: #3b82f6; color: #ffffff; }"
+            "QTreeWidget::item:hover { background: #e5e7eb; }"
+        )
         power_group = QtWidgets.QTreeWidgetItem(self.treeWidget_channels, ["Power Groups"])
         power_group.setExpanded(True)
         pw0 = QtWidgets.QTreeWidgetItem(power_group, ["POWER/0"])
@@ -574,7 +579,11 @@ class Ui_Dialog_DEWETRON_Setting(object):
         is_current = '/l' in ch_text or '/I' in ch_text
 
         menu = QtWidgets.QMenu(self.treeWidget_channels)
-        menu.setStyleSheet("QMenu { font-size: 11px; padding: 4px; }")
+        menu.setStyleSheet(
+            "QMenu { font-size: 11px; padding: 4px; color: #1e293b; background: #ffffff; }"
+            "QMenu::item { padding: 6px 20px; }"
+            "QMenu::item:selected { background: #3b82f6; color: #ffffff; }"
+        )
 
         # 槽位 -> 组号映射
         slot_group_map = {'U1': '1', 'I1': '1', 'U2': '2', 'I2': '2', 'U3': '3', 'I3': '3'}
