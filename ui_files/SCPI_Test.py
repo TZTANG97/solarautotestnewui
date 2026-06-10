@@ -316,7 +316,7 @@ class Ui_Dialog(object):
             _settings_area.setMinimumHeight(400)
             _settings_area_lay = QtWidgets.QVBoxLayout(_settings_area)
             _settings_area_lay.setContentsMargins(0, 0, 0, 0)
-            setattr(self, f"_settings_{combo_name}", _settings_area)
+            setattr(page, f"_settings_{combo_name}", _settings_area)
             layout.addWidget(_settings_area, 1)
 
             return page

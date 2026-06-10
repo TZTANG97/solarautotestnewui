@@ -28015,10 +28015,7 @@ if __name__ == "__main__":
                 _dlg = setup_windows.get(_dlg_key)
                 if _dlg:
                     _page = ui.stackedWidget.widget(_page_idx)
-                    print(f"[EMBED] {_dlg_key} -> page {_page_idx}, settings_{_combo_name}")
                     _MS.embed_dialog_content(_dlg, _page, _combo_name)
-                else:
-                    print(f"[EMBED] SKIP {_dlg_key} (not found in setup_windows)")
 
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
