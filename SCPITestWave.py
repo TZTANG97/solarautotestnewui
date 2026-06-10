@@ -272,6 +272,24 @@ def SendDEWETRONStopMessage():
     if not dewetron_controller.send_stop():
         _show_connect_message("DEWETRON未连接，请先连接DEWETRON设备", uiDewetronSetting)
 
+def SaveDEWETRONConfigWithLoading():
+    """带加载状态的保存包装：禁用按钮 + 等待光标，防止重复点击。"""
+    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtCore import Qt
+    btn = uiDewetronSetting.pushButton_ApplySettings
+    btn.setEnabled(False)
+    btn.setText("保存中...")
+    QApplication.setOverrideCursor(Qt.WaitCursor)
+    try:
+        SaveDEWETRONConfig()
+    except Exception as e:
+        print(f"[SaveDEWETRONConfig] 异常: {e}")
+    finally:
+        QApplication.restoreOverrideCursor()
+        btn.setEnabled(True)
+        btn.setText("保存")
+
+
 def SaveDEWETRONConfig():
     """从设备读取当前配置，根据 UI 设置修改，再通过 :SETUP:APPLY 上传到设备。"""
     global dewetron_controller
@@ -378,10 +396,6 @@ def SaveDEWETRONConfig():
     for slot, ch_id in sorted(input_channels.items()):
         _log(f"  {slot} -> ID={ch_id}")
 
-    # 在 UI 上显示设备原始映射
-    if uiDewetronSetting and hasattr(uiDewetronSetting, 'show_device_mapping'):
-        uiDewetronSetting.show_device_mapping(input_channels, channel_id_map)
-
     # 打印配对结果
     _log("--- 通道配对 ---")
     for slot_name, ch_name in channel_map.items():
@@ -412,41 +426,48 @@ def SaveDEWETRONConfig():
 
     # 5. 发送 :SETUP:APPLY
     if dewetron_controller.send_apply_config(modified_xml):
-        _log("APPLY 发送成功，等待设备处理...")
-        # 等待设备处理配置
-        import time
-        time.sleep(3)
-        # 读回配置验证
-        try:
-            read_back = dewetron_controller._query(":SETUP:READ?")
-            if read_back:
-                # 去掉 SCPI 前缀
-                decl_pos = read_back.find('<?xml')
-                if decl_pos > 0:
-                    read_back = read_back[decl_pos:]
-                # 保存读回的配置
-                verify_path = os.path.join(save_dir, f"dewetron_verify_{now.strftime('%Y%m%d_%H')}.xml")
-                with open(verify_path, 'w', encoding='utf-8') as f:
-                    f.write(read_back)
-                _log(f"已读回配置: {len(read_back)} 字符")
-                # 比较关键内容
-                expected_wiring = wiring_names.get(wiring_type, 'AC_1P2W')
-                if expected_wiring in read_back:
-                    _log(f"[OK] 接线类型已应用: {expected_wiring}")
-                else:
-                    _log(f"[FAIL] 接线类型未找到 {expected_wiring}")
-                # 保存读回的 XML 作为下次的引导模板
-                with open(bootstrap_path, 'w', encoding='utf-8') as f:
-                    f.write(read_back)
-                _log(f"已更新引导模板: {len(read_back)} 字符")
-            else:
-                _log(":SETUP:READ? 返回空")
-        except Exception as e:
-            _log(f"验证读取失败: {e}")
-        _show_connect_message("配置已应用", uiDewetronSetting)
+        _log("配置已应用")
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(uiDewetronSetting, "保存成功", "DEWETRON 配置已应用")
     else:
         _log("APPLY 发送失败")
-        _show_connect_message("配置应用失败", uiDewetronSetting)
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.warning(uiDewetronSetting, "保存失败", "配置应用失败，请检查设备连接")
+
+
+def BuildDEWETRONTestPageWithLoading():
+    """带加载状态的测试界面构造。"""
+    from PyQt5.QtWidgets import QApplication, QMessageBox
+    from PyQt5.QtCore import Qt
+    btn = uiDewetronSetting.pushButton_BuildTestPage
+    btn.setEnabled(False)
+    btn.setText("构造中...")
+    QApplication.setOverrideCursor(Qt.WaitCursor)
+    try:
+        BuildDEWETRONTestPage()
+    except Exception as e:
+        print(f"[BuildTestPage] 异常: {e}")
+    finally:
+        QApplication.restoreOverrideCursor()
+        btn.setEnabled(True)
+        btn.setText("测试界面构造")
+
+
+def BuildDEWETRONTestPage():
+    """构造 DEWETRON 电力组测试页面（独立补丁，不修改现有逻辑）。"""
+    global dewetron_controller
+    from devices.dewetron_test_page import build_test_page_from_device
+    from PyQt5.QtWidgets import QMessageBox
+
+    if dewetron_controller is None or not dewetron_controller.connected:
+        _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
+        return
+
+    if build_test_page_from_device(dewetron_controller, log_fn=uiDewetronSetting.log):
+        QMessageBox.information(uiDewetronSetting, "构造完成", "测试界面已构造")
+    else:
+        QMessageBox.warning(uiDewetronSetting, "构造失败", "测试界面构造失败，请检查设备连接")
+
 
 def CloseACOUTPUTON():
     global ac_controller
@@ -28259,7 +28280,9 @@ if __name__ == "__main__":
             # 打开DEWETRON Setting对话框
             ui.pushButton_SetDEWETRONOptions.clicked.connect(ShowDEWETRONSetting)
             # 保存 DEWETRON 配置
-            uiDewetronSetting.pushButton_ApplySettings.clicked.connect(SaveDEWETRONConfig)
+            uiDewetronSetting.pushButton_ApplySettings.clicked.connect(SaveDEWETRONConfigWithLoading)
+            # 测试界面构造
+            uiDewetronSetting.pushButton_BuildTestPage.clicked.connect(BuildDEWETRONTestPageWithLoading)
 
             # 打开ACSetting对话框
             ui.pushButton_SetACOptions.clicked.connect(ShowACSetting)

@@ -341,6 +341,10 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.pushButton_ApplySettings.setText("保存")
         self.pushButton_ApplySettings.setMinimumSize(130, 36)
         btn_col.addWidget(self.pushButton_ApplySettings)
+        self.pushButton_BuildTestPage = QtWidgets.QPushButton(self.tab_wiring)
+        self.pushButton_BuildTestPage.setText("测试界面构造")
+        self.pushButton_BuildTestPage.setMinimumSize(130, 36)
+        btn_col.addWidget(self.pushButton_BuildTestPage)
         btn_col.addStretch()
         bottom_layout.addLayout(btn_col)
 

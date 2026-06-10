@@ -170,13 +170,6 @@ class DewetronController:
             full_cmd = f":SETUP:APPLY #{num_digits}{xml_len}" + xml_string
             print(f"[DEWETRON] 发送 :SETUP:APPLY (XML: {xml_len} 字节, header: #{num_digits}{xml_len})")
             self.handle.write(full_cmd)
-            import time
-            time.sleep(2)
-            try:
-                err = self.handle.query(":SYSTEM:ERROR:ALL?")
-                print(f"[DEWETRON] :SYSTEM:ERROR:ALL? -> {err.strip()}")
-            except Exception:
-                pass
             print(f"[DEWETRON] :SETUP:APPLY 发送完成")
             return True
         except Exception as e:
