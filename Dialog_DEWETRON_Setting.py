@@ -809,13 +809,66 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
+        rename_btn = QPushButton("另存为")
+        rename_btn.setMinimumSize(80, 30)
+        rename_btn.setStyleSheet("color: #1890ff;")
         load_btn = QPushButton("加载")
         load_btn.setMinimumSize(80, 30)
         cancel_btn = QPushButton("取消")
         cancel_btn.setMinimumSize(80, 30)
+        btn_row.addWidget(rename_btn)
         btn_row.addWidget(load_btn)
         btn_row.addWidget(cancel_btn)
         layout.addLayout(btn_row)
+
+        def refresh_list():
+            """刷新文件列表。"""
+            list_widget.clear()
+            nonlocal files
+            files = [f for f in os.listdir(save_dir)
+                     if f.startswith('dewetron_') and not f.startswith('dewetron_verify_') and f.endswith('.xml')]
+            files.sort(reverse=True)
+            for f in files:
+                from DialogFileManager import _parse_date_from_filename
+                dt = _parse_date_from_filename(f)
+                date_str = dt.strftime("%Y-%m-%d %H:%M") if dt else "未知日期"
+                item = QListWidgetItem(f"  {f}    ({date_str})")
+                item.setData(QtCore.Qt.UserRole, os.path.join(save_dir, f))
+                list_widget.addItem(item)
+            if list_widget.count() > 0:
+                list_widget.setCurrentRow(0)
+
+        def on_rename():
+            item = list_widget.currentItem()
+            if not item:
+                return
+            old_path = item.data(QtCore.Qt.UserRole)
+            old_name = os.path.basename(old_path)
+            # 提取日期时间部分，如 dewetron_20260610_09
+            import re as _re
+            m = _re.match(r'(dewetron_\d{8}_\d{2})', old_name)
+            prefix = m.group(1) if m else "dewetron_copy"
+
+            from PyQt5.QtWidgets import QInputDialog, QMessageBox
+            new_name, ok = QInputDialog.getText(
+                dialog, "另存为", f"输入配置名称（将自动加前缀 {prefix}_）：\n（当前: {old_name}）",
+                text=""
+            )
+            if ok and new_name:
+                if not new_name.endswith('.xml'):
+                    new_name += '.xml'
+                final_name = f"{prefix}_{new_name}"
+                new_path = os.path.join(save_dir, final_name)
+                if os.path.exists(new_path):
+                    QMessageBox.warning(dialog, "失败", f"文件 {final_name} 已存在")
+                    return
+                try:
+                    import shutil
+                    shutil.copy2(old_path, new_path)
+                    self.log(f"复制配置: {old_name} -> {final_name}")
+                    refresh_list()
+                except Exception as e:
+                    self.log(f"复制失败: {e}")
 
         def on_load():
             item = list_widget.currentItem()
@@ -826,6 +879,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
         def on_cancel():
             dialog.reject()
 
+        rename_btn.clicked.connect(on_rename)
         load_btn.clicked.connect(on_load)
         cancel_btn.clicked.connect(on_cancel)
         list_widget.itemDoubleClicked.connect(lambda: on_load())
