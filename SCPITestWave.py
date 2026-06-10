@@ -27950,6 +27950,20 @@ if __name__ == "__main__":
             main_window = QMainWindow()
             ui = Ui_Dialog()
             ui.setupUi(main_window)
+
+            # 文件管理齿轮按钮（右上角，刷新设备按钮右侧）
+            from PyQt5.QtWidgets import QPushButton
+            from DialogFileManager import open_file_manager
+            btn_file_manager = QPushButton("⚙", main_window)  # ⚙ 齿轮图标
+            btn_file_manager.setGeometry(825, 20, 36, 36)
+            btn_file_manager.setFont(QtGui.QFont("Arial", 16))
+            btn_file_manager.setToolTip("文件管理")
+            btn_file_manager.setStyleSheet(
+                "QPushButton { border: 1px solid #ccc; border-radius: 4px; }"
+                "QPushButton:hover { background-color: #e0e0e0; }"
+            )
+            btn_file_manager.clicked.connect(lambda: open_file_manager(main_window))
+
             # 将主窗口、日志对象和资源管理器写入应用上下文，避免继续散落全局状态
             app_ctx = bootstrap(ui=ui, logger=logger, rm=rm)
             # 启动阶段同步核心运行对象，确保 app_ctx 保存的是当前这次启动的状态
