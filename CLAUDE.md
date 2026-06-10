@@ -207,6 +207,25 @@ Each test type has:
 - **不要**在 `devices/` 中放入配置、UI、工具类等非设备控制代码
 - UI 对话框 → 根目录 `Dialog_*.py`（如 `DialogFileManager.py`、`Dialog_DEWETRON_Setting.py`）
 - 独立工具模块 → 根目录（如 `DewetronTestPage.py`）
+- **通用 UI 组件** → `components/`（如 `buttons.py`）
+
+## 通用组件库（components/）
+
+`components/` 目录存放可复用的 UI 组件。**遇到样式/组件需求时，优先查找此目录，已有则复用，没有再新建。**
+
+当前组件：
+- **`StyledButton`** — 通用样式按钮，6 种预设风格（DEFAULT/PRIMARY/SUCCESS/INFO/WARNING/DANGER），支持自定义 width、height、min_width、font_size、padding
+- **`apply_button_style(btn, style)`** — 将预设样式应用到已有 QPushButton 上（不替换控件，保留信号连接）
+
+```python
+from components import StyledButton, ButtonStyle, apply_button_style
+
+# 创建新按钮
+btn = StyledButton("确定", ButtonStyle.SUCCESS, width=120, height=36)
+
+# 给已有按钮换样式（保留信号连接）
+apply_button_style(existing_btn, ButtonStyle.DANGER)
+```
 
 ## PyQt5 布局注意事项
 

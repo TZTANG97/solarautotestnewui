@@ -126,7 +126,7 @@ def SendACMessage():
 
 
 def SendDCTestMessage():
-    global dc1_controller, dc2_controller, dc3_controller, dc4_controller
+    global dc1_controller, dc2_controller, dc3_controller, dc4_controller, uiDC1Setting
 
     selected_dc = uiDC1Setting.comboBox_DC_Select.currentText().strip()
     controller_map = {
@@ -907,6 +907,13 @@ def ApplyWT3000Setting(close_dialog=True):
         print(f"WT3000波特率已选择: {WT3000_baud_rate}")
         if close_dialog and WT3000_setting_window is not None and WT3000_setting_window.isVisible():
             WT3000_setting_window.close()
+
+def _apply_wt3000_baud_rate(text):
+    """页面上波特率下拉框变化时更新全局波特率。"""
+    global WT3000_baud_rate
+    WT3000_baud_rate = text.strip()
+    logger.info(f"WT3000波特率已选择: {WT3000_baud_rate}")
+    print(f"WT3000波特率已选择: {WT3000_baud_rate}")
 
 def ConnectEQUAC():
     """连接交流电源。"""
@@ -28001,21 +28008,86 @@ if __name__ == "__main__":
 
             # ── 将设备设置对话框内容嵌入到对映的设备页面中（替代弹窗） ──
             from setup.main_setup import MainSetup as _MS
+
+            # 交流电源 Grid 布局：设备连接 → 相位 → 电压/频率 → 输出控制 → 单条命令 → 日志
+            _AC_GRID = [
+                {"title": "设备连接",   "widgets": "__connect_clean__"},
+                {"title": "相位选择",   "widgets": ["comboBox_Phase"]},
+                {"title": "电压/频率设置", "widgets": ["label", "textEdit_AC_VOLT", "label_3",
+                                                      "label_2", "textEdit_AC_FR", "label_4"]},
+                {"title": "输出控制",   "widgets": ["pushButton_SetACON", "pushButton_SetACOFF"]},
+                {"title": "单条命令测试", "widgets": ["pushButton_SendMessage"]},
+                {"title": "操作日志",   "widgets": "__log__"},
+            ]
+            # 直流电源1：设备连接 → 参数设置 → 功率设置 → 输出控制 → 直流源选择 → 命令 → 日志
+            _DC1_GRID = [
+                {"title": "设备连接",     "widgets": "__connect_clean__"},
+                {"title": "参数设置",     "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
+                                                     "label_2", "textEdit_Imp", "label_4", "textEdit_Isc"]},
+                {"title": "功率设置",     "widgets": ["label_5", "textEdit_PF", "lineEdit_2"]},
+                {"title": "输出控制",     "widgets": ["pushButton_SetDC1ON", "pushButton_SetDC1OFF"]},
+                {"title": "直流源选择",   "widgets": ["lineEdit", "comboBox_DC_Select", "pushButton_SendMessage"]},
+                {"title": "单条命令查询", "widgets": ["pushButton_SendQueryMessage"]},
+                {"title": "操作日志",     "widgets": "__log_widget__"},
+            ]
+            # 直流电源2/3/4：设备连接 → 输出控制 → 单项测试
+            _DC2_GRID = [
+                {"title": "设备连接",     "widgets": "__connect_clean__"},
+                {"title": "输出控制",     "widgets": ["pushButton_SetDC2ON", "pushButton_SetDC2OFF"]},
+                {"title": "单条命令测试", "widgets": ["textEdit_SendMessage", "pushButton_SendMessage"]},
+            ]
+            _DC3_GRID = [
+                {"title": "设备连接",     "widgets": "__connect_clean__"},
+                {"title": "输出控制",     "widgets": ["pushButton_SetDC3ON", "pushButton_SetDC3OFF"]},
+                {"title": "单条命令测试", "widgets": ["textEdit_SendMessage", "pushButton_SendMessage"]},
+            ]
+            _DC4_GRID = [
+                {"title": "设备连接",     "widgets": "__connect_clean__"},
+                {"title": "输出控制",     "widgets": ["pushButton_SetDC4ON", "pushButton_SetDC4OFF"]},
+                {"title": "单条命令测试", "widgets": ["textEdit_SendMessage", "pushButton_SendMessage"]},
+            ]
+            # DL850 示波器：设备连接 → 采集控制 → 命令查询 → 命令发送 → 日志
+            _DL850_GRID = [
+                {"title": "设备连接",   "widgets": "__connect_clean__"},
+                {"title": "采集控制",   "widgets": ["pushButton_StartTest", "pushButton_StopTest",
+                                                   "pushButton_SavePicture"]},
+                {"title": "命令查询",   "widgets": ["textEdit_SendQueryMessage", "pushButton_SendQueryMessage"]},
+                {"title": "命令发送",   "widgets": ["textEdit_SendMessage", "pushButton_SendMessage"]},
+                {"title": "操作日志",   "widgets": "__log_widget__"},
+            ]
+
+            _WT3000_GRID = [
+                {"title": "波特率设置", "widgets": ["comboBox_BaudRate"]},
+                {"title": "设备连接",   "widgets": "__connect_clean__"},
+            ]
+
+            # WT3000 波特率下拉框：直接创建在页面上（不依赖设置对话框）
+            _wt3000_page = ui.stackedWidget.widget(7)
+            _baud_combo = QtWidgets.QComboBox()
+            _baud_combo.setObjectName("comboBox_BaudRate")
+            _baud_combo.addItems(["9600", "19200", "38400", "57600", "115200"])
+            _baud_combo.setCurrentText(str(WT3000_baud_rate))
+            _baud_combo.setMinimumWidth(120)
+            _baud_combo.currentTextChanged.connect(
+                lambda text: _apply_wt3000_baud_rate(text))
+            setattr(_wt3000_page, "_extra_widgets_comboBox_WT3000",
+                    {"comboBox_BaudRate": _baud_combo})
+
             _device_embed_map = {
-                "dialog_windowACSetting": (1, "comboBox_AC"),
-                "dialog_windowDC1Setting": (2, "comboBox_DC1"),
-                "dialog_windowDC2Setting": (3, "comboBox_DC2"),
-                "dialog_windowDC3Setting": (4, "comboBox_DC3"),
-                "dialog_windowDC4Setting": (5, "comboBox_DC4"),
-                "dialog_windowDLSetting": (6, "comboBox_DL850"),
-                "dialog_windowDewetronSetting": (8, "comboBox_DEWETRON"),
-                # WT3000 (page 7) 跳过 — dialog_WT3000E 被多个测试页面共享
+                "dialog_windowACSetting":   (1, "comboBox_AC", _AC_GRID),
+                "dialog_windowDC1Setting":  (2, "comboBox_DC1", _DC1_GRID),
+                "dialog_windowDC2Setting":  (3, "comboBox_DC2", _DC2_GRID),
+                "dialog_windowDC3Setting":  (4, "comboBox_DC3", _DC3_GRID),
+                "dialog_windowDC4Setting":  (5, "comboBox_DC4", _DC4_GRID),
+                "dialog_windowDLSetting":   (6, "comboBox_DL850", _DL850_GRID),
+                "dialog_WT3000E":           (7, "comboBox_WT3000", _WT3000_GRID),
+                "dialog_windowDewetronSetting": (8, "comboBox_DEWETRON", None),
             }
-            for _dlg_key, (_page_idx, _combo_name) in _device_embed_map.items():
+            for _dlg_key, (_page_idx, _combo_name, _rows) in _device_embed_map.items():
                 _dlg = setup_windows.get(_dlg_key)
                 if _dlg:
                     _page = ui.stackedWidget.widget(_page_idx)
-                    _MS.embed_dialog_content(_dlg, _page, _combo_name)
+                    _MS.embed_dialog_content(_dlg, _page, _combo_name, layout_rows=_rows)
 
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
@@ -28321,7 +28393,7 @@ if __name__ == "__main__":
             # uiDC1Setting.pushButton_SendTestSettingMessage.clicked.connect(SendDC1TestSettingMessage)
 
             # 向DC1电源发送query命令
-            # uiDC1Setting.pushButton_SendQueryMessage.clicked.connect(SendDC1QueryMessage)
+            uiDC1Setting.pushButton_SendQueryMessage.clicked.connect(SendDC1QueryMessage)
 
             # 打开DC2Setting对话框
             ui.pushButton_SetDC2Options.clicked.connect(ShowDC2Setting)

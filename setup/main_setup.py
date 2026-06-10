@@ -10,7 +10,10 @@
 
 from typing import Any, Dict
 
-from PyQt5.QtWidgets import QDialog, QWidget
+from PyQt5.QtWidgets import (QDialog, QWidget, QVBoxLayout, QHBoxLayout,
+                              QLabel, QScrollArea, QComboBox)
+from components.buttons import ButtonStyle, apply_button_style
+from components.timeline import build_timeline
 
 from setup.base_setup import BaseSetup
 
@@ -58,27 +61,297 @@ class MainSetup(BaseSetup):
         return container, ui
 
     @staticmethod
-    def embed_dialog_content(dialog, page_widget, settings_attr_name):
-        """将 dialog 的内容嵌入到 page_widget 的 _settings_{name} 占位区域。"""
+    def embed_dialog_content(dialog, page_widget, settings_attr_name, layout_rows=None):
+        """将 dialog 的内容嵌入到 page_widget 中。
+
+        支持两种模式：
+        1. Grid 模式：page 有 _grid_{name} 属性时，layout_rows 为 dict 列表，
+           每个 dict 含 "title" 和 "widgets"，填充 QGridLayout。
+        2. Scroll 模式：page 有 _settings_{name} 属性时，layout_rows 为 list 列表，
+           每行是 objectName 列表，填充 QScrollArea。
+        3. Auto 模式：layout_rows 为 None，按控件类型自动分组。
+        """
+        from PyQt5.QtWidgets import (QScrollArea, QFormLayout,
+                                      QHBoxLayout, QVBoxLayout, QLabel,
+                                      QTextEdit)
+        from PyQt5 import QtCore
+
+        # 样式常量
+        _BTN_QSS = """
+            QPushButton { color: #1e293b; background-color: #d1d5db; border: 1px solid #9ca3af;
+                border-radius: 4px; padding: 6px 14px; font-size: 13px; }
+            QPushButton:hover { background-color: #bcc3ce; }
+        """
+        _INPUT_QSS = """
+            QTextEdit { color: #1e293b; background-color: #ffffff;
+                border: 1px solid #d1d5db; border-radius: 4px; padding: 4px; font-size: 13px; }
+            QComboBox { color: #1e293b; background-color: #ffffff;
+                border: 1px solid #9ca3af; border-radius: 4px; padding: 4px 24px 4px 8px;
+                font-size: 13px; }
+            QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right;
+                width: 24px; border: none; }
+            QComboBox::down-arrow { image: none; border-left: 5px solid transparent;
+                border-right: 5px solid transparent; border-top: 6px solid #374151; }
+            QComboBox QAbstractItemView { background-color: #ffffff; color: #111827;
+                border: 2px solid #3b82f6; selection-background-color: #3b82f6;
+                selection-color: #ffffff; outline: none; }
+            QComboBox QAbstractItemView::item { padding: 6px 12px; min-height: 28px;
+                border-bottom: 1px solid #e5e7eb; }
+        """
+        _CONNECT_BTN_QSS = """
+            QPushButton { color: #1e293b; background-color: #d1d5db; border: 1px solid #9ca3af;
+                border-radius: 4px; padding: 6px 14px; font-size: 13px; }
+            QPushButton:hover { background-color: #bcc3ce; }
+        """
+        _LABEL_QSS = "color: #1e293b; font-size: 13px; background: transparent;"
+        _TITLE_QSS = "color: #1e293b; font-size: 13px; font-weight: bold; background: transparent;"
+
+        def _style_widget(w):
+            cls = type(w).__name__
+            if cls == 'QPushButton':
+                w.setStyleSheet(_BTN_QSS)
+                w.setCursor(QtCore.Qt.PointingHandCursor)
+            elif cls in ('QTextEdit', 'QComboBox', 'QLineEdit'):
+                w.setStyleSheet(_INPUT_QSS)
+            elif cls == 'QLabel':
+                w.setStyleSheet(_LABEL_QSS)
+
+        # 构建 objectName -> widget 索引（dialog 的直接子控件）
+        all_widgets = {}
+        for child in dialog.findChildren(QWidget):
+            if child.parent() is dialog:
+                all_widgets[child.objectName()] = child
+
+        # 合并页面上预置的额外控件（如 WT3000 波特率下拉框）
+        extra = getattr(page_widget, f"_extra_widgets_{settings_attr_name}", None)
+        if extra:
+            all_widgets.update(extra)
+
+        # ── Grid 模式：时间线布局 ──
+        grid_container = getattr(page_widget, f"_grid_{settings_attr_name}", None)
+        if grid_container is not None and layout_rows is not None:
+            grid_layout = grid_container.layout()
+            connect_widgets = getattr(page_widget, f"_connect_widgets_{settings_attr_name}", None)
+
+            # 日志控件：优先 textEdit_AC（AC），其次 textEdit_ReturnMessage（DC/DL850）
+            log_edit = all_widgets.get("textEdit_AC")
+            log_widget_name = None
+            if log_edit is not None:
+                log_edit.setReadOnly(True)
+                log_edit.setStyleSheet(
+                    "QTextEdit { background-color: #1e293b; color: #a0aec0; "
+                    "border: 1px solid #4a5568; border-radius: 4px; "
+                    "font-family: Consolas; font-size: 12px; padding: 4px; }"
+                )
+                setattr(page_widget, f"_log_{settings_attr_name}", log_edit)
+            elif "textEdit_ReturnMessage" in all_widgets:
+                log_widget_name = "textEdit_ReturnMessage"
+                setattr(page_widget, f"_log_{settings_attr_name}",
+                        all_widgets["textEdit_ReturnMessage"])
+
+            # 通用按钮样式：ON=SUCCESS, OFF=DANGER, 命令=PRIMARY
+            _btn_styles = {}
+            for obj_name, w in all_widgets.items():
+                if type(w).__name__ != 'QPushButton':
+                    continue
+                if "ON" in obj_name.upper() and "OFF" not in obj_name.upper():
+                    _btn_styles[obj_name] = ButtonStyle.SUCCESS
+                elif "OFF" in obj_name.upper():
+                    _btn_styles[obj_name] = ButtonStyle.DANGER
+                elif "SendMessage" in obj_name or "SendQuery" in obj_name:
+                    _btn_styles[obj_name] = ButtonStyle.PRIMARY
+
+            timeline = build_timeline(
+                layout_rows, all_widgets,
+                connect_widgets=connect_widgets,
+                log_widget=log_edit,
+                log_widget_name=log_widget_name,
+                btn_styles=_btn_styles,
+            )
+            # 无日志步骤时，时间线不撑满（WT3000 等少步骤页面）
+            _has_log = any(
+                s.get("widgets") in ("__log__", "__log_widget__") or
+                (isinstance(s.get("widgets"), list) and "__log__" in s.get("widgets"))
+                for s in layout_rows
+            )
+            scroll = QScrollArea()
+            scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+            if _has_log:
+                scroll.setWidgetResizable(True)
+            else:
+                from PyQt5.QtWidgets import QSizePolicy
+                scroll.setWidgetResizable(False)
+                timeline.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+            scroll.setWidget(timeline)
+            grid_layout.addWidget(scroll, 0, 0)
+
+            if not _has_log:
+                parent_layout = grid_container.parent().layout()
+                if parent_layout is not None:
+                    for i in range(parent_layout.count()):
+                        item = parent_layout.itemAt(i)
+                        if item and item.widget() is grid_container:
+                            parent_layout.setStretchFactor(grid_container, 0)
+                            break
+            return
+
+        # ── Scroll 模式 ──
         settings_area = getattr(page_widget, f"_settings_{settings_attr_name}", None)
         if settings_area is None:
             return
         target_layout = settings_area.layout()
 
+        # 给页面上的接口下拉框应用统一样式（AC/DC/DEWETRON 共用）
+        _combo_qss = (
+            "QComboBox { color: #1e293b; background-color: #ffffff; "
+            "border: 1px solid #9ca3af; border-radius: 4px; padding: 4px 24px 4px 8px; "
+            "font-size: 13px; }"
+            "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; "
+            "width: 24px; border: none; }"
+            "QComboBox::down-arrow { image: none; border-left: 5px solid transparent; "
+            "border-right: 5px solid transparent; border-top: 6px solid #374151; }"
+            "QComboBox QAbstractItemView { background-color: #ffffff; color: #111827; "
+            "border: 2px solid #3b82f6; selection-background-color: #3b82f6; "
+            "selection-color: #ffffff; outline: none; }"
+        )
+        for _ch in page_widget.findChildren(QComboBox):
+            if _ch.objectName() == settings_attr_name:
+                _ch.setStyleSheet(_combo_qss)
+                break
+
+        # 布局型对话框（如 DEWETRON）：直接提取布局中的控件
         dlg_layout = dialog.layout()
-        if dlg_layout is not None:
-            # 布局型对话框（如 DEWETRON）：提取布局中的所有控件
+        if dlg_layout is not None and layout_rows is None:
+            # 移除页面底部的"操作日志"区域（对话框自带日志）
+            page_layout = page_widget.layout()
+            if page_layout is not None:
+                for i in range(page_layout.count() - 1, -1, -1):
+                    item = page_layout.itemAt(i)
+                    w = item.widget() if item else None
+                    if w is not None:
+                        obj_name = w.objectName()
+                        if (type(w).__name__ == 'QLabel' and w.text() == "操作日志:") or \
+                           (type(w).__name__ == 'QTextEdit' and obj_name.startswith("log_")):
+                            page_layout.removeWidget(w)
+                            w.deleteLater()
             while dlg_layout.count():
                 item = dlg_layout.takeAt(0)
                 w = item.widget()
                 if w is not None:
                     target_layout.addWidget(w)
+            return
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(16, 8, 16, 8)
+        container_layout.setSpacing(12)
+
+        if layout_rows is not None:
+            # 设备专用布局：按指定行顺序放置控件
+            for row in layout_rows:
+                row_widgets = []
+                for name in row:
+                    w = all_widgets.get(name)
+                    if w is not None:
+                        row_widgets.append(w)
+                if not row_widgets:
+                    continue
+                if len(row_widgets) == 1:
+                    w = row_widgets[0]
+                    _style_widget(w)
+                    container_layout.addWidget(w)
+                else:
+                    h = QHBoxLayout()
+                    h.setSpacing(10)
+                    for w in row_widgets:
+                        _style_widget(w)
+                        h.addWidget(w)
+                    h.addStretch(1)
+                    container_layout.addLayout(h)
         else:
-            # 绝对定位型对话框（pyuic5 生成）：重新设置父控件
-            for child in list(dialog.findChildren(QWidget)):
-                if child.parent() is dialog:
-                    child.setParent(settings_area)
-                    target_layout.addWidget(child)
+            # 通用布局：按控件类型自动分组
+            buttons = []
+            form_pairs = []
+            text_edits = []
+            combos = []
+            for w in all_widgets.values():
+                cls = type(w).__name__
+                if cls == 'QPushButton':
+                    buttons.append(w)
+                elif cls == 'QComboBox':
+                    combos.append(w)
+                elif cls == 'QTextEdit':
+                    text_edits.append(w)
+
+            seen_labels = set()
+            for child in dialog.findChildren(QLabel):
+                if child.parent() is not dialog:
+                    continue
+                lbl_name = child.objectName()
+                if lbl_name in seen_labels:
+                    continue
+                lbl_geo = child.geometry()
+                best_widget = None
+                best_dist = 999999
+                for inp in text_edits + combos:
+                    if inp.parent() is not dialog:
+                        continue
+                    inp_geo = inp.geometry()
+                    dy = abs(inp_geo.y() - lbl_geo.y())
+                    dx = inp_geo.x() - lbl_geo.x()
+                    if dy < 40 and 0 < dx < 200:
+                        if dx < best_dist:
+                            best_dist = dx
+                            best_widget = inp
+                if best_widget is not None:
+                    form_pairs.append((child, best_widget))
+                    seen_labels.add(lbl_name)
+
+            if buttons:
+                btn_row = QHBoxLayout()
+                btn_row.setSpacing(10)
+                for btn in buttons:
+                    _style_widget(btn)
+                    btn_row.addWidget(btn)
+                btn_row.addStretch(1)
+                container_layout.addLayout(btn_row)
+
+            if form_pairs:
+                form = QFormLayout()
+                form.setSpacing(10)
+                for lbl, inp in form_pairs:
+                    _style_widget(lbl)
+                    _style_widget(inp)
+                    inp.setMinimumWidth(100)
+                    form.addRow(lbl, inp)
+                container_layout.addLayout(form)
+
+            combo_set = {id(c) for _, c in form_pairs}
+            orphan_combos = [c for c in combos if id(c) not in combo_set]
+            if orphan_combos:
+                combo_row = QHBoxLayout()
+                combo_row.setSpacing(10)
+                for c in orphan_combos:
+                    _style_widget(c)
+                    combo_row.addWidget(c)
+                combo_row.addStretch(1)
+                container_layout.addLayout(combo_row)
+
+            text_edit_set = {id(t) for _, t in form_pairs}
+            for te in text_edits:
+                if id(te) not in text_edit_set:
+                    _style_widget(te)
+                    te.setMinimumHeight(100)
+                    container_layout.addWidget(te, 1)
+
+        container_layout.addStretch(1)
+        scroll.setWidget(container)
+        target_layout.addWidget(scroll)
 
     @staticmethod
     def _register_window(created: Dict[str, Any], app_ctx: Any, dialog_key: str, ui_key: str, dialog: QDialog, ui: Any, sync_dialog_attr: str | None = None, sync_ui_attr: str | None = None) -> None:

@@ -256,8 +256,12 @@ class Ui_Dialog(object):
         """
 
         def _make_device_page(label_text, connect_btn_name, set_btn_name,
-                              combo_name, has_editable=True):
-            """构造设备页面：标题 + 连接区 + 日志，并将控件存为 Ui_Dialog 实例属性"""
+                              combo_name, has_editable=True, use_grid=False):
+            """构造设备页面：标题 + 连接区 + 日志，并将控件存为 Ui_Dialog 实例属性。
+
+            use_grid=True 时，创建 QGridLayout 容器供 embed_dialog_content 填充，
+            连接控件和日志区由 embed_dialog_content 统一放入网格。
+            """
             page = QtWidgets.QWidget()
             page.setStyleSheet(_pageStyle)
             layout = QtWidgets.QVBoxLayout(page)
@@ -269,55 +273,82 @@ class Ui_Dialog(object):
             lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
             layout.addWidget(lbl)
 
-            # 连接区卡片
-            card = QtWidgets.QWidget()
-            card.setObjectName("card")
-            card.setStyleSheet(_cardStyle)
-            cardLayout = QtWidgets.QVBoxLayout(card)
-            cardLayout.setContentsMargins(16, 12, 16, 12)
-            cardLayout.setSpacing(10)
-
-            row = QtWidgets.QHBoxLayout()
-            row.setSpacing(8)
-            interfaceLabel = QtWidgets.QLabel("接口:")
-            interfaceLabel.setStyleSheet("font-size: 13px; background: transparent;")
-            row.addWidget(interfaceLabel)
-
+            # 创建连接控件（两种模式都需要）
             combo = QtWidgets.QComboBox()
             combo.setObjectName(combo_name)
             combo.setEditable(has_editable)
             combo.setMinimumWidth(200)
-            row.addWidget(combo, 1)
+            setattr(self, combo_name, combo)
 
             connectBtn = QtWidgets.QPushButton("连接设备")
             connectBtn.setObjectName(connect_btn_name)
             connectBtn.setFixedWidth(90)
-            row.addWidget(connectBtn)
+            setattr(self, connect_btn_name, connectBtn)
 
             setBtn = QtWidgets.QPushButton("设定")
             setBtn.setObjectName(set_btn_name)
             setBtn.setFixedWidth(90)
-            # 存为 Ui_Dialog 实例属性，供 retranslateUi 和 SCPITestWave.py 引用
-            setattr(self, combo_name, combo)
-            setattr(self, connect_btn_name, connectBtn)
-            setattr(self, set_btn_name, setBtn)
             setBtn.setStyleSheet("""
                 QPushButton { background-color: #10b981; color: white; }
                 QPushButton:hover { background-color: #059669; }
             """)
-            row.addWidget(setBtn)
-            cardLayout.addLayout(row)
-            layout.addWidget(card)
+            setattr(self, set_btn_name, setBtn)
 
-            # 设置区占位（由 embed_dialog_content 填充）
-            _settings_area = QtWidgets.QWidget()
-            _settings_area.setObjectName("_settings_area")
-            _settings_area.setStyleSheet("background: transparent;")
-            _settings_area.setMinimumHeight(400)
-            _settings_area_lay = QtWidgets.QVBoxLayout(_settings_area)
-            _settings_area_lay.setContentsMargins(0, 0, 0, 0)
-            setattr(page, f"_settings_{combo_name}", _settings_area)
-            layout.addWidget(_settings_area, 1)
+            if use_grid:
+                # Grid 模式：创建网格容器，由 embed_dialog_content 填充
+                grid_container = QtWidgets.QWidget()
+                grid_container.setObjectName("_grid_container")
+                grid_container.setStyleSheet("background: transparent;")
+                grid_layout = QtWidgets.QGridLayout(grid_container)
+                grid_layout.setContentsMargins(0, 0, 0, 0)
+                grid_layout.setSpacing(4)
+                setattr(page, f"_grid_{combo_name}", grid_container)
+                setattr(page, f"_connect_widgets_{combo_name}", (combo, connectBtn, setBtn))
+                layout.addWidget(grid_container, 1)
+            else:
+                # 原始模式：连接卡片 + 设置区 + 日志区
+                card = QtWidgets.QWidget()
+                card.setObjectName("card")
+                card.setStyleSheet(_cardStyle)
+                cardLayout = QtWidgets.QVBoxLayout(card)
+                cardLayout.setContentsMargins(16, 12, 16, 12)
+                cardLayout.setSpacing(10)
+
+                row = QtWidgets.QHBoxLayout()
+                row.setSpacing(8)
+                interfaceLabel = QtWidgets.QLabel("接口:")
+                interfaceLabel.setStyleSheet("font-size: 13px; background: transparent;")
+                row.addWidget(interfaceLabel)
+                row.addWidget(combo, 1)
+                row.addWidget(connectBtn)
+                row.addWidget(setBtn)
+                cardLayout.addLayout(row)
+                layout.addWidget(card)
+
+                _settings_area = QtWidgets.QWidget()
+                _settings_area.setObjectName("_settings_area")
+                _settings_area.setStyleSheet("background: transparent;")
+                _settings_area.setMinimumHeight(400)
+                _settings_area_lay = QtWidgets.QVBoxLayout(_settings_area)
+                _settings_area_lay.setContentsMargins(0, 0, 0, 0)
+                setattr(page, f"_settings_{combo_name}", _settings_area)
+                layout.addWidget(_settings_area, 1)
+
+                log_label = QtWidgets.QLabel("操作日志:")
+                log_label.setStyleSheet("font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;")
+                layout.addWidget(log_label)
+
+                log_edit = QtWidgets.QTextEdit()
+                log_edit.setObjectName(f"log_{combo_name}")
+                log_edit.setReadOnly(True)
+                log_edit.setMaximumHeight(120)
+                log_edit.setStyleSheet(
+                    "QTextEdit { background-color: #1e293b; color: #a0aec0; "
+                    "border: 1px solid #4a5568; border-radius: 4px; "
+                    "font-family: Consolas; font-size: 12px; padding: 4px; }"
+                )
+                setattr(page, f"_log_{combo_name}", log_edit)
+                layout.addWidget(log_edit)
 
             return page
 
@@ -496,25 +527,27 @@ class Ui_Dialog(object):
         # ── 页面 1: 交流电源 ──
         self.stackedWidget.addWidget(
             _make_device_page("交流电源", "pushButton_ConnectEQUAC",
-                              "pushButton_SetACOptions", "comboBox_AC"))
+                              "pushButton_SetACOptions", "comboBox_AC",
+                              use_grid=True))
 
         # ── 页面 2~5: 直流电源 ──
         for i in range(1, 5):
             self.stackedWidget.addWidget(
                 _make_device_page(f"直流电源{i}", f"pushButton_ConnectEQUDC{i}",
-                                  f"pushButton_SetDC{i}Options", f"comboBox_DC{i}"))
+                                  f"pushButton_SetDC{i}Options", f"comboBox_DC{i}",
+                                  use_grid=True))
 
         # ── 页面 5: DL850 ──
         self.stackedWidget.addWidget(
             _make_device_page("DL850 示波器", "pushButton_ConnectEQUDL850",
                               "pushButton_SetDL850Options", "comboBox_DL850",
-                              has_editable=False))
+                              has_editable=False, use_grid=True))
 
         # ── 页面 6: WT3000 ──
         self.stackedWidget.addWidget(
             _make_device_page("WT3000 功率分析仪", "pushButton_ConnectEQUWT3000",
                               "pushButton_SetWT3000Options", "comboBox_WT3000",
-                              has_editable=False))
+                              has_editable=False, use_grid=True))
 
         # ── 页面 7: DEWETRON ──
         self.stackedWidget.addWidget(

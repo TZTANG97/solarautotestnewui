@@ -178,7 +178,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         # --- 顶部：接线类型按钮栏 ---
         btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(4)
+        btn_layout.setSpacing(8)
 
         self.buttonGroup_wiringType = QButtonGroup(self.tab_wiring)
         self.buttonGroup_wiringType.setExclusive(True)
@@ -195,14 +195,14 @@ class Ui_Dialog_DEWETRON_Setting(object):
             btn = QtWidgets.QPushButton(self.tab_wiring)
             btn.setText(f"{label}\n{desc}")
             btn.setCheckable(True)
-            btn.setMinimumSize(160, 80)
-            btn.setMaximumSize(200, 90)
+            btn.setMinimumHeight(80)
             btn.setStyleSheet(
                 "QPushButton { border: 2px solid #aaa; border-radius: 4px; "
-                "font-size: 11px; padding: 4px; }"
-                "QPushButton:checked { border: 2px solid #0078d4; background-color: #e8f0fe; }"
+                "font-size: 11px; padding: 4px; color: #333; }"
+                "QPushButton:checked { border: 2px solid #0078d4; background-color: #e8f0fe; color: #000; }"
                 "QPushButton:hover { border: 2px solid #666; }"
             )
+            btn.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
             setattr(self, attr_name, btn)
             self.buttonGroup_wiringType.addButton(btn, type_id)
             btn_layout.addWidget(btn)
@@ -414,10 +414,6 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.pushButton_BuildTestPage.setText("测试界面构造")
         self.pushButton_BuildTestPage.setMinimumSize(130, 36)
         btn_col.addWidget(self.pushButton_BuildTestPage)
-        self.pushButton_LoadLastConfig = QtWidgets.QPushButton(self.tab_wiring)
-        self.pushButton_LoadLastConfig.setText("加载配置")
-        self.pushButton_LoadLastConfig.setMinimumSize(130, 36)
-        btn_col.addWidget(self.pushButton_LoadLastConfig)
         btn_col.addStretch()
         bottom_layout.addLayout(btn_col)
 
@@ -471,7 +467,23 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         right_side.addWidget(params_group)
 
-        # -- 日志 --
+        # -- 加载配置按钮 --
+        self.pushButton_LoadLastConfig = QtWidgets.QPushButton(self.tab_wiring)
+        self.pushButton_LoadLastConfig.setText("加载配置文件")
+        self.pushButton_LoadLastConfig.setMinimumSize(130, 36)
+        self.pushButton_LoadLastConfig.setStyleSheet(
+            "QPushButton { color: #1e293b; background-color: #d1d5db; border: 1px solid #9ca3af; "
+            "border-radius: 4px; padding: 6px 14px; font-size: 13px; }"
+            "QPushButton:hover { background-color: #bcc3ce; }"
+        )
+        right_side.addWidget(self.pushButton_LoadLastConfig)
+
+        right_side.addStretch()
+
+        content_area.addWidget(right_side_widget)
+        tab1_layout.addLayout(content_area, 1)
+
+        # -- 日志（底部） --
         log_group = QtWidgets.QGroupBox("日志")
         log_layout = QVBoxLayout(log_group)
         log_layout.setContentsMargins(4, 4, 4, 4)
@@ -479,11 +491,10 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.textEdit_log.setReadOnly(True)
         self.textEdit_log.setFont(QtGui.QFont("Consolas", 9))
         self.textEdit_log.setStyleSheet("QTextEdit { background: #1e1e1e; color: #d4d4d4; }")
+        self.textEdit_log.setMinimumHeight(80)
+        self.textEdit_log.setMaximumHeight(120)
         log_layout.addWidget(self.textEdit_log)
-        right_side.addWidget(log_group, 1)
-
-        content_area.addWidget(right_side_widget)
-        tab1_layout.addLayout(content_area, 1)
+        tab1_layout.addWidget(log_group)
 
         # ============================================================
         # 信号连接
