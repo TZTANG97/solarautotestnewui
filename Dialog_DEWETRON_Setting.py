@@ -8,7 +8,8 @@ DEWETRON 功率分析仪设置对话框（手写 UI，无需 .ui 文件）。
 """
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QButtonGroup, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLineEdit
+from PyQt5.QtWidgets import QButtonGroup, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QLineEdit, QGraphicsOpacityEffect
+from PyQt5.QtCore import QPropertyAnimation
 
 
 class DraggableCheckBox(QCheckBox):
@@ -164,18 +165,16 @@ class Ui_Dialog_DEWETRON_Setting(object):
         Dialog_DEWETRON_Setting.setWindowTitle("DEWETRON 设置")
 
         # ============================================================
-        # QTabWidget 占满整个对话框
-        # ============================================================
-        self.tabWidget = QTabWidget(Dialog_DEWETRON_Setting)
-        self.tabWidget.setGeometry(QtCore.QRect(0, 0, 1400, 900))
-
-        # ============================================================
-        # Tab 1: 接线图
+        # 主布局（单页，不再使用 QTabWidget）
         # ============================================================
         self.tab_wiring = QWidget()
         tab1_layout = QVBoxLayout(self.tab_wiring)
         tab1_layout.setContentsMargins(8, 8, 8, 8)
         tab1_layout.setSpacing(6)
+
+        main_layout = QVBoxLayout(Dialog_DEWETRON_Setting)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(self.tab_wiring)
 
         # --- 顶部：接线类型按钮栏 ---
         btn_layout = QHBoxLayout()
@@ -213,6 +212,71 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.btn_wiring_1P2W.setChecked(True)
 
         tab1_layout.addLayout(btn_layout)
+
+        # --- 使用提示（轮播 + 渐变 + 悬停展开） ---
+        tips_bar = QtWidgets.QWidget()
+        tips_bar.setStyleSheet(
+            "background: #fff7e6; border: 1px solid #ffd591; border-left: 3px solid #fa8c16; "
+            "border-radius: 3px;"
+        )
+        tips_layout = QtWidgets.QHBoxLayout(tips_bar)
+        tips_layout.setContentsMargins(10, 5, 10, 5)
+        tips_layout.setSpacing(6)
+        tips_title = QtWidgets.QLabel("使用说明：")
+        tips_title.setFont(QtGui.QFont("Microsoft YaHei", 9, QtGui.QFont.Bold))
+        tips_title.setStyleSheet("color: #d4380d; background: transparent; border: none;")
+        tips_layout.addWidget(tips_title)
+        self._tips_text = QtWidgets.QLabel()
+        self._tips_text.setFont(QtGui.QFont("Microsoft YaHei", 9))
+        self._tips_text.setStyleSheet("color: #333; background: transparent; border: none;")
+        tips_layout.addWidget(self._tips_text, 1)
+
+        # 感叹号按钮 — 悬停时展示全部说明
+        self._tips_all_btn = QtWidgets.QLabel("!")
+        self._tips_all_btn.setFont(QtGui.QFont("Arial", 9, QtGui.QFont.Bold))
+        self._tips_all_btn.setFixedSize(20, 20)
+        self._tips_all_btn.setAlignment(QtCore.Qt.AlignCenter)
+        self._tips_all_btn.setStyleSheet(
+            "color: #fff; background: #fa8c16; border-radius: 10px;"
+        )
+        self._tips_all_btn.setCursor(QtCore.Qt.PointingHandCursor)
+        all_tips_text = (
+            "<b>使用说明</b><br>"
+            "① 双击左侧通道列表中的电压/电流项，按顺序自动加入组1→组2→组3<br>"
+            "② 右键点击通道可自由选择加入指定组<br>"
+            "③ 双击下方输入框中已设置的通道可取消绑定"
+        )
+        self._tips_all_btn.setToolTip(all_tips_text)
+        self._tips_all_btn.setStyleSheet(
+            "color: #fff; background: #fa8c16; border-radius: 10px;"
+            "QToolTip { background: #fff7e6; color: #333; border: 1px solid #ffd591; "
+            "font-size: 11px; padding: 8px; }"
+        )
+        tips_layout.addWidget(self._tips_all_btn)
+        tab1_layout.addWidget(tips_bar)
+
+        # 轮播内容 + 渐变动画
+        self._tips_list = [
+            "双击左侧通道列表中的电压/电流项，按顺序自动加入组1 → 组2 → 组3",
+            "右键点击通道可自由选择加入指定组",
+            "双击下方输入框中已设置的通道可取消绑定",
+        ]
+        self._tips_index = 0
+        self._tips_text.setText(self._tips_list[0])
+
+        # 透明度效果 + 淡入动画
+        self._tips_opacity = QGraphicsOpacityEffect(self._tips_text)
+        self._tips_text.setGraphicsEffect(self._tips_opacity)
+        self._tips_opacity.setOpacity(1.0)
+
+        self._tips_fade_in = QPropertyAnimation(self._tips_opacity, b"opacity")
+        self._tips_fade_in.setDuration(400)
+        self._tips_fade_in.setStartValue(0.0)
+        self._tips_fade_in.setEndValue(1.0)
+
+        self._tips_timer = QtCore.QTimer()
+        self._tips_timer.timeout.connect(self._rotate_tips)
+        self._tips_timer.start(3000)
 
         # --- 中间区域：左(通道树) + 中(接线图+输入框) + 右(输出标签) + 下(对应关系) ---
         main_area = QHBoxLayout()
@@ -350,6 +414,48 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         tab1_layout.addLayout(bottom_layout)
 
+        # -- 设备参数区域（IP + 端口 + 输入通道 + 最大刷新率 + 通道二次采样）--
+        params_group = QtWidgets.QGroupBox("设备参数")
+        params_layout = QtWidgets.QFormLayout(params_group)
+        params_layout.setSpacing(8)
+
+        # 设备IP + 端口
+        ip_row = QtWidgets.QHBoxLayout()
+        self.lineEdit_deviceIP = QtWidgets.QLineEdit("192.168.40.21")
+        self.lineEdit_deviceIP.setMaximumWidth(160)
+        ip_row.addWidget(self.lineEdit_deviceIP)
+        port_lbl = QtWidgets.QLabel("  端口:")
+        port_lbl.setFont(QtGui.QFont("Arial", 9))
+        ip_row.addWidget(port_lbl)
+        self.lineEdit_port = QtWidgets.QLineEdit("10001")
+        self.lineEdit_port.setMaximumWidth(80)
+        ip_row.addWidget(self.lineEdit_port)
+        ip_row.addStretch()
+        params_layout.addRow("设备IP:", ip_row)
+
+        # 输入通道（频率测量通道，默认组1的U通道）
+        self.comboBox_frequencyChannel = QtWidgets.QComboBox()
+        self.comboBox_frequencyChannel.addItems(["AI 1/U1", "AI 1/U2", "AI 1/U3", "AI 1/U4"])
+        self.comboBox_frequencyChannel.setCurrentText("AI 1/U1")
+        self.comboBox_frequencyChannel.setMaximumWidth(200)
+        params_layout.addRow("输入通道:", self.comboBox_frequencyChannel)
+
+        # 最大刷新率
+        self.comboBox_maxRefreshRate = QtWidgets.QComboBox()
+        self.comboBox_maxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1"])
+        self.comboBox_maxRefreshRate.setCurrentText("Default")
+        self.comboBox_maxRefreshRate.setMaximumWidth(150)
+        params_layout.addRow("最大刷新率:", self.comboBox_maxRefreshRate)
+
+        # 通道二次采样
+        self.comboBox_downsampling = QtWidgets.QComboBox()
+        self.comboBox_downsampling.addItems(["Auto", "关", "2", "3", "4", "5"])
+        self.comboBox_downsampling.setCurrentText("Auto")
+        self.comboBox_downsampling.setMaximumWidth(150)
+        params_layout.addRow("通道二次采样:", self.comboBox_downsampling)
+
+        tab1_layout.addWidget(params_group)
+
         # -- 日志区域 --
         log_group = QtWidgets.QGroupBox("日志")
         log_layout = QVBoxLayout(log_group)
@@ -361,54 +467,6 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.textEdit_log.setStyleSheet("QTextEdit { background: #1e1e1e; color: #d4d4d4; }")
         log_layout.addWidget(self.textEdit_log)
         tab1_layout.addWidget(log_group)
-
-        self.tabWidget.addTab(self.tab_wiring, "接线图")
-
-        # ============================================================
-        # Tab 2: 设置
-        # ============================================================
-        self.tab_settings = QWidget()
-        tab2_layout = QVBoxLayout(self.tab_settings)
-        tab2_layout.setContentsMargins(10, 10, 10, 10)
-        tab2_layout.setSpacing(10)
-
-        # 基本配置（IP + 端口）
-        self.groupBox_basicConfig = QtWidgets.QGroupBox("基本配置")
-        bc_layout = QtWidgets.QFormLayout(self.groupBox_basicConfig)
-        bc_layout.setSpacing(8)
-
-        self.lineEdit_deviceIP = QtWidgets.QLineEdit("192.168.40.21")
-        bc_layout.addRow("设备IP:", self.lineEdit_deviceIP)
-
-        self.lineEdit_port = QtWidgets.QLineEdit("10001")
-        self.lineEdit_port.setMaximumWidth(120)
-        bc_layout.addRow("端口号:", self.lineEdit_port)
-
-        tab2_layout.addWidget(self.groupBox_basicConfig)
-
-        # 设备参数
-        self.groupBox_deviceParams = QtWidgets.QGroupBox("设备参数")
-        dp_layout = QtWidgets.QFormLayout(self.groupBox_deviceParams)
-        dp_layout.setSpacing(8)
-
-        # 最大刷新率
-        self.comboBox_maxRefreshRate = QtWidgets.QComboBox()
-        self.comboBox_maxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1"])
-        self.comboBox_maxRefreshRate.setCurrentText("Default")
-        self.comboBox_maxRefreshRate.setMaximumWidth(150)
-        dp_layout.addRow("最大刷新率:", self.comboBox_maxRefreshRate)
-
-        # 通道二次采样
-        self.comboBox_downsampling = QtWidgets.QComboBox()
-        self.comboBox_downsampling.addItems(["Auto", "关", "2", "3", "4", "5"])
-        self.comboBox_downsampling.setCurrentText("Auto")
-        self.comboBox_downsampling.setMaximumWidth(150)
-        dp_layout.addRow("通道二次采样:", self.comboBox_downsampling)
-
-        tab2_layout.addWidget(self.groupBox_deviceParams)
-        tab2_layout.addStretch()
-
-        self.tabWidget.addTab(self.tab_settings, "设置")
 
         # ============================================================
         # 信号连接
@@ -443,7 +501,22 @@ class Ui_Dialog_DEWETRON_Setting(object):
                 self._create_slot_inputs(type_id)
                 self._update_mapping_display()
                 self._highlight_bound_channels()
+                # 更新输入通道下拉框：默认选择组1的U通道
+                self._update_frequency_channel_default()
                 break
+
+    def _update_frequency_channel_default(self):
+        """根据当前接线类型，更新输入通道下拉框的默认值（组1的U通道）。"""
+        # 组1的U通道始终是 U1
+        self.comboBox_frequencyChannel.setCurrentText("AI 1/U1")
+
+    def _on_u1_channel_changed(self, slot_name, channel_text):
+        """组1 U通道变化时，同步更新输入通道下拉框。"""
+        if channel_text:
+            # 检查通道是否在下拉框选项中
+            idx = self.comboBox_frequencyChannel.findText(channel_text)
+            if idx >= 0:
+                self.comboBox_frequencyChannel.setCurrentIndex(idx)
 
     def _on_tree_item_clicked(self, item, column):
         """通道树点击 → 切换对应 checkbox 状态。"""
@@ -552,6 +625,9 @@ class Ui_Dialog_DEWETRON_Setting(object):
                 le.setPlaceholderText(placeholder)
                 le.channelChanged.connect(lambda *_: self._update_mapping_display())
                 le.channelChanged.connect(lambda *_: self._highlight_bound_channels())
+                # U1 变化时同步更新输入通道下拉框
+                if slot_name == 'U1':
+                    le.channelChanged.connect(self._on_u1_channel_changed)
                 self._slot_input_widgets[slot_name] = le
                 self._slot_list_layout.addWidget(le)
 
@@ -662,3 +738,11 @@ class Ui_Dialog_DEWETRON_Setting(object):
                             item.setBackground(0, QtGui.QColor(200, 230, 255))
                         else:
                             item.setBackground(0, QtCore.Qt.transparent)
+
+    def _rotate_tips(self):
+        """轮播切换使用说明（渐变效果）。"""
+        self._tips_index = (self._tips_index + 1) % len(self._tips_list)
+        self._tips_fade_in.stop()
+        self._tips_opacity.setOpacity(0.0)
+        self._tips_text.setText(self._tips_list[self._tips_index])
+        self._tips_fade_in.start()

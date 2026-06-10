@@ -321,7 +321,8 @@ def SaveDEWETRONConfig():
     # 0. 先锁定用户在 UI 上选择的值（设备读取后会覆盖 combobox，必须提前保存）
     acquisition_rate = uiDewetronSetting.comboBox_maxRefreshRate.currentText()
     downsampling = uiDewetronSetting.comboBox_downsampling.currentText()
-    _log(f"用户选择 - 最大刷新率: {acquisition_rate}, 通道二次采样: {downsampling}")
+    frequency_channel = uiDewetronSetting.comboBox_frequencyChannel.currentText()
+    _log(f"用户选择 - 输入通道: {frequency_channel}, 最大刷新率: {acquisition_rate}, 通道二次采样: {downsampling}")
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     bootstrap_path = os.path.join(base_dir, 'config_files', 'dewetron.xml')
@@ -410,7 +411,8 @@ def SaveDEWETRONConfig():
 
     # 4. 修改 XML（使用设备原始 InputChannels 映射）
     modified_xml = DewetronController.modify_xml(xml_string, wiring_type, channel_map, channel_id_map, input_channels,
-                                                 acquisition_rate=acquisition_rate, downsampling=downsampling)
+                                                 acquisition_rate=acquisition_rate, downsampling=downsampling,
+                                                 frequency_channel=frequency_channel)
     _log(f"XML已修改: {len(modified_xml)} 字符")
 
     # 4. 保存到 command_save_files/dewetron_data/（按小时命名）

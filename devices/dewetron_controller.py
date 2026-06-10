@@ -180,7 +180,7 @@ class DewetronController:
 
     @staticmethod
     def modify_xml(xml_string, wiring_type, channel_map, channel_id_map=None, input_channels=None,
-                   acquisition_rate=None, downsampling=None):
+                   acquisition_rate=None, downsampling=None, frequency_channel=None):
         """根据 UI 设置修改 XML 配置字符串。
 
         Args:
@@ -191,6 +191,7 @@ class DewetronController:
             input_channels: dict，设备原始 InputChannels 映射 {slot: channel_id}。为 None 时跳过。
             acquisition_rate: 最大刷新率 (如 '100', 'Default')，为 None 时不修改。
             downsampling: 通道二次采样 (如 'Auto', '2', '关')，为 None 时不修改。
+            frequency_channel: 输入通道 (如 'AI 1/U1')，为 None 时不修改。映射到 POWER/FrequencyChannel。
         Returns:
             修改后的 XML 字符串
         """
@@ -318,6 +319,23 @@ class DewetronController:
                 print(f"[DEWETRON] {label} -> {val}")
             if not ds_replacements:
                 print("[DEWETRON] POWER/DataSubsampling 无需修改（已与 UI 一致）")
+
+        # 8. 输入通道 (POWER/FrequencyChannel) — 频率测量通道，存储 ChannelID
+        if frequency_channel is not None and channel_id_map:
+            fc_cid = channel_id_map.get(frequency_channel) or channel_id_map.get(frequency_channel.replace('/l', '/I'))
+            if fc_cid:
+                fc_replacements = []
+                for m in re.finditer(r'(<Property name="POWER/FrequencyChannel"><ChannelID>)(\d+)(</ChannelID>)', xml):
+                    if m.group(2) != str(fc_cid):
+                        fc_replacements.append((m.start(2), m.end(2), str(fc_cid), 'POWER/FrequencyChannel'))
+                fc_replacements.sort(key=lambda x: x[0], reverse=True)
+                for start, end, val, label in fc_replacements:
+                    xml = xml[:start] + val + xml[end:]
+                    print(f"[DEWETRON] {label} -> {val}")
+                if not fc_replacements:
+                    print("[DEWETRON] POWER/FrequencyChannel 无需修改（已与 UI 一致）")
+            else:
+                print(f"[DEWETRON] 输入通道 {frequency_channel}: 未找到 ChannelID，跳过")
 
         return xml
 
