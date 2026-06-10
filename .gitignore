@@ -1,5 +1,8 @@
 *.pyc
 log.txt
 
-# command_save_files 下生成的日志（不参与版本库）
+# command_save_files 下生成的数据文件（不参与版本库）
+command_save_files/command_data/
+command_save_files/dewetron_data/
 command_save_files/**/*.log
+command_save_files/**/*.rar
