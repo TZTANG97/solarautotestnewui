@@ -414,6 +414,10 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.pushButton_BuildTestPage.setText("测试界面构造")
         self.pushButton_BuildTestPage.setMinimumSize(130, 36)
         btn_col.addWidget(self.pushButton_BuildTestPage)
+        self.pushButton_LoadLastConfig = QtWidgets.QPushButton(self.tab_wiring)
+        self.pushButton_LoadLastConfig.setText("加载配置")
+        self.pushButton_LoadLastConfig.setMinimumSize(130, 36)
+        btn_col.addWidget(self.pushButton_LoadLastConfig)
         btn_col.addStretch()
         bottom_layout.addLayout(btn_col)
 
@@ -759,3 +763,167 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self._tips_opacity.setOpacity(0.0)
         self._tips_text.setText(self._tips_list[self._tips_index])
         self._tips_fade_in.start()
+
+    def show_config_list(self):
+        """弹出配置文件列表，选择后加载到 UI。"""
+        import os, re
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        save_dir = os.path.join(base_dir, 'command_save_files', 'dewetron_data')
+
+        # 获取配置文件列表（排除 verify_ 文件）
+        if not os.path.isdir(save_dir):
+            self.log("配置目录不存在")
+            return
+        files = [f for f in os.listdir(save_dir)
+                 if f.startswith('dewetron_') and not f.startswith('dewetron_verify_') and f.endswith('.xml')]
+        if not files:
+            self.log("无已保存的配置文件")
+            return
+        files.sort(reverse=True)
+
+        # 弹出选择对话框
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget, QListWidgetItem
+        dialog = QDialog(self._tab_parent() if hasattr(self, '_tab_parent') else None)
+        dialog.setWindowTitle("选择配置文件")
+        dialog.setMinimumSize(500, 400)
+
+        layout = QVBoxLayout(dialog)
+
+        hint = QLabel("选择要加载的配置文件（仅回显 UI，不触发保存）：")
+        hint.setFont(QtGui.QFont("Microsoft YaHei", 9))
+        layout.addWidget(hint)
+
+        list_widget = QListWidget()
+        list_widget.setFont(QtGui.QFont("Consolas", 10))
+        for f in files:
+            # 解析日期显示
+            from DialogFileManager import _parse_date_from_filename
+            dt = _parse_date_from_filename(f)
+            date_str = dt.strftime("%Y-%m-%d %H:%M") if dt else "未知日期"
+            item = QListWidgetItem(f"  {f}    ({date_str})")
+            item.setData(QtCore.Qt.UserRole, os.path.join(save_dir, f))
+            list_widget.addItem(item)
+        list_widget.setCurrentRow(0)
+        layout.addWidget(list_widget, 1)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        load_btn = QPushButton("加载")
+        load_btn.setMinimumSize(80, 30)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setMinimumSize(80, 30)
+        btn_row.addWidget(load_btn)
+        btn_row.addWidget(cancel_btn)
+        layout.addLayout(btn_row)
+
+        def on_load():
+            item = list_widget.currentItem()
+            if item:
+                filepath = item.data(QtCore.Qt.UserRole)
+                dialog.accept()
+                self._load_config_file(filepath)
+        def on_cancel():
+            dialog.reject()
+
+        load_btn.clicked.connect(on_load)
+        cancel_btn.clicked.connect(on_cancel)
+        list_widget.itemDoubleClicked.connect(lambda: on_load())
+
+        dialog.exec_()
+
+    def _load_config_file(self, filepath):
+        """加载指定配置文件，回显到 UI（不触发保存）。"""
+        import os, re
+
+        with open(filepath, 'r', encoding='utf-8') as f:
+            xml = f.read()
+        self.log(f"加载配置: {os.path.basename(filepath)}")
+
+        # 接线类型
+        WIRING_MAP = {'AC_1P2W': 0, 'AC_1P3W': 1, 'AC_2V2A': 2, 'AC_3P3W': 3, 'AC_3P4W': 4}
+        wiring_match = re.search(r'POWER/WiringType"><EnumValue enum="PowerWiringType">([^<]+)', xml)
+        if wiring_match:
+            wiring_str = wiring_match.group(1)
+            wiring_id = WIRING_MAP.get(wiring_str, 0)
+            for type_id, btn in self._wiring_buttons:
+                if type_id == wiring_id:
+                    btn.setChecked(True)
+                    self._on_wiring_type_changed(btn)
+                    self.log(f"  接线类型: {wiring_str}")
+                    break
+
+        # InputChannels 映射 → 延迟回填（等接线图初始化完成）
+        QtCore.QTimer.singleShot(100, lambda: self._fill_channels_from_xml(xml))
+
+        # 输入通道 (FrequencyChannel)
+        fc_match = re.search(r'POWER/FrequencyChannel"><ChannelID>(\d+)</ChannelID>', xml)
+        if fc_match:
+            fc_id = int(fc_match.group(1))
+            for ch_match in re.finditer(r'<Channel id="(\d+)">(.*?)</Channel>', xml, re.DOTALL):
+                if int(ch_match.group(1)) == fc_id:
+                    sid = re.search(r'ShortId"><StringValue>"([^"]+)"', ch_match.group(2))
+                    if sid:
+                        ch_name = sid.group(1)
+                        idx = self.comboBox_frequencyChannel.findText(ch_name)
+                        if idx >= 0:
+                            self.comboBox_frequencyChannel.setCurrentIndex(idx)
+                            self.log(f"  输入通道: {ch_name}")
+                        break
+
+        # 最大刷新率
+        rate_match = re.search(r'POWER/MaxUpdateRate"><StringValue>"?(\d+)"?', xml)
+        if rate_match:
+            rate_val = rate_match.group(1)
+            idx = self.comboBox_maxRefreshRate.findText(rate_val)
+            if idx >= 0:
+                self.comboBox_maxRefreshRate.setCurrentIndex(idx)
+                self.log(f"  最大刷新率: {rate_val}")
+
+        # 通道二次采样
+        DS_REVERSE = {'Off': '关', 'Auto': 'Auto'}
+        ds_match = re.search(r'POWER/DataSubsampling"><StringValue>"?([^"<]+)"?', xml)
+        if ds_match:
+            ds_xml = ds_match.group(1)
+            ds_ui = DS_REVERSE.get(ds_xml, ds_xml)
+            idx = self.comboBox_downsampling.findText(ds_ui)
+            if idx >= 0:
+                self.comboBox_downsampling.setCurrentIndex(idx)
+                self.log(f"  通道二次采样: {ds_ui}")
+
+        self.log("配置加载完成")
+
+    def _fill_channels_from_xml(self, xml):
+        """从 XML 的 InputChannels 回填通道输入框。"""
+        import re
+
+        # 收集所有 ChannelID -> ShortId 映射
+        id_to_name = {}
+        for ch_match in re.finditer(r'<Channel id="(\d+)">(.*?)</Channel>', xml, re.DOTALL):
+            ch_id = int(ch_match.group(1))
+            sid = re.search(r'ShortId"><StringValue>"([^"]+)"', ch_match.group(2))
+            if sid:
+                id_to_name[ch_id] = sid.group(1)
+
+        # 解析 InputChannels
+        for m in re.finditer(r'POWER/InputChannels/(U\d|I\d)"><ChannelID>(\d+)</ChannelID>', xml):
+            slot = m.group(1)
+            ch_id = int(m.group(2))
+            if slot in self._slot_input_widgets:
+                if ch_id != 18446744073709551615:  # UNUSED
+                    ch_name = id_to_name.get(ch_id, '')
+                    if ch_name:
+                        self._slot_input_widgets[slot].set_channel(ch_name)
+                        self.log(f"  {slot} <- {ch_name}")
+                else:
+                    self._slot_input_widgets[slot].clear_channel()
+
+        self._update_mapping_display()
+        self._highlight_bound_channels()
+        # 同步输入通道到组1的U
+        if 'U1' in self._slot_input_widgets:
+            u1_ch = self._slot_input_widgets['U1']._channel
+            if u1_ch:
+                idx = self.comboBox_frequencyChannel.findText(u1_ch)
+                if idx >= 0:
+                    self.comboBox_frequencyChannel.setCurrentIndex(idx)

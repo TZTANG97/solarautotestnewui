@@ -28299,6 +28299,8 @@ if __name__ == "__main__":
             uiDewetronSetting.pushButton_ApplySettings.clicked.connect(SaveDEWETRONConfigWithLoading)
             # 测试界面构造
             uiDewetronSetting.pushButton_BuildTestPage.clicked.connect(BuildDEWETRONTestPageWithLoading)
+            # 加载配置（弹出文件列表选择）
+            uiDewetronSetting.pushButton_LoadLastConfig.clicked.connect(uiDewetronSetting.show_config_list)
 
             # 打开ACSetting对话框
             ui.pushButton_SetACOptions.clicked.connect(ShowACSetting)
