@@ -428,11 +428,11 @@ def SaveDEWETRONConfig():
     if dewetron_controller.send_apply_config(modified_xml):
         _log("配置已应用")
         from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.information(uiDewetronSetting, "保存成功", "DEWETRON 配置已应用")
+        QMessageBox.information(dialog_windowDewetronSetting, "保存成功", "DEWETRON 配置已应用")
     else:
         _log("APPLY 发送失败")
         from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.warning(uiDewetronSetting, "保存失败", "配置应用失败，请检查设备连接")
+        QMessageBox.warning(dialog_windowDewetronSetting, "保存失败", "配置应用失败，请检查设备连接")
 
 
 def BuildDEWETRONTestPageWithLoading():
@@ -464,9 +464,9 @@ def BuildDEWETRONTestPage():
         return
 
     if build_test_page_from_device(dewetron_controller, log_fn=uiDewetronSetting.log):
-        QMessageBox.information(uiDewetronSetting, "构造完成", "测试界面已构造")
+        QMessageBox.information(dialog_windowDewetronSetting, "构造完成", "测试界面已构造")
     else:
-        QMessageBox.warning(uiDewetronSetting, "构造失败", "测试界面构造失败，请检查设备连接")
+        QMessageBox.warning(dialog_windowDewetronSetting, "构造失败", "测试界面构造失败，请检查设备连接")
 
 
 def CloseACOUTPUTON():
