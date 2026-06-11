@@ -1699,6 +1699,39 @@ def thaidianyashanbianSend():
     S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
     fS2SetTime = 0.0 if S2_TIME_VALUE == "" else float(S2_TIME_VALUE)
     fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
+
+    # ── 验证每组闪变时间是否超过 600s (10分钟) ──
+    if uiThaiDianYaShanBian.checkBox_S2.isChecked():
+        S3_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText().strip()
+        S3_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
+        fS3SetTime = 0.0 if S3_TIME_VALUE == "" else float(S3_TIME_VALUE)
+        fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
+
+        S3_2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME_2.toPlainText().strip()
+        S3_2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME_2.currentText()
+        fS3_2SetTime = 0.0 if S3_2_TIME_VALUE == "" else float(S3_2_TIME_VALUE)
+        fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
+
+        # 计算每组总时间（单位 0.1s）
+        flick_count = int(S2_PER_FLICK_COUNT)
+        # 总时间 = 首次间隔 + (闪变次数 × 持续时间) + ((闪变次数-1) × 后续间隔)
+        total_01s = fS2SetTime + flick_count * fS3SetTime + (flick_count - 1) * fS3_2SetTime
+        total_seconds = total_01s * 0.1
+
+        if total_seconds > 600:
+            remaining = 600 - total_seconds
+            QtWidgets.QMessageBox.warning(
+                dialog_windowTdianyashanbian,
+                "时间超出限制",
+                f"每组闪变总时间 {total_seconds:.0f} 秒，超出 10 分钟限制。\n\n"
+                f"当前设置：首次间隔 {fS2SetTime*0.1:.0f}s + "
+                f"持续 {flick_count}×{fS3SetTime*0.1:.0f}s + "
+                f"后续间隔 {flick_count-1}×{fS3_2SetTime*0.1:.0f}s\n\n"
+                f"请调整参数，后续闪变间隔最大可设为 "
+                f"{max(0, (600 - fS2SetTime*0.1 - flick_count*fS3SetTime*0.1) / max(1, flick_count-1)):.0f} 秒。"
+            )
+            return
+
     strArraySingle = ["" for _ in range(10)]
     # step1
     if uiThaiDianYaShanBian.checkBox_S1.isChecked():
@@ -2187,14 +2220,15 @@ def thaidianyashanbianSend():
             fS3_2SetTime = float(S3_2_TIME_VALUE)
             fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
 
+            # 每组开头的等待间隔（首次和后续都生效）
             strArraySingle = ["" for _ in range(10)]
             S1Command = "*IDN?"
             strArraySingle[0] = "AC"
             strArraySingle[1] = "query"
             strArraySingle[2] = S1Command
-            strArraySingle[9] = fS2SetTime
+            strArraySingle[8] = fS2SetTime
             strArrayTest.append(strArraySingle)
-            # 首次闪变间隔仅首轮生效，不加入循环模板
+            strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
             if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
@@ -2715,15 +2749,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS3_2SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+            # N=3：不需要额外的组间等待，直接补齐到周期时间
             _append_cycle_padding(strArrayTestStepSingle, 600)
 
             if Int_S3_CYCLETIME >1:
@@ -2753,14 +2779,15 @@ def thaidianyashanbianSend():
             fS3_2SetTime = float(S3_2_TIME_VALUE)
             fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
 
+            # 每组开头的等待间隔（首次和后续都生效）
             strArraySingle = ["" for _ in range(10)]
             S1Command = "*IDN?"
             strArraySingle[0] = "AC"
             strArraySingle[1] = "query"
             strArraySingle[2] = S1Command
-            strArraySingle[9] = fS2SetTime
+            strArraySingle[8] = fS2SetTime
             strArrayTest.append(strArraySingle)
-            # 首次闪变间隔仅首轮生效，不加入循环模板
+            strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
             if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
@@ -3107,29 +3134,19 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS3_2SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+            # N=2：不需要额外的组间等待，直接补齐到周期时间
             _append_cycle_padding(strArrayTestStepSingle, 600)
 
             if Int_S3_CYCLETIME >1:
                 for xxx in range(Int_S3_CYCLETIME-1):
                     for xxxx in range(len(strArrayTestStepSingle)):
                         strArrayTest.append(strArrayTestStepSingle[xxxx])
-        
+
         elif S2_PER_FLICK_COUNT == '1':
             strArrayTestStepSingle = []
             # 闪变循环次数：12
             S3_CYCLETIME = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText()
             Int_S3_CYCLETIME = int(S3_CYCLETIME)
-
-            # 首次闪变间隔：使用 step2 UI 配置值
 
             # 每次闪变持续时间
             S3_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText()
@@ -3137,22 +3154,18 @@ def thaidianyashanbianSend():
             fS3SetTime = float(S3_TIME_VALUE)
             fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
 
-            # 后续闪变间隔：使用 step3 UI 配置值（用于组间等待）
-            S3_2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME_2.toPlainText()
-            S3_2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME_2.currentText()
-            fS3_2SetTime = float(S3_2_TIME_VALUE)
-            fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
-
+            # 每组开头的等待间隔（首次和后续都生效）
             strArraySingle = ["" for _ in range(10)]
             S1Command = "*IDN?"
             strArraySingle[0] = "AC"
             strArraySingle[1] = "query"
             strArraySingle[2] = S1Command
-            strArraySingle[9] = fS2SetTime
+            strArraySingle[8] = fS2SetTime
             strArrayTest.append(strArraySingle)
-            # 首次闪变间隔仅首轮生效，不加入循环模板
+            strArrayTestStepSingle.append(strArraySingle)
 
-            # DC1
+            # ── 第1次闪变：DC 开关组1 → 持续时间 → DC 开关组2 ──
+            # DC开关组1（闪变开始）
             if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
@@ -3167,7 +3180,6 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            #DC2
             if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
@@ -3182,7 +3194,6 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            # DC3
             if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
@@ -3197,7 +3208,6 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            # DC4
             if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
@@ -3212,6 +3222,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
+            # 持续时间等待
             strArraySingle = ["" for _ in range(10)]
             S1Command = "*IDN?"
             strArraySingle[0] = "AC"
@@ -3221,7 +3232,7 @@ def thaidianyashanbianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-            # DC1
+            # DC开关组2（闪变结束/恢复）
             if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
@@ -3236,16 +3247,6 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 0
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC2
             if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
@@ -3260,16 +3261,6 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 0
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC3
             if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
@@ -3284,16 +3275,6 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 0
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            # DC4
             if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
@@ -3308,28 +3289,11 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "*IDN?"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
-                strArraySingle[2] = S1Command
-                strArraySingle[8] = 0
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS3_2SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+            # N=1：不需要后续闪变间隔，直接补齐到周期时间
             _append_cycle_padding(strArrayTestStepSingle, 600)
 
-            if Int_S3_CYCLETIME >1:
-                for xxx in range(Int_S3_CYCLETIME-1):
+            if Int_S3_CYCLETIME > 1:
+                for xxx in range(Int_S3_CYCLETIME - 1):
                     for xxxx in range(len(strArrayTestStepSingle)):
                         strArrayTest.append(strArrayTestStepSingle[xxxx])
 
@@ -28147,14 +28111,24 @@ if __name__ == "__main__":
             ]
 
             _WT3000_GRID = [
+                {"title": "使用说明",   "widgets": ["label_WT3000_Tips"]},
                 {"title": "IP地址",     "widgets": ["lineEdit_WT3000_IP", "lineEdit_WT3000_Port"]},
                 {"title": "波特率设置", "widgets": ["comboBox_BaudRate"]},
                 {"title": "设备连接",   "widgets": "__connect_clean__"},
                 {"title": "测试命令",   "widgets": ["pushButton_SwitchFlicker"]},
             ]
 
-            # WT3000 波特率下拉框：直接创建在页面上（不依赖设置对话框）
+            # WT3000 使用说明
             _wt3000_page = ui.stackedWidget.widget(7)
+            _wt3000_tips = QtWidgets.QLabel("提示: 网口连接请填写IP地址，点击连接; 串口连接请保持IP为空，从下拉框选择串口后点击连接")
+            _wt3000_tips.setObjectName("label_WT3000_Tips")
+            _wt3000_tips.setWordWrap(True)
+            _wt3000_tips.setStyleSheet(
+                "QLabel { color: #1e40af; background-color: #eff6ff; border: 1px solid #bfdbfe; "
+                "border-radius: 6px; padding: 8px 12px; font-size: 12px; }"
+            )
+
+            # WT3000 波特率下拉框：直接创建在页面上（不依赖设置对话框）
             _baud_combo = QtWidgets.QComboBox()
             _baud_combo.setObjectName("comboBox_BaudRate")
             _baud_combo.addItems(["9600", "19200", "38400", "57600", "115200"])
@@ -28195,7 +28169,8 @@ if __name__ == "__main__":
             _flicker_btn.clicked.connect(_switch_wt3000_flicker)
 
             setattr(_wt3000_page, "_extra_widgets_comboBox_WT3000",
-                    {"comboBox_BaudRate": _baud_combo,
+                    {"label_WT3000_Tips": _wt3000_tips,
+                     "comboBox_BaudRate": _baud_combo,
                      "lineEdit_WT3000_IP": _wt3000_ip_edit,
                      "lineEdit_WT3000_Port": _wt3000_port_edit,
                      "pushButton_SwitchFlicker": _flicker_btn})
@@ -28234,15 +28209,137 @@ if __name__ == "__main__":
             ui.comboBox_WT3000.setEditable(False)
             ui.comboBox_P.addItems(projectlist)
 
-            # 填充 Auto_Test 侧边栏子项
+            # ── 将 Auto_Test 设置对话框内容嵌入到项目配置页面 ──
+            _setting_stack = ui.settingStack
+            _setting_stack.setContentsMargins(0, 0, 0, 0)
+
+            # 存储对话框和设置栈的映射关系
+            _auto_test_dialogs = {
+                '重连': (dialog_window, None),
+                '电压闪变': (dialog_windowTdianyashanbian, uiThaiDianYaShanBian),
+                '谐波电流': (dialog_windowxiebodianliu, uiThaiXieBoDianLiu),
+                '固定PF=1': (dialog_windowfixedpf, uiThaiFixedPF),
+                '过载能力测试': (dialog_windowoverloads, uiThaiOverLoads),
+                '直流分量': (dialog_windowzhiliufenliang, uiThaiZhiLiuFenLiang),
+                '静态QU': (dialog_windowstaticQU, uiThaiStaticQU),
+                'Test_PU': (dialog_windowtestPU, uiThaiTestPU),
+                '静态Cos(φ)': (dialog_windowstaticcosPhi, uiThaiStaticCosPhi),
+                'Cos(φ)_Brazil': (dialog_windowcosPhiBrazil, uiThaiCosPhiBrazil),
+                '10min过压保护': (dialog_windowvoltprotect10min, uiThaiVoltProtect10min),
+                '过频降载': (dialog_windowguopinjiangzai, uiThaiGuoPinJiangZai),
+                '过欠压_过欠频': (dialog_windowguoqianya_pin, uiThaiGuoQianYa_Pin),
+                '巴西过欠频稳定性': (dialog_windowguoqianpin_immun, uiThaiGuoQianPin_Immun),
+                '静态MPPT测试': (dialog_windowstaticmppttest, uiThaiStaticMPPTTest),
+                '频率适应性': (dialog_windowfrequencyadaptability, uiThaiFrequencyAdaptability),
+            }
+
+            # 为每个设置对话框创建一个嵌入页面
+            _setting_pages = {}
+            for _test_name, (_dlg, _ui) in _auto_test_dialogs.items():
+                if _dlg is None or _ui is None:
+                    continue
+
+                # 创建 QScrollArea 包裹对话框
+                _scroll = QtWidgets.QScrollArea()
+                _scroll.setWidgetResizable(True)
+                _scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
+                # 将对话框内容提取到 scroll area
+                _dlg_layout = _dlg.layout()
+                if _dlg_layout is not None:
+                    # 有布局的对话框（如 DEWETRON）：提取子控件到带布局的容器
+                    _container = QtWidgets.QWidget()
+                    _container.setStyleSheet("background: #e2e5ea;")
+                    _container_layout = QtWidgets.QVBoxLayout(_container)
+                    _container_layout.setContentsMargins(0, 0, 0, 0)
+                    _container_layout.setSpacing(0)
+                    while _dlg_layout.count():
+                        _item = _dlg_layout.takeAt(0)
+                        _w = _item.widget()
+                        if _w is not None:
+                            _container_layout.addWidget(_w)
+                    _scroll.setWidget(_container)
+                else:
+                    # 无布局的对话框（使用绝对定位，如电压闪变）
+                    # 直接 reparent 子控件到无布局容器，保留其绝对坐标
+                    _container = QtWidgets.QWidget()
+                    _container.setStyleSheet("background: #e2e5ea;")
+                    _dlg_w = _dlg.width() or 1233
+                    _dlg_h = _dlg.height() or 844
+                    _container.setMinimumSize(_dlg_w, _dlg_h)
+                    for _child in _dlg.children():
+                        if _child != _ui and hasattr(_child, 'setParent'):
+                            _child.setParent(_container)
+                    # 修正所有子控件的字体颜色和样式
+                    _LABEL_QSS = "color: #1e293b; font-size: 13px; background: transparent;"
+                    _BTN_QSS = ("QPushButton { color: #ffffff; background-color: #3b82f6; border: none; "
+                                "border-radius: 4px; padding: 8px 16px; font-size: 13px; }"
+                                "QPushButton:hover { background-color: #2563eb; }")
+                    _INPUT_QSS = ("QTextEdit { color: #1e293b; background-color: #ffffff; "
+                                  "border: 1px solid #d1d5db; border-radius: 4px; padding: 4px; font-size: 13px; }"
+                                  "QComboBox { color: #1e293b; background-color: #ffffff; "
+                                  "border: 1px solid #9ca3af; border-radius: 4px; padding: 4px 24px 4px 8px; font-size: 13px; }"
+                                  "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 24px; border: none; }"
+                                  "QComboBox::down-arrow { image: none; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #374151; }"
+                                  "QComboBox QAbstractItemView { background-color: #ffffff; color: #111827; "
+                                  "border: 2px solid #3b82f6; selection-background-color: #3b82f6; selection-color: #ffffff; outline: none; }"
+                                  "QComboBox QAbstractItemView::item { padding: 6px 12px; min-height: 28px; border-bottom: 1px solid #e5e7eb; }"
+                                  "QLineEdit { color: #1e293b; background-color: #ffffff; "
+                                  "border: 1px solid #d1d5db; border-radius: 4px; padding: 4px; font-size: 13px; }"
+                                  "QCheckBox { color: #1e293b; font-size: 13px; background: transparent; }")
+                    for _w in _container.findChildren(QtWidgets.QWidget):
+                        _cls = type(_w).__name__
+                        if _cls == 'QLabel':
+                            _w.setStyleSheet(_LABEL_QSS)
+                        elif _cls == 'QPushButton':
+                            _w.setStyleSheet(_BTN_QSS)
+                        elif _cls in ('QTextEdit', 'QComboBox', 'QLineEdit', 'QCheckBox'):
+                            _w.setStyleSheet(_INPUT_QSS)
+                        elif _cls == 'QGroupBox':
+                            _w.setStyleSheet("color: #1e293b; font-size: 13px; font-weight: bold; background: transparent;")
+                    _scroll.setWidgetResizable(False)
+                    _scroll.setWidget(_container)
+
+                _setting_stack.addWidget(_scroll)
+                _setting_pages[_test_name] = _scroll
+
+            # 添加一个空白页作为默认
+            _blank_page = QtWidgets.QWidget()
+            _blank_page.setStyleSheet("background: transparent;")
+            _blank_layout = QtWidgets.QVBoxLayout(_blank_page)
+            _blank_layout.setContentsMargins(0, 0, 0, 0)
+            _blank_label = QtWidgets.QLabel("请从左侧菜单选择测试项目")
+            _blank_label.setStyleSheet("color: #6b7280; font-size: 13px; background: transparent;")
+            _blank_label.setAlignment(QtCore.Qt.AlignCenter)
+            _blank_layout.addWidget(_blank_label)
+            _setting_stack.addWidget(_blank_page)
+
+            # 存储映射关系供后续使用
+            _setting_stack._pages = _setting_pages
+            _setting_stack._blank_page = _blank_page
+
+            def _on_test_project_changed(index):
+                """当分项选择改变时，切换显示对应的设置对话框"""
+                _test_name = ui.comboBox_PS.currentText()
+                if _test_name in _setting_pages:
+                    _setting_stack.setCurrentWidget(_setting_pages[_test_name])
+                else:
+                    _setting_stack.setCurrentWidget(_blank_page)
+
+            ui.comboBox_PS.currentIndexChanged.connect(_on_test_project_changed)
+
+            # 填充 Auto_Test 侧边栏子项（带 setting_key 用于直接切换显示）
             _auto_sidebar_items = [
-                '重连', '电压闪变', '谐波电流', '固定PF=1', '过载能力测试',
-                '直流分量', '静态QU', 'Test_PU', '静态Cos(φ)', 'Cos(φ)_Brazil',
-                '10min过压保护', '过频降载', '过欠压_过欠频', '巴西过欠频稳定性',
-                '静态MPPT测试', '频率适应性'
+                ('重连', '重连'), ('电压闪变', '电压闪变'), ('谐波电流', '谐波电流'),
+                ('固定PF=1', '固定PF=1'), ('过载能力测试', '过载能力测试'),
+                ('直流分量', '直流分量'), ('静态QU', '静态QU'), ('Test_PU', 'Test_PU'),
+                ('静态Cos(φ)', '静态Cos(φ)'), ('Cos(φ)_Brazil', 'Cos(φ)_Brazil'),
+                ('10min过压保护', '10min过压保护'), ('过频降载', '过频降载'),
+                ('过欠压_过欠频', '过欠压_过欠频'), ('巴西过欠频稳定性', '巴西过欠频稳定性'),
+                ('静态MPPT测试', '静态MPPT测试'), ('频率适应性', '频率适应性'),
             ]
-            for _item_text in _auto_sidebar_items:
-                ui.add_auto_test_item(_item_text, page_index=8)
+            for _item_text, _setting_key in _auto_sidebar_items:
+                ui.add_auto_test_item(_item_text, page_index=9, setting_key=_setting_key)
 
             ui.comboBox_P.currentIndexChanged.connect(SecondProjectSet)
             '''

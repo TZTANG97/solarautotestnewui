@@ -6,7 +6,7 @@ from PyQt5 import QtCore, QtWidgets
 class Ui_Dialog_thai_WT3000_Setting(object):
     def setupUi(self, Dialog_thai_WT3000_Setting):
         Dialog_thai_WT3000_Setting.setObjectName("Dialog_thai_WT3000_Setting")
-        Dialog_thai_WT3000_Setting.resize(360, 180)
+        Dialog_thai_WT3000_Setting.resize(510, 180)
         self.pushButton_Confirm = QtWidgets.QPushButton(Dialog_thai_WT3000_Setting)
         self.pushButton_Confirm.setGeometry(QtCore.QRect(240, 120, 90, 31))
         self.pushButton_Confirm.setObjectName("pushButton_Confirm")
@@ -14,7 +14,7 @@ class Ui_Dialog_thai_WT3000_Setting(object):
         self.label.setGeometry(QtCore.QRect(20, 30, 90, 21))
         self.label.setObjectName("label")
         self.comboBox_BaudRate = QtWidgets.QComboBox(Dialog_thai_WT3000_Setting)
-        self.comboBox_BaudRate.setGeometry(QtCore.QRect(120, 30, 120, 21))
+        self.comboBox_BaudRate.setGeometry(QtCore.QRect(180, 30, 90, 21))
         self.comboBox_BaudRate.setObjectName("comboBox_BaudRate")
         self.comboBox_BaudRate.addItem("9600")
         self.comboBox_BaudRate.addItem("19200")

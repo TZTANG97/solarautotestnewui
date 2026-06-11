@@ -67,3 +67,478 @@
 2026-06-11 08:59:34,868 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
 2026-06-11 08:59:34,868 INFO SCPITestWave.py [28577] MainThread :2026-06-11 08:59:34    程式开启
 2026-06-11 08:59:34,869 INFO logging_setup.py [75] MainThread :2026-06-11 08:59:34    程式开启
+2026-06-11 09:03:11,475 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:03:11,476 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:03:11,477 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:03:11,477 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:03:11,478 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:03:11,478 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:03:11,708 INFO logging_setup.py [75] MainThread :()
+2026-06-11 09:03:12,406 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28573: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:03:12,406 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:03:12,406 INFO SCPITestWave.py [28577] MainThread :2026-06-11 09:03:12    程式开启
+2026-06-11 09:03:12,406 INFO logging_setup.py [75] MainThread :2026-06-11 09:03:12    程式开启
+2026-06-11 09:03:43,970 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:06:12,225 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:06:12,225 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:06:12,226 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:06:12,226 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:06:12,226 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:06:12,226 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:06:12,457 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:06:12,457 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:06:13,196 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28573: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:06:13,196 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:06:13,196 INFO SCPITestWave.py [28577] MainThread :2026-06-11 09:06:13    程式开启
+2026-06-11 09:06:13,196 INFO logging_setup.py [75] MainThread :2026-06-11 09:06:13    程式开启
+2026-06-11 09:11:33,487 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:11:33,487 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:11:33,488 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:11:33,488 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:11:33,489 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:11:33,489 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:11:33,743 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:11:33,743 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:11:34,494 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28584: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:11:34,494 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:11:34,495 INFO SCPITestWave.py [28588] MainThread :2026-06-11 09:11:34    程式开启
+2026-06-11 09:11:34,495 INFO logging_setup.py [75] MainThread :2026-06-11 09:11:34    程式开启
+2026-06-11 09:12:52,899 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:12:52,899 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:12:52,900 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:12:52,900 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:12:52,900 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:12:52,900 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:12:53,123 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:12:53,123 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:12:53,881 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28584: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:12:53,881 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:12:53,881 INFO SCPITestWave.py [28588] MainThread :2026-06-11 09:12:53    程式开启
+2026-06-11 09:12:53,881 INFO logging_setup.py [75] MainThread :2026-06-11 09:12:53    程式开启
+2026-06-11 09:13:31,551 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:13:31,552 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:13:31,552 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:13:31,553 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:13:31,553 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:13:31,553 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:13:31,794 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:13:31,795 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:13:32,570 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28584: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:13:32,570 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:13:32,570 INFO SCPITestWave.py [28588] MainThread :2026-06-11 09:13:32    程式开启
+2026-06-11 09:13:32,570 INFO logging_setup.py [75] MainThread :2026-06-11 09:13:32    程式开启
+2026-06-11 09:18:28,158 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:18:28,158 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:18:28,160 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:18:28,160 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:18:28,160 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:18:28,160 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:18:28,400 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:18:28,400 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:18:29,229 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28584: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:18:29,229 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:18:29,229 INFO SCPITestWave.py [28588] MainThread :2026-06-11 09:18:29    程式开启
+2026-06-11 09:18:29,230 INFO logging_setup.py [75] MainThread :2026-06-11 09:18:29    程式开启
+2026-06-11 09:18:37,820 INFO SCPITestWave.py [1537] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:18:37,821 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:18:40,259 INFO SCPITestWave.py [1537] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:18:40,260 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:18:45,987 INFO SCPITestWave.py [1537] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:18:45,988 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:18:49,570 INFO SCPITestWave.py [1537] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:18:49,570 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:19:57,780 INFO SCPITestWave.py [1537] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:19:57,780 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 09:26:34,556 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:26:34,556 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:26:34,558 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:26:34,558 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:26:34,558 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:26:34,558 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:26:34,800 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:26:34,800 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:26:35,277 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 28024, in <module>
+    ui.setupUi(main_window)
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\ui_files\SCPI_Test.py", line 744, in setupUi
+    self.retranslateUi(Dialog)
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\ui_files\SCPI_Test.py", line 765, in retranslateUi
+    self.pushButton_ShowSettingDetail.setText(_translate("Dialog", "设定内容"))
+AttributeError: 'Ui_Dialog' object has no attribute 'pushButton_ShowSettingDetail'
+2026-06-11 09:27:54,656 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:27:54,656 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:27:54,658 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:27:54,658 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:27:54,658 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:27:54,658 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:27:54,893 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:27:54,893 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:27:55,618 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28657: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:27:55,618 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:27:55,618 INFO SCPITestWave.py [28661] MainThread :2026-06-11 09:27:55    程式开启
+2026-06-11 09:27:55,618 INFO logging_setup.py [75] MainThread :2026-06-11 09:27:55    程式开启
+2026-06-11 09:31:35,298 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:31:35,298 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:31:35,299 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:31:35,299 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:31:35,299 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:31:35,299 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:31:35,540 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:31:35,541 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:31:36,198 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28660: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:31:36,198 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:31:36,198 INFO SCPITestWave.py [28664] MainThread :2026-06-11 09:31:36    程式开启
+2026-06-11 09:31:36,198 INFO logging_setup.py [75] MainThread :2026-06-11 09:31:36    程式开启
+2026-06-11 09:45:42,563 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:45:42,563 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:45:42,564 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:45:42,564 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:45:42,564 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:45:42,564 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:45:42,797 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:45:42,797 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:45:44,388 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28679: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:45:44,388 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:45:44,388 INFO SCPITestWave.py [28683] MainThread :2026-06-11 09:45:44    程式开启
+2026-06-11 09:45:44,388 INFO logging_setup.py [75] MainThread :2026-06-11 09:45:44    程式开启
+2026-06-11 09:46:28,638 INFO logging_setup.py [75] MainThread :请选择一个文件
+2026-06-11 09:49:21,495 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:49:21,495 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:49:21,496 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:49:21,496 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:49:21,497 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:49:21,497 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:49:21,742 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:49:21,742 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:49:24,065 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28706: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:49:24,065 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:49:24,065 INFO SCPITestWave.py [28710] MainThread :2026-06-11 09:49:24    程式开启
+2026-06-11 09:49:24,065 INFO logging_setup.py [75] MainThread :2026-06-11 09:49:24    程式开启
+2026-06-11 09:49:49,426 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 09:49:49,427 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 09:49:49,427 INFO SCPITestWave.py [23321] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 4130890: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 3017504: 'workspace - 文件资源管理器', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 2034760: '设置', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 526426: '设置', 1313668: '文件 · DXL · DXL / SolarAutoTestDev · GitLab - Google Chrome', 65924: 'Program Manager'}
+2026-06-11 09:49:49,427 INFO SCPITestWave.py [23339] MainThread :2026-06-11 09:49:49    请设定实验内容!
+2026-06-11 09:49:49,428 INFO logging_setup.py [75] MainThread :2026-06-11 09:49:49    请设定实验内容!
+2026-06-11 09:49:50,513 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23346, in PauseProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 09:49:52,034 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23365, in ConProjectPush
+    if strTestStatusFlag == "暂停":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 09:49:53,870 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23355, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 09:59:12,947 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27957: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:59:12,947 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 09:59:12,948 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27973: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:59:12,948 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 09:59:12,948 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27978: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:59:12,948 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 09:59:13,188 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 09:59:13,189 INFO logging_setup.py [75] MainThread :2
+2026-06-11 09:59:15,299 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28706: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 09:59:15,299 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 09:59:15,299 INFO SCPITestWave.py [28710] MainThread :2026-06-11 09:59:15    程式开启
+2026-06-11 09:59:15,300 INFO logging_setup.py [75] MainThread :2026-06-11 09:59:15    程式开启
+2026-06-11 09:59:44,436 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 09:59:44,437 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 09:59:44,438 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 09:59:44,438 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 09:59:44,439 INFO SCPITestWave.py [3647] MainThread : 设定实验内容完成
+2026-06-11 09:59:44,439 INFO logging_setup.py [75] MainThread :2026-06-11 09:59:44    设定实验内容完成
+2026-06-11 09:59:47,135 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1559, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 09:59:48,244 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1559, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 09:59:48,913 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1559, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 09:59:53,348 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1559, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 09:59:54,410 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1559, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 10:24:27,960 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27885: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:24:27,961 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 10:24:27,961 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27901: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:24:27,962 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 10:24:27,962 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27906: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:24:27,962 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 10:24:28,208 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 10:24:28,209 INFO logging_setup.py [75] MainThread :2
+2026-06-11 10:24:30,452 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28634: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:24:30,452 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 10:24:30,452 INFO SCPITestWave.py [28638] MainThread :2026-06-11 10:24:30    程式开启
+2026-06-11 10:24:30,452 INFO logging_setup.py [75] MainThread :2026-06-11 10:24:30    程式开启
+2026-06-11 10:24:46,999 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:47,000 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:47,001 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:47,001 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:47,002 INFO SCPITestWave.py [3575] MainThread : 设定实验内容完成
+2026-06-11 10:24:47,002 INFO logging_setup.py [75] MainThread :2026-06-11 10:24:47    设定实验内容完成
+2026-06-11 10:24:57,781 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:57,783 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:57,783 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:57,784 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:24:57,784 INFO SCPITestWave.py [3575] MainThread : 设定实验内容完成
+2026-06-11 10:24:57,784 INFO logging_setup.py [75] MainThread :2026-06-11 10:24:57    设定实验内容完成
+2026-06-11 10:32:35,217 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27885: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:32:35,217 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 10:32:35,218 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27901: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:32:35,218 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 10:32:35,218 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27906: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:32:35,218 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 10:32:35,481 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 10:32:35,481 INFO logging_setup.py [75] MainThread :2
+2026-06-11 10:32:37,559 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28634: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:32:37,559 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 10:32:37,560 INFO SCPITestWave.py [28638] MainThread :2026-06-11 10:32:37    程式开启
+2026-06-11 10:32:37,561 INFO logging_setup.py [75] MainThread :2026-06-11 10:32:37    程式开启
+2026-06-11 10:32:56,248 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:32:56,249 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:32:56,249 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:32:56,250 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:32:56,250 INFO SCPITestWave.py [3575] MainThread : 设定实验内容完成
+2026-06-11 10:32:56,250 INFO logging_setup.py [75] MainThread :2026-06-11 10:32:56    设定实验内容完成
+2026-06-11 10:51:07,548 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:51:07,549 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 10:51:07,549 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27904: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:51:07,550 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 10:51:07,550 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27909: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:51:07,550 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 10:51:07,781 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 10:51:07,781 INFO logging_setup.py [75] MainThread :2
+2026-06-11 10:51:09,946 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28637: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:51:09,946 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 10:51:09,946 INFO SCPITestWave.py [28641] MainThread :2026-06-11 10:51:09    程式开启
+2026-06-11 10:51:09,946 INFO logging_setup.py [75] MainThread :2026-06-11 10:51:09    程式开启
+2026-06-11 10:51:22,807 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:51:22,808 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:51:22,808 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:51:22,809 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 10:51:22,809 INFO SCPITestWave.py [3578] MainThread : 设定实验内容完成
+2026-06-11 10:51:22,809 INFO logging_setup.py [75] MainThread :2026-06-11 10:51:22    设定实验内容完成
+2026-06-11 10:58:51,470 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:58:51,470 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 10:58:51,471 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27904: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:58:51,471 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 10:58:51,472 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27909: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:58:51,472 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 10:58:51,692 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 10:58:51,692 INFO logging_setup.py [75] MainThread :2
+2026-06-11 10:58:53,912 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28637: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 10:58:53,912 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 10:58:53,912 INFO SCPITestWave.py [28641] MainThread :2026-06-11 10:58:53    程式开启
+2026-06-11 10:58:53,913 INFO logging_setup.py [75] MainThread :2026-06-11 10:58:53    程式开启
+2026-06-11 11:00:01,667 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:00:01,668 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:00:01,669 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:00:01,669 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:00:01,670 INFO SCPITestWave.py [3578] MainThread : 设定实验内容完成
+2026-06-11 11:00:01,670 INFO logging_setup.py [75] MainThread :2026-06-11 11:00:01    设定实验内容完成
+2026-06-11 11:02:56,092 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:02:56,093 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:02:56,093 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:02:56,094 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:02:56,094 INFO SCPITestWave.py [3578] MainThread : 设定实验内容完成
+2026-06-11 11:02:56,094 INFO logging_setup.py [75] MainThread :2026-06-11 11:02:56    设定实验内容完成
+2026-06-11 11:05:33,484 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:33,484 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:33,484 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:33,486 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:33,486 INFO SCPITestWave.py [3578] MainThread : 设定实验内容完成
+2026-06-11 11:05:33,486 INFO logging_setup.py [75] MainThread :2026-06-11 11:05:33    设定实验内容完成
+2026-06-11 11:05:36,196 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:36,197 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:36,197 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:36,197 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 11:05:36,198 INFO SCPITestWave.py [3578] MainThread : 设定实验内容完成
+2026-06-11 11:05:36,198 INFO logging_setup.py [75] MainThread :2026-06-11 11:05:36    设定实验内容完成
+2026-06-11 11:07:11,966 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:07:11,967 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:07:11,967 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27904: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:07:11,968 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:07:11,968 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27909: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:07:11,968 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:07:12,230 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:07:12,230 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:07:14,486 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28637: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:07:14,486 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:07:14,487 INFO SCPITestWave.py [28641] MainThread :2026-06-11 11:07:14    程式开启
+2026-06-11 11:07:14,487 INFO logging_setup.py [75] MainThread :2026-06-11 11:07:14    程式开启
+2026-06-11 11:22:32,730 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:22:32,730 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:22:32,731 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:22:32,731 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:22:32,731 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:22:32,731 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:22:32,986 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:22:32,986 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:22:35,655 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:22:35,656 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:22:35,656 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:22:35    程式开启
+2026-06-11 11:22:35,656 INFO logging_setup.py [75] MainThread :2026-06-11 11:22:35    程式开启
+2026-06-11 11:32:18,841 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:32:18,841 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:32:18,842 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:32:18,842 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:32:18,843 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:32:18,843 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:32:19,091 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:32:19,093 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:32:21,658 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:32:21,658 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:32:21,658 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:32:21    程式开启
+2026-06-11 11:32:21,659 INFO logging_setup.py [75] MainThread :2026-06-11 11:32:21    程式开启
+2026-06-11 11:34:30,737 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:34:30,737 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:34:30,737 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:34:30,738 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:34:30,738 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:34:30,738 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:34:31,121 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:34:31,121 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:34:33,764 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:34:33,764 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:34:33,765 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:34:33    程式开启
+2026-06-11 11:34:33,765 INFO logging_setup.py [75] MainThread :2026-06-11 11:34:33    程式开启
+2026-06-11 11:35:57,511 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:35:57,511 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:35:57,512 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:35:57,512 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:35:57,513 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:35:57,513 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:35:57,757 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:35:57,757 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:36:00,266 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:36:00,266 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:36:00,266 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:36:00    程式开启
+2026-06-11 11:36:00,267 INFO logging_setup.py [75] MainThread :2026-06-11 11:36:00    程式开启
+2026-06-11 11:37:12,090 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:37:12,090 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:37:12,091 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:37:12,091 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:37:12,091 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:37:12,091 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:37:12,331 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:37:12,331 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:37:14,596 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:37:14,596 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:37:14,596 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:37:14    程式开启
+2026-06-11 11:37:14,597 INFO logging_setup.py [75] MainThread :2026-06-11 11:37:14    程式开启
+2026-06-11 11:38:10,230 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:38:10,231 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:38:10,231 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:38:10,232 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:38:10,232 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:38:10,232 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:38:10,482 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:38:10,482 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:38:13,112 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:38:13,112 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:38:13,113 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:38:13    程式开启
+2026-06-11 11:38:13,113 INFO logging_setup.py [75] MainThread :2026-06-11 11:38:13    程式开启
+2026-06-11 11:44:39,502 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:44:39,503 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:44:39,503 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:44:39,504 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:44:39,504 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:44:39,504 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:44:39,847 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:44:39,847 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:44:42,317 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:44:42,317 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:44:42,318 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:44:42    程式开启
+2026-06-11 11:44:42,318 INFO logging_setup.py [75] MainThread :2026-06-11 11:44:42    程式开启
+2026-06-11 11:46:15,882 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:46:15,882 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:46:15,883 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:46:15,883 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:46:15,884 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:46:15,884 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:46:16,186 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:46:16,186 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:46:19,185 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:46:19,186 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:46:19,186 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:46:19    程式开启
+2026-06-11 11:46:19,186 INFO logging_setup.py [75] MainThread :2026-06-11 11:46:19    程式开启
+2026-06-11 11:48:31,717 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:48:31,717 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:48:31,718 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:48:31,718 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:48:31,719 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:48:31,719 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:48:31,999 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:48:31,999 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:48:34,961 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:48:34,961 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:48:34,961 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:48:34    程式开启
+2026-06-11 11:48:34,962 INFO logging_setup.py [75] MainThread :2026-06-11 11:48:34    程式开启
+2026-06-11 11:49:35,116 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:49:35,116 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 11:49:35,117 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:49:35,117 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 11:49:35,117 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:49:35,117 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 11:49:35,376 INFO logging_setup.py [75] MainThread :('ASRL9::INSTR', 'ASRL10::INSTR')
+2026-06-11 11:49:35,376 INFO logging_setup.py [75] MainThread :2
+2026-06-11 11:49:38,308 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 11:49:38,308 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 11:49:38,308 INFO SCPITestWave.py [28674] MainThread :2026-06-11 11:49:38    程式开启
+2026-06-11 11:49:38,309 INFO logging_setup.py [75] MainThread :2026-06-11 11:49:38    程式开启
+2026-06-11 12:15:21,312 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:21,312 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 12:15:21,313 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:21,313 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 12:15:21,313 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:21,313 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 12:15:21,589 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 12:15:21,589 INFO logging_setup.py [75] MainThread :1
+2026-06-11 12:15:25,334 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:25,335 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 12:15:25,335 INFO SCPITestWave.py [28674] MainThread :2026-06-11 12:15:25    程式开启
+2026-06-11 12:15:25,335 INFO logging_setup.py [75] MainThread :2026-06-11 12:15:25    程式开启
+2026-06-11 12:15:50,890 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:50,890 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 12:15:50,891 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:50,891 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 12:15:50,892 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:50,892 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 12:15:51,309 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 12:15:51,309 INFO logging_setup.py [75] MainThread :1
+2026-06-11 12:15:54,299 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:15:54,300 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 12:15:54,300 INFO SCPITestWave.py [28674] MainThread :2026-06-11 12:15:54    程式开启
+2026-06-11 12:15:54,300 INFO logging_setup.py [75] MainThread :2026-06-11 12:15:54    程式开启
+2026-06-11 12:18:45,079 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:18:45,079 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 12:18:45,080 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:18:45,080 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 12:18:45,080 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:18:45,080 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 12:18:45,428 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 12:18:45,428 INFO logging_setup.py [75] MainThread :1
+2026-06-11 12:18:48,454 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:18:48,454 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 12:18:48,454 INFO SCPITestWave.py [28674] MainThread :2026-06-11 12:18:48    程式开启
+2026-06-11 12:18:48,455 INFO logging_setup.py [75] MainThread :2026-06-11 12:18:48    程式开启

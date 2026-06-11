@@ -73,7 +73,7 @@ class MainSetup(BaseSetup):
         """
         from PyQt5.QtWidgets import (QScrollArea, QFormLayout,
                                       QHBoxLayout, QVBoxLayout, QLabel,
-                                      QTextEdit)
+                                      QTextEdit, QComboBox)
         from PyQt5 import QtCore
 
         # 样式常量
@@ -248,6 +248,34 @@ class MainSetup(BaseSetup):
                            (type(w).__name__ == 'QTextEdit' and obj_name.startswith("log_")):
                             page_layout.removeWidget(w)
                             w.deleteLater()
+            # 给页面上的接口下拉框应用统一样式
+            _combo_qss = (
+                "QComboBox { color: #1e293b; background-color: #ffffff; "
+                "border: 1px solid #9ca3af; border-radius: 4px; padding: 4px 24px 4px 8px; "
+                "font-size: 13px; }"
+                "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; "
+                "width: 24px; border: none; }"
+                "QComboBox::down-arrow { image: none; border-left: 5px solid transparent; "
+                "border-right: 5px solid transparent; border-top: 6px solid #374151; }"
+                "QComboBox QAbstractItemView { background-color: #ffffff; color: #111827; "
+                "border: 2px solid #3b82f6; selection-background-color: #3b82f6; "
+                "selection-color: #ffffff; outline: none; }"
+                "QComboBox QAbstractItemView::item { padding: 6px 12px; min-height: 28px; "
+                "border-bottom: 1px solid #e5e7eb; }"
+            )
+            for _ch in page_widget.findChildren(QComboBox):
+                if _ch.objectName() == settings_attr_name:
+                    _ch.setStyleSheet(_combo_qss)
+                    break
+            # 在 timeline 上方添加使用说明
+            _tips_qss = (
+                "QLabel { color: #1e40af; background-color: #eff6ff; border: 1px solid #bfdbfe; "
+                "border-radius: 6px; padding: 8px 12px; font-size: 12px; }"
+            )
+            _dewetron_tips = QLabel("提示: 在设置对话框中配置IP地址和参数后，点击\"应用配置\"发送到设备; 点击\"构造测试页面\"进入测量界面")
+            _dewetron_tips.setWordWrap(True)
+            _dewetron_tips.setStyleSheet(_tips_qss)
+            target_layout.insertWidget(0, _dewetron_tips)
             while dlg_layout.count():
                 item = dlg_layout.takeAt(0)
                 w = item.widget()

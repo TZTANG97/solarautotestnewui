@@ -153,8 +153,28 @@ class Ui_Dialog(object):
         _bind_toggle(_sec_auto, _auto_container, "Auto_Test")
 
         # 动态添加 Auto_Test 子项的方法（供 SCPITestWave.py 调用）
-        def _add_auto_test_item(text, page_index=9):
-            item = _make_item(text, page_index)
+        def _add_auto_test_item(text, page_index=9, setting_key=None):
+            def _on_click():
+                self.stackedWidget.setCurrentIndex(page_index)
+                # 自动选择 comboBox_P 为 "Auto_Test"
+                idx_p = self.comboBox_P.findText("Auto_Test")
+                if idx_p >= 0:
+                    self.comboBox_P.setCurrentIndex(idx_p)
+                # 自动选择 comboBox_PS 为对应的测试项目
+                idx_ps = self.comboBox_PS.findText(text)
+                if idx_ps >= 0:
+                    self.comboBox_PS.setCurrentIndex(idx_ps)
+                # 直接切换 settingStack 显示对应的设置页面
+                if setting_key and hasattr(self, 'settingStack'):
+                    pages = getattr(self.settingStack, '_pages', {})
+                    if setting_key in pages:
+                        self.settingStack.setCurrentWidget(pages[setting_key])
+                    elif hasattr(self.settingStack, '_blank_page'):
+                        self.settingStack.setCurrentWidget(self.settingStack._blank_page)
+            item = QtWidgets.QPushButton(f"      {text}")
+            item.setStyleSheet(_ITEM_STYLE)
+            item.setCursor(QtCore.Qt.PointingHandCursor)
+            item.clicked.connect(_on_click)
             _auto_layout.addWidget(item)
         self.add_auto_test_item = _add_auto_test_item
 
@@ -231,15 +251,21 @@ class Ui_Dialog(object):
             QPushButton:pressed { background-color: #1d4ed8; }
             QPushButton:disabled { background-color: #94a3b8; color: #e2e8f0; }
             QComboBox {
-                background-color: #eaecf0; border: 1px solid #d5d8de; border-radius: 6px;
-                padding: 6px 10px; font-size: 13px; color: #1e293b;
+                background-color: #ffffff; border: 1px solid #9ca3af; border-radius: 4px;
+                padding: 4px 24px 4px 8px; font-size: 13px; color: #1e293b;
             }
             QComboBox:hover { border-color: #3b82f6; }
-            QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right;
+                width: 24px; border: none; }
+            QComboBox::down-arrow { image: none; border-left: 5px solid transparent;
+                border-right: 5px solid transparent; border-top: 6px solid #374151; }
             QComboBox QAbstractItemView {
-                background-color: #eaecf0; color: #1e293b;
-                selection-background-color: #eff6ff; border: 1px solid #d1d5db;
+                background-color: #ffffff; color: #111827;
+                border: 2px solid #3b82f6; selection-background-color: #3b82f6;
+                selection-color: #ffffff; outline: none;
             }
+            QComboBox QAbstractItemView::item { padding: 6px 12px; min-height: 28px;
+                border-bottom: 1px solid #e5e7eb; }
         """
         _cardStyle = """
             QWidget#card {
@@ -570,44 +596,24 @@ class Ui_Dialog(object):
         projTitle.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
         projectPageLayout.addWidget(projTitle)
 
-        # 项目选择区
-        projSelectCard = QtWidgets.QWidget()
-        projSelectCard.setObjectName("card")
-        projSelectCard.setStyleSheet(_cardStyle)
-        projSelectLayout = QtWidgets.QHBoxLayout(projSelectCard)
-        projSelectLayout.setContentsMargins(16, 10, 16, 10)
-        projSelectLayout.setSpacing(12)
-        lbl_p = QtWidgets.QLabel("项目:")
-        lbl_p.setStyleSheet("font-size: 13px; background: transparent;")
-        projSelectLayout.addWidget(lbl_p)
+        # 保留comboBox定义但隐藏（供其他代码引用）
         self.comboBox_P = QtWidgets.QComboBox()
         self.comboBox_P.setObjectName("comboBox_P")
-        self.comboBox_P.setMinimumWidth(160)
-        projSelectLayout.addWidget(self.comboBox_P)
-        lbl_ps = QtWidgets.QLabel("分项:")
-        lbl_ps.setStyleSheet("font-size: 13px; background: transparent;")
-        projSelectLayout.addWidget(lbl_ps)
+        self.comboBox_P.setVisible(False)
         self.comboBox_PS = QtWidgets.QComboBox()
         self.comboBox_PS.setObjectName("comboBox_PS")
-        self.comboBox_PS.setMinimumWidth(160)
-        projSelectLayout.addWidget(self.comboBox_PS)
-        projSelectLayout.addStretch(1)
-        projectPageLayout.addWidget(projSelectCard)
+        self.comboBox_PS.setVisible(False)
 
-        # 设定区卡片
-        settingCard = QtWidgets.QWidget()
-        settingCard.setObjectName("card")
-        settingCard.setStyleSheet(_cardStyle)
-        settingLayout = QtWidgets.QVBoxLayout(settingCard)
-        settingLayout.setContentsMargins(16, 12, 16, 12)
-        settingLayout.setSpacing(10)
+        # 设置对话框内嵌区域（无边框，直接显示）
+        self.settingStack = QtWidgets.QStackedWidget()
+        self.settingStack.setObjectName("settingStack")
+        self.settingStack.setStyleSheet("QStackedWidget { border: none; background: transparent; }")
+        projectPageLayout.addWidget(self.settingStack, 1)  # 占据主要空间
+
+        # 保留设定内容按钮（隐藏，供其他代码引用）
         self.pushButton_ShowSettingDetail = QtWidgets.QPushButton("设定内容")
         self.pushButton_ShowSettingDetail.setObjectName("pushButton_ShowSettingDetail")
-        settingLayout.addWidget(self.pushButton_ShowSettingDetail)
-        self.pushButton_ShowMultiSettingDetail = QtWidgets.QPushButton("多次测试设定")
-        self.pushButton_ShowMultiSettingDetail.setObjectName("pushButton_ShowMultiSettingDetail")
-        settingLayout.addWidget(self.pushButton_ShowMultiSettingDetail)
-        projectPageLayout.addWidget(settingCard)
+        self.pushButton_ShowSettingDetail.setVisible(False)
 
         # 试验控制卡片
         testCard = QtWidgets.QWidget()
@@ -630,14 +636,22 @@ class Ui_Dialog(object):
         self.pushButton_EndTest = QtWidgets.QPushButton("结束试验")
         self.pushButton_EndTest.setObjectName("pushButton_EndTest")
         testBtnLayout.addWidget(self.pushButton_EndTest)
+        self.pushButton_ShowMultiSettingDetail = QtWidgets.QPushButton("多次测试设定")
+        self.pushButton_ShowMultiSettingDetail.setObjectName("pushButton_ShowMultiSettingDetail")
+        self.pushButton_ShowMultiSettingDetail.setStyleSheet("""
+            QPushButton { background-color: #8b5cf6; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 13px; }
+            QPushButton:hover { background-color: #7c3aed; }
+        """)
+        testBtnLayout.addWidget(self.pushButton_ShowMultiSettingDetail)
         testLayout.addLayout(testBtnLayout)
         self.btn_test = QtWidgets.QPushButton("test")
         self.btn_test.setObjectName("btn_test")
         self.btn_test.setFixedWidth(60)
+        self.btn_test.setVisible(False)  # 隐藏测试按钮
         testLayout.addWidget(self.btn_test, 0, QtCore.Qt.AlignLeft)
         projectPageLayout.addWidget(testCard)
 
-        # 项目日志
+        # 项目日志（降低高度，给设置区域腾出空间）
         logLabel = QtWidgets.QLabel("操作日志:")
         logLabel.setStyleSheet("font-size: 12px; color: #6b7280; background: transparent;")
         projectPageLayout.addWidget(logLabel)
@@ -645,8 +659,9 @@ class Ui_Dialog(object):
         self.textEdit_ReturnMessage.setObjectName("textEdit_ReturnMessage")
         self.textEdit_ReturnMessage.setReadOnly(True)
         self.textEdit_ReturnMessage.setStyleSheet(_logStyle)
-        self.textEdit_ReturnMessage.setMinimumHeight(120)
-        projectPageLayout.addWidget(self.textEdit_ReturnMessage, 1)
+        self.textEdit_ReturnMessage.setMinimumHeight(80)
+        self.textEdit_ReturnMessage.setMaximumHeight(150)
+        projectPageLayout.addWidget(self.textEdit_ReturnMessage, 0)  # 不拉伸
         self.pushButton_ClearMessage = QtWidgets.QPushButton("清空消息")
         self.pushButton_ClearMessage.setObjectName("pushButton_ClearMessage")
         self.pushButton_ClearMessage.setFixedWidth(90)
