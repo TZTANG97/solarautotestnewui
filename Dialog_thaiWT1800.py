@@ -18,6 +18,66 @@ class Ui_Dialog_thai_WT1800(object):
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(".\\ui_files\\logo.jpg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Dialog_thai_WT1800.setWindowIcon(icon)
+
+        # ── 主布局 ──
+        mainLayout = QtWidgets.QVBoxLayout(Dialog_thai_WT1800)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.setSpacing(0)
+
+        # ══════════════════════════════════════
+        # 顶部工具栏
+        # ══════════════════════════════════════
+        topBar = QtWidgets.QWidget()
+        topBar.setFixedHeight(56)
+        topBar.setStyleSheet("QWidget { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; }")
+        topLayout = QtWidgets.QHBoxLayout(topBar)
+        topLayout.setContentsMargins(12, 0, 12, 0)
+        topLayout.setSpacing(8)
+
+        self.pushButton_TestAppend = QtWidgets.QPushButton("测试追加")
+        self.pushButton_TestAppend.setObjectName("pushButton_TestAppend")
+        self.pushButton_TestAppend.setStyleSheet(
+            "QPushButton { background-color: #8b5cf6; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #7c3aed; }"
+        )
+        topLayout.addWidget(self.pushButton_TestAppend)
+
+        self.pushButton_ReadSettingFile = QtWidgets.QPushButton("读取设定")
+        self.pushButton_ReadSettingFile.setObjectName("pushButton_ReadSettingFile")
+        self.pushButton_ReadSettingFile.setStyleSheet(
+            "QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; }"
+            "QPushButton:hover { background-color: #2563eb; }"
+        )
+        topLayout.addWidget(self.pushButton_ReadSettingFile)
+
+        self.pushButton_SaveSettingFile = QtWidgets.QPushButton("保存设定")
+        self.pushButton_SaveSettingFile.setObjectName("pushButton_SaveSettingFile")
+        self.pushButton_SaveSettingFile.setStyleSheet(
+            "QPushButton { background-color: #10b981; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; }"
+            "QPushButton:hover { background-color: #059669; }"
+        )
+        topLayout.addWidget(self.pushButton_SaveSettingFile)
+
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.VLine)
+        sep.setStyleSheet("color: #cbd5e1; border: none; max-width: 1px;")
+        topLayout.addWidget(sep)
+
+        settingsTitle = QtWidgets.QLabel("WT1800 参数配置")
+        settingsTitle.setStyleSheet("font-size: 13px; font-weight: bold; color: #1e293b; background: transparent; border: none;")
+        topLayout.addWidget(settingsTitle)
+        topLayout.addStretch()
+
+        mainLayout.addWidget(topBar)
+
+        # ── 内容区（滚动） ──
+        scrollArea = QtWidgets.QScrollArea()
+        scrollArea.setWidgetResizable(True)
+        scrollArea.setStyleSheet("QScrollArea { border: none; background-color: white; }")
+        contentWidget = QtWidgets.QWidget()
+        contentWidget.setStyleSheet("background-color: white;")
+        contentLayout = QtWidgets.QVBoxLayout(contentWidget)
+        contentLayout.setContentsMargins(0, 0, 0, 0)
         self.pushButton_Confirm = QtWidgets.QPushButton(Dialog_thai_WT1800)
         self.pushButton_Confirm.setGeometry(QtCore.QRect(1390, 880, 131, 61))
         self.pushButton_Confirm.setObjectName("pushButton_Confirm")
@@ -851,6 +911,18 @@ class Ui_Dialog_thai_WT1800(object):
         self.checkBox_SetPm.raise_()
         self.checkBox_SetEaU.raise_()
         self.checkBox_SetEaI.raise_()
+
+        # ── 将所有原有控件移入滚动区域 ──
+        # 修复: 去掉 contentLayout.addWidget(scrollArea) — 它和 scrollArea.setWidget(contentWidget)
+        # 构成了循环引用 (scrollArea 包含 contentWidget, contentWidget 的布局又包含 scrollArea),
+        # 导致 Qt 布局引擎陷入无限递归，程序卡死。
+        scrollArea.setWidget(contentWidget)
+        mainLayout.addWidget(scrollArea, 1)
+
+        # ── 隐藏的 pushButton_Send（向后兼容） ──
+        self.pushButton_Send = QtWidgets.QPushButton()
+        self.pushButton_Send.setObjectName("pushButton_Send")
+        self.pushButton_Send.setVisible(False)
 
         self.retranslateUi(Dialog_thai_WT1800)
         self.comboBox_AutoSave.setCurrentIndex(1)

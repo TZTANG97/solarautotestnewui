@@ -13,11 +13,74 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 class Ui_Dialog_thai_WT1806E(object):
     def setupUi(self, Dialog_thai_WT1806E):
+        print("[DEBUG_WT1806E] setupUi start", flush=True)
         Dialog_thai_WT1806E.setObjectName("Dialog_thai_WT1806E")
         Dialog_thai_WT1806E.resize(1617, 962)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(".\\ui_files\\logo.jpg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Dialog_thai_WT1806E.setWindowIcon(icon)
+        print("[DEBUG_WT1806E] icon+resize done", flush=True)
+
+        # ── 主布局 ──
+        mainLayout = QtWidgets.QVBoxLayout(Dialog_thai_WT1806E)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.setSpacing(0)
+
+        # ══════════════════════════════════════
+        # 顶部工具栏
+        # ══════════════════════════════════════
+        topBar = QtWidgets.QWidget()
+        topBar.setFixedHeight(56)
+        topBar.setStyleSheet("QWidget { background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; }")
+        topLayout = QtWidgets.QHBoxLayout(topBar)
+        topLayout.setContentsMargins(12, 0, 12, 0)
+        topLayout.setSpacing(8)
+
+        self.pushButton_TestAppend = QtWidgets.QPushButton("测试追加")
+        self.pushButton_TestAppend.setObjectName("pushButton_TestAppend")
+        self.pushButton_TestAppend.setStyleSheet(
+            "QPushButton { background-color: #8b5cf6; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #7c3aed; }"
+        )
+        topLayout.addWidget(self.pushButton_TestAppend)
+
+        self.pushButton_ReadSettingFile = QtWidgets.QPushButton("读取设定")
+        self.pushButton_ReadSettingFile.setObjectName("pushButton_ReadSettingFile")
+        self.pushButton_ReadSettingFile.setStyleSheet(
+            "QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; }"
+            "QPushButton:hover { background-color: #2563eb; }"
+        )
+        topLayout.addWidget(self.pushButton_ReadSettingFile)
+
+        self.pushButton_SaveSettingFile = QtWidgets.QPushButton("保存设定")
+        self.pushButton_SaveSettingFile.setObjectName("pushButton_SaveSettingFile")
+        self.pushButton_SaveSettingFile.setStyleSheet(
+            "QPushButton { background-color: #10b981; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 12px; }"
+            "QPushButton:hover { background-color: #059669; }"
+        )
+        topLayout.addWidget(self.pushButton_SaveSettingFile)
+
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.VLine)
+        sep.setStyleSheet("color: #cbd5e1; border: none; max-width: 1px;")
+        topLayout.addWidget(sep)
+
+        settingsTitle = QtWidgets.QLabel("WT1806E 参数配置")
+        settingsTitle.setStyleSheet("font-size: 13px; font-weight: bold; color: #1e293b; background: transparent; border: none;")
+        topLayout.addWidget(settingsTitle)
+        topLayout.addStretch()
+
+        mainLayout.addWidget(topBar)
+
+        print("[DEBUG_WT1806E] scrollArea start", flush=True)
+        # ── 内容区（滚动） ──
+        scrollArea = QtWidgets.QScrollArea()
+        scrollArea.setWidgetResizable(True)
+        scrollArea.setStyleSheet("QScrollArea { border: none; background-color: white; }")
+        contentWidget = QtWidgets.QWidget()
+        contentWidget.setStyleSheet("background-color: white;")
+        contentLayout = QtWidgets.QVBoxLayout(contentWidget)
+        contentLayout.setContentsMargins(0, 0, 0, 0)
         self.pushButton_Confirm = QtWidgets.QPushButton(Dialog_thai_WT1806E)
         self.pushButton_Confirm.setGeometry(QtCore.QRect(1240, 870, 131, 61))
         self.pushButton_Confirm.setObjectName("pushButton_Confirm")
@@ -40,6 +103,7 @@ class Ui_Dialog_thai_WT1806E(object):
         self.label_44 = QtWidgets.QLabel(self.groupBox_11)
         self.label_44.setGeometry(QtCore.QRect(20, 20, 91, 20))
         self.label_44.setObjectName("label_44")
+        print("[DEBUG_WT1806E] groupBox_3 start", flush=True)
         self.groupBox_3 = QtWidgets.QGroupBox(Dialog_thai_WT1806E)
         self.groupBox_3.setGeometry(QtCore.QRect(10, 30, 481, 181))
         self.groupBox_3.setObjectName("groupBox_3")
@@ -129,6 +193,7 @@ class Ui_Dialog_thai_WT1806E(object):
         self.comboBox_ProjectNum.addItem("")
         self.comboBox_ProjectNum.addItem("")
         self.comboBox_ProjectNum.addItem("")
+        print("[DEBUG_WT1806E] groupBox_6 start", flush=True)
         self.groupBox_6 = QtWidgets.QGroupBox(Dialog_thai_WT1806E)
         self.groupBox_6.setGeometry(QtCore.QRect(490, 40, 651, 111))
         self.groupBox_6.setTitle("")
@@ -151,6 +216,7 @@ class Ui_Dialog_thai_WT1806E(object):
         self.label_89 = QtWidgets.QLabel(self.groupBox_6)
         self.label_89.setGeometry(QtCore.QRect(30, 80, 121, 20))
         self.label_89.setObjectName("label_89")
+        print("[DEBUG_WT1806E] groupBox_7 start", flush=True)
         self.groupBox_7 = QtWidgets.QGroupBox(Dialog_thai_WT1806E)
         self.groupBox_7.setGeometry(QtCore.QRect(10, 280, 1131, 201))
         self.groupBox_7.setTitle("")
@@ -814,11 +880,25 @@ class Ui_Dialog_thai_WT1806E(object):
         self.checkBox_SetEvent1.raise_()
         self.checkBox_SetEvent8.raise_()
 
+        # ── 将所有原有控件移入滚动区域 ──
+        # 修复: 去掉 contentLayout.addWidget(scrollArea) — 它和 scrollArea.setWidget(contentWidget)
+        # 构成了循环引用 (scrollArea 包含 contentWidget, contentWidget 的布局又包含 scrollArea),
+        # 导致 Qt 布局引擎陷入无限递归，程序卡死。
+        scrollArea.setWidget(contentWidget)
+        mainLayout.addWidget(scrollArea, 1)
+
+        # ── 隐藏的 pushButton_Send（向后兼容） ──
+        self.pushButton_Send = QtWidgets.QPushButton()
+        self.pushButton_Send.setObjectName("pushButton_Send")
+        self.pushButton_Send.setVisible(False)
+
         self.retranslateUi(Dialog_thai_WT1806E)
         self.comboBox_AutoSave.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(Dialog_thai_WT1806E)
+        print("[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi", flush=True)
 
     def retranslateUi(self, Dialog_thai_WT1806E):
+        print("[DEBUG_WT1806E] retranslateUi start", flush=True)
         _translate = QtCore.QCoreApplication.translate
         Dialog_thai_WT1806E.setWindowTitle(_translate("Dialog_thai_WT1806E", "WT1806E参数配置"))
         self.pushButton_Confirm.setText(_translate("Dialog_thai_WT1806E", "确认"))

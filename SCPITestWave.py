@@ -27838,6 +27838,7 @@ def translate_to_bluesight(text, value=None):
 
 
 if __name__ == "__main__":
+    print("[DEBUG_STARTUP] 1/9 进入 __main__ 入口", flush=True)
     global EQUList,dialog_windowguoqianpin
     global rm,ui,projectSecondList,uithaiguoqianya
     global flagstopwave,uithaichonglian,uithaiguoqianpin,dialog_windowguoqianya
@@ -27860,6 +27861,7 @@ if __name__ == "__main__":
     global per_test_time_list, volt_fz_first_status, flicker_is_test
     global manager
 
+    print("[DEBUG_STARTUP] 2/9 准备创建 MacroManager / 日志系统", flush=True)
     manager = MacroManager(repeat=1, path=PATH_RECORDINGS["WT3000"], smooth_move=True) #默认3000
 
     local_file_path = "./local_file"
@@ -27998,11 +28000,12 @@ if __name__ == "__main__":
             #     result = csv.DictReader(f)
             #     config_dict = next(result)
 
+            print("[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程", flush=True)
             heading_handle = get_enumwindows()
+            print("[DEBUG_STARTUP]    get_enumwindows 完成", flush=True)
 
             #解析代码并开始测试
-            threadStartTestFunction = threading.Thread(target=RunProjectTime)
-            threadStartTestFunction.setDaemon(True)
+            threadStartTestFunction = threading.Thread(target=RunProjectTime, daemon=True)
             threadStartTestFunction.start()
 
             #解析WT3000代码读取设备信息
@@ -28017,15 +28020,14 @@ if __name__ == "__main__":
             # threadSaveTestDataFunction.start()
 
             #直流源发送批量命令线程
-            threadSendDCStartCommandFunction = threading.Thread(target=ThreadSendDCCommandInfomation)
-            threadSendDCStartCommandFunction.setDaemon(True)
+            threadSendDCStartCommandFunction = threading.Thread(target=ThreadSendDCCommandInfomation, daemon=True)
             threadSendDCStartCommandFunction.start()
 
             # WT Auto Gui
-            thread_messure_testing = threading.Thread(target=messure_testing)
-            thread_messure_testing.setDaemon(True)
+            thread_messure_testing = threading.Thread(target=messure_testing, daemon=True)
             thread_messure_testing.start()
 
+            print("[DEBUG_STARTUP]    三个 daemon 线程已启动", flush=True)
             strFlagOfCollectAllTestLog = "Stop"
             strGlobalFlagGetTestTime = "0"
             if wt3000_controller is not None:
@@ -28053,10 +28055,11 @@ if __name__ == "__main__":
             flagstopwave = 1
             projectlist = ['请选择项目', 'Auto_Test']
             projectSecondList = ['']
+            print("[DEBUG_STARTUP] 4/9 VISA ResourceManager...", flush=True)
             # rm = visa.ResourceManager(local_file_path + '/visa32.dll')
             rm = visa.ResourceManager(local_file_path + '/visa32.dll')
             str1 = rm.list_resources()
-            print(str1)
+            print(f"[DEBUG_STARTUP]    list_resources = {str1}", flush=True)
             if len(str1) > 0:
                 iNumber = len(str1)
                 print(iNumber)
@@ -28064,15 +28067,20 @@ if __name__ == "__main__":
             else:
                 EQUList = ['未发现可连接设备']
 
+            print("[DEBUG_STARTUP] 5/9 QApplication...", flush=True)
             # printingwave()
             app = QApplication(sys.argv)
+            print("[DEBUG_STARTUP]    QApplication 创建完成", flush=True)
 
+            print("[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi", flush=True)
             main_window = QMainWindow()
             ui = Ui_Dialog()
             ui.setupUi(main_window)
+            print("[DEBUG_STARTUP]    setupUi 完成", flush=True)
 
             # 将主窗口、日志对象和资源管理器写入应用上下文，避免继续散落全局状态
             app_ctx = bootstrap(ui=ui, logger=logger, rm=rm)
+            print("[DEBUG_STARTUP]    bootstrap 完成", flush=True)
             # 启动阶段同步核心运行对象，确保 app_ctx 保存的是当前这次启动的状态
             app_ctx.main_window = main_window
             app_ctx.ui = ui
@@ -28088,7 +28096,9 @@ if __name__ == "__main__":
             app_ctx.flicker_is_test = flicker_is_test
             app_ctx.heading_handle = heading_handle
 
+            print("[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...", flush=True)
             setup_windows = initialize_setup_windows(app_ctx)
+            print("[DEBUG_STARTUP]    initialize_setup_windows 完成", flush=True)
             dialog_WT3000E = setup_windows["dialog_WT3000E"]
             uiThiaWT3000E = setup_windows["uiThiaWT3000E"]
             dialog_WT1806E = setup_windows["dialog_WT1806E"]
@@ -28144,6 +28154,7 @@ if __name__ == "__main__":
             dialog_windowfrequencyadaptability = setup_windows["dialog_windowfrequencyadaptability"]
             uiThaiFrequencyAdaptability = setup_windows["uiThaiFrequencyAdaptability"]
 
+            print("[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)", flush=True)
             # ── 将设备设置对话框内容嵌入到对映的设备页面中（替代弹窗） ──
             from setup.main_setup import MainSetup as _MS
 
@@ -28803,6 +28814,14 @@ if __name__ == "__main__":
             # WT5000配置确认
             uiThiaWT5000.pushButton_Confirm.clicked.connect(dialog_WT5000.close)
 
+            def _safe_click(obj, attr, slot):
+                """安全连接信号：如果 obj 有 attr 属性则连接，否则打印警告。"""
+                if hasattr(obj, attr):
+                    getattr(obj, attr).clicked.connect(slot)
+                else:
+                    print(f"[WARN] {type(obj).__name__} 缺少 {attr}，跳过信号连接", flush=True)
+
+            print("[DEBUG_STARTUP]    信号连接段 德国重连...", flush=True)
             #德国重连
             uithaichonglian.pushButton_Send.clicked.connect(thaichonglianSend)
             uithaichonglian.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
@@ -28811,25 +28830,25 @@ if __name__ == "__main__":
             uithaichonglian.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             #ThaiChonglian的配置档读取写入SaveFileDialogThaiChongLian
-            uithaichonglian.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiChongLian)
-            uithaichonglian.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiChongLian)
+            _safe_click(uithaichonglian, "pushButton_ReadSettingFile", OpenFileDialogThaiChongLian)
+            _safe_click(uithaichonglian, "pushButton_SaveSettingFile", SaveFileDialogThaiChongLian)
 
             # # 德国过欠频
             # uithaiguoqianpin.pushButton_Send.clicked.connect(thaiguoqianpinSend)
 
             # # ThatiGuoQianPin的的配置档读取写入
-            # uithaiguoqianpin.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiGuoQianPin)
-            # uithaiguoqianpin.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiGuoqianpin)
+            # _safe_click(uithaiguoqianpin, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoQianPin)
+            # _safe_click(uithaiguoqianpin, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoqianpin)
 
             # #德国过欠压
             # uithaiguoqianya.pushButton_Send.clicked.connect(thaiguoqianyaSend)
 
             # # ThatiGuoQianPin的的配置档读取写入
-            # uithaiguoqianya.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiGuoQianYa)
-            # uithaiguoqianya.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiGuoqianya)
+            # _safe_click(uithaiguoqianya, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoQianYa)
+            # _safe_click(uithaiguoqianya, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoqianya)
 
             # 德国电压闪变
-            uiThaiDianYaShanBian.pushButton_TestAppend.clicked.connect(thaidianyashanbianAppend)
+            _safe_click(uiThaiDianYaShanBian, "pushButton_TestAppend", thaidianyashanbianAppend)
 
             def reset_flicker_count():
                 global flicker_append_count
@@ -28838,11 +28857,11 @@ if __name__ == "__main__":
                 ui.pushButton_StartTest.setEnabled(False)
                 ui.pushButton_EndTest.setEnabled(False)
                 ui.textEdit_ReturnMessage.append("[闪变] 计数器已重置为0，开始/结束试验按钮已禁用")
-            uiThaiDianYaShanBian.pushButton_ResetCount.clicked.connect(reset_flicker_count)
+            _safe_click(uiThaiDianYaShanBian, "pushButton_ResetCount", reset_flicker_count)
 
             # ThaiDianYaShanBian的的配置档读取写入
-            uiThaiDianYaShanBian.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiDianYaShanBian)
-            uiThaiDianYaShanBian.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaidianyashanbian)
+            _safe_click(uiThaiDianYaShanBian, "pushButton_ReadSettingFile", OpenFileDialogThaiDianYaShanBian)
+            _safe_click(uiThaiDianYaShanBian, "pushButton_SaveSettingFile", SaveFileDialogThaidianyashanbian)
             
             # 谐波电流
             uiThaiXieBoDianLiu.pushButton_Send.clicked.connect(thaixiebodianliuSend)
@@ -28852,8 +28871,8 @@ if __name__ == "__main__":
             uiThaiXieBoDianLiu.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # ThaiXieBoDianLiu的的配置档读取写入
-            uiThaiXieBoDianLiu.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiXieBoDianLiu)
-            uiThaiXieBoDianLiu.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiXieBoDianLiu)
+            _safe_click(uiThaiXieBoDianLiu, "pushButton_ReadSettingFile", OpenFileDialogThaiXieBoDianLiu)
+            _safe_click(uiThaiXieBoDianLiu, "pushButton_SaveSettingFile", SaveFileDialogThaiXieBoDianLiu)
             
             # 固定PF=1
             uiThaiFixedPF.pushButton_Send.clicked.connect(thaifixedpfSend)
@@ -28872,8 +28891,8 @@ if __name__ == "__main__":
             uiThaiFixedPF.pushButton_ReadSettingFile.clicked.connect(cm.load_config)
             uiThaiFixedPF.pushButton_SaveSettingFile.clicked.connect(cm.save_config)
 
-            # uiThaiFixedPF.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiFixedPF)
-            # uiThaiFixedPF.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiFixedPF)
+            # _safe_click(uiThaiFixedPF, "pushButton_ReadSettingFile", OpenFileDialogThaiFixedPF)
+            # _safe_click(uiThaiFixedPF, "pushButton_SaveSettingFile", SaveFileDialogThaiFixedPF)
             
             # overloads
             uiThaiOverLoads.pushButton_Send.clicked.connect(thaioverloadsSend)
@@ -28883,8 +28902,8 @@ if __name__ == "__main__":
             uiThaiOverLoads.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # OverLoads的的配置档读取写入
-            uiThaiOverLoads.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiOverLoads)
-            uiThaiOverLoads.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiOverLoads)
+            _safe_click(uiThaiOverLoads, "pushButton_ReadSettingFile", OpenFileDialogThaiOverLoads)
+            _safe_click(uiThaiOverLoads, "pushButton_SaveSettingFile", SaveFileDialogThaiOverLoads)
             
             # 直流分量
             uiThaiZhiLiuFenLiang.pushButton_Send.clicked.connect(thaizhiliufenliangSend)
@@ -28894,8 +28913,8 @@ if __name__ == "__main__":
             uiThaiZhiLiuFenLiang.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # ZhiLiuFenLiang的的配置档读取写入
-            uiThaiZhiLiuFenLiang.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiZhiLiuFenLiang)
-            uiThaiZhiLiuFenLiang.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiZhiLiuFenLiang)
+            _safe_click(uiThaiZhiLiuFenLiang, "pushButton_ReadSettingFile", OpenFileDialogThaiZhiLiuFenLiang)
+            _safe_click(uiThaiZhiLiuFenLiang, "pushButton_SaveSettingFile", SaveFileDialogThaiZhiLiuFenLiang)
             
             # 静态QU
             uiThaiStaticQU.pushButton_Send.clicked.connect(thaistaticQUSend)
@@ -28905,8 +28924,8 @@ if __name__ == "__main__":
             uiThaiStaticQU.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 静态QU的的配置档读取写入
-            uiThaiStaticQU.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiStaticQU)
-            uiThaiStaticQU.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiStaticQU)
+            _safe_click(uiThaiStaticQU, "pushButton_ReadSettingFile", OpenFileDialogThaiStaticQU)
+            _safe_click(uiThaiStaticQU, "pushButton_SaveSettingFile", SaveFileDialogThaiStaticQU)
 
             # 静态Cos(φ)
             uiThaiStaticCosPhi.pushButton_Send.clicked.connect(thaistaticcosPhiSend)
@@ -28916,8 +28935,8 @@ if __name__ == "__main__":
             uiThaiStaticCosPhi.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 静态Cos(φ)的的配置档读取写入
-            uiThaiStaticCosPhi.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiStaticCosPhi)
-            uiThaiStaticCosPhi.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiStaticCosPhi)
+            _safe_click(uiThaiStaticCosPhi, "pushButton_ReadSettingFile", OpenFileDialogThaiStaticCosPhi)
+            _safe_click(uiThaiStaticCosPhi, "pushButton_SaveSettingFile", SaveFileDialogThaiStaticCosPhi)
             
             # 巴西Cos(φ)
             uiThaiCosPhiBrazil.pushButton_Send.clicked.connect(thaicosPhiBrazilSend)
@@ -28927,8 +28946,8 @@ if __name__ == "__main__":
             uiThaiCosPhiBrazil.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 巴西Cos(φ)的的配置档读取写入
-            uiThaiCosPhiBrazil.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiCosPhiBrazil)
-            uiThaiCosPhiBrazil.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiCosPhiBrazil)
+            _safe_click(uiThaiCosPhiBrazil, "pushButton_ReadSettingFile", OpenFileDialogThaiCosPhiBrazil)
+            _safe_click(uiThaiCosPhiBrazil, "pushButton_SaveSettingFile", SaveFileDialogThaiCosPhiBrazil)
 
             # 10分钟过压保护
             uiThaiVoltProtect10min.pushButton_Send.clicked.connect(thaivoltprotect10minSend)
@@ -28938,8 +28957,8 @@ if __name__ == "__main__":
             uiThaiVoltProtect10min.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 10分钟过压保护的的配置档读取写入
-            uiThaiVoltProtect10min.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiVoltProtect10min)
-            uiThaiVoltProtect10min.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiVoltProtect10min)
+            _safe_click(uiThaiVoltProtect10min, "pushButton_ReadSettingFile", OpenFileDialogThaiVoltProtect10min)
+            _safe_click(uiThaiVoltProtect10min, "pushButton_SaveSettingFile", SaveFileDialogThaiVoltProtect10min)
 
             # 过频降载
             uiThaiGuoPinJiangZai.pushButton_Send.clicked.connect(thaiguopinjiangzaiSend)
@@ -28949,8 +28968,8 @@ if __name__ == "__main__":
             uiThaiGuoPinJiangZai.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 过频降载的的配置档读取写入
-            uiThaiGuoPinJiangZai.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiGuoPinJiangZai)
-            uiThaiGuoPinJiangZai.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiGuoPinJiangZai)
+            _safe_click(uiThaiGuoPinJiangZai, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoPinJiangZai)
+            _safe_click(uiThaiGuoPinJiangZai, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoPinJiangZai)
             
             # PU
             uiThaiTestPU.pushButton_Send.clicked.connect(thaitestPUSend)
@@ -28960,8 +28979,8 @@ if __name__ == "__main__":
             uiThaiTestPU.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # PU的配置档读取写入
-            uiThaiTestPU.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiTestPU)
-            uiThaiTestPU.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiTestPU)
+            _safe_click(uiThaiTestPU, "pushButton_ReadSettingFile", OpenFileDialogThaiTestPU)
+            _safe_click(uiThaiTestPU, "pushButton_SaveSettingFile", SaveFileDialogThaiTestPU)
 
             # 过欠压_过欠频
             uiThaiGuoQianYa_Pin.pushButton_Send.clicked.connect(thaiguoqianya_pinSend)
@@ -28971,8 +28990,8 @@ if __name__ == "__main__":
             uiThaiGuoQianYa_Pin.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 过欠压_过欠频的的配置档读取写入
-            uiThaiGuoQianYa_Pin.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiGuoQianYa_Pin)
-            uiThaiGuoQianYa_Pin.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiGuoQianYa_Pin)
+            _safe_click(uiThaiGuoQianYa_Pin, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoQianYa_Pin)
+            _safe_click(uiThaiGuoQianYa_Pin, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoQianYa_Pin)
             
             # 巴西过欠频稳定性
             uiThaiGuoQianPin_Immun.pushButton_Send.clicked.connect(thaiguoqianpin_immunSend)
@@ -28982,15 +29001,15 @@ if __name__ == "__main__":
             uiThaiGuoQianPin_Immun.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 巴西过欠频稳定性的配置档读取写入
-            uiThaiGuoQianPin_Immun.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiGuoQianPin_Immun)
-            uiThaiGuoQianPin_Immun.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiGuoQianPin_Immun)
+            _safe_click(uiThaiGuoQianPin_Immun, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoQianPin_Immun)
+            _safe_click(uiThaiGuoQianPin_Immun, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoQianPin_Immun)
 
             # 静态MPPT测试
             uiThaiStaticMPPTTest.pushButton_Send.clicked.connect(thaistaticMPPTtestSend)
 
             # 静态MPPT测试的配置档读取写入
-            uiThaiStaticMPPTTest.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiStaticMPPTTest)
-            uiThaiStaticMPPTTest.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiStaticMPPTTest)
+            _safe_click(uiThaiStaticMPPTTest, "pushButton_ReadSettingFile", OpenFileDialogThaiStaticMPPTTest)
+            _safe_click(uiThaiStaticMPPTTest, "pushButton_SaveSettingFile", SaveFileDialogThaiStaticMPPTTest)
 
             # 频率适应性
             uiThaiFrequencyAdaptability.pushButton_Send.clicked.connect(thaifrequencyadaptabilitySend)
@@ -29000,8 +29019,8 @@ if __name__ == "__main__":
             uiThaiFrequencyAdaptability.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # 频率适应性的配置档读取写入
-            uiThaiFrequencyAdaptability.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiFrequencyAdaptability)
-            uiThaiFrequencyAdaptability.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiFrequencyAdaptability)
+            _safe_click(uiThaiFrequencyAdaptability, "pushButton_ReadSettingFile", OpenFileDialogThaiFrequencyAdaptability)
+            _safe_click(uiThaiFrequencyAdaptability, "pushButton_SaveSettingFile", SaveFileDialogThaiFrequencyAdaptability)
 
             # 打开DL850Setting对话框
             ui.pushButton_SetDL850Options.clicked.connect(ShowDL850Setting)
@@ -29013,6 +29032,7 @@ if __name__ == "__main__":
             # 加载配置（弹出文件列表选择）
             uiDewetronSetting.pushButton_LoadLastConfig.clicked.connect(uiDewetronSetting.show_config_list)
 
+            print("[DEBUG_STARTUP]    信号连接段 AC...", flush=True)
             # 打开ACSetting对话框
             ui.pushButton_SetACOptions.clicked.connect(ShowACSetting)
             #AC交流源控制部分
@@ -29094,15 +29114,18 @@ if __name__ == "__main__":
             ui.btn_test.clicked.connect(only_test)
 
 
+            print("[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程", flush=True)
             # WT Auto Gui
-            thread_error_info = threading.Thread(target=system_error_info)
-            thread_error_info.setDaemon(True)
+            thread_error_info = threading.Thread(target=system_error_info, daemon=True)
             thread_error_info.start()
+            print("[DEBUG_STARTUP]    system_error_info 线程已启动", flush=True)
 
             strtimenow = now_to_datenow()
             logger.info(strtimenow + "    程式开启" )
             print(strtimenow + "    程式开启" )
+            print("[DEBUG_STARTUP] 9/9 main_window.show()", flush=True)
             main_window.show()
+            print("[DEBUG_STARTUP]    app.exec_() 进入事件循环", flush=True)
             # 等待关闭
             sys.exit(app.exec_())
     #                 else:

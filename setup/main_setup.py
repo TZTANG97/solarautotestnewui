@@ -30,7 +30,6 @@ from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
 from Dialog_thaizhiliufenliang import Ui_Dialog_thaizhiliufenliang
 from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
 from Dialog_thaiguopinjiangzai import Ui_Dialog_thaiguopinjiangzai
-from Dialog_thaitestPU import Ui_Dialog_thaitestPU
 from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
 from Dialog_thaifixedPF import Ui_Dialog_thaifixedPF
 from Dialog_thaioverloads import Ui_Dialog_thaioverloads
@@ -39,6 +38,7 @@ from Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
 from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
 from Dialog_thaistaticmppttest import Ui_Dialog_thaistaticmppttest
+from Dialog_thaitestPU import Ui_Dialog_thaitestPU
 from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
 from Dialog_thaiWT3000E import Ui_Dialog_thai_WT3000E
 from Dialog_thaiWT1806E import Ui_Dialog_thai_WT1806E
@@ -411,88 +411,115 @@ class MainSetup(BaseSetup):
     @staticmethod
     def initialize_windows(app_ctx: Any) -> Dict[str, Any]:
         """创建主程序的试验设定窗口，并同步到应用上下文。"""
-        # 这里只负责“创建并登记窗口对象”，不改变任何试验业务逻辑。
+        # 这里只负责"创建并登记窗口对象"，不改变任何试验业务逻辑。
         created: Dict[str, Any] = {}
+        _seq = 0
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 WT3000E...", flush=True)
         dialog_WT3000E, uiThiaWT3000E = MainSetup._build_dialog(Ui_Dialog_thai_WT3000E)
         MainSetup._register_window(created, app_ctx, "dialog_WT3000E", "uiThiaWT3000E", dialog_WT3000E, uiThiaWT3000E, sync_dialog_attr="WT3000_setting_window")
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 WT1806E...", flush=True)
         dialog_WT1806E, uiThiaWT1806E = MainSetup._build_dialog(Ui_Dialog_thai_WT1806E)
         MainSetup._register_window(created, app_ctx, "dialog_WT1806E", "uiThiaWT1806E", dialog_WT1806E, uiThiaWT1806E)
 
-        # 旧主程序中 WT3000 的“波特率设置”窗口仍由主流程保留，这里只集中试验设定窗口。
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 WT1800...", flush=True)
         dialog_WT1800, uiThiaWT1800 = MainSetup._build_dialog(Ui_Dialog_thai_WT1800)
         MainSetup._register_window(created, app_ctx, "dialog_WT1800", "uiThiaWT1800", dialog_WT1800, uiThiaWT1800)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 WT5000...", flush=True)
         dialog_WT5000, uiThiaWT5000 = MainSetup._build_dialog(Ui_Dialog_thai_WT5000)
         MainSetup._register_window(created, app_ctx, "dialog_WT5000", "uiThiaWT5000", dialog_WT5000, uiThiaWT5000)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 thaichonglian...", flush=True)
         dialog_window, uithaichonglian = MainSetup._build_dialog(Ui_Dialog_thaichonglian)
         MainSetup._register_window(created, app_ctx, "dialog_window", "uithaichonglian", dialog_window, uithaichonglian)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 xiebodianliu...", flush=True)
         dialog_windowxiebodianliu, uiThaiXieBoDianLiu = MainSetup._build_dialog(Ui_Dialog_thaixiebodianliu)
         MainSetup._register_window(created, app_ctx, "dialog_windowxiebodianliu", "uiThaiXieBoDianLiu", dialog_windowxiebodianliu, uiThaiXieBoDianLiu)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 zhiliufenliang...", flush=True)
         dialog_windowzhiliufenliang, uiThaiZhiLiuFenLiang = MainSetup._build_dialog(Ui_Dialog_thaizhiliufenliang)
         MainSetup._register_window(created, app_ctx, "dialog_windowzhiliufenliang", "uiThaiZhiLiuFenLiang", dialog_windowzhiliufenliang, uiThaiZhiLiuFenLiang)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 staticQU...", flush=True)
         dialog_windowstaticQU, uiThaiStaticQU = MainSetup._build_dialog(Ui_Dialog_thaiStaticQU)
         MainSetup._register_window(created, app_ctx, "dialog_windowstaticQU", "uiThaiStaticQU", dialog_windowstaticQU, uiThaiStaticQU)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 staticcosPhi...", flush=True)
         dialog_windowstaticcosPhi, uiThaiStaticCosPhi = MainSetup._build_dialog(Ui_Dialog_thaistaticcosPhi)
         MainSetup._register_window(created, app_ctx, "dialog_windowstaticcosPhi", "uiThaiStaticCosPhi", dialog_windowstaticcosPhi, uiThaiStaticCosPhi)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 voltprotect10min...", flush=True)
         dialog_windowvoltprotect10min, uiThaiVoltProtect10min = MainSetup._build_dialog(Ui_Dialog_thaivoltprotect10min)
         MainSetup._register_window(created, app_ctx, "dialog_windowvoltprotect10min", "uiThaiVoltProtect10min", dialog_windowvoltprotect10min, uiThaiVoltProtect10min)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 guopinjiangzai...", flush=True)
         dialog_windowguopinjiangzai, uiThaiGuoPinJiangZai = MainSetup._build_dialog(Ui_Dialog_thaiguopinjiangzai)
         MainSetup._register_window(created, app_ctx, "dialog_windowguopinjiangzai", "uiThaiGuoPinJiangZai", dialog_windowguopinjiangzai, uiThaiGuoPinJiangZai)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 testPU...", flush=True)
         dialog_windowtestPU, uiThaiTestPU = MainSetup._build_dialog(Ui_Dialog_thaitestPU)
         MainSetup._register_window(created, app_ctx, "dialog_windowtestPU", "uiThaiTestPU", dialog_windowtestPU, uiThaiTestPU)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 guoqianya_pin...", flush=True)
         dialog_windowguoqianya_pin, uiThaiGuoQianYa_Pin = MainSetup._build_dialog(Ui_Dialog_thaiguoqianya_pin)
         MainSetup._register_window(created, app_ctx, "dialog_windowguoqianya_pin", "uiThaiGuoQianYa_Pin", dialog_windowguoqianya_pin, uiThaiGuoQianYa_Pin)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 DL850...", flush=True)
         dialog_windowDLSetting, uiDL850Setting = MainSetup._build_dialog(Ui_Dialog_DL850_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowDLSetting", "uiDL850Setting", dialog_windowDLSetting, uiDL850Setting, sync_dialog_attr="dialog_windowDLSetting")
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 DEWETRON...", flush=True)
         dialog_windowDewetronSetting, uiDewetronSetting = MainSetup._build_dialog(Ui_Dialog_DEWETRON_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowDewetronSetting", "uiDewetronSetting", dialog_windowDewetronSetting, uiDewetronSetting, sync_dialog_attr="dialog_windowDewetronSetting", sync_ui_attr="uiDewetronSetting")
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 AC_Setting...", flush=True)
         dialog_windowACSetting, uiACSetting = MainSetup._build_dialog(Ui_Dialog_AC_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowACSetting", "uiACSetting", dialog_windowACSetting, uiACSetting, sync_dialog_attr="dialog_windowACSetting", sync_ui_attr="uiACSetting")
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 DC1_Setting...", flush=True)
         dialog_windowDC1Setting, uiDC1Setting = MainSetup._build_dialog(Ui_Dialog_DC1_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowDC1Setting", "uiDC1Setting", dialog_windowDC1Setting, uiDC1Setting)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 DC2_Setting...", flush=True)
         dialog_windowDC2Setting, uiDC2Setting = MainSetup._build_dialog(Ui_Dialog_DC2_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowDC2Setting", "uiDC2Setting", dialog_windowDC2Setting, uiDC2Setting)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 DC3_Setting...", flush=True)
         dialog_windowDC3Setting, uiDC3Setting = MainSetup._build_dialog(Ui_Dialog_DC3_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowDC3Setting", "uiDC3Setting", dialog_windowDC3Setting, uiDC3Setting)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 DC4_Setting...", flush=True)
         dialog_windowDC4Setting, uiDC4Setting = MainSetup._build_dialog(Ui_Dialog_DC4_Setting)
         MainSetup._register_window(created, app_ctx, "dialog_windowDC4Setting", "uiDC4Setting", dialog_windowDC4Setting, uiDC4Setting)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 dianyashanbian...", flush=True)
         dialog_windowTdianyashanbian, uiThaiDianYaShanBian = MainSetup._build_dialog(Ui_Dialog_thaiguodianyashanbian)
         MainSetup._register_window(created, app_ctx, "dialog_windowTdianyashanbian", "uiThaiDianYaShanBian", dialog_windowTdianyashanbian, uiThaiDianYaShanBian)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 fixedPF...", flush=True)
         dialog_windowfixedpf, uiThaiFixedPF = MainSetup._build_dialog(Ui_Dialog_thaifixedPF)
         MainSetup._register_window(created, app_ctx, "dialog_windowfixedpf", "uiThaiFixedPF", dialog_windowfixedpf, uiThaiFixedPF)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 overloads...", flush=True)
         dialog_windowoverloads, uiThaiOverLoads = MainSetup._build_dialog(Ui_Dialog_thaioverloads)
         MainSetup._register_window(created, app_ctx, "dialog_windowoverloads", "uiThaiOverLoads", dialog_windowoverloads, uiThaiOverLoads)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 cosPhiBrazil...", flush=True)
         dialog_windowcosPhiBrazil, uiThaiCosPhiBrazil = MainSetup._build_dialog(Ui_Dialog_thaicosPhi_Brazil)
         MainSetup._register_window(created, app_ctx, "dialog_windowcosPhiBrazil", "uiThaiCosPhiBrazil", dialog_windowcosPhiBrazil, uiThaiCosPhiBrazil)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 guoqianpin_immun...", flush=True)
         dialog_windowguoqianpin_immun, uiThaiGuoQianPin_Immun = MainSetup._build_dialog(Ui_Dialog_thaiguoqianpin_immun)
         MainSetup._register_window(created, app_ctx, "dialog_windowguoqianpin_immun", "uiThaiGuoQianPin_Immun", dialog_windowguoqianpin_immun, uiThaiGuoQianPin_Immun)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 staticmppttest...", flush=True)
         dialog_windowstaticmppttest, uiThaiStaticMPPTTest = MainSetup._build_dialog(Ui_Dialog_thaistaticmppttest)
         MainSetup._register_window(created, app_ctx, "dialog_windowstaticmppttest", "uiThaiStaticMPPTTest", dialog_windowstaticmppttest, uiThaiStaticMPPTTest)
 
+        _seq += 1; print(f"[DEBUG_SETUP] {_seq}/25 frequencyadaptability...", flush=True)
         dialog_windowfrequencyadaptability, uiThaiFrequencyAdaptability = MainSetup._build_dialog(
             Ui_Dialog_thaifrequencyadaptability
         )
@@ -505,6 +532,7 @@ class MainSetup(BaseSetup):
             uiThaiFrequencyAdaptability,
         )
 
+        print(f"[DEBUG_SETUP] 全部 {_seq} 个对话框创建完成", flush=True)
         return created
 
 
