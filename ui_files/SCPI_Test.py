@@ -629,15 +629,18 @@ class Ui_Dialog(object):
         testBtnLayout.addWidget(self.pushButton_StartTest)
         self.pushButton_StopTest = QtWidgets.QPushButton("暂停试验")
         self.pushButton_StopTest.setObjectName("pushButton_StopTest")
+        self.pushButton_StopTest.setVisible(False)
         testBtnLayout.addWidget(self.pushButton_StopTest)
         self.pushButton_ConTest = QtWidgets.QPushButton("继续运行试验")
         self.pushButton_ConTest.setObjectName("pushButton_ConTest")
+        self.pushButton_ConTest.setVisible(False)
         testBtnLayout.addWidget(self.pushButton_ConTest)
         self.pushButton_EndTest = QtWidgets.QPushButton("结束试验")
         self.pushButton_EndTest.setObjectName("pushButton_EndTest")
         testBtnLayout.addWidget(self.pushButton_EndTest)
-        self.pushButton_ShowMultiSettingDetail = QtWidgets.QPushButton("多次测试设定")
+        self.pushButton_ShowMultiSettingDetail = QtWidgets.QPushButton("测试追加")
         self.pushButton_ShowMultiSettingDetail.setObjectName("pushButton_ShowMultiSettingDetail")
+        self.pushButton_ShowMultiSettingDetail.setVisible(False)
         self.pushButton_ShowMultiSettingDetail.setStyleSheet("""
             QPushButton { background-color: #8b5cf6; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 13px; }
             QPushButton:hover { background-color: #7c3aed; }
@@ -758,7 +761,7 @@ class Ui_Dialog(object):
         self.pushButton_SetDL850Options.setText(_translate("Dialog", "设定DL850"))
         self.pushButton_SetWT3000Options.setText(_translate("Dialog", "设定WT3000"))
         self.pushButton_ShowSettingDetail.setText(_translate("Dialog", "设定内容"))
-        self.pushButton_ShowMultiSettingDetail.setText(_translate("Dialog", "多次测试设定"))
+        self.pushButton_ShowMultiSettingDetail.setText(_translate("Dialog", "测试追加"))
         self.pushButton_StartTest.setText(_translate("Dialog", "开始试验"))
         self.pushButton_StopTest.setText(_translate("Dialog", "暂停试验"))
         self.pushButton_EndTest.setText(_translate("Dialog", "结束试验"))

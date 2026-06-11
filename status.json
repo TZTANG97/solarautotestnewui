@@ -3,16 +3,16 @@
     {
       "name": "交流电源",
       "resource": "USB0::0x0A69::0x0870::618300000298::INSTR",
-      "connected": false,
+      "connected": true,
       "page": 1,
-      "last_connected": "2026-06-10 17:57:43"
+      "last_connected": "2026-06-11 15:38:46"
     },
     {
       "name": "直流电源1",
-      "resource": "USB0::0x0A69::0x084B::S50000002328::INSTR",
-      "connected": false,
+      "resource": "ASRL17::INSTR",
+      "connected": true,
       "page": 2,
-      "last_connected": "2026-06-10 17:57:52"
+      "last_connected": "2026-06-11 15:40:41"
     },
     {
       "name": "直流电源2",
@@ -45,9 +45,9 @@
     {
       "name": "WT3000",
       "resource": "192.168.40.100",
-      "connected": false,
+      "connected": true,
       "page": 7,
-      "last_connected": "2026-06-11 08:58:30"
+      "last_connected": "2026-06-11 15:46:26"
     },
     {
       "name": "DEWETRON",

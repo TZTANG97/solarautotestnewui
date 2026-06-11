@@ -30,7 +30,9 @@ import xlwt as writeExcel
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow,
-                             QMessageBox)
+                             QMessageBox, QDoubleSpinBox, QStackedWidget,
+                             QGridLayout, QComboBox, QLabel, QPushButton,
+                             QWidget, QHBoxLayout, QVBoxLayout, QScrollArea)
 from pyvisa import *
 from pymodbus.exceptions import ModbusIOException, ConnectionException
 import struct
@@ -84,7 +86,7 @@ from RecPlayer.player.macro_manager import MacroManager
 from config_manager.thaifixedPF_config_manager import ThaiFixedPF_ConfigManager
 from func import *
 from modbus_visa import ModbusVISA
-from scpi_to_modbustcp import BluesightTranslator, ItechTranslator
+from scpi_to_modbustcp import BluesightTranslator, BluesightCurveSTC, ItechTranslator
 
 from config.app_config import config
 from config.path_config import PATH_WT_EXE, PATH_RECORDINGS, PATH_MPPT_EXE
@@ -654,6 +656,32 @@ def _save_device_status(device_name, connected, resource=""):
         _reload_home_status(data)
 
 
+def _update_project_status(project_name, status):
+    """更新 status.json 中的测试项目状态。"""
+    import json
+    import os
+    from datetime import datetime
+    _status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+    try:
+        with open(_status_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {"devices": [], "project": {}}
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data.setdefault("project", {})
+    data["project"]["name"] = project_name
+    data["project"]["status"] = status
+    if status == "进行中":
+        data["project"]["start_time"] = now_str
+        data["project"]["estimated_end_time"] = ""
+    elif status == "已结束":
+        data["project"]["end_time"] = now_str
+    with open(_status_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
+        _reload_home_status(data)
+
+
 def _reload_home_status(data):
     """用已加载的 status 数据刷新首页卡片。"""
     for dev in data.get("devices", []):
@@ -1147,6 +1175,9 @@ def ConnectEQUDC1():
             _set_dc_factor_from_idn(
                 0, dc1_controller.handle, fallback="Chroma", modbus_client=dc1_controller.client
             )
+            # Bluesight 设备自动切换面包屑
+            if per_dc_factor.get("0") == "Bluesight" and _dc1_breadcrumb_ref is not None:
+                _dc1_breadcrumb_ref.setIndex(1)
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "1"
             print("直流电源1连接成功")
@@ -1158,6 +1189,9 @@ def ConnectEQUDC1():
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_DC1", True)
             _set_dc_factor_from_idn(0, dc1_controller.handle)
+            # Bluesight 设备自动切换面包屑
+            if per_dc_factor.get("0") == "Bluesight" and _dc1_breadcrumb_ref is not None:
+                _dc1_breadcrumb_ref.setIndex(1)
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "1"
             ui.pushButton_ConnectEQUDC1.setText("取消连接")
@@ -1480,10 +1514,11 @@ def chooseDetailDialog():
     global strAddTestFlag, config_dict, setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig
     global project_change, project_now, wt_config_nums
     global Mppt_step1, Mppt_step2, Mppt_step_end, first_test
-    global next_project_flag 
+    global next_project_flag, flicker_append_count
 
     next_project_flag = "0"
     strAddTestFlag = "0"
+    flicker_append_count = 0
     setting_status = '' 
     messure_status = ''
     messsure_deatil_cofig = ''
@@ -1505,6 +1540,9 @@ def chooseDetailDialog():
         # elif currentSecond == '过欠压':
         #     dialog_windowguoqianya.show()
         elif currentSecond == '电压闪变':
+            uiThaiDianYaShanBian.label_append_count.setText(str(flicker_append_count))
+            ui.pushButton_StartTest.setEnabled(False)
+            ui.pushButton_EndTest.setEnabled(False)
             dialog_windowTdianyashanbian.show()
         elif currentSecond == '谐波电流':
             dialog_windowxiebodianliu.show()
@@ -1548,10 +1586,15 @@ def addtestDialog():
     global strAddTestFlag, config_dict
     global project_change, project_now
     global strArrayTestStepSingle
-    global next_project_flag
+    global next_project_flag, flicker_append_count
 
+    if 'project_now' not in globals():
+        project_now = ''
+    if 'project_change' not in globals():
+        project_change = ''
+    if 'flicker_append_count' not in globals():
+        flicker_append_count = 0
 
-    
     strAddTestFlag = "1"
     currentProject = ui.comboBox_P.currentText()
     currentSecond = ui.comboBox_PS.currentText()
@@ -1570,6 +1613,9 @@ def addtestDialog():
         # elif currentSecond == '过欠压':
         #     dialog_windowguoqianya.show()
         elif currentSecond == '电压闪变':
+            uiThaiDianYaShanBian.label_append_count.setText(str(flicker_append_count))
+            ui.pushButton_StartTest.setEnabled(False)
+            ui.pushButton_EndTest.setEnabled(False)
             dialog_windowTdianyashanbian.show()
         elif currentSecond == '谐波电流':
             dialog_windowxiebodianliu.show()
@@ -1636,11 +1682,20 @@ def wt_5000_show():
     dialog_WT5000.show()
 
 #德国电压闪变
+def thaidianyashanbianAppend():
+    global strAddTestFlag, flicker_append_count
+    if 'flicker_append_count' not in globals():
+        flicker_append_count = 0
+    strAddTestFlag = "0" if flicker_append_count == 0 else "1"
+    mode = "覆盖" if flicker_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[闪变] 第{flicker_append_count + 1}次{mode}模式，开始生成命令...")
+    thaidianyashanbianSend()
+
 def thaidianyashanbianSend():
     global uiThaiDianYaShanBian,strArrayTest,dialog_windowTdianyashanbian
     global strSettingTestFlag, strArrayTestStep
     global strAddTestFlag, flicker_is_test
-    global command_save_file_path
+    global command_save_file_path, flicker_append_count
     def _get_wait_seconds(str_array_single):
         """提取单条命令的等待时间（秒）。
 
@@ -1736,15 +1791,21 @@ def thaidianyashanbianSend():
     # step1
     if uiThaiDianYaShanBian.checkBox_S1.isChecked():
         strArrayTestStepSingle = []
-        S1_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S1_TIME.toPlainText()
+        S1_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S1_TIME.toPlainText().strip()
         S1_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S1_TIME.currentText()
+        if not S1_TIME_VALUE:
+            QMessageBox.warning(None, "提示", "启机时间不能为空")
+            return
         fS1SetTime = float(S1_TIME_VALUE)
         fS1SetTime = SetTimeFunction(fS1SetTime, S1_TIME_UNIT)
 
         # AC
         S1ACStatus = uiThaiDianYaShanBian.comboBox_S1_AC.currentText()
-        S1_ACWaitTimeValue = uiThaiDianYaShanBian.textEdit_S1_ACWaitTIME.toPlainText()
+        S1_ACWaitTimeValue = uiThaiDianYaShanBian.textEdit_S1_ACWaitTIME.toPlainText().strip()
         S1_ACWaitTimeUnit = uiThaiDianYaShanBian.comboBox_S1_ACWaitTIME.currentText()
+        if not S1_ACWaitTimeValue:
+            QMessageBox.warning(None, "提示", "等待时间不能为空")
+            return
         fS1ACWaitTime = float(S1_ACWaitTimeValue)
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
 
@@ -3622,12 +3683,21 @@ def thaidianyashanbianSend():
         if directory1[0] == '':
             print('请选择一个文件')
         else:
-            out = open(directory1[0], 'w+', newline='')
+            file_mode = 'a+' if strAddTestFlag == "1" else 'w+'
+            out = open(directory1[0], file_mode, newline='')
             csv_write = csv.writer(out, dialect="excel")
             for i in range(len(strArrayTest)):
                 csv_write.writerow(strArrayTest[i])
             out.close()
+            ui.textEdit_ReturnMessage.append(f"[闪变] 命令生成完成，共{len(strArrayTest)}条，已写入 {commands_file_name}")
         # print(strArrayTest)
+        if 'flicker_append_count' not in globals():
+            flicker_append_count = 0
+        flicker_append_count += 1
+        uiThaiDianYaShanBian.label_append_count.setText(str(flicker_append_count))
+        ui.pushButton_StartTest.setEnabled(True)
+        ui.pushButton_EndTest.setEnabled(True)
+        ui.textEdit_ReturnMessage.append(f"[闪变] 追加完成，当前计数: {flicker_append_count}，开始/结束试验按钮已启用")
         dialog_windowTdianyashanbian.close()
 
 #德国电压闪变保存设定
@@ -23276,13 +23346,22 @@ def SaveFileDialogThaiFrequencyAdaptability():
 
 def RunProjectPush():
     global strTestFlag,strSettingTestFlag, WT_is_checked, test_program, heading_handle, flicker_is_test
-    global strArrayTest
-    
+    global strArrayTest, flicker_append_count
+
     # TODO
     print(test_program)
     heading_handle = get_enumwindows()
     print("父句柄更新！")
     logger.info(f"父句柄更新：{heading_handle}")
+
+    # 闪变测试：如果尚未追加配置，阻止启动
+    currentSecond = ui.comboBox_PS.currentText()
+    if 'flicker_append_count' not in globals():
+        flicker_append_count = 0
+    if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
+        QMessageBox.warning(None, "提示", "请先追加测试配置后再开始试验")
+        return
+
     if strSettingTestFlag == "1":
         wt3000_cmd_exists = any(
             len(cmd) > 1 and cmd[0] == "WT3000" and cmd[1] == "write"
@@ -23298,6 +23377,7 @@ def RunProjectPush():
             print("WT3000未连接，检测到WT3000 write命令，终止启动。")
             return
         strTestFlag = "1"
+        _update_project_status(currentSecond, "进行中")
     else:
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    请设定实验内容!")
@@ -23321,6 +23401,8 @@ def EndProjectPush():
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    结束试验!")
         print(strtimenow + "    结束试验!")
+        currentSecond = ui.comboBox_PS.currentText()
+        _update_project_status(currentSecond, "已结束")
 
 #继续试验按钮按下
 def ConProjectPush():
@@ -24245,6 +24327,8 @@ def RunProject():
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    实验完成")
         print(strtimenow + "    实验完成")
+        currentSecond = ui.comboBox_PS.currentText()
+        _update_project_status(currentSecond, "已结束")
         WT_auto_messure_status = ''
         setting_status = ''
         messure_status = ''
@@ -28191,6 +28275,342 @@ if __name__ == "__main__":
                     _page = ui.stackedWidget.widget(_page_idx)
                     _MS.embed_dialog_content(_dlg, _page, _combo_name, layout_rows=_rows)
 
+            # ── DC1 面包屑：Chroma / Bluesight 切换 ──
+            def _build_bluesight_dc1_content():
+                """构建 Bluesight DC1 页面内容（模式切换 + SAS曲线 + 原始负载 + 开关）。"""
+                from components.timeline import _INPUT_QSS, _BTN_QSS, _LABEL_QSS
+                from PyQt5.QtGui import QFont
+
+                container = QWidget()
+                container.setStyleSheet("background: transparent;")
+                lay = QVBoxLayout(container)
+                lay.setContentsMargins(0, 0, 0, 0)
+                lay.setSpacing(10)
+
+                # ── 模式选择 ──
+                mode_row = QHBoxLayout()
+                mode_row.setSpacing(8)
+                lbl_mode = QLabel("输出工作模式:")
+                lbl_mode.setStyleSheet(_LABEL_QSS)
+                mode_row.addWidget(lbl_mode)
+                combo_mode = QComboBox()
+                combo_mode.addItems(["原始负载", "SAS", "电池模拟器"])
+                combo_mode.setStyleSheet(_INPUT_QSS)
+                combo_mode.setMinimumWidth(140)
+                mode_row.addWidget(combo_mode)
+                btn_apply_mode = QPushButton("应用模式")
+                btn_apply_mode.setStyleSheet(_BTN_QSS)
+                btn_apply_mode.setMinimumWidth(100)
+                mode_row.addWidget(btn_apply_mode)
+                mode_row.addStretch(1)
+                lay.addLayout(mode_row)
+
+                # ── SAS 曲线区 ──
+                sas_widget = QWidget()
+                sas_widget.setStyleSheet("background: transparent;")
+                sas_lay = QVBoxLayout(sas_widget)
+                sas_lay.setContentsMargins(0, 0, 0, 0)
+                sas_lay.setSpacing(6)
+
+                sas_title = QLabel("SAS 曲线参数")
+                sas_title.setStyleSheet(
+                    "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
+                )
+                sas_lay.addWidget(sas_title)
+
+                sas_fields = QWidget()
+                sas_fields.setStyleSheet("background: transparent;")
+                sf_lay = QGridLayout(sas_fields)
+                sf_lay.setContentsMargins(0, 0, 0, 0)
+                sf_lay.setSpacing(6)
+
+                sp_pmpp = QDoubleSpinBox()
+                sp_pmpp.setDecimals(3)
+                sp_pmpp.setRange(0.001, 65.535)
+                sp_pmpp.setValue(8.0)
+                sp_pmpp.setLocale(QLocale.c())
+                sp_pmpp.setStyleSheet(_INPUT_QSS)
+                sf_lay.addWidget(QLabel("Pmpp_stc (kW):"), 0, 0)
+                sf_lay.addWidget(sp_pmpp, 0, 1)
+
+                sp_umpp = QDoubleSpinBox()
+                sp_umpp.setDecimals(2)
+                sp_umpp.setRange(0.0, 2000.0)
+                sp_umpp.setValue(650.0)
+                sp_umpp.setLocale(QLocale.c())
+                sp_umpp.setStyleSheet(_INPUT_QSS)
+                sf_lay.addWidget(QLabel("Umpp_stc (V):"), 0, 2)
+                sf_lay.addWidget(sp_umpp, 0, 3)
+
+                sp_ff = QDoubleSpinBox()
+                sp_ff.setDecimals(2)
+                sp_ff.setRange(0.25, 0.95)
+                sp_ff.setSingleStep(0.01)
+                sp_ff.setValue(0.8)
+                sp_ff.setLocale(QLocale.c())
+                sp_ff.setStyleSheet(_INPUT_QSS)
+                sf_lay.addWidget(QLabel("填充因子:"), 1, 0)
+                sf_lay.addWidget(sp_ff, 1, 1)
+
+                btn_send_curve = QPushButton("发送参数到设备（曲线）")
+                btn_send_curve.setStyleSheet(_BTN_QSS)
+                sf_lay.addWidget(btn_send_curve, 1, 2, 1, 2)
+
+                sas_lay.addWidget(sas_fields)
+                sas_widget.setVisible(False)
+                lay.addWidget(sas_widget)
+
+                # ── 原始负载区 ──
+                orig_widget = QWidget()
+                orig_widget.setStyleSheet("background: transparent;")
+                orig_lay = QVBoxLayout(orig_widget)
+                orig_lay.setContentsMargins(0, 0, 0, 0)
+                orig_lay.setSpacing(6)
+
+                orig_title = QLabel("原始负载参数")
+                orig_title.setStyleSheet(
+                    "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
+                )
+                orig_lay.addWidget(orig_title)
+
+                outmode_row = QHBoxLayout()
+                outmode_row.setSpacing(8)
+                outmode_row.addWidget(QLabel("输出模式:"))
+                combo_outmode = QComboBox()
+                combo_outmode.addItems(["恒压", "恒流", "恒功率", "恒阻"])
+                combo_outmode.setStyleSheet(_INPUT_QSS)
+                combo_outmode.setMinimumWidth(120)
+                outmode_row.addWidget(combo_outmode)
+                btn_apply_outmode = QPushButton("发送参数")
+                btn_apply_outmode.setStyleSheet(_BTN_QSS)
+                btn_apply_outmode.setMinimumWidth(100)
+                outmode_row.addWidget(btn_apply_outmode)
+                outmode_row.addStretch(1)
+                orig_lay.addLayout(outmode_row)
+
+                stacked_params = QStackedWidget()
+
+                def _make_param_page(labels_values):
+                    w = QWidget()
+                    w.setStyleSheet("background: transparent;")
+                    fl = QGridLayout(w)
+                    fl.setContentsMargins(0, 0, 0, 0)
+                    fl.setSpacing(6)
+                    for row_i, (lbl_text, rng) in enumerate(labels_values):
+                        fl.addWidget(QLabel(lbl_text), row_i, 0)
+                        sb = QDoubleSpinBox()
+                        sb.setDecimals(rng["dec"])
+                        sb.setRange(rng["min"], rng["max"])
+                        if "step" in rng:
+                            sb.setSingleStep(rng["step"])
+                        sb.setLocale(QLocale.c())
+                        sb.setStyleSheet(_INPUT_QSS)
+                        fl.addWidget(sb, row_i, 1)
+                    return w
+
+                page_cv = _make_param_page([
+                    ("输出电压(V):", {"dec": 3, "min": 0.0, "max": 2000.0}),
+                    ("电源内阻(Ω):", {"dec": 6, "min": 0.0, "max": 1e9}),
+                ])
+                page_cc = _make_param_page([
+                    ("输出电流(A):", {"dec": 4, "min": 0.0, "max": 10000.0}),
+                ])
+                page_cp = _make_param_page([
+                    ("输出功率(kW):", {"dec": 4, "min": 0.0, "max": 30.0}),
+                ])
+                page_cr = _make_param_page([
+                    ("负载电阻(Ω):", {"dec": 6, "min": 0.0, "max": 1e9}),
+                ])
+                stacked_params.addWidget(page_cv)
+                stacked_params.addWidget(page_cc)
+                stacked_params.addWidget(page_cp)
+                stacked_params.addWidget(page_cr)
+                orig_lay.addWidget(stacked_params)
+                orig_widget.setVisible(False)
+                lay.addWidget(orig_widget)
+
+                # ── 提示文本 ──
+                hint = QLabel(
+                    "已识别为 Bluesight（Modbus TCP）。Vmp、Imp、Voc、Isc、PF 等为 IV 参数；"
+                    "Bluesight 曲线由 STC 寄存器与 BluesightTranslator 映射，请勿混用。"
+                )
+                hint.setWordWrap(True)
+                hint.setStyleSheet(
+                    "color: #37474f; font-size: 12px; background: transparent; line-height: 1.5;"
+                )
+                lay.addWidget(hint)
+
+                # ── 开关按钮 ──
+                btn_row = QHBoxLayout()
+                btn_row.setSpacing(10)
+                btn_on = QPushButton("打开输出")
+                btn_on.setStyleSheet(
+                    "QPushButton { background-color: #10b981; color: white; border-radius: 4px;"
+                    " padding: 8px 20px; font-size: 13px; font-weight: bold; }"
+                    "QPushButton:hover { background-color: #059669; }"
+                )
+                btn_off = QPushButton("关闭输出")
+                btn_off.setStyleSheet(
+                    "QPushButton { background-color: #ef4444; color: white; border-radius: 4px;"
+                    " padding: 8px 20px; font-size: 13px; font-weight: bold; }"
+                    "QPushButton:hover { background-color: #dc2626; }"
+                )
+                btn_row.addWidget(btn_on)
+                btn_row.addWidget(btn_off)
+                btn_row.addStretch(1)
+                lay.addLayout(btn_row)
+
+                lay.addStretch(1)
+                return {
+                    "container": container,
+                    "combo_mode": combo_mode,
+                    "btn_apply_mode": btn_apply_mode,
+                    "sas_widget": sas_widget,
+                    "sp_pmpp": sp_pmpp,
+                    "sp_umpp": sp_umpp,
+                    "sp_ff": sp_ff,
+                    "btn_send_curve": btn_send_curve,
+                    "orig_widget": orig_widget,
+                    "combo_outmode": combo_outmode,
+                    "btn_apply_outmode": btn_apply_outmode,
+                    "stacked_params": stacked_params,
+                    "btn_on": btn_on,
+                    "btn_off": btn_off,
+                }
+
+            # 构建 Bluesight 页面
+            _bs_dc1 = _build_bluesight_dc1_content()
+            _dc1_breadcrumb_ref = None
+
+            # 重构 DC1 页面：breadcrumb + QStackedWidget(Chroma / Bluesight)
+            _dc1_page = ui.stackedWidget.widget(2)
+            _dc1_page_layout = _dc1_page.layout()
+            _dc1_grid = getattr(_dc1_page, "_grid_comboBox_DC1", None)
+
+            if _dc1_grid is not None:
+                # 从页面布局中移除 grid 容器
+                _dc1_page_layout.removeWidget(_dc1_grid)
+
+                # 创建 QStackedWidget
+                _dc1_stack = QStackedWidget()
+                _dc1_stack.addWidget(_dc1_grid)           # page 0 = Chroma
+                _dc1_stack.addWidget(_bs_dc1["container"])  # page 1 = Bluesight
+
+                # 创建面包屑
+                from components.breadcrumb import BreadcrumbWidget
+                _dc1_breadcrumb = BreadcrumbWidget(["Chroma", "Bluesight"])
+                _dc1_breadcrumb.indexChanged.connect(_dc1_stack.setCurrentIndex)
+
+                # 组装：面包屑在上，StackedWidget 在下
+                _dc1_page_layout.addWidget(_dc1_breadcrumb)
+                _dc1_page_layout.addWidget(_dc1_stack, 1)
+
+                # ── 绑定 Bluesight 逻辑 ──
+                def _bs_sync_mode_panel():
+                    idx = _bs_dc1["combo_mode"].currentIndex()
+                    _bs_dc1["sas_widget"].setVisible(idx == 1)
+                    _bs_dc1["orig_widget"].setVisible(idx == 0)
+
+                def _bs_sync_outmode_page():
+                    _bs_dc1["stacked_params"].setCurrentIndex(
+                        _bs_dc1["combo_outmode"].currentIndex()
+                    )
+
+                def _bs_apply_mode():
+                    idx = _bs_dc1["combo_mode"].currentIndex()
+                    if idx == 2:
+                        _bs_sync_mode_panel()
+                        QMessageBox.information(_dc1_page, "提示", "暂未开发")
+                        return
+                    client = getattr(dc1_controller, "client", None) if dc1_controller else None
+                    if client is None:
+                        QMessageBox.warning(_dc1_page, "提示", "未连接 Modbus，无法设置模式")
+                        return
+                    try:
+                        tr = BluesightTranslator(client, device_id=1)
+                        if idx == 0:
+                            ok, msg = tr.translate("SYST:MODE 0")
+                        else:
+                            ok, msg = tr.translate("SYST:MODE SAS")
+                        _bs_sync_mode_panel()
+                        fn = QMessageBox.information if ok else QMessageBox.warning
+                        fn(_dc1_page, "模式下发", (msg or "")[:800])
+                    except Exception as ex:
+                        _bs_sync_mode_panel()
+                        QMessageBox.critical(_dc1_page, "错误", str(ex))
+
+                def _bs_send_curve():
+                    client = getattr(dc1_controller, "client", None) if dc1_controller else None
+                    if client is None:
+                        QMessageBox.warning(_dc1_page, "提示", "未连接 Modbus，无法发送曲线")
+                        return
+                    if _bs_dc1["combo_mode"].currentIndex() != 1:
+                        return
+                    try:
+                        stc = BluesightCurveSTC(
+                            pmpp_stc_kw=_bs_dc1["sp_pmpp"].value(),
+                            umpp_stc_v=_bs_dc1["sp_umpp"].value(),
+                            fill_factor=_bs_dc1["sp_ff"].value(),
+                        )
+                        tr = BluesightTranslator(client, device_id=1)
+                        ok, msg = tr.write_curve_block(stc=stc)
+                        fn = QMessageBox.information if ok else QMessageBox.warning
+                        fn(_dc1_page, "曲线发送", (msg or "")[:800])
+                    except ValueError as ve:
+                        QMessageBox.warning(_dc1_page, "提示", str(ve))
+                    except Exception as ex:
+                        QMessageBox.critical(_dc1_page, "错误", str(ex))
+
+                def _bs_apply_orig_outmode():
+                    client = getattr(dc1_controller, "client", None) if dc1_controller else None
+                    if client is None:
+                        QMessageBox.warning(_dc1_page, "提示", "未连接 Modbus，无法设置参数")
+                        return
+                    if _bs_dc1["combo_mode"].currentIndex() != 0:
+                        return
+                    try:
+                        tr = BluesightTranslator(client, device_id=1)
+                        idx_o = _bs_dc1["combo_outmode"].currentIndex()
+                        params = _bs_dc1
+                        if idx_o == 0:
+                            ok, msg = tr.write_original_load_params(
+                                0, voltage_v=params["stacked_params"].widget(0).findChild(QDoubleSpinBox).value(),
+                                r_internal_ohm=params["stacked_params"].widget(0).findChildren(QDoubleSpinBox)[1].value())
+                        elif idx_o == 1:
+                            ok, msg = tr.write_original_load_params(
+                                1, current_a=params["stacked_params"].widget(1).findChild(QDoubleSpinBox).value())
+                        elif idx_o == 2:
+                            ok, msg = tr.write_original_load_params(
+                                2, power_kw=params["stacked_params"].widget(2).findChild(QDoubleSpinBox).value())
+                        else:
+                            ok, msg = tr.write_original_load_params(
+                                3, r_load_ohm=params["stacked_params"].widget(3).findChild(QDoubleSpinBox).value())
+                        fn = QMessageBox.information if ok else QMessageBox.warning
+                        fn(_dc1_page, "原始负载输出", (msg or "")[:800])
+                    except Exception as ex:
+                        QMessageBox.critical(_dc1_page, "错误", str(ex))
+
+                def _bs_toggle_output(opening: bool):
+                    if opening:
+                        OpenDC1OUTPUTON()
+                    else:
+                        CloseDC1OUTPUTON()
+                    _bs_dc1["btn_apply_mode"].setEnabled(not opening)
+                    _bs_dc1["combo_mode"].setEnabled(not opening)
+                    _bs_dc1["combo_outmode"].setEnabled(not opening)
+
+                _bs_dc1["combo_mode"].currentIndexChanged.connect(lambda: _bs_sync_mode_panel())
+                _bs_dc1["combo_outmode"].currentIndexChanged.connect(lambda: _bs_sync_outmode_page())
+                _bs_dc1["btn_apply_mode"].clicked.connect(_bs_apply_mode)
+                _bs_dc1["btn_send_curve"].clicked.connect(_bs_send_curve)
+                _bs_dc1["btn_apply_outmode"].clicked.connect(_bs_apply_orig_outmode)
+                _bs_dc1["btn_on"].clicked.connect(lambda: _bs_toggle_output(True))
+                _bs_dc1["btn_off"].clicked.connect(lambda: _bs_toggle_output(False))
+
+                # 保存引用供外部访问
+                _dc1_breadcrumb_ref = _dc1_breadcrumb
+                _dc1_stack_ref = _dc1_stack
+
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
             _refresh_all_equ_combo_boxes(EQUList, _connected_equ_resources)
@@ -28409,7 +28829,16 @@ if __name__ == "__main__":
             # uithaiguoqianya.pushButton_SaveSettingFile.clicked.connect(SaveFileDialogThaiGuoqianya)
 
             # 德国电压闪变
-            uiThaiDianYaShanBian.pushButton_Send.clicked.connect(thaidianyashanbianSend)
+            uiThaiDianYaShanBian.pushButton_TestAppend.clicked.connect(thaidianyashanbianAppend)
+
+            def reset_flicker_count():
+                global flicker_append_count
+                flicker_append_count = 0
+                uiThaiDianYaShanBian.label_append_count.setText("0")
+                ui.pushButton_StartTest.setEnabled(False)
+                ui.pushButton_EndTest.setEnabled(False)
+                ui.textEdit_ReturnMessage.append("[闪变] 计数器已重置为0，开始/结束试验按钮已禁用")
+            uiThaiDianYaShanBian.pushButton_ResetCount.clicked.connect(reset_flicker_count)
 
             # ThaiDianYaShanBian的的配置档读取写入
             uiThaiDianYaShanBian.pushButton_ReadSettingFile.clicked.connect(OpenFileDialogThaiDianYaShanBian)

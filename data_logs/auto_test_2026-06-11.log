@@ -542,3 +542,1537 @@ NameError: name 'project_now' is not defined
 2026-06-11 12:18:48,454 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
 2026-06-11 12:18:48,454 INFO SCPITestWave.py [28674] MainThread :2026-06-11 12:18:48    程式开启
 2026-06-11 12:18:48,455 INFO logging_setup.py [75] MainThread :2026-06-11 12:18:48    程式开启
+2026-06-11 12:20:58,946 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27921: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:20:58,946 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 12:20:58,947 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27937: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:20:58,947 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 12:20:58,948 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27942: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:20:58,948 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 12:20:59,282 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 12:20:59,282 INFO logging_setup.py [75] MainThread :1
+2026-06-11 12:21:02,047 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28670: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:21:02,047 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 12:21:02,047 INFO SCPITestWave.py [28674] MainThread :2026-06-11 12:21:02    程式开启
+2026-06-11 12:21:02,047 INFO logging_setup.py [75] MainThread :2026-06-11 12:21:02    程式开启
+2026-06-11 12:45:35,607 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:45:35,607 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 12:45:35,608 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:45:35,608 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 12:45:35,609 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:45:35,609 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 12:45:36,297 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 12:45:36,298 INFO logging_setup.py [75] MainThread :1
+2026-06-11 12:45:39,592 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:45:39,592 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 12:45:39,592 INFO SCPITestWave.py [28686] MainThread :2026-06-11 12:45:39    程式开启
+2026-06-11 12:45:39,593 INFO logging_setup.py [75] MainThread :2026-06-11 12:45:39    程式开启
+2026-06-11 12:46:40,636 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:46:40,636 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 12:46:40,637 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:46:40,637 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 12:46:40,638 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:46:40,638 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 12:46:40,924 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 12:46:40,924 INFO logging_setup.py [75] MainThread :1
+2026-06-11 12:46:43,735 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:46:43,735 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 12:46:43,735 INFO SCPITestWave.py [28686] MainThread :2026-06-11 12:46:43    程式开启
+2026-06-11 12:46:43,736 INFO logging_setup.py [75] MainThread :2026-06-11 12:46:43    程式开启
+2026-06-11 12:52:51,151 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:52:51,151 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 12:52:51,152 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:52:51,152 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 12:52:51,153 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:52:51,153 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 12:52:51,456 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 12:52:51,457 INFO logging_setup.py [75] MainThread :1
+2026-06-11 12:52:54,849 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 12:52:54,850 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 12:52:54,850 INFO SCPITestWave.py [28686] MainThread :2026-06-11 12:52:54    程式开启
+2026-06-11 12:52:54,850 INFO logging_setup.py [75] MainThread :2026-06-11 12:52:54    程式开启
+2026-06-11 13:01:30,352 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:01:30,352 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:01:30,353 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:01:30,353 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:01:30,354 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:01:30,354 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:01:30,811 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 13:01:30,811 INFO logging_setup.py [75] MainThread :1
+2026-06-11 13:01:33,360 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:01:33,360 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:01:33,361 INFO SCPITestWave.py [28686] MainThread :2026-06-11 13:01:33    程式开启
+2026-06-11 13:01:33,361 INFO logging_setup.py [75] MainThread :2026-06-11 13:01:33    程式开启
+2026-06-11 13:02:31,893 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:31,893 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:02:31,894 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:31,894 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:02:31,894 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:31,894 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:02:32,221 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 13:02:32,222 INFO logging_setup.py [75] MainThread :1
+2026-06-11 13:02:35,251 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:35,251 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:02:35,251 INFO SCPITestWave.py [28686] MainThread :2026-06-11 13:02:35    程式开启
+2026-06-11 13:02:35,252 INFO logging_setup.py [75] MainThread :2026-06-11 13:02:35    程式开启
+2026-06-11 13:02:46,668 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:46,668 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:02:46,669 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:46,669 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:02:46,670 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:46,670 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:02:47,044 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 13:02:47,044 INFO logging_setup.py [75] MainThread :1
+2026-06-11 13:02:49,636 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:02:49,636 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:02:49,636 INFO SCPITestWave.py [28686] MainThread :2026-06-11 13:02:49    程式开启
+2026-06-11 13:02:49,636 INFO logging_setup.py [75] MainThread :2026-06-11 13:02:49    程式开启
+2026-06-11 13:05:11,835 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:05:11,835 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:05:11,836 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:05:11,837 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:05:11,837 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:05:11,837 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:05:12,157 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-11 13:05:12,157 INFO logging_setup.py [75] MainThread :1
+2026-06-11 13:05:15,673 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:05:15,673 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:05:15,674 INFO SCPITestWave.py [28686] MainThread :2026-06-11 13:05:15    程式开启
+2026-06-11 13:05:15,674 INFO logging_setup.py [75] MainThread :2026-06-11 13:05:15    程式开启
+2026-06-11 13:24:29,997 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:31,741 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:32,206 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:32,383 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:32,568 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:32,704 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:32,881 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:34,125 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:34,309 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:34,469 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:34,638 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:34,815 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:34,983 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:35,494 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:35,680 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:24:45,452 INFO logging_setup.py [75] MainThread :请选择一个文件
+2026-06-11 13:24:46,838 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:47,417 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:47,598 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:48,993 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:49,981 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:51,029 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:51,207 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:51,368 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:51,533 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:51,974 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:24:52,133 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1751, in thaidianyashanbianSend
+    fS1ACWaitTime = float(S1_ACWaitTimeValue)
+ValueError: could not convert string to float: ''
+2026-06-11 13:25:17,700 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27933: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:25:17,700 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:25:17,701 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27949: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:25:17,701 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:25:17,702 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:25:17,702 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:25:18,040 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:25:20,659 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28682: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:25:20,659 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:25:20,660 INFO SCPITestWave.py [28686] MainThread :2026-06-11 13:25:20    程式开启
+2026-06-11 13:25:20,660 INFO logging_setup.py [75] MainThread :2026-06-11 13:25:20    程式开启
+2026-06-11 13:25:24,741 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:25,902 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:37,925 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:38,605 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:38,789 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:38,950 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:39,125 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:39,295 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:40,637 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1744, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:25:41,246 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1744, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:25:43,454 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:44,069 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:44,301 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:44,477 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:44,658 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:44,838 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:45,030 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:45,191 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:25:45,341 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1561, in addtestDialog
+    if project_now != currentSecond:
+NameError: name 'project_now' is not defined
+2026-06-11 13:28:02,336 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1744, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:12,793 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27938: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:36:12,793 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:36:12,794 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:36:12,794 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:36:12,794 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27959: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:36:12,794 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:36:13,102 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:36:15,933 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28687: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:36:15,933 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:36:15,933 INFO SCPITestWave.py [28691] MainThread :2026-06-11 13:36:15    程式开启
+2026-06-11 13:36:15,933 INFO logging_setup.py [75] MainThread :2026-06-11 13:36:15    程式开启
+2026-06-11 13:36:40,469 INFO SCPITestWave.py [1611] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 13:36:40,469 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 13:36:46,525 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:47,478 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:48,045 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:48,294 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:52,001 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:52,187 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:52,402 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:36:53,989 INFO SCPITestWave.py [1611] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 13:36:53,989 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 13:37:01,633 INFO SCPITestWave.py [1611] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 13:37:01,633 INFO logging_setup.py [75] MainThread :测试项目--Auto_Test--电压闪变
+2026-06-11 13:38:49,183 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27938: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:38:49,183 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:38:49,184 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:38:49,184 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:38:49,184 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27959: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:38:49,184 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:38:49,579 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:38:53,145 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28687: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:38:53,145 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:38:53,146 INFO SCPITestWave.py [28691] MainThread :2026-06-11 13:38:53    程式开启
+2026-06-11 13:38:53,146 INFO logging_setup.py [75] MainThread :2026-06-11 13:38:53    程式开启
+2026-06-11 13:39:53,533 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:39:54,173 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:39:54,358 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:39:54,532 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:39:54,730 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:40:16,977 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27938: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:40:16,977 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:40:16,978 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27954: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:40:16,978 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:40:16,979 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27959: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:40:16,979 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:40:17,288 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:40:20,054 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28687: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:40:20,054 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:40:20,055 INFO SCPITestWave.py [28691] MainThread :2026-06-11 13:40:20    程式开启
+2026-06-11 13:40:20,055 INFO logging_setup.py [75] MainThread :2026-06-11 13:40:20    程式开启
+2026-06-11 13:40:25,256 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 1749, in thaidianyashanbianSend
+    fS1SetTime = float(S1_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:11,012 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27944: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:44:11,012 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:44:11,013 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27960: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:44:11,013 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:44:11,013 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27965: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:44:11,013 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:44:11,390 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:44:13,983 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28693: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:44:13,983 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:44:13,984 INFO SCPITestWave.py [28697] MainThread :2026-06-11 13:44:13    程式开启
+2026-06-11 13:44:13,984 INFO logging_setup.py [75] MainThread :2026-06-11 13:44:13    程式开启
+2026-06-11 13:44:45,500 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:45,500 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:45,500 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:45,501 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:45,501 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:47,925 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:47,926 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:47,926 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:47,927 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:47,927 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:48,546 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,546 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,547 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,547 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,547 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:48,765 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,766 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,766 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,766 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:48,767 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:49,800 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:49,800 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:49,801 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:49,801 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:49,801 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:50,228 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,228 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,229 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,229 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,229 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:50,422 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,422 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,423 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,423 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,423 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:50,593 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,593 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,594 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,594 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,594 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:44:50,806 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,807 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,807 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,808 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:44:50,808 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:47:59,275 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27944: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:47:59,276 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:47:59,276 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27960: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:47:59,276 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:47:59,277 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27965: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:47:59,277 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:47:59,661 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:48:02,283 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28693: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:48:02,283 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:48:02,283 INFO SCPITestWave.py [28697] MainThread :2026-06-11 13:48:02    程式开启
+2026-06-11 13:48:02,283 INFO logging_setup.py [75] MainThread :2026-06-11 13:48:02    程式开启
+2026-06-11 13:48:07,013 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:07,014 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:07,014 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:07,015 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:07,015 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:48:10,821 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:10,822 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:10,822 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:10,822 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:10,822 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:48:11,290 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,291 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,291 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,291 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,291 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:48:11,482 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,483 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,483 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,483 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,484 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:48:11,700 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,700 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,700 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,701 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:11,701 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:48:27,227 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27944: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:48:27,227 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:48:27,228 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27960: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:48:27,228 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:48:27,229 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27965: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:48:27,229 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:48:27,631 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:48:30,186 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28693: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:48:30,186 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:48:30,187 INFO SCPITestWave.py [28697] MainThread :2026-06-11 13:48:30    程式开启
+2026-06-11 13:48:30,187 INFO logging_setup.py [75] MainThread :2026-06-11 13:48:30    程式开启
+2026-06-11 13:48:33,795 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:33,796 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:33,796 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:33,797 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:48:33,797 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 2048, in thaidianyashanbianSend
+    fS2SetTime = float(S2_TIME_VALUE)
+ValueError: could not convert string to float: ''
+2026-06-11 13:52:19,429 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27944: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:52:19,429 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:52:19,430 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27960: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:52:19,430 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:52:19,430 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27965: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:52:19,431 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:52:19,730 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:52:23,163 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28693: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:52:23,163 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:52:23,163 INFO SCPITestWave.py [28697] MainThread :2026-06-11 13:52:23    程式开启
+2026-06-11 13:52:23,163 INFO logging_setup.py [75] MainThread :2026-06-11 13:52:23    程式开启
+2026-06-11 13:56:28,093 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27944: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:56:28,093 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:56:28,094 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27960: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:56:28,094 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:56:28,095 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27965: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:56:28,095 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:56:28,413 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:56:31,597 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28693: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:56:31,597 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:56:31,598 INFO SCPITestWave.py [28697] MainThread :2026-06-11 13:56:31    程式开启
+2026-06-11 13:56:31,598 INFO logging_setup.py [75] MainThread :2026-06-11 13:56:31    程式开启
+2026-06-11 13:57:29,822 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:29,823 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:29,824 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:29,824 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:29,824 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:57:29,824 INFO logging_setup.py [75] MainThread :2026-06-11 13:57:29    设定实验内容完成
+2026-06-11 13:57:29,825 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 13:57:36,416 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:36,417 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:36,418 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:36,419 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:36,419 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:57:36,419 INFO logging_setup.py [75] MainThread :2026-06-11 13:57:36    设定实验内容完成
+2026-06-11 13:57:36,420 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 13:57:38,615 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:38,616 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:38,617 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:38,617 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:57:38,617 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:57:38,617 INFO logging_setup.py [75] MainThread :2026-06-11 13:57:38    设定实验内容完成
+2026-06-11 13:57:38,618 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 13:58:12,104 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:12,106 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:12,106 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:12,107 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:12,107 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:58:12,107 INFO logging_setup.py [75] MainThread :2026-06-11 13:58:12    设定实验内容完成
+2026-06-11 13:58:12,107 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 13:58:31,840 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27944: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:58:31,840 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 13:58:31,841 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27960: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:58:31,841 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 13:58:31,842 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27965: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:58:31,842 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 13:58:32,148 INFO logging_setup.py [75] MainThread :()
+2026-06-11 13:58:35,585 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28693: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 13:58:35,585 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 13:58:35,586 INFO SCPITestWave.py [28697] MainThread :2026-06-11 13:58:35    程式开启
+2026-06-11 13:58:35,586 INFO logging_setup.py [75] MainThread :2026-06-11 13:58:35    程式开启
+2026-06-11 13:58:44,190 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:44,191 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:44,191 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:44,193 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:44,193 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:58:44,193 INFO logging_setup.py [75] MainThread :2026-06-11 13:58:44    设定实验内容完成
+2026-06-11 13:58:44,194 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 13:58:46,798 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:46,798 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:46,799 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:46,800 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:46,800 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:58:46,800 INFO logging_setup.py [75] MainThread :2026-06-11 13:58:46    设定实验内容完成
+2026-06-11 13:58:46,801 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 13:58:47,416 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:47,416 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:47,417 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:47,417 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:47,418 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:58:47,418 INFO logging_setup.py [75] MainThread :2026-06-11 13:58:47    设定实验内容完成
+2026-06-11 13:58:47,418 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 13:58:48,837 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:48,838 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:48,838 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:48,839 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 13:58:48,839 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 13:58:48,839 INFO logging_setup.py [75] MainThread :2026-06-11 13:58:48    设定实验内容完成
+2026-06-11 13:58:48,840 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 3645, in thaidianyashanbianSend
+    flicker_append_count += 1
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 14:06:23,546 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:06:23,546 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:06:23,547 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:06:23,547 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:06:23,548 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27968: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:06:23,548 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:06:24,013 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:06:26,360 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28696: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:06:26,360 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:06:26,360 INFO SCPITestWave.py [28700] MainThread :2026-06-11 14:06:26    程式开启
+2026-06-11 14:06:26,361 INFO logging_setup.py [75] MainThread :2026-06-11 14:06:26    程式开启
+2026-06-11 14:07:42,375 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:42,375 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:42,376 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:42,376 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:42,376 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:07:42,376 INFO logging_setup.py [75] MainThread :2026-06-11 14:07:42    设定实验内容完成
+2026-06-11 14:07:44,231 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:44,232 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:44,232 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:44,232 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:44,232 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:07:44,232 INFO logging_setup.py [75] MainThread :2026-06-11 14:07:44    设定实验内容完成
+2026-06-11 14:07:46,253 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,253 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,253 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,254 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,254 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:07:46,254 INFO logging_setup.py [75] MainThread :2026-06-11 14:07:46    设定实验内容完成
+2026-06-11 14:07:46,988 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,989 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,989 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,989 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:46,989 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:07:46,990 INFO logging_setup.py [75] MainThread :2026-06-11 14:07:46    设定实验内容完成
+2026-06-11 14:07:47,689 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:47,689 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:47,689 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:47,690 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:47,690 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:07:47,690 INFO logging_setup.py [75] MainThread :2026-06-11 14:07:47    设定实验内容完成
+2026-06-11 14:07:48,345 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:48,345 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:48,346 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:48,346 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:07:48,346 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:07:48,346 INFO logging_setup.py [75] MainThread :2026-06-11 14:07:48    设定实验内容完成
+2026-06-11 14:08:52,278 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:08:52,278 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:08:52,279 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:08:52,279 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:08:52,279 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27968: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:08:52,280 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:08:52,670 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:08:55,328 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28696: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:08:55,328 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:08:55,329 INFO SCPITestWave.py [28700] MainThread :2026-06-11 14:08:55    程式开启
+2026-06-11 14:08:55,329 INFO logging_setup.py [75] MainThread :2026-06-11 14:08:55    程式开启
+2026-06-11 14:09:06,431 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:06,431 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:06,432 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:06,432 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:06,432 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:06,432 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:06    设定实验内容完成
+2026-06-11 14:09:07,965 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:07,966 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:07,966 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:07,967 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:07,967 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:07,967 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:07    设定实验内容完成
+2026-06-11 14:09:09,213 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:09,213 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:09,214 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:09,214 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:09,214 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:09,215 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:09    设定实验内容完成
+2026-06-11 14:09:10,110 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,111 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,112 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,112 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,112 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:10,112 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:10    设定实验内容完成
+2026-06-11 14:09:10,763 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,763 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,764 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,764 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:10,764 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:10,764 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:10    设定实验内容完成
+2026-06-11 14:09:36,527 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:36,528 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:36,528 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:36,529 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:36,529 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:36,529 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:36    设定实验内容完成
+2026-06-11 14:09:37,171 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,172 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,172 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,173 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,173 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:37,173 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:37    设定实验内容完成
+2026-06-11 14:09:37,767 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,768 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,768 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,769 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:09:37,769 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:09:37,769 INFO logging_setup.py [75] MainThread :2026-06-11 14:09:37    设定实验内容完成
+2026-06-11 14:11:01,092 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:11:01,092 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:11:01,093 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:11:01,093 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:11:01,093 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27968: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:11:01,093 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:11:01,447 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:11:04,961 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28696: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:11:04,962 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:11:04,962 INFO SCPITestWave.py [28700] MainThread :2026-06-11 14:11:04    程式开启
+2026-06-11 14:11:04,962 INFO logging_setup.py [75] MainThread :2026-06-11 14:11:04    程式开启
+2026-06-11 14:18:17,166 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27956: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:18:17,166 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:18:17,167 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27972: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:18:17,167 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:18:17,167 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27977: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:18:17,167 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:18:17,612 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:18:20,581 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28705: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:18:20,583 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:18:20,583 INFO SCPITestWave.py [28709] MainThread :2026-06-11 14:18:20    程式开启
+2026-06-11 14:18:20,583 INFO logging_setup.py [75] MainThread :2026-06-11 14:18:20    程式开启
+2026-06-11 14:25:18,682 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27956: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:25:18,682 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:25:18,683 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27972: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:25:18,684 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:25:18,684 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27977: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:25:18,684 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:25:19,019 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:25:21,254 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28705: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:25:21,254 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:25:21,255 INFO SCPITestWave.py [28709] MainThread :2026-06-11 14:25:21    程式开启
+2026-06-11 14:25:21,255 INFO logging_setup.py [75] MainThread :2026-06-11 14:25:21    程式开启
+2026-06-11 14:25:29,113 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:29,113 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:29,114 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:29,114 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:29,115 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:25:29,115 INFO logging_setup.py [75] MainThread :2026-06-11 14:25:29    设定实验内容完成
+2026-06-11 14:25:29,115 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:25:29,115 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:25:29,116 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:25:31,234 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:31,234 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:31,234 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:31,235 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:31,235 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:25:31,235 INFO logging_setup.py [75] MainThread :2026-06-11 14:25:31    设定实验内容完成
+2026-06-11 14:25:31,236 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:25:31,236 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:25:31,237 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:25:33,227 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:33,228 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:33,228 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:33,229 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:25:33,229 INFO SCPITestWave.py [3625] MainThread : 设定实验内容完成
+2026-06-11 14:25:33,229 INFO logging_setup.py [75] MainThread :2026-06-11 14:25:33    设定实验内容完成
+2026-06-11 14:25:33,229 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:25:33,229 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:25:33,230 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:30:45,744 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27961: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:30:45,744 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:30:45,745 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27977: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:30:45,745 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:30:45,745 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27982: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:30:45,745 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:30:46,300 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:30:49,855 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28710: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:30:49,855 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:30:49,856 INFO SCPITestWave.py [28714] MainThread :2026-06-11 14:30:49    程式开启
+2026-06-11 14:30:49,856 INFO logging_setup.py [75] MainThread :2026-06-11 14:30:49    程式开启
+2026-06-11 14:31:22,347 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27961: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:31:22,347 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:31:22,348 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27977: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:31:22,348 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:31:22,348 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27982: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:31:22,349 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:31:22,693 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:31:26,274 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28710: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:31:26,274 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:31:26,275 INFO SCPITestWave.py [28714] MainThread :2026-06-11 14:31:26    程式开启
+2026-06-11 14:31:26,275 INFO logging_setup.py [75] MainThread :2026-06-11 14:31:26    程式开启
+2026-06-11 14:32:27,859 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:27,860 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:27,861 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:27,861 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:27,861 INFO SCPITestWave.py [3633] MainThread : 累加设定实验内容完成
+2026-06-11 14:32:27,862 INFO logging_setup.py [75] MainThread :2026-06-11 14:32:27    累加设定实验内容完成
+2026-06-11 14:32:27,862 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=165
+2026-06-11 14:32:27,862 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:32:27,863 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 329
+2026-06-11 14:32:30,511 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:30,512 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:30,513 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:30,513 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:30,513 INFO SCPITestWave.py [3633] MainThread : 累加设定实验内容完成
+2026-06-11 14:32:30,513 INFO logging_setup.py [75] MainThread :2026-06-11 14:32:30    累加设定实验内容完成
+2026-06-11 14:32:30,513 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=330
+2026-06-11 14:32:30,514 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 329
+2026-06-11 14:32:30,515 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 659
+2026-06-11 14:32:31,556 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:31,557 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:31,557 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:31,557 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:31,558 INFO SCPITestWave.py [3633] MainThread : 累加设定实验内容完成
+2026-06-11 14:32:31,558 INFO logging_setup.py [75] MainThread :2026-06-11 14:32:31    累加设定实验内容完成
+2026-06-11 14:32:31,558 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=495
+2026-06-11 14:32:31,559 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 659
+2026-06-11 14:32:31,559 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 1154
+2026-06-11 14:32:32,485 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:32,485 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:32,486 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:32,487 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:32:32,487 INFO SCPITestWave.py [3633] MainThread : 累加设定实验内容完成
+2026-06-11 14:32:32,487 INFO logging_setup.py [75] MainThread :2026-06-11 14:32:32    累加设定实验内容完成
+2026-06-11 14:32:32,487 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=660
+2026-06-11 14:32:32,488 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 1154
+2026-06-11 14:32:32,489 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 1814
+2026-06-11 14:36:36,147 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:36:36,147 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:36:36,148 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27979: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:36:36,148 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:36:36,148 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27984: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:36:36,149 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:36:36,552 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:36:40,158 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28712: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:36:40,159 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:36:40,159 INFO SCPITestWave.py [28716] MainThread :2026-06-11 14:36:40    程式开启
+2026-06-11 14:36:40,159 INFO logging_setup.py [75] MainThread :2026-06-11 14:36:40    程式开启
+2026-06-11 14:36:57,542 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:36:57,542 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:36:57,543 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27979: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:36:57,543 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:36:57,544 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27984: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:36:57,544 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:36:57,864 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:37:01,348 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28712: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:37:01,348 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:37:01,348 INFO SCPITestWave.py [28716] MainThread :2026-06-11 14:37:01    程式开启
+2026-06-11 14:37:01,348 INFO logging_setup.py [75] MainThread :2026-06-11 14:37:01    程式开启
+2026-06-11 14:37:21,928 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:21,928 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:21,929 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:21,929 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:21,930 INFO SCPITestWave.py [3632] MainThread : 设定实验内容完成
+2026-06-11 14:37:21,930 INFO logging_setup.py [75] MainThread :2026-06-11 14:37:21    设定实验内容完成
+2026-06-11 14:37:21,930 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:37:21,930 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 1814
+2026-06-11 14:37:21,931 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:37:25,193 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:25,194 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:25,194 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:25,195 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:25,195 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:37:25,195 INFO logging_setup.py [75] MainThread :2026-06-11 14:37:25    累加设定实验内容完成
+2026-06-11 14:37:25,195 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=329
+2026-06-11 14:37:25,196 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:37:25,196 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 493
+2026-06-11 14:37:26,972 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:26,973 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:26,973 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:26,974 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:26,974 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:37:26,974 INFO logging_setup.py [75] MainThread :2026-06-11 14:37:26    累加设定实验内容完成
+2026-06-11 14:37:26,975 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=494
+2026-06-11 14:37:26,975 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 493
+2026-06-11 14:37:26,976 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 987
+2026-06-11 14:37:27,845 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:27,845 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:27,846 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:27,846 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:37:27,846 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:37:27,846 INFO logging_setup.py [75] MainThread :2026-06-11 14:37:27    累加设定实验内容完成
+2026-06-11 14:37:27,847 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=659
+2026-06-11 14:37:27,847 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 987
+2026-06-11 14:37:27,848 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 1646
+2026-06-11 14:43:19,374 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:19,374 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:43:19,375 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27979: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:19,375 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:43:19,376 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27984: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:19,376 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:43:19,782 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:43:23,640 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28718: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:23,641 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:43:23,641 INFO SCPITestWave.py [28722] MainThread :2026-06-11 14:43:23    程式开启
+2026-06-11 14:43:23,641 INFO logging_setup.py [75] MainThread :2026-06-11 14:43:23    程式开启
+2026-06-11 14:43:40,756 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:40,756 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:43:40,757 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27979: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:40,757 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:43:40,758 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27984: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:40,758 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:43:41,102 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:43:43,399 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28718: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:43:43,400 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:43:43,400 INFO SCPITestWave.py [28722] MainThread :2026-06-11 14:43:43    程式开启
+2026-06-11 14:43:43,400 INFO logging_setup.py [75] MainThread :2026-06-11 14:43:43    程式开启
+2026-06-11 14:43:54,188 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:54,188 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:54,189 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:54,189 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:54,190 INFO SCPITestWave.py [3632] MainThread : 设定实验内容完成
+2026-06-11 14:43:54,190 INFO logging_setup.py [75] MainThread :2026-06-11 14:43:54    设定实验内容完成
+2026-06-11 14:43:54,190 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:43:54,190 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 1646
+2026-06-11 14:43:54,191 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:43:55,077 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:55,078 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:55,078 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:55,079 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:55,079 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:43:55,079 INFO logging_setup.py [75] MainThread :2026-06-11 14:43:55    累加设定实验内容完成
+2026-06-11 14:43:55,079 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=329
+2026-06-11 14:43:55,079 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:43:55,080 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 493
+2026-06-11 14:43:56,571 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:56,571 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:56,572 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:56,572 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:43:56,573 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:43:56,573 INFO logging_setup.py [75] MainThread :2026-06-11 14:43:56    累加设定实验内容完成
+2026-06-11 14:43:56,573 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=494
+2026-06-11 14:43:56,573 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 493
+2026-06-11 14:43:56,574 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 987
+2026-06-11 14:44:01,102 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,102 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,103 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,103 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,104 INFO SCPITestWave.py [3632] MainThread : 设定实验内容完成
+2026-06-11 14:44:01,104 INFO logging_setup.py [75] MainThread :2026-06-11 14:44:01    设定实验内容完成
+2026-06-11 14:44:01,104 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:44:01,104 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 987
+2026-06-11 14:44:01,105 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:44:01,924 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,925 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,926 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,926 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:01,926 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:44:01,926 INFO logging_setup.py [75] MainThread :2026-06-11 14:44:01    累加设定实验内容完成
+2026-06-11 14:44:01,926 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=329
+2026-06-11 14:44:01,927 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:44:01,927 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 493
+2026-06-11 14:44:02,540 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:02,541 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:02,541 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:02,541 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:02,542 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:44:02,542 INFO logging_setup.py [75] MainThread :2026-06-11 14:44:02    累加设定实验内容完成
+2026-06-11 14:44:02,542 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=494
+2026-06-11 14:44:02,542 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 493
+2026-06-11 14:44:02,543 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 987
+2026-06-11 14:44:03,263 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:03,264 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:03,264 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:03,265 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:03,265 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:44:03,265 INFO logging_setup.py [75] MainThread :2026-06-11 14:44:03    累加设定实验内容完成
+2026-06-11 14:44:03,265 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=659
+2026-06-11 14:44:03,266 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 987
+2026-06-11 14:44:03,267 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 1646
+2026-06-11 14:44:05,428 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:05,428 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:05,429 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:05,429 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:05,429 INFO SCPITestWave.py [3635] MainThread : 累加设定实验内容完成
+2026-06-11 14:44:05,429 INFO logging_setup.py [75] MainThread :2026-06-11 14:44:05    累加设定实验内容完成
+2026-06-11 14:44:05,430 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=1, file_mode=a+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=824
+2026-06-11 14:44:05,430 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 1646
+2026-06-11 14:44:05,432 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 2470
+2026-06-11 14:44:36,508 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:36,508 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:36,509 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:36,509 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:44:36,509 INFO SCPITestWave.py [3632] MainThread : 设定实验内容完成
+2026-06-11 14:44:36,510 INFO logging_setup.py [75] MainThread :2026-06-11 14:44:36    设定实验内容完成
+2026-06-11 14:44:36,510 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:44:36,510 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 2470
+2026-06-11 14:44:36,511 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:44:53,407 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 14:44:53,408 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 14:44:53,408 INFO SCPITestWave.py [23320] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 4262944: '自动化测试', 34803816: 'command_data - 文件资源管理器', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 21433754: '设置', 5573516: '设置', 1313516: '元宝', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 14:45:01,322 INFO SCPITestWave.py [23339] MainThread :WT3000未连接，检测到WT3000 write命令，终止启动。
+2026-06-11 14:45:01,323 INFO logging_setup.py [75] MainThread :WT3000未连接，检测到WT3000 write命令，终止启动。
+2026-06-11 14:45:07,889 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 14:45:07,890 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 14:45:07,890 INFO SCPITestWave.py [23320] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 4262944: '自动化测试', 34803816: 'command_data - 文件资源管理器', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 21433754: '设置', 5573516: '设置', 1313516: '元宝', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 14:45:09,913 INFO SCPITestWave.py [23339] MainThread :WT3000未连接，检测到WT3000 write命令，终止启动。
+2026-06-11 14:45:09,913 INFO logging_setup.py [75] MainThread :WT3000未连接，检测到WT3000 write命令，终止启动。
+2026-06-11 14:45:24,858 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:45:24,859 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:45:24,859 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:45:24,860 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:45:24,860 INFO SCPITestWave.py [3632] MainThread : 设定实验内容完成
+2026-06-11 14:45:24,860 INFO logging_setup.py [75] MainThread :2026-06-11 14:45:24    设定实验内容完成
+2026-06-11 14:45:24,860 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:45:24,861 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:45:24,861 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:46:11,276 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:46:11,277 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:46:11,277 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:46:11,278 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 14:46:11,278 INFO SCPITestWave.py [3632] MainThread : 设定实验内容完成
+2026-06-11 14:46:11,278 INFO logging_setup.py [75] MainThread :2026-06-11 14:46:11    设定实验内容完成
+2026-06-11 14:46:11,278 INFO logging_setup.py [75] MainThread :[DEBUG] strAddTestFlag=0, file_mode=w+, file=./command_save_files/command_data/dianyashanbian_commands2026_06_11_14.csv, lines_to_write=164
+2026-06-11 14:46:11,279 INFO logging_setup.py [75] MainThread :[DEBUG] file lines before write: 164
+2026-06-11 14:46:11,279 INFO logging_setup.py [75] MainThread :[DEBUG] file lines after write: 164
+2026-06-11 14:58:40,015 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27963: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:58:40,015 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 14:58:40,016 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27979: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:58:40,016 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 14:58:40,017 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27984: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:58:40,017 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 14:58:40,357 INFO logging_setup.py [75] MainThread :()
+2026-06-11 14:58:43,315 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28718: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 14:58:43,316 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 14:58:43,316 INFO SCPITestWave.py [28722] MainThread :2026-06-11 14:58:43    程式开启
+2026-06-11 14:58:43,316 INFO logging_setup.py [75] MainThread :2026-06-11 14:58:43    程式开启
+2026-06-11 14:58:53,243 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23361, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 14:58:57,509 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 14:58:57,510 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 14:58:57,510 INFO SCPITestWave.py [23320] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 6294670: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 14:58:57,510 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23324, in RunProjectPush
+    if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 14:59:03,764 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 14:59:03,765 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 14:59:03,765 INFO SCPITestWave.py [23320] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 6294670: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 14:59:03,765 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23324, in RunProjectPush
+    if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 14:59:05,643 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 14:59:05,644 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 14:59:05,644 INFO SCPITestWave.py [23320] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 6294670: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 14:59:05,644 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23324, in RunProjectPush
+    if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 15:08:23,757 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27964: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:08:23,757 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:08:23,758 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27980: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:08:23,758 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:08:23,759 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27985: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:08:23,759 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:08:24,170 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:08:27,426 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28722: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:08:27,426 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:08:27,426 INFO SCPITestWave.py [28726] MainThread :2026-06-11 15:08:27    程式开启
+2026-06-11 15:08:27,426 INFO logging_setup.py [75] MainThread :2026-06-11 15:08:27    程式开启
+2026-06-11 15:09:01,930 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27964: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:01,930 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:09:01,931 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27980: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:01,931 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:09:01,931 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27985: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:01,931 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:09:02,558 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:09:05,995 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28722: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:05,996 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:09:05,996 INFO SCPITestWave.py [28726] MainThread :2026-06-11 15:09:05    程式开启
+2026-06-11 15:09:05,996 INFO logging_setup.py [75] MainThread :2026-06-11 15:09:05    程式开启
+2026-06-11 15:09:36,241 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27964: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:36,242 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:09:36,243 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27980: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:36,243 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:09:36,244 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27985: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:36,244 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:09:36,617 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:09:40,267 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28722: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:09:40,267 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:09:40,268 INFO SCPITestWave.py [28726] MainThread :2026-06-11 15:09:40    程式开启
+2026-06-11 15:09:40,268 INFO logging_setup.py [75] MainThread :2026-06-11 15:09:40    程式开启
+2026-06-11 15:09:43,643 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:09:43,644 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:09:43,644 INFO SCPITestWave.py [23321] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 22741264: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 15:09:43,644 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23325, in RunProjectPush
+    if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 15:09:45,316 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:09:45,317 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:09:45,317 INFO SCPITestWave.py [23321] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 22741264: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 15:09:45,317 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23325, in RunProjectPush
+    if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 15:09:52,971 INFO logging_setup.py [75] MainThread :请选择一个文件
+2026-06-11 15:10:01,123 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:10:01,124 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:10:01,124 INFO SCPITestWave.py [23321] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 22741264: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 15:10:23,706 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27964: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:10:23,707 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:10:23,707 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27980: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:10:23,708 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:10:23,708 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27985: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:10:23,708 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:10:24,121 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:10:26,917 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28722: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:10:26,917 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:10:26,917 INFO SCPITestWave.py [28726] MainThread :2026-06-11 15:10:26    程式开启
+2026-06-11 15:10:26,919 INFO logging_setup.py [75] MainThread :2026-06-11 15:10:26    程式开启
+2026-06-11 15:10:38,587 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:10:38,588 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:10:38,588 INFO SCPITestWave.py [23321] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 36441062: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 15:10:38,588 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23325, in RunProjectPush
+    if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
+NameError: name 'flicker_append_count' is not defined
+2026-06-11 15:15:38,885 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27966: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:15:38,885 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:15:38,886 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27982: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:15:38,886 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:15:38,887 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27987: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:15:38,887 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:15:39,372 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:15:43,050 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28724: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:15:43,050 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:15:43,050 INFO SCPITestWave.py [28728] MainThread :2026-06-11 15:15:43    程式开启
+2026-06-11 15:15:43,050 INFO logging_setup.py [75] MainThread :2026-06-11 15:15:43    程式开启
+2026-06-11 15:15:49,679 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:15:49,680 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:15:49,680 INFO SCPITestWave.py [23321] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 11669316: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 15:17:05,714 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:27966: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:17:05,720 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:17:05,735 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:27982: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:17:05,740 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:17:05,751 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:27987: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:17:05,755 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:17:07,139 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:17:10,991 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:28724: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:17:10,997 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:17:11,002 INFO SCPITestWave.py [28728] MainThread :2026-06-11 15:17:11    程式开启
+2026-06-11 15:17:11,006 INFO logging_setup.py [75] MainThread :2026-06-11 15:17:11    程式开启
+2026-06-11 15:17:22,116 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:17:22,128 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:17:22,133 INFO SCPITestWave.py [23321] MainThread :父句柄更新：{65714: '', 196664: '自动化测试', 132800: 'C:\\WINDOWS\\system32\\cmd.exe', 918932: '设置', 262896: '设置', 262608: '', 131534: 'Calculator', 131518: 'Calculator', 3539724: 'Microsoft Text Input Application', 65918: '', 65926: '', 65888: '', 65886: '', 65844: 'Program Manager'}
+2026-06-11 15:29:23,718 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27995: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:29:23,718 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:29:23,719 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28011: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:29:23,719 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:29:23,719 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28016: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:29:23,719 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:29:24,092 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:29:27,313 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28753: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:29:27,314 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:29:27,314 INFO SCPITestWave.py [28757] MainThread :2026-06-11 15:29:27    程式开启
+2026-06-11 15:29:27,314 INFO logging_setup.py [75] MainThread :2026-06-11 15:29:27    程式开启
+2026-06-11 15:31:26,159 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:31:26,160 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:31:26,160 INFO SCPITestWave.py [23347] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 20908304: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 15:31:34,502 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:31:57,111 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 15:31:57,112 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 15:31:57,112 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 15:31:57,113 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-11 15:31:57,113 INFO SCPITestWave.py [3664] MainThread : 设定实验内容完成
+2026-06-11 15:31:57,113 INFO logging_setup.py [75] MainThread :2026-06-11 15:31:57    设定实验内容完成
+2026-06-11 15:31:58,859 INFO logging_setup.py [75] MainThread :[]
+2026-06-11 15:31:58,860 INFO logging_setup.py [75] MainThread :父句柄更新！
+2026-06-11 15:31:58,860 INFO SCPITestWave.py [23347] MainThread :父句柄更新：{1707754: '', 330094: '', 263116: '', 65868: '', 2689920: '', 20908304: '自动化测试', 67392: 'SCPITestWave.py - solarautotestdev - Visual Studio Code', 1247820: '微信', 1313516: '元宝', 34803816: 'command_data - 文件资源管理器', 21433754: '设置', 5573516: '设置', 2559384: 'C:\\Windows\\system32\\cmd.exe', 9440526: '', 5703680: 'com.ccswitch.desktop-siw', 919222: '', 920476: '', 919648: 'com.tencent.yuanbao-siw', 263442: '', 131802: '', 131796: '', 197856: 'Windows 输入体验', 66040: '', 66046: '', 66008: '', 66006: '', 66004: '', 66002: '', 65858: 'NVIDIA GeForce Overlay', 132770: 'Nahimic', 263844: 'Nahimic', 1313668: '组件 | Element - Google Chrome', 3936392: '欢迎 - Visual Studio Code', 65924: 'Program Manager'}
+2026-06-11 15:32:00,588 INFO SCPITestWave.py [23368] MainThread :WT3000未连接，检测到WT3000 write命令，终止启动。
+2026-06-11 15:32:00,588 INFO logging_setup.py [75] MainThread :WT3000未连接，检测到WT3000 write命令，终止启动。
+2026-06-11 15:32:08,575 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:09,819 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:10,004 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:10,190 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:10,383 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:10,577 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:10,770 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:10,984 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:11,205 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:32:13,706 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 23391, in EndProjectPush
+    if strTestStatusFlag == "运行":
+NameError: name 'strTestStatusFlag' is not defined
+2026-06-11 15:33:27,986 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27997: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:27,986 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:33:27,987 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28013: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:27,987 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:33:27,987 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28018: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:27,987 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:33:28,387 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:33:30,867 ERROR logging_setup.py [75] MainThread :C:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28755: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:30,867 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:33:30,868 INFO SCPITestWave.py [28759] MainThread :2026-06-11 15:33:30    程式开启
+2026-06-11 15:33:30,868 INFO logging_setup.py [75] MainThread :2026-06-11 15:33:30    程式开启
+2026-06-11 15:33:32,876 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:27997: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:32,883 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 15:33:32,890 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:28013: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:32,896 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 15:33:32,902 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:28018: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:32,907 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 15:33:33,078 INFO logging_setup.py [75] MainThread :()
+2026-06-11 15:33:36,608 ERROR logging_setup.py [75] MainThread :Z:\codes\solarautotestdev\SCPITestWave.py:28755: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 15:33:36,615 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 15:33:36,638 INFO SCPITestWave.py [28759] MainThread :2026-06-11 15:33:36    程式开启
+2026-06-11 15:33:36,662 INFO logging_setup.py [75] MainThread :2026-06-11 15:33:36    程式开启
+2026-06-11 15:37:29,814 INFO logging_setup.py [75] MainThread :1
+2026-06-11 15:37:35,044 INFO SCPITestWave.py [1008] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-11 15:37:35,049 INFO logging_setup.py [75] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-11 15:37:35,082 INFO ac_controller.py [89] MainThread :交流电源连接成功
+2026-06-11 15:37:35,122 INFO logging_setup.py [75] MainThread :交流电源连接成功
+2026-06-11 15:38:04,343 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:38:37,693 INFO logging_setup.py [75] Thread-139 (system_error_info) :VI_ERROR_SYSTEM_ERROR (-1073807360): Unknown system error (miscellaneous error).
+2026-06-11 15:38:37,699 ERROR SCPITestWave.py [27689] Thread-139 (system_error_info) :VI_ERROR_SYSTEM_ERROR (-1073807360): Unknown system error (miscellaneous error).
+2026-06-11 15:38:37,732 INFO logging_setup.py [75] Thread-139 (system_error_info) :关闭设备成功
+2026-06-11 15:38:37,877 ERROR SCPITestWave.py [27735] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 15:38:37,883 INFO logging_setup.py [75] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 15:38:42,679 INFO logging_setup.py [75] MainThread :1
+2026-06-11 15:38:46,348 INFO SCPITestWave.py [1008] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-11 15:38:46,355 INFO logging_setup.py [75] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-11 15:38:46,405 INFO ac_controller.py [89] MainThread :交流电源连接成功
+2026-06-11 15:38:46,410 INFO logging_setup.py [75] MainThread :交流电源连接成功
+2026-06-11 15:39:13,820 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-11 15:39:13,827 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-11 15:39:13,868 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:13 OUTP ON
+2026-06-11 15:39:14,266 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:39:15,548 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:PHAS THREE
+2026-06-11 15:39:15,554 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:INST:PHAS THREE
+2026-06-11 15:39:15,596 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:EDIT EACH
+2026-06-11 15:39:15,601 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:INST:EDIT EACH
+2026-06-11 15:39:15,635 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:NSEL 1
+2026-06-11 15:39:15,641 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:INST:NSEL 1
+2026-06-11 15:39:15,684 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 230
+2026-06-11 15:39:15,692 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:VOLT 230
+2026-06-11 15:39:15,720 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 50
+2026-06-11 15:39:15,729 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:FREQ 50
+2026-06-11 15:39:15,780 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:NSEL 2
+2026-06-11 15:39:15,788 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:INST:NSEL 2
+2026-06-11 15:39:15,829 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 230
+2026-06-11 15:39:15,837 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:VOLT 230
+2026-06-11 15:39:15,880 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 50
+2026-06-11 15:39:15,887 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:FREQ 50
+2026-06-11 15:39:15,923 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:NSEL 3
+2026-06-11 15:39:15,931 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:INST:NSEL 3
+2026-06-11 15:39:15,973 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 230
+2026-06-11 15:39:15,980 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:15SendCommandToAC:VOLT 230
+2026-06-11 15:39:16,007 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 50
+2026-06-11 15:39:16,014 INFO logging_setup.py [75] MainThread :2026-06-11 15:39:16SendCommandToAC:FREQ 50
+2026-06-11 15:39:48,626 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-11 15:40:22,968 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:40:35,626 INFO logging_setup.py [75] MainThread :2
+2026-06-11 15:40:41,243 INFO SCPITestWave.py [1165] MainThread :ASRL17::INSTR
+2026-06-11 15:40:41,256 INFO dc_controller.py [171] MainThread :直流电源连接成功
+2026-06-11 15:40:41,308 INFO logging_setup.py [75] MainThread :直流电源连接成功
+2026-06-11 15:40:41,317 INFO logging_setup.py [75] MainThread :DC1 *IDN? 查询结果: ITECH ELECTRONICS,IT6018C-1500-40,803992011787340028,000.006.193,663.R,142.R
+2026-06-11 15:40:41,345 INFO SCPITestWave.py [1151] MainThread :DC1 厂家识别结果: Itech
+2026-06-11 15:40:41,353 INFO logging_setup.py [75] MainThread :DC1 厂家识别结果: Itech
+2026-06-11 15:40:42,563 INFO SCPITestWave.py [24860] Thread-58366 :2026-06-11 15:40:42SendMessageToDC1:SYST:REM
+2026-06-11 15:40:42,570 INFO logging_setup.py [75] Thread-58366 :2026-06-11 15:40:42SendMessageToDC1:SYST:REM
+2026-06-11 15:40:42,811 INFO SCPITestWave.py [24860] Thread-58366 :2026-06-11 15:40:42SendMessageToDC1:OUTP OFF
+2026-06-11 15:40:42,848 INFO logging_setup.py [75] Thread-58366 :2026-06-11 15:40:42SendMessageToDC1:OUTP OFF
+2026-06-11 15:40:43,055 INFO SCPITestWave.py [24860] Thread-58366 :2026-06-11 15:40:43SendMessageToDC1:*CLS
+2026-06-11 15:40:43,063 INFO logging_setup.py [75] Thread-58366 :2026-06-11 15:40:43SendMessageToDC1:*CLS
+2026-06-11 15:40:43,309 INFO SCPITestWave.py [24860] Thread-58366 :2026-06-11 15:40:43SendMessageToDC1:*RST
+2026-06-11 15:40:43,316 INFO logging_setup.py [75] Thread-58366 :2026-06-11 15:40:43SendMessageToDC1:*RST
+2026-06-11 15:40:43,555 INFO SCPITestWave.py [24860] Thread-58366 :2026-06-11 15:40:43SendMessageToDC1:SOL 0
+2026-06-11 15:40:43,583 INFO logging_setup.py [75] Thread-58366 :2026-06-11 15:40:43SendMessageToDC1:SOL 0
+2026-06-11 15:40:57,315 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:40:57,322 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:41:31,698 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:41:31,705 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:42:06,079 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:42:06,087 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:42:40,445 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:42:40,454 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:43:06,108 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-11 15:43:06,119 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-11 15:43:06,132 INFO logging_setup.py [75] MainThread :2026-06-11 15:43:06 OUTP OFF
+2026-06-11 15:43:14,804 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-11 15:43:14,811 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:43:49,164 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:43:49,183 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:44:23,531 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:44:23,539 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:44:57,893 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:44:57,899 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:45:32,253 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:45:32,260 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:46:06,611 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:46:06,619 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:46:26,475 INFO SCPITestWave.py [1388] MainThread :WT3000 连接地址: 192.168.40.100
+2026-06-11 15:46:26,484 INFO logging_setup.py [75] MainThread :WT3000 连接地址: 192.168.40.100
+2026-06-11 15:46:26,489 INFO wt_controller.py [54] MainThread :WT3000尝试连接: TCPIP0::192.168.40.100::inst0::INSTR
+2026-06-11 15:46:26,494 INFO logging_setup.py [75] MainThread :WT3000尝试连接: TCPIP0::192.168.40.100::inst0::INSTR
+2026-06-11 15:46:26,518 INFO wt_controller.py [91] MainThread :WT3000 发送ASCII 命令连接成功
+2026-06-11 15:46:26,524 INFO logging_setup.py [75] MainThread :WT3000 发送ASCII 命令连接成功
+2026-06-11 15:46:28,107 INFO SCPITestWave.py [28239] MainThread :WT3000 已切换到闪变页面
+2026-06-11 15:46:28,114 INFO logging_setup.py [75] MainThread :WT3000 已切换到闪变页面
+2026-06-11 15:46:40,973 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:46:40,981 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:47:15,328 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:47:16,480 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:47:50,835 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:47:51,100 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:48:25,541 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:48:25,549 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:48:59,903 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:49:00,219 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:49:34,585 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:49:34,593 INFO SCPITestWave.py [27745] Thread-139 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-11 15:50:08,944 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:50:08,951 INFO logging_setup.py [75] Thread-139 (system_error_info) :DC1 error: VI_ERROR_SYSTEM_ERROR (-1073807360): Unknown system error (miscellaneous error).
+2026-06-11 15:50:08,957 ERROR dc_controller.py [194] Thread-139 (system_error_info) :DC1 error: VI_ERROR_SYSTEM_ERROR (-1073807360): Unknown system error (miscellaneous error).
+2026-06-11 15:50:08,963 INFO logging_setup.py [75] Thread-139 (system_error_info) :关闭设备失败: VI_ERROR_CLOSING_FAILED (-1073807338): The VISA driver failed to properly close the session or object reference. This might be due to an error freeing internal or OS resources, a failed network connection, or a lower-level driver or OS error.
+2026-06-11 15:50:09,110 ERROR dc_controller.py [201] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 15:50:43,476 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:50:43,484 INFO logging_setup.py [75] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:50:43,491 ERROR dc_controller.py [194] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:50:43,634 ERROR dc_controller.py [201] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 15:51:17,986 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:51:17,991 INFO logging_setup.py [75] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:51:17,996 ERROR dc_controller.py [194] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:51:18,127 ERROR dc_controller.py [201] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 15:52:05,594 INFO logging_setup.py [75] Thread-139 (system_error_info) :VI_ERROR_ABORT (-1073807312): User abort occurred during transfer.
+2026-06-11 15:52:05,625 ERROR SCPITestWave.py [27689] Thread-139 (system_error_info) :VI_ERROR_ABORT (-1073807312): User abort occurred during transfer.
+2026-06-11 15:52:05,632 INFO logging_setup.py [75] Thread-139 (system_error_info) :关闭设备成功
+2026-06-11 15:52:05,771 INFO logging_setup.py [75] Thread-139 (system_error_info) :AC---reconnect---USBInstrument at USB0::0x0A69::0x0870::618300000298::0::INSTR
+2026-06-11 15:52:05,777 INFO SCPITestWave.py [27733] Thread-139 (system_error_info) :AC---reconnect---USBInstrument at USB0::0x0A69::0x0870::618300000298::0::INSTR
+2026-06-11 15:52:07,798 INFO logging_setup.py [75] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:52:07,806 ERROR dc_controller.py [194] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:52:07,939 ERROR dc_controller.py [201] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 15:52:55,412 INFO logging_setup.py [75] Thread-139 (system_error_info) :VI_ERROR_ABORT (-1073807312): User abort occurred during transfer.
+2026-06-11 15:52:55,418 ERROR SCPITestWave.py [27689] Thread-139 (system_error_info) :VI_ERROR_ABORT (-1073807312): User abort occurred during transfer.
+2026-06-11 15:52:55,424 INFO logging_setup.py [75] Thread-139 (system_error_info) :关闭设备成功
+2026-06-11 15:52:55,572 INFO logging_setup.py [75] Thread-139 (system_error_info) :AC---reconnect---USBInstrument at USB0::0x0A69::0x0870::618300000298::0::INSTR
+2026-06-11 15:52:55,577 INFO SCPITestWave.py [27733] Thread-139 (system_error_info) :AC---reconnect---USBInstrument at USB0::0x0A69::0x0870::618300000298::0::INSTR
+2026-06-11 15:52:57,588 INFO logging_setup.py [75] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:52:57,595 ERROR dc_controller.py [194] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:52:57,729 ERROR dc_controller.py [201] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 15:53:32,078 INFO SCPITestWave.py [27739] Thread-139 (system_error_info) :AC return error message: 0,"No error"
+2026-06-11 15:53:32,086 INFO logging_setup.py [75] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:53:32,093 ERROR dc_controller.py [194] Thread-139 (system_error_info) :DC1 error: 'NoneType' object has no attribute 'query'
+2026-06-11 15:53:32,234 ERROR dc_controller.py [201] Thread-139 (system_error_info) :VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-11 16:40:39,866 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28005: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 16:40:39,866 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-11 16:40:39,867 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28021: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 16:40:39,867 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-11 16:40:39,867 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28026: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 16:40:39,867 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-11 16:40:40,268 INFO logging_setup.py [75] MainThread :()
+2026-06-11 16:40:43,644 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:29099: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-11 16:40:43,644 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-11 16:40:43,644 INFO SCPITestWave.py [29103] MainThread :2026-06-11 16:40:43    程式开启
+2026-06-11 16:40:43,644 INFO logging_setup.py [75] MainThread :2026-06-11 16:40:43    程式开启
