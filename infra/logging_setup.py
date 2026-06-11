@@ -113,6 +113,31 @@ def install_stream_logging(logger):
     return original_stdout, original_stderr
 
 
+class UILogHandler(logging.Handler):
+    """将日志消息写入 Qt QTextEdit 控件。"""
+
+    def __init__(self, text_edit):
+        super().__init__()
+        self._text_edit = text_edit
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(0, lambda m=msg: self._append(m))
+        except Exception:
+            self.handleError(record)
+
+    def _append(self, msg):
+        try:
+            self._text_edit.append(msg)
+            sb = self._text_edit.verticalScrollBar()
+            if sb is not None:
+                sb.setValue(sb.maximum())
+        except Exception:
+            pass
+
+
 def install_exception_hook(logger, original_stderr):
     def _handle_exception(exc_type, exc_value, exc_tb):
         logger.error('Uncaught exception', exc_info=(exc_type, exc_value, exc_tb))

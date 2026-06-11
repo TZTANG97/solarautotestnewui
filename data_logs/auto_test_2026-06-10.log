@@ -968,3 +968,486 @@ NameError: name 'QtWidgets' is not defined
 2026-06-10 16:22:20,645 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] === 开始保存配置 ===
 2026-06-10 16:22:20,647 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 用户选择 - 输入通道: AI 1/U1, 最大刷新率: Default, 通道二次采样: Auto
 2026-06-10 16:22:20,647 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] DEWETRON未连接
+2026-06-10 16:23:41,370 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27867: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:23:41,370 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 16:23:41,371 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27883: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:23:41,371 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 16:23:41,372 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:23:41,372 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 16:23:41,602 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-10 16:23:41,602 INFO logging_setup.py [75] MainThread :1
+2026-06-10 16:23:42,285 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28448: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:23:42,285 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 16:23:42,285 INFO SCPITestWave.py [28452] MainThread :2026-06-10 16:23:42    程式开启
+2026-06-10 16:23:42,286 INFO logging_setup.py [75] MainThread :2026-06-10 16:23:42    程式开启
+2026-06-10 16:26:28,148 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27867: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:26:28,148 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 16:26:28,149 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27883: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:26:28,149 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 16:26:28,150 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:26:28,150 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 16:26:28,381 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-10 16:26:28,381 INFO logging_setup.py [75] MainThread :1
+2026-06-10 16:26:28,736 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 27934, in <module>
+    ui.setupUi(main_window)
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\ui_files\SCPI_Test.py", line 724, in setupUi
+    self.retranslateUi(Dialog)
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\ui_files\SCPI_Test.py", line 745, in retranslateUi
+    self.pushButton_SetDEWETRONOptions.setText(_translate("Dialog", "设定DEWETRON"))
+AttributeError: 'Ui_Dialog' object has no attribute 'pushButton_SetDEWETRONOptions'
+2026-06-10 16:31:06,268 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27867: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:31:06,268 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 16:31:06,268 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27883: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:31:06,270 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 16:31:06,270 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:31:06,270 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 16:31:06,514 INFO logging_setup.py [75] MainThread :('ASRL10::INSTR',)
+2026-06-10 16:31:06,514 INFO logging_setup.py [75] MainThread :1
+2026-06-10 16:31:07,178 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 16:31:07,178 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 16:31:07,178 INFO SCPITestWave.py [28450] MainThread :2026-06-10 16:31:07    程式开启
+2026-06-10 16:31:07,178 INFO logging_setup.py [75] MainThread :2026-06-10 16:31:07    程式开启
+2026-06-10 16:31:11,476 INFO SCPITestWave.py [1249] MainThread :192.168.40.21:10001
+2026-06-10 16:31:13,490 INFO logging_setup.py [75] MainThread :DEWETRON连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-10 16:31:13,490 INFO dewetron_controller.py [57] MainThread :DEWETRON连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-10 16:31:13,493 INFO SCPITestWave.py [1249] MainThread :192.168.40.21:10001
+2026-06-10 16:31:15,496 INFO logging_setup.py [75] MainThread :DEWETRON连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-10 16:31:15,496 INFO dewetron_controller.py [57] MainThread :DEWETRON连接失败: VI_ERROR_RSRC_NFOUND (-1073807343): Insufficient location information or the requested device or resource is not present in the system.
+2026-06-10 17:25:30,478 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27867: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:25:30,484 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 17:25:30,491 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27883: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:25:30,496 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 17:25:30,501 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:25:30,505 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 17:25:31,289 INFO logging_setup.py [75] MainThread :()
+2026-06-10 17:25:32,602 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:28446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:25:32,607 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 17:25:32,612 INFO SCPITestWave.py [28450] MainThread :2026-06-10 17:25:32    程式开启
+2026-06-10 17:25:32,617 INFO logging_setup.py [75] MainThread :2026-06-10 17:25:32    程式开启
+2026-06-10 17:27:38,711 INFO logging_setup.py [75] MainThread :1
+2026-06-10 17:27:44,051 INFO SCPITestWave.py [927] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:27:44,057 INFO logging_setup.py [75] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:27:44,071 INFO ac_controller.py [89] MainThread :交流电源连接成功
+2026-06-10 17:27:44,078 INFO logging_setup.py [75] MainThread :交流电源连接成功
+2026-06-10 17:27:46,969 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:27:49,899 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:27:49,905 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:27:49,910 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:49 OUTP ON
+2026-06-10 17:27:54,020 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:27:54,027 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:27:54,032 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:54 OUTP OFF
+2026-06-10 17:27:55,659 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:27:55,665 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:27:55,688 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:55 OUTP ON
+2026-06-10 17:27:56,670 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:PHAS THREE
+2026-06-10 17:27:56,677 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:INST:PHAS THREE
+2026-06-10 17:27:56,682 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:EDIT EACH
+2026-06-10 17:27:56,687 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:INST:EDIT EACH
+2026-06-10 17:27:56,694 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:NSEL 1
+2026-06-10 17:27:56,701 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:INST:NSEL 1
+2026-06-10 17:27:56,705 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 220
+2026-06-10 17:27:56,711 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:VOLT 220
+2026-06-10 17:27:56,719 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 60
+2026-06-10 17:27:56,727 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:FREQ 60
+2026-06-10 17:27:56,734 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:NSEL 2
+2026-06-10 17:27:56,742 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:INST:NSEL 2
+2026-06-10 17:27:56,748 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 220
+2026-06-10 17:27:56,754 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:VOLT 220
+2026-06-10 17:27:56,761 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 60
+2026-06-10 17:27:56,766 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:FREQ 60
+2026-06-10 17:27:56,771 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:NSEL 3
+2026-06-10 17:27:56,777 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:INST:NSEL 3
+2026-06-10 17:27:56,782 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 220
+2026-06-10 17:27:56,791 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:VOLT 220
+2026-06-10 17:27:56,796 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 60
+2026-06-10 17:27:56,801 INFO logging_setup.py [75] MainThread :2026-06-10 17:27:56SendCommandToAC:FREQ 60
+2026-06-10 17:28:05,662 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:28:05,666 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:28:05,672 INFO logging_setup.py [75] MainThread :2026-06-10 17:28:05 OUTP OFF
+2026-06-10 17:28:21,316 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:28:55,675 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:29:30,026 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:30:04,390 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:30:38,744 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:31:13,106 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:31:47,462 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:32:21,802 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:32:56,156 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:33:30,495 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:34:04,855 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:34:39,216 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:35:13,576 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:35:47,929 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:36:22,279 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:36:56,632 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:37:30,986 INFO SCPITestWave.py [27609] Thread-67 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:38:06,214 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27867: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:38:06,220 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 17:38:06,226 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27883: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:38:06,230 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 17:38:06,236 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27888: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:38:06,240 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 17:38:06,365 INFO logging_setup.py [75] MainThread :('USB0::0x0A69::0x084B::S50000002328::INSTR', 'USB0::0x0A69::0x0870::618300000298::INSTR')
+2026-06-10 17:38:06,371 INFO logging_setup.py [75] MainThread :2
+2026-06-10 17:38:07,237 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:28446: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:38:07,245 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 17:38:07,251 INFO SCPITestWave.py [28450] MainThread :2026-06-10 17:38:07    程式开启
+2026-06-10 17:38:07,257 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:07    程式开启
+2026-06-10 17:38:15,700 INFO SCPITestWave.py [927] MainThread :USB0::0x0A69::0x084B::S50000002328::INSTR
+2026-06-10 17:38:15,709 INFO logging_setup.py [75] MainThread :USB0::0x0A69::0x084B::S50000002328::INSTR
+2026-06-10 17:38:15,721 INFO ac_controller.py [89] MainThread :交流电源连接成功
+2026-06-10 17:38:15,725 INFO logging_setup.py [75] MainThread :交流电源连接成功
+2026-06-10 17:38:17,722 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:38:17,728 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:38:17,734 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:17 OUTP ON
+2026-06-10 17:38:18,405 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:38:18,410 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:38:18,415 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:18 OUTP OFF
+2026-06-10 17:38:19,202 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:38:19,207 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:38:19,212 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:19 OUTP ON
+2026-06-10 17:38:20,486 INFO logging_setup.py [75] MainThread :关闭设备成功
+2026-06-10 17:38:29,355 INFO SCPITestWave.py [927] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:38:29,360 INFO logging_setup.py [75] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:38:29,369 INFO ac_controller.py [89] MainThread :交流电源连接成功
+2026-06-10 17:38:29,374 INFO logging_setup.py [75] MainThread :交流电源连接成功
+2026-06-10 17:38:30,652 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:38:30,657 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:38:30,662 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:30 OUTP ON
+2026-06-10 17:38:32,315 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:38:32,324 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:38:32,334 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:32 OUTP OFF
+2026-06-10 17:38:33,402 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:38:33,408 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:38:33,412 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:33 OUTP ON
+2026-06-10 17:38:34,283 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:PHAS SINGLE
+2026-06-10 17:38:34,289 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:34SendCommandToAC:INST:PHAS SINGLE
+2026-06-10 17:38:34,295 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:EDIT ALL
+2026-06-10 17:38:34,300 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:34SendCommandToAC:INST:EDIT ALL
+2026-06-10 17:38:34,307 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 220
+2026-06-10 17:38:34,314 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:34SendCommandToAC:VOLT 220
+2026-06-10 17:38:34,320 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 60
+2026-06-10 17:38:34,327 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:34SendCommandToAC:FREQ 60
+2026-06-10 17:38:37,741 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:PHAS SINGLE
+2026-06-10 17:38:37,748 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:37SendCommandToAC:INST:PHAS SINGLE
+2026-06-10 17:38:37,753 INFO ac_controller.py [248] MainThread :SendCommandToAC:INST:EDIT ALL
+2026-06-10 17:38:37,759 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:37SendCommandToAC:INST:EDIT ALL
+2026-06-10 17:38:37,765 INFO ac_controller.py [248] MainThread :SendCommandToAC:VOLT 220
+2026-06-10 17:38:37,772 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:37SendCommandToAC:VOLT 220
+2026-06-10 17:38:37,778 INFO ac_controller.py [248] MainThread :SendCommandToAC:FREQ 60
+2026-06-10 17:38:37,782 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:37SendCommandToAC:FREQ 60
+2026-06-10 17:38:41,600 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:38:47,100 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:38:47,106 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:38:47,113 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:47 OUTP OFF
+2026-06-10 17:38:50,499 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:38:50,506 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:38:50,510 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:50 OUTP OFF
+2026-06-10 17:38:52,450 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:38:52,456 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:38:52,461 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:52 OUTP ON
+2026-06-10 17:38:53,059 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:38:53,070 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:38:53,076 INFO logging_setup.py [75] MainThread :2026-06-10 17:38:53 OUTP OFF
+2026-06-10 17:39:04,115 INFO dc_controller.py [70] MainThread :DC1 Not Connect
+2026-06-10 17:39:04,121 INFO logging_setup.py [75] MainThread :2026-06-10 17:39:04DC1 Not Connect
+2026-06-10 17:39:08,205 INFO SCPITestWave.py [1081] MainThread :USB0::0x0A69::0x084B::S50000002328::INSTR
+2026-06-10 17:39:08,225 INFO dc_controller.py [171] MainThread :直流电源连接成功
+2026-06-10 17:39:08,240 INFO logging_setup.py [75] MainThread :直流电源连接成功
+2026-06-10 17:39:08,258 INFO logging_setup.py [75] MainThread :DC1 *IDN? 查询结果: CHROMA ATE,62150H-1000S,02328,02.30
+2026-06-10 17:39:08,270 INFO SCPITestWave.py [1067] MainThread :DC1 厂家识别结果: Chroma
+2026-06-10 17:39:08,282 INFO logging_setup.py [75] MainThread :DC1 厂家识别结果: Chroma
+2026-06-10 17:39:08,870 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:08SendMessageToDC1:*CLS
+2026-06-10 17:39:08,878 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:08SendMessageToDC1:*CLS
+2026-06-10 17:39:08,883 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:08SendMessageToDC1:*RST
+2026-06-10 17:39:08,890 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:08SendMessageToDC1:*RST
+2026-06-10 17:39:08,897 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:08SendMessageToDC1:OUTP OFF
+2026-06-10 17:39:08,902 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:08SendMessageToDC1:OUTP OFF
+2026-06-10 17:39:08,961 INFO logging_setup.py [75] Thread-8499 :ON
+2026-06-10 17:39:08,970 INFO logging_setup.py [75] Thread-8499 :ON
+2026-06-10 17:39:08,977 INFO logging_setup.py [75] Thread-8499 :find NO
+2026-06-10 17:39:08,985 INFO SCPITestWave.py [24703] Thread-8499 :2026-06-10 17:39:08ReturnMessageFromDC1:ON
+2026-06-10 17:39:08,996 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:08ReturnMessageFromDC1:ON
+2026-06-10 17:39:09,010 INFO logging_setup.py [75] Thread-8499 :1
+2026-06-10 17:39:09,017 INFO logging_setup.py [75] Thread-8499 :1
+2026-06-10 17:39:09,023 INFO SCPITestWave.py [24703] Thread-8499 :2026-06-10 17:39:09ReturnMessageFromDC1:1
+2026-06-10 17:39:09,030 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09ReturnMessageFromDC1:1
+2026-06-10 17:39:09,034 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-06-10 17:39:09,039 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-06-10 17:39:09,045 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:Source:Volt 0.00
+2026-06-10 17:39:09,050 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:Source:Volt 0.00
+2026-06-10 17:39:09,054 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:Source:Curr 0.000
+2026-06-10 17:39:09,060 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:Source:Curr 0.000
+2026-06-10 17:39:09,064 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:volt:prot:high max
+2026-06-10 17:39:09,069 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:volt:prot:high max
+2026-06-10 17:39:09,074 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:curr:prot:high max
+2026-06-10 17:39:09,080 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:curr:prot:high max
+2026-06-10 17:39:09,086 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:pow:prot:high max
+2026-06-10 17:39:09,091 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:pow:prot:high max
+2026-06-10 17:39:09,096 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-06-10 17:39:09,102 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-06-10 17:39:09,107 INFO SCPITestWave.py [24664] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:curr:prot:high 31.50
+2026-06-10 17:39:09,112 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:curr:prot:high 31.50
+2026-06-10 17:39:09,117 INFO SCPITestWave.py [24677] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:pow:prot:high 31500.0
+2026-06-10 17:39:09,124 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1::sour:pow:prot:high 31500.0
+2026-06-10 17:39:09,132 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:OUTP OFF
+2026-06-10 17:39:09,139 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:OUTP OFF
+2026-06-10 17:39:09,152 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:OUTP:MODE TABLE
+2026-06-10 17:39:09,160 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:OUTP:MODE TABLE
+2026-06-10 17:39:09,166 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:IVC:EDIT 1
+2026-06-10 17:39:09,184 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:IVC:EDIT 1
+2026-06-10 17:39:09,223 INFO SCPITestWave.py [24651] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-06-10 17:39:09,230 INFO logging_setup.py [75] Thread-8499 :2026-06-10 17:39:09SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-06-10 17:39:13,587 INFO dc_controller.py [66] MainThread :DC1 OUTP ON
+2026-06-10 17:39:13,592 INFO logging_setup.py [75] MainThread :2026-06-10 17:39:13DC1 OUTP ON
+2026-06-10 17:39:15,956 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:39:15,964 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:39:16,874 INFO dc_controller.py [66] MainThread :DC1 OUTP OFF
+2026-06-10 17:39:16,879 INFO logging_setup.py [75] MainThread :2026-06-10 17:39:16DC1 OUTP OFF
+2026-06-10 17:39:19,162 INFO dc_controller.py [66] MainThread :DC1 OUTP ON
+2026-06-10 17:39:19,168 INFO logging_setup.py [75] MainThread :2026-06-10 17:39:19DC1 OUTP ON
+2026-06-10 17:39:20,515 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-10 17:39:23,227 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-10 17:39:25,034 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "Y:\codes\solarautotestdev\SCPITestWave.py", line 207, in SendDC1QueryMessage
+    return dc1_controller.query_message(uiDC1Setting, "DC1", logger)
+  File "Y:\codes\solarautotestdev\devices\dc_controller.py", line 108, in query_message
+    query_message = ui_setting.textEdit_SendQueryMessage.toPlainText()
+AttributeError: 'Ui_Dialog_DC1_Setting' object has no attribute 'textEdit_SendQueryMessage'
+2026-06-10 17:39:28,430 INFO dc_controller.py [66] MainThread :DC1 OUTP OFF
+2026-06-10 17:39:28,437 INFO logging_setup.py [75] MainThread :2026-06-10 17:39:28DC1 OUTP OFF
+2026-06-10 17:39:29,194 INFO dc_controller.py [66] MainThread :DC1 OUTP ON
+2026-06-10 17:39:29,201 INFO logging_setup.py [75] MainThread :2026-06-10 17:39:29DC1 OUTP ON
+2026-06-10 17:39:50,305 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:39:50,313 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:40:24,660 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:40:24,670 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:40:30,564 INFO logging_setup.py [75] MainThread :dc_type--Chroma
+2026-06-10 17:40:30,570 INFO logging_setup.py [75] MainThread :1
+2026-06-10 17:40:30,576 INFO logging_setup.py [75] MainThread :IVC:IT 7.867,7.805,7.743,7.681,7.619,7.557,7.495,7.433,7.371,7.309,7.248,7.186,7.124,7.062,7.000,6.938,6.876,6.814,6.752,6.690,6.628,6.566,6.504,6.442,6.380,6.318,6.256,6.194,6.133,6.071,6.009,5.947,5.885,5.823,5.761,5.699,5.637,5.575,5.513,5.451,5.389,5.327,5.265,5.203,5.141,5.079,5.018,4.956,4.894,4.832,4.770,4.708,4.646,4.584,4.522,4.460,4.398,4.336,4.274,4.212,4.150,4.088,4.026,3.964,3.903,3.841,3.779,3.717,3.655,3.593,3.531,3.469,3.407,3.345,3.283,3.221,3.159,3.097,3.035,2.973,2.911,2.849,2.788,2.726,2.664,2.602,2.540,2.478,2.416,2.354,2.292,2.230,2.168,2.106,2.044,1.982,1.920,1.858,1.796,1.734,1.673,1.611,1.549,1.487,1.425,1.363,1.301,1.239,1.177,1.115,1.053,0.991,0.929,0.867,0.805,0.743,0.681,0.619,0.558,0.496,0.434,0.372,0.310,0.248,0.186,0.124,0.062,0.000
+2026-06-10 17:40:30,580 INFO logging_setup.py [75] MainThread :IVC:VT 0.000,600.125,615.062,623.800,630.000,634.809,638.738,642.060,644.938,647.476,649.712,651.769,653.647,655.374,656.973,658.461,659.854,661.161,662.394,663.560,664.667,665.719,666.722,667.681,668.599,669.479,670.325,671.139,671.910,672.668,673.399,674.106,674.791,675.455,676.099,676.724,677.332,677.923,678.498,679.058,679.604,680.137,680.657,681.164,681.660,682.145,682.611,683.075,683.529,683.974,684.410,684.837,685.256,685.667,686.070,686.466,686.854,687.236,687.611,687.980,688.342,688.699,689.050,689.395,689.729,690.063,690.393,690.717,691.037,691.351,691.662,691.968,692.270,692.567,692.860,693.150,693.436,693.718,693.996,694.271,694.542,694.810,695.070,695.332,695.590,695.845,696.098,696.347,696.594,696.837,697.078,697.317,697.552,697.786,698.016,698.245,698.470,698.694,698.915,699.134,699.347,699.562,699.775,699.985,700.193,700.400,700.604,700.807,701.007,701.206,701.403,701.598,701.792,701.984,702.174,702.362,702.549,702.734,702.915,703.097,703.277,703.456,703.634,703.810,703.984,704.158,704.329,704.500
+2026-06-10 17:40:30,586 INFO SCPITestWave.py [195] MainThread :SendMessageToDC1:IVC:IT 7.867,7.805,7.743,7.681,7.619,7.557,7.495,7.433,7.371,7.309,7.248,7.186,7.124,7.062,7.000,6.938,6.876,6.814,6.752,6.690,6.628,6.566,6.504,6.442,6.380,6.318,6.256,6.194,6.133,6.071,6.009,5.947,5.885,5.823,5.761,5.699,5.637,5.575,5.513,5.451,5.389,5.327,5.265,5.203,5.141,5.079,5.018,4.956,4.894,4.832,4.770,4.708,4.646,4.584,4.522,4.460,4.398,4.336,4.274,4.212,4.150,4.088,4.026,3.964,3.903,3.841,3.779,3.717,3.655,3.593,3.531,3.469,3.407,3.345,3.283,3.221,3.159,3.097,3.035,2.973,2.911,2.849,2.788,2.726,2.664,2.602,2.540,2.478,2.416,2.354,2.292,2.230,2.168,2.106,2.044,1.982,1.920,1.858,1.796,1.734,1.673,1.611,1.549,1.487,1.425,1.363,1.301,1.239,1.177,1.115,1.053,0.991,0.929,0.867,0.805,0.743,0.681,0.619,0.558,0.496,0.434,0.372,0.310,0.248,0.186,0.124,0.062,0.000
+2026-06-10 17:40:30,591 INFO logging_setup.py [75] MainThread :2026-06-10 17:40:30SendMessageToDC1:IVC:IT 7.867,7.805,7.743,7.681,7.619,7.557,7.495,7.433,7.371,7.309,7.248,7.186,7.124,7.062,7.000,6.938,6.876,6.814,6.752,6.690,6.628,6.566,6.504,6.442,6.380,6.318,6.256,6.194,6.133,6.071,6.009,5.947,5.885,5.823,5.761,5.699,5.637,5.575,5.513,5.451,5.389,5.327,5.265,5.203,5.141,5.079,5.018,4.956,4.894,4.832,4.770,4.708,4.646,4.584,4.522,4.460,4.398,4.336,4.274,4.212,4.150,4.088,4.026,3.964,3.903,3.841,3.779,3.717,3.655,3.593,3.531,3.469,3.407,3.345,3.283,3.221,3.159,3.097,3.035,2.973,2.911,2.849,2.788,2.726,2.664,2.602,2.540,2.478,2.416,2.354,2.292,2.230,2.168,2.106,2.044,1.982,1.920,1.858,1.796,1.734,1.673,1.611,1.549,1.487,1.425,1.363,1.301,1.239,1.177,1.115,1.053,0.991,0.929,0.867,0.805,0.743,0.681,0.619,0.558,0.496,0.434,0.372,0.310,0.248,0.186,0.124,0.062,0.000
+2026-06-10 17:40:31,409 INFO SCPITestWave.py [195] MainThread :SendMessageToDC1:IVC:VT 0.000,600.125,615.062,623.800,630.000,634.809,638.738,642.060,644.938,647.476,649.712,651.769,653.647,655.374,656.973,658.461,659.854,661.161,662.394,663.560,664.667,665.719,666.722,667.681,668.599,669.479,670.325,671.139,671.910,672.668,673.399,674.106,674.791,675.455,676.099,676.724,677.332,677.923,678.498,679.058,679.604,680.137,680.657,681.164,681.660,682.145,682.611,683.075,683.529,683.974,684.410,684.837,685.256,685.667,686.070,686.466,686.854,687.236,687.611,687.980,688.342,688.699,689.050,689.395,689.729,690.063,690.393,690.717,691.037,691.351,691.662,691.968,692.270,692.567,692.860,693.150,693.436,693.718,693.996,694.271,694.542,694.810,695.070,695.332,695.590,695.845,696.098,696.347,696.594,696.837,697.078,697.317,697.552,697.786,698.016,698.245,698.470,698.694,698.915,699.134,699.347,699.562,699.775,699.985,700.193,700.400,700.604,700.807,701.007,701.206,701.403,701.598,701.792,701.984,702.174,702.362,702.549,702.734,702.915,703.097,703.277,703.456,703.634,703.810,703.984,704.158,704.329,704.500
+2026-06-10 17:40:31,415 INFO logging_setup.py [75] MainThread :2026-06-10 17:40:31SendMessageToDC1:IVC:VT 0.000,600.125,615.062,623.800,630.000,634.809,638.738,642.060,644.938,647.476,649.712,651.769,653.647,655.374,656.973,658.461,659.854,661.161,662.394,663.560,664.667,665.719,666.722,667.681,668.599,669.479,670.325,671.139,671.910,672.668,673.399,674.106,674.791,675.455,676.099,676.724,677.332,677.923,678.498,679.058,679.604,680.137,680.657,681.164,681.660,682.145,682.611,683.075,683.529,683.974,684.410,684.837,685.256,685.667,686.070,686.466,686.854,687.236,687.611,687.980,688.342,688.699,689.050,689.395,689.729,690.063,690.393,690.717,691.037,691.351,691.662,691.968,692.270,692.567,692.860,693.150,693.436,693.718,693.996,694.271,694.542,694.810,695.070,695.332,695.590,695.845,696.098,696.347,696.594,696.837,697.078,697.317,697.552,697.786,698.016,698.245,698.470,698.694,698.915,699.134,699.347,699.562,699.775,699.985,700.193,700.400,700.604,700.807,701.007,701.206,701.403,701.598,701.792,701.984,702.174,702.362,702.549,702.734,702.915,703.097,703.277,703.456,703.634,703.810,703.984,704.158,704.329,704.500
+2026-06-10 17:40:32,229 INFO SCPITestWave.py [195] MainThread :SendMessageToDC1:OUTP:MODE TABLE
+2026-06-10 17:40:32,237 INFO logging_setup.py [75] MainThread :2026-06-10 17:40:32SendMessageToDC1:OUTP:MODE TABLE
+2026-06-10 17:40:33,055 INFO SCPITestWave.py [195] MainThread :SendMessageToDC1:IVCurve:SELect 1
+2026-06-10 17:40:33,064 INFO logging_setup.py [75] MainThread :2026-06-10 17:40:33SendMessageToDC1:IVCurve:SELect 1
+2026-06-10 17:40:41,331 INFO dc_controller.py [66] MainThread :DC1 OUTP OFF
+2026-06-10 17:40:41,339 INFO logging_setup.py [75] MainThread :2026-06-10 17:40:41DC1 OUTP OFF
+2026-06-10 17:40:49,764 INFO SCPITestWave.py [915] MainThread :WT3000波特率已选择: 19200
+2026-06-10 17:40:49,777 INFO logging_setup.py [75] MainThread :WT3000波特率已选择: 19200
+2026-06-10 17:40:59,019 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:40:59,027 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:41:33,386 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:41:33,396 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:42:07,754 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:42:07,770 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:42:42,123 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:42:42,132 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:43:16,485 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:43:16,496 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:43:50,850 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:43:50,858 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:44:25,209 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:44:25,221 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:44:59,578 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:44:59,593 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:45:33,954 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:45:33,961 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:46:08,299 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:46:08,307 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:46:42,657 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:46:42,671 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:47:17,019 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:47:17,028 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:47:51,385 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:47:51,393 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:48:25,750 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:48:25,758 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:49:00,114 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:49:00,122 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:49:34,485 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:49:34,495 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:50:08,857 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:50:08,991 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:50:43,340 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:50:43,350 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:51:17,700 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:51:17,709 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:51:52,074 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:51:52,102 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:52:26,445 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:52:26,453 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:53:00,804 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:53:00,813 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:53:35,155 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:53:35,162 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:54:09,514 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:54:09,523 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:54:13,737 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27931: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:13,737 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 17:54:13,738 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:13,738 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 17:54:13,738 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27952: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:13,739 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 17:54:13,981 INFO logging_setup.py [75] MainThread :()
+2026-06-10 17:54:14,714 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28510: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:14,714 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 17:54:14,714 INFO SCPITestWave.py [28514] MainThread :2026-06-10 17:54:14    程式开启
+2026-06-10 17:54:14,714 INFO logging_setup.py [75] MainThread :2026-06-10 17:54:14    程式开启
+2026-06-10 17:54:18,115 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 120, in OpenACOUTPUTON
+    return ac_controller.open_output()
+AttributeError: 'NoneType' object has no attribute 'open_output'
+2026-06-10 17:54:19,399 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py", line 473, in CloseACOUTPUTON
+    return ac_controller.close_output()
+AttributeError: 'NoneType' object has no attribute 'close_output'
+2026-06-10 17:54:39,435 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27931: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:39,435 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 17:54:39,436 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:39,436 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 17:54:39,437 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27952: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:39,437 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 17:54:39,663 INFO logging_setup.py [75] MainThread :()
+2026-06-10 17:54:40,340 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28533: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:54:40,341 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 17:54:40,341 INFO SCPITestWave.py [28537] MainThread :2026-06-10 17:54:40    程式开启
+2026-06-10 17:54:40,341 INFO logging_setup.py [75] MainThread :2026-06-10 17:54:40    程式开启
+2026-06-10 17:54:43,733 WARNING SCPITestWave.py [28146] MainThread :WT3000 未连接，无法发送闪变命令
+2026-06-10 17:54:43,733 INFO logging_setup.py [75] MainThread :WT3000 未连接，无法发送闪变命令
+2026-06-10 17:54:43,875 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:54:43,887 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:54:46,126 WARNING SCPITestWave.py [28146] MainThread :WT3000 未连接，无法发送闪变命令
+2026-06-10 17:54:46,126 INFO logging_setup.py [75] MainThread :WT3000 未连接，无法发送闪变命令
+2026-06-10 17:55:18,247 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:55:18,261 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:55:52,626 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:55:52,638 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:56:26,990 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:56:27,005 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:56:46,567 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27931: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:46,567 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 17:56:46,568 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:46,568 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 17:56:46,569 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27952: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:46,569 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 17:56:46,809 INFO logging_setup.py [75] MainThread :()
+2026-06-10 17:56:47,531 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28533: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:47,531 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 17:56:47,531 INFO SCPITestWave.py [28537] MainThread :2026-06-10 17:56:47    程式开启
+2026-06-10 17:56:47,531 INFO logging_setup.py [75] MainThread :2026-06-10 17:56:47    程式开启
+2026-06-10 17:56:52,895 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27931: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:52,895 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 17:56:52,896 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:52,896 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 17:56:52,896 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:27952: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:52,896 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 17:56:53,144 INFO logging_setup.py [75] MainThread :()
+2026-06-10 17:56:53,872 ERROR logging_setup.py [75] MainThread :c:\Users\28468\Desktop\workspace\codes\solarautotestdev\SCPITestWave.py:28533: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:56:53,872 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 17:56:53,873 INFO SCPITestWave.py [28537] MainThread :2026-06-10 17:56:53    程式开启
+2026-06-10 17:56:53,873 INFO logging_setup.py [75] MainThread :2026-06-10 17:56:53    程式开启
+2026-06-10 17:57:01,377 INFO SCPITestWave.py [27609] Thread-49 (system_error_info) :AC return error message: 0,"No error"
+2026-06-10 17:57:01,391 INFO SCPITestWave.py [27615] Thread-49 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:57:24,269 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27931: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:57:24,274 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 17:57:24,278 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:57:24,286 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 17:57:24,291 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27952: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:57:24,296 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 17:57:24,470 INFO logging_setup.py [75] MainThread :('USB0::0x0A69::0x084B::S50000002328::INSTR', 'USB0::0x0A69::0x0870::618300000298::INSTR')
+2026-06-10 17:57:24,475 INFO logging_setup.py [75] MainThread :2
+2026-06-10 17:57:25,847 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:28533: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 17:57:25,852 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 17:57:25,857 INFO SCPITestWave.py [28537] MainThread :2026-06-10 17:57:25    程式开启
+2026-06-10 17:57:25,862 INFO logging_setup.py [75] MainThread :2026-06-10 17:57:25    程式开启
+2026-06-10 17:57:31,418 INFO SCPITestWave.py [977] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:57:31,425 INFO logging_setup.py [75] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:57:31,436 INFO ac_controller.py [89] MainThread :交流电源连接成功
+2026-06-10 17:57:31,442 INFO logging_setup.py [75] MainThread :交流电源连接成功
+2026-06-10 17:57:37,993 INFO logging_setup.py [75] MainThread :关闭设备成功
+2026-06-10 17:57:43,546 INFO SCPITestWave.py [977] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:57:43,553 INFO logging_setup.py [75] MainThread :USB0::0x0A69::0x0870::618300000298::INSTR
+2026-06-10 17:57:43,566 INFO ac_controller.py [89] MainThread :交流电源连接成功
+2026-06-10 17:57:43,572 INFO logging_setup.py [75] MainThread :交流电源连接成功
+2026-06-10 17:57:45,146 INFO ac_controller.py [166] MainThread :SYST:RUN
+2026-06-10 17:57:45,152 INFO ac_controller.py [178] MainThread :OUTP ON
+2026-06-10 17:57:45,157 INFO logging_setup.py [75] MainThread :2026-06-10 17:57:45 OUTP ON
+2026-06-10 17:57:45,642 INFO ac_controller.py [298] MainThread :SYST:STANDBY
+2026-06-10 17:57:45,650 INFO ac_controller.py [307] MainThread :OUTP OFF
+2026-06-10 17:57:45,656 INFO logging_setup.py [75] MainThread :2026-06-10 17:57:45 OUTP OFF
+2026-06-10 17:57:52,562 INFO SCPITestWave.py [1134] MainThread :USB0::0x0A69::0x084B::S50000002328::INSTR
+2026-06-10 17:57:52,573 INFO dc_controller.py [171] MainThread :直流电源连接成功
+2026-06-10 17:57:52,579 INFO logging_setup.py [75] MainThread :直流电源连接成功
+2026-06-10 17:57:52,589 INFO logging_setup.py [75] MainThread :DC1 *IDN? 查询结果: CHROMA ATE,62150H-1000S,02328,02.30
+2026-06-10 17:57:52,593 INFO SCPITestWave.py [1120] MainThread :DC1 厂家识别结果: Chroma
+2026-06-10 17:57:52,599 INFO logging_setup.py [75] MainThread :DC1 厂家识别结果: Chroma
+2026-06-10 17:57:53,440 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:*CLS
+2026-06-10 17:57:53,449 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:*CLS
+2026-06-10 17:57:53,456 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:*RST
+2026-06-10 17:57:53,461 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:*RST
+2026-06-10 17:57:53,466 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:OUTP OFF
+2026-06-10 17:57:53,470 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:OUTP OFF
+2026-06-10 17:57:53,529 INFO logging_setup.py [75] Thread-3741 :ON
+2026-06-10 17:57:53,535 INFO logging_setup.py [75] Thread-3741 :ON
+2026-06-10 17:57:53,544 INFO logging_setup.py [75] Thread-3741 :find NO
+2026-06-10 17:57:53,548 INFO SCPITestWave.py [24767] Thread-3741 :2026-06-10 17:57:53ReturnMessageFromDC1:ON
+2026-06-10 17:57:53,553 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53ReturnMessageFromDC1:ON
+2026-06-10 17:57:53,565 INFO logging_setup.py [75] Thread-3741 :1
+2026-06-10 17:57:53,573 INFO logging_setup.py [75] Thread-3741 :1
+2026-06-10 17:57:53,579 INFO SCPITestWave.py [24767] Thread-3741 :2026-06-10 17:57:53ReturnMessageFromDC1:1
+2026-06-10 17:57:53,587 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53ReturnMessageFromDC1:1
+2026-06-10 17:57:53,593 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-06-10 17:57:53,623 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:IVC:EDIT:SHADOW:MODE 5
+2026-06-10 17:57:53,630 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:Source:Volt 0.00
+2026-06-10 17:57:53,636 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:Source:Volt 0.00
+2026-06-10 17:57:53,642 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:Source:Curr 0.000
+2026-06-10 17:57:53,648 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:Source:Curr 0.000
+2026-06-10 17:57:53,654 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:volt:prot:high max
+2026-06-10 17:57:53,661 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:volt:prot:high max
+2026-06-10 17:57:53,668 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:curr:prot:high max
+2026-06-10 17:57:53,674 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:curr:prot:high max
+2026-06-10 17:57:53,679 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:pow:prot:high max
+2026-06-10 17:57:53,684 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:pow:prot:high max
+2026-06-10 17:57:53,689 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-06-10 17:57:53,694 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:volt:prot:high 1100.00
+2026-06-10 17:57:53,698 INFO SCPITestWave.py [24728] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:curr:prot:high 31.50
+2026-06-10 17:57:53,704 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:curr:prot:high 31.50
+2026-06-10 17:57:53,709 INFO SCPITestWave.py [24741] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:pow:prot:high 31500.0
+2026-06-10 17:57:53,721 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1::sour:pow:prot:high 31500.0
+2026-06-10 17:57:53,727 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:OUTP OFF
+2026-06-10 17:57:53,731 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:OUTP OFF
+2026-06-10 17:57:53,736 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:OUTP:MODE TABLE
+2026-06-10 17:57:53,742 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:OUTP:MODE TABLE
+2026-06-10 17:57:53,747 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:IVC:EDIT 1
+2026-06-10 17:57:53,753 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:IVC:EDIT 1
+2026-06-10 17:57:53,758 INFO SCPITestWave.py [24715] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-06-10 17:57:53,764 INFO logging_setup.py [75] Thread-3741 :2026-06-10 17:57:53SendMessageToDC1:CONF:OUTP:MODE CCCV
+2026-06-10 17:58:00,204 INFO SCPITestWave.py [27673] Thread-83 (system_error_info) :AC return error message: -102,"Syntax error"
+2026-06-10 17:58:00,214 INFO SCPITestWave.py [27679] Thread-83 (system_error_info) :DC1 return error message: 0,"No error"
+2026-06-10 17:58:06,209 INFO logging_setup.py [75] MainThread :关闭设备成功
+2026-06-10 17:58:08,040 INFO ac_controller.py [311] MainThread :AC Not Connect
+2026-06-10 17:58:08,046 INFO logging_setup.py [75] MainThread :2026-06-10 17:58:08 AC Not Connect
+2026-06-10 17:58:13,099 INFO dc_controller.py [66] MainThread :DC1 OUTP OFF
+2026-06-10 17:58:13,108 INFO logging_setup.py [75] MainThread :2026-06-10 17:58:13DC1 OUTP OFF
+2026-06-10 17:58:16,817 INFO logging_setup.py [75] MainThread :关闭设备成功
+2026-06-10 18:03:41,009 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27931: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 18:03:41,016 ERROR logging_setup.py [75] MainThread :  threadStartTestFunction.setDaemon(True)
+2026-06-10 18:03:41,022 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27947: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 18:03:41,027 ERROR logging_setup.py [75] MainThread :  threadSendDCStartCommandFunction.setDaemon(True)
+2026-06-10 18:03:41,033 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:27952: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 18:03:41,038 ERROR logging_setup.py [75] MainThread :  thread_messure_testing.setDaemon(True)
+2026-06-10 18:03:41,167 INFO logging_setup.py [75] MainThread :('USB0::0x0A69::0x084B::S50000002328::INSTR', 'USB0::0x0A69::0x0870::618300000298::INSTR')
+2026-06-10 18:03:41,173 INFO logging_setup.py [75] MainThread :2
+2026-06-10 18:03:42,064 ERROR logging_setup.py [75] MainThread :Y:\codes\solarautotestdev\SCPITestWave.py:28533: DeprecationWarning: setDaemon() is deprecated, set the daemon attribute instead
+2026-06-10 18:03:42,069 ERROR logging_setup.py [75] MainThread :  thread_error_info.setDaemon(True)
+2026-06-10 18:03:42,074 INFO SCPITestWave.py [28537] MainThread :2026-06-10 18:03:42    程式开启
+2026-06-10 18:03:42,078 INFO logging_setup.py [75] MainThread :2026-06-10 18:03:42    程式开启

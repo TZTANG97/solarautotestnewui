@@ -1,13 +1,61 @@
 {
   "devices": [
-    {"name": "交流电源", "resource": "TCPIP0::192.168.1.100::inst0::INSTR", "connected": false, "page": 1, "last_connected": "2026-06-10 14:30:00"},
-    {"name": "直流电源1", "resource": "TCPIP0::192.168.1.101::inst0::INSTR", "connected": false, "page": 2, "last_connected": "2026-06-10 14:30:00"},
-    {"name": "直流电源2", "resource": "", "connected": false, "page": 3, "last_connected": ""},
-    {"name": "直流电源3", "resource": "", "connected": false, "page": 4, "last_connected": ""},
-    {"name": "直流电源4", "resource": "", "connected": false, "page": 5, "last_connected": ""},
-    {"name": "DL850", "resource": "", "connected": false, "page": 6, "last_connected": ""},
-    {"name": "WT3000", "resource": "", "connected": false, "page": 7, "last_connected": ""},
-    {"name": "DEWETRON", "resource": "TCPIP0::192.168.1.200::10001::SOCKET", "connected": false, "page": 8, "last_connected": ""}
+    {
+      "name": "交流电源",
+      "resource": "USB0::0x0A69::0x0870::618300000298::INSTR",
+      "connected": false,
+      "page": 1,
+      "last_connected": "2026-06-10 17:57:43"
+    },
+    {
+      "name": "直流电源1",
+      "resource": "USB0::0x0A69::0x084B::S50000002328::INSTR",
+      "connected": false,
+      "page": 2,
+      "last_connected": "2026-06-10 17:57:52"
+    },
+    {
+      "name": "直流电源2",
+      "resource": "",
+      "connected": false,
+      "page": 3,
+      "last_connected": ""
+    },
+    {
+      "name": "直流电源3",
+      "resource": "",
+      "connected": false,
+      "page": 4,
+      "last_connected": ""
+    },
+    {
+      "name": "直流电源4",
+      "resource": "",
+      "connected": false,
+      "page": 5,
+      "last_connected": ""
+    },
+    {
+      "name": "DL850",
+      "resource": "",
+      "connected": false,
+      "page": 6,
+      "last_connected": ""
+    },
+    {
+      "name": "WT3000",
+      "resource": "192.168.40.100",
+      "connected": false,
+      "page": 7,
+      "last_connected": "2026-06-11 08:58:30"
+    },
+    {
+      "name": "DEWETRON",
+      "resource": "TCPIP0::192.168.1.200::10001::SOCKET",
+      "connected": false,
+      "page": 8,
+      "last_connected": ""
+    }
   ],
   "project": {
     "name": "电压闪变",

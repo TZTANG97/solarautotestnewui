@@ -626,6 +626,49 @@ def _toggle_connection_button(connected_button_name, connected):
         btn.setText("取消连接" if connected else "连接设备")
 
 
+def _save_device_status(device_name, connected, resource=""):
+    """更新 status.json 中的设备连接状态，刷新首页显示。"""
+    import json
+    import os
+    from datetime import datetime
+    _status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+    try:
+        with open(_status_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {"devices": [], "project": {}}
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for dev in data.get("devices", []):
+        if dev["name"] == device_name:
+            dev["connected"] = connected
+            if resource:
+                dev["resource"] = resource
+            if connected:
+                dev["last_connected"] = now_str
+            break
+    with open(_status_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    # 刷新首页
+    if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
+        ui.stackedWidget.widget(0).update() if hasattr(ui.stackedWidget.widget(0), 'update') else None
+        _reload_home_status(data)
+
+
+def _reload_home_status(data):
+    """用已加载的 status 数据刷新首页卡片。"""
+    for dev in data.get("devices", []):
+        name = dev["name"]
+        if name in getattr(ui, '_home_dots', {}):
+            color = "#22c55e" if dev.get("connected") else "#ef4444"
+            ui._home_dots[name].setStyleSheet(f"background-color: {color}; border-radius: 5px;")
+        if name in getattr(ui, '_home_res_labels', {}):
+            res = dev.get("resource", "") or "未配置"
+            ui._home_res_labels[name].setText(res)
+        if name in getattr(ui, '_home_time_labels', {}):
+            last = dev.get("last_connected", "")
+            ui._home_time_labels[name].setText(f"上次连接: {last}" if last else "")
+
+
 def _safe_close_handle(handle):
     """关闭设备句柄：委托 ``devices.handle_release``，与 AC/DC 控制器内重连前释放逻辑一致。"""
     try:
@@ -802,6 +845,7 @@ def DisconnectEQUDC1():
     if hasattr(ui, "comboBox_DC1"):
         ui.comboBox_DC1.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC1", False)
+    _save_device_status("直流电源1", False)
 
 def DisconnectEQUDC2():
     """断开 DC2 并解锁选择框。"""
@@ -816,6 +860,7 @@ def DisconnectEQUDC2():
     if hasattr(ui, "comboBox_DC2"):
         ui.comboBox_DC2.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC2", False)
+    _save_device_status("直流电源2", False)
 
 def DisconnectEQUDC3():
     """断开 DC3 并解锁选择框。"""
@@ -830,6 +875,7 @@ def DisconnectEQUDC3():
     if hasattr(ui, "comboBox_DC3"):
         ui.comboBox_DC3.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC3", False)
+    _save_device_status("直流电源3", False)
 
 def DisconnectEQUDC4():
     """断开 DC4 并解锁选择框。"""
@@ -844,6 +890,7 @@ def DisconnectEQUDC4():
     if hasattr(ui, "comboBox_DC4"):
         ui.comboBox_DC4.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC4", False)
+    _save_device_status("直流电源4", False)
 
 def DisconnectEQUDL850():
     """断开 DL850 并解锁选择框。"""
@@ -855,6 +902,7 @@ def DisconnectEQUDL850():
     _restore_equ_to_combo_boxes(tcp_addr)
     _set_equ_combo_locked("comboBox_DL850", False)
     _toggle_connection_button("pushButton_ConnectEQUDL850", False)
+    _save_device_status("DL850", False)
 
 def DisconnectEQUDEWETRON():
     """断开 DEWETRON 并解锁选择框。"""
@@ -871,17 +919,24 @@ def DisconnectEQUDEWETRON():
     _restore_equ_to_combo_boxes(tcp_addr)
     _set_equ_combo_locked("comboBox_DEWETRON", False)
     _toggle_connection_button("pushButton_ConnectEQUDEWETRON", False)
+    _save_device_status("DEWETRON", False)
 
 def DisconnectEQUWT3000():
     """断开 WT3000 并解锁选择框。"""
     global wt3000_controller
-    tcp_addr = _normalize_equ_resource_text(ui.comboBox_WT3000.currentText())
+    # 使用控制器记录的连接地址
+    tcp_addr = ''
+    if wt3000_controller is not None:
+        tcp_addr = wt3000_controller.resource or ''
+    if not tcp_addr:
+        tcp_addr = _normalize_equ_resource_text(ui.comboBox_WT3000.currentText())
     if wt3000_controller is None:
         wt3000_controller = WT3000Controller(logger, _show_connect_message, rm, WT3000_baud_rate)
     wt3000_controller.disconnect(_safe_close_handle)
     _restore_equ_to_combo_boxes(tcp_addr)
     _set_equ_combo_locked("comboBox_WT3000", False)
     _toggle_connection_button("pushButton_ConnectEQUWT3000", False)
+    _save_device_status("WT3000", False)
 
 def ShowWT3000Setting():
     global WT3000_setting_window, uiWT3000Setting
@@ -937,12 +992,14 @@ def ConnectEQUAC():
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_AC", True)
             ui.pushButton_ConnectEQUAC.setText("取消连接")
+            _save_device_status("交流电源", True, tcp_addr)
     else:
         ac_controller.connect_scpi(tcp_addr, ui)
         if ac_controller.connected:
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_AC", True)
             ui.pushButton_ConnectEQUAC.setText("取消连接")
+            _save_device_status("交流电源", True, tcp_addr)
 
 def DisconnectEQUAC():
     """断开交流电源并解锁选择框。"""
@@ -954,6 +1011,7 @@ def DisconnectEQUAC():
     if hasattr(ui, "comboBox_AC"):
         ui.comboBox_AC.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUAC", False)
+    _save_device_status("交流电源", False)
 
 def _configure_scpi_resource(handle):
     """
@@ -1093,6 +1151,7 @@ def ConnectEQUDC1():
             strFlagOfSendDCCommandTestLog = "1"
             print("直流电源1连接成功")
             ui.pushButton_ConnectEQUDC1.setText("取消连接")
+            _save_device_status("直流电源1", True, tcp_addr)
     else:
         dc1_controller.connect_scpi(tcp_addr, ui)
         if dc1_controller.connected and dc1_controller.handle is not None:
@@ -1102,6 +1161,7 @@ def ConnectEQUDC1():
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "1"
             ui.pushButton_ConnectEQUDC1.setText("取消连接")
+            _save_device_status("直流电源1", True, tcp_addr)
 
 def ConnectEQUDC2():
     """连接 DC2（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
@@ -1131,6 +1191,7 @@ def ConnectEQUDC2():
             strFlagOfSendDCCommandTestLog = "2"
             print("直流电源2连接成功")
             ui.pushButton_ConnectEQUDC2.setText("取消连接")
+            _save_device_status("直流电源2", True, tcp_addr)
     else:
         dc2_controller.connect_scpi(tcp_addr, ui)
         if dc2_controller.connected and dc2_controller.handle is not None:
@@ -1140,6 +1201,7 @@ def ConnectEQUDC2():
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "2"
             ui.pushButton_ConnectEQUDC2.setText("取消连接")
+            _save_device_status("直流电源2", True, tcp_addr)
 
 def ConnectEQUDC3():
     """连接 DC3（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
@@ -1169,6 +1231,7 @@ def ConnectEQUDC3():
             strFlagOfSendDCCommandTestLog = "3"
             print("直流电源3连接成功")
             ui.pushButton_ConnectEQUDC3.setText("取消连接")
+            _save_device_status("直流电源3", True, tcp_addr)
     else:
         dc3_controller.connect_scpi(tcp_addr, ui)
         if dc3_controller.connected and dc3_controller.handle is not None:
@@ -1178,6 +1241,7 @@ def ConnectEQUDC3():
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "3"
             ui.pushButton_ConnectEQUDC3.setText("取消连接")
+            _save_device_status("直流电源3", True, tcp_addr)
 
 def ConnectEQUDC4():
     """连接 DC4（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
@@ -1207,6 +1271,7 @@ def ConnectEQUDC4():
             strFlagOfSendDCCommandTestLog = "4"
             print("直流电源4连接成功")
             ui.pushButton_ConnectEQUDC4.setText("取消连接")
+            _save_device_status("直流电源4", True, tcp_addr)
     else:
         dc4_controller.connect_scpi(tcp_addr, ui)
         if dc4_controller.connected and dc4_controller.handle is not None:
@@ -1216,6 +1281,7 @@ def ConnectEQUDC4():
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "4"
             ui.pushButton_ConnectEQUDC4.setText("取消连接")
+            _save_device_status("直流电源4", True, tcp_addr)
 
 def ConnectEQUDL850():
     """连接 DL850。"""
@@ -1233,6 +1299,7 @@ def ConnectEQUDL850():
         _set_equ_combo_locked("comboBox_DL850", True)
         _toggle_connection_button("pushButton_ConnectEQUDL850", True)
         ui.pushButton_ConnectEQUDL850.setText("取消连接")
+        _save_device_status("DL850", True, tcp_addr)
 
 def ConnectEQUDEWETRON():
     """连接 DEWETRON。"""
@@ -1255,6 +1322,7 @@ def ConnectEQUDEWETRON():
         _set_equ_combo_locked("comboBox_DEWETRON", True)
         _toggle_connection_button("pushButton_ConnectEQUDEWETRON", True)
         ui.pushButton_ConnectEQUDEWETRON.setText("取消连接")
+        _save_device_status("DEWETRON", True, tcp_addr)
 
 def is_ip_address_format(addr):
     """判断输入是否为IPv4地址，支持可选端口（如 192.168.40.1:5000）。"""
@@ -1269,13 +1337,36 @@ def ConnectEQUWT3000():
     if ui.pushButton_ConnectEQUWT3000.text() == "取消连接":
         DisconnectEQUWT3000()
         return
-    tcp_addr = _normalize_equ_resource_text(ui.comboBox_WT3000.currentText())
-    if tcp_addr == _default_equ_placeholder():
-        tcp_addr = ''
+
+    # 优先使用 IP 地址输入框
+    tcp_addr = ''
+    _wt3000_page = ui.stackedWidget.widget(7)
+    ip_edit = getattr(_wt3000_page, "_extra_widgets_comboBox_WT3000", {}).get("lineEdit_WT3000_IP")
+    port_edit = getattr(_wt3000_page, "_extra_widgets_comboBox_WT3000", {}).get("lineEdit_WT3000_Port")
+
+    if ip_edit is not None:
+        ip_text = ip_edit.text().strip()
+        if ip_text:
+            port_text = port_edit.text().strip() if port_edit else ''
+            if port_text:
+                tcp_addr = f"{ip_text}:{port_text}"
+            else:
+                tcp_addr = ip_text
+
+    # 如果 IP 输入框为空，使用 comboBox 中的资源
     if not tcp_addr:
         tcp_addr = _normalize_equ_resource_text(ui.comboBox_WT3000.currentText())
-    logger.info(tcp_addr)
-    print(tcp_addr)
+        if tcp_addr == _default_equ_placeholder():
+            tcp_addr = ''
+
+    logger.info(f"WT3000 连接地址: {tcp_addr}")
+    print(f"WT3000 连接地址: {tcp_addr}")
+
+    if not tcp_addr:
+        logger.warning("WT3000 未输入连接地址")
+        print("WT3000 未输入连接地址")
+        return
+
     if wt3000_controller is None:
         wt3000_controller = WT3000Controller(logger, _show_connect_message, rm, WT3000_baud_rate)
     wt3000_controller.connect(tcp_addr)
@@ -1284,9 +1375,8 @@ def ConnectEQUWT3000():
         _set_equ_combo_locked("comboBox_WT3000", True)
         _toggle_connection_button("pushButton_ConnectEQUWT3000", True)
         ui.pushButton_ConnectEQUWT3000.setText("取消连接")
+        _save_device_status("WT3000", True, tcp_addr)
         time.sleep(0.1)
-
-        #str1 = ":RATE 50MS"
  
 #重新刷新接口函数
 def ReConnectEQU():
@@ -28057,8 +28147,10 @@ if __name__ == "__main__":
             ]
 
             _WT3000_GRID = [
+                {"title": "IP地址",     "widgets": ["lineEdit_WT3000_IP", "lineEdit_WT3000_Port"]},
                 {"title": "波特率设置", "widgets": ["comboBox_BaudRate"]},
                 {"title": "设备连接",   "widgets": "__connect_clean__"},
+                {"title": "测试命令",   "widgets": ["pushButton_SwitchFlicker"]},
             ]
 
             # WT3000 波特率下拉框：直接创建在页面上（不依赖设置对话框）
@@ -28070,8 +28162,43 @@ if __name__ == "__main__":
             _baud_combo.setMinimumWidth(120)
             _baud_combo.currentTextChanged.connect(
                 lambda text: _apply_wt3000_baud_rate(text))
+
+            # WT3000 IP 地址输入框
+            _wt3000_ip_edit = QtWidgets.QLineEdit()
+            _wt3000_ip_edit.setObjectName("lineEdit_WT3000_IP")
+            _wt3000_ip_edit.setPlaceholderText("IP地址 (如 192.168.1.100)")
+            _wt3000_ip_edit.setMinimumWidth(160)
+
+            _wt3000_port_edit = QtWidgets.QLineEdit()
+            _wt3000_port_edit.setObjectName("lineEdit_WT3000_Port")
+            _wt3000_port_edit.setPlaceholderText("端口 (默认5025)")
+            _wt3000_port_edit.setMinimumWidth(100)
+
+            # WT3000 切换闪变页面按钮
+            _flicker_btn = QtWidgets.QPushButton("切换闪变页面")
+            _flicker_btn.setObjectName("pushButton_SwitchFlicker")
+            _flicker_btn.setMinimumWidth(120)
+
+            def _switch_wt3000_flicker():
+                if wt3000_controller is None or not wt3000_controller.connected:
+                    logger.warning("WT3000 未连接，无法发送闪变命令")
+                    print("WT3000 未连接，无法发送闪变命令")
+                    return
+                try:
+                    wt3000_controller.handle.write("DISPLAY:MODE FLICker")
+                    logger.info("WT3000 已切换到闪变页面")
+                    print("WT3000 已切换到闪变页面")
+                except Exception as e:
+                    logger.error(f"WT3000 切换闪变页面失败: {e}")
+                    print(f"WT3000 切换闪变页面失败: {e}")
+
+            _flicker_btn.clicked.connect(_switch_wt3000_flicker)
+
             setattr(_wt3000_page, "_extra_widgets_comboBox_WT3000",
-                    {"comboBox_BaudRate": _baud_combo})
+                    {"comboBox_BaudRate": _baud_combo,
+                     "lineEdit_WT3000_IP": _wt3000_ip_edit,
+                     "lineEdit_WT3000_Port": _wt3000_port_edit,
+                     "pushButton_SwitchFlicker": _flicker_btn})
 
             _device_embed_map = {
                 "dialog_windowACSetting":   (1, "comboBox_AC", _AC_GRID),
@@ -28353,8 +28480,6 @@ if __name__ == "__main__":
             # 打开DL850Setting对话框
             ui.pushButton_SetDL850Options.clicked.connect(ShowDL850Setting)
 
-            # 打开DEWETRON Setting对话框
-            ui.pushButton_SetDEWETRONOptions.clicked.connect(ShowDEWETRONSetting)
             # 保存 DEWETRON 配置
             uiDewetronSetting.pushButton_ApplySettings.clicked.connect(SaveDEWETRONConfigWithLoading)
             # 测试界面构造

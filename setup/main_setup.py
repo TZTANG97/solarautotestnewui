@@ -144,10 +144,24 @@ class MainSetup(BaseSetup):
                     "font-family: Consolas; font-size: 12px; padding: 4px; }"
                 )
                 setattr(page_widget, f"_log_{settings_attr_name}", log_edit)
+                # 添加 UILogHandler 将日志输出到 UI
+                from infra.logging_setup import UILogHandler
+                import logging
+                _logger = logging.getLogger('auto_test')
+                _handler = UILogHandler(log_edit)
+                _handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%H:%M:%S'))
+                _logger.addHandler(_handler)
             elif "textEdit_ReturnMessage" in all_widgets:
                 log_widget_name = "textEdit_ReturnMessage"
-                setattr(page_widget, f"_log_{settings_attr_name}",
-                        all_widgets["textEdit_ReturnMessage"])
+                _ret_msg = all_widgets["textEdit_ReturnMessage"]
+                setattr(page_widget, f"_log_{settings_attr_name}", _ret_msg)
+                # 添加 UILogHandler 将日志输出到 UI
+                from infra.logging_setup import UILogHandler
+                import logging
+                _logger = logging.getLogger('auto_test')
+                _handler = UILogHandler(_ret_msg)
+                _handler.setFormatter(logging.Formatter('%(asctime)s %(message)s', datefmt='%H:%M:%S'))
+                _logger.addHandler(_handler)
 
             # 通用按钮样式：ON=SUCCESS, OFF=DANGER, 命令=PRIMARY
             _btn_styles = {}

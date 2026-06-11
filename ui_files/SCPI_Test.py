@@ -255,8 +255,8 @@ class Ui_Dialog(object):
             }
         """
 
-        def _make_device_page(label_text, connect_btn_name, set_btn_name,
-                              combo_name, has_editable=True, use_grid=False):
+        def _make_device_page(label_text, connect_btn_name, set_btn_name=None,
+                              combo_name=None, has_editable=True, use_grid=False):
             """构造设备页面：标题 + 连接区 + 日志，并将控件存为 Ui_Dialog 实例属性。
 
             use_grid=True 时，创建 QGridLayout 容器供 embed_dialog_content 填充，
@@ -285,14 +285,16 @@ class Ui_Dialog(object):
             connectBtn.setFixedWidth(90)
             setattr(self, connect_btn_name, connectBtn)
 
-            setBtn = QtWidgets.QPushButton("设定")
-            setBtn.setObjectName(set_btn_name)
-            setBtn.setFixedWidth(90)
-            setBtn.setStyleSheet("""
-                QPushButton { background-color: #10b981; color: white; }
-                QPushButton:hover { background-color: #059669; }
-            """)
-            setattr(self, set_btn_name, setBtn)
+            setBtn = None
+            if set_btn_name:
+                setBtn = QtWidgets.QPushButton("设定")
+                setBtn.setObjectName(set_btn_name)
+                setBtn.setFixedWidth(90)
+                setBtn.setStyleSheet("""
+                    QPushButton { background-color: #10b981; color: white; }
+                    QPushButton:hover { background-color: #059669; }
+                """)
+                setattr(self, set_btn_name, setBtn)
 
             if use_grid:
                 # Grid 模式：创建网格容器，由 embed_dialog_content 填充
@@ -307,6 +309,7 @@ class Ui_Dialog(object):
                 layout.addWidget(grid_container, 1)
             else:
                 # 原始模式：连接卡片 + 设置区 + 日志区
+
                 card = QtWidgets.QWidget()
                 card.setObjectName("card")
                 card.setStyleSheet(_cardStyle)
@@ -321,7 +324,8 @@ class Ui_Dialog(object):
                 row.addWidget(interfaceLabel)
                 row.addWidget(combo, 1)
                 row.addWidget(connectBtn)
-                row.addWidget(setBtn)
+                if setBtn is not None:
+                    row.addWidget(setBtn)
                 cardLayout.addLayout(row)
                 layout.addWidget(card)
 
@@ -551,8 +555,8 @@ class Ui_Dialog(object):
 
         # ── 页面 7: DEWETRON ──
         self.stackedWidget.addWidget(
-            _make_device_page("DEWETRON 功率分析仪", "pushButton_ConnectEQUDEWETRON",
-                              "pushButton_SetDEWETRONOptions", "comboBox_DEWETRON",
+            _make_device_page("德威创", "pushButton_ConnectEQUDEWETRON",
+                              combo_name="comboBox_DEWETRON",
                               has_editable=False))
 
         # ── 页面 8: 项目配置 ──
@@ -738,7 +742,6 @@ class Ui_Dialog(object):
         self.pushButton_SetDC4Options.setText(_translate("Dialog", "设定直流电源"))
         self.pushButton_SetDL850Options.setText(_translate("Dialog", "设定DL850"))
         self.pushButton_SetWT3000Options.setText(_translate("Dialog", "设定WT3000"))
-        self.pushButton_SetDEWETRONOptions.setText(_translate("Dialog", "设定DEWETRON"))
         self.pushButton_ShowSettingDetail.setText(_translate("Dialog", "设定内容"))
         self.pushButton_ShowMultiSettingDetail.setText(_translate("Dialog", "多次测试设定"))
         self.pushButton_StartTest.setText(_translate("Dialog", "开始试验"))
