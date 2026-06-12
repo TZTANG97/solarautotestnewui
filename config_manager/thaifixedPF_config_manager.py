@@ -10,12 +10,11 @@ class ThaiFixedPF_ConfigManager:
     """泰国固定PF配置管理器"""
     
     # 配置结构定义：步骤 -> (控件名称, 控件类型, 设置键名)
+    # 新布局: Step1=AC/DC电源, Step2=功率分析仪, Step3=测量设置(共享时间),
+    #         Step4-8=测量步骤1-5(DC+PF+JSON+保存名), Step9=结束关机
     CONFIG_STRUCTURE = {
         "UI_State": [
             ('cB_wt_json', 'combobox_text', 'wt_json'),
-            ('cB_S3_json_1', 'combobox_text', 'S3_json_1'),
-            ('cB_S3_json_2', 'combobox_text', 'S3_json_2'),
-            ('cB_S3_json_3', 'combobox_text', 'S3_json_3'),
             ('cB_S4_json_1', 'combobox_text', 'S4_json_1'),
             ('cB_S4_json_2', 'combobox_text', 'S4_json_2'),
             ('cB_S4_json_3', 'combobox_text', 'S4_json_3'),
@@ -28,8 +27,10 @@ class ThaiFixedPF_ConfigManager:
             ('cB_S7_json_1', 'combobox_text', 'S7_json_1'),
             ('cB_S7_json_2', 'combobox_text', 'S7_json_2'),
             ('cB_S7_json_3', 'combobox_text', 'S7_json_3'),
+            ('cB_S8_json_1', 'combobox_text', 'S8_json_1'),
+            ('cB_S8_json_2', 'combobox_text', 'S8_json_2'),
+            ('cB_S8_json_3', 'combobox_text', 'S8_json_3'),
             ('cB_S14_json_14', 'combobox_text', 'S14_json_14'),
-            
         ],
 
         "Step1": [
@@ -73,30 +74,23 @@ class ThaiFixedPF_ConfigManager:
             ('textEdit_S1_TIME', 'textedit', 'S1_Duration'),
             ('comboBox_S1_TIME', 'combobox', 'S1_Duration_Unit'),
         ],
+
         "Step2": [
             ('checkBox_S2', 'checkbox', 'S2_Enabled'),
-            ('lE_wt_save_path','lineedit','S2_Path'),
+            ('lE_wt_save_path', 'lineedit', 'S2_Path'),
         ],
-        "Step3": [
-            ('checkBox_S3', 'checkbox', 'S3_Enabled'),
-            ('checkBox_S1_DC1_3', 'checkbox', 'S3_DC1_Enabled'),
-            ('checkBox_S1_DC2_3', 'checkbox', 'S3_DC2_Enabled'),
-            ('checkBox_S1_DC3_3', 'checkbox', 'S3_DC3_Enabled'),
-            ('checkBox_S1_DC4_3', 'checkbox', 'S3_DC4_Enabled'),
-            ('textEdit_S1_DC1_PF_3', 'textedit', 'S3_PF'),
 
-            ('lE_S3_filename', 'lineedit', 'S3_Filename'),  # 新增
+        "Step3": [
             ('lE_S3_1', 'lineedit', 'S3_time_1'),
             ('lE_S3_2', 'lineedit', 'S3_time_2'),
             ('lE_S3_3', 'lineedit', 'S3_time_3'),
             ('lE_S3_4', 'lineedit', 'S3_time_4'),
-
             ('cB_S3_unit_1', 'combobox', 'S3_time_Unit_1'),
             ('cB_S3_unit_2', 'combobox', 'S3_time_Unit_2'),
             ('cB_S3_unit_3', 'combobox', 'S3_time_Unit_3'),
             ('cB_S3_unit_4', 'combobox', 'S3_time_Unit_4'),
-            
         ],
+
         "Step4": [
             ('checkBox_S4', 'checkbox', 'S4_Enabled'),
             ('checkBox_S1_DC1_4', 'checkbox', 'S4_DC1_Enabled'),
@@ -104,18 +98,12 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_4', 'checkbox', 'S4_DC3_Enabled'),
             ('checkBox_S1_DC4_4', 'checkbox', 'S4_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_4', 'textedit', 'S4_PF'),
-
-            ('lE_S4_filename', 'lineedit', 'S4_Filename'),  # 新增
-            ('lE_S4_1', 'lineedit', 'S4_time_1'),
-            ('lE_S4_2', 'lineedit', 'S4_time_2'),
-            ('lE_S4_3', 'lineedit', 'S4_time_3'),
-            ('lE_S4_4', 'lineedit', 'S4_time_4'),
-
-            ('cB_S4_unit_1', 'combobox', 'S4_time_Unit_1'),
-            ('cB_S4_unit_2', 'combobox', 'S4_time_Unit_2'),
-            ('cB_S4_unit_3', 'combobox', 'S4_time_Unit_3'),
-            ('cB_S4_unit_4', 'combobox', 'S4_time_Unit_4'),
+            ('lE_S4_filename', 'lineedit', 'S4_Filename'),
+            ('cB_S4_json_1', 'combobox_text', 'S4_json_1'),
+            ('cB_S4_json_2', 'combobox_text', 'S4_json_2'),
+            ('cB_S4_json_3', 'combobox_text', 'S4_json_3'),
         ],
+
         "Step5": [
             ('checkBox_S5', 'checkbox', 'S5_Enabled'),
             ('checkBox_S1_DC1_5', 'checkbox', 'S5_DC1_Enabled'),
@@ -123,18 +111,12 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_5', 'checkbox', 'S5_DC3_Enabled'),
             ('checkBox_S1_DC4_5', 'checkbox', 'S5_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_5', 'textedit', 'S5_PF'),
-
-            ('lE_S5_filename', 'lineedit', 'S5_Filename'),  # 新增
-            ('lE_S5_1', 'lineedit', 'S5_time_1'),
-            ('lE_S5_2', 'lineedit', 'S5_time_2'),
-            ('lE_S5_3', 'lineedit', 'S5_time_3'),
-            ('lE_S5_4', 'lineedit', 'S5_time_4'),
-
-            ('cB_S5_unit_1', 'combobox', 'S5_time_Unit_1'),
-            ('cB_S5_unit_2', 'combobox', 'S5_time_Unit_2'),
-            ('cB_S5_unit_3', 'combobox', 'S5_time_Unit_3'),
-            ('cB_S5_unit_4', 'combobox', 'S5_time_Unit_4'),
+            ('lE_S5_filename', 'lineedit', 'S5_Filename'),
+            ('cB_S5_json_1', 'combobox_text', 'S5_json_1'),
+            ('cB_S5_json_2', 'combobox_text', 'S5_json_2'),
+            ('cB_S5_json_3', 'combobox_text', 'S5_json_3'),
         ],
+
         "Step6": [
             ('checkBox_S6', 'checkbox', 'S6_Enabled'),
             ('checkBox_S1_DC1_6', 'checkbox', 'S6_DC1_Enabled'),
@@ -142,18 +124,12 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_6', 'checkbox', 'S6_DC3_Enabled'),
             ('checkBox_S1_DC4_6', 'checkbox', 'S6_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_6', 'textedit', 'S6_PF'),
-
-            ('lE_S6_filename', 'lineedit', 'S6_Filename'),  # 新增
-            ('lE_S6_1', 'lineedit', 'S6_time_1'),
-            ('lE_S6_2', 'lineedit', 'S6_time_2'),
-            ('lE_S6_3', 'lineedit', 'S6_time_3'),
-            ('lE_S6_4', 'lineedit', 'S6_time_4'),
-
-            ('cB_S6_unit_1', 'combobox', 'S6_time_Unit_1'),
-            ('cB_S6_unit_2', 'combobox', 'S6_time_Unit_2'),
-            ('cB_S6_unit_3', 'combobox', 'S6_time_Unit_3'),
-            ('cB_S6_unit_4', 'combobox', 'S6_time_Unit_4'),
+            ('lE_S6_filename', 'lineedit', 'S6_Filename'),
+            ('cB_S6_json_1', 'combobox_text', 'S6_json_1'),
+            ('cB_S6_json_2', 'combobox_text', 'S6_json_2'),
+            ('cB_S6_json_3', 'combobox_text', 'S6_json_3'),
         ],
+
         "Step7": [
             ('checkBox_S7', 'checkbox', 'S7_Enabled'),
             ('checkBox_S1_DC1_7', 'checkbox', 'S7_DC1_Enabled'),
@@ -161,99 +137,39 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_7', 'checkbox', 'S7_DC3_Enabled'),
             ('checkBox_S1_DC4_7', 'checkbox', 'S7_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_7', 'textedit', 'S7_PF'),
-            
-            ('lE_S7_filename', 'lineedit', 'S7_Filename'),  # 新增
-            ('lE_S7_1', 'lineedit', 'S7_time_1'),
-            ('lE_S7_2', 'lineedit', 'S7_time_2'),
-            ('lE_S7_3', 'lineedit', 'S7_time_3'),
-            ('lE_S7_4', 'lineedit', 'S7_time_4'),
-
-            ('cB_S7_unit_1', 'combobox', 'S7_time_Unit_1'),
-            ('cB_S7_unit_2', 'combobox', 'S7_time_Unit_2'),
-            ('cB_S7_unit_3', 'combobox', 'S7_time_Unit_3'),
-            ('cB_S7_unit_4', 'combobox', 'S7_time_Unit_4'),
-        ],
-        # "Step8": [
-        #     ('checkBox_S8', 'checkbox', 'S8_Enabled'),
-        #     ('checkBox_S1_DC1_8', 'checkbox', 'S8_DC1_Enabled'),
-        #     ('checkBox_S1_DC2_8', 'checkbox', 'S8_DC2_Enabled'),
-        #     ('checkBox_S1_DC3_8', 'checkbox', 'S8_DC3_Enabled'),
-        #     ('checkBox_S1_DC4_8', 'checkbox', 'S8_DC4_Enabled'),
-        #     ('textEdit_S1_DC1_PF_8', 'textedit', 'S8_PF'),
-        #     ('lE_S8_filename', 'lineedit', 'S8_Filename'),  # 新增
-        # ],
-        # "Step9": [
-        #     ('checkBox_S9', 'checkbox', 'S9_Enabled'),
-        #     ('checkBox_S1_DC1_9', 'checkbox', 'S9_DC1_Enabled'),
-        #     ('checkBox_S1_DC2_9', 'checkbox', 'S9_DC2_Enabled'),
-        #     ('checkBox_S1_DC3_9', 'checkbox', 'S9_DC3_Enabled'),
-        #     ('checkBox_S1_DC4_9', 'checkbox', 'S9_DC4_Enabled'),
-        #     ('textEdit_S1_DC1_PF_9', 'textedit', 'S9_PF'),
-        #     ('lE_S9_filename', 'lineedit', 'S9_Filename'),  # 新增
-        # ],
-        # "Step10": [
-        #     ('checkBox_S10', 'checkbox', 'S10_Enabled'),
-        #     ('checkBox_S1_DC1_10', 'checkbox', 'S10_DC1_Enabled'),
-        #     ('checkBox_S1_DC2_10', 'checkbox', 'S10_DC2_Enabled'),
-        #     ('checkBox_S1_DC3_10', 'checkbox', 'S10_DC3_Enabled'),
-        #     ('checkBox_S1_DC4_10', 'checkbox', 'S10_DC4_Enabled'),
-        #     ('textEdit_S1_DC1_PF_10', 'textedit', 'S10_PF'),
-        #     ('lE_S10_filename', 'lineedit', 'S10_Filename'),  # 新增
-        # ],
-        # "Step11": [
-        #     ('checkBox_S11', 'checkbox', 'S11_Enabled'),
-        #     ('checkBox_S1_DC1_11', 'checkbox', 'S11_DC1_Enabled'),
-        #     ('checkBox_S1_DC2_11', 'checkbox', 'S11_DC2_Enabled'),
-        #     ('checkBox_S1_DC3_11', 'checkbox', 'S11_DC3_Enabled'),
-        #     ('checkBox_S1_DC4_11', 'checkbox', 'S11_DC4_Enabled'),
-        #     ('textEdit_S1_DC1_PF_11', 'textedit', 'S11_PF'),
-        #     ('lE_S11_filename', 'lineedit', 'S11_Filename'),  # 新增
-        # ],
-        # "Step12": [
-        #     ('checkBox_S12', 'checkbox', 'S12_Enabled'),
-        #     ('checkBox_S1_DC1_12', 'checkbox', 'S12_DC1_Enabled'),
-        #     ('checkBox_S1_DC2_12', 'checkbox', 'S12_DC2_Enabled'),
-        #     ('checkBox_S1_DC3_12', 'checkbox', 'S12_DC3_Enabled'),
-        #     ('checkBox_S1_DC4_12', 'checkbox', 'S12_DC4_Enabled'),
-        #     ('textEdit_S1_DC1_PF_12', 'textedit', 'S12_PF'),
-        #     ('lE_S12_filename', 'lineedit', 'S12_Filename'),  # 新增
-        # ],
-        # "Step13": [
-        #     ('checkBox_S13', 'checkbox', 'S13_Enabled'),
-        #     ('checkBox_S1_DC1_13', 'checkbox', 'S13_DC1_Enabled'),
-        #     ('checkBox_S1_DC2_13', 'checkbox', 'S13_DC2_Enabled'),
-        #     ('checkBox_S1_DC3_13', 'checkbox', 'S13_DC3_Enabled'),
-        #     ('checkBox_S1_DC4_13', 'checkbox', 'S13_DC4_Enabled'),
-        #     ('textEdit_S1_DC1_PF_13', 'textedit', 'S13_PF'),
-        #     ('lE_S13_filename', 'lineedit', 'S13_Filename'),  # 新增
-
-        # ],
-        "batch_set": [
-            ('lE_time_1', 'lineedit', 'batch_time_1'),
-            ('lE_time_2', 'lineedit', 'batch_time_2'),
-            ('lE_time_3', 'lineedit', 'batch_time_3'),
-            ('lE_time_4', 'lineedit', 'batch_time_4'),
-            ('cB_time_unit_1', 'combobox', 'batch_time_unit_1'),
-            ('cB_time_unit_2', 'combobox', 'batch_time_unit_2'),
-            ('cB_time_unit_3', 'combobox', 'batch_time_unit_3'),
-            ('cB_time_unit_4', 'combobox', 'batch_time_unit_4'),
+            ('lE_S7_filename', 'lineedit', 'S7_Filename'),
+            ('cB_S7_json_1', 'combobox_text', 'S7_json_1'),
+            ('cB_S7_json_2', 'combobox_text', 'S7_json_2'),
+            ('cB_S7_json_3', 'combobox_text', 'S7_json_3'),
         ],
 
-        "Step14": [
-            ('checkBox_S14', 'checkbox', 'S14_Enabled'),
-            ('comboBox_S5_AC', 'combobox', 'S14_AC_Type'),
-            ('checkBox_S5_DC1', 'checkbox', 'S14_DC1_Enabled'),
-            ('comboBox_S5_DC1', 'combobox', 'S14_DC1_Type'),
-            ('checkBox_S5_DC2', 'checkbox', 'S14_DC2_Enabled'),
-            ('comboBox_S5_DC2', 'combobox', 'S14_DC2_Type'),
-            ('checkBox_S5_DC3', 'checkbox', 'S14_DC3_Enabled'),
-            ('comboBox_S5_DC3', 'combobox', 'S14_DC3_Type'),
-            ('checkBox_S5_DC4', 'checkbox', 'S14_DC4_Enabled'),
-            ('comboBox_S5_DC4', 'combobox', 'S14_DC4_Type'),
+        "Step8": [
+            ('checkBox_S8', 'checkbox', 'S8_Enabled'),
+            ('checkBox_S1_DC1_8', 'checkbox', 'S8_DC1_Enabled'),
+            ('checkBox_S1_DC2_8', 'checkbox', 'S8_DC2_Enabled'),
+            ('checkBox_S1_DC3_8', 'checkbox', 'S8_DC3_Enabled'),
+            ('checkBox_S1_DC4_8', 'checkbox', 'S8_DC4_Enabled'),
+            ('textEdit_S1_DC1_PF_8', 'textedit', 'S8_PF'),
+            ('lE_S8_filename', 'lineedit', 'S8_Filename'),
+            ('cB_S8_json_1', 'combobox_text', 'S8_json_1'),
+            ('cB_S8_json_2', 'combobox_text', 'S8_json_2'),
+            ('cB_S8_json_3', 'combobox_text', 'S8_json_3'),
+        ],
 
-            ('checkBox_S14_2', 'checkbox', 'S14_json_Enabled'),
-            ('lE_S14_1', 'lineedit', 'S14_time_1'),
-            ('cB_S14_unit_1', 'combobox', 'S14_time_unit_1'),
+        "Step9": [
+            ('checkBox_S14', 'checkbox', 'S9_Enabled'),
+            ('checkBox_S14_2', 'checkbox', 'S9_json_Enabled'),
+            ('comboBox_S5_AC', 'combobox', 'S9_AC_Type'),
+            ('checkBox_S5_DC1', 'checkbox', 'S9_DC1_Enabled'),
+            ('comboBox_S5_DC1', 'combobox', 'S9_DC1_Type'),
+            ('checkBox_S5_DC2', 'checkbox', 'S9_DC2_Enabled'),
+            ('comboBox_S5_DC2', 'combobox', 'S9_DC2_Type'),
+            ('checkBox_S5_DC3', 'checkbox', 'S9_DC3_Enabled'),
+            ('comboBox_S5_DC3', 'combobox', 'S9_DC3_Type'),
+            ('checkBox_S5_DC4', 'checkbox', 'S9_DC4_Enabled'),
+            ('comboBox_S5_DC4', 'combobox', 'S9_DC4_Type'),
+            ('lE_S14_1', 'lineedit', 'S9_time_1'),
+            ('cB_S14_unit_1', 'combobox', 'S9_time_unit_1'),
         ],
     }
     

@@ -75,7 +75,8 @@ from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
                    Open_Save_ThaiGuoQianYa_Pin,Open_Save_ThaiOverLoads,
                    Open_Save_ThaiCosPhiBrazil, Open_Save_ThaiGuoQianPin_Immun,
                    Open_Save_ThaiStaticMPPTTest, Open_Save_ThaitestPU,
-                   Open_Save_ThaiFrequencyAdaptability)
+                   Open_Save_ThaiFrequencyAdaptability,
+                   Open_Save_ThaiFixedPF)
 from utils.Open_Save_ThaiWT3000_Config import WT3000E_params_config
 from utils.Open_Save_ThaiWT1800_Config import WT1800_params_config
 from utils.Open_Save_ThaiWT1806E_Config import WT1806E_params_config
@@ -1524,6 +1525,10 @@ def _sync_start_end_buttons():
         if 'overloads_append_count' not in globals():
             overloads_append_count = 0
         count = overloads_append_count
+    elif current == '固定PF=1':
+        if 'fixedpf_append_count' not in globals():
+            fixedpf_append_count = 0
+        count = fixedpf_append_count
     ui.pushButton_StartTest.setEnabled(count >= 1)
     ui.pushButton_EndTest.setEnabled(count >= 1)
 
@@ -1540,6 +1545,9 @@ def _reset_current_project_count():
     elif current == '过载能力测试':
         overloads_append_count = 0
         uiThaiOverLoads.label_append_count.setText("0")
+    elif current == '固定PF=1':
+        fixedpf_append_count = 0
+        uiThaiFixedPF.label_append_count.setText("0")
 
 #试验对话框选择函数
 def chooseDetailDialog():
@@ -1550,11 +1558,14 @@ def chooseDetailDialog():
     global project_change, project_now, wt_config_nums
     global Mppt_step1, Mppt_step2, Mppt_step_end, first_test
     global next_project_flag, flicker_append_count, harmonic_append_count, overloads_append_count
+    global fixedpf_append_count
 
     next_project_flag = "0"
     strAddTestFlag = "0"
     flicker_append_count = 0
     harmonic_append_count = 0
+    if 'fixedpf_append_count' not in globals():
+        fixedpf_append_count = 0
     setting_status = '' 
     messure_status = ''
     messsure_deatil_cofig = ''
@@ -1584,6 +1595,10 @@ def chooseDetailDialog():
             _sync_start_end_buttons()
             dialog_windowxiebodianliu.show()
         elif currentSecond == '固定PF=1':
+            if 'fixedpf_append_count' not in globals():
+                fixedpf_append_count = 0
+            uiThaiFixedPF.label_append_count.setText(str(fixedpf_append_count))
+            _sync_start_end_buttons()
             dialog_windowfixedpf.show()
         elif currentSecond in ('overloads', '过载能力测试'):
             if 'overloads_append_count' not in globals():
@@ -1628,6 +1643,7 @@ def addtestDialog():
     global project_change, project_now
     global strArrayTestStepSingle
     global next_project_flag, flicker_append_count, harmonic_append_count, overloads_append_count
+    global fixedpf_append_count
 
     if 'project_now' not in globals():
         project_now = ''
@@ -1637,6 +1653,8 @@ def addtestDialog():
         flicker_append_count = 0
     if 'harmonic_append_count' not in globals():
         harmonic_append_count = 0
+    if 'fixedpf_append_count' not in globals():
+        fixedpf_append_count = 0
 
     strAddTestFlag = "1"
     currentProject = ui.comboBox_P.currentText()
@@ -1664,6 +1682,10 @@ def addtestDialog():
             _sync_start_end_buttons()
             dialog_windowxiebodianliu.show()
         elif currentSecond == '固定PF=1':
+            if 'fixedpf_append_count' not in globals():
+                fixedpf_append_count = 0
+            uiThaiFixedPF.label_append_count.setText(str(fixedpf_append_count))
+            _sync_start_end_buttons()
             dialog_windowfixedpf.show()
         elif currentSecond in ('overloads', '过载能力测试'):
             if 'overloads_append_count' not in globals():
@@ -1705,9 +1727,9 @@ def addtestDialog():
 
 # 延时处理函数
 # 说明：
-# - RunProject() 内部把 strArrayTest[i][8]/[9] 当作 “0.1 秒计数” 来 sleep
+# - RunProject() 内部把 strArrayTest[i][8]/[9] 当作 "0.1 秒计数" 来 sleep
 # - UI 输入通常是 分钟/秒/毫秒
-# 因此这里统一把 UI 的时间换算成 “0.1 秒计数”（int）
+# 因此这里统一把 UI 的时间换算成 "0.1 秒计数"（int）
 # TODO
 # WT3000E配置界面
 def wt_3000E_show():
@@ -6320,7 +6342,7 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
     dc_factor = per_dc_factor.get(dc_index, "")
     command_array = command_list_DC.get(dc_factor, [])
     if not command_array:
-        # 仍然继续下发 IVC 曲线命令（a 内通常是 IVC:IT / IVC:VT），否则会表现为“功率变化命令没生成”
+        # 仍然继续下发 IVC 曲线命令（a 内通常是 IVC:IT / IVC:VT），否则会表现为"功率变化命令没生成"
         strtimenow = now_to_datenow()
         logger.warning(f"{DC} factor is empty or unsupported: '{dc_factor}', will send IVC commands only")
         print(f"{strtimenow} {DC} factor is empty or unsupported: '{dc_factor}', will send IVC commands only")
@@ -6427,7 +6449,17 @@ def OpenFileDialogThaiXieBoDianLiu():
     }
     Open_Save_ThaiXieBoDianLiu.Open_File_ThaiXieBoDianLiu(kwargs)
 
-# 固定PF=1 
+# fixedPF=1 追加测试
+def thaifixedpfAppend():
+    global strAddTestFlag, fixedpf_append_count
+    if 'fixedpf_append_count' not in globals():
+        fixedpf_append_count = 0
+    strAddTestFlag = "0" if fixedpf_append_count == 0 else "1"
+    mode = "覆盖" if fixedpf_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[固定PF=1] 第{fixedpf_append_count + 1}次{mode}模式，开始生成命令...")
+    thaifixedpfSend()
+
+# 固定PF=1
 def thaifixedpfSend():
     global uiThaiFixedPF, strArrayTest, dialog_windowfixedpf
     global strSettingTestFlag, strArrayTestStep
@@ -6436,6 +6468,9 @@ def thaifixedpfSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global fixedpf_append_count
+    if 'fixedpf_append_count' not in globals():
+        fixedpf_append_count = 0
 
 
     strShowErrorMessageBoxFlag = "0"
@@ -6821,16 +6856,25 @@ def thaifixedpfSend():
 
         strArrayTestStep.append(strArrayTestStepSingle)
 
-    # step2 WT  
+    # step2 WT
     S2_time = get_time_dynamic("S2","1")
-    wt_type = uiThaiFixedPF.cB_wt_type.currentText()
+    if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
+        wt_type = "WT3000"
+    elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
+        wt_type = "WT1800"
+    elif uiThaiFixedPF.radioButton_S2_WT1806E.isChecked():
+        wt_type = "WT1806E"
+    elif uiThaiFixedPF.radioButton_S2_WT5000.isChecked():
+        wt_type = "WT5000"
+    else:
+        wt_type = "WT3000"
     json_path = uiThaiFixedPF.cB_wt_json.currentText()
     new_wt_save_path = uiThaiFixedPF.lE_wt_save_path.text()
 
 
     manager.change_wt_type(wt_type)
 
-    # 固定PF：保存设定时会根据选择的 WT 宏(json)把“保存路径”字段写入
+    # 固定PF：保存设定时会根据选择的 WT 宏(json)把"保存路径"字段写入
     # 若宏文件不存在，直接提示并停止继续生成该项目，避免后续日志刷屏
     _macro_path = PATH_RECORDINGS["WT3000"] + json_path
     ok = modify_json_text_by_timestamp(
@@ -6900,152 +6944,15 @@ def thaifixedpfSend():
         strArrayTestStepSingle.append(strArraySingle)
 
 
-    # step3
-    if uiThaiFixedPF.checkBox_S3.isChecked():
-        strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
-        
-        S3_times = {}
-        for i in range(1, 5):
-            S3_times[i] = get_time_dynamic("S3", str(i), uiThaiFixedPF)
+    # 共享时间参数（来自 Step3 测量设置）
+    S3_times = {}
+    for i in range(1, 5):
+        S3_times[i] = get_time_dynamic("S3", str(i), uiThaiFixedPF)
 
-        fS3SetTime = S3_times[3] # 兼容旧接口
-
-        S3DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_3.toPlainText()
-        print(f'S3DCPF---{S3DCPF}')
-        # 调试：确认是否进入 DC 下发逻辑，以及 DCGetIVValueFunction 结果
-        try:
-            _append_debug_log(
-                "[fixedPF][S3] pf_input="
-                f"{S3DCPF!r}, "
-                f"DC1_3={uiThaiFixedPF.checkBox_S1_DC1_3.isChecked()}, "
-                f"DC2_3={uiThaiFixedPF.checkBox_S1_DC2_3.isChecked()}, "
-                f"DC3_3={uiThaiFixedPF.checkBox_S1_DC3_3.isChecked()}, "
-                f"DC4_3={uiThaiFixedPF.checkBox_S1_DC4_3.isChecked()}"
-            )
-        except Exception:
-            pass
-        # step3 的 DC 功率(百分比)应始终按当前输入下发（只要勾选了对应 DC 通道）
-        # 原先的 “if S3DCPF in DC_PF_VALUE_LIST” 会直接跳过 DC 下发，导致命令文件看不到功率变化命令。
-        # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1_3.isChecked():
-            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF, 0)
-            try:
-                _append_debug_log(f"[fixedPF][S3][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "1"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "2"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-        if uiThaiFixedPF.checkBox_S1_DC2_3.isChecked():
-            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
-            try:
-                _append_debug_log(f"[fixedPF][S3][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "3"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "4"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiFixedPF.checkBox_S1_DC3_3.isChecked():
-            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
-            try:
-                _append_debug_log(f"[fixedPF][S3][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "5"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-        if uiThaiFixedPF.checkBox_S1_DC4_3.isChecked():
-            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
-            try:
-                _append_debug_log(f"[fixedPF][S3][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "7"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "8"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-        # step3 的 WT 宏流程（改文件名/开始/结束）应当总是追加到命令表中，
-        # 不应依赖是否勾选 DC4_3（之前缩进错误会导致 step3 完整流程丢失）。
-        strArrayTestStepSingle = []
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = S3_times[1]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        new_S3_file_name = uiThaiFixedPF.lE_S3_filename.text()
-        json_1 = uiThaiFixedPF.cB_S3_json_1.currentText()
-        json_2 = uiThaiFixedPF.cB_S3_json_2.currentText()
-        json_3 = uiThaiFixedPF.cB_S3_json_3.currentText()
-
-        # 更改文件保存名
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_1
-        strArraySingle[2] = new_S3_file_name
-        strArraySingle[7] = S3_times[2]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        # 开始测量
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_2
-        strArraySingle[7] = S3_times[3]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        # 结束测量
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_3
-        strArraySingle[7] = S3_times[4]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step4
+    # step4 (测量步骤1)
     if uiThaiFixedPF.checkBox_S4.isChecked():
         strArrayTestStepSingle = []
         total_save_file = total_save_file + 1
-
-        S4_times = {}
-        for i in range(1, 5):
-            S4_times[i] = get_time_dynamic("S4", str(i), uiThaiFixedPF)
-
 
         S4DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_4.toPlainText()
         print(f'S4DCPF---{S4DCPF}')
@@ -7061,7 +6968,7 @@ def thaifixedpfSend():
         except Exception:
             pass
         # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1_4.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_4.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S4DCPF, 0)
             try:
                 _append_debug_log(f"[fixedPF][S4][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7075,7 +6982,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiFixedPF.checkBox_S1_DC2_4.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_4.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S4DCPF, 1)
             try:
                 _append_debug_log(f"[fixedPF][S4][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7089,7 +6996,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiFixedPF.checkBox_S1_DC3_4.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_4.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S4DCPF, 2)
             try:
                 _append_debug_log(f"[fixedPF][S4][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7103,7 +7010,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
-        if uiThaiFixedPF.checkBox_S1_DC4_4.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S4DCPF, 3)
             try:
                 _append_debug_log(f"[fixedPF][S4][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7123,7 +7030,7 @@ def thaifixedpfSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = S4_times[1]
+        strArraySingle[9] = S3_times[1]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7139,14 +7046,14 @@ def thaifixedpfSend():
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_1
         strArraySingle[2] = new_S4_file_name
-        strArraySingle[7] = S4_times[2]
+        strArraySingle[7] = S3_times[2]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
         
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_2
-        strArraySingle[7] = S4_times[3]
+        strArraySingle[7] = S3_times[3]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7163,7 +7070,7 @@ def thaifixedpfSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_3
-        strArraySingle[7] = S4_times[4]
+        strArraySingle[7] = S3_times[4]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7173,10 +7080,6 @@ def thaifixedpfSend():
     if uiThaiFixedPF.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
         total_save_file = total_save_file + 1
-        S5_times = {}
-        for i in range(1, 5):
-            S5_times[i] = get_time_dynamic("S5", str(i), uiThaiFixedPF)
-
         S5DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_5.toPlainText()
         print(f'S5DCPF---{S5DCPF}')
         try:
@@ -7191,7 +7094,7 @@ def thaifixedpfSend():
         except Exception:
             pass
         # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1_5.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_5.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S5DCPF, 0)
             try:
                 _append_debug_log(f"[fixedPF][S5][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7205,7 +7108,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiFixedPF.checkBox_S1_DC2_5.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_5.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
             try:
                 _append_debug_log(f"[fixedPF][S5][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7219,7 +7122,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiFixedPF.checkBox_S1_DC3_5.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_5.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S5DCPF, 2)
             try:
                 _append_debug_log(f"[fixedPF][S5][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7233,7 +7136,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
-        if uiThaiFixedPF.checkBox_S1_DC4_5.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_5.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S5DCPF, 3)
             try:
                 _append_debug_log(f"[fixedPF][S5][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
@@ -7252,7 +7155,7 @@ def thaifixedpfSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = S5_times[1]
+        strArraySingle[9] = S3_times[1]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
         
@@ -7266,14 +7169,14 @@ def thaifixedpfSend():
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_1
         strArraySingle[2] = new_S5_file_name
-        strArraySingle[7] = S5_times[2]
+        strArraySingle[7] = S3_times[2]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_2
-        strArraySingle[7] = S5_times[3]
+        strArraySingle[7] = S3_times[3]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7289,7 +7192,7 @@ def thaifixedpfSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_3
-        strArraySingle[7] = S5_times[4]
+        strArraySingle[7] = S3_times[4]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7299,14 +7202,10 @@ def thaifixedpfSend():
     if uiThaiFixedPF.checkBox_S6.isChecked():
         strArrayTestStepSingle = []
         total_save_file = total_save_file + 1
-        S6_times = {}
-        for i in range(1, 5):
-            S6_times[i] = get_time_dynamic("S6", str(i), uiThaiFixedPF)
-
         S6DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_6.toPlainText()
         print(f'S6DCPF---{S6DCPF}')
         # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1_6.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_6.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S6DCPF,0)
 
             if a == "1":
@@ -7316,7 +7215,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiFixedPF.checkBox_S1_DC2_6.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_6.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S6DCPF, 1)
 
             if a == "1":
@@ -7326,7 +7225,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiFixedPF.checkBox_S1_DC3_6.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_6.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S6DCPF, 2)
 
             if a == "1":
@@ -7336,7 +7235,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiFixedPF.checkBox_S1_DC4_6.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_6.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S6DCPF, 3)
 
             if a == "1":
@@ -7351,7 +7250,7 @@ def thaifixedpfSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = S6_times[1]
+        strArraySingle[9] = S3_times[1]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7365,7 +7264,7 @@ def thaifixedpfSend():
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_1
         strArraySingle[2] = new_S6_file_name
-        strArraySingle[7] = S6_times[2]
+        strArraySingle[7] = S3_times[2]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7373,7 +7272,7 @@ def thaifixedpfSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_2
-        strArraySingle[7] = S6_times[3]
+        strArraySingle[7] = S3_times[3]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
         
@@ -7389,7 +7288,7 @@ def thaifixedpfSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_3
-        strArraySingle[7] = S6_times[4]
+        strArraySingle[7] = S3_times[4]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7399,14 +7298,10 @@ def thaifixedpfSend():
     if uiThaiFixedPF.checkBox_S7.isChecked():
         strArrayTestStepSingle = []
         total_save_file = total_save_file + 1
-        S7_times = {}
-        for i in range(1, 5):
-            S7_times[i] = get_time_dynamic("S7", str(i), uiThaiFixedPF)
-
         S7DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_7.toPlainText()
         print(f'S7DCPF---{S7DCPF}')
         # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1_7.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_7.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S7DCPF,0)
 
             if a == "1":
@@ -7416,7 +7311,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiFixedPF.checkBox_S1_DC2_7.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_7.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S7DCPF, 1)
 
             if a == "1":
@@ -7426,7 +7321,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiFixedPF.checkBox_S1_DC3_7.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_7.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S7DCPF, 2)
 
             if a == "1":
@@ -7436,7 +7331,7 @@ def thaifixedpfSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiFixedPF.checkBox_S1_DC4_7.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_7.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S7DCPF, 3)
 
             if a == "1":
@@ -7451,7 +7346,7 @@ def thaifixedpfSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = S7_times[1]
+        strArraySingle[9] = S3_times[1]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -7465,14 +7360,14 @@ def thaifixedpfSend():
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_1
         strArraySingle[2] = new_S7_file_name
-        strArraySingle[7] = S7_times[2]
+        strArraySingle[7] = S3_times[2]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_2
-        strArraySingle[7] = S7_times[3]
+        strArraySingle[7] = S3_times[3]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
         
@@ -7489,7 +7384,7 @@ def thaifixedpfSend():
         strArraySingle = ["" for _ in range(10)]
         strArraySingle[0] = 'WT'
         strArraySingle[1] = json_3
-        strArraySingle[7] = S7_times[4]
+        strArraySingle[7] = S3_times[4]
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -8193,22 +8088,39 @@ def thaifixedpfSend():
                 csv_write.writerow(strArrayTest[i])
             out.close()
 
+        # 计数递增
+        if 'fixedpf_append_count' not in globals():
+            fixedpf_append_count = 0
+        fixedpf_append_count += 1
+        uiThaiFixedPF.label_append_count.setText(str(fixedpf_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[固定PF=1] 追加完成，当前计数: {fixedpf_append_count}，开始/结束试验按钮已启用")
+
         dialog_windowfixedpf.close()
 
 def thai_fixedpf_wt_change():
     global uiThaiFixedPF
-    wt_type = uiThaiFixedPF.cB_wt_type.currentText()
+    if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
+        wt_type = "WT3000"
+    elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
+        wt_type = "WT1800"
+    elif uiThaiFixedPF.radioButton_S2_WT1806E.isChecked():
+        wt_type = "WT1806E"
+    elif uiThaiFixedPF.radioButton_S2_WT5000.isChecked():
+        wt_type = "WT5000"
+    else:
+        wt_type = "WT3000"
     # 清空所有控件
     uiThaiFixedPF.cB_wt_json.clear()
     uiThaiFixedPF.cB_S14_json_14.clear()
-    for s in range(3, 8):  # S3到S7
+    for s in range(4, 9):  # S4到S8
         for i in range(1, 4):  # json_1到json_3
             getattr(uiThaiFixedPF, f'cB_S{s}_json_{i}').clear()
 
     # 添加items到所有控件
     uiThaiFixedPF.cB_wt_json.addItems(list_json_files(wt_type))
     uiThaiFixedPF.cB_S14_json_14.addItems(list_json_files(wt_type))
-    for s in range(3, 8):
+    for s in range(4, 9):  # S4到S8
         for i in range(1, 4):
             getattr(uiThaiFixedPF, f'cB_S{s}_json_{i}').addItems(list_json_files(wt_type))
 
@@ -8220,47 +8132,39 @@ def thaifixedpf_ui_init():
     uiThaiFixedPF.lE_wt_save_path.setText(wt_file_save_path)
 
 def thai_fixedpf_batch_time_change():
-    global uiThaiFixedPF
-    times = {}
-    for i in range(1, 5):
-        times[i] = getattr(uiThaiFixedPF, f'lE_time_{i}').text()
-
-    for j in range(3, 8):
-        for i in range(1, 5):
-            getattr(uiThaiFixedPF,f'lE_S{j}_{i}').setText(times[i])
-
+    pass
 
     
-# #固定PF=1保存设定
-# def SaveFileDialogThaiFixedPF():
-#     global dialog_windowfixedpf, uiThaiFixedPF
-#     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
-            
-#     kwargs = {
-#         'dialog_windowfixedpf': dialog_windowfixedpf,
-#         'uiThaiFixedPF': uiThaiFixedPF,
-#         'uiThiaWT3000E': uiThiaWT3000E,
-#         'uiThiaWT1800': uiThiaWT1800,
-#         'uiThiaWT1806E': uiThiaWT1806E,
-#         'uiThiaWT5000': uiThiaWT5000,
-#     }
+#固定PF=1保存设定
+def SaveFileDialogThaiFixedPF():
+    global dialog_windowfixedpf, uiThaiFixedPF
+    global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
 
-#     Open_Save_ThaiFixedPF.Save_File_ThaiFixedPF(kwargs)
+    kwargs = {
+        'dialog_windowfixedpf': dialog_windowfixedpf,
+        'uiThaiFixedPF': uiThaiFixedPF,
+        'uiThiaWT3000E': uiThiaWT3000E,
+        'uiThiaWT1800': uiThiaWT1800,
+        'uiThiaWT1806E': uiThiaWT1806E,
+        'uiThiaWT5000': uiThiaWT5000,
+    }
 
-# #固定PF=1读取设定
-# def OpenFileDialogThaiFixedPF():
-#     global dialog_windowfixedpf, uiThaiFixedPF
-#     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
+    Open_Save_ThaiFixedPF.Save_File_ThaiFixedPF(kwargs)
 
-#     kwargs = {
-#         'dialog_windowfixedpf': dialog_windowfixedpf,
-#         'uiThaiFixedPF': uiThaiFixedPF,
-#         'uiThiaWT3000E': uiThiaWT3000E,
-#         'uiThiaWT1800': uiThiaWT1800,
-#         'uiThiaWT1806E': uiThiaWT1806E,
-#         'uiThiaWT5000': uiThiaWT5000,
-#     }
-#     Open_Save_ThaiFixedPF.Open_File_ThaiFixedPF(kwargs)
+#固定PF=1读取设定
+def OpenFileDialogThaiFixedPF():
+    global dialog_windowfixedpf, uiThaiFixedPF
+    global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
+
+    kwargs = {
+        'dialog_windowfixedpf': dialog_windowfixedpf,
+        'uiThaiFixedPF': uiThaiFixedPF,
+        'uiThiaWT3000E': uiThiaWT3000E,
+        'uiThiaWT1800': uiThiaWT1800,
+        'uiThiaWT1806E': uiThiaWT1806E,
+        'uiThiaWT5000': uiThiaWT5000,
+    }
+    Open_Save_ThaiFixedPF.Open_File_ThaiFixedPF(kwargs)
 
 # overloads
 def thaioverloadsAppend():
@@ -12040,7 +11944,7 @@ def thaicosPhiBrazilSend():
         strArraySingle[4] = S1Command
         strArrayTest.append(strArraySingle)
 
-        # 巴西 CosPhi：此处走“上位机自动配置 WTViewerEfree”的逻辑（Upper_WT_Config + auto_config），不依赖 RecPlayer 宏文件
+        # 巴西 CosPhi：此处走"上位机自动配置 WTViewerEfree"的逻辑（Upper_WT_Config + auto_config），不依赖 RecPlayer 宏文件
         _append_debug_log("[cosPhiBrazil] WT config via Upper_WT_Config (no macro replay file in this project)")
     
     if strAddTestFlag == '1' and project_change == '1':
@@ -18249,7 +18153,7 @@ def thaiguoqianya_pinSend():
     if strAddTestFlag == "0":
         strArrayTest = []
         total_save_file = 0
-        # 新一轮“非累加”配置时，需要清空每轮时长列表。
+        # 新一轮"非累加"配置时，需要清空每轮时长列表。
         # 否则 WT 自动化首轮会取 per_test_time_list[0] 的旧值，导致停止时间与当前配置不一致。
         per_test_time_list = []
         test_program = []
@@ -23532,9 +23436,9 @@ def ConProjectPush():
 def RunProject():
     """
     执行器主循环（命令解释器）：
-    - 把 `strArrayTest` 里的每一行当作“一条待执行命令”顺序执行。
+    - 把 `strArrayTest` 里的每一行当作"一条待执行命令"顺序执行。
     - 支持 AC/DC/DL850/WT/MPPT/上位机WT配置 等多种目标。
-    - 在执行过程中监听“暂停/结束”状态，并在需要时等待测量完成。
+    - 在执行过程中监听"暂停/结束"状态，并在需要时等待测量完成。
 
     ------------------------------
     strArrayTest 的数据结构（非常关键）
@@ -23548,18 +23452,18 @@ def RunProject():
             例如: "write" / "query" / "wait" / "stopquery" / "judge"
         [2] 具体命令字符串（SCPI）或 WT 宏相关参数
         [3]~[5] 项目扩展字段（按不同项目复用）
-        [6] “自动测量触发 + 首次等待时长（0.1s单位）”
+        [6] "自动测量触发 + 首次等待时长（0.1s单位）"
             - 若非空，RunProject 会置位 `WT_auto_messure_status='1'` 触发 UI 自动测量线程
-            - 首轮分支通常按 [6] 给定时间先等待，再进入“等待测量完成”阶段
-        [7] “自动测量触发（另一种触发模式）/ 或普通等待字段（按分支解释）”
+            - 首轮分支通常按 [6] 给定时间先等待，再进入"等待测量完成"阶段
+        [7] "自动测量触发（另一种触发模式）/ 或普通等待字段（按分支解释）"
             - 在 AC write 分支里，[7] 非空会触发一次自动测量并阻塞等待 test_status 回到 '0'
             - 在 WT 分支里，[7] 常被当作普通等待秒数使用
         [8] 通用等待时长（0.1s单位）
         [9] 通用等待时长（0.1s单位）或采样周期（按分支解释）
 
     注意：
-    - 本函数里 [6]/[7]/[8]/[9] 的解释“与分支相关”，并非全局绝对固定语义。
-    - 你可以把 [8]/[9] 理解成“命令后等待”；把 [6]/[7] 理解成“和 WT 自动测量联动的特殊控制位”。
+    - 本函数里 [6]/[7]/[8]/[9] 的解释"与分支相关"，并非全局绝对固定语义。
+    - 你可以把 [8]/[9] 理解成"命令后等待"；把 [6]/[7] 理解成"和 WT 自动测量联动的特殊控制位"。
     """
     global strArrayTest,ui,strGlobalFlagGetTestTime
     global dl850_controller
@@ -23575,7 +23479,7 @@ def RunProject():
     global WT_is_checked, flicker_is_test, config_dict, first_test
     global manager
 
-    # 只有点击“开始测试”后，strTestFlag 才会被置为 "1"。
+    # 只有点击"开始测试"后，strTestFlag 才会被置为 "1"。
     # 这里消费一次后立即清零，防止重复进入同一轮。
     if strTestFlag == "1":
         strTestFlag = "0"
@@ -23591,7 +23495,7 @@ def RunProject():
         _append_debug_log(
             f"[run_loop] reset on start: now_save_file=0, save_file_name='', total_save_file={total_save_file}"
         )
-        # [6] 分支内部使用的“一次性门闩”状态
+        # [6] 分支内部使用的"一次性门闩"状态
         auto_end_status = '0'
         # 逐条解释命令
         for i in range(len(strArrayTest)):
@@ -23692,7 +23596,7 @@ def RunProject():
 
                         # [6]：自动测量触发协议（过欠压/过欠频等常用）
                         # 目标：触发 WT 测量后，必须阻塞等待测量结束（test_status 回到 '0'）再继续执行后续命令，
-                        # 否则会出现“WT 正在测量，但 AC 仍在扫频/扫压”，WT 侧极易报 PLL sync error 并停止测量。
+                        # 否则会出现"WT 正在测量，但 AC 仍在扫频/扫压"，WT 侧极易报 PLL sync error 并停止测量。
                         if strArrayTest[i][6] != '':
                             _append_debug_log(
                                 f"[run_loop] col6 detected at command#{i+1}, auto_end_status={auto_end_status}, "
@@ -23703,7 +23607,7 @@ def RunProject():
                             prev_index = now_save_file
                             if not (now_save_file == 0 and save_file_name == ''):
                                 now_save_file = now_save_file + 1
-                            # 2) 标记“正在测量”，让 run_loop 能正确阻塞等待
+                            # 2) 标记"正在测量"，让 run_loop 能正确阻塞等待
                             test_status = '1'
                             # 3) 触发测量线程
                             WT_auto_messure_status = '1'
@@ -23712,7 +23616,7 @@ def RunProject():
                                 f"save_file_name={save_file_name}"
                             )
 
-                            # 4) 先按 col6 给定的等待时长等待（常用作“触发后最短稳定时间”）
+                            # 4) 先按 col6 给定的等待时长等待（常用作"触发后最短稳定时间"）
                             fTestTime = strArrayTest[i][6]
                             iTestTime = int(fTestTime)
                             for x in range(iTestTime):
@@ -23776,7 +23680,7 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 if x % 100 == 0 and iTestTime > 100:
-                                    # 每 10 秒打印一次等待进度，避免误判为“卡住”
+                                    # 每 10 秒打印一次等待进度，避免误判为"卡住"
                                     waited_sec = round(x * wait_time, 1)
                                     total_sec = round(iTestTime * wait_time, 1)
                                     logger.info(f"第{i+1}条命令等待中: {waited_sec}/{total_sec}s")
@@ -23796,7 +23700,7 @@ def RunProject():
                                 time.sleep(0.1)
 
                         # query 分支里的 [7]：
-                        # - WT 已完成配置时（setting_status/messure_status 均为 '1'），按“自动测量触发位”处理
+                        # - WT 已完成配置时（setting_status/messure_status 均为 '1'），按"自动测量触发位"处理
                         # - WT 未就绪时，保持历史行为：仅作为普通等待字段
                         if strArrayTest[i][7] != '':
                             if setting_status == '1' and messure_status == '1':
@@ -24301,8 +24205,8 @@ def RunProject():
                     manager.execute(filepath)
 
                 # WT 分支里的 [7]：纯等待，用于给回放/设备预留完成时间
-                # 注意：UI 时间值经过 SetTimeFunction() 统一转换为 “0.1 秒单位”(seconds*10)。
-                # 因此这里按 0.1 秒单位等待，避免出现“配置 15 秒却等待 150 秒”的 10 倍问题。
+                # 注意：UI 时间值经过 SetTimeFunction() 统一转换为 "0.1 秒单位"(seconds*10)。
+                # 因此这里按 0.1 秒单位等待，避免出现"配置 15 秒却等待 150 秒"的 10 倍问题。
                 if strArrayTest[i][7] != '':
                     fTestTime = strArrayTest[i][7]
                     iTestTime = int(fTestTime)
@@ -24457,7 +24361,7 @@ def RunProject():
         _reset_current_project_count()
         _sync_start_end_buttons()
 
-    # 维持自循环调度：即便本轮没触发，也会持续监听下一次“开始测试”
+    # 维持自循环调度：即便本轮没触发，也会持续监听下一次"开始测试"
     threadRunProjecttimer = threading.Timer(0.001, RunProject)
     threadRunProjecttimer.start()
 
@@ -25925,14 +25829,14 @@ def auto_config():
             left, top, right, bottom = win32gui.GetWindowRect(key_child_messure)
             messured_set(key_child_messure)
         elif "数值列表" in param_dict.values() and "数值" in param_dict.values():
-            # 分支含义：当前 WT 主界面里已经同时存在“数值列表”和“数值”控件
-            # 说明测量相关页面基本已打开，只需要判断“设置页参数是否已配置”即可。
+            # 分支含义：当前 WT 主界面里已经同时存在"数值列表"和"数值"控件
+            # 说明测量相关页面基本已打开，只需要判断"设置页参数是否已配置"即可。
 
-            # setting_status == ''：代表“接线方式/更新率”等设置页参数还没做过
+            # setting_status == ''：代表"接线方式/更新率"等设置页参数还没做过
             if setting_status == '':
                 messure_handle_dict = {}
 
-                # 1) 先切到“设置”页签（左侧导航图标）
+                # 1) 先切到"设置"页签（左侧导航图标）
                 # moveTo + doubleClick + click 是为了提高点击稳定性（不同机型/窗口焦点下，单击可能不生效）
                 pyautogui.moveTo(setting_icon[0], setting_icon[1], duration=0.5)
                 pyautogui.doubleClick()
@@ -25943,14 +25847,14 @@ def auto_config():
                 # 2) 执行设置页自动配置：接线方式、更新率等（按 config_dict 写入）
                 setting_set(h)
 
-                # 3) 再切回“测量/数值”页签
+                # 3) 再切回"测量/数值"页签
                 pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
                 pyautogui.doubleClick()
                 pyautogui.sleep(2)
                 pyautogui.click()
                 pyautogui.sleep(2)
 
-                # 4) 重新枚举子控件，拿到“数值”控件的最新句柄
+                # 4) 重新枚举子控件，拿到"数值"控件的最新句柄
                 #    重新获取是为了避免界面切页后句柄失效/变化
                 messure_handle_now = _get_child_handle_by_text(h, '数值')
                 if messure_handle_now is None:
@@ -25958,33 +25862,33 @@ def auto_config():
                     return False
             else:
                 # setting_status != ''：说明设置页之前已经配过
-                # 直接复用当前枚举出来的“数值”句柄，减少重复切页动作
+                # 直接复用当前枚举出来的"数值"句柄，减少重复切页动作
                 messure_handle_now = _get_child_handle_by_text(h, '数值')
                 if messure_handle_now is None:
                     _append_debug_log("[auto_config][error] child '数值' not found in direct-use flow")
                     return False
 
-            # 5) 进入“数值详细设置”流程：
-            #    - 打开右键菜单中的“数值详细设置”
+            # 5) 进入"数值详细设置"流程：
+            #    - 打开右键菜单中的"数值详细设置"
             #    - 配置测量项勾选、时间、保存文件名等
             messured_set(messure_handle_now)
 
 def setting_set(h):
     """
     作用：
-    - 在 WT 的“设置”页里自动配置接线方式与更新率。
+    - 在 WT 的"设置"页里自动配置接线方式与更新率。
     - 配置来源是全局 `config_dict`；不同机型切片范围不同。
 
     参数：
     - h: WT 主窗口句柄（用于枚举子控件）
 
     说明：
-    - 本函数通过“相对坐标 + 鼠标点击”驱动 UI。
+    - 本函数通过"相对坐标 + 鼠标点击"驱动 UI。
     - 如果界面布局、缩放或版本变化，坐标和步长(step)可能要重新校准。
     """
     global setting_icon, messure_icon, messure_status, setting_status, config_dict, wt_type
 
-    # 兼容“上位机WT配置”为**空字符串/空字典**的场景：
+    # 兼容"上位机WT配置"为**空字符串/空字典**的场景：
     # - 这种情况下用户期望仅完成 WT 连接并继续后续宏回放/测量流程
     # - 不应进入设置页去解析/点击接线方式、更新率等参数
     if not config_dict:
@@ -25992,8 +25896,8 @@ def setting_set(h):
         _append_debug_log("[setting_set] empty config_dict -> skip setting page config")
         return
 
-    # connect_mode：从 config_dict 中提取“设置页”对应配置项
-    # 约定：最后一项用于“更新率”，前面若干项用于“接线方式”
+    # connect_mode：从 config_dict 中提取"设置页"对应配置项
+    # 约定：最后一项用于"更新率"，前面若干项用于"接线方式"
     connect_mode = []
     # parm_dict_set：当前 WT 主窗口子控件文本缓存（用于按文本找控件）
     parm_dict_set = {}
@@ -26009,26 +25913,26 @@ def setting_set(h):
         for i in list(config_dict.values())[1:6]:
             connect_mode.append(i)
 
-    # 若提取不到任何“设置页”参数，同样跳过配置（避免 connect_mode[-1] 等越界）
+    # 若提取不到任何"设置页"参数，同样跳过配置（避免 connect_mode[-1] 等越界）
     if not connect_mode:
         setting_status = '1'
         _append_debug_log("[setting_set] connect_mode empty -> skip setting page config")
         return
 
-    # 获取主窗口子控件文本（用于判断“接线方式/更新率”是否可见）
+    # 获取主窗口子控件文本（用于判断"接线方式/更新率"是否可见）
     win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), parm_dict_set)
 
     # 下拉项逐行高度经验步长（接线方式区域）
     step = 14
 
     # =========================
-    # 第一段：配置“接线方式”
-    # 条件：窗口里存在“接线方式”控件且尚未完成配置(setting_status != '1')
+    # 第一段：配置"接线方式"
+    # 条件：窗口里存在"接线方式"控件且尚未完成配置(setting_status != '1')
     # =========================
     if "接线方式" in parm_dict_set.values() and setting_status != '1':
         step = 14
 
-        # 通过文本“接线方式”定位到该区域，得到该控件矩形
+        # 通过文本"接线方式"定位到该区域，得到该控件矩形
         key_child_setting = list(parm_dict_set.keys())[list(parm_dict_set.values()).index('接线方式')]
         left, top, right, bottom = win32gui.GetWindowRect(key_child_setting)
 
@@ -26047,13 +25951,13 @@ def setting_set(h):
             local_per = [(left + 116, top + 104), (left + 205, top + 104),
                 (left + 116, top + 130), (left + 205, top + 130)]
 
-        # 先点击“接线方式”标题区域，使该区域获得焦点
+        # 先点击"接线方式"标题区域，使该区域获得焦点
         pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
         pyautogui.click()
 
         time.sleep(1)
 
-        # 逐个配置接线项：遍历到 len(connect_mode)-1，最后一位预留给“更新率”
+        # 逐个配置接线项：遍历到 len(connect_mode)-1，最后一位预留给"更新率"
         for j in range(len(connect_mode) - 1):
             param_warn_info_win_dict = {}
 
@@ -26072,7 +25976,7 @@ def setting_set(h):
                 pyautogui.click()
                 time.sleep(2)
 
-                # 3) 处理弹窗告警：“不能指定接线的模块。”
+                # 3) 处理弹窗告警："不能指定接线的模块。"
                 handle_now_dict = get_enumwindows()
                 param_warn_handle = list(handle_now_dict.keys())[list(handle_now_dict.values()).index('WTViewerEfree')]
                 win32gui.EnumChildWindows(param_warn_handle, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_warn_info_win_dict)
@@ -26085,20 +25989,20 @@ def setting_set(h):
                     # 无告警则给界面一点稳定等待时间
                     pyautogui.sleep(3)
 
-            # 循环最后一项时，补点一次“接线方式”区域，帮助收起下拉并稳定焦点
+            # 循环最后一项时，补点一次"接线方式"区域，帮助收起下拉并稳定焦点
             if j == len(connect_mode) - 2:
                 pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
                 pyautogui.click()
 
     # =========================
-    # 第二段：配置“更新率”
-    # 条件：窗口里存在“更新率”控件且尚未完成配置(setting_status != '1')
+    # 第二段：配置"更新率"
+    # 条件：窗口里存在"更新率"控件且尚未完成配置(setting_status != '1')
     # =========================
     if "更新率" in parm_dict_set.values() and setting_status != '1':
         # 更新率下拉列表的经验步长与接线方式略不同
         step = 13
 
-        # 仍以“接线方式”控件为基准推算更新率区域坐标
+        # 仍以"接线方式"控件为基准推算更新率区域坐标
         key_child_setting = list(parm_dict_set.keys())[list(parm_dict_set.values()).index('接线方式')]
         left, top, right, bottom = win32gui.GetWindowRect(key_child_setting)
 
@@ -26132,12 +26036,12 @@ def setting_set(h):
             pyautogui.click()
             pyautogui.sleep(3)
 
-            # 3) 同样处理“不能指定接线的模块。”告警
+            # 3) 同样处理"不能指定接线的模块。"告警
             handle_now_dict = get_enumwindows()
             param_warn_handle = list(handle_now_dict.keys())[list(handle_now_dict.values()).index('WTViewerEfree')]
             win32gui.EnumChildWindows(param_warn_handle, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_warn_info_win_dict)
             if '确定' in param_warn_info_win_dict.values() and '不能指定接线的模块。' in param_warn_info_win_dict.values():
-                # 这里原代码取“确认”按钮（与上段“确定”不一致），保留原逻辑
+                # 这里原代码取"确认"按钮（与上段"确定"不一致），保留原逻辑
                 handle_sure = list(param_warn_info_win_dict.keys())[list(param_warn_info_win_dict.values()).index('确认')]
                 left_warn, top_warn, right_warn, bottom_warn = win32gui.GetWindowRect(handle_sure)
                 pyautogui.moveTo(left_warn + (right_warn - left_warn) / 2, top_warn + (bottom_warn - top_warn) / 2, duration=0.5)
@@ -26147,23 +26051,23 @@ def setting_set(h):
             pyautogui.moveTo(left1, top1, duration=0.5)
             pyautogui.click()
 
-    # 标记设置页配置完成，后续流程可按“已配置”分支走
+    # 标记设置页配置完成，后续流程可按"已配置"分支走
     setting_status = '1'
 
 def messured_set(messure_handle):
     """
     作用：
-    - 打开 WT 的“数值详细设置”窗口
-    - 配置“详细参数页”(左页签)与“测量项目页”(右页签)
+    - 打开 WT 的"数值详细设置"窗口
+    - 配置"详细参数页"(左页签)与"测量项目页"(右页签)
     - 按项目配置测量时长、自动保存路径、文件名、测量项勾选等
-    - 最后点击“确认/应用”让配置生效
+    - 最后点击"确认/应用"让配置生效
 
     参数：
-    - messure_handle: WT 主界面里“数值/数值列表”控件的句柄
+    - messure_handle: WT 主界面里"数值/数值列表"控件的句柄
 
     注意：
     - 本函数大量依赖屏幕坐标+鼠标点击，分辨率/缩放/界面布局变化会影响稳定性
-    - 通过一组全局状态位控制“首次配置”与“每轮仅更新局部参数”
+    - 通过一组全局状态位控制"首次配置"与"每轮仅更新局部参数"
     """
     # --- 全局状态/坐标/配置数据 ---
     global setting_icon, messure_icon, messure_status, setting_status, messsure_deatil_cofig, messure_project_cofig
@@ -26173,9 +26077,9 @@ def messured_set(messure_handle):
     # 过欠压_过欠频第一组测试时间设置状态，0: 首轮时间未写入；1: 已写入
     global volt_fz_first_status
 
-    # 兼容“上位机WT配置”为**空字符串/空字典**的场景：
-    # - Upper_WT_Config 可能只用于触发 WT 连接/置前，而不希望改动任何“数值详细设置/测量项目”的勾选
-    # - 原逻辑会先清理(批量点击)测量项目区；若 config_dict 为空则不会再勾回来，导致“全部反选/清空”
+    # 兼容"上位机WT配置"为**空字符串/空字典**的场景：
+    # - Upper_WT_Config 可能只用于触发 WT 连接/置前，而不希望改动任何"数值详细设置/测量项目"的勾选
+    # - 原逻辑会先清理(批量点击)测量项目区；若 config_dict 为空则不会再勾回来，导致"全部反选/清空"
     # - 因此这里直接跳过 UI 配置，但把状态位置为已就绪，避免 run_loop 的恢复逻辑反复调用本函数
     if not config_dict:
         messsure_deatil_cofig = '1'
@@ -26187,22 +26091,22 @@ def messured_set(messure_handle):
     # 当前窗口句柄/控件文本缓存
     handle_now_dict = {}
     parm_dict_set = {}
-    # WT配置中的谐波次数“开始/结束”下拉项索引位置（不同机型不同）
+    # WT配置中的谐波次数"开始/结束"下拉项索引位置（不同机型不同）
     i_list = []
 
-    # 取“数值”控件的屏幕矩形框，用于后续鼠标定位
+    # 取"数值"控件的屏幕矩形框，用于后续鼠标定位
     left, top, right, bottom = win32gui.GetWindowRect(messure_handle)
     print(left, top, right, bottom)
 
-    # 在“数值”区域中心右键，调出上下文菜单（目标：打开“数值详细设置”）
+    # 在"数值"区域中心右键，调出上下文菜单（目标：打开"数值详细设置"）
     pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
     pyautogui.rightClick()
 
-    # 枚举所有顶层窗口，检查“数值详细设置”是否已经弹出
+    # 枚举所有顶层窗口，检查"数值详细设置"是否已经弹出
     handle_now_dict = get_enumwindows()
-    # 成功找到“数值详细设置”窗口后，进入自动配置流程
+    # 成功找到"数值详细设置"窗口后，进入自动配置流程
     if "数值详细设置" in handle_now_dict.values():
-        # 获取“数值详细设置”窗口句柄
+        # 获取"数值详细设置"窗口句柄
         deatil_messure_set_handle = list(handle_now_dict.keys())[list(handle_now_dict.values()).index('数值详细设置')]
         # 窗口恢复并置前，避免被其它窗口遮挡导致点击失败
         win32gui.ShowWindow(deatil_messure_set_handle, win32con.SW_RESTORE)
@@ -26214,7 +26118,7 @@ def messured_set(messure_handle):
         t1 = (left + 40, top + 43)
         t2 = (left + 100, top + 43)
 
-        # connect_messure_mode: 从配置字典切片出来的“测量设置参数序列”
+        # connect_messure_mode: 从配置字典切片出来的"测量设置参数序列"
         connect_messure_mode = []
         # 不同机型在 config_dict 里的起始偏移不同，因此切片起点不同
         if wt_type == 'WT3000':
@@ -26229,10 +26133,10 @@ def messured_set(messure_handle):
 
         # =========================
         # 第一部分：详细参数页（左页签）
-        # messsure_deatil_cofig == '' 表示“首次完整配置”
+        # messsure_deatil_cofig == '' 表示"首次完整配置"
         # =========================
         if messsure_deatil_cofig == '':
-            # config_1 对应“详细参数页”的前 6 个配置项
+            # config_1 对应"详细参数页"的前 6 个配置项
             config_1 = connect_messure_mode[:6]
 
             # 点击左页签（详细参数）
@@ -26328,10 +26232,10 @@ def messured_set(messure_handle):
 
         # =========================
         # 第二部分：测量项目页（右页签）
-        # messure_project_cofig == '' 表示“首次完整勾选/设置项目”
+        # messure_project_cofig == '' 表示"首次完整勾选/设置项目"
         # =========================
         if messure_project_cofig == '':
-            # config_2 对应“测量项目页”的配置段
+            # config_2 对应"测量项目页"的配置段
             config_2 = connect_messure_mode[6:]
 
             # 点击右页签（测量项目）
@@ -26352,7 +26256,7 @@ def messured_set(messure_handle):
                     pyautogui.sleep(1.0)
                     pyautogui.click()
 
-            # i_list 是“谐波开始/结束”这类特殊下拉项在 config_2 里的索引
+            # i_list 是"谐波开始/结束"这类特殊下拉项在 config_2 里的索引
             if wt_type == 'WT3000':
                 i_list = [38, 39]
             elif wt_type == 'WT1800' or wt_type == 'WT1806E':
@@ -26411,7 +26315,7 @@ def messured_set(messure_handle):
             messure_project_cofig = '1'
         
         # =========================
-        # 第三部分：非首次场景的“局部更新”
+        # 第三部分：非首次场景的"局部更新"
         # 当 messsure_deatil_cofig == '0' 时，表示本轮只需更新部分参数
         # =========================
         if messsure_deatil_cofig == '0':
@@ -26438,12 +26342,12 @@ def messured_set(messure_handle):
             # 本轮局部更新完成
             messsure_deatil_cofig = '1'
 
-    # 详细页+项目页都就绪后，点击“确认/应用”提交配置
+    # 详细页+项目页都就绪后，点击"确认/应用"提交配置
     if  messure_project_cofig == '1' and messsure_deatil_cofig == '1':
         parm_dict_set = {}
         win32gui.EnumChildWindows(deatil_messure_set_handle, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), parm_dict_set)
         if "应用" in parm_dict_set.values():
-            # 代码这里检查“应用”是否存在，但实际点击的是“确认”按钮（沿用原逻辑）
+            # 代码这里检查"应用"是否存在，但实际点击的是"确认"按钮（沿用原逻辑）
             key_child_setting = list(parm_dict_set.keys())[list(parm_dict_set.values()).index('确认')]
             left, top, right, bottom = win32gui.GetWindowRect(key_child_setting)
             pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=0.5)
@@ -26468,10 +26372,10 @@ def messure_testing():
     周期性测量调度器（每 0.5 秒自触发一次）。
 
     主要职责：
-    1) 检查 WT 是否已经完成“可开始测量”的前置状态。
+    1) 检查 WT 是否已经完成"可开始测量"的前置状态。
     2) 计算本轮测量应持续的时间（兼容过欠压/过欠频特殊逻辑）。
     3) 调用 testing_start() 启动测量，等待到时后调用 testing_stop() 收尾。
-    4) 通过状态位控制“每轮测量后需要重新下发详细配置”。
+    4) 通过状态位控制"每轮测量后需要重新下发详细配置"。
 
     关键状态位：
     - setting_status == '1'：设置页（接线方式/更新率）已配置完成。
@@ -26479,7 +26383,7 @@ def messure_testing():
     - WT_auto_messure_status == '1'：允许本轮自动测量触发（触发后会被清空，防止重复触发）。
 
     重要：本函数在任意异常或分支后都必须继续 0.5s 自调度，否则 run_loop 会永久卡在
-    “等待 col7 测量结束 (test_status=0)”，表现成“已触发测量但不点 WT 开始、不再往下走”。
+    "等待 col7 测量结束 (test_status=0)"，表现成"已触发测量但不点 WT 开始、不再往下走"。
     """
     global test_time_list, messsure_deatil_cofig, config_dict, messure_status, setting_status, WT_auto_messure_status
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
@@ -26496,12 +26400,12 @@ def messure_testing():
         messure_testing._last_state = current_state
 
     try:
-        # 只有“三个门闩”都满足时才进入本轮自动测量
+        # 只有"三个门闩"都满足时才进入本轮自动测量
         if setting_status == '1' and messure_status == '1' and WT_auto_messure_status == '1':
             _append_debug_log("[messure_testing] enter measure flow")
             # 进门后立即清空触发位，避免定时器下一拍重复进入同一轮
             WT_auto_messure_status = ''
-            # 置位“测量进行中”，供 run_loop(col6/col7) 阻塞等待
+            # 置位"测量进行中"，供 run_loop(col6/col7) 阻塞等待
             test_status = '1'
 
             # 解析待保存文件名列表（支持英文逗号/中文逗号）
@@ -26534,7 +26438,7 @@ def messure_testing():
 
                 _append_debug_log(f"[messure_testing] computed loop_time={loop_time} (0.1s unit)")
 
-                # 发起“开始测量”动作（点击 WT 的开始按钮）
+                # 发起"开始测量"动作（点击 WT 的开始按钮）
                 # 与当前索引对齐文件名，避免首轮出现空文件名
                 if now_save_file < 0 or now_save_file >= len(test_count):
                     clamped_index = max(0, min(now_save_file, len(test_count) - 1))
@@ -26558,7 +26462,7 @@ def messure_testing():
                     current_name = test_count[now_save_file] if now_save_file < len(test_count) else f"INDEX_{now_save_file}"
                     _append_debug_log(f"[messure_testing] testing_start success, current_file={current_name}, index={now_save_file}")
                     # 成功开始后，按 loop_time 阻塞等待本轮测试时长结束
-                    # 注意：这里没有暂停/结束中断判断，属于“纯计时等待”
+                    # 注意：这里没有暂停/结束中断判断，属于"纯计时等待"
                     for j in range(loop_time):
                         time.sleep(0.1)
 
@@ -26582,7 +26486,7 @@ def messure_testing():
                         test_status = '0'
                 else:
                     _append_debug_log("[messure_testing] testing_start failed, set status to reconfigure")
-                    # 启动失败时同样把状态置回“待重配”，让后续流程有机会恢复
+                    # 启动失败时同样把状态置回"待重配"，让后续流程有机会恢复
                     messsure_deatil_cofig = '0'
                     messure_status = '0'
                     # 释放 run_loop 的 col6/col7 等待
@@ -26635,8 +26539,8 @@ def testing_stop(test_count, count_now):
                 duration= 0.1)
             pyautogui.doubleClick()
             pyautogui.sleep(1)
-        # 停止后需要重新打开“数值详细设置”来写入下一轮参数。
-        # 但 WT 在连续运行/窗口焦点切换后，“数值”子控件可能短暂不存在或标题不完全一致，
+        # 停止后需要重新打开"数值详细设置"来写入下一轮参数。
+        # 但 WT 在连续运行/窗口焦点切换后，"数值"子控件可能短暂不存在或标题不完全一致，
         # 这里做重试和兼容匹配，避免 ValueError 直接把定时线程打崩。
         messure_handle_now = None
         last_children_snapshot = None
@@ -26654,7 +26558,7 @@ def testing_stop(test_count, count_now):
             if '数值' in child_titles:
                 messure_handle_now = list(now_child_dict.keys())[child_titles.index('数值')]
                 break
-            # 2) 兼容：包含“数值”的标题（例如“数值列表”等）
+            # 2) 兼容：包含"数值"的标题（例如"数值列表"等）
             for idx, title in enumerate(child_titles):
                 if isinstance(title, str) and ('数值' in title):
                     messure_handle_now = list(now_child_dict.keys())[idx]
@@ -26666,7 +26570,7 @@ def testing_stop(test_count, count_now):
                 f"[testing_stop][warn] WT child not ready (attempt {attempt}/5): "
                 f"'数值' not found, children_count={len(child_titles)}"
             )
-            # 尝试重新点一次“测量/数值”页签，让控件重新出现
+            # 尝试重新点一次"测量/数值"页签，让控件重新出现
             try:
                 pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.1)
                 pyautogui.click()
@@ -26698,7 +26602,7 @@ def testing_stop(test_count, count_now):
             # 当前轮结束
             test_status = '0'
 
-        # 2) 当前“项目”结束，但后面还有其它项目：
+        # 2) 当前"项目"结束，但后面还有其它项目：
         #    清空 WT 配置状态，让下一个项目重新走 auto_config / messured_set
         elif count_now >= len(test_count) - 1 and len(test_program) > 1:
             print('此项目测试结束')
@@ -26719,9 +26623,9 @@ def testing_stop(test_count, count_now):
                 f"[testing_stop] next round transition index {count_now}->{next_index}, "
                 f"file={save_file_name}, total={len(test_count)}"
             )
-            # 重新打开“数值详细设置”并写入下一轮参数（主要是文件名/时长）
+            # 重新打开"数值详细设置"并写入下一轮参数（主要是文件名/时长）
             messured_set(messure_handle_now)
-            # 标记“详细设置”已完成
+            # 标记"详细设置"已完成
             messsure_deatil_cofig = '1'
             # 当前轮结束，等待下次调度进入 testing_start
             test_status = '0'
@@ -26732,9 +26636,9 @@ def testing_start():
 
     主要动作：
     - 校验 WT 配置状态是否就绪
-    - 切到测量页并点击“开始”
+    - 切到测量页并点击"开始"
     - 若开启积分，则先点积分开始
-    - 若弹出“文件已存在，是否覆盖”对话框，自动点“是”
+    - 若弹出"文件已存在，是否覆盖"对话框，自动点"是"
 
     返回：
     - '1'：已成功触发开始测量（或完成覆盖确认）
@@ -26747,7 +26651,7 @@ def testing_start():
 
     _append_debug_log(f"[testing_start] enter setting_status={setting_status}, messure_status={messure_status}, save_file_name={save_file_name}")
 
-    # 只有“设置页已配置 + 数值页已配置”时，才允许开始测量
+    # 只有"设置页已配置 + 数值页已配置"时，才允许开始测量
     if setting_status == '1' and messure_status == '1':
         now_handle_dict = {}
         now_child_dict = {}
@@ -26760,14 +26664,14 @@ def testing_start():
         win32gui.ShowWindow(now_h, win32con.SW_SHOWMAXIMIZED)
         win32gui.SetForegroundWindow(now_h)
 
-        # 3) 点击左侧“测量/数值”图标，确保当前页面在测量页
+        # 3) 点击左侧"测量/数值"图标，确保当前页面在测量页
         pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.1)
         pyautogui.click()
 
         # 获取窗口矩形，用于后续相对坐标点击
         left, top, right, bottom = win32gui.GetWindowRect(now_h)
 
-        # 4) 若启用积分功能，先执行“积分开始”
+        # 4) 若启用积分功能，先执行"积分开始"
         if integral_status == '1':
             pyautogui.moveTo(
                 left + INTEGRAL_COORD['integral_start'][0],
@@ -26776,13 +26680,13 @@ def testing_start():
             pyautogui.doubleClick()
             pyautogui.sleep(0.5)
 
-        # 5) 点击测量“开始”按钮（固定相对坐标）
+        # 5) 点击测量"开始"按钮（固定相对坐标）
         pyautogui.moveTo(left + 586, top + 98, duration= 0.1)
         pyautogui.click()
         pyautogui.sleep(0.2)
 
-        # 6) 检查是否出现“重名文件覆盖”弹窗
-        #    逻辑：检测到“是(&Y)”和“否(&N)”按钮即视为覆盖确认框
+        # 6) 检查是否出现"重名文件覆盖"弹窗
+        #    逻辑：检测到"是(&Y)"和"否(&N)"按钮即视为覆盖确认框
         now_handle_dict = get_enumwindows()
         now_h = list(now_handle_dict.keys())[list(now_handle_dict.values()).index('WTViewerEfree')]
         win32gui.EnumChildWindows(now_h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), now_child_dict)
@@ -26790,7 +26694,7 @@ def testing_start():
             _append_debug_log(f"[testing_start] overwrite dialog detected for file={save_file_name}, choose YES")
             handle_sure = list(now_child_dict.keys())[list(now_child_dict.values()).index('是(&Y)')]
             left_warn, top_warn, right_warn, bottom_warn = win32gui.GetWindowRect(handle_sure)
-            # 默认选择“是”，允许覆盖旧文件并继续流程
+            # 默认选择"是"，允许覆盖旧文件并继续流程
             pyautogui.moveTo(left_warn + (right_warn - left_warn) / 2, top_warn + (bottom_warn - top_warn) / 2, duration=0.5)
             pyautogui.click()
 
@@ -27086,7 +26990,7 @@ def mppt_before_test(test_vdc_now):
                     else:
                         break
 
-                # # 处理“import all IV file”确认弹窗（不同版本标题/按钮文案可能不同）
+                # # 处理"import all IV file"确认弹窗（不同版本标题/按钮文案可能不同）
                 # import_all_handle = None
                 # handle_upper_dict = get_enumwindows()
                 # for hwnd, title in handle_upper_dict.items():
@@ -27278,7 +27182,7 @@ def mppt_read_config_file(test_vdc_now, d_number, vdc_list):
 
     if '文件名(&N):' in test_tt.values():
         # file_path 是固定6槽位（Vmin/Vnom/Vmax/Vdc1/Vdc2/Vdc3），但未勾选的槽位是空字符串。
-        # 为了让 test_vdc_now 与“实际被勾选的槽位”对齐，这里按非空槽位映射索引。
+        # 为了让 test_vdc_now 与"实际被勾选的槽位"对齐，这里按非空槽位映射索引。
         file_path_list = Mppt_step2.get('file_path', []) if 'Mppt_step2' in globals() else []
         slot_indices = [i for i, p in enumerate(file_path_list) if str(p).strip() != '']
         if test_vdc_now >= len(slot_indices):
@@ -29007,7 +28911,7 @@ if __name__ == "__main__":
             
             # 固定PF=1
             uiThaiFixedPF.pushButton_Send.clicked.connect(thaifixedpfSend)
-            uiThaiFixedPF.cB_wt_type.currentTextChanged.connect(thai_fixedpf_wt_change)
+            uiThaiFixedPF._radio_group.buttonClicked.connect(lambda btn: thai_fixedpf_wt_change())
             thaifixedpf_ui_init()
             uiThaiFixedPF.btn_set_batch_time.clicked.connect(thai_fixedpf_batch_time_change)
 
@@ -29022,9 +28926,18 @@ if __name__ == "__main__":
             uiThaiFixedPF.pushButton_ReadSettingFile.clicked.connect(cm.load_config)
             uiThaiFixedPF.pushButton_SaveSettingFile.clicked.connect(cm.save_config)
 
-            # _safe_click(uiThaiFixedPF, "pushButton_ReadSettingFile", OpenFileDialogThaiFixedPF)
-            # _safe_click(uiThaiFixedPF, "pushButton_SaveSettingFile", SaveFileDialogThaiFixedPF)
-            
+            _safe_click(uiThaiFixedPF, "pushButton_TestAppend", thaifixedpfAppend)
+            _safe_click(uiThaiFixedPF, "pushButton_ReadSettingFile", OpenFileDialogThaiFixedPF)
+            _safe_click(uiThaiFixedPF, "pushButton_SaveSettingFile", SaveFileDialogThaiFixedPF)
+
+            def reset_fixedpf_count():
+                global fixedpf_append_count
+                fixedpf_append_count = 0
+                uiThaiFixedPF.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[固定PF=1] 计数器已重置为0")
+            _safe_click(uiThaiFixedPF, "pushButton_ResetCount", reset_fixedpf_count)
+
             # overloads
             uiThaiOverLoads.pushButton_Send.clicked.connect(thaioverloadsSend)
             _safe_click(uiThaiOverLoads, "pushButton_TestAppend", thaioverloadsAppend)

@@ -1,9 +1,9 @@
 ---
-name: solarautotest-dialog-refactor
-description: SolarAutoTest 项目测试对话框重构专用技能。用于将剩余测试项目接入按钮逻辑、DC联动、功率分析仪配置内嵌。包含完整修改流程、已踩坑点、自测清单。当用户要求接入新测试项目、修复测试项目bug、或重构测试对话框时使用此技能。
+name: autotest-dialog-integration
+description: SolarAutoTest AutoTest 测试项目对话框接入技能。用于将测试项目接入按钮逻辑、DC联动、功率分析仪配置内嵌、步骤合并。包含完整修改流程、11个坑点、18项自测清单。当用户要求接入新测试项目、修复测试项目bug、或重构测试对话框时使用此技能。
 ---
 
-# SolarAutoTest 测试对话框重构技能
+# AutoTest 测试项目对话框接入技能
 
 本技能用于将 SolarAutoTest 项目中的测试对话框逐个接入标准逻辑。每个项目必须严格按照以下流程执行，不可跳步。
 
