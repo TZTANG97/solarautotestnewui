@@ -194,22 +194,39 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.checkBox_S2.toggled.connect(_on_s2_toggled)
         _on_s2_toggled(self.checkBox_S2.isChecked())
 
-        # Step 3: DC 开关循环
-        s3_children = [
-            self.checkBox_S3_DC1, self.comboBox_S3_DC1, self.checkBox_S3_DC2,
-            self.comboBox_S3_DC2, self.checkBox_S3_DC3, self.comboBox_S3_DC3,
-            self.checkBox_S3_DC4, self.comboBox_S3_DC4, self.checkBox_S3_DC1_2,
-            self.comboBox_S3_DC1_2, self.checkBox_S3_DC2_2, self.comboBox_S3_DC2_2,
-            self.checkBox_S3_DC3_2, self.comboBox_S3_DC3_2, self.checkBox_S3_DC4_2,
-            self.comboBox_S3_DC4_2, self.textEdit_S3_TIME, self.comboBox_S3_TIME,
+        # Step 3: DC 开关循环（DC 复选框联动 step1 DC）
+        s3_dc_first = [self.checkBox_S3_DC1, self.checkBox_S3_DC2,
+                       self.checkBox_S3_DC3, self.checkBox_S3_DC4]
+        s3_dc_second = [self.checkBox_S3_DC1_2, self.checkBox_S3_DC2_2,
+                        self.checkBox_S3_DC3_2, self.checkBox_S3_DC4_2]
+        s3_non_dc = [
+            self.comboBox_S3_DC1, self.comboBox_S3_DC2,
+            self.comboBox_S3_DC3, self.comboBox_S3_DC4,
+            self.comboBox_S3_DC1_2, self.comboBox_S3_DC2_2,
+            self.comboBox_S3_DC3_2, self.comboBox_S3_DC4_2,
+            self.textEdit_S3_TIME, self.comboBox_S3_TIME,
             self.textEdit_S3_TIME_2, self.comboBox_S3_TIME_2, self.textEdit_S3_CYCLE_TIME,
         ]
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+        def _update_s3_dc():
+            step_on = self.checkBox_S3.isChecked()
+            for i in range(4):
+                should_enable = step_on and step1_dcs[i].isChecked()
+                s3_dc_first[i].setEnabled(should_enable)
+                s3_dc_first[i].setChecked(should_enable)
+                s3_dc_second[i].setEnabled(should_enable)
+                s3_dc_second[i].setChecked(should_enable)
 
         def _on_s3_toggled(checked):
-            for w in s3_children:
+            _update_s3_dc()
+            for w in s3_non_dc:
                 w.setEnabled(checked)
 
         self.checkBox_S3.toggled.connect(_on_s3_toggled)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_s3_dc)
         _on_s3_toggled(self.checkBox_S3.isChecked())
 
         # Step 4: 判定结果
@@ -224,18 +241,29 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.checkBox_S4.toggled.connect(_on_s4_toggled)
         _on_s4_toggled(self.checkBox_S4.isChecked())
 
-        # Step 5: 关机设置
-        s5_children = [
-            self.comboBox_S5_AC, self.checkBox_S5_DC1, self.comboBox_S5_DC1,
-            self.checkBox_S5_DC2, self.comboBox_S5_DC2, self.checkBox_S5_DC3,
-            self.comboBox_S5_DC3, self.checkBox_S5_DC4, self.comboBox_S5_DC4,
+        # Step 5: 关机设置（DC 复选框联动 step1 DC）
+        s5_dc = [self.checkBox_S5_DC1, self.checkBox_S5_DC2,
+                 self.checkBox_S5_DC3, self.checkBox_S5_DC4]
+        s5_non_dc = [
+            self.comboBox_S5_AC, self.comboBox_S5_DC1,
+            self.comboBox_S5_DC2, self.comboBox_S5_DC3, self.comboBox_S5_DC4,
         ]
 
+        def _update_s5_dc():
+            step_on = self.checkBox_S5.isChecked()
+            for i in range(4):
+                should_enable = step_on and step1_dcs[i].isChecked()
+                s5_dc[i].setEnabled(should_enable)
+                s5_dc[i].setChecked(should_enable)
+
         def _on_s5_toggled(checked):
-            for w in s5_children:
+            _update_s5_dc()
+            for w in s5_non_dc:
                 w.setEnabled(checked)
 
         self.checkBox_S5.toggled.connect(_on_s5_toggled)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_s5_dc)
         _on_s5_toggled(self.checkBox_S5.isChecked())
 
     # ══════════════════════════════════════════════

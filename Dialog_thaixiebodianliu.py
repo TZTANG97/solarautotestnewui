@@ -513,14 +513,25 @@ class Ui_Dialog_thaixiebodianliu(object):
         pct.setObjectName(spec["pct_lbl"])
         gLayout.addWidget(pct, 2, 1)
 
-        # 步骤启用复选框联动：取消勾选时禁用下方控件
+        # 步骤启用 + step1 DC 联动：DC 复选框需同时满足步骤启用且 step1 DC 已勾选
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+        def _update_dc_enabled():
+            step_on = step_widget.isChecked()
+            for i, dc_cb in enumerate(dc_cbs):
+                should_enable = step_on and step1_dcs[i].isChecked()
+                dc_cb.setEnabled(should_enable)
+                dc_cb.setChecked(should_enable)
+
         def _on_step_toggled(checked):
-            for dc_cb in dc_cbs:
-                dc_cb.setEnabled(checked)
+            _update_dc_enabled()
             pf_widget.setEnabled(checked)
             pct.setEnabled(checked)
 
         step_widget.toggled.connect(_on_step_toggled)
+        for dc_idx, s1dc in enumerate(step1_dcs):
+            s1dc.toggled.connect(_update_dc_enabled)
         # 初始化状态
         _on_step_toggled(step_widget.isChecked())
 
@@ -610,6 +621,7 @@ class Ui_Dialog_thaixiebodianliu(object):
 
         # DC 电源关机
         shutdown_widgets = [self.comboBox_S5_AC]
+        s5_dc = []
         dc_shutdown = [
             ("checkBox_S5_DC1", "直流电源1", "comboBox_S5_DC1"),
             ("checkBox_S5_DC2", "直流电源2", "comboBox_S5_DC2"),
@@ -619,18 +631,32 @@ class Ui_Dialog_thaixiebodianliu(object):
         for c, (cb_name, cb_text, combo_name) in enumerate(dc_shutdown):
             col = 1 + c * 2
             cb = self._make_checkbox(cb_name, cb_text, parent=self)
+            s5_dc.append(cb)
             shutdown_widgets.append(cb)
             sg.addWidget(cb, 1, col)
             combo = self._make_combo(combo_name, ["关闭", "开启"], parent=self)
             shutdown_widgets.append(combo)
             sg.addWidget(combo, 1, col + 1)
 
-        # 步骤启用复选框联动
+        # 步骤启用 + step1 DC 联动
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+        def _update_s5_dc():
+            step_on = self.checkBox_S5.isChecked()
+            for i in range(4):
+                should_enable = step_on and step1_dcs[i].isChecked()
+                s5_dc[i].setEnabled(should_enable)
+                s5_dc[i].setChecked(should_enable)
+
         def _on_step_toggled(checked):
-            for w in shutdown_widgets:
+            _update_s5_dc()
+            for w in [self.comboBox_S5_AC]:
                 w.setEnabled(checked)
 
         self.checkBox_S5.toggled.connect(_on_step_toggled)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_s5_dc)
         _on_step_toggled(self.checkBox_S5.isChecked())
 
         layout.addWidget(grp_s)

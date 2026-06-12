@@ -375,6 +375,49 @@ if first_test == '':
     first_test = '1'
 ```
 
+**6. 设备连接校验**
+`RunProjectPush()` 中点击"开始试验"时，根据 `strArrayTest` 中实际用到的设备，一次性检查所有连接：
+```python
+def _check_device_connections():
+    device_map = {
+        "AC": ("交流电源", ac_controller),
+        "DC1": ("DC电源1", dc1_controller),
+        "DC2": ("DC电源2", dc2_controller),
+        "DC3": ("DC电源3", dc3_controller),
+        "DC4": ("DC电源4", dc4_controller),
+        "Upper_WT_Config": ("功率分析仪", wt3000_controller),
+        "DL850": ("示波器(DL850)", dl850_controller),
+    }
+    used_devices = set()
+    for cmd in strArrayTest:
+        if len(cmd) > 0 and cmd[0] in device_map:
+            used_devices.add(cmd[0])
+    disconnected = []
+    for device_key in sorted(used_devices):
+        name, controller = device_map[device_key]
+        if controller is None or not controller.connected:
+            disconnected.append(name)
+    return "、".join(disconnected) if disconnected else ""
+```
+调用处（`RunProjectPush` 中 `strSettingTestFlag == "1"` 分支开头）：
+```python
+disconnected = _check_device_connections()
+if disconnected:
+    QMessageBox.warning(None, "连接错误",
+        f"以下设备未连接，已终止本次试验启动：\n\n{disconnected}")
+    return
+```
+
+**改动生效范围：**
+- **全局生效（所有项目自动受益）：**
+  - `EndProjectPush` 二次确认弹窗 — 所有点"结束试验"都会弹确认框
+  - `EndProjectPush` 未运行时警告弹窗 — 所有项目
+  - `wt_is_check()` try/except — 所有使用 WT 的项目不会因 WTViewerEfree 缺失而崩溃线程
+  - `_check_device_connections()` — 根据 `strArrayTest` 自动判断用了哪些设备，一次性校验连接
+- **需要逐项目补充（接入新项目时必须添加）：**
+  - `_reset_current_project_count()` — 添加 `elif current == '项目名':` 分支，重置计数器 + 更新 label
+  - `_sync_start_end_buttons()` — 添加 `elif current == '项目名':` 分支，读取对应计数器
+
 ### 已踩坑点（必须避免）
 
 **坑1：LazyDialog 不能作为 QMessageBox/QFileDialog 的 parent**
@@ -451,20 +494,23 @@ if first_test == '':
   2. 搜索 `QFileDialog\.(getSaveFileName|getOpenFileName)\(dialog_window` 确保所有调用都使用 `None`
 
 **坑9：计数器变量未初始化会导致 UnboundLocalError**
-- `harmonic_append_count`、`flicker_append_count` 等计数器变量在函数开头未初始化
-- 只在特定条件分支中检查和初始化，其他路径执行时变量未定义
-- 典型报错：`UnboundLocalError: local variable 'harmonic_append_count' referenced before assignment`
-- **修复**：在函数开头声明 global 并初始化
+- `harmonic_append_count`、`flicker_append_count`、`overloads_append_count` 等计数器变量在 Send 函数开头未声明 global 且未初始化
+- 典型报错：`UnboundLocalError: local variable 'overloads_append_count' referenced before assignment`
+- **修复**：在 Send 函数开头**同时**做两件事：
+  1. `global` 声明中**加入**计数器变量（如 `global ..., overloads_append_count`）
+  2. 紧接着加初始化检查：`if 'overloads_append_count' not in globals(): overloads_append_count = 0`
 - **代码模式**：
   ```python
   def xxxSend():
-      global xxx_append_count
+      global uiXxx, strArrayTest, ...
+      global xxx_append_count  # 必须声明！
       if 'xxx_append_count' not in globals():
           xxx_append_count = 0
       # ... 其他代码
   ```
-- **涉及函数**：`thaidianyashanbianSend()`、`thaixiebodianliuSend()` 等所有包含计数器的 Send 函数
-- **检查方法**：搜索 `global.*_append_count` 确保所有计数器都在函数开头初始化
+- **涉及函数**：`thaidianyashanbianSend()`、`thaixiebodianliuSend()`、`thaioverloadsSend()` 等所有包含计数器的 Send 函数
+- **检查方法**：搜索每个 Send 函数中的 `+= 1`，确认对应的计数器变量在该函数的 `global` 声明中且有初始化检查
+- **新项目接入时必须检查**：接入新项目的 Append/Send 逻辑时，第一步就是确认 Send 函数的 global 声明包含计数器变量
 
 **坑10：步骤启用复选框必须联动子控件**
 - 取消勾选步骤启用复选框（如 `checkBox_S3`）后，下方的 DC 通道复选框和功率输入框仍可操作，导致用户困惑
@@ -486,6 +532,54 @@ if first_test == '':
   ```
 - **涉及文件**：所有 `Dialog_thaiXxx.py` 的步骤构建方法
 - **适用范围**：闪变、谐波电流及后续所有测试项目
+- **扩展：step1 DC 联动 step3+ DC 复选框**：step1 中未勾选某个 DC 通道（如 `checkBox_S1_DC1`）时，所有谐波步骤中对应的 DC 复选框（如 `checkBox_S1_DC1_2`/`_3`/`_4`/`_5`）应被禁用且取消勾选。DC 复选框的启用条件为：`步骤已启用 AND step1 DC 已勾选`。**当 step1 DC 勾选时，step3+ 对应 DC 复选框应自动勾选**，避免用户逐个手动点击。
+- **代码模式（含自动勾选）**：
+  ```python
+  step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+               self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+  def _update_dc_enabled():
+      step_on = step_widget.isChecked()
+      for i, dc_cb in enumerate(dc_cbs):
+          should_enable = step_on and step1_dcs[i].isChecked()
+          dc_cb.setEnabled(should_enable)
+          dc_cb.setChecked(should_enable)  # 自动勾选/取消勾选
+
+  step_widget.toggled.connect(_update_dc_enabled)
+  for s1dc in step1_dcs:
+      s1dc.toggled.connect(_update_dc_enabled)
+  _update_dc_enabled()  # 初始化
+  ```
+- **适用范围**：闪变（step3 DC 开关循环 + step5 关机 DC）、谐波电流（12 个谐波卡片）及后续所有有多步 DC 测量的项目
+
+**坑11：所有 step3/step5 的 DC 命令必须联动 step1 DC 复选框**
+- step3/step5 中的 DC 块（`checkBox_S3_DCx` / `checkBox_S5_DCx`）生成命令时，如果只检查 step3/step5 复选框，而 step1 的 `checkBox_S1_DCx` 未勾选，DC 命令仍会被添加到 `strArrayTest`
+- **后果1**：`S1DC1Vmp` 等变量未定义 → `UnboundLocalError`
+- **后果2**：`strArrayTest` 中包含 DC 命令 → `_check_device_connections()` 误判 DC 设备需要连接，提示"设备未连接，终止启动"
+- **修复**：step3/step5 的每个 DC 块必须同时检查 step1 DC 复选框
+- **代码模式**：
+  ```python
+  # 错误：只检查 step3/step5 复选框
+  if uiXxx.checkBox_S3_DC1.isChecked():
+      ...
+  if uiXxx.checkBox_S5_DC1.isChecked():
+      ...
+
+  # 正确：同时检查 step1 复选框
+  if uiXxx.checkBox_S1_DC1.isChecked() and uiXxx.checkBox_S3_DC1.isChecked():
+      ...
+  if uiXxx.checkBox_S1_DC1.isChecked() and uiXxx.checkBox_S5_DC1.isChecked():
+      ...
+  ```
+- **涉及文件**：`SCPITestWave.py` 中所有包含 DC 块的 Send 函数
+- **适用项目**（2026-06-12 已全部修复）：
+  - 闪变 `thaidianyashanbianSend()`：step3（24 块）+ step5（4 块）
+  - 谐波电流 `thaixiebodianliuSend()`：step3（16 块）+ step5（4 块）
+  - 过载 `thaioverloadsSend()`：step5（4 块）
+  - 直流分量 `thaizhiliufenliangSend()`：step3（4 块）+ step5（4 块）
+  - 静态CosPhi `thaistaticcosPhiSend()`：step3（4 块）+ step5（4 块）
+  - 巴西CosPhi `thaicosPhiBrazilSend()`：step3（4 块）+ step5（4 块）
+- **新项目接入时必须检查**：接入新项目的 Send 函数时，搜索所有 `checkBox_S3_DC` 和 `checkBox_S5_DC`，确保每个都有对应的 `checkBox_S1_DC` 联动
 
 ### 功率分析仪配置内嵌规则
 

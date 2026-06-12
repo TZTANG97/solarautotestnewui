@@ -1509,7 +1509,7 @@ def reset_wt_automation_state():
 
 def _sync_start_end_buttons():
     """根据当前项目的计数器决定启用/禁用开始/结束按钮。计数>=1启用，=0禁用。"""
-    global flicker_append_count, harmonic_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count
     current = ui.comboBox_PS.currentText()
     count = 0
     if current == '电压闪变':
@@ -1520,12 +1520,16 @@ def _sync_start_end_buttons():
         if 'harmonic_append_count' not in globals():
             harmonic_append_count = 0
         count = harmonic_append_count
+    elif current == '过载能力测试':
+        if 'overloads_append_count' not in globals():
+            overloads_append_count = 0
+        count = overloads_append_count
     ui.pushButton_StartTest.setEnabled(count >= 1)
     ui.pushButton_EndTest.setEnabled(count >= 1)
 
 def _reset_current_project_count():
     """试验完成后重置当前项目的计数器为0，并更新label显示。"""
-    global flicker_append_count, harmonic_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count
     current = ui.comboBox_PS.currentText()
     if current == '电压闪变':
         flicker_append_count = 0
@@ -1533,6 +1537,9 @@ def _reset_current_project_count():
     elif current == '谐波电流':
         harmonic_append_count = 0
         uiThaiXieBoDianLiu.label_append_count.setText("0")
+    elif current == '过载能力测试':
+        overloads_append_count = 0
+        uiThaiOverLoads.label_append_count.setText("0")
 
 #试验对话框选择函数
 def chooseDetailDialog():
@@ -1542,7 +1549,7 @@ def chooseDetailDialog():
     global strAddTestFlag, config_dict, setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig
     global project_change, project_now, wt_config_nums
     global Mppt_step1, Mppt_step2, Mppt_step_end, first_test
-    global next_project_flag, flicker_append_count, harmonic_append_count
+    global next_project_flag, flicker_append_count, harmonic_append_count, overloads_append_count
 
     next_project_flag = "0"
     strAddTestFlag = "0"
@@ -1579,6 +1586,10 @@ def chooseDetailDialog():
         elif currentSecond == '固定PF=1':
             dialog_windowfixedpf.show()
         elif currentSecond in ('overloads', '过载能力测试'):
+            if 'overloads_append_count' not in globals():
+                overloads_append_count = 0
+            uiThaiOverLoads.label_append_count.setText(str(overloads_append_count))
+            _sync_start_end_buttons()
             dialog_windowoverloads.show()
         elif currentSecond == '直流分量':
             dialog_windowzhiliufenliang.show()
@@ -1616,7 +1627,7 @@ def addtestDialog():
     global strAddTestFlag, config_dict
     global project_change, project_now
     global strArrayTestStepSingle
-    global next_project_flag, flicker_append_count, harmonic_append_count
+    global next_project_flag, flicker_append_count, harmonic_append_count, overloads_append_count
 
     if 'project_now' not in globals():
         project_now = ''
@@ -1655,6 +1666,10 @@ def addtestDialog():
         elif currentSecond == '固定PF=1':
             dialog_windowfixedpf.show()
         elif currentSecond in ('overloads', '过载能力测试'):
+            if 'overloads_append_count' not in globals():
+                overloads_append_count = 0
+            uiThaiOverLoads.label_append_count.setText(str(overloads_append_count))
+            _sync_start_end_buttons()
             dialog_windowoverloads.show()
         elif currentSecond == '直流分量':
             dialog_windowzhiliufenliang.show()
@@ -2329,7 +2344,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
                 if S3DC1Status == "开启":
@@ -2344,7 +2359,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
                 if S3DC2Status == "开启":
@@ -2359,7 +2374,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
                 if S3DC3Status == "开启":
@@ -2374,7 +2389,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
                 if S3DC4Status == "开启":
@@ -2509,7 +2524,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
                 if S3DC1Status == "开启":
@@ -2524,7 +2539,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
                 if S3DC2Status == "开启":
@@ -2539,7 +2554,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
                 if S3DC3Status == "开启":
@@ -2554,7 +2569,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
                 if S3DC4Status == "开启":
@@ -2683,7 +2698,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
                 if S3DC1Status == "开启":
@@ -2698,7 +2713,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
                 if S3DC2Status == "开启":
@@ -2713,7 +2728,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
                 if S3DC3Status == "开启":
@@ -2728,7 +2743,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
                 if S3DC4Status == "开启":
@@ -2888,7 +2903,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
                 if S3DC1Status == "开启":
@@ -2903,7 +2918,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
                 if S3DC2Status == "开启":
@@ -2918,7 +2933,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
                 if S3DC3Status == "开启":
@@ -2933,7 +2948,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
                 if S3DC4Status == "开启":
@@ -3068,7 +3083,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
                 if S3DC1Status == "开启":
@@ -3083,7 +3098,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             #DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
                 if S3DC2Status == "开启":
@@ -3098,7 +3113,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
                 if S3DC3Status == "开启":
@@ -3113,7 +3128,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
                 if S3DC4Status == "开启":
@@ -3264,7 +3279,7 @@ def thaidianyashanbianSend():
 
             # ── 第1次闪变：DC 开关组1 → 持续时间 → DC 开关组2 ──
             # DC开关组1（闪变开始）
-            if uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1Status = uiThaiDianYaShanBian.comboBox_S3_DC1.currentText()
                 if S3DC1Status == "开启":
@@ -3278,7 +3293,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            if uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2.currentText()
                 if S3DC2Status == "开启":
@@ -3292,7 +3307,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            if uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3.currentText()
                 if S3DC3Status == "开启":
@@ -3306,7 +3321,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            if uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4.currentText()
                 if S3DC4Status == "开启":
@@ -3603,7 +3618,7 @@ def thaidianyashanbianSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiDianYaShanBian.checkBox_S5_DC1.isChecked():
+        if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S5_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC1Status = uiThaiDianYaShanBian.comboBox_S5_DC1.currentText()
             if S5DC1Status == "开启":
@@ -3626,7 +3641,7 @@ def thaidianyashanbianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiDianYaShanBian.checkBox_S5_DC2.isChecked():
+        if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S5_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC2Status = uiThaiDianYaShanBian.comboBox_S5_DC2.currentText()
             if S5DC2Status == "开启":
@@ -3649,7 +3664,7 @@ def thaidianyashanbianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiDianYaShanBian.checkBox_S5_DC3.isChecked():
+        if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S5_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC3Status = uiThaiDianYaShanBian.comboBox_S5_DC3.currentText()
             if S5DC3Status == "开启":
@@ -3673,7 +3688,7 @@ def thaidianyashanbianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiDianYaShanBian.checkBox_S5_DC4.isChecked():
+        if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S5_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC4Status = uiThaiDianYaShanBian.comboBox_S5_DC4.currentText()
             if S5DC4Status == "开启":
@@ -5315,7 +5330,7 @@ def thaixiebodianliuSend():
             strArrayTestStepSingle.append(strArraySingle)
         else:
             # DC1
-            if uiThaiXieBoDianLiu.checkBox_S1_DC1_2.isChecked():
+            if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_2.isChecked():
                 a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF,0)
 
                 if a == "1":
@@ -5324,8 +5339,8 @@ def thaixiebodianliuSend():
                     strShowErrorMessageBoxFlag = "2"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-            
-            if uiThaiXieBoDianLiu.checkBox_S1_DC2_2.isChecked():
+
+            if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_2.isChecked():
                 a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
 
                 if a == "1":
@@ -5334,8 +5349,8 @@ def thaixiebodianliuSend():
                     strShowErrorMessageBoxFlag = "4"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-            
-            if uiThaiXieBoDianLiu.checkBox_S1_DC3_2.isChecked():
+
+            if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_2.isChecked():
                 a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
 
                 if a == "1":
@@ -5345,7 +5360,7 @@ def thaixiebodianliuSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-            if uiThaiXieBoDianLiu.checkBox_S1_DC4_2.isChecked():
+            if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_2.isChecked():
                 a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
 
                 if a == "1":
@@ -5393,7 +5408,7 @@ def thaixiebodianliuSend():
         S4DCPF = uiThaiXieBoDianLiu.textEdit_S1_DC1_PF_3.toPlainText()
         print(f'S4DCPF---{S4DCPF}')
         # DC1
-        if uiThaiXieBoDianLiu.checkBox_S1_DC1_3.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_3.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S4DCPF, 0)
 
             if a == "1":
@@ -5402,8 +5417,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC2_3.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_3.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S4DCPF, 1)
 
             if a == "1":
@@ -5412,8 +5427,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC3_3.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S4DCPF, 2)
 
             if a == "1":
@@ -5422,8 +5437,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC4_3.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_3.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S4DCPF, 3)
 
             if a == "1":
@@ -5470,7 +5485,7 @@ def thaixiebodianliuSend():
         S5DCPF = uiThaiXieBoDianLiu.textEdit_S1_DC1_PF_4.toPlainText()
         print(f'S5DCPF---{S5DCPF}')
         # DC1
-        if uiThaiXieBoDianLiu.checkBox_S1_DC1_4.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_4.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S5DCPF, 0)
 
             if a == "1":
@@ -5479,8 +5494,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC2_4.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_4.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
 
             if a == "1":
@@ -5489,8 +5504,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC3_4.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_4.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S5DCPF, 2)
 
             if a == "1":
@@ -5499,8 +5514,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC4_4.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S5DCPF, 3)
 
             if a == "1":
@@ -5547,7 +5562,7 @@ def thaixiebodianliuSend():
         S6DCPF = uiThaiXieBoDianLiu.textEdit_S1_DC1_PF_5.toPlainText()
         print(f'S6DCPF---{S6DCPF}')
         # DC1
-        if uiThaiXieBoDianLiu.checkBox_S1_DC1_5.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_5.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S6DCPF, 0)
 
             if a == "1":
@@ -5556,8 +5571,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC2_5.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_5.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S6DCPF, 1)
 
             if a == "1":
@@ -5566,8 +5581,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "6"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiXieBoDianLiu.checkBox_S1_DC3_5.isChecked():
+
+        if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_5.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S6DCPF, 2)
 
             if a == "1":
@@ -5577,7 +5592,7 @@ def thaixiebodianliuSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiXieBoDianLiu.checkBox_S1_DC4_5.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_5.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S6DCPF, 3)
 
             if a == "1":
@@ -6180,7 +6195,7 @@ def thaixiebodianliuSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiXieBoDianLiu.checkBox_S5_DC1.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S5_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC1Status = uiThaiXieBoDianLiu.comboBox_S5_DC1.currentText()
             if S5DC1Status == "开启":
@@ -6203,7 +6218,7 @@ def thaixiebodianliuSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiXieBoDianLiu.checkBox_S5_DC2.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S5_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC2Status = uiThaiXieBoDianLiu.comboBox_S5_DC2.currentText()
             if S5DC2Status == "开启":
@@ -6226,7 +6241,7 @@ def thaixiebodianliuSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiXieBoDianLiu.checkBox_S5_DC3.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S5_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC3Status = uiThaiXieBoDianLiu.comboBox_S5_DC3.currentText()
             if S5DC3Status == "开启":
@@ -6241,7 +6256,7 @@ def thaixiebodianliuSend():
             strArrayTestStepSingle.append(strArraySingle)
             strArrayTestStep.append(strArrayTestStepSingle)
 
-        if uiThaiXieBoDianLiu.checkBox_S5_DC4.isChecked():
+        if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S5_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC4Status = uiThaiXieBoDianLiu.comboBox_S5_DC4.currentText()
             if S5DC4Status == "开启":
@@ -8045,7 +8060,7 @@ def thaifixedpfSend():
 
 
 
-        if uiThaiFixedPF.checkBox_S5_DC1.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S5_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC1Status = uiThaiFixedPF.comboBox_S5_DC1.currentText()
             if S5DC1Status == "开启":
@@ -8068,7 +8083,7 @@ def thaifixedpfSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiFixedPF.checkBox_S5_DC2.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S5_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC2Status = uiThaiFixedPF.comboBox_S5_DC2.currentText()
             if S5DC2Status == "开启":
@@ -8091,7 +8106,7 @@ def thaifixedpfSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiFixedPF.checkBox_S5_DC3.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S5_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC3Status = uiThaiFixedPF.comboBox_S5_DC3.currentText()
             if S5DC3Status == "开启":
@@ -8106,7 +8121,7 @@ def thaifixedpfSend():
             strArrayTestStepSingle.append(strArraySingle)
             strArrayTestStep.append(strArrayTestStepSingle)
 
-        if uiThaiFixedPF.checkBox_S5_DC4.isChecked():
+        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S5_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC4Status = uiThaiFixedPF.comboBox_S5_DC4.currentText()
             if S5DC4Status == "开启":
@@ -8248,6 +8263,15 @@ def thai_fixedpf_batch_time_change():
 #     Open_Save_ThaiFixedPF.Open_File_ThaiFixedPF(kwargs)
 
 # overloads
+def thaioverloadsAppend():
+    global strAddTestFlag, overloads_append_count
+    if 'overloads_append_count' not in globals():
+        overloads_append_count = 0
+    strAddTestFlag = "0" if overloads_append_count == 0 else "1"
+    mode = "覆盖" if overloads_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[过载能力测试] 第{overloads_append_count + 1}次{mode}模式，开始生成命令...")
+    thaioverloadsSend()
+
 def thaioverloadsSend():
     global uiThaiOverLoads, strArrayTest, dialog_windowoverloads
     global strSettingTestFlag, strArrayTestStep
@@ -8255,7 +8279,9 @@ def thaioverloadsSend():
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
-    global command_save_file_path, wt_type
+    global command_save_file_path, wt_type, overloads_append_count
+    if 'overloads_append_count' not in globals():
+        overloads_append_count = 0
 
     strShowErrorMessageBoxFlag = "0"
     if strAddTestFlag == "0":
@@ -8679,7 +8705,7 @@ def thaioverloadsSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiOverLoads.checkBox_S5_DC1.isChecked():
+        if uiThaiOverLoads.checkBox_S1_DC1.isChecked() and uiThaiOverLoads.checkBox_S5_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC1Status = uiThaiOverLoads.comboBox_S5_DC1.currentText()
             if S5DC1Status == "开启":
@@ -8702,7 +8728,7 @@ def thaioverloadsSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiOverLoads.checkBox_S5_DC2.isChecked():
+        if uiThaiOverLoads.checkBox_S1_DC2.isChecked() and uiThaiOverLoads.checkBox_S5_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC2Status = uiThaiOverLoads.comboBox_S5_DC2.currentText()
             if S5DC2Status == "开启":
@@ -8725,7 +8751,7 @@ def thaioverloadsSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiOverLoads.checkBox_S5_DC3.isChecked():
+        if uiThaiOverLoads.checkBox_S1_DC3.isChecked() and uiThaiOverLoads.checkBox_S5_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC3Status = uiThaiOverLoads.comboBox_S5_DC3.currentText()
             if S5DC3Status == "开启":
@@ -8740,7 +8766,7 @@ def thaioverloadsSend():
             strArrayTestStepSingle.append(strArraySingle)
             strArrayTestStep.append(strArrayTestStepSingle)
 
-        if uiThaiOverLoads.checkBox_S5_DC4.isChecked():
+        if uiThaiOverLoads.checkBox_S1_DC4.isChecked() and uiThaiOverLoads.checkBox_S5_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC4Status = uiThaiOverLoads.comboBox_S5_DC4.currentText()
             if S5DC4Status == "开启":
@@ -8795,7 +8821,14 @@ def thaioverloadsSend():
             for i in range(len(strArrayTest)):
                 csv_write.writerow(strArrayTest[i])
             out.close()
+            ui.textEdit_ReturnMessage.append(f"[过载能力测试] 命令生成完成，共{len(strArrayTest)}条，已写入 {commands_file_name}")
 
+        if 'overloads_append_count' not in globals():
+            overloads_append_count = 0
+        overloads_append_count += 1
+        uiThaiOverLoads.label_append_count.setText(str(overloads_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[过载能力测试] 追加完成，当前计数: {overloads_append_count}，开始/结束试验按钮已启用")
         dialog_windowoverloads.close()
 
 # overloads保存设定
@@ -9255,7 +9288,7 @@ def thaizhiliufenliangSend():
             strArrayTestStepSingle.append(strArraySingle)
         else:
             # DC1
-            if uiThaiZhiLiuFenLiang.checkBox_S3_DC1.isChecked():
+            if uiThaiZhiLiuFenLiang.checkBox_S1_DC1.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S3_DC1.isChecked():
                 a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF,0)
 
                 if a == "1":
@@ -9265,7 +9298,7 @@ def thaizhiliufenliangSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
             
-            if uiThaiZhiLiuFenLiang.checkBox_S3_DC2.isChecked():
+            if uiThaiZhiLiuFenLiang.checkBox_S1_DC2.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S3_DC2.isChecked():
                 a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
 
                 if a == "1":
@@ -9275,7 +9308,7 @@ def thaizhiliufenliangSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
             
-            if uiThaiZhiLiuFenLiang.checkBox_S3_DC3.isChecked():
+            if uiThaiZhiLiuFenLiang.checkBox_S1_DC3.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S3_DC3.isChecked():
                 a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
 
                 if a == "1":
@@ -9285,7 +9318,7 @@ def thaizhiliufenliangSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
             
-            if uiThaiZhiLiuFenLiang.checkBox_S3_DC4.isChecked():
+            if uiThaiZhiLiuFenLiang.checkBox_S1_DC4.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S3_DC4.isChecked():
                 a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
 
                 if a == "1":
@@ -9411,7 +9444,7 @@ def thaizhiliufenliangSend():
         S5DCPF = uiThaiZhiLiuFenLiang.textEdit_S5_DC_PF.toPlainText()
         print(f'S5DCPF---{S5DCPF}')
         # DC1
-        if uiThaiZhiLiuFenLiang.checkBox_S5_DC1.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC1.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S5_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S5DCPF, 0)
 
             if a == "1":
@@ -9421,7 +9454,7 @@ def thaizhiliufenliangSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiZhiLiuFenLiang.checkBox_S5_DC2.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC2.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S5_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
 
             if a == "1":
@@ -9431,7 +9464,7 @@ def thaizhiliufenliangSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiZhiLiuFenLiang.checkBox_S5_DC3.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC3.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S5_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S5DCPF, 2)
 
             if a == "1":
@@ -9441,7 +9474,7 @@ def thaizhiliufenliangSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiZhiLiuFenLiang.checkBox_S5_DC4.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC4.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S5_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S5DCPF, 3)
 
             if a == "1":
@@ -11272,7 +11305,7 @@ def thaistaticcosPhiSend():
 
         else:
             # DC1
-            if uiThaiStaticCosPhi.checkBox_S3_DC1.isChecked():
+            if uiThaiStaticCosPhi.checkBox_S1_DC1.isChecked() and uiThaiStaticCosPhi.checkBox_S3_DC1.isChecked():
                 a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF, 0)
 
                 if a == "1":
@@ -11282,7 +11315,7 @@ def thaistaticcosPhiSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
             
-            if uiThaiStaticCosPhi.checkBox_S3_DC2.isChecked():
+            if uiThaiStaticCosPhi.checkBox_S1_DC2.isChecked() and uiThaiStaticCosPhi.checkBox_S3_DC2.isChecked():
                 a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
 
                 if a == "1":
@@ -11292,7 +11325,7 @@ def thaistaticcosPhiSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
             
-            if uiThaiStaticCosPhi.checkBox_S3_DC3.isChecked():
+            if uiThaiStaticCosPhi.checkBox_S1_DC3.isChecked() and uiThaiStaticCosPhi.checkBox_S3_DC3.isChecked():
                 a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
 
                 if a == "1":
@@ -11302,7 +11335,7 @@ def thaistaticcosPhiSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-            if uiThaiStaticCosPhi.checkBox_S3_DC4.isChecked():
+            if uiThaiStaticCosPhi.checkBox_S1_DC4.isChecked() and uiThaiStaticCosPhi.checkBox_S3_DC4.isChecked():
                 a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
 
                 if a == "1":
@@ -11388,7 +11421,7 @@ def thaistaticcosPhiSend():
         S5DCPF = uiThaiStaticCosPhi.textEdit_S5_DC_PF.toPlainText()
         print(f'S5DCPF---{S5DCPF}')
         # DC1
-        if uiThaiStaticCosPhi.checkBox_S5_DC1.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC1.isChecked() and uiThaiStaticCosPhi.checkBox_S5_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S5DCPF, 0)
 
             if a == "1":
@@ -11398,7 +11431,7 @@ def thaistaticcosPhiSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiStaticCosPhi.checkBox_S5_DC2.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC2.isChecked() and uiThaiStaticCosPhi.checkBox_S5_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
 
             if a == "1":
@@ -11408,7 +11441,7 @@ def thaistaticcosPhiSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiStaticCosPhi.checkBox_S5_DC3.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC3.isChecked() and uiThaiStaticCosPhi.checkBox_S5_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S5DCPF, 2)
 
             if a == "1":
@@ -11418,7 +11451,7 @@ def thaistaticcosPhiSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
-        if uiThaiStaticCosPhi.checkBox_S5_DC4.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC4.isChecked() and uiThaiStaticCosPhi.checkBox_S5_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S5DCPF, 3)
 
             if a == "1":
@@ -12376,7 +12409,7 @@ def thaicosPhiBrazilSend():
 
         else:
             # DC1
-            if uiThaiCosPhiBrazil.checkBox_S3_DC1.isChecked():
+            if uiThaiCosPhiBrazil.checkBox_S1_DC1.isChecked() and uiThaiCosPhiBrazil.checkBox_S3_DC1.isChecked():
                 a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF,0)
 
                 if a == "1":
@@ -12386,7 +12419,7 @@ def thaicosPhiBrazilSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
             
-            if uiThaiCosPhiBrazil.checkBox_S3_DC2.isChecked():
+            if uiThaiCosPhiBrazil.checkBox_S1_DC2.isChecked() and uiThaiCosPhiBrazil.checkBox_S3_DC2.isChecked():
                 a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
 
                 if a == "1":
@@ -12396,7 +12429,7 @@ def thaicosPhiBrazilSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
             
-            if uiThaiCosPhiBrazil.checkBox_S3_DC3.isChecked():
+            if uiThaiCosPhiBrazil.checkBox_S1_DC3.isChecked() and uiThaiCosPhiBrazil.checkBox_S3_DC3.isChecked():
                 a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
 
                 if a == "1":
@@ -12406,7 +12439,7 @@ def thaicosPhiBrazilSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-            if uiThaiCosPhiBrazil.checkBox_S3_DC4.isChecked():
+            if uiThaiCosPhiBrazil.checkBox_S1_DC4.isChecked() and uiThaiCosPhiBrazil.checkBox_S3_DC4.isChecked():
                 a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
 
                 if a == "1":
@@ -12492,7 +12525,7 @@ def thaicosPhiBrazilSend():
         S5DCPF = uiThaiCosPhiBrazil.textEdit_S5_DC_PF.toPlainText()
         print(f'S5DCPF---{S5DCPF}')
         # DC1
-        if uiThaiCosPhiBrazil.checkBox_S5_DC1.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC1.isChecked() and uiThaiCosPhiBrazil.checkBox_S5_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S5DCPF, 0)
 
             if a == "1":
@@ -12502,7 +12535,7 @@ def thaicosPhiBrazilSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiCosPhiBrazil.checkBox_S5_DC2.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC2.isChecked() and uiThaiCosPhiBrazil.checkBox_S5_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
 
             if a == "1":
@@ -12512,7 +12545,7 @@ def thaicosPhiBrazilSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiCosPhiBrazil.checkBox_S5_DC3.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC3.isChecked() and uiThaiCosPhiBrazil.checkBox_S5_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S5DCPF, 2)
 
             if a == "1":
@@ -12522,7 +12555,7 @@ def thaicosPhiBrazilSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
-        if uiThaiCosPhiBrazil.checkBox_S5_DC4.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC4.isChecked() and uiThaiCosPhiBrazil.checkBox_S5_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S5DCPF, 3)
 
             if a == "1":
@@ -23390,6 +23423,33 @@ def SaveFileDialogThaiFrequencyAdaptability():
 #         logger.info(strtimenow + "    请设定实验内容!")
 #         print(strtimenow + "    请设定实验内容!")
 
+def _check_device_connections():
+    """根据 strArrayTest 中实际用到的设备，检查连接状态。返回未连接设备的描述字符串，全部连接返回空字符串。"""
+    device_map = {
+        "AC": ("交流电源", ac_controller),
+        "DC1": ("DC电源1", dc1_controller),
+        "DC2": ("DC电源2", dc2_controller),
+        "DC3": ("DC电源3", dc3_controller),
+        "DC4": ("DC电源4", dc4_controller),
+        "Upper_WT_Config": ("功率分析仪", wt3000_controller),
+        "WT3000": ("功率分析仪(WT3000)", wt3000_controller),
+        "DL850": ("示波器(DL850)", dl850_controller),
+    }
+    used_devices = set()
+    for cmd in strArrayTest:
+        if len(cmd) > 0 and cmd[0] in device_map:
+            used_devices.add(cmd[0])
+
+    disconnected = []
+    for device_key in sorted(used_devices):
+        name, controller = device_map[device_key]
+        if controller is None or not controller.connected:
+            disconnected.append(name)
+
+    if disconnected:
+        return "、".join(disconnected)
+    return ""
+
 def RunProjectPush():
     global strTestFlag,strSettingTestFlag, WT_is_checked, test_program, heading_handle, flicker_is_test
     global strArrayTest, flicker_append_count
@@ -23409,18 +23469,16 @@ def RunProjectPush():
         return
 
     if strSettingTestFlag == "1":
-        wt3000_cmd_exists = any(
-            len(cmd) > 1 and cmd[0] == "WT3000" and cmd[1] == "write"
-            for cmd in strArrayTest
-        )
-        if wt3000_cmd_exists and not (wt3000_controller is not None and wt3000_controller.connected):
+        # 设备连接校验：根据 strArrayTest 中实际用到的设备，一次性检查所有连接
+        disconnected = _check_device_connections()
+        if disconnected:
             QMessageBox.warning(
                 None,
                 "连接错误",
-                "检测到WT3000闪变命令，但WT3000未连接，已终止本次试验启动。"
+                f"以下设备未连接，已终止本次试验启动：\n\n{disconnected}"
             )
-            logger.info("WT3000未连接，检测到WT3000 write命令，终止启动。")
-            print("WT3000未连接，检测到WT3000 write命令，终止启动。")
+            logger.info(f"设备未连接，终止启动：{disconnected}")
+            print(f"设备未连接，终止启动：{disconnected}")
             return
         strTestFlag = "1"
         _update_project_status(currentSecond, "进行中")
@@ -28973,6 +29031,15 @@ if __name__ == "__main__":
             uiThaiOverLoads.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
             uiThaiOverLoads.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
             uiThaiOverLoads.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+            _safe_click(uiThaiOverLoads, "pushButton_TestAppend", thaioverloadsAppend)
+
+            def reset_overloads_count():
+                global overloads_append_count
+                overloads_append_count = 0
+                uiThaiOverLoads.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[过载能力测试] 计数器已重置为0")
+            _safe_click(uiThaiOverLoads, "pushButton_ResetCount", reset_overloads_count)
 
             # OverLoads的的配置档读取写入
             _safe_click(uiThaiOverLoads, "pushButton_ReadSettingFile", OpenFileDialogThaiOverLoads)

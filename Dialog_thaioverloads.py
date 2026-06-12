@@ -563,6 +563,7 @@ class Ui_Dialog_thaioverloads(object):
             ("checkBox_S5_DC3", "直流电源3", "comboBox_S5_DC3"),
             ("checkBox_S5_DC4", "直流电源4", "comboBox_S5_DC4"),
         ]
+        s5_dc = []
         for c, (cb_name, cb_text, combo_name) in enumerate(dc5_cfg):
             col = 1 + c * 2
             cb = QtWidgets.QCheckBox(cb_text)
@@ -570,12 +571,33 @@ class Ui_Dialog_thaioverloads(object):
             cb.setObjectName(cb_name)
             gLayout.addWidget(cb, 1, col)
             setattr(self, cb_name, cb)
+            s5_dc.append(cb)
             combo = QtWidgets.QComboBox()
             combo.setObjectName(combo_name)
             combo.addItems(["关闭", "开启"])
             combo.setFixedWidth(120)
             gLayout.addWidget(combo, 1, col + 1)
             setattr(self, combo_name, combo)
+
+        # step1 DC 联动关机 DC 复选框
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+        def _update_s5_dc():
+            step_on = self.checkBox_S5.isChecked()
+            for i in range(4):
+                should_enable = step_on and step1_dcs[i].isChecked()
+                s5_dc[i].setEnabled(should_enable)
+                s5_dc[i].setChecked(should_enable)
+
+        def _on_s5_toggled(checked):
+            _update_s5_dc()
+            self.comboBox_S5_AC.setEnabled(checked)
+
+        self.checkBox_S5.toggled.connect(_on_s5_toggled)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_s5_dc)
+        _on_s5_toggled(self.checkBox_S5.isChecked())
 
         layout.addWidget(self.groupBox)
         layout.addStretch()
