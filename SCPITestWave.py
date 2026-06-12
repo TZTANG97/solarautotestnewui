@@ -1523,6 +1523,17 @@ def _sync_start_end_buttons():
     ui.pushButton_StartTest.setEnabled(count >= 1)
     ui.pushButton_EndTest.setEnabled(count >= 1)
 
+def _reset_current_project_count():
+    """试验完成后重置当前项目的计数器为0，并更新label显示。"""
+    global flicker_append_count, harmonic_append_count
+    current = ui.comboBox_PS.currentText()
+    if current == '电压闪变':
+        flicker_append_count = 0
+        uiThaiDianYaShanBian.label_append_count.setText("0")
+    elif current == '谐波电流':
+        harmonic_append_count = 0
+        uiThaiXieBoDianLiu.label_append_count.setText("0")
+
 #试验对话框选择函数
 def chooseDetailDialog():
     global ui,uithaichonglian,dialog_window,dialog_windowguoqianpin,dialog_windowguoqianya
@@ -23431,13 +23442,23 @@ def PauseProjectPush():
 #结束试验按下
 def EndProjectPush():
     global strTestStatusFlag
-    if strTestStatusFlag == "运行":
-        strTestStatusFlag = "结束"
-        strtimenow = now_to_datenow()
-        logger.info(strtimenow + "    结束试验!")
-        print(strtimenow + "    结束试验!")
-        currentSecond = ui.comboBox_PS.currentText()
-        _update_project_status(currentSecond, "已结束")
+    try:
+        if strTestStatusFlag == "运行":
+            reply = QMessageBox.question(None, "确认结束", "确定要结束当前试验吗？",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                strTestStatusFlag = "结束"
+                strtimenow = now_to_datenow()
+                logger.info(strtimenow + "    结束试验!")
+                print(strtimenow + "    结束试验!")
+                currentSecond = ui.comboBox_PS.currentText()
+                _update_project_status(currentSecond, "已结束")
+                _reset_current_project_count()
+                _sync_start_end_buttons()
+        else:
+            QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
+    except NameError:
+        QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
 
 #继续试验按钮按下
 def ConProjectPush():
@@ -23984,7 +24005,11 @@ def RunProject():
                     else:
                         config_dict = {}
                 if first_test == '':
-                    wt_is_check()
+                    try:
+                        wt_is_check()
+                    except Exception as e:
+                        _append_debug_log(f"[Upper_WT_Config][error] wt_is_check failed: {e}")
+                        print(f"[Upper_WT_Config] wt_is_check 异常: {e}")
                     time.sleep(0.5)
                     first_test = '1'
             # ---------------- DC1 分支 ----------------
@@ -24370,6 +24395,9 @@ def RunProject():
         messsure_deatil_cofig = ''
         messure_project_cofig = ''
         strArrayTest = []
+        # 重置计数器，禁用开始按钮，需要重新追加后才能再次试验
+        _reset_current_project_count()
+        _sync_start_end_buttons()
 
     # 维持自循环调度：即便本轮没触发，也会持续监听下一次“开始测试”
     threadRunProjecttimer = threading.Timer(0.001, RunProject)

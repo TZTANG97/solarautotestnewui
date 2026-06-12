@@ -310,6 +310,71 @@ elif currentSecond == '项目名':
 - Send 函数：已有 `xxxSend()`（如 `thaixiebodianliuSend`）
 - Reset 闭包：`reset_xxx_count()`
 
+### 试验生命周期标准（所有项目必须遵循）
+
+每个测试项目的试验流程必须符合以下标准：
+
+**1. 追加测试 → 计数器+1 → 启用开始按钮**
+```python
+def xxxAppend():
+    global xxx_append_count
+    xxx_append_count += 1
+    uiXxx.label_append_count.setText(str(xxx_append_count))
+    _sync_start_end_buttons()
+```
+
+**2. 测试完成 → 计数器归0 → 禁用开始按钮**
+在 `RunProject()` 的"实验完成"复位处调用：
+```python
+_reset_current_project_count()
+_sync_start_end_buttons()
+```
+
+**3. 结束试验按钮 → 二次确认弹窗 → 归零 → 禁用开始按钮**
+```python
+def EndProjectPush():
+    global strTestStatusFlag
+    try:
+        if strTestStatusFlag == "运行":
+            reply = QMessageBox.question(None, "确认结束", "确定要结束当前试验吗？",
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                strTestStatusFlag = "结束"
+                # ... 结束逻辑 ...
+                _reset_current_project_count()
+                _sync_start_end_buttons()
+        else:
+            QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
+    except NameError:
+        QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
+```
+
+**4. `_reset_current_project_count()` 函数**
+重置当前项目的计数器并更新 label：
+```python
+def _reset_current_project_count():
+    global flicker_append_count, harmonic_append_count
+    current = ui.comboBox_PS.currentText()
+    if current == '电压闪变':
+        flicker_append_count = 0
+        uiThaiDianYaShanBian.label_append_count.setText("0")
+    elif current == '谐波电流':
+        harmonic_append_count = 0
+        uiThaiXieBoDianLiu.label_append_count.setText("0")
+    # ...更多项目
+```
+
+**5. `Upper_WT_Config` 异常处理**
+`RunProject()` 中 `wt_is_check()` 必须用 try/except 包裹，防止线程崩溃导致定时器循环停止：
+```python
+if first_test == '':
+    try:
+        wt_is_check()
+    except Exception as e:
+        _append_debug_log(f"[Upper_WT_Config][error] wt_is_check failed: {e}")
+    first_test = '1'
+```
+
 ### 已踩坑点（必须避免）
 
 **坑1：LazyDialog 不能作为 QMessageBox/QFileDialog 的 parent**
