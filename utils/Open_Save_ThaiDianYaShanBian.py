@@ -32,7 +32,7 @@ arrayRow1 = ['Style',
 
 #泰国电压闪变保存设定
 def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian):
-    directory1 = QFileDialog.getSaveFileName(dialog_windowTdianyashanbian, "单个文件保存", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getSaveFileName(None, "单个文件保存", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print('请选择一个文件')
     else:
@@ -353,12 +353,12 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
         out.close()
-        QMessageBox.information(dialog_windowTdianyashanbian, "实验设定提示信息", "电压闪变文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "电压闪变文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 #泰国电压闪变读取设定
 def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian):
     strFlag = "0"
-    directory1 = QFileDialog.getOpenFileName(dialog_windowTdianyashanbian, "单个文件选择", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getOpenFileName(None, "单个文件选择", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
@@ -1007,7 +1007,7 @@ def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
                     else:
                         strFlag = 1
 
-        QMessageBox.information(dialog_windowTdianyashanbian, "实验设定提示信息", "电压闪变文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "电压闪变文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
 def save_file_header():
     directory1 = [r"D:\\project\\photovoltaic_automation_t\\config_files\\project_step_configs\\dianyashanbian.csv"]

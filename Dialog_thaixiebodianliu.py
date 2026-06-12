@@ -2,6 +2,22 @@
 # 谐波电流项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.timeline import TimelineWidget
+
+# 12 个谐波步骤的 widget objectName 规格（保持原有命名不变）
+_HARMONIC_SPECS = [
+    {"title": "谐波 1次",  "step_cb": "checkBox_S3",    "step_text": "step3",  "dc1_cb": "checkBox_S1_DC1_2",  "dc2_cb": "checkBox_S1_DC2_2",  "dc3_cb": "checkBox_S1_DC3_2",  "dc4_cb": "checkBox_S1_DC4_2",  "pf_te": "textEdit_S1_DC1_PF_2",  "pwr_lbl": "label_76", "pct_lbl": "label_47"},
+    {"title": "谐波 2次",  "step_cb": "checkBox_S3_2",  "step_text": "step4",  "dc1_cb": "checkBox_S1_DC1_3",  "dc2_cb": "checkBox_S1_DC2_3",  "dc3_cb": "checkBox_S1_DC3_3",  "dc4_cb": "checkBox_S1_DC4_3",  "pf_te": "textEdit_S1_DC1_PF_3",  "pwr_lbl": "label_77", "pct_lbl": "label_49"},
+    {"title": "谐波 3次",  "step_cb": "checkBox_S3_3",  "step_text": "step5",  "dc1_cb": "checkBox_S1_DC1_4",  "dc2_cb": "checkBox_S1_DC2_4",  "dc3_cb": "checkBox_S1_DC3_4",  "dc4_cb": "checkBox_S1_DC4_4",  "pf_te": "textEdit_S1_DC1_PF_4",  "pwr_lbl": "label_78", "pct_lbl": "label_50"},
+    {"title": "谐波 4次",  "step_cb": "checkBox_S3_4",  "step_text": "step6",  "dc1_cb": "checkBox_S1_DC1_5",  "dc2_cb": "checkBox_S1_DC2_5",  "dc3_cb": "checkBox_S1_DC3_5",  "dc4_cb": "checkBox_S1_DC4_5",  "pf_te": "textEdit_S1_DC1_PF_5",  "pwr_lbl": "label_79", "pct_lbl": "label_51"},
+    {"title": "谐波 5次",  "step_cb": "checkBox_S3_5",  "step_text": "step7",  "dc1_cb": "checkBox_S1_DC1_6",  "dc2_cb": "checkBox_S1_DC2_6",  "dc3_cb": "checkBox_S1_DC3_6",  "dc4_cb": "checkBox_S1_DC4_6",  "pf_te": "textEdit_S1_DC1_PF_6",  "pwr_lbl": "label_80", "pct_lbl": "label_52"},
+    {"title": "谐波 6次",  "step_cb": "checkBox_S3_10", "step_text": "step8",  "dc1_cb": "checkBox_S1_DC1_10", "dc2_cb": "checkBox_S1_DC2_11", "dc3_cb": "checkBox_S1_DC3_10", "dc4_cb": "checkBox_S1_DC4_7",  "pf_te": "textEdit_S1_DC1_PF_10", "pwr_lbl": "label_82", "pct_lbl": "label_61"},
+    {"title": "谐波 7次",  "step_cb": "checkBox_S3_6",  "step_text": "step9",  "dc1_cb": "checkBox_S1_DC1_11", "dc2_cb": "checkBox_S1_DC2_8",  "dc3_cb": "checkBox_S1_DC3_11", "dc4_cb": "checkBox_S1_DC3_15", "pf_te": "textEdit_S1_DC1_PF_9",  "pwr_lbl": "label_81", "pct_lbl": "label_55"},
+    {"title": "谐波 8次",  "step_cb": "checkBox_S3_7",  "step_text": "step10", "dc1_cb": "checkBox_S1_DC1_7",  "dc2_cb": "checkBox_S1_DC2_9",  "dc3_cb": "checkBox_S1_DC3_8",  "dc4_cb": "checkBox_S1_DC3_14", "pf_te": "textEdit_S1_DC1_PF_7",  "pwr_lbl": "label_83", "pct_lbl": "label_53"},
+    {"title": "谐波 9次",  "step_cb": "checkBox_S3_9",  "step_text": "step11", "dc1_cb": "checkBox_S1_DC1_9",  "dc2_cb": "checkBox_S1_DC2_10", "dc3_cb": "checkBox_S1_DC3_9",  "dc4_cb": "checkBox_S1_DC3_16", "pf_te": "textEdit_S1_DC1_PF_11", "pwr_lbl": "label_84", "pct_lbl": "label_56"},
+    {"title": "谐波 10次", "step_cb": "checkBox_S3_8",  "step_text": "step12", "dc1_cb": "checkBox_S1_DC1_8",  "dc2_cb": "checkBox_S1_DC2_7",  "dc3_cb": "checkBox_S1_DC3_7",  "dc4_cb": "checkBox_S1_DC3_17", "pf_te": "textEdit_S1_DC1_PF_8",  "pwr_lbl": "label_85", "pct_lbl": "label_60"},
+    {"title": "谐波 11次", "step_cb": "checkBox_S3_11", "step_text": "step13", "dc1_cb": "checkBox_S1_DC1_12", "dc2_cb": "checkBox_S1_DC2_12", "dc3_cb": "checkBox_S1_DC3_12", "dc4_cb": "checkBox_S1_DC3_13", "pf_te": "textEdit_S1_DC1_PF_12", "pwr_lbl": "label_86", "pct_lbl": "label_62"},
+]
 
 
 class Ui_Dialog_thaixiebodianliu(object):
@@ -83,7 +99,7 @@ class Ui_Dialog_thaixiebodianliu(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 谐波2次", "④ 谐波3次", "⑤ 谐波4次", "⑥ 谐波5次", "⑦ 谐波6次", "⑧ 谐波7次", "⑨ 谐波8次", "⑩ 谐波9次", "⑪ 谐波10次", "⑫ 谐波11次", "⑬ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 谐波设置", "④ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -107,70 +123,10 @@ class Ui_Dialog_thaixiebodianliu(object):
         mainLayout.addWidget(self.stackedWidget, 1)
 
         # ── 构建各步骤页面 ──
-        self._build_step1()   # AC/DC 电源
-        self._build_step2()   # 功率分析仪
-        self._build_harmonic_page(   # ③ 谐波 2次
-            step_cb="checkBox_S3", step_text="step3",
-            dc1_cb="checkBox_S1_DC1_2", dc2_cb="checkBox_S1_DC2_2",
-            dc3_cb="checkBox_S1_DC3_2", dc4_cb="checkBox_S1_DC4_2",
-            pf_te="textEdit_S1_DC1_PF_2", pwr_lbl="label_76", pct_lbl="label_47",
-            include_timing=True,
-        )
-        self._build_harmonic_page(   # ④ 谐波 3次
-            step_cb="checkBox_S3_2", step_text="step4",
-            dc1_cb="checkBox_S1_DC1_3", dc2_cb="checkBox_S1_DC2_3",
-            dc3_cb="checkBox_S1_DC3_3", dc4_cb="checkBox_S1_DC4_3",
-            pf_te="textEdit_S1_DC1_PF_3", pwr_lbl="label_77", pct_lbl="label_49",
-        )
-        self._build_harmonic_page(   # ⑤ 谐波 4次
-            step_cb="checkBox_S3_3", step_text="step5",
-            dc1_cb="checkBox_S1_DC1_4", dc2_cb="checkBox_S1_DC2_4",
-            dc3_cb="checkBox_S1_DC3_4", dc4_cb="checkBox_S1_DC4_4",
-            pf_te="textEdit_S1_DC1_PF_4", pwr_lbl="label_78", pct_lbl="label_50",
-        )
-        self._build_harmonic_page(   # ⑥ 谐波 5次
-            step_cb="checkBox_S3_4", step_text="step6",
-            dc1_cb="checkBox_S1_DC1_5", dc2_cb="checkBox_S1_DC2_5",
-            dc3_cb="checkBox_S1_DC3_5", dc4_cb="checkBox_S1_DC4_5",
-            pf_te="textEdit_S1_DC1_PF_5", pwr_lbl="label_79", pct_lbl="label_51",
-        )
-        self._build_harmonic_page(   # ⑦ 谐波 6次
-            step_cb="checkBox_S3_5", step_text="step7",
-            dc1_cb="checkBox_S1_DC1_6", dc2_cb="checkBox_S1_DC2_6",
-            dc3_cb="checkBox_S1_DC3_6", dc4_cb="checkBox_S1_DC4_6",
-            pf_te="textEdit_S1_DC1_PF_6", pwr_lbl="label_80", pct_lbl="label_52",
-        )
-        self._build_harmonic_page(   # ⑧ 谐波 7次
-            step_cb="checkBox_S3_10", step_text="step8",
-            dc1_cb="checkBox_S1_DC1_10", dc2_cb="checkBox_S1_DC2_11",
-            dc3_cb="checkBox_S1_DC3_10", dc4_cb="checkBox_S1_DC4_7",
-            pf_te="textEdit_S1_DC1_PF_10", pwr_lbl="label_82", pct_lbl="label_61",
-        )
-        self._build_harmonic_page(   # ⑨ 谐波 8次
-            step_cb="checkBox_S3_6", step_text="step9",
-            dc1_cb="checkBox_S1_DC1_11", dc2_cb="checkBox_S1_DC2_8",
-            dc3_cb="checkBox_S1_DC3_11", dc4_cb="checkBox_S1_DC3_15",
-            pf_te="textEdit_S1_DC1_PF_9", pwr_lbl="label_81", pct_lbl="label_55",
-        )
-        self._build_harmonic_page(   # ⑩ 谐波 9次
-            step_cb="checkBox_S3_7", step_text="step10",
-            dc1_cb="checkBox_S1_DC1_7", dc2_cb="checkBox_S1_DC2_9",
-            dc3_cb="checkBox_S1_DC3_8", dc4_cb="checkBox_S1_DC3_14",
-            pf_te="textEdit_S1_DC1_PF_7", pwr_lbl="label_83", pct_lbl="label_53",
-        )
-        self._build_harmonic_page(   # ⑪ 谐波 10次
-            step_cb="checkBox_S3_9", step_text="step11",
-            dc1_cb="checkBox_S1_DC1_9", dc2_cb="checkBox_S1_DC2_10",
-            dc3_cb="checkBox_S1_DC3_9", dc4_cb="checkBox_S1_DC3_16",
-            pf_te="textEdit_S1_DC1_PF_11", pwr_lbl="label_84", pct_lbl="label_56",
-        )
-        self._build_harmonic_page(   # ⑫ 谐波 11次
-            step_cb="checkBox_S3_8", step_text="step12",
-            dc1_cb="checkBox_S1_DC1_8", dc2_cb="checkBox_S1_DC2_7",
-            dc3_cb="checkBox_S1_DC3_7", dc4_cb="checkBox_S1_DC3_17",
-            pf_te="textEdit_S1_DC1_PF_8", pwr_lbl="label_85", pct_lbl="label_60",
-        )
-        self._build_step13()  # ⑬ 关机设置（含 step13 谐波 12次 + step14 关机）
+        self._build_step1()           # AC/DC 电源
+        self._build_step2()           # 功率分析仪
+        self._build_step3_harmonics() # 谐波设置（timeline + card）
+        self._build_step13()          # 关机设置
 
         # 默认显示第一页
         self._switch_step(0)
@@ -436,7 +392,7 @@ class Ui_Dialog_thaixiebodianliu(object):
         ]
         for c, (cb_name, cb_text, btn_name, btn_text) in enumerate(wt_cfg):
             col = c * 3
-            cb = self._make_checkbox(cb_name, cb_text)
+            cb = self._make_checkbox(cb_name, cb_text, parent=self)
             gLayout.addWidget(cb, 1, col)
             btn = QtWidgets.QPushButton(btn_text)
             btn.setObjectName(btn_name)
@@ -453,123 +409,123 @@ class Ui_Dialog_thaixiebodianliu(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # 谐波步骤页（通用构建器）
+    # 谐波卡片构建器
     # ══════════════════════════════════════════════
-    def _build_harmonic_page(self, step_cb, step_text,
-                             dc1_cb, dc2_cb, dc3_cb, dc4_cb,
-                             pf_te, pwr_lbl, pct_lbl,
-                             include_timing=False):
-        """构建单个谐波步骤页面。所有 objectName 严格保持不变。"""
-        page = QtWidgets.QWidget()
-        page.setStyleSheet("background-color: white;")
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
+    def _build_harmonic_card(self, spec):
+        """构建单个谐波卡片（QGroupBox），用于 timeline 布局。"""
         grp = QtWidgets.QGroupBox()
-        grp.setTitle("谐波功率设置")
+        grp.setTitle(spec["title"])
         grp.setStyleSheet(self._GRP_STYLE)
         gLayout = QtWidgets.QGridLayout(grp)
-        gLayout.setSpacing(10)
-        gLayout.setContentsMargins(16, 24, 16, 12)
+        gLayout.setSpacing(8)
+        gLayout.setContentsMargins(12, 20, 12, 12)
 
         # 步骤启用复选框
-        step_widget = self._make_checkbox(step_cb, step_text)
+        step_widget = self._make_checkbox(spec["step_cb"], spec["step_text"], parent=self)
         gLayout.addWidget(step_widget, 0, 0)
 
         # DC 通道行
+        dc_cbs = []
         row_data = [
-            (dc1_cb, "直流电源1"),
-            (dc2_cb, "直流电源2"),
-            (dc3_cb, "直流电源3"),
-            (dc4_cb, "直流电源4"),
+            (spec["dc1_cb"], "直流电源1"),
+            (spec["dc2_cb"], "直流电源2"),
+            (spec["dc3_cb"], "直流电源3"),
+            (spec["dc4_cb"], "直流电源4"),
         ]
         for c, (name, text) in enumerate(row_data):
-            cb = self._make_checkbox(name, text)
+            cb = self._make_checkbox(name, text, parent=self)
+            dc_cbs.append(cb)
             gLayout.addWidget(cb, 1, c * 2)
             lbl = self._make_label("功率")
-            lbl.setObjectName(pwr_lbl if c == 0 else f"_pwr_{name}")
-            if c == 0:
-                lbl.setObjectName(pwr_lbl)
+            lbl.setObjectName(spec["pwr_lbl"] if c == 0 else f"_pwr_{name}")
             gLayout.addWidget(lbl, 1, c * 2 + 1)
 
         # PF 输入
-        pf_widget = self._make_input(pf_te, default="100")
+        pf_widget = self._make_input(spec["pf_te"], parent=self, default="100")
         gLayout.addWidget(pf_widget, 2, 0)
         pct = self._make_label("%")
-        pct.setObjectName(pct_lbl)
+        pct.setObjectName(spec["pct_lbl"])
         gLayout.addWidget(pct, 2, 1)
 
-        layout.addWidget(grp)
+        # 步骤启用复选框联动：取消勾选时禁用下方控件
+        def _on_step_toggled(checked):
+            for dc_cb in dc_cbs:
+                dc_cb.setEnabled(checked)
+            pf_widget.setEnabled(checked)
+            pct.setEnabled(checked)
 
-        # 数据采集时序（仅第一个谐波页包含）
-        if include_timing:
-            grp_t = QtWidgets.QGroupBox()
-            grp_t.setTitle("数据采集设置")
-            grp_t.setStyleSheet(self._GRP_STYLE)
-            tg = QtWidgets.QGridLayout(grp_t)
-            tg.setSpacing(8)
-            tg.setContentsMargins(12, 20, 12, 12)
+        step_widget.toggled.connect(_on_step_toggled)
+        # 初始化状态
+        _on_step_toggled(step_widget.isChecked())
 
-            tg.addWidget(self._make_label("数据采集:"), 0, 0)
-            self.textEdit_S3_TIME_2 = self._make_input("textEdit_S3_TIME_2", default="10")
-            tg.addWidget(self.textEdit_S3_TIME_2, 0, 1)
-            self.comboBox_S3_TIME_2 = self._make_combo("comboBox_S3_TIME_2", ["分钟", "秒", "毫秒"])
-            tg.addWidget(self.comboBox_S3_TIME_2, 0, 2)
+        return grp
 
-            tg.addWidget(self._make_label("等待时间:"), 0, 3)
-            self.textEdit_S3_TIME_3 = self._make_input("textEdit_S3_TIME_3", default="1")
-            tg.addWidget(self.textEdit_S3_TIME_3, 0, 4)
-            self.comboBox_S3_TIME_3 = self._make_combo("comboBox_S3_TIME_3", ["秒", "分钟", "毫秒"])
-            tg.addWidget(self.comboBox_S3_TIME_3, 0, 5)
+    def _build_timing_card(self):
+        """构建数据采集设置卡片。"""
+        grp = QtWidgets.QGroupBox()
+        grp.setTitle("数据采集设置")
+        grp.setStyleSheet(self._GRP_STYLE)
+        tg = QtWidgets.QGridLayout(grp)
+        tg.setSpacing(8)
+        tg.setContentsMargins(12, 20, 12, 12)
 
-            layout.addWidget(grp_t)
+        tg.addWidget(self._make_label("数据采集:"), 0, 0)
+        self.textEdit_S3_TIME_2 = self._make_input("textEdit_S3_TIME_2", parent=self, default="10")
+        tg.addWidget(self.textEdit_S3_TIME_2, 0, 1)
+        self.comboBox_S3_TIME_2 = self._make_combo("comboBox_S3_TIME_2", ["分钟", "秒", "毫秒"], parent=self)
+        tg.addWidget(self.comboBox_S3_TIME_2, 0, 2)
 
-        layout.addStretch()
+        tg.addWidget(self._make_label("等待时间:"), 0, 3)
+        self.textEdit_S3_TIME_3 = self._make_input("textEdit_S3_TIME_3", parent=self, default="1")
+        tg.addWidget(self.textEdit_S3_TIME_3, 0, 4)
+        self.comboBox_S3_TIME_3 = self._make_combo("comboBox_S3_TIME_3", ["秒", "分钟", "毫秒"], parent=self)
+        tg.addWidget(self.comboBox_S3_TIME_3, 0, 5)
+
+        return grp
+
+    # ══════════════════════════════════════════════
+    # 谐波设置合并页（timeline + card 布局）
+    # ══════════════════════════════════════════════
+    def _build_step3_harmonics(self):
+        """将 12 个谐波步骤合并为单页，用 timeline + card 展示。"""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("background-color: white;")
+        outer_layout = QtWidgets.QVBoxLayout(page)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: white; }")
+
+        timeline = TimelineWidget()
+
+        # 数据采集设置卡片
+        timing_card = self._build_timing_card()
+        timeline.addStep("数据采集设置", timing_card)
+
+        # 12 个谐波卡片
+        for spec in _HARMONIC_SPECS:
+            card = self._build_harmonic_card(spec)
+            timeline.addStep(spec["title"], card)
+
+        timeline.finalize()
+        scroll.setWidget(timeline)
+        outer_layout.addWidget(scroll)
+
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # Step 13: 关机设置（含 step13 谐波 12次 + step14 关机）
+    # Step 4: 关机设置
     # ══════════════════════════════════════════════
     def _build_step13(self):
+        """关机设置页面（谐波 12次已移入 timeline 合并页）。"""
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        # ── 谐波 12次设置（step13 = checkBox_S3_11） ──
-        grp_h = QtWidgets.QGroupBox()
-        grp_h.setTitle("谐波 12次功率设置")
-        grp_h.setStyleSheet(self._GRP_STYLE)
-        hg = QtWidgets.QGridLayout(grp_h)
-        hg.setSpacing(10)
-        hg.setContentsMargins(16, 24, 16, 12)
-
-        self.checkBox_S3_11 = self._make_checkbox("checkBox_S3_11", "step13")
-        hg.addWidget(self.checkBox_S3_11, 0, 0)
-
-        for c, (name, text) in enumerate([
-            ("checkBox_S1_DC1_12", "直流电源1"),
-            ("checkBox_S1_DC2_12", "直流电源2"),
-            ("checkBox_S1_DC3_12", "直流电源3"),
-            ("checkBox_S1_DC3_13", "直流电源4"),
-        ]):
-            cb = self._make_checkbox(name, text)
-            hg.addWidget(cb, 1, c * 2)
-
-        self.textEdit_S1_DC1_PF_12 = self._make_input("textEdit_S1_DC1_PF_12", default="100")
-        hg.addWidget(self.textEdit_S1_DC1_PF_12, 2, 0)
-        lbl_pwr = self._make_label("功率")
-        lbl_pwr.setObjectName("label_86")
-        hg.addWidget(lbl_pwr, 2, 1)
-        lbl_pct = self._make_label("%")
-        lbl_pct.setObjectName("label_62")
-        hg.addWidget(lbl_pct, 2, 2)
-
-        layout.addWidget(grp_h)
-
-        # ── 关机设置（step14 = checkBox_S5） ──
         grp_s = QtWidgets.QGroupBox()
         grp_s.setObjectName("groupBox_shutdown")
         grp_s.setTitle("关机设置")
@@ -587,6 +543,7 @@ class Ui_Dialog_thaixiebodianliu(object):
         sg.addWidget(self.comboBox_S5_AC, 0, 2)
 
         # DC 电源关机
+        shutdown_widgets = [self.comboBox_S5_AC]
         dc_shutdown = [
             ("checkBox_S5_DC1", "直流电源1", "comboBox_S5_DC1"),
             ("checkBox_S5_DC2", "直流电源2", "comboBox_S5_DC2"),
@@ -595,10 +552,20 @@ class Ui_Dialog_thaixiebodianliu(object):
         ]
         for c, (cb_name, cb_text, combo_name) in enumerate(dc_shutdown):
             col = 1 + c * 2
-            cb = self._make_checkbox(cb_name, cb_text)
+            cb = self._make_checkbox(cb_name, cb_text, parent=self)
+            shutdown_widgets.append(cb)
             sg.addWidget(cb, 1, col)
-            combo = self._make_combo(combo_name, ["关闭", "开启"])
+            combo = self._make_combo(combo_name, ["关闭", "开启"], parent=self)
+            shutdown_widgets.append(combo)
             sg.addWidget(combo, 1, col + 1)
+
+        # 步骤启用复选框联动
+        def _on_step_toggled(checked):
+            for w in shutdown_widgets:
+                w.setEnabled(checked)
+
+        self.checkBox_S5.toggled.connect(_on_step_toggled)
+        _on_step_toggled(self.checkBox_S5.isChecked())
 
         layout.addWidget(grp_s)
         layout.addStretch()

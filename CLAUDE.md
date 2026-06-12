@@ -227,6 +227,213 @@ btn = StyledButton("确定", ButtonStyle.SUCCESS, width=120, height=36)
 apply_button_style(existing_btn, ButtonStyle.DANGER)
 ```
 
+## AutoTest 按钮调试规则
+
+- **闪变测试（fluctuation）是标准参考，只读参考，不允许修改**
+- AutoTest 各测试项目逐个调试，以闪变为模板接入按钮逻辑
+- 每个项目的「测试追加」「读取」「保存」「操作日志」按钮逻辑与闪变一致
+- 每个项目中的「测试追加」和「项目设置 count + 重置」逻辑与闪变一致
+- **UI 不再变动**，仅调整按钮附带的现有逻辑
+- 原功能逻辑不变，每次只处理一个测试项目
+- 操作日志统一输出到主 UI 的 `ui.textEdit_ReturnMessage`
+
+### 新项目按钮接入速查（以谐波电流为模板）
+
+每个测试项目需要改动 **5 处**（全在 `SCPITestWave.py`）：
+
+**1. 新增 Append 函数**（在对应 `xxxSend()` 函数定义之后）
+```python
+def xxxAppend():
+    global strAddTestFlag, xxx_append_count
+    if 'xxx_append_count' not in globals():
+        xxx_append_count = 0
+    strAddTestFlag = "0" if xxx_append_count == 0 else "1"
+    mode = "覆盖" if xxx_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[项目名] 第{xxx_append_count + 1}次{mode}模式，开始生成命令...")
+    xxxSend()
+```
+
+**2. 在 `xxxSend()` 末尾（`dialog_windowXxx.close()` 之前）加计数递增**
+```python
+if 'xxx_append_count' not in globals():
+    xxx_append_count = 0
+xxx_append_count += 1
+uiXxx.label_append_count.setText(str(xxx_append_count))
+_sync_start_end_buttons()
+ui.textEdit_ReturnMessage.append(f"[项目名] 追加完成，当前计数: {xxx_append_count}")
+```
+注意：不要直接 `setEnabled(True/False)`，统一走 `_sync_start_end_buttons()`。
+
+**3. 信号连接区域（`_safe_click` 批量连接处）加 TestAppend + ResetCount**
+```python
+_safe_click(uiXxx, "pushButton_TestAppend", xxxAppend)
+
+def reset_xxx_count():
+    global xxx_append_count
+    xxx_append_count = 0
+    uiXxx.label_append_count.setText("0")
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append("[项目名] 计数器已重置为0")
+_safe_click(uiXxx, "pushButton_ResetCount", reset_xxx_count)
+```
+
+**4. 在 `_sync_start_end_buttons()` 中添加该项目的计数器判断**
+```python
+def _sync_start_end_buttons():
+    current = ui.comboBox_PS.currentText()
+    count = 0
+    if current == '电压闪变':
+        count = flicker_append_count
+    elif current == '谐波电流':
+        count = harmonic_append_count
+    elif current == '新项目':
+        count = xxx_append_count
+    # ...更多项目
+    ui.pushButton_StartTest.setEnabled(count >= 1)
+    ui.pushButton_EndTest.setEnabled(count >= 1)
+```
+
+**5. `chooseDetailDialog()` / `addtestDialog()` — 对应 elif 分支**
+```python
+elif currentSecond == '项目名':
+    uiXxx.label_append_count.setText(str(xxx_append_count))
+    _sync_start_end_buttons()
+    dialog_windowXxx.show()
+```
+同时在函数顶部 global 声明中加 `xxx_append_count`，并在函数体中初始化 `xxx_append_count = 0`。
+
+**变量命名约定：**
+- 全局计数变量：`{项目英文名}_append_count`（如 `harmonic_append_count`）
+- UI 对象：`uiXxx`（如 `uiThaiXieBoDianLiu`）
+- 对话框：`dialog_windowXxx`（如 `dialog_windowxiebodianliu`）
+- Append 函数：`xxxAppend()`（如 `thaixiebodianliuAppend`）
+- Send 函数：已有 `xxxSend()`（如 `thaixiebodianliuSend`）
+- Reset 闭包：`reset_xxx_count()`
+
+### 已踩坑点（必须避免）
+
+**坑1：LazyDialog 不能作为 QMessageBox/QFileDialog 的 parent**
+- `dialog_windowXxx` 是 `LazyDialog` 实例，不是 `QWidget`
+- `QMessageBox.warning/dialog_windowXxx` 和 `QFileDialog.getSaveFileName(dialog_windowXxx, ...)` 会报 `TypeError`
+- **修复**：所有 Open/Save 工具函数中 `QMessageBox` 和 `QFileDialog` 的 parent 传 `None`
+- 涉及文件：`utils/Open_Save_Thai*.py` 中所有 `dialog_window` 参数
+
+**坑2：`_make_checkbox` 不传 parent 不会存储到 self**
+- `Dialog_thaixiebodianliu.py` 的 `_make_checkbox(name, text)` 不传 `parent` 时，只创建 widget 但不 `setattr(self, name, cb)`
+- 导致 `uiThaiXieBoDianLiu.checkBox_S2_WT3000` 等属性不存在
+- **修复**：创建 checkbox 时传 `parent=self`，如 `self._make_checkbox(cb_name, cb_text, parent=self)`
+
+**坑3：reset 函数不能直接操作全局 Start/End 按钮**
+- 之前 `reset_flicker_count()` 直接 `ui.pushButton_StartTest.setEnabled(False)` 会影响所有项目
+- **修复**：reset 函数只重置计数器和 label，按钮状态由 `_sync_start_end_buttons()` 统一管理
+
+**坑4：按钮状态必须在启动时初始化 + 切换项目时同步**
+- 程序启动时计数器为 0 但按钮默认启用
+- **修复**：信号连接处调用 `_sync_start_end_buttons()` 初始化，并连接 `ui.comboBox_PS.currentTextChanged` 信号自动同步
+
+**坑5：调试后必须检查未定义属性**
+- 每个项目调试完毕后，必须检查代码中引用的所有 UI 属性是否都已定义
+- 典型报错：`AttributeError: 'Ui_Dialog_thaixiebodianliu' object has no attribute 'checkBox_S3'`
+- **原因**：`_make_checkbox`、`_make_combo`、`_make_input` 等方法仅在传 `parent` 参数时才存储到 `self`，否则只创建 widget 但不绑定属性
+- **检查方法**：
+  1. 在 `Dialog_thaiXxx.py` 中搜索所有 `self.uiXxx.属性名` 引用
+  2. 验证这些属性名在对应的 `Dialog_thaiXxx.py` 中都有对应的 `self.xxx = ...` 定义
+  3. 特别注意 `_make_checkbox`、`_make_combo`、`_make_input` 创建的控件是否传了 `parent=self`
+- **修复**：确保创建控件时传 `parent=self`，如 `self._make_checkbox(cb_name, cb_text, parent=self)`
+
+**坑6：DC 验证错误标志会被覆盖（多 DC 通道时）**
+- `strShowErrorMessageBoxFlag` 在每个 DC 通道检查时会被覆盖，导致只显示最后一个错误
+- 典型场景：DC1 有错误（flag="1"），DC2 也有错误（flag="3"），DC1 的错误被覆盖
+- **修复**：使用 `dc_error_messages` 列表收集所有错误，最后一次性显示
+- **代码模式**：
+  ```python
+  dc_error_messages = []
+  if dc1_checked:
+      if error:
+          dc_error_messages.append("DC电源1赋值错误")
+  if dc2_checked:
+      if error:
+          dc_error_messages.append("DC电源2赋值错误")
+  # 最后显示所有错误
+  if dc_error_messages:
+      all_errors = "\n".join([f"{i+1}. {msg}" for i, msg in enumerate(dc_error_messages)])
+      QMessageBox.information(None, "错误提示信息", all_errors, ...)
+  ```
+- **涉及函数**：`thaidianyashanbianSend()`、`thaixiebodianliuSend()` 等所有包含 DC 验证的函数
+
+**坑7：DC 变量未初始化会导致 UnboundLocalError**
+- 如果未勾选 step1 DC 通道（如 `checkBox_S1_DC2`），变量（如 `S1DC2Vmp`）未定义
+- 在谐波步骤中使用这些变量时会触发 `UnboundLocalError`
+- **修复**：在函数开头初始化所有 DC 变量为空字符串
+- **代码模式**：
+  ```python
+  S1DC1Vmp = S1DC1Imp = S1DC1Voc = S1DC1Isc = ""
+  S1DC2Vmp = S1DC2Imp = S1DC2Voc = S1DC2Isc = ""
+  S1DC3Vmp = S1DC3Imp = S1DC3Voc = S1DC3Isc = ""
+  S1DC4Vmp = S1DC4Imp = S1DC4Voc = S1DC4Isc = ""
+  ```
+- **涉及函数**：所有包含谐波步骤的 Send 函数
+
+**坑8：所有 QMessageBox 和 QFileDialog 调用都需要检查 parent**
+- 不仅是 `utils/Open_Save_Thai*.py`，`SCPITestWave.py` 中的调用也需要检查
+- 典型报错：`TypeError: information(parent: Optional[QWidget]...): argument 1 has unexpected type 'LazyDialog'`
+- **修复**：所有 `QMessageBox.warning/information/critical` 和 `QFileDialog.getSaveFileName/getOpenFileName` 的 parent 参数传 `None`
+- **涉及文件**：
+  - `SCPITestWave.py`：所有 `Send()` 函数中的错误提示框
+  - `utils/Open_Save_Thai*.py`：保存/读取完成提示框、文件选择对话框
+- **检查方法**：
+  1. 搜索 `QMessageBox\.(warning|information|critical)\(dialog_window` 确保所有调用都使用 `None`
+  2. 搜索 `QFileDialog\.(getSaveFileName|getOpenFileName)\(dialog_window` 确保所有调用都使用 `None`
+
+**坑9：计数器变量未初始化会导致 UnboundLocalError**
+- `harmonic_append_count`、`flicker_append_count` 等计数器变量在函数开头未初始化
+- 只在特定条件分支中检查和初始化，其他路径执行时变量未定义
+- 典型报错：`UnboundLocalError: local variable 'harmonic_append_count' referenced before assignment`
+- **修复**：在函数开头声明 global 并初始化
+- **代码模式**：
+  ```python
+  def xxxSend():
+      global xxx_append_count
+      if 'xxx_append_count' not in globals():
+          xxx_append_count = 0
+      # ... 其他代码
+  ```
+- **涉及函数**：`thaidianyashanbianSend()`、`thaixiebodianliuSend()` 等所有包含计数器的 Send 函数
+- **检查方法**：搜索 `global.*_append_count` 确保所有计数器都在函数开头初始化
+
+**坑10：步骤启用复选框必须联动子控件**
+- 取消勾选步骤启用复选框（如 `checkBox_S3`）后，下方的 DC 通道复选框和功率输入框仍可操作，导致用户困惑
+- **修复**：步骤复选框的 `toggled` 信号连接到子控件的 `setEnabled`
+- **代码模式**：
+  ```python
+  # 收集子控件
+  dc_cbs = [cb1, cb2, cb3, cb4]
+  pf_widget = self._make_input(...)
+
+  # 联动逻辑
+  def _on_step_toggled(checked):
+      for dc_cb in dc_cbs:
+          dc_cb.setEnabled(checked)
+      pf_widget.setEnabled(checked)
+
+  step_widget.toggled.connect(_on_step_toggled)
+  _on_step_toggled(step_widget.isChecked())  # 初始化状态
+  ```
+- **涉及文件**：所有 `Dialog_thaiXxx.py` 的步骤构建方法
+- **适用范围**：闪变、谐波电流及后续所有测试项目
+
+## 已知问题与技术债务
+
+### 谐波电流 DC4 通道命名不一致
+- **文件**：`Dialog_thaixiebodianliu.py` 行 152-170
+- **问题**：部分 DC4 通道的 checkbox 命名使用了 `checkBox_S1_DC3_xx` 而非 `checkBox_S1_DC4_xx`
+- **示例**：
+  - 正确：`dc4_cb="checkBox_S1_DC4_2"`（行 115）
+  - 错误：`dc4_cb="checkBox_S1_DC3_15"`（行 152）
+- **影响**：不影响运行（所有引用处命名一致），但命名不直观，易造成混淆
+- **修改范围**：需同时修改 `Dialog_thaixiebodianliu.py` 通道映射字典 + `SCPITestWave.py` 中 `thaixiebodianliuSend()` 函数
+- **建议**：功能正常可暂不改，下次调试谐波电流时统一修正
+
 ## PyQt5 布局注意事项
 
 - `QVBoxLayout` 没有 `setMaximumWidth` 方法，需要在外层包 `QWidget` 再设宽度

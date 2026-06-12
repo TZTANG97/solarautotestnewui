@@ -4,7 +4,7 @@ import csv
 
 #泰国过欠压保存设定
 def Save_File_ThaiGuoQianYa(dialog_windowguoqianya, uithaiguoqianya):
-    directory1 = QFileDialog.getSaveFileName(dialog_windowguoqianya, "单个文件保存", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getSaveFileName(Noneguoqianya, "单个文件保存", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print('请选择一个文件')
     else:
@@ -488,12 +488,12 @@ def Save_File_ThaiGuoQianYa(dialog_windowguoqianya, uithaiguoqianya):
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
         out.close()
-        QMessageBox.information(dialog_windowguoqianya, "实验设定提示信息", "过欠压文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(Noneguoqianya, "实验设定提示信息", "过欠压文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 #泰国过欠压读取设定
 def Open_File_ThaiGuoQianYa(dialog_windowguoqianya, uithaiguoqianya):
     strFlag = "0"
-    directory1 = QFileDialog.getOpenFileName(dialog_windowguoqianya, "单个文件选择", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getOpenFileName(Noneguoqianya, "单个文件选择", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
@@ -1469,4 +1469,4 @@ def Open_File_ThaiGuoQianYa(dialog_windowguoqianya, uithaiguoqianya):
                     else:
                         strFlag = 1
 
-        QMessageBox.information(dialog_windowguoqianya, "实验设定提示信息", "过欠压文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(Noneguoqianya, "实验设定提示信息", "过欠压文件读取完成", QMessageBox.Ok, QMessageBox.Ok)

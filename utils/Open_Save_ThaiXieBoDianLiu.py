@@ -53,7 +53,7 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
     uiThiaWT1806E = kwargs['uiThiaWT1806E']
     uiThiaWT5000 = kwargs['uiThiaWT5000']
     result = []
-    directory1 = QFileDialog.getSaveFileName(dialog_windowxiebodianliu, "单个文件保存", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getSaveFileName(None, "单个文件保存", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print('请选择一个文件')
     else:
@@ -684,7 +684,7 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
             csv_write.writerow(result[0])
             csv_write.writerow(result[1])
         out.close()
-        QMessageBox.information(dialog_windowxiebodianliu, "实验设定提示信息", "谐波电流文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "谐波电流文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 #谐波电流读取设定
 def Open_File_ThaiXieBoDianLiu(kwargs):
@@ -698,7 +698,7 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
     result_list = []
     config_dict = {}
     wt_config_dict = {}
-    directory1 = QFileDialog.getOpenFileName(dialog_windowxiebodianliu, "单个文件选择", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getOpenFileName(None, "单个文件选择", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
@@ -1862,7 +1862,7 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
                             Open_File_ThaiWT5000_Config(uiThiaWT5000, wt_config_dict)
                     else:
                         strFlag = 1
-        QMessageBox.information(dialog_windowxiebodianliu, "实验设定提示信息", "谐波电流文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "谐波电流文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
 # def save_file_header():
 #     directory1 = [r"D:\\project\\photovoltaic_automation_t\\config_files\\project_step_configs\\xiebodianliu.csv"]

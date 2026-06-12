@@ -54,7 +54,7 @@ def Save_File_ThaiTestPU(kwargs):
     uiThiaWT1806E = kwargs['uiThiaWT1806E']
     uiThiaWT5000 = kwargs['uiThiaWT5000']
     result = []
-    directory1 = QFileDialog.getSaveFileName(dialog_windowtestPU,"单个文件保存","./","Text Files(*.csv)")
+    directory1 = QFileDialog.getSaveFileName(NonetestPU,"单个文件保存","./","Text Files(*.csv)")
     if directory1[0] == '':
         print('请选择一个文件')
     else:
@@ -609,7 +609,7 @@ def Save_File_ThaiTestPU(kwargs):
             csv_write.writerow(result[0])
             csv_write.writerow(result[1])
         out.close()
-        QMessageBox.information(dialog_windowtestPU, "实验设定提示信息", "PU文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(NonetestPU, "实验设定提示信息", "PU文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 # PU读取设定
 def Open_File_ThaiTestPU(kwargs):
@@ -623,7 +623,7 @@ def Open_File_ThaiTestPU(kwargs):
     result_list = []
     config_dict = {}
     wt_config_dict = {}
-    directory1 = QFileDialog.getOpenFileName(dialog_windowtestPU,"单个文件选择","./","Text Files(*.csv)")
+    directory1 = QFileDialog.getOpenFileName(NonetestPU,"单个文件选择","./","Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
@@ -1735,7 +1735,7 @@ def Open_File_ThaiTestPU(kwargs):
                     print("no")
                     strFlag = "1"
 
-        QMessageBox.information(dialog_windowtestPU, "实验设定提示信息", "PU文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(NonetestPU, "实验设定提示信息", "PU文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
 def save_file_header():
     directory1 = [r"D:\\project\\photovoltaic_automation_t\\config_files\\project_step_configs\\guopinjiangzai.csv"]

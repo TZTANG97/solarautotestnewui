@@ -120,6 +120,9 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self._build_step4()
         self._build_step5()
 
+        # ── 连接步骤复选框联动 ──
+        self._connect_step_toggles()
+
         # 默认显示第一页
         self._switch_step(0)
 
@@ -151,6 +154,89 @@ class Ui_Dialog_thaiguodianyashanbian(object):
                     }
                     QLabel:hover { background-color: #f1f5f9; }
                 """)
+
+    def _connect_step_toggles(self):
+        """连接步骤复选框与子控件的联动"""
+        # Step 1: AC/DC 电源
+        s1_children = [
+            self.comboBox_S1_AC, self.textEdit_S1_AC_VOLT, self.textEdit_S1_AC_VOLT_2,
+            self.textEdit_S1_AC_VOLT_3, self.textEdit_S1_AC_FR, self.comboBox_S1_AC_2,
+            self.checkBox_S1_DC1, self.comboBox_S1_DC1, self.textEdit_S1_DC1_VOLT,
+            self.textEdit_S1_DC1_CURR, self.textEdit_S1_DC1_Voc, self.textEdit_S1_DC1_Isc,
+            self.textEdit_S1_DC1_PF, self.checkBox_S1_DC2, self.comboBox_S1_DC2,
+            self.textEdit_S1_DC2_VOLT, self.textEdit_S1_DC2_CURR, self.textEdit_S1_DC2_Voc,
+            self.textEdit_S1_DC2_Isc, self.textEdit_S1_DC2_PF, self.checkBox_S1_DC3,
+            self.comboBox_S1_DC3, self.textEdit_S1_DC3_VOLT, self.textEdit_S1_DC3_CURR,
+            self.textEdit_S1_DC3_Voc, self.textEdit_S1_DC3_Isc, self.textEdit_S1_DC3_PF,
+            self.checkBox_S1_DC4, self.comboBox_S1_DC4, self.textEdit_S1_DC4_VOLT,
+            self.textEdit_S1_DC4_CURR, self.textEdit_S1_DC4_Voc, self.textEdit_S1_DC4_Isc,
+            self.textEdit_S1_DC4_PF, self.textEdit_S1_ACWaitTIME, self.comboBox_S1_ACWaitTIME,
+            self.textEdit_S1_TIME, self.comboBox_S1_TIME,
+        ]
+
+        def _on_s1_toggled(checked):
+            for w in s1_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S1.toggled.connect(_on_s1_toggled)
+        _on_s1_toggled(self.checkBox_S1.isChecked())
+
+        # Step 2: WT3000 闪变
+        s2_children = [
+            self.comboBox_S2_WT, self.comboBox_S2_WT3000_Setting,
+            self.comboBox_S2_PER_FLICK_COUNT, self.textEdit_S2_TIME, self.comboBox_S2_TIME,
+        ]
+
+        def _on_s2_toggled(checked):
+            for w in s2_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S2.toggled.connect(_on_s2_toggled)
+        _on_s2_toggled(self.checkBox_S2.isChecked())
+
+        # Step 3: DC 开关循环
+        s3_children = [
+            self.checkBox_S3_DC1, self.comboBox_S3_DC1, self.checkBox_S3_DC2,
+            self.comboBox_S3_DC2, self.checkBox_S3_DC3, self.comboBox_S3_DC3,
+            self.checkBox_S3_DC4, self.comboBox_S3_DC4, self.checkBox_S3_DC1_2,
+            self.comboBox_S3_DC1_2, self.checkBox_S3_DC2_2, self.comboBox_S3_DC2_2,
+            self.checkBox_S3_DC3_2, self.comboBox_S3_DC3_2, self.checkBox_S3_DC4_2,
+            self.comboBox_S3_DC4_2, self.textEdit_S3_TIME, self.comboBox_S3_TIME,
+            self.textEdit_S3_TIME_2, self.comboBox_S3_TIME_2, self.textEdit_S3_CYCLE_TIME,
+        ]
+
+        def _on_s3_toggled(checked):
+            for w in s3_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S3.toggled.connect(_on_s3_toggled)
+        _on_s3_toggled(self.checkBox_S3.isChecked())
+
+        # Step 4: 判定结果
+        s4_children = [
+            self.comboBox_S4_WT3000_1, self.comboBox_S4_WT3000_2, self.comboBox_S4_WT3000_3,
+        ]
+
+        def _on_s4_toggled(checked):
+            for w in s4_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S4.toggled.connect(_on_s4_toggled)
+        _on_s4_toggled(self.checkBox_S4.isChecked())
+
+        # Step 5: 关机设置
+        s5_children = [
+            self.comboBox_S5_AC, self.checkBox_S5_DC1, self.comboBox_S5_DC1,
+            self.checkBox_S5_DC2, self.comboBox_S5_DC2, self.checkBox_S5_DC3,
+            self.comboBox_S5_DC3, self.checkBox_S5_DC4, self.comboBox_S5_DC4,
+        ]
+
+        def _on_s5_toggled(checked):
+            for w in s5_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S5.toggled.connect(_on_s5_toggled)
+        _on_s5_toggled(self.checkBox_S5.isChecked())
 
     # ══════════════════════════════════════════════
     # Step 1: AC + DC 电源设置 + 时序

@@ -58,10 +58,11 @@
     }
   ],
   "project": {
-    "name": "电压闪变",
+    "name": "谐波电流",
     "status": "进行中",
     "progress": 64,
-    "start_time": "2026-06-10 14:00:00",
-    "estimated_end_time": "2026-06-10 14:03:00"
+    "start_time": "2026-06-12 10:39:54",
+    "estimated_end_time": "",
+    "end_time": "2026-06-12 10:36:10"
   }
 }

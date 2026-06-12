@@ -429,11 +429,11 @@ def SaveDEWETRONConfig():
     if dewetron_controller.send_apply_config(modified_xml):
         _log("配置已应用")
         from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.information(dialog_windowDewetronSetting, "保存成功", "DEWETRON 配置已应用")
+        QMessageBox.information(None, "保存成功", "DEWETRON 配置已应用")
     else:
         _log("APPLY 发送失败")
         from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.warning(dialog_windowDewetronSetting, "保存失败", "配置应用失败，请检查设备连接")
+        QMessageBox.warning(None, "保存失败", "配置应用失败，请检查设备连接")
 
 
 def BuildDEWETRONTestPageWithLoading():
@@ -465,9 +465,9 @@ def BuildDEWETRONTestPage():
         return
 
     if build_test_page_from_device(dewetron_controller, log_fn=uiDewetronSetting.log):
-        QMessageBox.information(dialog_windowDewetronSetting, "构造完成", "测试界面已构造")
+        QMessageBox.information(None, "构造完成", "测试界面已构造")
     else:
-        QMessageBox.warning(dialog_windowDewetronSetting, "构造失败", "测试界面构造失败，请检查设备连接")
+        QMessageBox.warning(None, "构造失败", "测试界面构造失败，请检查设备连接")
 
 
 def CloseACOUTPUTON():
@@ -1506,6 +1506,22 @@ def reset_wt_automation_state():
     messure_project_cofig = ''
     WT_auto_messure_status = ''
 
+def _sync_start_end_buttons():
+    """根据当前项目的计数器决定启用/禁用开始/结束按钮。计数>=1启用，=0禁用。"""
+    global flicker_append_count, harmonic_append_count
+    current = ui.comboBox_PS.currentText()
+    count = 0
+    if current == '电压闪变':
+        if 'flicker_append_count' not in globals():
+            flicker_append_count = 0
+        count = flicker_append_count
+    elif current == '谐波电流':
+        if 'harmonic_append_count' not in globals():
+            harmonic_append_count = 0
+        count = harmonic_append_count
+    ui.pushButton_StartTest.setEnabled(count >= 1)
+    ui.pushButton_EndTest.setEnabled(count >= 1)
+
 #试验对话框选择函数
 def chooseDetailDialog():
     global ui,uithaichonglian,dialog_window,dialog_windowguoqianpin,dialog_windowguoqianya
@@ -1514,11 +1530,12 @@ def chooseDetailDialog():
     global strAddTestFlag, config_dict, setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig
     global project_change, project_now, wt_config_nums
     global Mppt_step1, Mppt_step2, Mppt_step_end, first_test
-    global next_project_flag, flicker_append_count
+    global next_project_flag, flicker_append_count, harmonic_append_count
 
     next_project_flag = "0"
     strAddTestFlag = "0"
     flicker_append_count = 0
+    harmonic_append_count = 0
     setting_status = '' 
     messure_status = ''
     messsure_deatil_cofig = ''
@@ -1541,10 +1558,11 @@ def chooseDetailDialog():
         #     dialog_windowguoqianya.show()
         elif currentSecond == '电压闪变':
             uiThaiDianYaShanBian.label_append_count.setText(str(flicker_append_count))
-            ui.pushButton_StartTest.setEnabled(False)
-            ui.pushButton_EndTest.setEnabled(False)
+            _sync_start_end_buttons()
             dialog_windowTdianyashanbian.show()
         elif currentSecond == '谐波电流':
+            uiThaiXieBoDianLiu.label_append_count.setText(str(harmonic_append_count))
+            _sync_start_end_buttons()
             dialog_windowxiebodianliu.show()
         elif currentSecond == '固定PF=1':
             dialog_windowfixedpf.show()
@@ -1577,7 +1595,7 @@ def chooseDetailDialog():
 
     else:
         logger.info("请选择选项")
-        QMessageBox.information(dialog_window, "提示", "请选择有效测试项目后再继续", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "提示", "请选择有效测试项目后再继续", QMessageBox.Ok, QMessageBox.Ok)
 
 #试验对话框选择函数
 def addtestDialog():
@@ -1586,7 +1604,7 @@ def addtestDialog():
     global strAddTestFlag, config_dict
     global project_change, project_now
     global strArrayTestStepSingle
-    global next_project_flag, flicker_append_count
+    global next_project_flag, flicker_append_count, harmonic_append_count
 
     if 'project_now' not in globals():
         project_now = ''
@@ -1594,6 +1612,8 @@ def addtestDialog():
         project_change = ''
     if 'flicker_append_count' not in globals():
         flicker_append_count = 0
+    if 'harmonic_append_count' not in globals():
+        harmonic_append_count = 0
 
     strAddTestFlag = "1"
     currentProject = ui.comboBox_P.currentText()
@@ -1614,10 +1634,11 @@ def addtestDialog():
         #     dialog_windowguoqianya.show()
         elif currentSecond == '电压闪变':
             uiThaiDianYaShanBian.label_append_count.setText(str(flicker_append_count))
-            ui.pushButton_StartTest.setEnabled(False)
-            ui.pushButton_EndTest.setEnabled(False)
+            _sync_start_end_buttons()
             dialog_windowTdianyashanbian.show()
         elif currentSecond == '谐波电流':
+            uiThaiXieBoDianLiu.label_append_count.setText(str(harmonic_append_count))
+            _sync_start_end_buttons()
             dialog_windowxiebodianliu.show()
         elif currentSecond == '固定PF=1':
             dialog_windowfixedpf.show()
@@ -1696,6 +1717,8 @@ def thaidianyashanbianSend():
     global strSettingTestFlag, strArrayTestStep
     global strAddTestFlag, flicker_is_test
     global command_save_file_path, flicker_append_count
+    if 'flicker_append_count' not in globals():
+        flicker_append_count = 0
     def _get_wait_seconds(str_array_single):
         """提取单条命令的等待时间（秒）。
 
@@ -1742,7 +1765,9 @@ def thaidianyashanbianSend():
         strArrayTest.append(strArraySingle)
 
     strArrayTestStep = []
-    
+    # 收集所有 DC 错误信息
+    dc_error_messages = []
+
     S1ACEACHStatus = uiThaiDianYaShanBian.comboBox_S1_AC_2.currentText()
     # 预先读取跨 step 复用参数，避免某个 step 未勾选时出现未定义变量
     S1ACVOLT = uiThaiDianYaShanBian.textEdit_S1_AC_VOLT.toPlainText()
@@ -1776,7 +1801,7 @@ def thaidianyashanbianSend():
         if total_seconds > 600:
             remaining = 600 - total_seconds
             QtWidgets.QMessageBox.warning(
-                dialog_windowTdianyashanbian,
+                None,
                 "时间超出限制",
                 f"每组闪变总时间 {total_seconds:.0f} 秒，超出 10 分钟限制。\n\n"
                 f"当前设置：首次间隔 {fS2SetTime*0.1:.0f}s + "
@@ -1963,9 +1988,9 @@ def thaidianyashanbianSend():
             S1DC1PF = uiThaiDianYaShanBian.textEdit_S1_DC1_PF.toPlainText()
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S1DC1PF,0)
             if a == "1":
-                strShowErrorMessageBoxFlag = "1"
+                dc_error_messages.append("DC电源1赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "2"
+                dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -1993,9 +2018,9 @@ def thaidianyashanbianSend():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S1DC2PF, 1)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "3"
+                dc_error_messages.append("DC电源2赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "4"
+                dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -2023,9 +2048,9 @@ def thaidianyashanbianSend():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S1DC3PF, 2)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                dc_error_messages.append("DC电源3赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -2053,9 +2078,9 @@ def thaidianyashanbianSend():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S1DC4PF, 3)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "7"
+                dc_error_messages.append("DC电源4赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "8"
+                dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -3652,18 +3677,10 @@ def thaidianyashanbianSend():
             strArrayTestStep.append(strArrayTestStepSingle)
 
 
-    if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    if dc_error_messages:
+        # 显示所有错误信息
+        all_errors = "\n".join([f"{i+1}. {msg}" for i, msg in enumerate(dc_error_messages)])
+        QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -3695,8 +3712,7 @@ def thaidianyashanbianSend():
             flicker_append_count = 0
         flicker_append_count += 1
         uiThaiDianYaShanBian.label_append_count.setText(str(flicker_append_count))
-        ui.pushButton_StartTest.setEnabled(True)
-        ui.pushButton_EndTest.setEnabled(True)
+        _sync_start_end_buttons()
         ui.textEdit_ReturnMessage.append(f"[闪变] 追加完成，当前计数: {flicker_append_count}，开始/结束试验按钮已启用")
         dialog_windowTdianyashanbian.close()
 
@@ -4777,21 +4793,21 @@ def thaichonglianSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -4857,7 +4873,17 @@ def thaixiebodianliuSend():
     global project_change, wt_config_nums, integral_status
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global harmonic_append_count
+    if 'harmonic_append_count' not in globals():
+        harmonic_append_count = 0
     strShowErrorMessageBoxFlag = "0"
+    # 收集所有 DC 错误信息
+    dc_error_messages = []
+    # 初始化 DC 变量，防止未勾选 step1 DC 通道时在谐波步骤中引用报错
+    S1DC1Vmp = S1DC1Imp = S1DC1Voc = S1DC1Isc = ""
+    S1DC2Vmp = S1DC2Imp = S1DC2Voc = S1DC2Isc = ""
+    S1DC3Vmp = S1DC3Imp = S1DC3Voc = S1DC3Isc = ""
+    S1DC4Vmp = S1DC4Imp = S1DC4Voc = S1DC4Isc = ""
     if strAddTestFlag == "0":
         strArrayTest = []
         total_save_file = 0
@@ -5075,9 +5101,9 @@ def thaixiebodianliuSend():
             DC_PF_VALUE_LIST.append(S1DC1PF)
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S1DC1PF, 0)
             if a == "1":
-                strShowErrorMessageBoxFlag = "1"
+                dc_error_messages.append("DC电源1赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "2"
+                dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -5102,7 +5128,7 @@ def thaixiebodianliuSend():
             strArraySingle[8] = 5
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
-        
+
         # DC2
         if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked():
             S1DC2Vmp = uiThaiXieBoDianLiu.textEdit_S1_DC2_VOLT.toPlainText()
@@ -5113,9 +5139,9 @@ def thaixiebodianliuSend():
             DC_PF_VALUE_LIST.append(S1DC2PF)
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S1DC2PF, 1)
             if a == "1":
-                strShowErrorMessageBoxFlag = "3"
+                dc_error_messages.append("DC电源2赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "4"
+                dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -5152,9 +5178,9 @@ def thaixiebodianliuSend():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S1DC3PF, 2)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                dc_error_messages.append("DC电源3赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -5182,9 +5208,9 @@ def thaixiebodianliuSend():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S1DC4PF, 3)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "7"
+                dc_error_messages.append("DC电源4赋值错误,请重新输入")
             elif a == "2":
-                strShowErrorMessageBoxFlag = "8"
+                dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -6214,22 +6240,10 @@ def thaixiebodianliuSend():
             strArrayTestStepSingle.append(strArraySingle)
             strArrayTestStep.append(strArrayTestStepSingle)
 
-    if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
-    elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    if dc_error_messages:
+        # 显示所有错误信息
+        all_errors = "\n".join([f"{i+1}. {msg}" for i, msg in enumerate(dc_error_messages)])
+        QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -6255,6 +6269,12 @@ def thaixiebodianliuSend():
                 csv_write.writerow(strArrayTest[i])
             out.close()
 
+        if 'harmonic_append_count' not in globals():
+            harmonic_append_count = 0
+        harmonic_append_count += 1
+        uiThaiXieBoDianLiu.label_append_count.setText(str(harmonic_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[谐波电流] 追加完成，当前计数: {harmonic_append_count}，开始/结束试验按钮已启用")
         dialog_windowxiebodianliu.close()
 
 def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
@@ -6335,6 +6355,16 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
     strArrayTestStepSingle.append(strArraySingle)
 
     return strArrayTestStepSingle
+
+# 谐波电流测试追加
+def thaixiebodianliuAppend():
+    global strAddTestFlag, harmonic_append_count
+    if 'harmonic_append_count' not in globals():
+        harmonic_append_count = 0
+    strAddTestFlag = "0" if harmonic_append_count == 0 else "1"
+    mode = "覆盖" if harmonic_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[谐波电流] 第{harmonic_append_count + 1}次{mode}模式，开始生成命令...")
+    thaixiebodianliuSend()
 
 #谐波电流保存设定
 def SaveFileDialogThaiXieBoDianLiu():
@@ -8088,21 +8118,21 @@ def thaifixedpfSend():
             strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -8710,21 +8740,21 @@ def thaioverloadsSend():
             strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -9622,21 +9652,21 @@ def thaizhiliufenliangSend():
             strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -10753,21 +10783,21 @@ def thaistaticQUSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -11854,21 +11884,21 @@ def thaistaticcosPhiSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -12934,21 +12964,21 @@ def thaicosPhiBrazilSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -13675,21 +13705,21 @@ def thaivoltprotect10minSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -15946,21 +15976,21 @@ def thaiguopinjiangzaiSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -18081,21 +18111,21 @@ def thaitestPUSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -21156,21 +21186,21 @@ def thaiguoqianya_pinSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         per_test_time_list.append(int(total_test_time) + 60)
@@ -22645,21 +22675,21 @@ def thaiguoqianpin_immunSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         per_test_time_list.append(int(total_test_time) + 60)
@@ -23230,21 +23260,21 @@ def thaistaticMPPTtestSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源1Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "3":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "4":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源2Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "5":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "6":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源3Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "7":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
-        QMessageBox.information(dialog_window, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -23884,7 +23914,7 @@ def RunProject():
                             if wt_is_select == 1:
                                 wt_is_check()
                             else:
-                                QMessageBox.warning(dialog_window, "错误提示信息", "上位机未检索到可供连接的WT设备，请确认", QMessageBox.Ok, QMessageBox.Ok)
+                                QMessageBox.warning(None, "错误提示信息", "上位机未检索到可供连接的WT设备，请确认", QMessageBox.Ok, QMessageBox.Ok)
                         elif len(test_program) != 0 and flicker_is_test == '':
                             test_program.pop(0)
                             total_save_file = total_save_file - now_save_file
@@ -28798,6 +28828,11 @@ if __name__ == "__main__":
             ui.pushButton_StopTest.clicked.connect(PauseProjectPush)
             ui.pushButton_ConTest.clicked.connect(ConProjectPush)
 
+            # 切换项目时同步开始/结束按钮状态
+            ui.comboBox_PS.currentTextChanged.connect(lambda _: _sync_start_end_buttons())
+            # 启动时初始化按钮状态（计数器均为0，按钮禁用）
+            _sync_start_end_buttons()
+
             ui.pushButton_ShowSettingDetail.clicked.connect(chooseDetailDialog)
 
             ui.pushButton_ShowMultiSettingDetail.clicked.connect(addtestDialog)
@@ -28854,9 +28889,8 @@ if __name__ == "__main__":
                 global flicker_append_count
                 flicker_append_count = 0
                 uiThaiDianYaShanBian.label_append_count.setText("0")
-                ui.pushButton_StartTest.setEnabled(False)
-                ui.pushButton_EndTest.setEnabled(False)
-                ui.textEdit_ReturnMessage.append("[闪变] 计数器已重置为0，开始/结束试验按钮已禁用")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[闪变] 计数器已重置为0")
             _safe_click(uiThaiDianYaShanBian, "pushButton_ResetCount", reset_flicker_count)
 
             # ThaiDianYaShanBian的的配置档读取写入
@@ -28864,6 +28898,16 @@ if __name__ == "__main__":
             _safe_click(uiThaiDianYaShanBian, "pushButton_SaveSettingFile", SaveFileDialogThaidianyashanbian)
             
             # 谐波电流
+            _safe_click(uiThaiXieBoDianLiu, "pushButton_TestAppend", thaixiebodianliuAppend)
+
+            def reset_xiebodianliu_count():
+                global harmonic_append_count
+                harmonic_append_count = 0
+                uiThaiXieBoDianLiu.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[谐波电流] 计数器已重置为0")
+            _safe_click(uiThaiXieBoDianLiu, "pushButton_ResetCount", reset_xiebodianliu_count)
+
             uiThaiXieBoDianLiu.pushButton_Send.clicked.connect(thaixiebodianliuSend)
             uiThaiXieBoDianLiu.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
             uiThaiXieBoDianLiu.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
