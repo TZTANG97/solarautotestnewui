@@ -1,9 +1,25 @@
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMainWindow,QApplication,QDialog,QFileDialog, QMessageBox
 import csv
 from utils.Open_Save_ThaiWT3000_Config import Save_File_ThaiWT3000_Config, Open_File_ThaiWT3000_Config
 from utils.Open_Save_ThaiWT1800_Config import Save_File_ThaiWT1800_Config, Open_File_ThaiWT1800_Config
 from utils.Open_Save_ThaiWT1806E_Config import Save_File_ThaiWT1806E_Config, Open_File_ThaiWT1806E_Config
 from utils.Open_Save_ThaiWT5000_Config import Save_File_ThaiWT5000_Config, Open_File_ThaiWT5000_Config
+
+
+class _PageWidgetFinder:
+    """代理对象，通过 findChild 在正确的 stacked page 中按 objectName 查找 widget。
+    解决 4 个 build_wt*_content(self) 共享 self 导致同名属性被覆盖的问题。"""
+
+    def __init__(self, page_widget):
+        self._page = page_widget
+
+    def __getattr__(self, name):
+        # 先在 page 子树中按 objectName 查找
+        w = self._page.findChild(QtWidgets.QWidget, name)
+        if w is not None:
+            return w
+        raise AttributeError(f"Widget '{name}' not found in stacked page")
 
 arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "textEdit_S1_AC_VOLT_2",
                      "textEdit_S1_AC_VOLT_3","textEdit_S1_AC_FR","comboBox_S1_AC_2",
@@ -46,17 +62,24 @@ arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "te
 
 #泰国电压闪变保存设定
 def Save_File_ThaiXieBoDianLiu(kwargs):
+    print("=" * 80)
+    print("[DEBUG-SAVE] ==================== 开始保存谐波电流配置 ====================")
     dialog_windowxiebodianliu = kwargs['dialog_windowxiebodianliu']
     uiThaiXieBoDianLiu = kwargs['uiThaiXieBoDianLiu']
     uiThiaWT3000E = kwargs['uiThiaWT3000E']
     uiThiaWT1800 = kwargs['uiThiaWT1800']
     uiThiaWT1806E = kwargs['uiThiaWT1806E']
     uiThiaWT5000 = kwargs['uiThiaWT5000']
+    print(f"[DEBUG-SAVE] uiThaiXieBoDianLiu type: {type(uiThaiXieBoDianLiu)}")
+    print(f"[DEBUG-SAVE] has _wtStacked: {hasattr(uiThaiXieBoDianLiu, '_wtStacked')}")
+    if hasattr(uiThaiXieBoDianLiu, '_wtStacked'):
+        print(f"[DEBUG-SAVE] _wtStacked count: {uiThaiXieBoDianLiu._wtStacked.count()}, current: {uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
     result = []
     directory1 = QFileDialog.getSaveFileName(None, "单个文件保存", "./", "Text Files(*.csv)")
     if directory1[0] == '':
-        print('请选择一个文件')
+        print('[DEBUG-SAVE] 用户取消了文件选择')
     else:
+        print(f"[DEBUG-SAVE] 保存到文件: {directory1[0]}")
         arrayRow2 = ['ThaiXieBoDianLiu']
 
         # step1
@@ -192,6 +215,9 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
         comboBox_S1_TIME = uiThaiXieBoDianLiu.comboBox_S1_TIME.currentIndex()
         arrayRow2.append(comboBox_S1_TIME)
 
+        print(f"[DEBUG-SAVE] step1 数据收集完成，arrayRow2 列数: {len(arrayRow2)}")
+        print(f"[DEBUG-SAVE] step1: checkBox_S1={checkBox_S1}, AC={comboBox_S1_AC}, DC1={checkBox_S1_DC1}, DC2={checkBox_S1_DC2}, DC3={checkBox_S1_DC3}, DC4={checkBox_S1_DC4}")
+
         # step2
         if uiThaiXieBoDianLiu.checkBox_S2.isChecked():
             checkBox_S2 = '1'
@@ -199,13 +225,13 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
             checkBox_S2 = '0'
         arrayRow2.append(checkBox_S2)
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT3000.isChecked():
+        if uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked():
             checkBox_S2_WT3000 = '1'
         else:
             checkBox_S2_WT3000 = '0'
         arrayRow2.append(checkBox_S2_WT3000)
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT1800.isChecked():
+        if uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked():
             checkBox_S2_WT1800 = '1'
         else:
             checkBox_S2_WT1800 = '0'
@@ -643,7 +669,7 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
         comboBox_S5_DC4 = uiThaiXieBoDianLiu.comboBox_S5_DC4.currentIndex()
         arrayRow2.append(comboBox_S5_DC4)
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT1806E.isChecked():
+        if uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked():
             checkBox_S2_WT1806E = '1'
         else:
             checkBox_S2_WT1806E = '0'
@@ -658,25 +684,82 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
         comboBox_S1_Integral = uiThaiXieBoDianLiu.comboBox_S1_Integral.currentIndex()
         arrayRow2.append(comboBox_S1_Integral)
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT5000.isChecked():
+        if uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked():
             checkBox_S2_WT5000 = '1'
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT3000.isChecked():
-            result = Save_File_ThaiWT3000_Config(uiThiaWT3000E)
+        print(f"[DEBUG-SAVE] step2/3 数据收集完成，arrayRow2 总列数: {len(arrayRow2)}")
+        print(f"[DEBUG-SAVE] step2: checkBox_S2={checkBox_S2}, WT3000={checkBox_S2_WT3000}, WT1800={checkBox_S2_WT1800}, WT1806E={checkBox_S2_WT1806E}, WT5000={checkBox_S2_WT5000}")
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT1800.isChecked():
-            result = Save_File_ThaiWT1800_Config(uiThiaWT1800)
+        # 根据选中的 radio 保存对应的 WT 配置
+        print(f"[DEBUG-SAVE] --- 开始保存 WT 配置 ---")
+        print(f"[DEBUG-SAVE] WT3000 radio checked: {uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked()}")
+        print(f"[DEBUG-SAVE] WT1800 radio checked: {uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked()}")
+        print(f"[DEBUG-SAVE] WT1806E radio checked: {uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked()}")
+        print(f"[DEBUG-SAVE] WT5000 radio checked: {uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked()}")
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT1806E.isChecked():
-            result = Save_File_ThaiWT1806E_Config(uiThiaWT1806E)
+        if uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked():
+            print("[DEBUG-SAVE] 调用 Save_File_ThaiWT3000_Config (page index=0)")
+            page = uiThaiXieBoDianLiu._wtStacked.widget(0)
+            finder = _PageWidgetFinder(page)
+            # 测试 finder 能否找到 combobox
+            try:
+                test_combo = finder.comboBox_SigmA1
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找到: {test_combo}, currentIndex={test_combo.currentIndex()}, items={test_combo.count()}")
+            except Exception as e:
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找不到: {e}")
+            result = Save_File_ThaiWT3000_Config(finder)
+            print(f"[DEBUG-SAVE] WT3000 保存结果: {'有数据' if len(result) > 0 else '空'}, 行数={len(result)}")
 
-        if uiThaiXieBoDianLiu.checkBox_S2_WT5000.isChecked():
-            result = Save_File_ThaiWT5000_Config(uiThiaWT5000)
+        if uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked():
+            print("[DEBUG-SAVE] 调用 Save_File_ThaiWT1800_Config (page index=1)")
+            page = uiThaiXieBoDianLiu._wtStacked.widget(1)
+            finder = _PageWidgetFinder(page)
+            try:
+                test_combo = finder.comboBox_SigmA1
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找到: {test_combo}, currentIndex={test_combo.currentIndex()}, items={test_combo.count()}")
+            except Exception as e:
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找不到: {e}")
+            result = Save_File_ThaiWT1800_Config(finder)
+            print(f"[DEBUG-SAVE] WT1800 保存结果: {'有数据' if len(result) > 0 else '空'}, 行数={len(result)}")
 
-        out = open(directory1[0], 'w+', newline='')
+        if uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked():
+            print("[DEBUG-SAVE] 调用 Save_File_ThaiWT1806E_Config (page index=2)")
+            page = uiThaiXieBoDianLiu._wtStacked.widget(2)
+            finder = _PageWidgetFinder(page)
+            try:
+                test_combo = finder.comboBox_SigmA1
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找到: {test_combo}, currentIndex={test_combo.currentIndex()}, items={test_combo.count()}")
+            except Exception as e:
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找不到: {e}")
+            result = Save_File_ThaiWT1806E_Config(finder)
+            print(f"[DEBUG-SAVE] WT1806E 保存结果: {'有数据' if len(result) > 0 else '空'}, 行数={len(result)}")
+
+        if uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked():
+            print("[DEBUG-SAVE] 调用 Save_File_ThaiWT5000_Config (page index=3)")
+            page = uiThaiXieBoDianLiu._wtStacked.widget(3)
+            finder = _PageWidgetFinder(page)
+            try:
+                test_combo = finder.comboBox_SigmA1
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找到: {test_combo}, currentIndex={test_combo.currentIndex()}, items={test_combo.count()}")
+            except Exception as e:
+                print(f"[DEBUG-SAVE] finder.comboBox_SigmA1 找不到: {e}")
+            result = Save_File_ThaiWT5000_Config(finder)
+            print(f"[DEBUG-SAVE] WT5000 保存结果: {'有数据' if len(result) > 0 else '空'}, 行数={len(result)}")
+
+        print(f"[DEBUG-SAVE] --- 写入 CSV 文件 ---")
+        print(f"[DEBUG-SAVE] arrayRow1 列数: {len(arrayRow1)}")
+        print(f"[DEBUG-SAVE] arrayRow2 列数: {len(arrayRow2)}")
+        if len(result) > 0:
+            print(f"[DEBUG-SAVE] result[0] (WT header) 列数: {len(result[0])}")
+            print(f"[DEBUG-SAVE] result[1] (WT data) 列数: {len(result[1])}")
+            print(f"[DEBUG-SAVE] result[1] 前10项: {result[1][:10]}")
+        else:
+            print("[DEBUG-SAVE] result 为空，不写入 WT 配置行")
+
+        out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
@@ -684,86 +767,144 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
             csv_write.writerow(result[0])
             csv_write.writerow(result[1])
         out.close()
+        print(f"[DEBUG-SAVE] 文件写入完成: {directory1[0]}")
+        print("=" * 80)
+        out.close()
         QMessageBox.information(None, "实验设定提示信息", "谐波电流文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 #谐波电流读取设定
 def Open_File_ThaiXieBoDianLiu(kwargs):
+    print("=" * 80)
+    print("[DEBUG-LOAD] ==================== 开始加载谐波电流配置 ====================")
+    print(f"[DEBUG-LOAD] kwargs keys: {kwargs.keys()}")
     dialog_windowxiebodianliu = kwargs['dialog_windowxiebodianliu']
     uiThaiXieBoDianLiu = kwargs['uiThaiXieBoDianLiu']
     uiThiaWT3000E = kwargs['uiThiaWT3000E']
     uiThiaWT1800 = kwargs['uiThiaWT1800']
     uiThiaWT1806E = kwargs['uiThiaWT1806E']
     uiThiaWT5000 = kwargs['uiThiaWT5000']
+    print(f"[DEBUG-LOAD] dialog_windowxiebodianliu type: {type(dialog_windowxiebodianliu)}")
+    print(f"[DEBUG-LOAD] uiThaiXieBoDianLiu type: {type(uiThaiXieBoDianLiu)}")
+    print(f"[DEBUG-LOAD] uiThaiXieBoDianLiu has _wtStacked: {hasattr(uiThaiXieBoDianLiu, '_wtStacked')}")
+    if hasattr(uiThaiXieBoDianLiu, '_wtStacked'):
+        print(f"[DEBUG-LOAD] _wtStacked count: {uiThaiXieBoDianLiu._wtStacked.count()}")
+        print(f"[DEBUG-LOAD] _wtStacked current index: {uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+        print(f"[DEBUG-LOAD] _wtStacked current widget: {uiThaiXieBoDianLiu._wtStacked.currentWidget()}")
+    print(f"[DEBUG-LOAD] uiThiaWT3000E type: {type(uiThiaWT3000E)}")
+    print(f"[DEBUG-LOAD] uiThiaWT1800 type: {type(uiThiaWT1800)}")
+    print(f"[DEBUG-LOAD] uiThiaWT1806E type: {type(uiThiaWT1806E)}")
+    print(f"[DEBUG-LOAD] uiThiaWT5000 type: {type(uiThiaWT5000)}")
     strFlag  = "0"
     result_list = []
     config_dict = {}
     wt_config_dict = {}
+    print("[DEBUG-LOAD] 打开文件选择对话框...")
     directory1 = QFileDialog.getOpenFileName(None, "单个文件选择", "./", "Text Files(*.csv)")
+    print(f"[DEBUG-LOAD] 选择的文件: {directory1[0]}")
     if directory1[0] == '':
-        print("请选择一个文件")
+        print("[DEBUG-LOAD] 用户取消了文件选择")
+        return
     else:
-        with open(directory1[0], 'r') as f:
+        print(f"[DEBUG-LOAD] 读取文件: {directory1[0]}")
+        try:
+            f = open(directory1[0], 'r', encoding='utf-8-sig')
+            f.read(1)
+            f.seek(0)
+        except UnicodeDecodeError:
+            f = open(directory1[0], 'r', encoding='gbk')
+        with f:
             data = csv.reader(f)
             for line in data:
                 result_list.append(list(line))
-        
+
+        print(f"[DEBUG-LOAD] CSV 总行数: {len(result_list)}")
+        if len(result_list) > 0:
+            print(f"[DEBUG-LOAD] 第1行（header1）列数: {len(result_list[0])}")
+        if len(result_list) > 1:
+            print(f"[DEBUG-LOAD] 第2行（data1）列数: {len(result_list[1])}")
+        if len(result_list) > 2:
+            print(f"[DEBUG-LOAD] 第3行（header2）列数: {len(result_list[2])}")
+        if len(result_list) > 3:
+            print(f"[DEBUG-LOAD] 第4行（data2）列数: {len(result_list[3])}")
+
         if len(result_list) == 2:
+            print("[DEBUG-LOAD] 检测到 2 行格式（仅 step1）")
             delta_len = int(len(result_list[0]) - len(result_list[1]))
             if delta_len > 0:
+                print(f"[DEBUG-LOAD] 补齐 data1 缺失的 {delta_len} 列")
                 extend_list = ['' for k in range(delta_len)]
                 result_list[1].extend(extend_list)
-            config_dict = zip(result_list[0],result_list[1])
+            config_dict = dict(zip(result_list[0],result_list[1]))
+            print(f"[DEBUG-LOAD] config_dict 列数: {len(config_dict)}")
         if len(result_list) == 4:
+            print("[DEBUG-LOAD] 检测到 4 行格式（step1 + WT config）")
             delta_len1 = int(len(result_list[0]) - len(result_list[1]))
             if delta_len1 > 0:
+                print(f"[DEBUG-LOAD] 补齐 data1 缺失的 {delta_len1} 列")
                 extend_list1 = ['' for k in range(delta_len1)]
                 result_list[1].extend(extend_list1)
             delta_len2 = int(len(result_list[2]) - len(result_list[3]))
             if delta_len2 > 0:
+                print(f"[DEBUG-LOAD] 补齐 data2 缺失的 {delta_len2} 列")
                 extend_list2 = ['' for k in range(delta_len2)]
                 result_list[3].extend(extend_list2)
             config_dict = dict(zip(result_list[0],result_list[1]))
             wt_config_dict = dict(zip(result_list[2],result_list[3]))
-        
+            print(f"[DEBUG-LOAD] config_dict 列数: {len(config_dict)}")
+            print(f"[DEBUG-LOAD] wt_config_dict 列数: {len(wt_config_dict)}")
+            print(f"[DEBUG-LOAD] wt_config_dict Style: {wt_config_dict.get('Style', 'N/A')}")
+            print(f"[DEBUG-LOAD] config_dict Style: {config_dict.get('Style', 'N/A')}")
+
         if config_dict != {}:
             if arrayRow1[0] in config_dict:
                 if config_dict[arrayRow1[0]] == "ThaiXieBoDianLiu":
+                    print("[DEBUG-LOAD] Style 匹配: ThaiXieBoDianLiu，开始加载 step1...")
                     # step1
                     if strFlag == "0":
                         if arrayRow1[1] in config_dict:
                             checkBox_S1 = config_dict[arrayRow1[1]]
+                            print(f"[DEBUG-LOAD] checkBox_S1: 从 {uiThaiXieBoDianLiu.checkBox_S1.isChecked()} 改为 {checkBox_S1}")
                             if checkBox_S1 == '1':
                                 uiThaiXieBoDianLiu.checkBox_S1.setChecked(True)
                             else:
                                 uiThaiXieBoDianLiu.checkBox_S1.setChecked(False)
+                            print(f"[DEBUG-LOAD] checkBox_S1 设置后: {uiThaiXieBoDianLiu.checkBox_S1.isChecked()}")
                         else:
                             strFlag = 1
 
                     if strFlag == "0":
                         if arrayRow1[2] in config_dict:
                             comboBox_S1_AC = config_dict[arrayRow1[2]]
+                            print(f"[DEBUG-LOAD] comboBox_S1_AC: 从 {uiThaiXieBoDianLiu.comboBox_S1_AC.currentIndex()} 改为 {comboBox_S1_AC}")
                             uiThaiXieBoDianLiu.comboBox_S1_AC.setCurrentIndex(int(comboBox_S1_AC))
+                            print(f"[DEBUG-LOAD] comboBox_S1_AC 设置后: {uiThaiXieBoDianLiu.comboBox_S1_AC.currentIndex()}")
                         else:
                             strFlag = 1
 
                     if strFlag == "0":
                         if arrayRow1[3] in config_dict:
                             textEdit_S1_AC_VOLT = config_dict[arrayRow1[3]]
+                            print(f"[DEBUG-LOAD] textEdit_S1_AC_VOLT: 设置为 {textEdit_S1_AC_VOLT}")
                             uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT.setText(textEdit_S1_AC_VOLT)
+                            print(f"[DEBUG-LOAD] textEdit_S1_AC_VOLT 设置后: {uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT.toPlainText()}")
                         else:
                             strFlag = 1
 
                     if strFlag == "0":
                         if arrayRow1[4] in config_dict:
                             textEdit_S1_AC_VOLT_2 = config_dict[arrayRow1[4]]
+                            print(f"[DEBUG-LOAD] textEdit_S1_AC_VOLT_2: 设置为 {textEdit_S1_AC_VOLT_2}")
                             uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT_2.setText(textEdit_S1_AC_VOLT_2)
+                            print(f"[DEBUG-LOAD] textEdit_S1_AC_VOLT_2 设置后: {uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT_2.toPlainText()}")
                         else:
                             strFlag = 1
 
                     if strFlag == "0":
                         if arrayRow1[5] in config_dict:
                             textEdit_S1_AC_VOLT_3 = config_dict[arrayRow1[5]]
+                            print(f"[DEBUG-LOAD] textEdit_S1_AC_VOLT_3: 设置为 {textEdit_S1_AC_VOLT_3}")
                             uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT_3.setText(textEdit_S1_AC_VOLT_3)
+                            print(f"[DEBUG-LOAD] textEdit_S1_AC_VOLT_3 设置后: {uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT_3.toPlainText()}")
                         else:
                             strFlag = 1
 
@@ -1032,9 +1173,9 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
                         if arrayRow1[41] in config_dict:
                             checkBox_S2_WT3000 = config_dict[arrayRow1[41]]
                             if checkBox_S2_WT3000 == '1':
-                                uiThaiXieBoDianLiu.checkBox_S2_WT3000.setChecked(True)
+                                uiThaiXieBoDianLiu.radioButton_S2_WT3000.setChecked(True)
                             else:
-                                uiThaiXieBoDianLiu.checkBox_S2_WT3000.setChecked(False)
+                                uiThaiXieBoDianLiu.radioButton_S2_WT3000.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -1042,9 +1183,9 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
                         if arrayRow1[42] in config_dict:
                             checkBox_S2_WT1800 = config_dict[arrayRow1[42]]
                             if checkBox_S2_WT1800 == '1':
-                                uiThaiXieBoDianLiu.checkBox_S2_WT1800.setChecked(True)
+                                uiThaiXieBoDianLiu.radioButton_S2_WT1800.setChecked(True)
                             else:
-                                uiThaiXieBoDianLiu.checkBox_S2_WT1800.setChecked(False)
+                                uiThaiXieBoDianLiu.radioButton_S2_WT1800.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -1802,66 +1943,152 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
                     if strFlag == "0":
                         if arrayRow1[123] in config_dict:
                             checkBox_S2_WT1806E = config_dict[arrayRow1[123]]
+                            print(f"[DEBUG-LOAD] checkBox_S2_WT1806E: 从 {uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked()} 改为 {checkBox_S2_WT1806E}")
                             if checkBox_S2_WT1806E == '1':
-                                uiThaiXieBoDianLiu.checkBox_S2_WT1806E.setChecked(True)
+                                uiThaiXieBoDianLiu.radioButton_S2_WT1806E.setChecked(True)
                             else:
-                                uiThaiXieBoDianLiu.checkBox_S2_WT1806E.setChecked(False)
+                                uiThaiXieBoDianLiu.radioButton_S2_WT1806E.setChecked(False)
+                            print(f"[DEBUG-LOAD] checkBox_S2_WT1806E 设置后: {uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked()}")
                         else:
                             strFlag = 1
 
                     if strFlag == "0":
                         if arrayRow1[124] in config_dict:
                             checkBox_S1_Integral = config_dict[arrayRow1[124]]
+                            print(f"[DEBUG-LOAD] checkBox_S1_Integral: 从 {uiThaiXieBoDianLiu.checkBox_S1_Integral.isChecked()} 改为 {checkBox_S1_Integral}")
                             if checkBox_S1_Integral == '1':
                                 uiThaiXieBoDianLiu.checkBox_S1_Integral.setChecked(True)
                             else:
                                 uiThaiXieBoDianLiu.checkBox_S1_Integral.setChecked(False)
-                        else:
-                            strFlag = 1
-                    
-                    if strFlag == "0":
-                        if arrayRow1[125] in config_dict:
-                            comboBox_S1_Integral = config_dict[arrayRow1[125]]
-                            uiThaiXieBoDianLiu.comboBox_S1_Integral.setCurrentIndex(int(comboBox_S1_Integral))
-                        else:
-                            strFlag = 1
-                    
-                    if strFlag == "0":
-                        if arrayRow1[126] in config_dict:
-                            checkBox_S2_WT5000 = config_dict[arrayRow1[126]]
-                            if checkBox_S2_WT5000 == '1':
-                                uiThaiXieBoDianLiu.checkBox_S2_WT5000.setChecked(True)
-                            else:
-                                uiThaiXieBoDianLiu.checkBox_S2_WT5000.setChecked(False)
+                            print(f"[DEBUG-LOAD] checkBox_S1_Integral 设置后: {uiThaiXieBoDianLiu.checkBox_S1_Integral.isChecked()}")
                         else:
                             strFlag = 1
 
+                    if strFlag == "0":
+                        if arrayRow1[125] in config_dict:
+                            comboBox_S1_Integral = config_dict[arrayRow1[125]]
+                            print(f"[DEBUG-LOAD] comboBox_S1_Integral: 从 {uiThaiXieBoDianLiu.comboBox_S1_Integral.currentIndex()} 改为 {comboBox_S1_Integral}")
+                            uiThaiXieBoDianLiu.comboBox_S1_Integral.setCurrentIndex(int(comboBox_S1_Integral))
+                            print(f"[DEBUG-LOAD] comboBox_S1_Integral 设置后: {uiThaiXieBoDianLiu.comboBox_S1_Integral.currentIndex()}")
+                        else:
+                            strFlag = 1
+
+                    if strFlag == "0":
+                        if arrayRow1[126] in config_dict:
+                            checkBox_S2_WT5000 = config_dict[arrayRow1[126]]
+                            print(f"[DEBUG-LOAD] checkBox_S2_WT5000: 从 {uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked()} 改为 {checkBox_S2_WT5000}")
+                            if checkBox_S2_WT5000 == '1':
+                                uiThaiXieBoDianLiu.radioButton_S2_WT5000.setChecked(True)
+                            else:
+                                uiThaiXieBoDianLiu.radioButton_S2_WT5000.setChecked(False)
+                            print(f"[DEBUG-LOAD] checkBox_S2_WT5000 设置后: {uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked()}")
+                        else:
+                            strFlag = 1
+
+                    print(f"[DEBUG-LOAD] ==================== 开始加载 step2 WT 配置 ====================")
+                    print(f"[DEBUG-LOAD] config_dict keys count: {len(config_dict)}")
+                    print(f"[DEBUG-LOAD] wt_config_dict keys count: {len(wt_config_dict)}")
+                    print(f"[DEBUG-LOAD] arrayRow1[41]={arrayRow1[41]}, in config_dict: {arrayRow1[41] in config_dict}")
+                    print(f"[DEBUG-LOAD] arrayRow1[42]={arrayRow1[42]}, in config_dict: {arrayRow1[42] in config_dict}")
+                    print(f"[DEBUG-LOAD] has _wtStacked: {hasattr(uiThaiXieBoDianLiu, '_wtStacked')}")
                     if arrayRow1[41] in config_dict:
                         checkBox_S2_WT3000 = config_dict[arrayRow1[41]]
+                        print(f"[DEBUG] checkBox_S2_WT3000={checkBox_S2_WT3000}")
                         if checkBox_S2_WT3000 == '1':
-                            Open_File_ThaiWT3000_Config(uiThiaWT3000E, wt_config_dict)
-                        
+                            print(f"[DEBUG] WT3000: 设置前 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked()}")
+                            uiThaiXieBoDianLiu.radioButton_S2_WT3000.setChecked(True)
+                            print(f"[DEBUG] WT3000: 设置后 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked()}")
+                            print(f"[DEBUG] WT3000: 设置前 stacked index={uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+                            uiThaiXieBoDianLiu._wtStacked.setCurrentIndex(0)
+                            print(f"[DEBUG] WT3000: 设置后 stacked index={uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+                            page0 = uiThaiXieBoDianLiu._wtStacked.widget(0)
+                            print(f"[DEBUG] WT3000: page0 visible={page0.isVisible()}, geometry={page0.geometry()}")
+                            uiThaiXieBoDianLiu._wtStacked.repaint()
+                            QApplication.processEvents()
+                            Open_File_ThaiWT3000_Config(_PageWidgetFinder(page0), wt_config_dict)
+
                     else:
                         strFlag = 1
 
                     if arrayRow1[42] in config_dict:
                         checkBox_S2_WT1800 = config_dict[arrayRow1[42]]
+                        print(f"[DEBUG] checkBox_S2_WT1800={checkBox_S2_WT1800}")
                         if checkBox_S2_WT1800 == '1':
-                            Open_File_ThaiWT1800_Config(uiThiaWT1800, wt_config_dict)
+                            print(f"[DEBUG] WT1800: 设置前 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked()}")
+                            uiThaiXieBoDianLiu.radioButton_S2_WT1800.setChecked(True)
+                            print(f"[DEBUG] WT1800: 设置后 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked()}")
+                            print(f"[DEBUG] WT1800: 设置前 stacked index={uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+                            uiThaiXieBoDianLiu._wtStacked.setCurrentIndex(1)
+                            print(f"[DEBUG] WT1800: 设置后 stacked index={uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+                            page1 = uiThaiXieBoDianLiu._wtStacked.widget(1)
+                            print(f"[DEBUG] WT1800: page1 visible={page1.isVisible()}, geometry={page1.geometry()}")
+                            print(f"[DEBUG] WT1800: page1 size={page1.size()}, minimumSize={page1.minimumSize()}")
+                            uiThaiXieBoDianLiu._wtStacked.repaint()
+                            QApplication.processEvents()
+                            Open_File_ThaiWT1800_Config(_PageWidgetFinder(page1), wt_config_dict)
                     else:
                         strFlag = 1
 
                     if arrayRow1[123] in config_dict:
                         checkBox_S2_WT1806E = config_dict[arrayRow1[123]]
                         if checkBox_S2_WT1806E == '1':
-                            Open_File_ThaiWT1806E_Config(uiThiaWT1806E, wt_config_dict)
+                            print(f"[DEBUG] WT1806E: 设置前 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked()}")
+                            uiThaiXieBoDianLiu.radioButton_S2_WT1806E.setChecked(True)
+                            print(f"[DEBUG] WT1806E: 设置后 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked()}")
+                            uiThaiXieBoDianLiu._wtStacked.setCurrentIndex(2)
+                            print(f"[DEBUG] WT1806E: stacked index={uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+                            page2 = uiThaiXieBoDianLiu._wtStacked.widget(2)
+                            print(f"[DEBUG] WT1806E: page2 visible={page2.isVisible()}, geometry={page2.geometry()}")
+                            uiThaiXieBoDianLiu._wtStacked.repaint()
+                            QApplication.processEvents()
+                            Open_File_ThaiWT1806E_Config(_PageWidgetFinder(page2), wt_config_dict)
 
                     if arrayRow1[126] in config_dict:
                         checkBox_S2_WT5000 = config_dict[arrayRow1[126]]
                         if checkBox_S2_WT5000 == '1':
-                            Open_File_ThaiWT5000_Config(uiThiaWT5000, wt_config_dict)
+                            print(f"[DEBUG] WT5000: 设置前 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked()}")
+                            uiThaiXieBoDianLiu.radioButton_S2_WT5000.setChecked(True)
+                            print(f"[DEBUG] WT5000: 设置后 radio checked={uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked()}")
+                            uiThaiXieBoDianLiu._wtStacked.setCurrentIndex(3)
+                            print(f"[DEBUG] WT5000: stacked index={uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+                            page3 = uiThaiXieBoDianLiu._wtStacked.widget(3)
+                            print(f"[DEBUG] WT5000: page3 visible={page3.isVisible()}, geometry={page3.geometry()}")
+                            uiThaiXieBoDianLiu._wtStacked.repaint()
+                            QApplication.processEvents()
+                            Open_File_ThaiWT5000_Config(_PageWidgetFinder(page3), wt_config_dict)
                     else:
                         strFlag = 1
+
+        # 加载完成后的最终状态检查
+        print("=" * 80)
+        print("[DEBUG-FINAL] 加载完成后的最终状态检查:")
+        print(f"[DEBUG-FINAL] 当前 stacked index: {uiThaiXieBoDianLiu._wtStacked.currentIndex()}")
+        print(f"[DEBUG-FINAL] stacked 总页数: {uiThaiXieBoDianLiu._wtStacked.count()}")
+        print(f"[DEBUG-FINAL] 当前显示的 widget: {uiThaiXieBoDianLiu._wtStacked.currentWidget()}")
+        print(f"[DEBUG-FINAL] 当前 widget 类型: {type(uiThaiXieBoDianLiu._wtStacked.currentWidget())}")
+        if uiThaiXieBoDianLiu._wtStacked.currentWidget():
+            print(f"[DEBUG-FINAL] 当前 widget visible: {uiThaiXieBoDianLiu._wtStacked.currentWidget().isVisible()}")
+            print(f"[DEBUG-FINAL] 当前 widget geometry: {uiThaiXieBoDianLiu._wtStacked.currentWidget().geometry()}")
+            print(f"[DEBUG-FINAL] 当前 widget size: {uiThaiXieBoDianLiu._wtStacked.currentWidget().size()}")
+            if hasattr(uiThaiXieBoDianLiu._wtStacked.currentWidget(), 'widget'):
+                scroll_area = uiThaiXieBoDianLiu._wtStacked.currentWidget()
+                print(f"[DEBUG-FINAL] ScrollArea widget: {scroll_area.widget()}")
+                print(f"[DEBUG-FINAL] ScrollArea widget visible: {scroll_area.widget().isVisible()}")
+                print(f"[DEBUG-FINAL] ScrollArea widget size: {scroll_area.widget().size()}")
+        print(f"[DEBUG-FINAL] radioButton_S2_WT3000 checked: {uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked()}")
+        print(f"[DEBUG-FINAL] radioButton_S2_WT1800 checked: {uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked()}")
+        print(f"[DEBUG-FINAL] radioButton_S2_WT1806E checked: {uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked()}")
+        print(f"[DEBUG-FINAL] radioButton_S2_WT5000 checked: {uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked()}")
+        print("=" * 80)
+
+        # 加载完成后切换到 step2 让用户看到 WT 配置回显
+        if hasattr(uiThaiXieBoDianLiu, '_switch_step'):
+            print("[DEBUG-FINAL] 自动切换到 step2...")
+            uiThaiXieBoDianLiu._switch_step(1)
+            QApplication.processEvents()
+
+        # 强制更新 UI 后再显示提示
+        QApplication.processEvents()
         QMessageBox.information(None, "实验设定提示信息", "谐波电流文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
 # def save_file_header():

@@ -422,6 +422,60 @@ elif currentSecond == '项目名':
 - **涉及文件**：所有 `Dialog_thaiXxx.py` 的步骤构建方法
 - **适用范围**：闪变、谐波电流及后续所有测试项目
 
+### 功率分析仪配置内嵌规则
+
+当测试项目的 step2 是功率分析仪配置时，采用以下模式：
+
+1. 使用 `QRadioButton`（单选框），默认 WT3000
+2. 配置内容直接嵌入 step2，不再弹窗
+3. `QStackedWidget` 承载 4 个设备配置页面（WT3000/WT1800/WT1806E/WT5000）
+4. Radio 切换联动 `stackedWidget.setCurrentIndex()`
+5. 去掉弹窗中的 TestAppend/ReadSetting/SaveSetting 按钮
+6. 所有 widget objectName 保持不变（SCPITestWave.py 和 Open_Save 按名称访问）
+7. 步骤启用复选框 `checkBox_S2` 联动禁用所有子控件（Radio + Stacked 内容）
+
+**涉及文件模式：**
+- `Dialog_thaiXxx.py` — `_build_step2()` 使用 radio + stackedWidget
+- `SCPITestWave.py` — 移除 `pushButton_S2_WT_xxx_CONFIG.clicked.connect(xxx_show)`
+- `components/wt_config_content.py` — 共享的 WT 配置内容构建函数
+
+**实现参考：** 谐波电流 `Dialog_thaixiebodianliu.py` 的 `_build_step2()` 方法
+
+### 谐波电流 WT 配置内嵌改动记录（2026-06-12，已验收通过）
+
+**改动范围：**
+- `Dialog_thaixiebodianliu.py` — `_build_step2()` 改为 radio + QStackedWidget
+- `components/wt_config_content.py` — 新增 `build_wt3000_content` / `build_wt1800_content` / `build_wt1806e_content` / `build_wt5000_content`
+- `utils/Open_Save_ThaiXieBoDianLiu.py` — 保存/读取改用 `_PageWidgetFinder` 代理
+- `SCPITestWave.py` — `thaixiebodianliuSend()` 中 WT config 读取改用 `_PageWidgetFinder`
+
+**已解决的 Bug：**
+
+1. **Radio 信号不触发**：`QButtonGroup` 作为局部变量被垃圾回收，信号断裂
+   - **解决**：`self._radio_group = radio_group` 保持引用
+
+2. **`self.sender()` 报错**：`Ui_Dialog_thaixiebodianliu` 不是 QObject，无 `sender()` 方法
+   - **解决**：改用 `buttonToggled` 信号，回调参数 `(btn, checked)` 直接获取 button 对象
+
+3. **`setCurrentIndex` 类型错误**：`buttonToggled` 传递 button 对象而非 int ID
+   - **解决**：用 `radio_group.id(btn)` 获取整数 ID
+
+4. **QStackedWidget 页面 visible=False**：`isVisible()` 返回 False 因为主 stackedWidget 未显示 step2
+   - **解决**：加载完成后调用 `_switch_step(1)` 切换到 step2
+
+5. **保存的 WT 配置值全为 0**：4 个 `build_wt*_content(self)` 共享同一个 `self`，`_make_combo` 用 `setattr(parent, name, combo)` 导致同名属性被最后一个 build 函数覆盖
+   - **解决**：`Open_Save_ThaiXieBoDianLiu.py` 新增 `_PageWidgetFinder` 代理类，通过 `findChild(objectName)` 在正确的 stacked page 中查找 widget
+
+6. **CSV 读写 UnicodeDecodeError**：Windows 默认 GBK 编码，保存的 CSV 含中文时读取报错
+   - **原因**：`open(file, 'w+')` 和 `open(file, 'r')` 未指定 encoding，Windows 默认 GBK，但含中文的 CSV 需要 UTF-8
+   - **解决**：所有 `Open_Save_Thai*.py` 统一修复——写入加 `encoding='utf-8-sig'`（兼容 Excel/记事本），读取先尝试 `utf-8-sig` 再回退 `gbk`
+   - **涉及文件**：全部 15 个 `utils/Open_Save_Thai*.py`
+
+7. **追加测试时 WT 配置全为空/0**：`thaixiebodianliuSend()` 中 `WT3000E_params_config(uiThiaWT3000E)` 读取旧弹窗对象（默认值），未从 stacked widget 页面读取
+   - **原因**：WT 配置从弹窗改为内嵌 stacked widget 后，`SCPITestWave.py` 中的 `WT*_params_config()` 仍传入旧弹窗 UI 对象
+   - **解决**：改为 `_PageWidgetFinder(_wtStacked.widget(N))` 传入正确的 stacked page，通过 `findChild` 按 objectName 查找 widget
+   - **涉及文件**：`SCPITestWave.py` — `thaixiebodianliuSend()` + `from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder`
+
 ## 已知问题与技术债务
 
 ### 谐波电流 DC4 通道命名不一致

@@ -905,81 +905,114 @@ def Save_File_ThaiWT1800_Config(uiThiaWT1800):
 # WT1800配置读取设定
 def Open_File_ThaiWT1800_Config(uiThiaWT1800, wt_config_dict):
     strFlag  = "0"
-
+    print(f"[DEBUG-WT1800] ==================== 开始加载 WT1800 配置 ====================")
+    print(f"[DEBUG-WT1800] uiThiaWT1800 type: {type(uiThiaWT1800)}")
+    print(f"[DEBUG-WT1800] arrayRow1[0]={arrayRow1[0]}, in dict: {arrayRow1[0] in wt_config_dict}")
     if arrayRow1[0] in wt_config_dict:
+        print(f"[DEBUG-WT1800] style value: {wt_config_dict[arrayRow1[0]]}")
         if wt_config_dict[arrayRow1[0]] == "Thai_WT1800_Config":
+            print("[DEBUG-WT1800] style matched, starting restore...")
 
             if strFlag == "0":
                 if arrayRow1[1] in wt_config_dict:
                     comboBox_SigmA1 = wt_config_dict[arrayRow1[1]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_SigmA1: 从 {uiThiaWT1800.comboBox_SigmA1.currentIndex()} 改为 {comboBox_SigmA1}")
                     uiThiaWT1800.comboBox_SigmA1.setCurrentIndex(int(comboBox_SigmA1))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_SigmA1.currentIndex() = {uiThiaWT1800.comboBox_SigmA1.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[1]={arrayRow1[1]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             #comBox
             if strFlag == "0":
                 if arrayRow1[2] in wt_config_dict:
                     comboBox_SigmA2 = wt_config_dict[arrayRow1[2]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_SigmA2: 从 {uiThiaWT1800.comboBox_SigmA2.currentIndex()} 改为 {comboBox_SigmA2}")
                     uiThiaWT1800.comboBox_SigmA2.setCurrentIndex(int(comboBox_SigmA2))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_SigmA2.currentIndex() = {uiThiaWT1800.comboBox_SigmA2.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[2]={arrayRow1[2]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             if strFlag == "0":
                 if arrayRow1[3] in wt_config_dict:
                     comboBox_SigmB1 = wt_config_dict[arrayRow1[3]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_SigmB1: 从 {uiThiaWT1800.comboBox_SigmB1.currentIndex()} 改为 {comboBox_SigmB1}")
                     uiThiaWT1800.comboBox_SigmB1.setCurrentIndex(int(comboBox_SigmB1))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_SigmB1.currentIndex() = {uiThiaWT1800.comboBox_SigmB1.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[3]={arrayRow1[3]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             #comBox
             if strFlag == "0":
                 if arrayRow1[4] in wt_config_dict:
                     comboBox_SigmB2 = wt_config_dict[arrayRow1[4]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_SigmB2: 从 {uiThiaWT1800.comboBox_SigmB2.currentIndex()} 改为 {comboBox_SigmB2}")
                     uiThiaWT1800.comboBox_SigmB2.setCurrentIndex(int(comboBox_SigmB2))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_SigmB2.currentIndex() = {uiThiaWT1800.comboBox_SigmB2.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[4]={arrayRow1[4]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             if strFlag == "0":
                 if arrayRow1[5] in wt_config_dict:
                     comboBox_SigmC1 = wt_config_dict[arrayRow1[5]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_SigmC1: 从 {uiThiaWT1800.comboBox_SigmC1.currentIndex()} 改为 {comboBox_SigmC1}")
                     uiThiaWT1800.comboBox_SigmC1.setCurrentIndex(int(comboBox_SigmC1))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_SigmC1.currentIndex() = {uiThiaWT1800.comboBox_SigmC1.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[5]={arrayRow1[5]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             #comBox
             if strFlag == "0":
                 if arrayRow1[6] in wt_config_dict:
                     comboBox_SigmC2 = wt_config_dict[arrayRow1[6]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_SigmC2: 从 {uiThiaWT1800.comboBox_SigmC2.currentIndex()} 改为 {comboBox_SigmC2}")
                     uiThiaWT1800.comboBox_SigmC2.setCurrentIndex(int(comboBox_SigmC2))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_SigmC2.currentIndex() = {uiThiaWT1800.comboBox_SigmC2.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[6]={arrayRow1[6]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             if strFlag == "0":
                 if arrayRow1[7] in wt_config_dict:
                     comboBox_UnitSet = wt_config_dict[arrayRow1[7]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_UnitSet: 从 {uiThiaWT1800.comboBox_UnitSet.currentIndex()} 改为 {comboBox_UnitSet}")
                     uiThiaWT1800.comboBox_UnitSet.setCurrentIndex(int(comboBox_UnitSet))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_UnitSet.currentIndex() = {uiThiaWT1800.comboBox_UnitSet.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[7]={arrayRow1[7]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             if strFlag == "0":
                 if arrayRow1[8] in wt_config_dict:
                     comboBox_ReplaceRate = wt_config_dict[arrayRow1[8]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_ReplaceRate: 从 {uiThiaWT1800.comboBox_ReplaceRate.currentIndex()} 改为 {comboBox_ReplaceRate}")
                     uiThiaWT1800.comboBox_ReplaceRate.setCurrentIndex(int(comboBox_ReplaceRate))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_ReplaceRate.currentIndex() = {uiThiaWT1800.comboBox_ReplaceRate.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[8]={arrayRow1[8]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             if strFlag == "0":
                 if arrayRow1[9] in wt_config_dict:
                     comboBox_ProjectNum = wt_config_dict[arrayRow1[9]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_ProjectNum: 从 {uiThiaWT1800.comboBox_ProjectNum.currentIndex()} 改为 {comboBox_ProjectNum}")
                     uiThiaWT1800.comboBox_ProjectNum.setCurrentIndex(int(comboBox_ProjectNum))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_ProjectNum.currentIndex() = {uiThiaWT1800.comboBox_ProjectNum.currentIndex()}")
                 else:
+                    print(f"[DEBUG-WT1800] arrayRow1[9]={arrayRow1[9]} 不在 wt_config_dict 中，strFlag=1")
                     strFlag = 1
 
             #comBox
             if strFlag == "0":
                 if arrayRow1[10] in wt_config_dict:
                     comboBox_AutoSave = wt_config_dict[arrayRow1[10]]
+                    print(f"[DEBUG-WT1800] 设置 comboBox_AutoSave: 从 {uiThiaWT1800.comboBox_AutoSave.currentIndex()} 改为 {comboBox_AutoSave}")
                     uiThiaWT1800.comboBox_AutoSave.setCurrentIndex(int(comboBox_AutoSave))
+                    print(f"[DEBUG-WT1800] 设置后 comboBox_AutoSave.currentIndex() = {uiThiaWT1800.comboBox_AutoSave.currentIndex()}")
                 else:
                     strFlag = 1
 

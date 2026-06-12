@@ -211,7 +211,7 @@ def Save_File_ThaiGuoqianpin(dialog_windowguoqianpin, uithaiguoqianpin):
         textEdit_S3_AC_FR_S2 = uithaiguoqianpin.textEdit_S3_AC_FR_S2.toPlainText()
         arrayRow2.append(textEdit_S3_AC_FR_S2)
 
-        out = open(directory1[0], 'w+', newline='')
+        out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
@@ -243,7 +243,12 @@ def Open_File_ThaiGuoQianPin(dialog_windowguoqianpin, uithaiguoqianpin):
                      "textEdit_S3_AC_FR", "textEdit_S3_SPACETIME1", "textEdit_S3_AC_FR_S1", "textEdit_S3_SPACETIME2",
                      "textEdit_S3_AC_FR_S2"]
 
-        f1 = open(directory1[0], 'r')
+        try:
+            f1 = open(directory1[0], 'r', encoding='utf-8-sig')
+            f1.read(1)
+            f1.seek(0)
+        except UnicodeDecodeError:
+            f1 = open(directory1[0], 'r', encoding='gbk')
         reader = csv.DictReader(f1)
         #print(reader)
         for i in reader:

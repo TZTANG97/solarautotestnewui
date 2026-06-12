@@ -450,7 +450,7 @@ def Save_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTe
         comboBox_S_End_DC = uithaiStaticMPPTTest.comboBox_S_End_DC.currentIndex()
         arrayRow2.append(comboBox_S_End_DC)
 
-        out = open(directory1[0], 'w+', newline='')
+        out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
@@ -464,7 +464,12 @@ def Open_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTe
     if directory1[0] == '':
         print("请选择一个文件")
     else:
-        f1 = open(directory1[0], 'r')
+        try:
+            f1 = open(directory1[0], 'r', encoding='utf-8-sig')
+            f1.read(1)
+            f1.seek(0)
+        except UnicodeDecodeError:
+            f1 = open(directory1[0], 'r', encoding='gbk')
         reader = csv.DictReader(f1)
         #print(reader)
         for i in reader:

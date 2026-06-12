@@ -81,6 +81,7 @@ from utils.Open_Save_ThaiWT1800_Config import WT1800_params_config
 from utils.Open_Save_ThaiWT1806E_Config import WT1806E_params_config
 from utils.Open_Save_ThaiWT1806E_Config import WT1806E_params_config
 from utils.Open_Save_ThaiWT5000_Config import WT5000_params_config
+from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
 
 from RecPlayer.player.macro_manager import MacroManager
 from config_manager.thaifixedPF_config_manager import ThaiFixedPF_ConfigManager
@@ -4890,14 +4891,18 @@ def thaixiebodianliuSend():
         test_program = []
 
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiXieBoDianLiu.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiXieBoDianLiu.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiXieBoDianLiu.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiXieBoDianLiu.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked():
+            page = uiThaiXieBoDianLiu._wtStacked.widget(0)
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(page))
+        elif uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked():
+            page = uiThaiXieBoDianLiu._wtStacked.widget(1)
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(page))
+        elif uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked():
+            page = uiThaiXieBoDianLiu._wtStacked.widget(2)
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(page))
+        elif uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked():
+            page = uiThaiXieBoDianLiu._wtStacked.widget(3)
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(page))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -5251,13 +5256,13 @@ def thaixiebodianliuSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '0'
-            if uiThaiXieBoDianLiu.checkBox_S2_WT3000.isChecked():
+            if uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiXieBoDianLiu.checkBox_S2_WT1800.isChecked():
+            elif uiThaiXieBoDianLiu.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiXieBoDianLiu.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiXieBoDianLiu.checkBox_S2_WT5000.isChecked():
+            elif uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
         
@@ -28909,10 +28914,6 @@ if __name__ == "__main__":
             _safe_click(uiThaiXieBoDianLiu, "pushButton_ResetCount", reset_xiebodianliu_count)
 
             uiThaiXieBoDianLiu.pushButton_Send.clicked.connect(thaixiebodianliuSend)
-            uiThaiXieBoDianLiu.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiXieBoDianLiu.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiXieBoDianLiu.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiXieBoDianLiu.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             # ThaiXieBoDianLiu的的配置档读取写入
             _safe_click(uiThaiXieBoDianLiu, "pushButton_ReadSettingFile", OpenFileDialogThaiXieBoDianLiu)

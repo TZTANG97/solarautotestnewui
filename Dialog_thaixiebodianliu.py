@@ -3,6 +3,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from components.timeline import TimelineWidget
+from components.wt_config_content import build_wt3000_content, build_wt1800_content, build_wt1806e_content, build_wt5000_content
 
 # 12 个谐波步骤的 widget objectName 规格（保持原有命名不变）
 _HARMONIC_SPECS = [
@@ -218,6 +219,21 @@ class Ui_Dialog_thaixiebodianliu(object):
         lbl.setStyleSheet(style or self._LABEL_STYLE)
         return lbl
 
+    def _make_radio(self, name, text, parent=None, checked=False):
+        """创建统一样式的 QRadioButton。"""
+        rb = QtWidgets.QRadioButton(text)
+        rb.setObjectName(name)
+        rb.setStyleSheet(
+            "QRadioButton { spacing: 8px; font-size: 13px; font-weight: bold; padding: 4px 8px; }"
+            "QRadioButton::indicator { width: 16px; height: 16px; border: 2px solid #cbd5e1; border-radius: 10px; }"
+            "QRadioButton::indicator:checked { background-color: #8b5cf6; border-color: #8b5cf6; }"
+        )
+        if parent is not None:
+            setattr(self, name, rb)
+        if checked:
+            rb.setChecked(True)
+        return rb
+
     # ══════════════════════════════════════════════
     # Step 1: AC/DC 电源 + 时序
     # ══════════════════════════════════════════════
@@ -380,37 +396,72 @@ class Ui_Dialog_thaixiebodianliu(object):
         gLayout.setSpacing(10)
         gLayout.setContentsMargins(16, 24, 16, 12)
 
-        self.checkBox_S2 = self._make_checkbox("checkBox_S2", "step2")
+        self.checkBox_S2 = self._make_checkbox("checkBox_S2", "step2", parent=self)
         gLayout.addWidget(self.checkBox_S2, 0, 0)
 
-        # WT 选择行
-        wt_cfg = [
-            ("checkBox_S2_WT3000", "WT3000", "pushButton_S2_WT_3000_CONFIG", "WT_3000_config"),
-            ("checkBox_S2_WT1800", "WT1800", "pushButton_S2_WT_1800_CONFIG", "WT_1800_config"),
-            ("checkBox_S2_WT1806E", "WT1806E", "pushButton_S2_WT_1806E_CONFIG", "WT_1806E_config"),
-            ("checkBox_S2_WT5000", "WT5000", "pushButton_S2_WT_5000_CONFIG", "WT_5000_config"),
-        ]
-        for c, (cb_name, cb_text, btn_name, btn_text) in enumerate(wt_cfg):
-            col = c * 3
-            cb = self._make_checkbox(cb_name, cb_text, parent=self)
-            gLayout.addWidget(cb, 1, col)
-            btn = QtWidgets.QPushButton(btn_text)
-            btn.setObjectName(btn_name)
-            btn.setStyleSheet("""
-                QPushButton { background-color: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe;
-                              border-radius: 4px; padding: 6px 12px; font-size: 11px; }
-                QPushButton:hover { background-color: #c7d2fe; }
-            """)
-            setattr(self, btn_name, btn)
-            gLayout.addWidget(btn, 1, col + 1)
+        # Radio buttons（单选，默认 WT3000）
+        self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
+        self.radioButton_S2_WT1800 = self._make_radio("radio_S2_WT1800", "WT1800", parent=self)
+        self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
+        self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
+
+        radio_group = QtWidgets.QButtonGroup(None)
+        radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        radio_group.addButton(self.radioButton_S2_WT5000, 3)
+        self._radio_group = radio_group  # 防止被垃圾回收导致信号断裂
+
+        radio_layout = QtWidgets.QHBoxLayout()
+        radio_layout.setSpacing(24)
+        radio_layout.setContentsMargins(8, 0, 0, 0)
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        gLayout.addLayout(radio_layout, 0, 1, 1, 3)
+
+        # QStackedWidget 承载 4 个配置页面
+        self._wtStacked = QtWidgets.QStackedWidget()
+        print("[DEBUG-INIT] Building WT3000 content...")
+        page0 = build_wt3000_content(self)
+        print(f"[DEBUG-INIT] WT3000 page built, type={type(page0)}, widget count={page0.widget().layout().count() if hasattr(page0, 'widget') else 'N/A'}")
+        self._wtStacked.addWidget(page0)   # index 0
+
+        print("[DEBUG-INIT] Building WT1800 content...")
+        page1 = build_wt1800_content(self)
+        print(f"[DEBUG-INIT] WT1800 page built, type={type(page1)}, widget count={page1.widget().layout().count() if hasattr(page1, 'widget') else 'N/A'}")
+        self._wtStacked.addWidget(page1)   # index 1
+
+        print("[DEBUG-INIT] Building WT1806E content...")
+        page2 = build_wt1806e_content(self)
+        print(f"[DEBUG-INIT] WT1806E page built, type={type(page2)}, widget count={page2.widget().layout().count() if hasattr(page2, 'widget') else 'N/A'}")
+        self._wtStacked.addWidget(page2)   # index 2
+
+        print("[DEBUG-INIT] Building WT5000 content...")
+        page3 = build_wt5000_content(self)
+        print(f"[DEBUG-INIT] WT5000 page built, type={type(page3)}, widget count={page3.widget().layout().count() if hasattr(page3, 'widget') else 'N/A'}")
+        self._wtStacked.addWidget(page3)   # index 3
+
+        print(f"[DEBUG-INIT] Stacked widget total pages: {self._wtStacked.count()}, current index: {self._wtStacked.currentIndex()}")
+        gLayout.addWidget(self._wtStacked, 1, 0, 1, 4)
+
+        # Radio 切换联动（使用 buttonToggled 信号，确保 setChecked 也能触发）
+        def _on_radio_toggled(btn, checked):
+            if checked:
+                btn_id = radio_group.id(btn)
+                print(f"[DEBUG-RADIO] buttonToggled: btn={btn.text()}, btn_id={btn_id}, checked={checked}")
+                self._wtStacked.setCurrentIndex(btn_id)
+                self._wtStacked.repaint()
+                print(f"[DEBUG-RADIO] after setCurrentIndex: current={self._wtStacked.currentIndex()}, widget count={self._wtStacked.count()}")
+
+        radio_group.buttonToggled.connect(_on_radio_toggled)
 
         # 步骤启用复选框联动
-        s2_children = [
-            self.checkBox_S2_WT3000, self.pushButton_S2_WT_3000_CONFIG,
-            self.checkBox_S2_WT1800, self.pushButton_S2_WT_1800_CONFIG,
-            self.checkBox_S2_WT1806E, self.pushButton_S2_WT_1806E_CONFIG,
-            self.checkBox_S2_WT5000, self.pushButton_S2_WT_5000_CONFIG,
-        ]
+        s2_children = [self._wtStacked]
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            s2_children.append(rb)
 
         def _on_s2_toggled(checked):
             for w in s2_children:

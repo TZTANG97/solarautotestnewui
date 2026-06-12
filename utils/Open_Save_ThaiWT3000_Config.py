@@ -40,19 +40,25 @@ arrayRow1 = ['Style',
 
 # WT3000E配置保存设定
 def Save_File_ThaiWT3000_Config(uiThiaWT3000E):
+    print(f"[DEBUG-WT3000-SAVE] Save_File_ThaiWT3000_Config 被调用")
+    print(f"[DEBUG-WT3000-SAVE] 参数类型: {type(uiThiaWT3000E)}")
 
     arrayRow2 = ['Thai_WT3000E_Config']
 
     comboBox_SigmA1 = uiThiaWT3000E.comboBox_SigmA1.currentIndex()
+    print(f"[DEBUG-WT3000-SAVE] comboBox_SigmA1 currentIndex={comboBox_SigmA1}, objectName={uiThiaWT3000E.comboBox_SigmA1.objectName()}")
     arrayRow2.append(comboBox_SigmA1)
 
     comboBox_SigmA2 = uiThiaWT3000E.comboBox_SigmA2.currentIndex()
+    print(f"[DEBUG-WT3000-SAVE] comboBox_SigmA2 currentIndex={comboBox_SigmA2}")
     arrayRow2.append(comboBox_SigmA2)
 
     comboBox_SigmB1 = uiThiaWT3000E.comboBox_SigmB1.currentIndex()
+    print(f"[DEBUG-WT3000-SAVE] comboBox_SigmB1 currentIndex={comboBox_SigmB1}")
     arrayRow2.append(comboBox_SigmB1)
 
     comboBox_SigmB2 = uiThiaWT3000E.comboBox_SigmB2.currentIndex()
+    print(f"[DEBUG-WT3000-SAVE] comboBox_SigmB2 currentIndex={comboBox_SigmB2}")
     arrayRow2.append(comboBox_SigmB2)
 
     comboBox_UnitSet = uiThiaWT3000E.comboBox_UnitSet.currentIndex()

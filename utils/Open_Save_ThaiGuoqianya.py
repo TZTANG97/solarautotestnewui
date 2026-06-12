@@ -483,7 +483,7 @@ def Save_File_ThaiGuoQianYa(dialog_windowguoqianya, uithaiguoqianya):
         textEdit_S1_DC3_PF = uithaiguoqianya.textEdit_S1_DC3_PF.toPlainText()
         arrayRow2.append(textEdit_S1_DC3_PF)
 
-        out = open(directory1[0], 'w+', newline='')
+        out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
@@ -532,7 +532,12 @@ def Open_File_ThaiGuoQianYa(dialog_windowguoqianya, uithaiguoqianya):
                      "textEdit_S1_DC2_Voc", "textEdit_S1_DC2_Isc", "textEdit_S1_DC2_PF", "textEdit_S1_DC3_VOLT",
                      "textEdit_S1_DC3_CURR", "textEdit_S1_DC3_Voc", "textEdit_S1_DC3_Isc", "textEdit_S1_DC3_PF"]
 
-        f1 = open(directory1[0], 'r')
+        try:
+            f1 = open(directory1[0], 'r', encoding='utf-8-sig')
+            f1.read(1)
+            f1.seek(0)
+        except UnicodeDecodeError:
+            f1 = open(directory1[0], 'r', encoding='gbk')
         reader = csv.DictReader(f1)
         # print(reader)
         for i in reader:
