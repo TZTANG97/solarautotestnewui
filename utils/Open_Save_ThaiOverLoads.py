@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow,QApplication,QDialog,QFileDialog, QMessageBox
 import csv
+from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
 from utils.Open_Save_ThaiWT3000_Config import Save_File_ThaiWT3000_Config, Open_File_ThaiWT3000_Config
 from utils.Open_Save_ThaiWT1800_Config import Save_File_ThaiWT1800_Config, Open_File_ThaiWT1800_Config
 from utils.Open_Save_ThaiWT1806E_Config import Save_File_ThaiWT1806E_Config, Open_File_ThaiWT1806E_Config
@@ -177,13 +178,13 @@ def Save_File_ThaiOverLoads(kwargs):
             checkBox_S2 = '0'
         arrayRow2.append(checkBox_S2)
 
-        if uiThaiOverLoads.checkBox_S2_WT3000.isChecked():
+        if uiThaiOverLoads.radioButton_S2_WT3000.isChecked():
             checkBox_S2_WT3000 = '1'
         else:
             checkBox_S2_WT3000 = '0'
         arrayRow2.append(checkBox_S2_WT3000)
 
-        if uiThaiOverLoads.checkBox_S2_WT1800.isChecked():
+        if uiThaiOverLoads.radioButton_S2_WT1800.isChecked():
             checkBox_S2_WT1800 = '1'
         else:
             checkBox_S2_WT1800 = '0'
@@ -248,29 +249,27 @@ def Save_File_ThaiOverLoads(kwargs):
         comboBox_S5_DC4 = uiThaiOverLoads.comboBox_S5_DC4.currentIndex()
         arrayRow2.append(comboBox_S5_DC4)
 
-        if uiThaiOverLoads.checkBox_S2_WT1806E.isChecked():
+        if uiThaiOverLoads.radioButton_S2_WT1806E.isChecked():
             checkBox_S2_WT1806E = '1'
         else:
             checkBox_S2_WT1806E = '0'
         arrayRow2.append(checkBox_S2_WT1806E)
 
-        if uiThaiOverLoads.checkBox_S2_WT5000.isChecked():
+        if uiThaiOverLoads.radioButton_S2_WT5000.isChecked():
             checkBox_S2_WT5000 = '1'
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
 
-        if uiThaiOverLoads.checkBox_S2_WT3000.isChecked():
-            result = Save_File_ThaiWT3000_Config(uiThiaWT3000E)
-
-        if uiThaiOverLoads.checkBox_S2_WT1800.isChecked():
-            result = Save_File_ThaiWT1800_Config(uiThiaWT1800)
-
-        if uiThaiOverLoads.checkBox_S2_WT1806E.isChecked():
-            result = Save_File_ThaiWT1806E_Config(uiThiaWT1806E)
-
-        if uiThaiOverLoads.checkBox_S2_WT5000.isChecked():
-            result = Save_File_ThaiWT5000_Config(uiThiaWT5000)
+        result = []
+        if uiThaiOverLoads.radioButton_S2_WT3000.isChecked():
+            result = Save_File_ThaiWT3000_Config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(0)))
+        elif uiThaiOverLoads.radioButton_S2_WT1800.isChecked():
+            result = Save_File_ThaiWT1800_Config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(1)))
+        elif uiThaiOverLoads.radioButton_S2_WT1806E.isChecked():
+            result = Save_File_ThaiWT1806E_Config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(2)))
+        elif uiThaiOverLoads.radioButton_S2_WT5000.isChecked():
+            result = Save_File_ThaiWT5000_Config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(3)))
 
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
@@ -634,9 +633,9 @@ def Open_File_ThaiOverLoads(kwargs):
                         if arrayRow1[41] in config_dict:
                             checkBox_S2_WT3000 = config_dict[arrayRow1[41]]
                             if checkBox_S2_WT3000 == '1':
-                                uiThaiOverLoads.checkBox_S2_WT3000.setChecked(True)
+                                uiThaiOverLoads.radioButton_S2_WT3000.setChecked(True)
                             else:
-                                uiThaiOverLoads.checkBox_S2_WT3000.setChecked(False)
+                                uiThaiOverLoads.radioButton_S2_WT3000.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -644,9 +643,9 @@ def Open_File_ThaiOverLoads(kwargs):
                         if arrayRow1[42] in config_dict:
                             checkBox_S2_WT1800 = config_dict[arrayRow1[42]]
                             if checkBox_S2_WT1800 == '1':
-                                uiThaiOverLoads.checkBox_S2_WT1800.setChecked(True)
+                                uiThaiOverLoads.radioButton_S2_WT1800.setChecked(True)
                             else:
-                                uiThaiOverLoads.checkBox_S2_WT1800.setChecked(False)
+                                uiThaiOverLoads.radioButton_S2_WT1800.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -764,9 +763,9 @@ def Open_File_ThaiOverLoads(kwargs):
                         if arrayRow1[56] in config_dict:
                             checkBox_S2_WT1806E = config_dict[arrayRow1[56]]
                             if checkBox_S2_WT1806E == '1':
-                                uiThaiOverLoads.checkBox_S2_WT1806E.setChecked(True)
+                                uiThaiOverLoads.radioButton_S2_WT1806E.setChecked(True)
                             else:
-                                uiThaiOverLoads.checkBox_S2_WT1806E.setChecked(False)
+                                uiThaiOverLoads.radioButton_S2_WT1806E.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -774,38 +773,41 @@ def Open_File_ThaiOverLoads(kwargs):
                         if arrayRow1[57] in config_dict:
                             checkBox_S2_WT5000 = config_dict[arrayRow1[57]]
                             if checkBox_S2_WT5000 == '1':
-                                uiThaiOverLoads.checkBox_S2_WT5000.setChecked(True)
+                                uiThaiOverLoads.radioButton_S2_WT5000.setChecked(True)
                             else:
-                                uiThaiOverLoads.checkBox_S2_WT5000.setChecked(False)
+                                uiThaiOverLoads.radioButton_S2_WT5000.setChecked(False)
                         else:
                             strFlag = 1
 
                     if arrayRow1[41] in config_dict:
                         checkBox_S2_WT3000 = config_dict[arrayRow1[41]]
                         if checkBox_S2_WT3000 == '1':
-                            Open_File_ThaiWT3000_Config(uiThiaWT3000E, wt_config_dict)
-                        
+                            page0 = uiThaiOverLoads._wtStacked.widget(0)
+                            Open_File_ThaiWT3000_Config(_PageWidgetFinder(page0), wt_config_dict)
                     else:
                         strFlag = 1
 
                     if arrayRow1[42] in config_dict:
                         checkBox_S2_WT1800 = config_dict[arrayRow1[42]]
                         if checkBox_S2_WT1800 == '1':
-                            Open_File_ThaiWT1800_Config(uiThiaWT1800, wt_config_dict)
+                            page1 = uiThaiOverLoads._wtStacked.widget(1)
+                            Open_File_ThaiWT1800_Config(_PageWidgetFinder(page1), wt_config_dict)
                     else:
                         strFlag = 1
 
                     if arrayRow1[56] in config_dict:
                         checkBox_S2_WT1806E = config_dict[arrayRow1[56]]
                         if checkBox_S2_WT1806E == '1':
-                            Open_File_ThaiWT1806E_Config(uiThiaWT1806E, wt_config_dict)
+                            page2 = uiThaiOverLoads._wtStacked.widget(2)
+                            Open_File_ThaiWT1806E_Config(_PageWidgetFinder(page2), wt_config_dict)
                     else:
                         strFlag = 1
 
                     if arrayRow1[57] in config_dict:
                         checkBox_S2_WT5000 = config_dict[arrayRow1[57]]
                         if checkBox_S2_WT5000 == '1':
-                            Open_File_ThaiWT5000_Config(uiThiaWT5000, wt_config_dict)
+                            page3 = uiThaiOverLoads._wtStacked.widget(3)
+                            Open_File_ThaiWT5000_Config(_PageWidgetFinder(page3), wt_config_dict)
                     else:
                         strFlag = 1
 

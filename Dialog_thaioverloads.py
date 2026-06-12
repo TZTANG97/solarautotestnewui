@@ -2,6 +2,10 @@
 # 90min过载项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content,
+)
 
 
 class Ui_Dialog_thaioverloads(object):
@@ -404,80 +408,74 @@ class Ui_Dialog_thaioverloads(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        self.groupBox_3 = QtWidgets.QGroupBox()
-        self.groupBox_3.setObjectName("groupBox_3")
-        self.groupBox_3.setTitle("功率分析仪设置")
-        self.groupBox_3.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
-        g3Layout = QtWidgets.QGridLayout(self.groupBox_3)
-        g3Layout.setSpacing(10)
-        g3Layout.setContentsMargins(16, 24, 16, 12)
+        grp = QtWidgets.QGroupBox()
+        grp.setTitle("功率分析仪配置")
+        grp.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
+        gLayout = QtWidgets.QGridLayout(grp)
+        gLayout.setSpacing(10)
+        gLayout.setContentsMargins(16, 24, 16, 12)
 
         self.checkBox_S2 = QtWidgets.QCheckBox("step2")
         self.checkBox_S2.setChecked(True)
         self.checkBox_S2.setObjectName("checkBox_S2")
-        g3Layout.addWidget(self.checkBox_S2, 0, 0)
+        gLayout.addWidget(self.checkBox_S2, 0, 0)
 
-        # WT3000
-        self.checkBox_S2_WT3000 = QtWidgets.QCheckBox("WT3000")
-        self.checkBox_S2_WT3000.setChecked(True)
-        self.checkBox_S2_WT3000.setObjectName("checkBox_S2_WT3000")
-        g3Layout.addWidget(self.checkBox_S2_WT3000, 0, 1)
+        # Radio buttons（单选，默认 WT3000）
+        self.radioButton_S2_WT3000 = QtWidgets.QRadioButton("WT3000")
+        self.radioButton_S2_WT3000.setObjectName("radio_S2_WT3000")
+        self.radioButton_S2_WT3000.setChecked(True)
+        self.radioButton_S2_WT1800 = QtWidgets.QRadioButton("WT1800")
+        self.radioButton_S2_WT1800.setObjectName("radio_S2_WT1800")
+        self.radioButton_S2_WT1806E = QtWidgets.QRadioButton("WT1806E")
+        self.radioButton_S2_WT1806E.setObjectName("radio_S2_WT1806E")
+        self.radioButton_S2_WT5000 = QtWidgets.QRadioButton("WT5000")
+        self.radioButton_S2_WT5000.setObjectName("radio_S2_WT5000")
 
-        self.pushButton_S2_WT_3000_CONFIG = QtWidgets.QPushButton("WT_3000_config")
-        self.pushButton_S2_WT_3000_CONFIG.setObjectName("pushButton_S2_WT_3000_CONFIG")
-        self.pushButton_S2_WT_3000_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 11px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g3Layout.addWidget(self.pushButton_S2_WT_3000_CONFIG, 0, 2)
+        radio_group = QtWidgets.QButtonGroup(None)
+        radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        radio_group.addButton(self.radioButton_S2_WT5000, 3)
+        self._radio_group = radio_group
 
-        # WT1800
-        self.checkBox_S2_WT1800 = QtWidgets.QCheckBox("WT1800")
-        self.checkBox_S2_WT1800.setChecked(True)
-        self.checkBox_S2_WT1800.setObjectName("checkBox_S2_WT1800")
-        g3Layout.addWidget(self.checkBox_S2_WT1800, 0, 3)
+        radio_layout = QtWidgets.QHBoxLayout()
+        radio_layout.setSpacing(24)
+        radio_layout.setContentsMargins(8, 0, 0, 0)
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        gLayout.addLayout(radio_layout, 0, 1, 1, 3)
 
-        self.pushButton_S2_WT_1800_CONFIG = QtWidgets.QPushButton("WT_1800_config")
-        self.pushButton_S2_WT_1800_CONFIG.setObjectName("pushButton_S2_WT_1800_CONFIG")
-        self.pushButton_S2_WT_1800_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 11px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g3Layout.addWidget(self.pushButton_S2_WT_1800_CONFIG, 0, 4)
+        # QStackedWidget 承载 4 个配置页面
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))   # index 0
+        self._wtStacked.addWidget(build_wt1800_content(self))   # index 1
+        self._wtStacked.addWidget(build_wt1806e_content(self))  # index 2
+        self._wtStacked.addWidget(build_wt5000_content(self))   # index 3
+        gLayout.addWidget(self._wtStacked, 1, 0, 1, 4)
 
-        # WT1806E
-        self.checkBox_S2_WT1806E = QtWidgets.QCheckBox("WT1806E")
-        self.checkBox_S2_WT1806E.setChecked(True)
-        self.checkBox_S2_WT1806E.setObjectName("checkBox_S2_WT1806E")
-        g3Layout.addWidget(self.checkBox_S2_WT1806E, 1, 1)
+        # Radio 切换联动
+        def _on_radio_toggled(btn, checked):
+            if checked:
+                self._wtStacked.setCurrentIndex(radio_group.id(btn))
 
-        self.pushButton_S2_WT_1806E_CONFIG = QtWidgets.QPushButton("WT_1806E_config")
-        self.pushButton_S2_WT_1806E_CONFIG.setObjectName("pushButton_S2_WT_1806E_CONFIG")
-        self.pushButton_S2_WT_1806E_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 11px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g3Layout.addWidget(self.pushButton_S2_WT_1806E_CONFIG, 1, 2)
+        radio_group.buttonToggled.connect(_on_radio_toggled)
 
-        # WT5000
-        self.checkBox_S2_WT5000 = QtWidgets.QCheckBox("WT5000")
-        self.checkBox_S2_WT5000.setChecked(True)
-        self.checkBox_S2_WT5000.setObjectName("checkBox_S2_WT5000")
-        g3Layout.addWidget(self.checkBox_S2_WT5000, 1, 3)
+        # 步骤启用复选框联动
+        s2_children = [self._wtStacked]
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            s2_children.append(rb)
 
-        self.pushButton_S2_WT_5000_CONFIG = QtWidgets.QPushButton("WT_5000_config")
-        self.pushButton_S2_WT_5000_CONFIG.setObjectName("pushButton_S2_WT_5000_CONFIG")
-        self.pushButton_S2_WT_5000_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 11px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g3Layout.addWidget(self.pushButton_S2_WT_5000_CONFIG, 1, 4)
+        def _on_s2_toggled(checked):
+            for w in s2_children:
+                w.setEnabled(checked)
 
-        layout.addWidget(self.groupBox_3)
+        self.checkBox_S2.toggled.connect(_on_s2_toggled)
+        _on_s2_toggled(self.checkBox_S2.isChecked())
+
+        layout.addWidget(grp)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 

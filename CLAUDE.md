@@ -550,13 +550,20 @@ if disconnected:
       s1dc.toggled.connect(_update_dc_enabled)
   _update_dc_enabled()  # 初始化
   ```
-- **适用范围**：闪变（step3 DC 开关循环 + step5 关机 DC）、谐波电流（12 个谐波卡片）及后续所有有多步 DC 测量的项目
+- **适用范围**：闪变（step3 DC 开关循环 + step5 关机 DC）、谐波电流（12 个谐波卡片 + step4 关机 DC）、过载（step4 关机 DC）及后续所有有多步 DC 测量的项目
+- **关机步骤也必须联动**：每个项目的关机设置（通常为最后一个步骤）中的 DC 复选框（`checkBox_S5_DCx` 或 `checkBox_S7_DCx`）也必须联动 step1 DC，逻辑与 step3 相同。已修复项目：
+  - 闪变：step5 关机 DC（`checkBox_S5_DCx`）
+  - 谐波电流：step4 关机 DC（`checkBox_S5_DCx`）
+  - 过载：step4 关机 DC（`checkBox_S5_DCx`）
+  - 直流分量：step7 关机 DC（`checkBox_S7_DCx`）— 待修复
+  - 静态CosPhi：step5 关机 DC（`checkBox_S5_DCx`）— 待修复
+  - 固定PF：step5 关机 DC（`checkBox_S5_DCx`）— 待修复
 
-**坑11：所有 step3/step5 的 DC 命令必须联动 step1 DC 复选框**
-- step3/step5 中的 DC 块（`checkBox_S3_DCx` / `checkBox_S5_DCx`）生成命令时，如果只检查 step3/step5 复选框，而 step1 的 `checkBox_S1_DCx` 未勾选，DC 命令仍会被添加到 `strArrayTest`
+**坑11：所有 step3/step4/step5/step7 的 DC 命令必须联动 step1 DC 复选框**
+- step3/step4/step5/step7 中的 DC 块生成命令时，如果只检查该步骤的复选框，而 step1 的 `checkBox_S1_DCx` 未勾选，DC 命令仍会被添加到 `strArrayTest`
 - **后果1**：`S1DC1Vmp` 等变量未定义 → `UnboundLocalError`
 - **后果2**：`strArrayTest` 中包含 DC 命令 → `_check_device_connections()` 误判 DC 设备需要连接，提示"设备未连接，终止启动"
-- **修复**：step3/step5 的每个 DC 块必须同时检查 step1 DC 复选框
+- **修复**：所有 DC 块必须同时检查 step1 DC 复选框
 - **代码模式**：
   ```python
   # 错误：只检查 step3/step5 复选框
@@ -573,13 +580,13 @@ if disconnected:
   ```
 - **涉及文件**：`SCPITestWave.py` 中所有包含 DC 块的 Send 函数
 - **适用项目**（2026-06-12 已全部修复）：
-  - 闪变 `thaidianyashanbianSend()`：step3（24 块）+ step5（4 块）
-  - 谐波电流 `thaixiebodianliuSend()`：step3（16 块）+ step5（4 块）
-  - 过载 `thaioverloadsSend()`：step5（4 块）
-  - 直流分量 `thaizhiliufenliangSend()`：step3（4 块）+ step5（4 块）
-  - 静态CosPhi `thaistaticcosPhiSend()`：step3（4 块）+ step5（4 块）
-  - 巴西CosPhi `thaicosPhiBrazilSend()`：step3（4 块）+ step5（4 块）
-- **新项目接入时必须检查**：接入新项目的 Send 函数时，搜索所有 `checkBox_S3_DC` 和 `checkBox_S5_DC`，确保每个都有对应的 `checkBox_S1_DC` 联动
+  - 闪变 `thaidianyashanbianSend()`：step3（24 块）+ step5 关机（4 块）
+  - 谐波电流 `thaixiebodianliuSend()`：step3（16 块）+ step4 关机（4 块）
+  - 过载 `thaioverloadsSend()`：step4 关机（4 块）
+  - 直流分量 `thaizhiliufenliangSend()`：step3（4 块）+ step5（4 块）+ step7 关机（4 块）
+  - 静态CosPhi `thaistaticcosPhiSend()`：step3（4 块）+ step5（4 块）+ step5 关机（4 块）
+  - 巴西CosPhi `thaicosPhiBrazilSend()`：step3（4 块）+ step5（4 块）+ step5 关机（4 块）
+- **新项目接入时必须检查**：接入新项目的 Send 函数时，搜索所有 `checkBox_S*_DC`（包括 step3、step4、step5、step7），确保每个都有对应的 `checkBox_S1_DC` 联动
 
 ### 功率分析仪配置内嵌规则
 

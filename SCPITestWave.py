@@ -8290,14 +8290,14 @@ def thaioverloadsSend():
         test_program = []
 
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiOverLoads.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiOverLoads.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiOverLoads.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiOverLoads.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiOverLoads.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(0)))
+        elif uiThaiOverLoads.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(1)))
+        elif uiThaiOverLoads.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(2)))
+        elif uiThaiOverLoads.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -8643,13 +8643,13 @@ def thaioverloadsSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '9'
-            if uiThaiOverLoads.checkBox_S2_WT3000.isChecked():
+            if uiThaiOverLoads.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiOverLoads.checkBox_S2_WT1800.isChecked():
+            elif uiThaiOverLoads.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiOverLoads.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiOverLoads.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiOverLoads.checkBox_S2_WT5000.isChecked():
+            elif uiThaiOverLoads.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
         
@@ -29027,10 +29027,6 @@ if __name__ == "__main__":
             
             # overloads
             uiThaiOverLoads.pushButton_Send.clicked.connect(thaioverloadsSend)
-            uiThaiOverLoads.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiOverLoads.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiOverLoads.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiOverLoads.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
             _safe_click(uiThaiOverLoads, "pushButton_TestAppend", thaioverloadsAppend)
 
             def reset_overloads_count():
