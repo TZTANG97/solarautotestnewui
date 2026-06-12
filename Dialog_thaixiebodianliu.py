@@ -404,6 +404,21 @@ class Ui_Dialog_thaixiebodianliu(object):
             setattr(self, btn_name, btn)
             gLayout.addWidget(btn, 1, col + 1)
 
+        # 步骤启用复选框联动
+        s2_children = [
+            self.checkBox_S2_WT3000, self.pushButton_S2_WT_3000_CONFIG,
+            self.checkBox_S2_WT1800, self.pushButton_S2_WT_1800_CONFIG,
+            self.checkBox_S2_WT1806E, self.pushButton_S2_WT_1806E_CONFIG,
+            self.checkBox_S2_WT5000, self.pushButton_S2_WT_5000_CONFIG,
+        ]
+
+        def _on_s2_toggled(checked):
+            for w in s2_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S2.toggled.connect(_on_s2_toggled)
+        _on_s2_toggled(self.checkBox_S2.isChecked())
+
         layout.addWidget(grp)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
