@@ -77,14 +77,18 @@ class ThaiFixedPF_ConfigManager:
 
         "Step2": [
             ('checkBox_S2', 'checkbox', 'S2_Enabled'),
-            ('lE_wt_save_path', 'lineedit', 'S2_Path'),
+            ('radio_S2_WT3000', 'radio', 'S2_WT3000'),
+            ('radio_S2_WT1800', 'radio', 'S2_WT1800'),
+            ('radio_S2_WT1806E', 'radio', 'S2_WT1806E'),
+            ('radio_S2_WT5000', 'radio', 'S2_WT5000'),
+            ('lE_wt_save_path', 'textedit', 'S2_Path'),
         ],
 
         "Step3": [
-            ('lE_S3_1', 'lineedit', 'S3_time_1'),
-            ('lE_S3_2', 'lineedit', 'S3_time_2'),
-            ('lE_S3_3', 'lineedit', 'S3_time_3'),
-            ('lE_S3_4', 'lineedit', 'S3_time_4'),
+            ('lE_S3_1', 'textedit', 'S3_time_1'),
+            ('lE_S3_2', 'textedit', 'S3_time_2'),
+            ('lE_S3_3', 'textedit', 'S3_time_3'),
+            ('lE_S3_4', 'textedit', 'S3_time_4'),
             ('cB_S3_unit_1', 'combobox', 'S3_time_Unit_1'),
             ('cB_S3_unit_2', 'combobox', 'S3_time_Unit_2'),
             ('cB_S3_unit_3', 'combobox', 'S3_time_Unit_3'),
@@ -98,7 +102,7 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_4', 'checkbox', 'S4_DC3_Enabled'),
             ('checkBox_S1_DC4_4', 'checkbox', 'S4_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_4', 'textedit', 'S4_PF'),
-            ('lE_S4_filename', 'lineedit', 'S4_Filename'),
+            ('lE_S4_filename', 'textedit', 'S4_Filename'),
             ('cB_S4_json_1', 'combobox_text', 'S4_json_1'),
             ('cB_S4_json_2', 'combobox_text', 'S4_json_2'),
             ('cB_S4_json_3', 'combobox_text', 'S4_json_3'),
@@ -111,7 +115,7 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_5', 'checkbox', 'S5_DC3_Enabled'),
             ('checkBox_S1_DC4_5', 'checkbox', 'S5_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_5', 'textedit', 'S5_PF'),
-            ('lE_S5_filename', 'lineedit', 'S5_Filename'),
+            ('lE_S5_filename', 'textedit', 'S5_Filename'),
             ('cB_S5_json_1', 'combobox_text', 'S5_json_1'),
             ('cB_S5_json_2', 'combobox_text', 'S5_json_2'),
             ('cB_S5_json_3', 'combobox_text', 'S5_json_3'),
@@ -124,7 +128,7 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_6', 'checkbox', 'S6_DC3_Enabled'),
             ('checkBox_S1_DC4_6', 'checkbox', 'S6_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_6', 'textedit', 'S6_PF'),
-            ('lE_S6_filename', 'lineedit', 'S6_Filename'),
+            ('lE_S6_filename', 'textedit', 'S6_Filename'),
             ('cB_S6_json_1', 'combobox_text', 'S6_json_1'),
             ('cB_S6_json_2', 'combobox_text', 'S6_json_2'),
             ('cB_S6_json_3', 'combobox_text', 'S6_json_3'),
@@ -137,7 +141,7 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_7', 'checkbox', 'S7_DC3_Enabled'),
             ('checkBox_S1_DC4_7', 'checkbox', 'S7_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_7', 'textedit', 'S7_PF'),
-            ('lE_S7_filename', 'lineedit', 'S7_Filename'),
+            ('lE_S7_filename', 'textedit', 'S7_Filename'),
             ('cB_S7_json_1', 'combobox_text', 'S7_json_1'),
             ('cB_S7_json_2', 'combobox_text', 'S7_json_2'),
             ('cB_S7_json_3', 'combobox_text', 'S7_json_3'),
@@ -150,7 +154,7 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_8', 'checkbox', 'S8_DC3_Enabled'),
             ('checkBox_S1_DC4_8', 'checkbox', 'S8_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_8', 'textedit', 'S8_PF'),
-            ('lE_S8_filename', 'lineedit', 'S8_Filename'),
+            ('lE_S8_filename', 'textedit', 'S8_Filename'),
             ('cB_S8_json_1', 'combobox_text', 'S8_json_1'),
             ('cB_S8_json_2', 'combobox_text', 'S8_json_2'),
             ('cB_S8_json_3', 'combobox_text', 'S8_json_3'),
@@ -168,7 +172,7 @@ class ThaiFixedPF_ConfigManager:
             ('comboBox_S5_DC3', 'combobox', 'S9_DC3_Type'),
             ('checkBox_S5_DC4', 'checkbox', 'S9_DC4_Enabled'),
             ('comboBox_S5_DC4', 'combobox', 'S9_DC4_Type'),
-            ('lE_S14_1', 'lineedit', 'S9_time_1'),
+            ('lE_S14_1', 'textedit', 'S9_time_1'),
             ('cB_S14_unit_1', 'combobox', 'S9_time_unit_1'),
         ],
     }
@@ -215,6 +219,8 @@ class ThaiFixedPF_ConfigManager:
                     widget = getattr(self.ui, widget_name)
                     
                     if widget_type == 'checkbox':
+                        settings.setValue(key, widget.isChecked())
+                    elif widget_type == 'radio':
                         settings.setValue(key, widget.isChecked())
                     elif widget_type == 'combobox':
                         # 【固定选项】保存索引
@@ -270,6 +276,8 @@ class ThaiFixedPF_ConfigManager:
                     widget = getattr(self.ui, widget_name)
                     
                     if widget_type == 'checkbox':
+                        widget.setChecked(settings.value(key, type=bool))
+                    elif widget_type == 'radio':
                         widget.setChecked(settings.value(key, type=bool))
                     elif widget_type == 'combobox':
                         # 【固定选项】加载索引

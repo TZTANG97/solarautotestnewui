@@ -652,6 +652,90 @@ def xxxSend():
 - **检查方法**：搜索 Send 函数中所有 `checkBox_S*_DC`，确保每个都有对应的 `checkBox_S1_DC` 联动
 - **这是最容易遗漏的步骤！**
 
+### 坑12：DC 联动回调参数被信号覆盖导致全部取消
+
+- `_update_dc(step_on)` 被 `s1dc.toggled` 信号连接时，信号会传递 `checked`（DC 的勾选状态）作为第一个参数，覆盖 `step_on`（步骤的勾选状态）
+- **典型报错**：取消勾选 DC2 → `_update_dc(False)` → `step_on=False` → 所有 DC 复选框被禁用+取消勾选
+- **修复**：回调参数命名为 `_checked=None` 忽略信号传入的值，步骤状态始终从 `cb.isChecked()` 读取
+- **代码模式**：
+  ```python
+  # 错误：信号传入的 checked 覆盖了 step_on
+  def _update_dc(step_on=None):
+      if step_on is None:
+          step_on = cb.isChecked()
+      ...
+
+  # 正确：忽略信号参数，始终从 cb 读取步骤状态
+  def _update_dc(_checked=None):
+      step_on = cb.isChecked()
+      ...
+  ```
+- **涉及文件**：所有 `Dialog_thaiXxx.py` 中 `s1dc.toggled.connect(_update_dc)` 的地方
+- **注意**：如果回调函数无参数（如 `def _update_s5_dc()`），PyQt5 会自动忽略信号参数，不会触发此问题
+
+### 坑13：_sync_start_end_buttons / _reset_current_project_count 的 global 声明必须包含新项目计数器
+
+- 新增项目时，如果只在函数体中使用计数器变量（如 `fixedpf_append_count`）而不在 `global` 声明中添加，Python 编译器会将其视为局部变量
+- `if 'xxx_append_count' not in globals(): xxx_append_count = 0` 中的赋值会让 Python 标记该变量为局部变量，当 `globals()` 中已有该变量时 `if` 被跳过，但 Python 仍认为它是局部变量 → `UnboundLocalError`
+- **典型报错**：`UnboundLocalError: local variable 'fixedpf_append_count' referenced before assignment`
+- **修复**：在 `global` 声明中添加新项目的计数器变量
+- **涉及函数**：
+  - `_sync_start_end_buttons()` — `global flicker_append_count, harmonic_append_count, overloads_append_count, xxx_append_count`
+  - `_reset_current_project_count()` — 同上
+- **新项目接入时必须检查**：接入新项目时，第一步就是在这两个函数的 `global` 声明中加入新计数器变量
+
+### 坑14：`_make_input` 创建的是 QTextEdit，不能用 `.text()` 方法
+
+- `_make_input()` 创建 `QTextEdit` 控件（用 `.toPlainText()` 读取、`.setText()` 写入），不是 `QLineEdit`（用 `.text()` 读取、`.setText()` 写入）
+- **典型报错**：`AttributeError: 'QTextEdit' object has no attribute 'text'`
+- **涉及场景**：
+  1. SCPITestWave.py 中 `uiXxx.lE_xxx.text()` → 改为 `.toPlainText()`
+  2. config_manager 中 `('lE_xxx', 'lineedit', ...)` → 改为 `'textedit'`
+- **检查方法**：
+  1. 搜索 SCPITestWave.py 中所有 `uiXxx.lE_*.text()` 确保用的是 `.toPlainText()`
+  2. 搜索 config_manager 中所有 `'lineedit'` 类型，确认对应的控件确实是 `QLineEdit` 而非 `QTextEdit`
+- **命名陷阱**：控件名以 `lE_`（lineEdit）开头不代表它是 `QLineEdit`，实际类型取决于 `_make_input`（QTextEdit）还是 `QLineEdit()` 构造
+- **修复模式**：
+  ```python
+  # SCPITestWave.py
+  value = uiXxx.lE_xxx.toPlainText()  # 不是 .text()
+
+  # config_manager
+  ('lE_xxx', 'textedit', 'key')  # 不是 'lineedit'
+  ```
+
+### 坑15：strArrayTestStepSingle 等列表变量必须在 if 块外初始化
+
+- `strArrayTestStepSingle`、`strArraySingle` 等列表如果只在 `if uiXxx.checkBox_S1.isChecked():` 内初始化，当该步骤未勾选时变量不存在
+- **典型报错**：`UnboundLocalError: local variable 'strArrayTestStepSingle' referenced before assignment`
+- **典型场景**：step1 未勾选但 step2 或 step4 勾选了，step2/step4 的代码引用 `strArrayTestStepSingle` 时崩溃
+- **修复**：在 step1 的 `if` 块之前初始化所有会被后续步骤使用的列表变量
+- **代码模式**：
+  ```python
+  strArraySingle = ["" for _ in range(10)]
+  strArrayTestStepSingle = []  # 必须在 if 块外
+
+  if uiXxx.checkBox_S1.isChecked():
+      # strArrayTestStepSingle = []  # 不要放在这里
+      strArraySingle = ["" for _ in range(10)]
+      strArraySingle[0] = "AC"
+      strArrayTestStepSingle.append(strArraySingle)
+  ```
+- **检查方法**：搜索 Send 函数中所有 `strArrayTestStepSingle` 和 `strArraySingle` 的引用，确认它们在任何 `if` 块外都有初始值
+- **新项目接入时必须检查**：接入新项目的 Send 函数时，确认所有跨步骤共享的列表变量在函数开头初始化
+
+### 坑16：step4~step7 的 DC1/DC2 错误码不能复制 DC3 的值
+
+- step4~step7 中每个 DC 块的 `strShowErrorMessageBoxFlag` 赋值必须与 step1 的 DC 通道对应
+- **错误码对照表**（所有步骤统一）：
+  - DC1: `"1"`（赋值错误）/ `"2"`（Isc/Imp 超范围）
+  - DC2: `"3"` / `"4"`
+  - DC3: `"5"` / `"6"`
+  - DC4: `"7"` / `"8"`
+- **典型错误**：复制 DC3 的代码后忘记改错误码，DC1/DC2 也写了 `"5"/"6"`，导致 DC1 报错时弹窗显示"DC电源3赋值错误"
+- **检查方法**：搜索每个步骤的 DC 块，确认 DC1 用 `"1"/"2"`、DC2 用 `"3"/"4"`、DC3 用 `"5"/"6"`、DC4 用 `"7"/"8"`
+- **新项目接入时必须检查**：接入新项目的 Send 函数时，逐个核对每个 DC 块的错误码
+
 ---
 
 ## 自测清单（必须逐一完成）

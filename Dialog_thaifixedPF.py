@@ -2,10 +2,6 @@
 # 固定PF=1项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from components.wt_config_content import (
-    build_wt3000_content, build_wt1800_content,
-    build_wt1806e_content, build_wt5000_content,
-)
 from components.timeline import TimelineWidget
 
 
@@ -158,7 +154,7 @@ class Ui_Dialog_thaifixedPF(object):
         acGrid.setSpacing(8)
         acGrid.setContentsMargins(12, 20, 12, 12)
 
-        self.checkBox_S1 = self._make_checkbox("checkBox_S1", "step1", checked=False, parent=self._dialog)
+        self.checkBox_S1 = self._make_checkbox("checkBox_S1", "step1", checked=True, parent=self._dialog)
         acGrid.addWidget(self.checkBox_S1, 0, 0)
 
         acGrid.addWidget(self._make_label("交流电源", self._HEADER_STYLE), 0, 1)
@@ -314,27 +310,15 @@ class Ui_Dialog_thaifixedPF(object):
         radio_layout.addStretch()
         gLayout.addLayout(radio_layout, 0, 1, 1, 3)
 
-        self._wtStacked = QtWidgets.QStackedWidget()
-        self._wtStacked.addWidget(build_wt3000_content(self))
-        self._wtStacked.addWidget(build_wt1800_content(self))
-        self._wtStacked.addWidget(build_wt1806e_content(self))
-        self._wtStacked.addWidget(build_wt5000_content(self))
-        gLayout.addWidget(self._wtStacked, 1, 0, 1, 4)
+        # 执行json文件
+        gLayout.addWidget(self._make_label("执行json文件:"), 1, 0)
+        self.cB_wt_json = self._make_combo("cB_wt_json", [], parent=self._dialog, width=400)
+        gLayout.addWidget(self.cB_wt_json, 1, 1, 1, 3)
 
-        json_row = QtWidgets.QHBoxLayout()
-        json_row.addWidget(QtWidgets.QLabel("执行json文件"))
-        self.cB_wt_json = self._make_combo("cB_wt_json", [], parent=self._dialog)
-        json_row.addWidget(self.cB_wt_json)
-        json_row.addWidget(QtWidgets.QLabel("WT数据保存路径"))
-        self.lE_wt_save_path = self._make_input("lE_wt_save_path", "", parent=self._dialog)
-        json_row.addWidget(self.lE_wt_save_path)
-        json_row.addStretch()
-        gLayout.addLayout(json_row, 2, 0, 1, 4)
-
-        def _on_radio_toggled(btn, checked):
-            if checked:
-                self._wtStacked.setCurrentIndex(radio_group.id(btn))
-        radio_group.buttonToggled.connect(_on_radio_toggled)
+        # WT数据保存路径
+        gLayout.addWidget(self._make_label("WT数据保存路径:"), 2, 0)
+        self.lE_wt_save_path = self._make_input("lE_wt_save_path", "", parent=self._dialog, width=400)
+        gLayout.addWidget(self.lE_wt_save_path, 2, 1, 1, 3)
 
         layout.addWidget(grp)
         layout.addStretch()
@@ -361,8 +345,8 @@ class Ui_Dialog_thaifixedPF(object):
         for idx, label in enumerate(TIME_LABELS):
             row = idx
             gLayout.addWidget(self._make_label(f"{label}:"), row, 0)
-            gLayout.addWidget(self._make_input(f"lE_S3_{idx+1}", "5", parent=self._dialog), row, 1)
-            gLayout.addWidget(self._make_combo(f"cB_S3_unit_{idx+1}", ["秒", "分钟", "毫秒"], parent=self._dialog), row, 2)
+            gLayout.addWidget(self._make_input(f"lE_S3_{idx+1}", "5", parent=self._dialog, width=400), row, 1)
+            gLayout.addWidget(self._make_combo(f"cB_S3_unit_{idx+1}", ["秒", "分钟", "毫秒"], parent=self._dialog, width=400), row, 2)
 
         # 批量设置按钮
         self.btn_set_batch_time = QtWidgets.QPushButton("批量应用到所有测量步骤")
@@ -450,18 +434,18 @@ class Ui_Dialog_thaifixedPF(object):
         # 保存文件名 + 录制动作 json
         gLayout.addWidget(self._make_label("保存文件名:"), 3, 0)
         name_row = QtWidgets.QHBoxLayout()
-        name_row.addWidget(self._make_input(f"lE_S{step_num}_filename", "", parent=self._dialog))
-        name_row.addWidget(self._make_combo(f"cB_S{step_num}_json_1", [], parent=self._dialog))
+        name_row.addWidget(self._make_input(f"lE_S{step_num}_filename", "", parent=self._dialog, width=400))
+        name_row.addWidget(self._make_combo(f"cB_S{step_num}_json_1", [], parent=self._dialog, width=400))
         name_row.addStretch()
         gLayout.addLayout(name_row, 3, 1, 1, 3)
 
         # 开始测量 json
         gLayout.addWidget(self._make_label("开始测量:"), 4, 0)
-        gLayout.addWidget(self._make_combo(f"cB_S{step_num}_json_2", [], parent=self._dialog), 4, 1, 1, 3)
+        gLayout.addWidget(self._make_combo(f"cB_S{step_num}_json_2", [], parent=self._dialog, width=400), 4, 1, 1, 3)
 
         # 结束测量 json
         gLayout.addWidget(self._make_label("结束测量:"), 5, 0)
-        gLayout.addWidget(self._make_combo(f"cB_S{step_num}_json_3", [], parent=self._dialog), 5, 1, 1, 3)
+        gLayout.addWidget(self._make_combo(f"cB_S{step_num}_json_3", [], parent=self._dialog, width=400), 5, 1, 1, 3)
 
         return grp
 
@@ -533,14 +517,14 @@ class Ui_Dialog_thaifixedPF(object):
 
         # JSON 文件
         sg.addWidget(self._make_label("执行json文件:"), 4, 0)
-        self.cB_S14_json_14 = self._make_combo("cB_S14_json_14", [], parent=self._dialog)
+        self.cB_S14_json_14 = self._make_combo("cB_S14_json_14", [], parent=self._dialog, width=400)
         sg.addWidget(self.cB_S14_json_14, 4, 1)
 
         # 等待时间
         sg.addWidget(self._make_label("等待时间:"), 5, 0)
         time_row = QtWidgets.QHBoxLayout()
-        time_row.addWidget(self._make_input("lE_S14_1", "5", parent=self._dialog))
-        time_row.addWidget(self._make_combo("cB_S14_unit_1", ["秒", "分钟", "毫秒"], parent=self._dialog))
+        time_row.addWidget(self._make_input("lE_S14_1", "5", parent=self._dialog, width=400))
+        time_row.addWidget(self._make_combo("cB_S14_unit_1", ["秒", "分钟", "毫秒"], parent=self._dialog, width=400))
         time_row.addStretch()
         sg.addLayout(time_row, 5, 1)
 

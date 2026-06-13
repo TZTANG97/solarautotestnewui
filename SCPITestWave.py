@@ -85,7 +85,6 @@ from utils.Open_Save_ThaiWT5000_Config import WT5000_params_config
 from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
 
 from RecPlayer.player.macro_manager import MacroManager
-from config_manager.thaifixedPF_config_manager import ThaiFixedPF_ConfigManager
 from func import *
 from modbus_visa import ModbusVISA
 from scpi_to_modbustcp import BluesightTranslator, BluesightCurveSTC, ItechTranslator
@@ -1510,7 +1509,7 @@ def reset_wt_automation_state():
 
 def _sync_start_end_buttons():
     """根据当前项目的计数器决定启用/禁用开始/结束按钮。计数>=1启用，=0禁用。"""
-    global flicker_append_count, harmonic_append_count, overloads_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count
     current = ui.comboBox_PS.currentText()
     count = 0
     if current == '电压闪变':
@@ -1534,7 +1533,7 @@ def _sync_start_end_buttons():
 
 def _reset_current_project_count():
     """试验完成后重置当前项目的计数器为0，并更新label显示。"""
-    global flicker_append_count, harmonic_append_count, overloads_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count
     current = ui.comboBox_PS.currentText()
     if current == '电压闪变':
         flicker_append_count = 0
@@ -6538,10 +6537,10 @@ def thaifixedpfSend():
     # 交流源相数
     S1ACEACHStatus = uiThaiFixedPF.comboBox_S1_AC_2.currentText()
     strArraySingle = ["" for _ in range(10)]
+    strArrayTestStepSingle = []
 
     # step1
     if uiThaiFixedPF.checkBox_S1.isChecked():
-        strArrayTestStepSingle = []
         S1_TIME_VALUE = uiThaiFixedPF.textEdit_S1_TIME.toPlainText()
         S1_TIME_UNIT = uiThaiFixedPF.comboBox_S1_TIME.currentText()
         fS1SetTime = float(S1_TIME_VALUE)
@@ -6857,7 +6856,7 @@ def thaifixedpfSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     # step2 WT
-    S2_time = get_time_dynamic("S2","1")
+    S2_time = get_time_dynamic("S3","1")
     if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
         wt_type = "WT3000"
     elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
@@ -6869,7 +6868,7 @@ def thaifixedpfSend():
     else:
         wt_type = "WT3000"
     json_path = uiThaiFixedPF.cB_wt_json.currentText()
-    new_wt_save_path = uiThaiFixedPF.lE_wt_save_path.text()
+    new_wt_save_path = uiThaiFixedPF.lE_wt_save_path.toPlainText()
 
 
     manager.change_wt_type(wt_type)
@@ -6885,7 +6884,7 @@ def thaifixedpfSend():
     )
     if not ok:
         QMessageBox.warning(
-            dialog_window,
+            None,
             "错误提示信息",
             f"WT宏文件不存在或修改失败，请检查:\n{_macro_path}",
             QMessageBox.Ok,
@@ -6976,12 +6975,12 @@ def thaifixedpfSend():
                 pass
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "1"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "2"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
+
         if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_4.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S4DCPF, 1)
             try:
@@ -6990,9 +6989,9 @@ def thaifixedpfSend():
                 pass
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "3"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "4"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7036,7 +7035,7 @@ def thaifixedpfSend():
 
 
 
-        new_S4_file_name = uiThaiFixedPF.lE_S4_filename.text()
+        new_S4_file_name = uiThaiFixedPF.lE_S4_filename.toPlainText()
         json_1 = uiThaiFixedPF.cB_S4_json_1.currentText()
         json_2 = uiThaiFixedPF.cB_S4_json_2.currentText()
         json_3 = uiThaiFixedPF.cB_S4_json_3.currentText()
@@ -7102,12 +7101,12 @@ def thaifixedpfSend():
                 pass
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "1"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "2"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
+
         if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_5.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
             try:
@@ -7116,9 +7115,9 @@ def thaifixedpfSend():
                 pass
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "3"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "4"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7159,7 +7158,7 @@ def thaifixedpfSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
         
-        new_S5_file_name = uiThaiFixedPF.lE_S5_filename.text()
+        new_S5_file_name = uiThaiFixedPF.lE_S5_filename.toPlainText()
         json_1 = uiThaiFixedPF.cB_S5_json_1.currentText()
         json_2 = uiThaiFixedPF.cB_S5_json_2.currentText()
         json_3 = uiThaiFixedPF.cB_S5_json_3.currentText()
@@ -7209,19 +7208,19 @@ def thaifixedpfSend():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S6DCPF,0)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "1"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "2"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
+
         if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_6.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S6DCPF, 1)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "3"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "4"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7254,7 +7253,7 @@ def thaifixedpfSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        new_S6_file_name = uiThaiFixedPF.lE_S6_filename.text()
+        new_S6_file_name = uiThaiFixedPF.lE_S6_filename.toPlainText()
         json_1 = uiThaiFixedPF.cB_S6_json_1.currentText()
         json_2 = uiThaiFixedPF.cB_S6_json_2.currentText()
         json_3 = uiThaiFixedPF.cB_S6_json_3.currentText()
@@ -7305,19 +7304,19 @@ def thaifixedpfSend():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S7DCPF,0)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "1"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "2"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
+
         if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_7.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S7DCPF, 1)
 
             if a == "1":
-                strShowErrorMessageBoxFlag = "5"
+                strShowErrorMessageBoxFlag = "3"
             elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
+                strShowErrorMessageBoxFlag = "4"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7350,7 +7349,7 @@ def thaifixedpfSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        new_S7_file_name = uiThaiFixedPF.lE_S7_filename.text()
+        new_S7_file_name = uiThaiFixedPF.lE_S7_filename.toPlainText()
         json_1 = uiThaiFixedPF.cB_S7_json_1.currentText()
         json_2 = uiThaiFixedPF.cB_S7_json_2.currentText()
         json_3 = uiThaiFixedPF.cB_S7_json_3.currentText()
@@ -8119,10 +8118,14 @@ def thai_fixedpf_wt_change():
 
     # 添加items到所有控件
     uiThaiFixedPF.cB_wt_json.addItems(list_json_files(wt_type))
+    uiThaiFixedPF.cB_wt_json.setCurrentIndex(0)
     uiThaiFixedPF.cB_S14_json_14.addItems(list_json_files(wt_type))
+    uiThaiFixedPF.cB_S14_json_14.setCurrentIndex(0)
     for s in range(4, 9):  # S4到S8
         for i in range(1, 4):
-            getattr(uiThaiFixedPF, f'cB_S{s}_json_{i}').addItems(list_json_files(wt_type))
+            combo = getattr(uiThaiFixedPF, f'cB_S{s}_json_{i}')
+            combo.addItems(list_json_files(wt_type))
+            combo.setCurrentIndex(0)
 
 def thaifixedpf_ui_init():
     global uiThaiFixedPF
@@ -28922,10 +28925,6 @@ if __name__ == "__main__":
 
 
             # ThaiFixedPF的的配置档读取写入
-            cm = ThaiFixedPF_ConfigManager(uiThaiFixedPF)
-            uiThaiFixedPF.pushButton_ReadSettingFile.clicked.connect(cm.load_config)
-            uiThaiFixedPF.pushButton_SaveSettingFile.clicked.connect(cm.save_config)
-
             _safe_click(uiThaiFixedPF, "pushButton_TestAppend", thaifixedpfAppend)
             _safe_click(uiThaiFixedPF, "pushButton_ReadSettingFile", OpenFileDialogThaiFixedPF)
             _safe_click(uiThaiFixedPF, "pushButton_SaveSettingFile", SaveFileDialogThaiFixedPF)

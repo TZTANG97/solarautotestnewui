@@ -797,7 +797,7 @@
       "action_type": "text_input",
       "duration": 0.1,
       "is_drag": false,
-      "text": "D:\\Desktop\\光伏自动化\\固定PF=1\\data",
+      "text": "D:/EnergyTest/wt_file_save_path",
       "timestamp": 45.15636899999999
     },
     {
