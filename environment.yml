@@ -1,0 +1,20 @@
+name: SolarAutoTestEnv
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - psutil
+  - pillow
+  - pip
+  - pip:
+      - PyQt5
+      - pyvisa
+      - pymodbus
+      - pyautogui
+      - pyperclip
+      - pywin32
+      - xlwt
+      - opencv-python
+      - keyboard
+      - pynput

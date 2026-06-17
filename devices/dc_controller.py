@@ -124,15 +124,22 @@ class DCController:
 
     def connect_modbus(self, tcp_addr, ui, modbus_client_cls, fail_label):
         try:
+            # 解析 ip:port 格式，分离主机和端口
+            host, port = tcp_addr, 502
+            if ':' in str(tcp_addr):
+                parts = tcp_addr.rsplit(':', 1)
+                if len(parts) == 2 and parts[1].isdigit():
+                    host, port = parts[0], int(parts[1])
             if modbus_client_cls is ModbusVISA:
                 # 与 test_guochan / 蓝点联调一致：原生 TCP 避免 PyVISA SOCKET 读不到应答、半断
                 client = modbus_client_cls(
-                    tcp_addr,
+                    host,
+                    port=port,
                     on_session_renewed=self._set_handle,
                     use_plain_socket=True,
                 )
             else:
-                client = modbus_client_cls(tcp_addr)
+                client = modbus_client_cls(host, port=port)
             client.connect()
             if client.is_connected():
                 self.logger.info(f'连接成功: {tcp_addr}:502')

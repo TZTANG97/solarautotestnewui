@@ -9,10 +9,10 @@
     },
     {
       "name": "直流电源1",
-      "resource": "USB0::0x0A69::0x084B::S50000002328::INSTR",
+      "resource": "192.168.40.2:502",
       "connected": true,
       "page": 2,
-      "last_connected": "2026-06-16 17:47:33"
+      "last_connected": "2026-06-17 14:32:30"
     },
     {
       "name": "直流电源2",

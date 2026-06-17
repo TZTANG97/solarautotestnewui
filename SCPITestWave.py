@@ -10,16 +10,13 @@ import datetime
 import logging
 import math
 import os
-import random
 import re
-import sqlite3
 import sys
 import psutil
 import threading
 import time
 import traceback
 from logging.handlers import TimedRotatingFileHandler
-
 import numpy as np
 import pyautogui
 import pyperclip
@@ -32,11 +29,8 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow,
                              QMessageBox, QDoubleSpinBox, QStackedWidget,
                              QGridLayout, QComboBox, QLabel, QPushButton,
-                             QWidget, QHBoxLayout, QVBoxLayout, QScrollArea)
-from pyvisa import *
-from pymodbus.exceptions import ModbusIOException, ConnectionException
-import struct
-
+                             QWidget, QHBoxLayout, QVBoxLayout, QScrollArea,
+                             QTextEdit)
 from Dialog_AC_Setting import Ui_Dialog_AC_Setting
 from Dialog_DC1_Setting import Ui_Dialog_DC1_Setting
 from Dialog_DC2_Setting import Ui_Dialog_DC2_Setting
@@ -44,26 +38,12 @@ from Dialog_DC3_Setting import Ui_Dialog_DC3_Setting
 from Dialog_DC4_Setting import Ui_Dialog_DC4_Setting
 from Dialog_Bluesight_DC_Setting import run_bluesight_dc_setting_dialog
 from Dialog_DL850_Setting import Ui_Dialog_DL850_Setting
-from Dialog_thaichonglian import Ui_Dialog_thaichonglian
-from Dialog_thaiguodianyashanbian import Ui_Dialog_thaiguodianyashanbian
 from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
-from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
-from Dialog_thaizhiliufenliang import Ui_Dialog_thaizhiliufenliang
 from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
 from Dialog_thaiguopinjiangzai import Ui_Dialog_thaiguopinjiangzai
 from Dialog_thaitestPU import Ui_Dialog_thaitestPU
-from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
-from Dialog_thaifixedPF import Ui_Dialog_thaifixedPF
-from Dialog_thaioverloads import Ui_Dialog_thaioverloads
-from Dialog_thaicosPhi_Brazil import Ui_Dialog_thaicosPhi_Brazil
-from Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
-from Dialog_thaistaticmppttest import Ui_Dialog_thaistaticmppttest
-from Dialog_thaiWT3000E import Ui_Dialog_thai_WT3000E
 from Dialog_thaiWT3000_Setting import Ui_Dialog_thai_WT3000_Setting
-from Dialog_thaiWT1806E import Ui_Dialog_thai_WT1806E
-from Dialog_thaiWT1800 import Ui_Dialog_thai_WT1800
-from Dialog_thaiWT5000 import Ui_Dialog_thai_WT5000
 from enums.wt_auto_enums import (CELLS_COORD_WT1800, CELLS_COORD_WT1806E, CELLS_COORD_WT3000, CELLS_COORD_WT5000,
                                  START_AND_STOP_COORD, DC_STATIC_MPPT_TEST,
                                  INTEGRAL_COORD)
@@ -80,7 +60,6 @@ from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
 from utils.Open_Save_ThaiWT3000_Config import WT3000E_params_config
 from utils.Open_Save_ThaiWT1800_Config import WT1800_params_config
 from utils.Open_Save_ThaiWT1806E_Config import WT1806E_params_config
-from utils.Open_Save_ThaiWT1806E_Config import WT1806E_params_config
 from utils.Open_Save_ThaiWT5000_Config import WT5000_params_config
 from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
 
@@ -90,7 +69,7 @@ from modbus_visa import ModbusVISA
 from scpi_to_modbustcp import BluesightTranslator, BluesightCurveSTC, ItechTranslator
 
 from config.app_config import config
-from config.path_config import PATH_WT_EXE, PATH_RECORDINGS, PATH_MPPT_EXE
+from config.path_config import PATH_RECORDINGS, PATH_MPPT_EXE
 from infra.logging_setup import setup_logging, install_stream_logging
 from infra.exception_handler import install_exception_hook
 from utils.ui_helpers import _show_connect_message, _toggle_connection_button
@@ -861,6 +840,32 @@ def DisconnectEQUAC():
     _set_equ_combo_locked("comboBox_AC", False)
     _toggle_connection_button("pushButton_ConnectEQUAC", False)
 
+def _auto_switch_dc1_breadcrumb():
+    """根据 *IDN? 识别结果自动切换 DC1 面包屑到对应设备页面。"""
+    if _dc1_breadcrumb_ref is None:
+        return
+    factor = per_dc_factor.get("0", "")
+    if factor == "Bluesight":
+        _dc1_breadcrumb_ref.setIndex(1)
+    elif factor == "Itech":
+        _dc1_breadcrumb_ref.setIndex(2)
+    else:
+        _dc1_breadcrumb_ref.setIndex(0)
+
+
+def _sync_dc1_connect_buttons():
+    """同步 DC1 Chroma/Bluesight/Itech 三个页面的连接按钮文字。"""
+    connected = dc1_controller is not None and dc1_controller.connected
+    text = "取消连接" if connected else "连接"
+    btn_chroma = getattr(ui, "pushButton_ConnectEQUDC1", None)
+    if btn_chroma is not None:
+        btn_chroma.setText("取消连接" if connected else "连接设备")
+    if _dc1_bs_ref is not None:
+        _dc1_bs_ref["btn_connect"].setText(text)
+    if _dc1_itech_ref is not None:
+        _dc1_itech_ref["btn_connect"].setText(text)
+
+
 def DisconnectEQUDC1():
     """断开 DC1 并解锁选择框。"""
     global dc1_controller
@@ -870,10 +875,12 @@ def DisconnectEQUDC1():
     if dc1_controller is None:
         dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     dc1_controller.disconnect(_safe_close_handle)
+    ui.textEdit_ReturnMessage.append(f"[DC1] 已断开连接")
     _restore_equ_to_combo_boxes(tcp_addr)
     if hasattr(ui, "comboBox_DC1"):
         ui.comboBox_DC1.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUDC1", False)
+    _sync_dc1_connect_buttons()
     _save_device_status("直流电源1", False)
 
 def DisconnectEQUDC2():
@@ -999,36 +1006,98 @@ def _apply_wt3000_baud_rate(text):
     logger.info(f"WT3000波特率已选择: {WT3000_baud_rate}")
     print(f"WT3000波特率已选择: {WT3000_baud_rate}")
 
+# ── AC 设备连接类型映射：设备品牌 → 连接协议 ──
+AC_DEVICE_CONNECT_TYPE = {
+    "chroma": "SCPI",
+    "itech": "modbus",
+    "keysight": "SCPI",
+}
+
+# ── DC 设备连接类型映射：设备品牌 → 连接协议 ──
+DC_DEVICE_CONNECT_TYPE = {
+    "chroma": "SCPI",
+    "bluesight": "modbus",
+    "itech": "SCPI",
+    "keysight": "SCPI",
+}
+
+# ── AC 品牌选择状态 ──
+_ac_current_brand = "chroma"  # "chroma", "chroma_ip", or "itech"
+_itech_ip_edit = None         # Itech 页面 IP 输入框引用
+_itech_port_edit = None       # Itech 页面端口输入框引用
+_ac_itch_ref = None           # Itech AC 页面控件引用
+
+# ── DC1 设备类型选择状态 ──
+_dc1_device_type = "chroma"   # "chroma", "bluesight", or "itech"
+
 def ConnectEQUAC():
     """连接交流电源。"""
-    global ac_controller
+    global ac_controller, _ac_current_brand, _itech_ip_edit, _itech_port_edit
     if ui.pushButton_ConnectEQUAC.text() == "取消连接":
         DisconnectEQUAC()
         return
-    tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
-    if tcp_addr == _default_equ_placeholder():
-        tcp_addr = ''
+
+    # 根据品牌确定设备类型和地址
+    if _ac_current_brand == "itech":
+        ip_text = _itech_ip_edit.text().strip() if _itech_ip_edit else ""
+        port_text = _itech_port_edit.text().strip() if _itech_port_edit else "502"
+        if not ip_text:
+            QMessageBox.warning(None, "提示", "请输入 Itech 交流电源的 IP 地址")
+            return
+        if not port_text:
+            port_text = "502"
+        tcp_addr = f"{ip_text}:{port_text}"
+        ui.comboBox_AC.setCurrentText(tcp_addr)
+    elif _ac_current_brand == "chroma_ip":
+        ip_text = _itech_ip_edit.text().strip() if _itech_ip_edit else ""
+        if not ip_text:
+            QMessageBox.warning(None, "提示", "请输入 Chroma 交流电源的 IP 地址")
+            return
+        tcp_addr = f"TCPIP0::{ip_text}::INSTR"
+        ui.comboBox_AC.setCurrentText(tcp_addr)
+    else:
+        tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
+        if tcp_addr == _default_equ_placeholder():
+            tcp_addr = ''
+
+    # chroma_ip 视为 chroma，查表决定协议
+    ac_device_key = "itech" if _ac_current_brand == "itech" else "chroma"
+    conn_type = AC_DEVICE_CONNECT_TYPE.get(ac_device_key, "SCPI")
+
     logger.info(tcp_addr)
     print(tcp_addr)
     if ac_controller is None:
         ac_controller = ACController(logger, _show_connect_message, now_to_datenow, ui_setting=uiACSetting, rm=rm, modbus_client_cls=ModbusVISA, configure_scpi_resource=_configure_scpi_resource)
-    endpoint = _split_ipv4_tcp_endpoint(tcp_addr)
-    if endpoint is not None:
-        host, port = endpoint
-        print("通过")
-        ac_controller.connect_modbus(host, port, ui)
-        if ac_controller.connected:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_AC", True)
-            ui.pushButton_ConnectEQUAC.setText("取消连接")
-            _save_device_status("交流电源", True, tcp_addr)
+    if conn_type == "modbus":
+        endpoint = _split_ipv4_tcp_endpoint(tcp_addr)
+        if endpoint is not None:
+            host, port = endpoint
+            print(f"通过 Modbus 连接交流电源({ac_device_key})")
+            ac_controller.connect_modbus(host, port, ui)
+        else:
+            print(f"Modbus 模式需要 IP 地址，当前地址: {tcp_addr}")
+            return
     else:
+        print(f"通过 SCPI 连接交流电源({ac_device_key}): {tcp_addr}")
         ac_controller.connect_scpi(tcp_addr, ui)
-        if ac_controller.connected:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_AC", True)
-            ui.pushButton_ConnectEQUAC.setText("取消连接")
-            _save_device_status("交流电源", True, tcp_addr)
+    if ac_controller.connected:
+        ui.textEdit_ReturnMessage.append(f"[AC] 连接成功 ({ac_device_key}) {tcp_addr}")
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_AC", True)
+        _sync_ac_connect_buttons()
+        _save_device_status("交流电源", True, tcp_addr)
+    else:
+        ui.textEdit_ReturnMessage.append(f"[AC] 连接失败 ({ac_device_key}) {tcp_addr}")
+
+def _sync_ac_connect_buttons():
+    """同步 AC Chroma/Itech 两个页面的连接按钮文字。"""
+    connected = ac_controller is not None and ac_controller.connected
+    btn_chroma = getattr(ui, "pushButton_ConnectEQUAC", None)
+    if btn_chroma is not None:
+        btn_chroma.setText("取消连接" if connected else "连接设备")
+    if _ac_itch_ref is not None:
+        _ac_itch_ref["btn_connect"].setText("取消连接" if connected else "连接")
+
 
 def DisconnectEQUAC():
     """断开交流电源并解锁选择框。"""
@@ -1036,10 +1105,15 @@ def DisconnectEQUAC():
     tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
     if ac_controller is not None:
         ac_controller.disconnect(_safe_close_handle)
+        ui.textEdit_ReturnMessage.append("[AC] 已断开连接")
+    # 同步到 Itech AC 页面日志
+    if _ac_itch_ref is not None:
+        _ac_itch_ref["log_edit"].append("已断开连接")
     _restore_equ_to_combo_boxes(tcp_addr)
     if hasattr(ui, "comboBox_AC"):
         ui.comboBox_AC.setEnabled(True)
     _toggle_connection_button("pushButton_ConnectEQUAC", False)
+    _sync_ac_connect_buttons()
     _save_device_status("交流电源", False)
 
 def _configure_scpi_resource(handle):
@@ -1158,7 +1232,7 @@ def _set_dc_factor_from_idn(dc_index, handle, fallback=None, modbus_client=None)
 def ConnectEQUDC1():
     """连接 DC1。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation
-    global per_dc_factor, dc1_controller
+    global per_dc_factor, dc1_controller, _dc1_device_type
     if ui.pushButton_ConnectEQUDC1.text() == "取消连接":
         DisconnectEQUDC1()
         return
@@ -1166,42 +1240,57 @@ def ConnectEQUDC1():
         dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
     logger.info(tcp_addr)
-    if is_ipv4_stdlib(tcp_addr):
-        print("通过IP访问直流源")
-        dc1_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源1")
+    _ep = _split_ipv4_tcp_endpoint(tcp_addr)
+    if _ep is not None or is_ipv4_stdlib(tcp_addr):
+        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc1_device_type, "SCPI")
+        if conn_type == "modbus":
+            print(f"通过IP访问直流电源1({_dc1_device_type}/Modbus)")
+            dc1_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源1")
+        else:
+            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+            print(f"通过IP访问直流电源1({_dc1_device_type}/SCPI): {visa_addr}")
+            dc1_controller.connect_scpi(visa_addr, ui)
         if dc1_controller.connected:
             print("直流源连接成功")
+            ui.textEdit_ReturnMessage.append(f"[DC1] 连接成功 ({_dc1_device_type}) {tcp_addr}")
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_DC1", True)
             _set_dc_factor_from_idn(
-                0, dc1_controller.handle, fallback="Chroma", modbus_client=dc1_controller.client
+                0, dc1_controller.handle, fallback="Chroma",
+                modbus_client=dc1_controller.client if conn_type == "modbus" else None
             )
-            # Bluesight 设备自动切换面包屑
-            if per_dc_factor.get("0") == "Bluesight" and _dc1_breadcrumb_ref is not None:
-                _dc1_breadcrumb_ref.setIndex(1)
+            _auto_switch_dc1_breadcrumb()
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "1"
             print("直流电源1连接成功")
-            ui.pushButton_ConnectEQUDC1.setText("取消连接")
+            _sync_dc1_connect_buttons()
             _save_device_status("直流电源1", True, tcp_addr)
+        else:
+            ui.textEdit_ReturnMessage.append(f"[DC1] 连接失败 ({_dc1_device_type}) {tcp_addr}")
     else:
         dc1_controller.connect_scpi(tcp_addr, ui)
         if dc1_controller.connected and dc1_controller.handle is not None:
+            ui.textEdit_ReturnMessage.append(f"[DC1] 连接成功 ({_dc1_device_type}) {tcp_addr}")
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_DC1", True)
             _set_dc_factor_from_idn(0, dc1_controller.handle)
-            # Bluesight 设备自动切换面包屑
-            if per_dc_factor.get("0") == "Bluesight" and _dc1_breadcrumb_ref is not None:
-                _dc1_breadcrumb_ref.setIndex(1)
+            _auto_switch_dc1_breadcrumb()
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "1"
-            ui.pushButton_ConnectEQUDC1.setText("取消连接")
+            _sync_dc1_connect_buttons()
             _save_device_status("直流电源1", True, tcp_addr)
+        else:
+            ui.textEdit_ReturnMessage.append(f"[DC1] 连接失败 ({_dc1_device_type}) {tcp_addr}")
+
+_dc2_device_type = "chroma"  # DC2 默认 Chroma，后续加面包屑后可切换
+_dc3_device_type = "chroma"  # DC3 默认 Chroma
+_dc4_device_type = "chroma"  # DC4 默认 Chroma
+
 
 def ConnectEQUDC2():
     """连接 DC2（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc2_controller
-    global per_dc_factor
+    global per_dc_factor, _dc2_device_type
     if ui.pushButton_ConnectEQUDC2.text() == "取消连接":
         DisconnectEQUDC2()
         return
@@ -1210,9 +1299,16 @@ def ConnectEQUDC2():
     print(tcp_addr)
     if dc2_controller is None:
         dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    if is_ipv4_stdlib(tcp_addr):
-        print("通过IP访问直流源")
-        dc2_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源2")
+    _ep = _split_ipv4_tcp_endpoint(tcp_addr)
+    if _ep is not None or is_ipv4_stdlib(tcp_addr):
+        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc2_device_type, "SCPI")
+        if conn_type == "modbus":
+            print(f"通过IP访问直流电源2({_dc2_device_type}/Modbus)")
+            dc2_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源2")
+        else:
+            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+            print(f"通过IP访问直流电源2({_dc2_device_type}/SCPI): {visa_addr}")
+            dc2_controller.connect_scpi(visa_addr, ui)
         if dc2_controller.connected:
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_DC2", True)
@@ -1220,7 +1316,7 @@ def ConnectEQUDC2():
                 1,
                 dc2_controller.handle,
                 fallback="Chroma",
-                modbus_client=dc2_controller.client,
+                modbus_client=dc2_controller.client if conn_type == "modbus" else None,
             )
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "2"
@@ -1241,7 +1337,7 @@ def ConnectEQUDC2():
 def ConnectEQUDC3():
     """连接 DC3（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc3_controller
-    global per_dc_factor
+    global per_dc_factor, _dc3_device_type
     if ui.pushButton_ConnectEQUDC3.text() == "取消连接":
         DisconnectEQUDC3()
         return
@@ -1250,9 +1346,16 @@ def ConnectEQUDC3():
     print(tcp_addr)
     if dc3_controller is None:
         dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    if is_ipv4_stdlib(tcp_addr):
-        print("通过IP访问直流源")
-        dc3_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源3")
+    _ep = _split_ipv4_tcp_endpoint(tcp_addr)
+    if _ep is not None or is_ipv4_stdlib(tcp_addr):
+        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc3_device_type, "SCPI")
+        if conn_type == "modbus":
+            print(f"通过IP访问直流电源3({_dc3_device_type}/Modbus)")
+            dc3_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源3")
+        else:
+            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+            print(f"通过IP访问直流电源3({_dc3_device_type}/SCPI): {visa_addr}")
+            dc3_controller.connect_scpi(visa_addr, ui)
         if dc3_controller.connected:
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_DC3", True)
@@ -1260,7 +1363,7 @@ def ConnectEQUDC3():
                 2,
                 dc3_controller.handle,
                 fallback="Chroma",
-                modbus_client=dc3_controller.client,
+                modbus_client=dc3_controller.client if conn_type == "modbus" else None,
             )
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "3"
@@ -1281,7 +1384,7 @@ def ConnectEQUDC3():
 def ConnectEQUDC4():
     """连接 DC4（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc4_controller
-    global per_dc_factor
+    global per_dc_factor, _dc4_device_type
     if ui.pushButton_ConnectEQUDC4.text() == "取消连接":
         DisconnectEQUDC4()
         return
@@ -1290,9 +1393,16 @@ def ConnectEQUDC4():
     print(tcp_addr)
     if dc4_controller is None:
         dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    if is_ipv4_stdlib(tcp_addr):
-        print("通过IP访问直流源")
-        dc4_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源4")
+    _ep = _split_ipv4_tcp_endpoint(tcp_addr)
+    if _ep is not None or is_ipv4_stdlib(tcp_addr):
+        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc4_device_type, "SCPI")
+        if conn_type == "modbus":
+            print(f"通过IP访问直流电源4({_dc4_device_type}/Modbus)")
+            dc4_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源4")
+        else:
+            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+            print(f"通过IP访问直流电源4({_dc4_device_type}/SCPI): {visa_addr}")
+            dc4_controller.connect_scpi(visa_addr, ui)
         if dc4_controller.connected:
             _remove_equ_from_combo_boxes(tcp_addr)
             _set_equ_combo_locked("comboBox_DC4", True)
@@ -1300,7 +1410,7 @@ def ConnectEQUDC4():
                 3,
                 dc4_controller.handle,
                 fallback="Chroma",
-                modbus_client=dc4_controller.client,
+                modbus_client=dc4_controller.client if conn_type == "modbus" else None,
             )
             strFlagSendDCCommandInfomation = "1"
             strFlagOfSendDCCommandTestLog = "4"
@@ -3775,7 +3885,7 @@ def OpenFileDialogThaiDianYaShanBian():
 
 #德国重连代码
 def thaichonglianSend():
-    global uithaichonglian,dialog_window,strArrayTest,Ui_Dialog_thaichonglian
+    global uithaichonglian,dialog_window,strArrayTest
     global strSettingTestFlag,strArrayTestStep
     global strAddTestFlag, total_save_file, WT_is_checked, test_program
     # 多项目切换测试相关参数
@@ -23503,6 +23613,10 @@ def RunProject():
         # 逐条解释命令
         for i in range(len(strArrayTest)):
             print(f'正在解析第{i+1}条命令')
+            _dev = strArrayTest[i][0] if len(strArrayTest[i]) > 0 else ""
+            _op = strArrayTest[i][1] if len(strArrayTest[i]) > 1 else ""
+            _scpi = strArrayTest[i][2] if len(strArrayTest[i]) > 2 else ""
+            ui.textEdit_ReturnMessage.append(f"[执行] {i+1}. [{_dev}] {_op} {_scpi}")
             _append_debug_log(
                 f"[run_loop] parse command#{i+1}/{len(strArrayTest)}, now_save_file={now_save_file}, "
                 f"WT_auto_messure_status={WT_auto_messure_status}, test_status={test_status}"
@@ -28314,52 +28428,385 @@ if __name__ == "__main__":
                     _page = ui.stackedWidget.widget(_page_idx)
                     _MS.embed_dialog_content(_dlg, _page, _combo_name, layout_rows=_rows)
 
-            # ── DC1 面包屑：Chroma / Bluesight 切换 ──
-            def _build_bluesight_dc1_content():
-                """构建 Bluesight DC1 页面内容（模式切换 + SAS曲线 + 原始负载 + 开关）。"""
-                from components.timeline import _INPUT_QSS, _BTN_QSS, _LABEL_QSS
-                from PyQt5.QtGui import QFont
+            # ── AC 面包屑：Chroma / 爱科(Itech) 切换 ──
+            def _build_itech_ac_content():
+                """构建 Itech AC 页面内容（TimelineWidget 风格）。"""
+                from components.timeline import (TimelineWidget, param_row,
+                                                 _INPUT_QSS, _BTN_QSS, _LABEL_QSS,
+                                                 _LOG_QSS, _CONNECT_BTN_QSS)
+                from components.buttons import ButtonStyle, apply_button_style
 
                 container = QWidget()
                 container.setStyleSheet("background: transparent;")
                 lay = QVBoxLayout(container)
                 lay.setContentsMargins(0, 0, 0, 0)
-                lay.setSpacing(10)
+                lay.setSpacing(0)
 
-                # ── 模式选择 ──
-                mode_row = QHBoxLayout()
-                mode_row.setSpacing(8)
-                lbl_mode = QLabel("输出工作模式:")
-                lbl_mode.setStyleSheet(_LABEL_QSS)
-                mode_row.addWidget(lbl_mode)
+                timeline = TimelineWidget()
+
+                # ── Step 1: 设备连接 ──
+                ip_edit = QtWidgets.QLineEdit()
+                ip_edit.setObjectName("lineEdit_itech_AC_IP")
+                ip_edit.setPlaceholderText("如 192.168.1.100")
+                ip_edit.setStyleSheet(_INPUT_QSS)
+                port_edit = QtWidgets.QLineEdit()
+                port_edit.setObjectName("lineEdit_itech_AC_Port")
+                port_edit.setPlaceholderText("502")
+                port_edit.setStyleSheet(_INPUT_QSS)
+                btn_connect = QPushButton("连接")
+                btn_connect.setStyleSheet(_CONNECT_BTN_QSS)
+                btn_connect.setFixedWidth(120)
+                connect_row = param_row([("IP:", ip_edit), ("端口:", port_edit)])
+                connect_content = QWidget()
+                connect_content.setStyleSheet("background: transparent;")
+                cl = QHBoxLayout(connect_content)
+                cl.setContentsMargins(0, 0, 0, 0)
+                cl.setSpacing(8)
+                cl.addWidget(connect_row, 1)
+                btn_connect.setCursor(QtCore.Qt.PointingHandCursor)
+                cl.addWidget(btn_connect)
+                timeline.addStep("设备连接", connect_content)
+
+                # ── Step 2: 相位选择 ──
+                combo_phase = QComboBox()
+                combo_phase.addItems(["单相", "三相"])
+                combo_phase.setStyleSheet(_INPUT_QSS)
+                timeline.addStep("相位选择", param_row([("相位:", combo_phase)]))
+
+                # ── Step 3: 电压/频率设置 ──
+                textEdit_VOLT = QTextEdit()
+                textEdit_VOLT.setPlainText("220")
+                textEdit_VOLT.setStyleSheet(_INPUT_QSS)
+                textEdit_FR = QTextEdit()
+                textEdit_FR.setPlainText("60")
+                textEdit_FR.setStyleSheet(_INPUT_QSS)
+                timeline.addStep("电压/频率设置",
+                                 param_row([("电压:", textEdit_VOLT, "V"),
+                                            ("频率:", textEdit_FR, "Hz")]))
+
+                # ── Step 4: 输出控制 ──
+                btn_on = QPushButton("打开交流电源输出")
+                btn_off = QPushButton("关闭交流电源输出")
+                apply_button_style(btn_on, ButtonStyle.SUCCESS)
+                apply_button_style(btn_off, ButtonStyle.DANGER)
+                out_content = QWidget()
+                out_content.setStyleSheet("background: transparent;")
+                ol = QHBoxLayout(out_content)
+                ol.setContentsMargins(0, 0, 0, 0)
+                ol.setSpacing(10)
+                ol.addWidget(btn_on)
+                ol.addWidget(btn_off)
+                ol.addStretch(1)
+                timeline.addStep("输出控制", out_content)
+
+                # ── Step 5: 单条命令测试 ──
+                btn_send = QPushButton("单条命令发送")
+                apply_button_style(btn_send, ButtonStyle.PRIMARY)
+                cmd_content = QWidget()
+                cmd_content.setStyleSheet("background: transparent;")
+                cml = QHBoxLayout(cmd_content)
+                cml.setContentsMargins(0, 0, 0, 0)
+                cml.addWidget(btn_send)
+                cml.addStretch(1)
+                timeline.addStep("单条命令测试", cmd_content)
+
+                # ── Step 6: 操作日志 ──
+                log_edit = QTextEdit()
+                log_edit.setReadOnly(True)
+                log_edit.setStyleSheet(_LOG_QSS)
+                timeline.addStep("操作日志", log_edit, stretch=True)
+
+                timeline.finalize()
+                lay.addWidget(timeline)
+
+                return {
+                    "container": container,
+                    "ip_edit": ip_edit,
+                    "port_edit": port_edit,
+                    "btn_connect": btn_connect,
+                    "combo_phase": combo_phase,
+                    "textEdit_VOLT": textEdit_VOLT,
+                    "textEdit_FR": textEdit_FR,
+                    "btn_on": btn_on,
+                    "btn_off": btn_off,
+                    "btn_send": btn_send,
+                    "log_edit": log_edit,
+                }
+
+            _itch_ac = _build_itech_ac_content()
+            _ac_itch_ref = _itch_ac
+
+            _ac_page = ui.stackedWidget.widget(1)
+            _ac_page_layout = _ac_page.layout()
+            _ac_grid = getattr(_ac_page, "_grid_comboBox_AC", None)
+
+            if _ac_grid is not None:
+                _ac_page_layout.removeWidget(_ac_grid)
+
+                _ac_stack = QStackedWidget()
+                _ac_stack.addWidget(_ac_grid)              # page 0 = Chroma
+                _ac_stack.addWidget(_itch_ac["container"]) # page 1 = 爱科(Itech)
+
+                from components.breadcrumb import BreadcrumbWidget
+                _ac_breadcrumb = BreadcrumbWidget(["Chroma", "爱科(Itech)"])
+
+                def _on_ac_brand_changed(idx):
+                    global _ac_current_brand, _itech_ip_edit, _itech_port_edit
+                    _ac_current_brand = "itech" if idx == 1 else "chroma"
+                    _ac_stack.setCurrentIndex(idx)
+                    _itech_ip_edit = _itch_ac["ip_edit"]
+                    _itech_port_edit = _itch_ac["port_edit"]
+                    _sync_ac_connect_buttons()
+
+                _ac_breadcrumb.indexChanged.connect(_on_ac_brand_changed)
+
+                _itch_ac["ip_edit"].setText("")
+                _itch_ac["port_edit"].setText("502")
+
+                _ac_page_layout.addWidget(_ac_breadcrumb)
+                _ac_page_layout.addWidget(_ac_stack, 1)
+
+                # ── Chroma 页面：添加通信模式选择（串口/IP）──
+                from components.timeline import _INPUT_QSS, _LABEL_QSS, _CONNECT_BTN_QSS
+
+                _chroma_scroll = _ac_grid.findChild(QScrollArea)
+                if _chroma_scroll is not None:
+                    _chroma_timeline = _chroma_scroll.widget()
+                    if _chroma_timeline is not None and hasattr(_chroma_timeline, '_steps'):
+                        _connect_step = _chroma_timeline._steps[0]  # 第一步 = 设备连接
+                        _connect_right = _connect_step.findChild(QWidget)
+                        # 找到 right 列（包含标题和内容的 widget）
+                        for _child in _connect_step.children():
+                            if isinstance(_child, QWidget) and _child.layout() is not None:
+                                _right_lay = _child.layout()
+                                if _right_lay.count() >= 2:
+                                    _connect_content = _right_lay.itemAt(1).widget()
+                                    if _connect_content is not None:
+                                        break
+
+                        if _connect_content is not None:
+                            _conn_lay = _connect_content.layout()
+                            if _conn_lay is not None:
+                                # 创建通信模式选择器
+                                _comm_mode_combo = QComboBox()
+                                _comm_mode_combo.addItems(["串口", "IP"])
+                                _comm_mode_combo.setStyleSheet(_INPUT_QSS)
+                                _comm_mode_combo.setFixedWidth(80)
+
+                                # 创建 IP 输入控件（初始隐藏）
+                                _chroma_ip_edit = QtWidgets.QLineEdit()
+                                _chroma_ip_edit.setPlaceholderText("如 192.168.1.100")
+                                _chroma_ip_edit.setStyleSheet(_INPUT_QSS)
+                                _chroma_ip_edit.setMinimumWidth(160)
+                                _chroma_ip_edit.setVisible(False)
+                                _chroma_port_edit = QtWidgets.QLineEdit()
+                                _chroma_port_edit.setPlaceholderText("502")
+                                _chroma_port_edit.setStyleSheet(_INPUT_QSS)
+                                _chroma_port_edit.setMinimumWidth(80)
+                                _chroma_port_edit.setVisible(False)
+                                _chroma_ip_label = QLabel("IP:")
+                                _chroma_ip_label.setStyleSheet(_LABEL_QSS)
+                                _chroma_ip_label.setVisible(False)
+                                _chroma_port_label = QLabel("端口:")
+                                _chroma_port_label.setStyleSheet(_LABEL_QSS)
+                                _chroma_port_label.setVisible(False)
+
+                                # 找到现有的 combo 和 connectBtn
+                                _serial_combo = ui.comboBox_AC
+                                _connect_btn = ui.pushButton_ConnectEQUAC
+
+                                # 在最前面插入通信模式选择器
+                                _conn_lay.insertWidget(0, _comm_mode_combo)
+                                _conn_lay.insertWidget(1, _chroma_ip_label)
+                                _conn_lay.insertWidget(2, _chroma_ip_edit)
+                                _conn_lay.insertWidget(3, _chroma_port_label)
+                                _conn_lay.insertWidget(4, _chroma_port_edit)
+
+                                # 模式切换逻辑
+                                def _on_comm_mode_changed(mode_is_ip):
+                                    if mode_is_ip:
+                                        # IP 模式：隐藏串口，显示 IP 输入
+                                        if _serial_combo is not None:
+                                            _serial_combo.setVisible(False)
+                                        _chroma_ip_label.setVisible(True)
+                                        _chroma_ip_edit.setVisible(True)
+                                        _chroma_port_label.setVisible(True)
+                                        _chroma_port_edit.setVisible(True)
+                                    else:
+                                        # 串口模式：显示串口，隐藏 IP 输入
+                                        if _serial_combo is not None:
+                                            _serial_combo.setVisible(True)
+                                        _chroma_ip_label.setVisible(False)
+                                        _chroma_ip_edit.setVisible(False)
+                                        _chroma_port_label.setVisible(False)
+                                        _chroma_port_edit.setVisible(False)
+
+                                _comm_mode_combo.currentTextChanged.connect(
+                                    lambda t: _on_comm_mode_changed(t == "IP"))
+
+                                # 修改 ConnectEQUAC 以支持 Chroma IP 模式
+                                _orig_connect_ac = ConnectEQUAC
+                                def _connect_ac_with_mode():
+                                    global _ac_current_brand
+                                    if _comm_mode_combo.currentText() == "IP":
+                                        _ac_current_brand = "chroma_ip"
+                                        global _itech_ip_edit, _itech_port_edit
+                                        _itech_ip_edit = _chroma_ip_edit
+                                        _itech_port_edit = _chroma_port_edit
+                                    else:
+                                        _ac_current_brand = "chroma"
+                                    _orig_connect_ac()
+                                try:
+                                    ui.pushButton_ConnectEQUAC.clicked.disconnect()
+                                except TypeError:
+                                    pass
+                                ui.pushButton_ConnectEQUAC.clicked.connect(_connect_ac_with_mode)
+
+                # ── 绑定 Itech AC 逻辑 ──
+                def _itch_connect():
+                    global _ac_current_brand, _itech_ip_edit, _itech_port_edit
+                    _ac_current_brand = "itech"
+                    _itech_ip_edit = _itch_ac["ip_edit"]
+                    _itech_port_edit = _itch_ac["port_edit"]
+                    ip = _itch_ac["ip_edit"].text().strip()
+                    port = _itch_ac["port_edit"].text().strip() or "502"
+                    addr = f"{ip}:{port}" if ip else ""
+                    _itch_ac["log_edit"].append(f"正在连接 {addr} ...")
+                    ui.textEdit_ReturnMessage.append(f"[AC Itech] 正在连接 {addr} ...")
+                    ConnectEQUAC()
+                    if ac_controller and ac_controller.connected:
+                        _itch_ac["log_edit"].append(f"连接成功 {addr}")
+                    else:
+                        _itch_ac["log_edit"].append(f"连接失败 {addr}")
+
+                _itch_ac["btn_connect"].clicked.connect(_itch_connect)
+                _itch_ac["btn_on"].clicked.connect(OpenACOUTPUTON)
+                _itch_ac["btn_off"].clicked.connect(CloseACOUTPUTON)
+
+                def _itch_ac_send_command():
+                    """Itech 页面的单条命令发送。"""
+                    global ac_controller
+                    if ac_controller is None or not ac_controller.connected:
+                        QMessageBox.warning(None, "提示", "交流电源未连接")
+                        return
+                    _itch_ac["log_edit"].clear()
+                    ac_voltage = _itch_ac["textEdit_VOLT"].toPlainText().strip()
+                    ac_frequency = _itch_ac["textEdit_FR"].toPlainText().strip()
+                    ac_phase = _itch_ac["combo_phase"].currentText()
+                    if not ac_voltage or not ac_frequency:
+                        QMessageBox.information(None, "错误", "电压或频率输入有误")
+                        return
+                    if ac_controller._itech is not None:
+                        if ac_phase == "单相":
+                            command_list = [
+                                "INST:PHASE SINGLE",
+                                "VOLT " + ac_voltage,
+                                "FREQ " + ac_frequency,
+                            ]
+                        elif ac_phase == "三相":
+                            command_list = [
+                                "INST:PHASE THREE",
+                                "INST:EDIT EACH",
+                                "INST:NSEL 1", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
+                                "INST:NSEL 2", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
+                                "INST:NSEL 3", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
+                            ]
+                        else:
+                            command_list = []
+                    else:
+                        if ac_phase == "单相":
+                            command_list = ["INST:PHAS SINGLE", "INST:EDIT ALL",
+                                            "VOLT " + ac_voltage, "FREQ " + ac_frequency]
+                        elif ac_phase == "三相":
+                            command_list = ["INST:PHAS THREE", "INST:EDIT EACH",
+                                            "INST:NSEL 1", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
+                                            "INST:NSEL 2", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
+                                            "INST:NSEL 3", "VOLT " + ac_voltage, "FREQ " + ac_frequency]
+                        else:
+                            command_list = []
+                    for command in command_list:
+                        if ac_controller._itech is not None:
+                            ok, _ = ac_controller._itech.translate(command)
+                            if ok:
+                                _itch_ac["log_edit"].append(f"OK: {command}")
+                                ui.textEdit_ReturnMessage.append(f"[AC Itech] OK: {command}")
+                            else:
+                                _itch_ac["log_edit"].append(f"FAIL: {command} (Modbus)")
+                                ui.textEdit_ReturnMessage.append(f"[AC Itech] FAIL: {command} (Modbus)")
+                        else:
+                            try:
+                                ac_controller.handle.write(command)
+                                _itch_ac["log_edit"].append(f"OK: {command}")
+                                ui.textEdit_ReturnMessage.append(f"[AC Itech] OK: {command}")
+                            except Exception as e:
+                                _itch_ac["log_edit"].append(f"ERROR: {command} - {e}")
+                                ui.textEdit_ReturnMessage.append(f"[AC Itech] ERROR: {command} - {e}")
+
+                _itch_ac["btn_send"].clicked.connect(_itch_ac_send_command)
+
+            # ── DC1 面包屑：Chroma / Bluesight 切换 ──
+            def _build_bluesight_dc1_content():
+                """构建 Bluesight DC1 页面内容（Timeline 风格，含独立 IP 连接按钮）。"""
+                from components.timeline import (TimelineWidget, param_row,
+                                                 _INPUT_QSS, _BTN_QSS, _LABEL_QSS,
+                                                 _LOG_QSS, _CONNECT_BTN_QSS)
+                from components.buttons import ButtonStyle, apply_button_style
+
+                container = QWidget()
+                container.setStyleSheet("background: transparent;")
+                lay = QVBoxLayout(container)
+                lay.setContentsMargins(0, 0, 0, 0)
+                lay.setSpacing(0)
+
+                timeline = TimelineWidget()
+
+                # ── Step 1: 设备连接（IP + Port + 连接按钮）──
+                ip_edit = QtWidgets.QLineEdit()
+                ip_edit.setObjectName("lineEdit_bluesight_DC1_IP")
+                ip_edit.setPlaceholderText("如 192.168.1.100")
+                ip_edit.setStyleSheet(_INPUT_QSS)
+                port_edit = QtWidgets.QLineEdit()
+                port_edit.setObjectName("lineEdit_bluesight_DC1_Port")
+                port_edit.setPlaceholderText("502")
+                port_edit.setStyleSheet(_INPUT_QSS)
+                btn_connect = QPushButton("连接")
+                btn_connect.setStyleSheet(_CONNECT_BTN_QSS)
+                btn_connect.setFixedWidth(120)
+                btn_connect.setCursor(QtCore.Qt.PointingHandCursor)
+                connect_row = param_row([("IP:", ip_edit), ("端口:", port_edit)])
+                connect_content = QWidget()
+                connect_content.setStyleSheet("background: transparent;")
+                cl = QHBoxLayout(connect_content)
+                cl.setContentsMargins(0, 0, 0, 0)
+                cl.setSpacing(8)
+                cl.addWidget(connect_row, 1)
+                cl.addWidget(btn_connect)
+                timeline.addStep("设备连接", connect_content)
+
+                # ── Step 2: 模式选择 ──
                 combo_mode = QComboBox()
                 combo_mode.addItems(["原始负载", "SAS", "电池模拟器"])
                 combo_mode.setStyleSheet(_INPUT_QSS)
                 combo_mode.setMinimumWidth(140)
-                mode_row.addWidget(combo_mode)
                 btn_apply_mode = QPushButton("应用模式")
-                btn_apply_mode.setStyleSheet(_BTN_QSS)
+                apply_button_style(btn_apply_mode, ButtonStyle.PRIMARY)
                 btn_apply_mode.setMinimumWidth(100)
-                mode_row.addWidget(btn_apply_mode)
-                mode_row.addStretch(1)
-                lay.addLayout(mode_row)
+                mode_content = QWidget()
+                mode_content.setStyleSheet("background: transparent;")
+                ml = QHBoxLayout(mode_content)
+                ml.setContentsMargins(0, 0, 0, 0)
+                ml.setSpacing(8)
+                ml.addWidget(param_row([("工作模式:", combo_mode)]), 1)
+                ml.addWidget(btn_apply_mode)
+                timeline.addStep("模式选择", mode_content)
 
-                # ── SAS 曲线区 ──
+                # ── Step 3: 参数设置（SAS / 原始负载，根据模式切换）──
+                stacked_params = QStackedWidget()
+
+                # -- SAS 页面 --
                 sas_widget = QWidget()
                 sas_widget.setStyleSheet("background: transparent;")
-                sas_lay = QVBoxLayout(sas_widget)
-                sas_lay.setContentsMargins(0, 0, 0, 0)
-                sas_lay.setSpacing(6)
-
-                sas_title = QLabel("SAS 曲线参数")
-                sas_title.setStyleSheet(
-                    "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
-                )
-                sas_lay.addWidget(sas_title)
-
-                sas_fields = QWidget()
-                sas_fields.setStyleSheet("background: transparent;")
-                sf_lay = QGridLayout(sas_fields)
+                sf_lay = QGridLayout(sas_widget)
                 sf_lay.setContentsMargins(0, 0, 0, 0)
                 sf_lay.setSpacing(6)
 
@@ -28392,25 +28839,15 @@ if __name__ == "__main__":
                 sf_lay.addWidget(sp_ff, 1, 1)
 
                 btn_send_curve = QPushButton("发送参数到设备（曲线）")
-                btn_send_curve.setStyleSheet(_BTN_QSS)
+                apply_button_style(btn_send_curve, ButtonStyle.INFO)
                 sf_lay.addWidget(btn_send_curve, 1, 2, 1, 2)
 
-                sas_lay.addWidget(sas_fields)
-                sas_widget.setVisible(False)
-                lay.addWidget(sas_widget)
-
-                # ── 原始负载区 ──
+                # -- 原始负载页面 --
                 orig_widget = QWidget()
                 orig_widget.setStyleSheet("background: transparent;")
                 orig_lay = QVBoxLayout(orig_widget)
                 orig_lay.setContentsMargins(0, 0, 0, 0)
                 orig_lay.setSpacing(6)
-
-                orig_title = QLabel("原始负载参数")
-                orig_title.setStyleSheet(
-                    "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
-                )
-                orig_lay.addWidget(orig_title)
 
                 outmode_row = QHBoxLayout()
                 outmode_row.setSpacing(8)
@@ -28421,13 +28858,13 @@ if __name__ == "__main__":
                 combo_outmode.setMinimumWidth(120)
                 outmode_row.addWidget(combo_outmode)
                 btn_apply_outmode = QPushButton("发送参数")
-                btn_apply_outmode.setStyleSheet(_BTN_QSS)
+                apply_button_style(btn_apply_outmode, ButtonStyle.PRIMARY)
                 btn_apply_outmode.setMinimumWidth(100)
                 outmode_row.addWidget(btn_apply_outmode)
                 outmode_row.addStretch(1)
                 orig_lay.addLayout(outmode_row)
 
-                stacked_params = QStackedWidget()
+                params_stack = QStackedWidget()
 
                 def _make_param_page(labels_values):
                     w = QWidget()
@@ -28447,63 +28884,59 @@ if __name__ == "__main__":
                         fl.addWidget(sb, row_i, 1)
                     return w
 
-                page_cv = _make_param_page([
+                params_stack.addWidget(_make_param_page([
                     ("输出电压(V):", {"dec": 3, "min": 0.0, "max": 2000.0}),
                     ("电源内阻(Ω):", {"dec": 6, "min": 0.0, "max": 1e9}),
-                ])
-                page_cc = _make_param_page([
+                ]))
+                params_stack.addWidget(_make_param_page([
                     ("输出电流(A):", {"dec": 4, "min": 0.0, "max": 10000.0}),
-                ])
-                page_cp = _make_param_page([
+                ]))
+                params_stack.addWidget(_make_param_page([
                     ("输出功率(kW):", {"dec": 4, "min": 0.0, "max": 30.0}),
-                ])
-                page_cr = _make_param_page([
+                ]))
+                params_stack.addWidget(_make_param_page([
                     ("负载电阻(Ω):", {"dec": 6, "min": 0.0, "max": 1e9}),
-                ])
-                stacked_params.addWidget(page_cv)
-                stacked_params.addWidget(page_cc)
-                stacked_params.addWidget(page_cp)
-                stacked_params.addWidget(page_cr)
-                orig_lay.addWidget(stacked_params)
-                orig_widget.setVisible(False)
-                lay.addWidget(orig_widget)
+                ]))
+                orig_lay.addWidget(params_stack)
 
-                # ── 提示文本 ──
-                hint = QLabel(
-                    "已识别为 Bluesight（Modbus TCP）。Vmp、Imp、Voc、Isc、PF 等为 IV 参数；"
-                    "Bluesight 曲线由 STC 寄存器与 BluesightTranslator 映射，请勿混用。"
-                )
-                hint.setWordWrap(True)
-                hint.setStyleSheet(
-                    "color: #37474f; font-size: 12px; background: transparent; line-height: 1.5;"
-                )
-                lay.addWidget(hint)
+                # -- 组装 stacked：page0=SAS, page1=原始负载 --
+                stacked_params.addWidget(sas_widget)
+                stacked_params.addWidget(orig_widget)
+                stacked_params.setCurrentIndex(1)  # 默认显示原始负载
+                timeline.addStep("参数设置", stacked_params, stretch=True)
 
-                # ── 开关按钮 ──
-                btn_row = QHBoxLayout()
-                btn_row.setSpacing(10)
+                # ── Step 4: 输出控制 ──
                 btn_on = QPushButton("打开输出")
-                btn_on.setStyleSheet(
-                    "QPushButton { background-color: #10b981; color: white; border-radius: 4px;"
-                    " padding: 8px 20px; font-size: 13px; font-weight: bold; }"
-                    "QPushButton:hover { background-color: #059669; }"
-                )
+                apply_button_style(btn_on, ButtonStyle.SUCCESS)
                 btn_off = QPushButton("关闭输出")
-                btn_off.setStyleSheet(
-                    "QPushButton { background-color: #ef4444; color: white; border-radius: 4px;"
-                    " padding: 8px 20px; font-size: 13px; font-weight: bold; }"
-                    "QPushButton:hover { background-color: #dc2626; }"
-                )
-                btn_row.addWidget(btn_on)
-                btn_row.addWidget(btn_off)
-                btn_row.addStretch(1)
-                lay.addLayout(btn_row)
+                apply_button_style(btn_off, ButtonStyle.DANGER)
+                out_content = QWidget()
+                out_content.setStyleSheet("background: transparent;")
+                ol = QHBoxLayout(out_content)
+                ol.setContentsMargins(0, 0, 0, 0)
+                ol.setSpacing(10)
+                ol.addWidget(btn_on)
+                ol.addWidget(btn_off)
+                ol.addStretch(1)
+                timeline.addStep("输出控制", out_content)
 
-                lay.addStretch(1)
+                # ── Step 5: 操作日志 ──
+                log_edit = QTextEdit()
+                log_edit.setReadOnly(True)
+                log_edit.setStyleSheet(_LOG_QSS)
+                timeline.addStep("操作日志", log_edit, stretch=True)
+
+                timeline.finalize()
+                lay.addWidget(timeline)
+
                 return {
                     "container": container,
+                    "ip_edit": ip_edit,
+                    "port_edit": port_edit,
+                    "btn_connect": btn_connect,
                     "combo_mode": combo_mode,
                     "btn_apply_mode": btn_apply_mode,
+                    "stacked_params": stacked_params,
                     "sas_widget": sas_widget,
                     "sp_pmpp": sp_pmpp,
                     "sp_umpp": sp_umpp,
@@ -28512,16 +28945,195 @@ if __name__ == "__main__":
                     "orig_widget": orig_widget,
                     "combo_outmode": combo_outmode,
                     "btn_apply_outmode": btn_apply_outmode,
-                    "stacked_params": stacked_params,
+                    "params_stack": params_stack,
                     "btn_on": btn_on,
                     "btn_off": btn_off,
+                    "log_edit": log_edit,
+                }
+
+            def _build_itech_dc1_content():
+                """构建 Itech DC1 页面内容（Timeline 风格，含独立 IP 连接按钮）。"""
+                from components.timeline import (TimelineWidget, param_row,
+                                                 _INPUT_QSS, _BTN_QSS, _LABEL_QSS,
+                                                 _LOG_QSS, _CONNECT_BTN_QSS)
+                from components.buttons import ButtonStyle, apply_button_style
+
+                container = QWidget()
+                container.setStyleSheet("background: transparent;")
+                lay = QVBoxLayout(container)
+                lay.setContentsMargins(0, 0, 0, 0)
+                lay.setSpacing(0)
+
+                timeline = TimelineWidget()
+
+                # ── Step 1: 设备连接（串口/IP + 连接按钮）──
+                comm_mode_combo = QComboBox()
+                comm_mode_combo.addItems(["串口", "IP"])
+                comm_mode_combo.setStyleSheet(_INPUT_QSS)
+                comm_mode_combo.setFixedWidth(80)
+
+                # 串口选择（默认显示）
+                serial_combo = ui.comboBox_DC1
+
+                # IP 输入（默认隐藏）
+                ip_edit = QtWidgets.QLineEdit()
+                ip_edit.setObjectName("lineEdit_itech_DC1_IP")
+                ip_edit.setPlaceholderText("如 192.168.1.100")
+                ip_edit.setStyleSheet(_INPUT_QSS)
+                ip_edit.setMinimumWidth(160)
+                ip_edit.setVisible(False)
+                port_edit = QtWidgets.QLineEdit()
+                port_edit.setObjectName("lineEdit_itech_DC1_Port")
+                port_edit.setPlaceholderText("502")
+                port_edit.setStyleSheet(_INPUT_QSS)
+                port_edit.setMinimumWidth(80)
+                port_edit.setVisible(False)
+                ip_label = QLabel("IP:")
+                ip_label.setStyleSheet(_LABEL_QSS)
+                ip_label.setVisible(False)
+                port_label = QLabel("端口:")
+                port_label.setStyleSheet(_LABEL_QSS)
+                port_label.setVisible(False)
+
+                btn_connect = QPushButton("连接")
+                btn_connect.setStyleSheet(_CONNECT_BTN_QSS)
+                btn_connect.setFixedWidth(120)
+                btn_connect.setCursor(QtCore.Qt.PointingHandCursor)
+
+                connect_content = QWidget()
+                connect_content.setStyleSheet("background: transparent;")
+                cl = QHBoxLayout(connect_content)
+                cl.setContentsMargins(0, 0, 0, 0)
+                cl.setSpacing(8)
+                cl.addWidget(comm_mode_combo)
+                cl.addWidget(serial_combo)
+                cl.addWidget(ip_label)
+                cl.addWidget(ip_edit)
+                cl.addWidget(port_label)
+                cl.addWidget(port_edit)
+                cl.addWidget(btn_connect)
+                cl.addStretch(1)
+                timeline.addStep("设备连接", connect_content)
+
+                def _on_itech_comm_mode_changed(mode_is_ip):
+                    if mode_is_ip:
+                        serial_combo.setVisible(False)
+                        ip_label.setVisible(True)
+                        ip_edit.setVisible(True)
+                        port_label.setVisible(True)
+                        port_edit.setVisible(True)
+                    else:
+                        serial_combo.setVisible(True)
+                        ip_label.setVisible(False)
+                        ip_edit.setVisible(False)
+                        port_label.setVisible(False)
+                        port_edit.setVisible(False)
+
+                comm_mode_combo.currentTextChanged.connect(
+                    lambda t: _on_itech_comm_mode_changed(t == "IP"))
+
+                # ── Step 2: 参数设置（SOL:USER 四参数）──
+                textEdit_Vmp = QTextEdit()
+                textEdit_Vmp.setPlainText("220")
+                textEdit_Vmp.setStyleSheet(_INPUT_QSS)
+                textEdit_Vmp.setMaximumHeight(36)
+                textEdit_Voc = QTextEdit()
+                textEdit_Voc.setPlainText("220")
+                textEdit_Voc.setStyleSheet(_INPUT_QSS)
+                textEdit_Voc.setMaximumHeight(36)
+                textEdit_Imp = QTextEdit()
+                textEdit_Imp.setPlainText("")
+                textEdit_Imp.setStyleSheet(_INPUT_QSS)
+                textEdit_Imp.setMaximumHeight(36)
+                textEdit_Isc = QTextEdit()
+                textEdit_Isc.setPlainText("")
+                textEdit_Isc.setStyleSheet(_INPUT_QSS)
+                textEdit_Isc.setMaximumHeight(36)
+                param_content = QWidget()
+                param_content.setStyleSheet("background: transparent;")
+                pl = QGridLayout(param_content)
+                pl.setContentsMargins(0, 0, 0, 0)
+                pl.setSpacing(6)
+                lbl_vmp = QLabel("Vmp:")
+                lbl_vmp.setStyleSheet(_LABEL_QSS)
+                pl.addWidget(lbl_vmp, 0, 0)
+                pl.addWidget(textEdit_Vmp, 0, 1)
+                lbl_voc = QLabel("Voc:")
+                lbl_voc.setStyleSheet(_LABEL_QSS)
+                pl.addWidget(lbl_voc, 0, 2)
+                pl.addWidget(textEdit_Voc, 0, 3)
+                lbl_imp = QLabel("Imp:")
+                lbl_imp.setStyleSheet(_LABEL_QSS)
+                pl.addWidget(lbl_imp, 1, 0)
+                pl.addWidget(textEdit_Imp, 1, 1)
+                lbl_isc = QLabel("Isc:")
+                lbl_isc.setStyleSheet(_LABEL_QSS)
+                pl.addWidget(lbl_isc, 1, 2)
+                pl.addWidget(textEdit_Isc, 1, 3)
+                timeline.addStep("参数设置", param_content)
+
+                # ── Step 3: 直流源设置 ──
+                btn_send = QPushButton("直流源设置")
+                apply_button_style(btn_send, ButtonStyle.PRIMARY)
+                send_content = QWidget()
+                send_content.setStyleSheet("background: transparent;")
+                sl = QHBoxLayout(send_content)
+                sl.setContentsMargins(0, 0, 0, 0)
+                sl.addWidget(btn_send)
+                sl.addStretch(1)
+                timeline.addStep("直流源设置", send_content)
+
+                # ── Step 4: 输出控制 ──
+                btn_on = QPushButton("打开输出")
+                apply_button_style(btn_on, ButtonStyle.SUCCESS)
+                btn_off = QPushButton("关闭输出")
+                apply_button_style(btn_off, ButtonStyle.DANGER)
+                out_content = QWidget()
+                out_content.setStyleSheet("background: transparent;")
+                ol = QHBoxLayout(out_content)
+                ol.setContentsMargins(0, 0, 0, 0)
+                ol.setSpacing(10)
+                ol.addWidget(btn_on)
+                ol.addWidget(btn_off)
+                ol.addStretch(1)
+                timeline.addStep("输出控制", out_content)
+
+                # ── Step 5: 操作日志 ──
+                log_edit = QTextEdit()
+                log_edit.setReadOnly(True)
+                log_edit.setStyleSheet(_LOG_QSS)
+                timeline.addStep("操作日志", log_edit, stretch=True)
+
+                timeline.finalize()
+                lay.addWidget(timeline)
+
+                return {
+                    "container": container,
+                    "comm_mode_combo": comm_mode_combo,
+                    "ip_edit": ip_edit,
+                    "port_edit": port_edit,
+                    "ip_label": ip_label,
+                    "port_label": port_label,
+                    "btn_connect": btn_connect,
+                    "textEdit_Vmp": textEdit_Vmp,
+                    "textEdit_Voc": textEdit_Voc,
+                    "textEdit_Imp": textEdit_Imp,
+                    "textEdit_Isc": textEdit_Isc,
+                    "btn_send": btn_send,
+                    "btn_on": btn_on,
+                    "btn_off": btn_off,
+                    "log_edit": log_edit,
                 }
 
             # 构建 Bluesight 页面
             _bs_dc1 = _build_bluesight_dc1_content()
+            # 构建 Itech 页面
+            _itech_dc1 = _build_itech_dc1_content()
             _dc1_breadcrumb_ref = None
+            _dc1_bs_ref = None      # Bluesight 页面控件引用
+            _dc1_itech_ref = None   # Itech DC1 页面控件引用
 
-            # 重构 DC1 页面：breadcrumb + QStackedWidget(Chroma / Bluesight)
+            # 重构 DC1 页面：breadcrumb + QStackedWidget(Chroma / Bluesight / Itech)
             _dc1_page = ui.stackedWidget.widget(2)
             _dc1_page_layout = _dc1_page.layout()
             _dc1_grid = getattr(_dc1_page, "_grid_comboBox_DC1", None)
@@ -28532,13 +29144,23 @@ if __name__ == "__main__":
 
                 # 创建 QStackedWidget
                 _dc1_stack = QStackedWidget()
-                _dc1_stack.addWidget(_dc1_grid)           # page 0 = Chroma
-                _dc1_stack.addWidget(_bs_dc1["container"])  # page 1 = Bluesight
+                _dc1_stack.addWidget(_dc1_grid)              # page 0 = Chroma
+                _dc1_stack.addWidget(_bs_dc1["container"])   # page 1 = Bluesight
+                _dc1_stack.addWidget(_itech_dc1["container"])  # page 2 = Itech
 
                 # 创建面包屑
                 from components.breadcrumb import BreadcrumbWidget
-                _dc1_breadcrumb = BreadcrumbWidget(["Chroma", "Bluesight"])
-                _dc1_breadcrumb.indexChanged.connect(_dc1_stack.setCurrentIndex)
+                _dc1_breadcrumb = BreadcrumbWidget(["Chroma", "Bluesight", "Itech"])
+
+                _DC1_DEVICE_TYPES = ["chroma", "bluesight", "itech"]
+
+                def _on_dc1_device_changed(idx):
+                    global _dc1_device_type
+                    _dc1_device_type = _DC1_DEVICE_TYPES[idx]
+                    _dc1_stack.setCurrentIndex(idx)
+                    _sync_dc1_connect_buttons()
+
+                _dc1_breadcrumb.indexChanged.connect(_on_dc1_device_changed)
 
                 # 组装：面包屑在上，StackedWidget 在下
                 _dc1_page_layout.addWidget(_dc1_breadcrumb)
@@ -28547,11 +29169,14 @@ if __name__ == "__main__":
                 # ── 绑定 Bluesight 逻辑 ──
                 def _bs_sync_mode_panel():
                     idx = _bs_dc1["combo_mode"].currentIndex()
-                    _bs_dc1["sas_widget"].setVisible(idx == 1)
-                    _bs_dc1["orig_widget"].setVisible(idx == 0)
+                    # stacked_params: page0=SAS, page1=原始负载
+                    if idx == 1:
+                        _bs_dc1["stacked_params"].setCurrentIndex(0)  # SAS
+                    else:
+                        _bs_dc1["stacked_params"].setCurrentIndex(1)  # 原始负载
 
                 def _bs_sync_outmode_page():
-                    _bs_dc1["stacked_params"].setCurrentIndex(
+                    _bs_dc1["params_stack"].setCurrentIndex(
                         _bs_dc1["combo_outmode"].currentIndex()
                     )
 
@@ -28567,15 +29192,20 @@ if __name__ == "__main__":
                         return
                     try:
                         tr = BluesightTranslator(client, device_id=1)
+                        mode_name = "原始负载" if idx == 0 else "SAS"
                         if idx == 0:
                             ok, msg = tr.translate("SYST:MODE 0")
                         else:
                             ok, msg = tr.translate("SYST:MODE SAS")
                         _bs_sync_mode_panel()
+                        _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 模式下发 {mode_name}: {'OK' if ok else 'FAIL'}")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 模式下发 {mode_name}: {'OK' if ok else 'FAIL'}")
                         fn = QMessageBox.information if ok else QMessageBox.warning
                         fn(_dc1_page, "模式下发", (msg or "")[:800])
                     except Exception as ex:
                         _bs_sync_mode_panel()
+                        _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 模式下发异常: {ex}")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 模式下发异常: {ex}")
                         QMessageBox.critical(_dc1_page, "错误", str(ex))
 
                 def _bs_send_curve():
@@ -28593,11 +29223,15 @@ if __name__ == "__main__":
                         )
                         tr = BluesightTranslator(client, device_id=1)
                         ok, msg = tr.write_curve_block(stc=stc)
+                        _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
                         fn = QMessageBox.information if ok else QMessageBox.warning
                         fn(_dc1_page, "曲线发送", (msg or "")[:800])
                     except ValueError as ve:
                         QMessageBox.warning(_dc1_page, "提示", str(ve))
                     except Exception as ex:
+                        _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 曲线发送异常: {ex}")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 曲线发送异常: {ex}")
                         QMessageBox.critical(_dc1_page, "错误", str(ex))
 
                 def _bs_apply_orig_outmode():
@@ -28610,26 +29244,34 @@ if __name__ == "__main__":
                     try:
                         tr = BluesightTranslator(client, device_id=1)
                         idx_o = _bs_dc1["combo_outmode"].currentIndex()
+                        mode_names = ["恒压", "恒流", "恒功率", "恒阻"]
                         params = _bs_dc1
                         if idx_o == 0:
                             ok, msg = tr.write_original_load_params(
-                                0, voltage_v=params["stacked_params"].widget(0).findChild(QDoubleSpinBox).value(),
-                                r_internal_ohm=params["stacked_params"].widget(0).findChildren(QDoubleSpinBox)[1].value())
+                                0, voltage_v=params["params_stack"].widget(0).findChild(QDoubleSpinBox).value(),
+                                r_internal_ohm=params["params_stack"].widget(0).findChildren(QDoubleSpinBox)[1].value())
                         elif idx_o == 1:
                             ok, msg = tr.write_original_load_params(
-                                1, current_a=params["stacked_params"].widget(1).findChild(QDoubleSpinBox).value())
+                                1, current_a=params["params_stack"].widget(1).findChild(QDoubleSpinBox).value())
                         elif idx_o == 2:
                             ok, msg = tr.write_original_load_params(
-                                2, power_kw=params["stacked_params"].widget(2).findChild(QDoubleSpinBox).value())
+                                2, power_kw=params["params_stack"].widget(2).findChild(QDoubleSpinBox).value())
                         else:
                             ok, msg = tr.write_original_load_params(
-                                3, r_load_ohm=params["stacked_params"].widget(3).findChild(QDoubleSpinBox).value())
+                                3, r_load_ohm=params["params_stack"].widget(3).findChild(QDoubleSpinBox).value())
+                        _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 原始负载 {mode_names[idx_o]}: {'OK' if ok else 'FAIL'}")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 原始负载 {mode_names[idx_o]}: {'OK' if ok else 'FAIL'}")
                         fn = QMessageBox.information if ok else QMessageBox.warning
                         fn(_dc1_page, "原始负载输出", (msg or "")[:800])
                     except Exception as ex:
+                        _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 原始负载设置异常: {ex}")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 原始负载设置异常: {ex}")
                         QMessageBox.critical(_dc1_page, "错误", str(ex))
 
                 def _bs_toggle_output(opening: bool):
+                    state = "打开" if opening else "关闭"
+                    _bs_dc1["log_edit"].append(f"[DC1 Bluesight] {state}输出")
+                    ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] {state}输出")
                     if opening:
                         OpenDC1OUTPUTON()
                     else:
@@ -28646,9 +29288,120 @@ if __name__ == "__main__":
                 _bs_dc1["btn_on"].clicked.connect(lambda: _bs_toggle_output(True))
                 _bs_dc1["btn_off"].clicked.connect(lambda: _bs_toggle_output(False))
 
+                # ── Bluesight 独立连接按钮 ──
+                def _bs_connect():
+                    global _dc1_device_type
+                    _dc1_device_type = "bluesight"
+                    ip = _bs_dc1["ip_edit"].text().strip()
+                    port = _bs_dc1["port_edit"].text().strip() or "502"
+                    if not ip:
+                        QMessageBox.warning(None, "提示", "请输入 Bluesight 的 IP 地址")
+                        return
+                    # 同步到 comboBox_DC1 供 ConnectEQUDC1 读取
+                    ui.comboBox_DC1.setCurrentText(f"{ip}:{port}")
+                    _bs_dc1["log_edit"].append(f"正在连接 {ip}:{port} ...")
+                    ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 正在连接 {ip}:{port} ...")
+                    ConnectEQUDC1()
+                    if dc1_controller and dc1_controller.connected:
+                        _bs_dc1["log_edit"].append(f"连接成功 {ip}:{port}")
+                    else:
+                        _bs_dc1["log_edit"].append(f"连接失败 {ip}:{port}")
+
+                def _bs_disconnect():
+                    _bs_dc1["log_edit"].append("正在断开连接 ...")
+                    ui.textEdit_ReturnMessage.append("[DC1 Bluesight] 正在断开连接 ...")
+                    DisconnectEQUDC1()
+                    _bs_dc1["log_edit"].append("已断开连接")
+
+                def _bs_toggle_connect():
+                    if _bs_dc1["btn_connect"].text() == "取消连接":
+                        _bs_disconnect()
+                    else:
+                        _bs_connect()
+
+                _bs_dc1["btn_connect"].clicked.connect(_bs_toggle_connect)
+
+                # ── Itech DC1 独立连接按钮 ──
+                def _itech_dc1_connect():
+                    global _dc1_device_type
+                    _dc1_device_type = "itech"
+                    mode = _itech_dc1["comm_mode_combo"].currentText()
+                    if mode == "IP":
+                        ip = _itech_dc1["ip_edit"].text().strip()
+                        port = _itech_dc1["port_edit"].text().strip() or "502"
+                        if not ip:
+                            QMessageBox.warning(None, "提示", "请输入 Itech 直流电源的 IP 地址")
+                            return
+                        addr = f"{ip}:{port}"
+                        ui.comboBox_DC1.setCurrentText(addr)
+                        _itech_dc1["log_edit"].append(f"正在连接 {addr} ...")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 正在连接 {addr} ...")
+                    else:
+                        serial = ui.comboBox_DC1.currentText()
+                        _itech_dc1["log_edit"].append(f"正在连接 {serial} ...")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 正在连接 {serial} ...")
+                    ConnectEQUDC1()
+                    if dc1_controller and dc1_controller.connected:
+                        _itech_dc1["log_edit"].append("连接成功")
+                    else:
+                        _itech_dc1["log_edit"].append("连接失败")
+
+                def _itech_dc1_disconnect():
+                    _itech_dc1["log_edit"].append("正在断开连接 ...")
+                    ui.textEdit_ReturnMessage.append("[DC1 Itech] 正在断开连接 ...")
+                    DisconnectEQUDC1()
+                    _itech_dc1["log_edit"].append("已断开连接")
+
+                def _itech_dc1_toggle_connect():
+                    if _itech_dc1["btn_connect"].text() == "取消连接":
+                        _itech_dc1_disconnect()
+                    else:
+                        _itech_dc1_connect()
+
+                _itech_dc1["btn_connect"].clicked.connect(_itech_dc1_toggle_connect)
+                _itech_dc1["btn_on"].clicked.connect(OpenDC1OUTPUTON)
+                _itech_dc1["btn_off"].clicked.connect(CloseDC1OUTPUTON)
+
+                def _itech_dc1_send_params():
+                    """发送 Itech SOL:USER 四参数到直流电源1。"""
+                    if dc1_controller is None or not dc1_controller.connected:
+                        QMessageBox.warning(None, "提示", "直流电源1未连接")
+                        return
+                    vmp = _itech_dc1["textEdit_Vmp"].toPlainText().strip()
+                    voc = _itech_dc1["textEdit_Voc"].toPlainText().strip()
+                    imp = _itech_dc1["textEdit_Imp"].toPlainText().strip()
+                    isc = _itech_dc1["textEdit_Isc"].toPlainText().strip()
+                    if not all([vmp, voc, imp, isc]):
+                        QMessageBox.warning(None, "提示", "Vmp/Voc/Imp/Isc 四个参数不能为空")
+                        return
+                    try:
+                        commands = [
+                            f"SOL:USER:VOC {voc}",
+                            f"SOL:USER:IMP {imp}",
+                            f"SOL:USER:VMP {vmp}",
+                            f"SOL:USER:ISC {isc}",
+                        ]
+                        for cmd in commands:
+                            dc1_controller.handle.write(cmd)
+                            time.sleep(0.2)
+                        _itech_dc1["log_edit"].append(
+                            f"[DC1 Itech] 参数已发送: Vmp={vmp}, Voc={voc}, Imp={imp}, Isc={isc}"
+                        )
+                        ui.textEdit_ReturnMessage.append(
+                            f"[DC1 Itech] 参数已发送: Vmp={vmp}, Voc={voc}, Imp={imp}, Isc={isc}"
+                        )
+                    except Exception as e:
+                        _itech_dc1["log_edit"].append(f"[DC1 Itech] 参数发送失败: {e}")
+                        QMessageBox.critical(None, "错误", f"发送失败: {e}")
+                        ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 参数发送失败: {e}")
+
+                _itech_dc1["btn_send"].clicked.connect(_itech_dc1_send_params)
+
                 # 保存引用供外部访问
                 _dc1_breadcrumb_ref = _dc1_breadcrumb
                 _dc1_stack_ref = _dc1_stack
+                _dc1_bs_ref = _bs_dc1
+                _dc1_itech_ref = _itech_dc1
 
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
