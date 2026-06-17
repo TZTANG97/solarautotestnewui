@@ -28196,15 +28196,15 @@ if __name__ == "__main__":
                 {"title": "单条命令测试", "widgets": ["pushButton_SendMessage"]},
                 {"title": "操作日志",   "widgets": "__log__"},
             ]
-            # 直流电源1：设备连接 → 参数设置 → 功率设置 → 输出控制 → 直流源选择 → 命令 → 日志
+            # 直流电源1：设备连接 → 参数设置 → 功率设置 → 输出控制 → 发送IV曲线 → 单条命令查询 → 日志
             _DC1_GRID = [
                 {"title": "设备连接",     "widgets": "__connect_clean__"},
                 {"title": "参数设置",     "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
                                                      "label_2", "textEdit_Imp", "label_4", "textEdit_Isc"]},
                 {"title": "功率设置",     "widgets": ["label_5", "textEdit_PF", "lineEdit_2"]},
                 {"title": "输出控制",     "widgets": ["pushButton_SetDC1ON", "pushButton_SetDC1OFF"]},
-                {"title": "直流源选择",   "widgets": ["lineEdit", "comboBox_DC_Select", "pushButton_SendMessage"]},
-                {"title": "单条命令查询", "widgets": ["pushButton_SendQueryMessage"]},
+                {"title": "发送IV曲线",     "widgets": ["comboBox_DC_Select", "pushButton_SendMessage"]},
+                {"title": "单条命令查询",   "widgets": ["lineEdit", "pushButton_SendQueryMessage"]},
                 {"title": "操作日志",     "widgets": "__log_widget__"},
             ]
             # 直流电源2/3/4：设备连接 → 输出控制 → 单项测试

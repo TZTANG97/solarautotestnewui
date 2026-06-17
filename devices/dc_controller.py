@@ -105,7 +105,11 @@ class DCController:
             print(strtimenow + f' {label} Not Connect')
             self.show_message(f'{label}未连接，请先连接{label}设备', ui_setting)
             return
-        query_message = ui_setting.textEdit_SendQueryMessage.toPlainText()
+        # DL850 使用 textEdit_SendQueryMessage，DC1-4 使用 lineEdit
+        if hasattr(ui_setting, 'textEdit_SendQueryMessage'):
+            query_message = ui_setting.textEdit_SendQueryMessage.toPlainText()
+        else:
+            query_message = ui_setting.lineEdit.text()
         if query_message == '':
             return
         try:

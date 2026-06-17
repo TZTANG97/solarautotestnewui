@@ -116,7 +116,7 @@ class Ui_Dialog_DC1_Setting(object):
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'宋体\'; font-size:10pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'SimSun\'; font-size:9pt;\">220</span></p></body></html>"))
-        self.lineEdit.setText(_translate("Dialog_DC1_Setting", "选择直流源"))
+        self.lineEdit.setPlaceholderText(_translate("Dialog_DC1_Setting", "输入SCPI命令"))
         self.comboBox_DC_Select.setItemText(0, _translate("Dialog_DC1_Setting", "DC1"))
         self.comboBox_DC_Select.setItemText(1, _translate("Dialog_DC1_Setting", "DC2"))
         self.comboBox_DC_Select.setItemText(2, _translate("Dialog_DC1_Setting", "DC3"))
