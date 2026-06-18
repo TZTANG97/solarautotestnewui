@@ -3,6 +3,7 @@ import time
 from PyQt5.QtWidgets import QMessageBox
 
 from .handle_release import release_resource_handle
+from .scpi_socket import ScpiSocket
 from modbus_visa import ModbusVISA
 from scpi_to_modbustcp import ItechTranslator
 
@@ -91,6 +92,31 @@ class ACController:
         self._set_handle(handle)
         self._itech = None
         self.resource = tcp_addr
+        return self.handle, '1'
+
+    def connect_scpi_tcp(self, host, port, ui):
+        """通过原生 TCP Socket 连接交流电源（绕过 PyVISA/NI-VISA）。"""
+        try:
+            scpi = ScpiSocket(host, port, timeout=10)
+            scpi.connect()
+        except Exception as e:
+            self.logger.error(f'AC TCP 连接异常: {e}')
+            self.show_message(f'交流电源 TCP 连接失败：{e}', ui)
+            self._set_handle(None)
+            return None, '0'
+        # 测试连接：发 *IDN?
+        try:
+            idn = scpi.query('*IDN?')
+            self.logger.info(f'AC *IDN? = {idn}')
+            print(f'AC *IDN? = {idn}')
+        except Exception as e:
+            self.logger.warning(f'AC *IDN? 失败（继续连接）: {e}')
+            print(f'AC *IDN? 失败: {e}')
+        self.logger.info('交流电源连接成功(TCP)')
+        print('交流电源连接成功(TCP)')
+        self._set_handle(scpi)
+        self._itech = None
+        self.resource = f"TCPIP::{host}::{port}"
         return self.handle, '1'
 
     def disconnect(self, safe_close_handle):

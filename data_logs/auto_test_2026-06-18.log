@@ -1,0 +1,2 @@
+2026-06-18 00:00:11,242 INFO SCPITestWave.py [27910] Thread-370 (system_error_info) :AC return error message: 0,"No error"
+2026-06-18 00:00:11,305 INFO SCPITestWave.py [27916] Thread-370 (system_error_info) :DC1 return error message: 0,"No error"

@@ -5,14 +5,14 @@
       "resource": "USB0::0x0A69::0x0870::618300000298::INSTR",
       "connected": true,
       "page": 1,
-      "last_connected": "2026-06-16 17:43:07"
+      "last_connected": "2026-06-17 18:28:50"
     },
     {
       "name": "直流电源1",
-      "resource": "192.168.40.2:502",
+      "resource": "USB0::0x0A69::0x084B::S50000002328::INSTR",
       "connected": true,
       "page": 2,
-      "last_connected": "2026-06-17 14:32:30"
+      "last_connected": "2026-06-17 18:29:15"
     },
     {
       "name": "直流电源2",
@@ -47,7 +47,7 @@
       "resource": "192.168.40.100",
       "connected": true,
       "page": 7,
-      "last_connected": "2026-06-16 17:45:23"
+      "last_connected": "2026-06-17 18:26:57"
     },
     {
       "name": "DEWETRON",
@@ -61,8 +61,8 @@
     "name": "电压闪变",
     "status": "已结束",
     "progress": 64,
-    "start_time": "2026-06-16 17:52:38",
+    "start_time": "2026-06-17 18:30:30",
     "estimated_end_time": "",
-    "end_time": "2026-06-17 05:31:39"
+    "end_time": "2026-06-18 08:35:29"
   }
 }

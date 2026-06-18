@@ -193,6 +193,71 @@ class DCController:
         self.resource = ''
         return None, None, '0'
 
+    def write_command(self, command, label="DC"):
+        """发送命令；Modbus 路径自动翻译 BLUESIGHT:STC 为曲线块写入。"""
+        if self.client is not None and hasattr(self.client, 'is_connected'):
+            cmd = command.strip()
+            if cmd.upper().startswith("BLUESIGHT:STC"):
+                parts = cmd.split()
+                if len(parts) == 4:
+                    try:
+                        pmpp_kw = float(parts[1])
+                        umpp_v = float(parts[2])
+                        ff = float(parts[3])
+                    except ValueError:
+                        self.logger.warning(f"{label} BLUESIGHT:STC 参数解析失败: {command}")
+                        return False
+                    return self._send_stc_curve(label, pmpp_kw, umpp_v, ff)
+                return self._send_stc_curve(label)
+            from scpi_to_modbustcp import BluesightTranslator
+            tr = BluesightTranslator(self.client, device_id=1)
+            ok, msg = tr.translate(command)
+            if not ok:
+                self.logger.warning(f"{label} Modbus 翻译失败: {msg}")
+                print(f"{label} Modbus 翻译失败: {msg}")
+            return ok
+        if self.handle is not None:
+            self.handle.write(command)
+            return True
+        return False
+
+    def _send_stc_curve(self, label="DC", pmpp_kw=0, umpp_v=0, ff=0.8):
+        """用 UI 传入的 Pmpp/Umpp/FF 写入 STC 曲线块（仅 SAS 模式）。"""
+        from scpi_to_modbustcp import BluesightTranslator, BluesightCurveSTC
+        tr = BluesightTranslator(self.client, device_id=1)
+        # 检查是否在 SAS 模式（寄存器 0x0F95 = 1）
+        try:
+            mode_val = self.client.read_holding_register(0x0F95, quantity=1)
+            if hasattr(mode_val, 'registers') and mode_val.registers:
+                current_mode = mode_val.registers[0]
+                if current_mode != 0x0001:
+                    self.logger.warning(f"{label} 蓝点当前模式={current_mode}，非SAS(1)，跳过曲线写入")
+                    print(f"{label} 蓝点当前模式={current_mode}，非SAS(1)，跳过曲线写入")
+                    return True
+        except Exception as e:
+            self.logger.warning(f"{label} 读取蓝点模式寄存器失败: {e}，继续尝试写入曲线")
+            print(f"{label} 读取蓝点模式寄存器失败: {e}，继续尝试写入曲线")
+        if pmpp_kw <= 0 or umpp_v <= 0:
+            self.logger.warning(f"{label} 蓝点 STC 参数无效: Pmpp={pmpp_kw}, Umpp={umpp_v}")
+            print(f"{label} 蓝点 STC 参数无效: Pmpp={pmpp_kw}, Umpp={umpp_v}")
+            return False
+        self.logger.info(f"{label} STC 写入: Pmpp={pmpp_kw}kW, Umpp={umpp_v}V, FF={ff}")
+        print(f"{label} STC 写入: Pmpp={pmpp_kw}kW, Umpp={umpp_v}V, FF={ff}")
+        try:
+            stc = BluesightCurveSTC(
+                pmpp_stc_kw=pmpp_kw,
+                umpp_stc_v=umpp_v,
+                fill_factor=ff,
+            )
+            ok, msg = tr.write_curve_block(stc=stc)
+            self.logger.info(f"{label} STC 曲线块: {'OK' if ok else 'FAIL'} - {msg}")
+            print(f"{label} STC 曲线块: {'OK' if ok else 'FAIL'} - {msg}")
+            return ok
+        except Exception as e:
+            self.logger.error(f"{label} STC 曲线块异常: {e}")
+            print(f"{label} STC 曲线块异常: {e}")
+            return False
+
     def poll_syst_err(self, tcp_addr, reconnect_message_prefix):
         """轮询 SYST:ERR?；USB/VISA 失败时先释放旧句柄再重连。Modbus TCP 无 SCPI，不重连。"""
         if self.client is not None:

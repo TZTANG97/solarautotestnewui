@@ -165,7 +165,7 @@ def SendDCTestMessage():
 
     for command in order_list:
         try:
-            controller.handle.write(command)
+            controller.write_command(command, label=selected_dc)
         except Exception as e:
             strtimenow = now_to_datenow()
             logger.info(f"Send message {command} to {selected_dc} error :{e}")
@@ -585,6 +585,10 @@ dc1_controller = None
 dc2_controller = None
 dc3_controller = None
 dc4_controller = None
+
+# 蓝点 STC 参数缓存：用户点击"发送参数到设备"时写入，测试自动化读取
+# key = DC 编号 (1-4), value = {"pmpp": float, "umpp": float, "ff": float}
+bluesight_stc_params = {}
 
 # 过渡期上下文对象：用于把主程序运行时对象同步到 app 层，
 # 方便后续模块化，但不改变现有业务逻辑。
@@ -1078,8 +1082,16 @@ def ConnectEQUAC():
             print(f"Modbus 模式需要 IP 地址，当前地址: {tcp_addr}")
             return
     else:
-        print(f"通过 SCPI 连接交流电源({ac_device_key}): {tcp_addr}")
-        ac_controller.connect_scpi(tcp_addr, ui)
+        # chroma_ip：用原生 TCP Socket 绕过 NI-VISA
+        if _ac_current_brand == "chroma_ip":
+            ip_text = _itech_ip_edit.text().strip() if _itech_ip_edit else ""
+            port_text = _itech_port_edit.text().strip() if _itech_port_edit else ""
+            port = int(port_text) if port_text and port_text.isdigit() else None
+            print(f"通过 TCP Socket 连接交流电源({ac_device_key}): {ip_text}:{'自动探测' if port is None else port}")
+            ac_controller.connect_scpi_tcp(ip_text, port, ui)
+        else:
+            print(f"通过 SCPI 连接交流电源({ac_device_key}): {tcp_addr}")
+            ac_controller.connect_scpi(tcp_addr, ui)
     if ac_controller.connected:
         ui.textEdit_ReturnMessage.append(f"[AC] 连接成功 ({ac_device_key}) {tcp_addr}")
         _remove_equ_from_combo_boxes(tcp_addr)
@@ -2550,7 +2562,7 @@ def thaidianyashanbianSend():
             fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
                 if S3DC1_2Status == "开启":
@@ -2574,7 +2586,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
                 if S3_2DC2Status == "开启":
@@ -2598,7 +2610,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
                 if S3_2DC3Status == "开启":
@@ -2622,7 +2634,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
                 if S3_2DC4Status == "开启":
@@ -2724,7 +2736,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
                 if S3DC1_2Status == "开启":
@@ -2748,7 +2760,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
                 if S3_2DC2Status == "开启":
@@ -2772,7 +2784,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
                 if S3_2DC3Status == "开启":
@@ -2796,7 +2808,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
                 if S3_2DC4Status == "开启":
@@ -2898,7 +2910,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
                 if S3DC1_2Status == "开启":
@@ -2922,7 +2934,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
                 if S3_2DC2Status == "开启":
@@ -2946,7 +2958,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
                 if S3_2DC3Status == "开启":
@@ -2970,7 +2982,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
                 if S3_2DC4Status == "开启":
@@ -3109,7 +3121,7 @@ def thaidianyashanbianSend():
             fS3_2SetTime = SetTimeFunction(fS3_2SetTime, S3_2_TIME_UNIT)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
                 if S3DC1_2Status == "开启":
@@ -3133,7 +3145,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
                 if S3_2DC2Status == "开启":
@@ -3157,7 +3169,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
                 if S3_2DC3Status == "开启":
@@ -3181,7 +3193,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
                 if S3_2DC4Status == "开启":
@@ -3283,7 +3295,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC1
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
                 if S3DC1_2Status == "开启":
@@ -3307,7 +3319,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC2
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
                 if S3_2DC2Status == "开启":
@@ -3331,7 +3343,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC3
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
                 if S3_2DC3Status == "开启":
@@ -3355,7 +3367,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # DC4
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
                 if S3_2DC4Status == "开启":
@@ -3477,7 +3489,7 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             # DC开关组2（闪变结束/恢复）
-            if uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC1.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC1_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3DC1_2Status = uiThaiDianYaShanBian.comboBox_S3_DC1_2.currentText()
                 if S3DC1_2Status == "开启":
@@ -3491,7 +3503,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            if uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC2.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC2_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC2Status = uiThaiDianYaShanBian.comboBox_S3_DC2_2.currentText()
                 if S3_2DC2Status == "开启":
@@ -3505,7 +3517,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            if uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC3.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC3_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC3Status = uiThaiDianYaShanBian.comboBox_S3_DC3_2.currentText()
                 if S3_2DC3Status == "开启":
@@ -3519,7 +3531,7 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            if uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
+            if uiThaiDianYaShanBian.checkBox_S1_DC4.isChecked() and uiThaiDianYaShanBian.checkBox_S3_DC4_2.isChecked():
                 strArraySingle = ["" for _ in range(10)]
                 S3_2DC4Status = uiThaiDianYaShanBian.comboBox_S3_DC4_2.currentText()
                 if S3_2DC4Status == "开启":
@@ -24101,7 +24113,7 @@ def RunProject():
                             raise RuntimeError("DC1控制器未初始化，跳过该命令")
                         if dc1_controller.handle is None:
                             raise RuntimeError("DC1未连接，跳过该命令")
-                        dc1_controller.handle.write(strArrayTest[i][2])
+                        dc1_controller.write_command(strArrayTest[i][2], label="DC1")
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC1 " + strArrayTest[i][2])
                         print(strtimenow + "DC1 " + strArrayTest[i][2])
@@ -24142,7 +24154,7 @@ def RunProject():
                             raise RuntimeError("DC2控制器未初始化，跳过该命令")
                         if dc2_controller.handle is None:
                             raise RuntimeError("DC2未连接，跳过该命令")
-                        dc2_controller.handle.write(strArrayTest[i][2])
+                        dc2_controller.write_command(strArrayTest[i][2], label="DC2")
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC2 " + strArrayTest[i][2])
                         print(strtimenow + "DC2 " + strArrayTest[i][2])
@@ -24183,7 +24195,7 @@ def RunProject():
                             raise RuntimeError("DC3控制器未初始化，跳过该命令")
                         if dc3_controller.handle is None:
                             raise RuntimeError("DC3未连接，跳过该命令")
-                        dc3_controller.handle.write(strArrayTest[i][2])
+                        dc3_controller.write_command(strArrayTest[i][2], label="DC3")
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC3 " + strArrayTest[i][2])
                         print(strtimenow + "DC3 " + strArrayTest[i][2])
@@ -24224,7 +24236,7 @@ def RunProject():
                             raise RuntimeError("DC4控制器未初始化，跳过该命令")
                         if dc4_controller.handle is None:
                             raise RuntimeError("DC4未连接，跳过该命令")
-                        dc4_controller.handle.write(strArrayTest[i][2])
+                        dc4_controller.write_command(strArrayTest[i][2], label="DC4")
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC4 " + strArrayTest[i][2])
                         print(strtimenow + "DC4 " + strArrayTest[i][2])
@@ -25356,7 +25368,7 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
     # 如果 DC 厂家类型未配置/未知，旧逻辑会直接走到函数末尾返回 None，
     # 进而导致命令文件里完全没有 I-V/功率变化命令。
     # 这里做一个保底：默认按 Chroma 的 IVC:IT / IVC:VT 方式生成曲线命令。
-    if not dc_type or dc_type not in ("Chroma", "Keysight", "Itech"):
+    if not dc_type or dc_type not in ("Chroma", "Keysight", "Itech", "Bluesight"):
         try:
             _append_debug_log(f"[DCGetIVValueFunction][warn] unknown dc_type={dc_type!r} for DC{DCNumber}, fallback to 'Chroma'")
         except Exception:
@@ -25504,6 +25516,15 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
             strArrayIVValue.append(f"SOL:USER:VMP {fDCVmp}")
             strArrayIVValue.append(f"SOL:USER:ISC {fDCIsc}")
             return strArrayIVValue
+    elif dc_type and dc_type == "Bluesight":
+        # 蓝点：从 UI 缓存读取 Pmpp/Umpp/FF，编码到命令字符串
+        params = bluesight_stc_params.get(int(DCNumber), {})
+        pmpp = params.get("pmpp", 0)
+        umpp = params.get("umpp", 0)
+        ff = params.get("ff", 0.8)
+        if pmpp <= 0 or umpp <= 0:
+            return "1"
+        return [f"BLUESIGHT:STC {pmpp} {umpp} {ff}"]
 
     # 兜底：理论上不会走到这里
     return "1"
@@ -28136,6 +28157,7 @@ if __name__ == "__main__":
                 "Chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"],
                 "Keysight": ["SAS:MODE TABL", "SAS:TABL:ACT 1"],
                 "Itech": ["SOL 0", "SOL 1"],
+                "Bluesight": [],
             }
 
             # with open(f'.\config_files\{FILE_NAME}', 'r', encoding='utf-8') as f:
@@ -28600,7 +28622,7 @@ if __name__ == "__main__":
                                 _chroma_ip_edit.setMinimumWidth(160)
                                 _chroma_ip_edit.setVisible(False)
                                 _chroma_port_edit = QtWidgets.QLineEdit()
-                                _chroma_port_edit.setPlaceholderText("502")
+                                _chroma_port_edit.setPlaceholderText("留空自动探测")
                                 _chroma_port_edit.setStyleSheet(_INPUT_QSS)
                                 _chroma_port_edit.setMinimumWidth(80)
                                 _chroma_port_edit.setVisible(False)
@@ -28972,8 +28994,11 @@ if __name__ == "__main__":
                 comm_mode_combo.setStyleSheet(_INPUT_QSS)
                 comm_mode_combo.setFixedWidth(80)
 
-                # 串口选择（默认显示）
-                serial_combo = ui.comboBox_DC1
+                # Itech DC1 独立串口选择框（不共享 comboBox_DC1）
+                itech_serial_combo = QComboBox()
+                itech_serial_combo.setEditable(True)
+                itech_serial_combo.setMinimumWidth(200)
+                itech_serial_combo.setStyleSheet(_INPUT_QSS)
 
                 # IP 输入（默认隐藏）
                 ip_edit = QtWidgets.QLineEdit()
@@ -29006,7 +29031,7 @@ if __name__ == "__main__":
                 cl.setContentsMargins(0, 0, 0, 0)
                 cl.setSpacing(8)
                 cl.addWidget(comm_mode_combo)
-                cl.addWidget(serial_combo)
+                cl.addWidget(itech_serial_combo)
                 cl.addWidget(ip_label)
                 cl.addWidget(ip_edit)
                 cl.addWidget(port_label)
@@ -29015,22 +29040,22 @@ if __name__ == "__main__":
                 cl.addStretch(1)
                 timeline.addStep("设备连接", connect_content)
 
-                def _on_itech_comm_mode_changed(mode_is_ip):
+                def _on_itech_dc1_comm_mode_changed(mode_is_ip):
                     if mode_is_ip:
-                        serial_combo.setVisible(False)
+                        itech_serial_combo.setVisible(False)
                         ip_label.setVisible(True)
                         ip_edit.setVisible(True)
                         port_label.setVisible(True)
                         port_edit.setVisible(True)
                     else:
-                        serial_combo.setVisible(True)
+                        itech_serial_combo.setVisible(True)
                         ip_label.setVisible(False)
                         ip_edit.setVisible(False)
                         port_label.setVisible(False)
                         port_edit.setVisible(False)
 
                 comm_mode_combo.currentTextChanged.connect(
-                    lambda t: _on_itech_comm_mode_changed(t == "IP"))
+                    lambda t: _on_itech_dc1_comm_mode_changed(t == "IP"))
 
                 # ── Step 2: 参数设置（SOL:USER 四参数）──
                 textEdit_Vmp = QTextEdit()
@@ -29110,6 +29135,7 @@ if __name__ == "__main__":
                 return {
                     "container": container,
                     "comm_mode_combo": comm_mode_combo,
+                    "itech_serial_combo": itech_serial_combo,
                     "ip_edit": ip_edit,
                     "port_edit": port_edit,
                     "ip_label": ip_label,
@@ -29216,13 +29242,18 @@ if __name__ == "__main__":
                     if _bs_dc1["combo_mode"].currentIndex() != 1:
                         return
                     try:
+                        pmpp_val = _bs_dc1["sp_pmpp"].value()
+                        umpp_val = _bs_dc1["sp_umpp"].value()
+                        ff_val = _bs_dc1["sp_ff"].value()
                         stc = BluesightCurveSTC(
-                            pmpp_stc_kw=_bs_dc1["sp_pmpp"].value(),
-                            umpp_stc_v=_bs_dc1["sp_umpp"].value(),
-                            fill_factor=_bs_dc1["sp_ff"].value(),
+                            pmpp_stc_kw=pmpp_val,
+                            umpp_stc_v=umpp_val,
+                            fill_factor=ff_val,
                         )
                         tr = BluesightTranslator(client, device_id=1)
                         ok, msg = tr.write_curve_block(stc=stc)
+                        if ok:
+                            bluesight_stc_params[1] = {"pmpp": pmpp_val, "umpp": umpp_val, "ff": ff_val}
                         _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
                         ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
                         fn = QMessageBox.information if ok else QMessageBox.warning
@@ -29333,13 +29364,14 @@ if __name__ == "__main__":
                             QMessageBox.warning(None, "提示", "请输入 Itech 直流电源的 IP 地址")
                             return
                         addr = f"{ip}:{port}"
-                        ui.comboBox_DC1.setCurrentText(addr)
-                        _itech_dc1["log_edit"].append(f"正在连接 {addr} ...")
-                        ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 正在连接 {addr} ...")
                     else:
-                        serial = ui.comboBox_DC1.currentText()
-                        _itech_dc1["log_edit"].append(f"正在连接 {serial} ...")
-                        ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 正在连接 {serial} ...")
+                        addr = _itech_dc1["itech_serial_combo"].currentText().strip()
+                        if not addr:
+                            QMessageBox.warning(None, "提示", "请选择或输入 Itech 直流电源的地址")
+                            return
+                    ui.comboBox_DC1.setCurrentText(addr)
+                    _itech_dc1["log_edit"].append(f"正在连接 {addr} ...")
+                    ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 正在连接 {addr} ...")
                     ConnectEQUDC1()
                     if dc1_controller and dc1_controller.connected:
                         _itech_dc1["log_edit"].append("连接成功")
@@ -29406,6 +29438,9 @@ if __name__ == "__main__":
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
             _refresh_all_equ_combo_boxes(EQUList, _connected_equ_resources)
+            # Itech DC1 独立串口选择框也刷新资源列表
+            if _dc1_itech_ref is not None:
+                _refresh_combo_box_with_states(_dc1_itech_ref["itech_serial_combo"], EQUList, _connected_equ_resources)
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT, EQUList, _connected_equ_resources)
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT, EQUList, _connected_equ_resources)
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT, EQUList, _connected_equ_resources)
@@ -29561,7 +29596,8 @@ if __name__ == "__main__":
                 ui.pushButton_SendWCommand.setEnabled(False)'''
 
             ui.pushButton_ReConnectEQU.clicked.connect(ReConnectEQU)
-            ui.pushButton_ConnectEQUAC.clicked.connect(ConnectEQUAC)
+            # AC 连接按钮已在 AC breadcrumb setup (line ~28677) 中连接 _connect_ac_with_mode
+            # 此处不再重复连接，否则会触发两次 ConnectEQUAC 导致连接后立即断开
             ui.pushButton_ConnectEQUDC1.clicked.connect(ConnectEQUDC1)
             ui.pushButton_ConnectEQUDC2.clicked.connect(ConnectEQUDC2)
             ui.pushButton_ConnectEQUDC3.clicked.connect(ConnectEQUDC3)
