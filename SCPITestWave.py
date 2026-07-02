@@ -29714,35 +29714,140 @@ if __name__ == "__main__":
             _safe_click(uiThaiDianYaShanBian, "pushButton_ReadSettingFile", OpenFileDialogThaiDianYaShanBian)
             _safe_click(uiThaiDianYaShanBian, "pushButton_SaveSettingFile", SaveFileDialogThaidianyashanbian)
 
-            # DEWETRON 闪变测试生效按钮 — 自测用
+            # DEWETRON 闪变测试生效按钮
             def dewetron_flicker_test_apply():
                 """读取设备XML，应用闪变参数，发送到设备。"""
                 if dewetron_controller is None or not dewetron_controller.connected:
                     QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
                     return
+                # 读取 UI 参数
+                weighting_text = uiThaiDianYaShanBian.comboBox_DEW_WeightingType.currentText()
+                max_rate = uiThaiDianYaShanBian.comboBox_DEW_MaxRefreshRate.currentText()
+                nom_v = uiThaiDianYaShanBian.textEdit_DEW_NominalVoltage.toPlainText().strip()
+                short_t = uiThaiDianYaShanBian.textEdit_DEW_ShortFlickerTime.toPlainText().strip()
+                long_t = uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText().strip()
+                scp = uiThaiDianYaShanBian.textEdit_DEW_ShortCircuitPower.toPlainText().strip()
+                rolling = uiThaiDianYaShanBian.checkBox_DEW_RollingCalc.isChecked()
+                flicker_std = uiThaiDianYaShanBian.checkBox_DEW_FlickerStandard.isChecked()
+                # UI 文本 -> XML 枚举值（设备格式：TYPE_前缀 + 大写，AUTO 无前缀）
+                _flicker_type_map = {
+                    '自动检测': 'AUTO', '230V / 50Hz': 'TYPE_230V50HZ',
+                    '230V / 60Hz': 'TYPE_230V60HZ', '120V / 50Hz': 'TYPE_120V50HZ',
+                    '120V / 60Hz': 'TYPE_120V60HZ',
+                }
+                flicker_type = _flicker_type_map.get(weighting_text, 'AUTO')
+                # 校验必填字段（自动检测时标称电压可空）
+                missing = []
+                if flicker_type != 'AUTO' and not nom_v:
+                    missing.append("标称电压")
+                if not short_t:
+                    missing.append("短时闪变计算时间")
+                if not long_t:
+                    missing.append("长时闪变计算时间")
+                if not scp:
+                    missing.append("短路视在功率")
+                if missing:
+                    QMessageBox.warning(None, "参数不完整",
+                        f"以下参数不能为空：\n{'、'.join(missing)}")
+                    return
+                ui.textEdit_ReturnMessage.append(
+                    f"[DEWETRON 闪变] 参数: 加权={weighting_text}({flicker_type}), 刷新率={max_rate}, "
+                    f"标称电压={nom_v}V, 短时={short_t}min, 长时={long_t}min, "
+                    f"短路视在功率={scp}MVA, 滚动计算={'开' if rolling else '关'}, "
+                    f"IEC标准={'开' if flicker_std else '关'}"
+                )
+                # 读取设备 XML
                 channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
                 if not xml_string:
                     QMessageBox.warning(None, "读取失败", "无法从设备读取配置")
                     return
-                # 读取闪变参数（目前只读取，不修改XML，因为设备不接受SCPI修改这些属性）
-                weighting = uiThaiDianYaShanBian.comboBox_DEW_WeightingType.currentText()
-                max_rate = uiThaiDianYaShanBian.comboBox_DEW_MaxRefreshRate.currentText()
-                nom_v = uiThaiDianYaShanBian.textEdit_DEW_NominalVoltage.toPlainText()
-                short_t = uiThaiDianYaShanBian.textEdit_DEW_ShortFlickerTime.toPlainText()
-                long_t = uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText()
-                scp = uiThaiDianYaShanBian.textEdit_DEW_ShortCircuitPower.toPlainText()
-                rolling = uiThaiDianYaShanBian.checkBox_DEW_RollingCalc.isChecked()
-                ui.textEdit_ReturnMessage.append(
-                    f"[DEWETRON 闪变] 参数: 加权={weighting}, 刷新率={max_rate}, "
-                    f"标称电压={nom_v}V, 短时={short_t}min, 长时={long_t}min, "
-                    f"短路视在功率={scp}MVA, 滚动计算={'开' if rolling else '关'}"
+                # 修改 XML 并发送
+                xml_string = dewetron_controller.modify_xml(
+                    xml_string, wiring_type=None, channel_map={},
+                    acquisition_rate=max_rate if max_rate != 'Default' else None,
+                    flicker_type=flicker_type,
+                    nominal_voltage=nom_v if flicker_type != 'AUTO' else None,
+                    pst_time=short_t, plt_time=long_t,
+                    short_circuit_power=scp, flicker_enabled=flicker_std,
+                    rolling_enabled=rolling,
                 )
-                # 直接发送原始XML（这些属性需在设备端设置）
                 if dewetron_controller.send_apply_config(xml_string):
-                    QMessageBox.information(None, "测试生效", "DEWETRON 配置已重新加载")
+                    err = dewetron_controller._query(":SYSTEM:ERROR:ALL?", timeout_ms=5000)
+                    ui.textEdit_ReturnMessage.append(f"[DEWETRON] 闪变配置已应用，错误队列: {err}")
+                    QMessageBox.information(None, "测试生效", "DEWETRON 闪变配置已应用")
                 else:
-                    QMessageBox.warning(None, "失败", "配置发送失败")
+                    err = dewetron_controller._query(":SYSTEM:ERROR:ALL?", timeout_ms=5000)
+                    ui.textEdit_ReturnMessage.append(f"[DEWETRON] APPLY 失败，错误队列: {err}")
+                    QMessageBox.warning(None, "失败", f"配置发送失败\n错误队列: {err}")
             _safe_click(uiThaiDianYaShanBian, "pushButton_DEW_TestApply", dewetron_flicker_test_apply)
+
+            # DEWETRON 导出字段测试生效按钮
+            def dewetron_export_fields_test_apply():
+                """读取设备XML，应用导出字段选择，发送到设备。"""
+                if dewetron_controller is None or not dewetron_controller.connected:
+                    QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
+                    return
+                # 获取勾选的字段
+                checked_fields = uiThaiDianYaShanBian.get_checked_export_fields()
+                if not checked_fields:
+                    QMessageBox.warning(None, "参数不完整", "请至少选择一个导出字段")
+                    return
+                ui.textEdit_ReturnMessage.append(
+                    f"[DEWETRON 导出字段] 选中 {len(checked_fields)} 个字段"
+                )
+                import time
+                # 每次都从设备读取最新 XML（APPLY 后 ChannelID 会变）
+                # 带重试：APPLY 后设备可能需要时间重新加载
+                channel_id_map, xml_string = None, None
+                for attempt in range(3):
+                    channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
+                    if xml_string and channel_id_map:
+                        break
+                    if attempt < 2:
+                        ui.textEdit_ReturnMessage.append(
+                            f"[DEWETRON] 读取设备配置失败，2秒后重试... ({attempt+1}/3)")
+                        time.sleep(2)
+                if not xml_string or not channel_id_map:
+                    QMessageBox.warning(None, "读取失败", "无法从设备读取配置或通道映射为空")
+                    return
+                # 修改 XML 并发送
+                decimal_places = uiThaiDianYaShanBian.spinBox_DEW_DecimalPlaces.value()
+                realtime_waveform = uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.isChecked()
+                xml_string = dewetron_controller.modify_xml(
+                    xml_string, wiring_type=None, channel_map={},
+                    channel_id_map=channel_id_map,
+                    export_fields=checked_fields,
+                    decimal_places=decimal_places,
+                    realtime_waveform=realtime_waveform,
+                )
+                if dewetron_controller.send_apply_config(xml_string):
+                    time.sleep(1)
+                    err = dewetron_controller._query(":SYSTEM:ERROR:ALL?", timeout_ms=5000)
+                    ui.textEdit_ReturnMessage.append(f"[DEWETRON] 导出字段配置已应用，错误队列: {err}")
+                    QMessageBox.information(None, "测试生效", "DEWETRON 导出字段配置已应用")
+                else:
+                    err = dewetron_controller._query(":SYSTEM:ERROR:ALL?", timeout_ms=5000)
+                    ui.textEdit_ReturnMessage.append(f"[DEWETRON] APPLY 失败，错误队列: {err}")
+                    QMessageBox.warning(None, "失败", f"配置发送失败\n错误队列: {err}")
+            _safe_click(uiThaiDianYaShanBian, "pushButton_DEW_TestApply_Export", dewetron_export_fields_test_apply)
+
+            # 切换德威创模式时，从设备读取 XML 并刷新字段选择树
+            def _on_dewetron_mode_toggled(checked):
+                if not checked:
+                    return
+                if dewetron_controller is None or not dewetron_controller.connected:
+                    ui.textEdit_ReturnMessage.append("[DEWETRON] 设备未连接，字段树使用占位提示")
+                    return
+                try:
+                    _, xml_data = dewetron_controller.read_channel_id_map()
+                    if xml_data:
+                        uiThaiDianYaShanBian.refresh_export_field_tree(xml_data)
+                        ui.textEdit_ReturnMessage.append("[DEWETRON] 字段选择树已从设备配置刷新")
+                    else:
+                        ui.textEdit_ReturnMessage.append("[DEWETRON] 无法读取设备配置")
+                except Exception as e:
+                    ui.textEdit_ReturnMessage.append(f"[DEWETRON] 刷新字段树失败: {e}")
+            uiThaiDianYaShanBian.radio_dewetron.toggled.connect(_on_dewetron_mode_toggled)
 
             # 谐波电流
             _safe_click(uiThaiXieBoDianLiu, "pushButton_TestAppend", thaixiebodianliuAppend)

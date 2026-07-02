@@ -178,6 +178,11 @@ class DewetronController:
         decl_pos = xml.find('<?xml')
         if decl_pos > 0:
             xml = xml[decl_pos:]
+        elif decl_pos < 0:
+            # 没有 <?xml 声明，检查是否是有效 XML
+            if '<MeasurementConfig' not in xml:
+                print(f"[DEWETRON] read_channel_id_map: 返回内容不是有效 XML (前100字节: {xml[:100]})")
+                return {}, None
 
         channel_map = {}
         for ch_match in re.finditer(r'<Channel id="(\d+)">(.*?)</Channel>', xml, re.DOTALL):
@@ -189,7 +194,7 @@ class DewetronController:
                 channel_map[short_id] = int(ch_id)
                 if '/I' in short_id:
                     channel_map[short_id.replace('/I', '/l')] = int(ch_id)
-        print("[DEWETRON] --- 设备通道 ID 映射 ---")
+        print(f"[DEWETRON] --- 设备通道 ID 映射 ({len(channel_map)} 个) ---")
         for name, cid in sorted(channel_map.items()):
             if name.startswith('AI'):
                 print(f"  {name} -> {cid}")
@@ -233,7 +238,10 @@ class DewetronController:
 
     @staticmethod
     def modify_xml(xml_string, wiring_type, channel_map, channel_id_map=None, input_channels=None,
-                   acquisition_rate=None, downsampling=None, frequency_channel=None):
+                   acquisition_rate=None, downsampling=None, frequency_channel=None,
+                   flicker_type=None, nominal_voltage=None, pst_time=None, plt_time=None,
+                   short_circuit_power=None, flicker_enabled=None, rolling_enabled=None,
+                   export_fields=None, decimal_places=None, realtime_waveform=None):
         """根据 UI 设置修改 XML 配置字符串。
 
         Args:
@@ -245,6 +253,18 @@ class DewetronController:
             acquisition_rate: 最大刷新率 (如 '100', 'Default')，为 None 时不修改。
             downsampling: 通道二次采样 (如 'Auto', '2', '关')，为 None 时不修改。
             frequency_channel: 输入通道 (如 'AI 1/U1')，为 None 时不修改。映射到 POWER/FrequencyChannel。
+            flicker_type: 加权类型 (如 'AUTO', '230V50Hz')，为 None 时不修改。
+            nominal_voltage: 标称电压 (如 '230')，为 None 时不修改。
+            pst_time: 短时闪变计算时间 (如 '10')，为 None 时不修改。
+            plt_time: 长时闪变计算时间 (如 '120')，为 None 时不修改。
+            short_circuit_power: 短路视在功率 (如 '50')，为 None 时不修改。
+            flicker_enabled: 闪变功能开关 (True/False)，为 None 时不修改。
+            rolling_enabled: 滚动计算开关 (True/False)，为 None 时不修改。
+            export_fields: 导出字段列表 (如 ['U1_tRMS', 'I1_fundRMS'])，为 None 时不修改。
+                          修改 XML 中 ExportSetup/ExportChannels 部分，仅保留选中的通道。
+                          需要 channel_id_map 来将 ShortId 映射到 ChannelID。
+            decimal_places: 导出小数位数 (如 3, 6)，为 None 时不修改。对应 EXPORT_VALUE_PRECISION。
+            realtime_waveform: 实时波形开关 (True/False)，为 None 时不修改。对应 WAVEFORM。
         Returns:
             修改后的 XML 字符串
         """
@@ -254,13 +274,13 @@ class DewetronController:
         }
         xml = xml_string
 
-        # 1. 修改接线类型
-        wiring_enum = WIRING_TYPE_MAP.get(wiring_type, 'AC_1P2W')
+        # 1. 修改接线类型（wiring_type 为 None 时跳过）
+        wiring_enum = WIRING_TYPE_MAP.get(wiring_type, 'AC_1P2W') if wiring_type is not None else None
         old_wiring = re.search(
-            r'(<Property name="POWER/WiringType"><EnumValue enum="PowerWiringType">)([^<]+)(</EnumValue>)',
+            r'(<Property name="POWER/WiringType">\s*<EnumValue enum="PowerWiringType">)([^<]+)(</EnumValue>)',
             xml
         )
-        if old_wiring:
+        if wiring_enum is not None and old_wiring:
             xml = xml[:old_wiring.start(2)] + wiring_enum + xml[old_wiring.end(2):]
             print(f"[DEWETRON] WiringType -> {wiring_enum}")
 
@@ -293,10 +313,93 @@ class DewetronController:
             xml = xml[:start] + new_val + xml[end:]
             print(f"[DEWETRON] {label} -> True")
 
+        # 3.5 修改导出设置的 ExportChannels（export_fields 不为 None 时）
+        # 导出设置页面的勾选通道存储在 ExportSetup/ExportChannels 中
+        if export_fields is not None:
+            export_set = set(export_fields)
+            print(f"[DEWETRON] 导出字段选择: {len(export_set)} 个字段")
+
+            # 构建 ShortId -> ChannelID 反向映射（从 XML 中读取）
+            short_to_cid = {}
+            for m in re.finditer(r'<Channel id="(\d+)">(.*?)</Channel>', xml, re.DOTALL):
+                ch_id = m.group(1)
+                ch_body = m.group(2)
+                sid_m = re.search(r'ShortId"><StringValue>"([^"]+)"', ch_body)
+                if sid_m:
+                    short_to_cid[sid_m.group(1)] = ch_id
+
+            # 收集选中字段的 ChannelID
+            export_channel_ids = []
+            for field in export_set:
+                cid = short_to_cid.get(field)
+                if cid:
+                    export_channel_ids.append(cid)
+                else:
+                    print(f"[DEWETRON] 导出字段 {field}: 未找到 ChannelID，跳过")
+
+            # 构建新的 ExportChannels XML
+            new_export_channels = '<ExportChannels>'
+            for cid in export_channel_ids:
+                new_export_channels += f'<ExportChannel channel_id="{cid}"/>'
+            new_export_channels += '</ExportChannels>'
+
+            # 替换旧的 ExportChannels
+            ec_match = re.search(r'<ExportChannels>.*?</ExportChannels>', xml, re.DOTALL)
+            if ec_match:
+                old_len = ec_match.end() - ec_match.start()
+                xml = xml[:ec_match.start()] + new_export_channels + xml[ec_match.end():]
+                print(f"[DEWETRON] ExportChannels 已替换: {len(export_channel_ids)} 个通道 (原 {old_len} 字节 -> 新 {len(new_export_channels)} 字节)")
+            else:
+                # 如果没有 ExportChannels，找 ExportSettings 并在其中插入
+                es_match = re.search(r'<ExportSettings[^>]*>', xml)
+                if es_match:
+                    insert_pos = es_match.end()
+                    xml = xml[:insert_pos] + new_export_channels + xml[insert_pos:]
+                    print(f"[DEWETRON] 新增 ExportChannels: {len(export_channel_ids)} 个通道")
+                else:
+                    print("[DEWETRON] 未找到 ExportSettings，无法修改导出通道")
+        else:
+            print("[DEWETRON] 无 export_fields，跳过导出字段修改")
+
+        # 3.6 修改导出属性（ExportProperties）
+        # EXPORT_VALUE_PRECISION: 小数位数 (UnsignedInt64)
+        # WAVEFORM: 实时波形 (BooleanValue)
+        ep_match = re.search(r'<ExportProperties>(.*?)</ExportProperties>', xml, re.DOTALL)
+        if ep_match:
+            ep_xml = ep_match.group(0)
+            ep_start = ep_match.start()
+            ep_replacements = []
+
+            if decimal_places is not None:
+                old_prec = re.search(r'<Property name="EXPORT_VALUE_PRECISION"><UnsignedInt64>(\d+)</UnsignedInt64>', ep_xml)
+                if old_prec and int(old_prec.group(1)) != decimal_places:
+                    s = ep_start + old_prec.start(1)
+                    e = s + len(old_prec.group(1))
+                    ep_replacements.append((s, e, str(decimal_places), f'EXPORT_VALUE_PRECISION -> {decimal_places}'))
+
+            if realtime_waveform is not None:
+                old_wf = re.search(r'<Property name="WAVEFORM"><BooleanValue>(True|False)</BooleanValue>', ep_xml)
+                if old_wf:
+                    new_wf = 'True' if realtime_waveform else 'False'
+                    if old_wf.group(1) != new_wf:
+                        s = ep_start + old_wf.start(1)
+                        e = s + len(old_wf.group(1))
+                        ep_replacements.append((s, e, new_wf, f'WAVEFORM -> {new_wf}'))
+
+            ep_replacements.sort(key=lambda x: x[0], reverse=True)
+            for start, end, val, label in ep_replacements:
+                xml = xml[:start] + val + xml[end:]
+                print(f"[DEWETRON] {label}")
+            if not ep_replacements:
+                print("[DEWETRON] ExportProperties 无需修改（已与 UI 一致）")
+        else:
+            print("[DEWETRON] 未找到 ExportProperties，跳过导出属性修改")
+
         # 4. InputChannels 映射 — 用 UI 选择的通道 + 当前设备 ChannelID 构建
         # channel_map: {'U1': 'AI 1/U2', 'I1': 'AI 1/l2'}
         # channel_id_map: {'AI 1/U2': 13800436624556818457, ...}
-        if channel_id_map:
+        # channel_map 为空时跳过（避免将所有通道误设为 UNUSED）
+        if channel_id_map and channel_map:
             ic_replacements = []
             for slot_name, ch_name in channel_map.items():
                 if ch_name:
@@ -347,8 +450,9 @@ class DewetronController:
         # 6. 最大刷新率 (POWER/MaxUpdateRate) — PowerModule 全局属性，单位 ms
         if acquisition_rate is not None and acquisition_rate != 'Default':
             mu_replacements = []
-            for m in re.finditer(r'(<Property name="POWER/MaxUpdateRate"><StringValue>")"?(\d+)"?(</StringValue>)', xml):
-                if m.group(2) != acquisition_rate:
+            for m in re.finditer(r'(<Property name="POWER/MaxUpdateRate">\s*<StringValue>)"?([^"<]+)"?(</StringValue>)', xml):
+                old_val = m.group(2).strip('"')
+                if old_val != acquisition_rate:
                     mu_replacements.append((m.start(2), m.end(2), acquisition_rate, 'POWER/MaxUpdateRate'))
             mu_replacements.sort(key=lambda x: x[0], reverse=True)
             for start, end, val, label in mu_replacements:
@@ -363,7 +467,7 @@ class DewetronController:
         if downsampling is not None:
             xml_value = DS_VALUE_MAP.get(downsampling, downsampling)
             ds_replacements = []
-            for m in re.finditer(r'(<Property name="POWER/DataSubsampling"><StringValue>")"?([^"<]+)"?(</StringValue>)', xml):
+            for m in re.finditer(r'(<Property name="POWER/DataSubsampling">\s*<StringValue>)"?([^"<]+)"?(</StringValue>)', xml):
                 if m.group(2) != xml_value:
                     ds_replacements.append((m.start(2), m.end(2), xml_value, 'POWER/DataSubsampling'))
             ds_replacements.sort(key=lambda x: x[0], reverse=True)
@@ -378,7 +482,7 @@ class DewetronController:
             fc_cid = channel_id_map.get(frequency_channel) or channel_id_map.get(frequency_channel.replace('/l', '/I'))
             if fc_cid:
                 fc_replacements = []
-                for m in re.finditer(r'(<Property name="POWER/FrequencyChannel"><ChannelID>)(\d+)(</ChannelID>)', xml):
+                for m in re.finditer(r'(<Property name="POWER/FrequencyChannel">\s*<ChannelID>)(\d+)(</ChannelID>)', xml):
                     if m.group(2) != str(fc_cid):
                         fc_replacements.append((m.start(2), m.end(2), str(fc_cid), 'POWER/FrequencyChannel'))
                 fc_replacements.sort(key=lambda x: x[0], reverse=True)
@@ -389,6 +493,82 @@ class DewetronController:
                     print("[DEWETRON] POWER/FrequencyChannel 无需修改（已与 UI 一致）")
             else:
                 print(f"[DEWETRON] 输入通道 {frequency_channel}: 未找到 ChannelID，跳过")
+
+        # ── 9. 闪变参数 ──
+        # XML 中标签可能跨多行，用 \s* 匹配标签间的空白（含换行）
+        flicker_replacements = []
+
+        # 9a. FlickerType (EnumValue)
+        if flicker_type is not None:
+            for m in re.finditer(
+                r'(<Property name="POWER/FlickerType">\s*<EnumValue enum="FlickerType">)([^<]+)(</EnumValue>)',
+                xml
+            ):
+                if m.group(2) != flicker_type:
+                    flicker_replacements.append((m.start(2), m.end(2), flicker_type, 'POWER/FlickerType'))
+
+        # 9b. NominalVoltage (ScalarValue)
+        if nominal_voltage is not None:
+            for m in re.finditer(
+                r'(<Property name="POWER/Flicker/NominalVoltage">\s*<ScalarValue>\s*<Value>)([^<]+)(</Value>)',
+                xml
+            ):
+                if m.group(2) != nominal_voltage:
+                    flicker_replacements.append((m.start(2), m.end(2), nominal_voltage, 'POWER/Flicker/NominalVoltage'))
+
+        # 9c. PstAggregationTime (ScalarValue)
+        if pst_time is not None:
+            for m in re.finditer(
+                r'(<Property name="POWER/Flicker/PstAggregationTime">\s*<ScalarValue>\s*<Value>)([^<]+)(</Value>)',
+                xml
+            ):
+                if m.group(2) != pst_time:
+                    flicker_replacements.append((m.start(2), m.end(2), pst_time, 'POWER/Flicker/PstAggregationTime'))
+
+        # 9d. PltAggregationTime (ScalarValue)
+        if plt_time is not None:
+            for m in re.finditer(
+                r'(<Property name="POWER/Flicker/PltAggregationTime">\s*<ScalarValue>\s*<Value>)([^<]+)(</Value>)',
+                xml
+            ):
+                if m.group(2) != plt_time:
+                    flicker_replacements.append((m.start(2), m.end(2), plt_time, 'POWER/Flicker/PltAggregationTime'))
+
+        # 9e. ShortCircuitPower (ScalarValue)
+        if short_circuit_power is not None:
+            for m in re.finditer(
+                r'(<Property name="POWER/Flicker/ShortCircuitPower">\s*<ScalarValue>\s*<Value>)([^<]+)(</Value>)',
+                xml
+            ):
+                if m.group(2) != short_circuit_power:
+                    flicker_replacements.append((m.start(2), m.end(2), short_circuit_power, 'POWER/Flicker/ShortCircuitPower'))
+
+        # 9f. Features/Flicker (BooleanValue)
+        if flicker_enabled is not None:
+            bool_str = 'True' if flicker_enabled else 'False'
+            for m in re.finditer(
+                r'(<Property name="POWER/Features/Flicker">\s*<BooleanValue>)(True|False)(</BooleanValue>)',
+                xml
+            ):
+                if m.group(2) != bool_str:
+                    flicker_replacements.append((m.start(2), m.end(2), bool_str, 'POWER/Features/Flicker'))
+
+        # 9g. Features/Rolling (BooleanValue)
+        if rolling_enabled is not None:
+            bool_str = 'True' if rolling_enabled else 'False'
+            for m in re.finditer(
+                r'(<Property name="POWER/Features/Rolling">\s*<BooleanValue>)(True|False)(</BooleanValue>)',
+                xml
+            ):
+                if m.group(2) != bool_str:
+                    flicker_replacements.append((m.start(2), m.end(2), bool_str, 'POWER/Features/Rolling'))
+
+        flicker_replacements.sort(key=lambda x: x[0], reverse=True)
+        for start, end, val, label in flicker_replacements:
+            xml = xml[:start] + val + xml[end:]
+            print(f"[DEWETRON] {label} -> {val}")
+        if not flicker_replacements:
+            print("[DEWETRON] 闪变参数无需修改（已与 UI 一致）")
 
         return xml
 

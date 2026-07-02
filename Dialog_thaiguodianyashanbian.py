@@ -2,6 +2,75 @@
 # 电压闪变项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+import re as _re
+from xml.etree import ElementTree as _ET
+
+
+def parse_power_group_tree(xml_string):
+    """从 DEWETRON XML 中解析电力组通道树。
+
+    Returns:
+        nested dict: {category: {sub_category: [channel_name, ...]}}
+        或 None 如果找不到 Power Groups
+    """
+    if not xml_string:
+        return None
+
+    start = xml_string.find('<ChannelGroup Type="Power Groups"')
+    if start < 0:
+        return None
+
+    # 计算嵌套深度，找到对应的结束标签
+    depth = 0
+    pos = start
+    end = start
+    while pos < len(xml_string):
+        next_open = xml_string.find('<ChannelGroup', pos)
+        next_close = xml_string.find('</ChannelGroup>', pos)
+        if next_close < 0:
+            break
+        if next_open >= 0 and next_open < next_close:
+            depth += 1
+            pos = next_open + 13
+        else:
+            depth -= 1
+            pos = next_close + 15
+            if depth <= 0:
+                end = pos
+                break
+
+    try:
+        root = _ET.fromstring(xml_string[start:end])
+    except _ET.ParseError:
+        return None
+
+    tree = {}
+    # 结构: ChannelGroup(Power Groups) → Channel(POWER/0) → ChannelGroup(类别) → ChannelGroup(子类别) → Channel
+    for power_ch in root.findall('Channel'):
+        for cat_group in power_ch.findall('ChannelGroup'):
+            cat_name = cat_group.get('Type', '')
+            if cat_name in ('Advanced',):
+                continue
+            tree[cat_name] = {}
+            for sub_group in cat_group.findall('ChannelGroup'):
+                sub_name = sub_group.get('Type', '')
+                if sub_name in ('Advanced',):
+                    continue
+                channels = []
+                for ch in sub_group.findall('Channel'):
+                    ch_name = ch.get('Name', '')
+                    if ch_name:
+                        channels.append(ch_name)
+                if channels:
+                    tree[cat_name][sub_name] = channels
+            # 处理直接挂在类别下的通道（如 F_fund）
+            for ch in cat_group.findall('Channel'):
+                ch_name = ch.get('Name', '')
+                if ch_name:
+                    if '_default_' not in tree[cat_name]:
+                        tree[cat_name]['_default_'] = []
+                    tree[cat_name]['_default_'].append(ch_name)
+    return tree
 
 
 class Ui_Dialog_thaiguodianyashanbian(object):
@@ -17,6 +86,9 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         mainLayout = QtWidgets.QVBoxLayout(Dialog_thaiguodianyashanbian)
         mainLayout.setContentsMargins(0, 0, 0, 0)
         mainLayout.setSpacing(0)
+
+        # 防止字段树父子联动时递归触发 itemChanged
+        self._block_tree_signals = False
 
         # ══════════════════════════════════════
         # 顶部工具栏（按钮 + 横向步骤条）
@@ -280,6 +352,19 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         self.checkBox_S4.toggled.connect(_on_s4_toggled)
         _on_s4_toggled(self.checkBox_S4.isChecked())
+
+        # Step 4: DEWETRON 导出设置
+        s4_dew_children = [
+            self.spinBox_DEW_DecimalPlaces, self.checkBox_DEW_RealtimeWaveform,
+            self.treeWidget_DEW_ExportFields, self.pushButton_DEW_TestApply_Export,
+        ]
+
+        def _on_s4_dew_toggled(checked):
+            for w in s4_dew_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S4_DEW.toggled.connect(_on_s4_dew_toggled)
+        _on_s4_dew_toggled(self.checkBox_S4_DEW.isChecked())
 
         # Step 5: 关机设置（DC 复选框联动 step1 DC）
         s5_dc = [self.checkBox_S5_DC1, self.checkBox_S5_DC2,
@@ -625,25 +710,31 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.textEdit_DEW_NominalVoltage = QtWidgets.QTextEdit()
         self.textEdit_DEW_NominalVoltage.setObjectName("textEdit_DEW_NominalVoltage")
         self.textEdit_DEW_NominalVoltage.setFixedSize(100, 31)
-        self.textEdit_DEW_NominalVoltage.setPlaceholderText("230")
+        self.textEdit_DEW_NominalVoltage.setText("230")
         formLayout.addRow("标称电压:", self._make_unit_row(self.textEdit_DEW_NominalVoltage, "V"))
+
+        # 加权类型联动标称电压：自动检测时禁用，选具体类型时启用
+        def _on_weighting_type_changed(text):
+            self.textEdit_DEW_NominalVoltage.setEnabled(text != "自动检测")
+        self.comboBox_DEW_WeightingType.currentTextChanged.connect(_on_weighting_type_changed)
+        _on_weighting_type_changed(self.comboBox_DEW_WeightingType.currentText())
 
         self.textEdit_DEW_ShortFlickerTime = QtWidgets.QTextEdit()
         self.textEdit_DEW_ShortFlickerTime.setObjectName("textEdit_DEW_ShortFlickerTime")
         self.textEdit_DEW_ShortFlickerTime.setFixedSize(100, 31)
-        self.textEdit_DEW_ShortFlickerTime.setPlaceholderText("10")
+        self.textEdit_DEW_ShortFlickerTime.setText("10")
         formLayout.addRow("短时闪变计算时间:", self._make_unit_row(self.textEdit_DEW_ShortFlickerTime, "分钟"))
 
         self.textEdit_DEW_LongFlickerTime = QtWidgets.QTextEdit()
         self.textEdit_DEW_LongFlickerTime.setObjectName("textEdit_DEW_LongFlickerTime")
         self.textEdit_DEW_LongFlickerTime.setFixedSize(100, 31)
-        self.textEdit_DEW_LongFlickerTime.setPlaceholderText("120")
+        self.textEdit_DEW_LongFlickerTime.setText("120")
         formLayout.addRow("长时闪变计算时间:", self._make_unit_row(self.textEdit_DEW_LongFlickerTime, "分钟"))
 
         self.textEdit_DEW_ShortCircuitPower = QtWidgets.QTextEdit()
         self.textEdit_DEW_ShortCircuitPower.setObjectName("textEdit_DEW_ShortCircuitPower")
         self.textEdit_DEW_ShortCircuitPower.setFixedSize(100, 31)
-        self.textEdit_DEW_ShortCircuitPower.setPlaceholderText("50")
+        self.textEdit_DEW_ShortCircuitPower.setText("50")
         formLayout.addRow("短路视在功率:", self._make_unit_row(self.textEdit_DEW_ShortCircuitPower, "MVA"))
 
         self.checkBox_DEW_RollingCalc = QtWidgets.QCheckBox("打开滚动计算")
@@ -775,14 +866,17 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # Step 4: 判定结果
+    # Step 4: 判定结果（WT3000 / DEWETRON 双模式）
     # ══════════════════════════════════════════════
     def _build_step4(self):
-        page = QtWidgets.QWidget()
-        page.setStyleSheet("background-color: white;")
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        self._step4Stacked = QtWidgets.QStackedWidget()
+
+        # ── 页面 0: WT3000 判定设置 ──
+        wt_page = QtWidgets.QWidget()
+        wt_page.setStyleSheet("background-color: white;")
+        wt_layout = QtWidgets.QVBoxLayout(wt_page)
+        wt_layout.setContentsMargins(16, 16, 16, 16)
+        wt_layout.setSpacing(12)
 
         self.groupBox_4 = QtWidgets.QGroupBox()
         self.groupBox_4.setObjectName("groupBox_4")
@@ -819,9 +913,220 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.comboBox_S4_WT3000_3.setFixedWidth(120)
         g4Layout.addWidget(self.comboBox_S4_WT3000_3, 0, 4)
 
-        layout.addWidget(self.groupBox_4)
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
+        wt_layout.addWidget(self.groupBox_4)
+        wt_layout.addStretch()
+        self._step4Stacked.addWidget(wt_page)
+
+        # ── 页面 1: DEWETRON 导出设置 ──
+        dew_page = QtWidgets.QWidget()
+        dew_page.setStyleSheet("background-color: white;")
+        dew_layout = QtWidgets.QVBoxLayout(dew_page)
+        dew_layout.setContentsMargins(16, 16, 16, 16)
+        dew_layout.setSpacing(12)
+
+        dew_group = QtWidgets.QGroupBox()
+        dew_group.setTitle("DEWETRON 导出设置")
+        dew_group.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
+        dew_form = QtWidgets.QFormLayout(dew_group)
+        dew_form.setSpacing(10)
+        dew_form.setContentsMargins(16, 24, 16, 12)
+
+        self.checkBox_S4_DEW = QtWidgets.QCheckBox("step4")
+        self.checkBox_S4_DEW.setChecked(True)
+        self.checkBox_S4_DEW.setObjectName("checkBox_S4_DEW")
+        dew_form.addRow(self.checkBox_S4_DEW)
+
+        # 保留小数位数
+        self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()
+        self.spinBox_DEW_DecimalPlaces.setRange(0, 6)
+        self.spinBox_DEW_DecimalPlaces.setValue(3)
+        self.spinBox_DEW_DecimalPlaces.setFixedWidth(80)
+        self.spinBox_DEW_DecimalPlaces.setObjectName("spinBox_DEW_DecimalPlaces")
+        dew_form.addRow("保留小数位数:", self.spinBox_DEW_DecimalPlaces)
+
+        # 启用实时波形
+        self.checkBox_DEW_RealtimeWaveform = QtWidgets.QCheckBox("启用实时波形显示")
+        self.checkBox_DEW_RealtimeWaveform.setChecked(False)
+        self.checkBox_DEW_RealtimeWaveform.setObjectName("checkBox_DEW_RealtimeWaveform")
+        dew_form.addRow("实时波形:", self.checkBox_DEW_RealtimeWaveform)
+
+        # 字段选择树
+        self.treeWidget_DEW_ExportFields = QtWidgets.QTreeWidget()
+        self.treeWidget_DEW_ExportFields.setHeaderLabel("导出字段选择")
+        self.treeWidget_DEW_ExportFields.setMinimumHeight(300)
+        self.treeWidget_DEW_ExportFields.setObjectName("treeWidget_DEW_ExportFields")
+        self.treeWidget_DEW_ExportFields.setStyleSheet("""
+            QTreeWidget {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 4px;
+                font-size: 12px;
+                color: #1e293b;
+                outline: none;
+            }
+            QTreeWidget::item {
+                padding: 3px 0px;
+                margin: 1px 0px;
+                border-radius: 3px;
+            }
+            QTreeWidget::item:selected {
+                background-color: #ede9fe;
+                color: #5b21b6;
+            }
+            QTreeWidget::item:hover:!selected {
+                background-color: #f8fafc;
+            }
+            QTreeWidget::item:has-children {
+                font-weight: bold;
+                color: #334155;
+            }
+            QTreeWidget::branch {
+                background: transparent;
+            }
+            QTreeWidget::branch:has-children:closed {
+                border-image: none;
+                image: none;
+            }
+            QTreeWidget::branch:has-children:open {
+                border-image: none;
+                image: none;
+            }
+            QHeaderView::section {
+                background-color: #f8fafc;
+                border: none;
+                border-bottom: 1px solid #e2e8f0;
+                padding: 6px 8px;
+                font-weight: bold;
+                color: #475569;
+            }
+        """)
+        self.treeWidget_DEW_ExportFields.setHeaderHidden(True)
+        self.treeWidget_DEW_ExportFields.setRootIsDecorated(True)
+        self.treeWidget_DEW_ExportFields.setIndentation(20)
+        self.treeWidget_DEW_ExportFields.setAlternatingRowColors(True)
+        self._build_export_field_tree(tree_data=None)
+        dew_form.addRow("字段选择:", self.treeWidget_DEW_ExportFields)
+
+        # 测试生效按钮
+        self.pushButton_DEW_TestApply_Export = QtWidgets.QPushButton("测试生效")
+        self.pushButton_DEW_TestApply_Export.setMinimumSize(120, 36)
+        self.pushButton_DEW_TestApply_Export.setStyleSheet("""
+            QPushButton { background-color: #8b5cf6; color: white; border: none; border-radius: 4px;
+                          padding: 6px 14px; font-size: 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #7c3aed; }
+            QPushButton:disabled { background-color: #c4b5fd; }
+        """)
+        self.pushButton_DEW_TestApply_Export.setObjectName("pushButton_DEW_TestApply_Export")
+        dew_form.addRow("", self.pushButton_DEW_TestApply_Export)
+
+        dew_layout.addWidget(dew_group)
+        dew_layout.addStretch()
+        self._step4Stacked.addWidget(dew_page)
+
+        # 默认显示 WT3000 页面
+        self._step4Stacked.setCurrentIndex(0)
+
+        self.stackedWidget.addWidget(self._step4Stacked)
+
+    def _build_export_field_tree(self, tree_data=None):
+        """构建 DEWETRON 导出字段选择树。
+
+        Args:
+            tree_data: parse_power_group_tree() 返回的嵌套字典。
+                       None 时显示占位提示。
+        """
+        tree = self.treeWidget_DEW_ExportFields
+        tree.clear()
+
+        if not tree_data:
+            item = QtWidgets.QTreeWidgetItem(tree, ["请先连接 DEWETRON 设备并切换到德威创模式"])
+            item.setFlags(item.flags() & ~QtCore.Qt.ItemIsSelectable)
+            item.setForeground(0, QtGui.QColor("#94a3b8"))
+            return
+
+        # 断开旧信号，避免构建过程中触发联动
+        try:
+            tree.itemChanged.disconnect(self._on_export_field_item_changed)
+        except (TypeError, RuntimeError):
+            pass
+
+        # 类别图标映射
+        cat_icons = {
+            'Voltage (U)': '⚡',
+            'Current (I)': '〰',
+            'Active Power (P)': 'P',
+            'Reactive Power (Q)': 'Q',
+            'Apparent Power (S)': 'S',
+            'Power Factor (PF)': 'PF',
+            'Energy (W)': 'W',
+            'Frequency (F)': 'Hz',
+        }
+
+        for category, sub_cats in tree_data.items():
+            # 类别节点：带图标 + 紫色背景
+            cat_icon = cat_icons.get(category, '•')
+            cat_item = QtWidgets.QTreeWidgetItem(tree, [f"  {category}"])
+            cat_item.setFlags(cat_item.flags() | QtCore.Qt.ItemIsTristate)
+            cat_item.setCheckState(0, QtCore.Qt.Checked)
+            cat_item.setForeground(0, QtGui.QColor("#5b21b6"))
+            cat_item.setBackground(0, QtGui.QColor("#f5f3ff"))
+            font = cat_item.font(0)
+            font.setBold(True)
+            font.setPointSize(10)
+            cat_item.setFont(0, font)
+            cat_item.setData(0, QtCore.Qt.UserRole, cat_icon)
+
+            for sub_name, channels in sub_cats.items():
+                # 子类别节点：蓝色文字
+                sub_item = QtWidgets.QTreeWidgetItem(cat_item, [f"    {sub_name}"])
+                sub_item.setFlags(sub_item.flags() | QtCore.Qt.ItemIsTristate)
+                sub_item.setCheckState(0, QtCore.Qt.Checked)
+                sub_item.setForeground(0, QtGui.QColor("#1d4ed8"))
+                font = sub_item.font(0)
+                font.setBold(True)
+                sub_item.setFont(0, font)
+                sub_item.setData(0, QtCore.Qt.UserRole, f"  {len(channels)} ch")
+
+                for ch_name in channels:
+                    # 叶子节点：普通样式
+                    ch_item = QtWidgets.QTreeWidgetItem(sub_item, [f"      {ch_name}"])
+                    ch_item.setFlags(ch_item.flags() | QtCore.Qt.ItemIsTristate)
+                    ch_item.setCheckState(0, QtCore.Qt.Checked)
+                    ch_item.setForeground(0, QtGui.QColor("#475569"))
+
+        tree.expandToDepth(1)
+        tree.itemChanged.connect(self._on_export_field_item_changed)
+
+    def refresh_export_field_tree(self, xml_string):
+        """从设备 XML 动态刷新导出字段树。供 SCPITestWave.py 调用。"""
+        tree_data = parse_power_group_tree(xml_string)
+        self._build_export_field_tree(tree_data)
+
+    def get_checked_export_fields(self):
+        """获取当前勾选的导出字段列表。
+
+        Returns:
+            list: 勾选的叶子节点字段名列表（如 ['U1_tRMS', 'I1_fundRMS', ...]）
+        """
+        tree = self.treeWidget_DEW_ExportFields
+        checked_fields = []
+
+        def _collect_checked(item):
+            # 只收集叶子节点（无子节点的节点）
+            if item.childCount() == 0:
+                if item.checkState(0) == QtCore.Qt.Checked:
+                    # 获取字段名（去掉缩进空格）
+                    text = item.text(0).strip()
+                    checked_fields.append(text)
+            else:
+                for i in range(item.childCount()):
+                    _collect_checked(item.child(i))
+
+        for i in range(tree.topLevelItemCount()):
+            _collect_checked(tree.topLevelItem(i))
+
+        return checked_fields
 
     # ══════════════════════════════════════════════
     # Step 5: 关机设置
@@ -895,15 +1200,58 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         return container
 
     def _on_mode_changed(self, button, checked):
-        """模式切换回调（WT3000闪变 / 德威创模式）。只切换 step2 内容。"""
+        """模式切换回调（WT3000闪变 / 德威创模式）。切换 step2 和 step4 内容。"""
         if not checked:
             return
         if button == self.radio_wt3000:
             self._mode = 'wt3000'
             self._step2Stacked.setCurrentIndex(0)
+            self._step4Stacked.setCurrentIndex(0)
         elif button == self.radio_dewetron:
             self._mode = 'dewetron'
             self._step2Stacked.setCurrentIndex(1)
+            self._step4Stacked.setCurrentIndex(1)
+
+    def _on_export_field_item_changed(self, item, column):
+        """字段树父子复选框联动（3 层：类别 → 通道 → 子字段）。"""
+        if self._block_tree_signals:
+            return
+        self._block_tree_signals = True
+        try:
+            state = item.checkState(column)
+            # 向下：父节点变化 → 所有子节点跟随
+            for i in range(item.childCount()):
+                child = item.child(i)
+                child.setCheckState(column, state)
+                # 递归处理孙子节点
+                for j in range(child.childCount()):
+                    child.child(j).setCheckState(column, state)
+            # 向上：子节点变化 → 更新父节点状态
+            parent = item.parent()
+            if parent is not None:
+                checked_count = sum(1 for i in range(parent.childCount())
+                                    if parent.child(i).checkState(column) == QtCore.Qt.Checked)
+                total = parent.childCount()
+                if checked_count == 0:
+                    parent.setCheckState(column, QtCore.Qt.Unchecked)
+                elif checked_count == total:
+                    parent.setCheckState(column, QtCore.Qt.Checked)
+                else:
+                    parent.setCheckState(column, QtCore.Qt.PartiallyChecked)
+                # 再往上更新根节点
+                grandparent = parent.parent()
+                if grandparent is not None:
+                    gp_checked = sum(1 for i in range(grandparent.childCount())
+                                     if grandparent.child(i).checkState(column) == QtCore.Qt.Checked)
+                    gp_total = grandparent.childCount()
+                    if gp_checked == 0:
+                        grandparent.setCheckState(column, QtCore.Qt.Unchecked)
+                    elif gp_checked == gp_total:
+                        grandparent.setCheckState(column, QtCore.Qt.Checked)
+                    else:
+                        grandparent.setCheckState(column, QtCore.Qt.PartiallyChecked)
+        finally:
+            self._block_tree_signals = False
 
     def retranslateUi(self, Dialog_thaiguodianyashanbian):
         _translate = QtCore.QCoreApplication.translate

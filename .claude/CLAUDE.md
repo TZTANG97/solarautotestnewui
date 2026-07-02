@@ -179,6 +179,13 @@ Each test type has:
 - `POWER/FrequencyChannel` — ChannelID 格式，频率测量通道，默认为组 1 的 U 通道
 - `POWER/MaxUpdateRate` — StringValue，最大刷新率（单位 ms）
 - `POWER/DataSubsampling` — StringValue，通道二次采样（"Auto"/"Off"/"2"~"5"）
+- `POWER/FlickerType` — EnumValue，加权类型（TYPE_230V50HZ / TYPE_230V60HZ / TYPE_120V50HZ / TYPE_120V60HZ / AUTO）
+- `POWER/Flicker/NominalVoltage` — ScalarValue，标称电压（单位 V）
+- `POWER/Flicker/PstAggregationTime` — ScalarValue，短时闪变计算时间（单位 min）
+- `POWER/Flicker/PltAggregationTime` — ScalarValue，长时闪变计算时间（单位 min）
+- `POWER/Flicker/ShortCircuitPower` — ScalarValue，短路视在功率（单位 MVA）
+- `POWER/Features/Flicker` — BooleanValue，IEC 标准开关
+- `POWER/Features/Rolling` — BooleanValue，滚动计算开关
 - **不要用的 Key：** `AcquisitionRate`（Hz，每通道）、`TRION/Oversampling`（每通道）、`POWER/LineToLineVoltageInput`（设备不允许 SCPI 更改）
 
 ### DEWETRON 配置文件命名
@@ -191,6 +198,29 @@ Each test type has:
 ### `modify_xml` 位置偏移修复
 - 不能在 `re.finditer` 遍历时直接修改 xml 字符串（位置会偏移）
 - 正确做法：先收集所有替换 `(start, end, new_val)`，按位置降序排列后从后往前替换
+
+### `modify_xml` XML 格式与 regex 规则（重要！）
+
+**XML 值格式分两类：**
+- **StringValue 属性**（MaxUpdateRate、DataSubsampling）：值有引号包裹 → `<StringValue>"500"</StringValue>`
+- **EnumValue/ScalarValue/BooleanValue 属性**：值无引号 → `<Value>230</Value>`
+
+**StringValue regex 模式（group 1 不含引号，`"?` 匹配但不捕获引号）：**
+```python
+r'(<Property name="POWER/MaxUpdateRate">\s*<StringValue>)"?([^"<]+)"?(</StringValue>)'
+# 替换值必须是裸值，不带引号：
+replacements.append((m.start(2), m.end(2), acquisition_rate, label))  # 正确 → "200"
+replacements.append((m.start(2), m.end(2), f'"{acquisition_rate}"', label))  # 错误！→ ""200""
+```
+
+**EnumValue/ScalarValue/BooleanValue regex 模式（group 1 含完整开标签）：**
+```python
+r'(<Property name="POWER/FlickerType">\s*<EnumValue enum="FlickerType">)([^<]+)(</EnumValue>)'
+# 替换值直接是裸值：
+replacements.append((m.start(2), m.end(2), flicker_type, label))
+```
+
+**Why:** 2026-07-02 调试发现 `f'"{acquisition_rate}"'` 导致 `""200""` 双重引号，设备报 `-102 Syntax error`。引号由 XML 格式本身提供，regex 的 `"` 保留原引号。
 
 ### 错误检查
 - `:SYSTEM:ERROR:ALL?` 返回格式: `0, "No error"` (注意逗号后有空格)
