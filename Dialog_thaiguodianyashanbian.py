@@ -1128,6 +1128,65 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         return checked_fields
 
+    def set_checked_export_fields(self, fields_list):
+        """根据字段名列表勾选树节点。
+
+        Args:
+            fields_list: 勾选的叶子节点字段名列表（如 ['U1_tRMS', 'I1_fundRMS', ...]）
+        """
+        tree = self.treeWidget_DEW_ExportFields
+        self._block_tree_signals = True
+        try:
+            # 先全部取消勾选
+            for i in range(tree.topLevelItemCount()):
+                cat = tree.topLevelItem(i)
+                cat.setCheckState(0, QtCore.Qt.Unchecked)
+                for j in range(cat.childCount()):
+                    sub = cat.child(j)
+                    sub.setCheckState(0, QtCore.Qt.Unchecked)
+                    for k in range(sub.childCount()):
+                        sub.child(k).setCheckState(0, QtCore.Qt.Unchecked)
+
+            field_set = set(fields_list)
+            # 勾选匹配的叶子节点
+            for i in range(tree.topLevelItemCount()):
+                cat = tree.topLevelItem(i)
+                for j in range(cat.childCount()):
+                    sub = cat.child(j)
+                    for k in range(sub.childCount()):
+                        leaf = sub.child(k)
+                        leaf_text = leaf.text(0).strip()
+                        if leaf_text in field_set:
+                            leaf.setCheckState(0, QtCore.Qt.Checked)
+
+            # 更新父节点状态（自底向上）
+            for i in range(tree.topLevelItemCount()):
+                cat = tree.topLevelItem(i)
+                for j in range(cat.childCount()):
+                    sub = cat.child(j)
+                    sub_checked = sum(1 for k in range(sub.childCount())
+                                      if sub.child(k).checkState(0) == QtCore.Qt.Checked)
+                    sub_total = sub.childCount()
+                    if sub_total > 0:
+                        if sub_checked == 0:
+                            sub.setCheckState(0, QtCore.Qt.Unchecked)
+                        elif sub_checked == sub_total:
+                            sub.setCheckState(0, QtCore.Qt.Checked)
+                        else:
+                            sub.setCheckState(0, QtCore.Qt.PartiallyChecked)
+                cat_checked = sum(1 for j in range(cat.childCount())
+                                  if cat.child(j).checkState(0) == QtCore.Qt.Checked)
+                cat_total = cat.childCount()
+                if cat_total > 0:
+                    if cat_checked == 0:
+                        cat.setCheckState(0, QtCore.Qt.Unchecked)
+                    elif cat_checked == cat_total:
+                        cat.setCheckState(0, QtCore.Qt.Checked)
+                    else:
+                        cat.setCheckState(0, QtCore.Qt.PartiallyChecked)
+        finally:
+            self._block_tree_signals = False
+
     # ══════════════════════════════════════════════
     # Step 5: 关机设置
     # ══════════════════════════════════════════════

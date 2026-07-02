@@ -3922,8 +3922,43 @@ def SaveFileDialogThaidianyashanbian():
     Open_Save_ThaiDianYaShanBian.Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian)
 #德国电压闪变读取设定
 def OpenFileDialogThaiDianYaShanBian():
-    global dialog_windowTdianyashanbian, uiThaiDianYaShanBian
+    global dialog_windowTdianyashanbian, uiThaiDianYaShanBian, dewetron_controller
     Open_Save_ThaiDianYaShanBian.Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian)
+    # 德威创模式 — 从设备拉取最新导出设置并回显
+    if uiThaiDianYaShanBian._mode == 'dewetron' and dewetron_controller and dewetron_controller.connected:
+        try:
+            channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
+            if xml_string and channel_id_map:
+                # 构建 ChannelID -> ShortId 反向映射
+                cid_to_short = {}
+                for short_id, cid in channel_id_map.items():
+                    cid_to_short[str(cid)] = short_id
+
+                # 解析 ExportChannels 中选中的 channel_id
+                ec_match = re.search(r'<ExportChannels>(.*?)</ExportChannels>', xml_string, re.DOTALL)
+                if ec_match:
+                    selected_short_ids = []
+                    for ch_m in re.finditer(r'<ExportChannel channel_id="(\d+)"', ec_match.group(1)):
+                        cid_str = ch_m.group(1)
+                        if cid_str in cid_to_short:
+                            selected_short_ids.append(cid_to_short[cid_str])
+                    if selected_short_ids:
+                        uiThaiDianYaShanBian.set_checked_export_fields(selected_short_ids)
+                        ui.textEdit_ReturnMessage.append(
+                            f"[DEWETRON] 从设备读取导出字段: {len(selected_short_ids)} 个")
+
+                # 解析 ExportProperties
+                ep_match = re.search(r'<ExportProperties>(.*?)</ExportProperties>', xml_string, re.DOTALL)
+                if ep_match:
+                    ep_xml = ep_match.group(0)
+                    prec_m = re.search(r'<Property name="EXPORT_VALUE_PRECISION"><UnsignedInt64>(\d+)</UnsignedInt64>', ep_xml)
+                    if prec_m:
+                        uiThaiDianYaShanBian.spinBox_DEW_DecimalPlaces.setValue(int(prec_m.group(1)))
+                    wf_m = re.search(r'<Property name="WAVEFORM"><BooleanValue>(True|False)</BooleanValue>', ep_xml)
+                    if wf_m:
+                        uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.setChecked(wf_m.group(1) == 'True')
+        except Exception as e:
+            ui.textEdit_ReturnMessage.append(f"[DEWETRON] 读取设备导出设置失败: {e}")
 
 #德国重连代码
 def thaichonglianSend():

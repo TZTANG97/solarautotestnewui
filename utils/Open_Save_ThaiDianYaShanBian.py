@@ -33,7 +33,10 @@ arrayRow1 = ['Style',
     "DEW_mode", "checkBox_DEW_FlickerStandard", "comboBox_DEW_WeightingType",
     "comboBox_DEW_MaxRefreshRate", "textEdit_DEW_NominalVoltage",
     "textEdit_DEW_ShortFlickerTime", "textEdit_DEW_LongFlickerTime",
-    "textEdit_DEW_ShortCircuitPower", "checkBox_DEW_RollingCalc"]
+    "textEdit_DEW_ShortCircuitPower", "checkBox_DEW_RollingCalc",
+    "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
+    "treeWidget_DEW_ExportFields",
+    ]
 
 #泰国电压闪变保存设定
 def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian):
@@ -373,6 +376,12 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
             arrayRow2.append('1')
         else:
             arrayRow2.append('0')
+
+        # 德威创导出设置
+        arrayRow2.append(uiThaiDianYaShanBian.spinBox_DEW_DecimalPlaces.value())
+        arrayRow2.append('1' if uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.isChecked() else '0')
+        checked_fields = uiThaiDianYaShanBian.get_checked_export_fields()
+        arrayRow2.append('|'.join(checked_fields))
 
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
@@ -1082,6 +1091,22 @@ def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
                     if arrayRow1[90] in i:
                         val = i[arrayRow1[90]]
                         uiThaiDianYaShanBian.checkBox_DEW_RollingCalc.setChecked(val == '1')
+
+                # 德威创导出设置
+                if strFlag == "0" and len(arrayRow1) > 91:
+                    if arrayRow1[91] in i:
+                        uiThaiDianYaShanBian.spinBox_DEW_DecimalPlaces.setValue(int(i[arrayRow1[91]]))
+
+                if strFlag == "0" and len(arrayRow1) > 92:
+                    if arrayRow1[92] in i:
+                        uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.setChecked(i[arrayRow1[92]] == '1')
+
+                if strFlag == "0" and len(arrayRow1) > 93:
+                    if arrayRow1[93] in i:
+                        fields_str = i[arrayRow1[93]]
+                        if fields_str:
+                            fields_list = [f.strip() for f in fields_str.split('|') if f.strip()]
+                            uiThaiDianYaShanBian.set_checked_export_fields(fields_list)
 
         QMessageBox.information(None, "实验设定提示信息", "电压闪变文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 

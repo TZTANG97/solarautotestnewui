@@ -188,6 +188,34 @@ Each test type has:
 - `POWER/Features/Rolling` — BooleanValue，滚动计算开关
 - **不要用的 Key：** `AcquisitionRate`（Hz，每通道）、`TRION/Oversampling`（每通道）、`POWER/LineToLineVoltageInput`（设备不允许 SCPI 更改）
 
+### DEWETRON 导出设置（Export Settings）
+
+**导出设置 ≠ 电力组，是两个独立的菜单项。**
+
+- **电力组** → 数据通道菜单 → `Neon/Stored` 控制录制
+- **导出设置** → 菜单栏"导出设置" → `<ExportChannels>` 控制 CSV/报告导出
+
+XML 结构：
+```xml
+<ExportSetup>
+  <ExportSettings format="CSV">
+    <ExportChannels>
+      <ExportChannel channel_id="..."/>  ← 通道勾选
+    </ExportChannels>
+    <ExportProperties>
+      EXPORT_VALUE_PRECISION  ← 小数位数 (UnsignedInt64)
+      WAVEFORM               ← 实时波形 (BooleanValue)
+    </ExportProperties>
+  </ExportSettings>
+</ExportSetup>
+```
+
+**修改方式：** `modify_xml()` 的 `export_fields` 替换 `<ExportChannels>`，`decimal_places` 和 `realtime_waveform` 修改 `<ExportProperties>`。
+
+**APPLY 后 ChannelID 会重新分配**，每次提交前必须重新 `read_channel_id_map()`。连续提交需重试读取（设备重载需要时间），最多 3 次间隔 2 秒。
+
+**SCPI 限制：** `:CHANNELLIST:ITEM<id>:ATTR` 只读，`Used`/`Neon/Active` 由设备自动管理不可修改。
+
 ### DEWETRON 配置文件命名
 - 标准格式：`dewetron_YYYYMMDD_HH.xml`
 - 校验格式：`dewetron_verify_YYYYMMDD_HH.xml`
