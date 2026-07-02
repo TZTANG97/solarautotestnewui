@@ -1,0 +1,611 @@
+2026-07-02 13:19:08,704 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-02 13:19:08,713 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-02 13:19:08,716 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-02 13:19:08,716 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-02 13:19:09,598 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-02 13:19:09,598 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-02 13:19:09,622 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-02 13:19:09,622 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-02 13:19:10,030 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-02 13:19:10,030 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-02 13:19:10,030 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-02 13:19:10,030 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-02 13:19:10,089 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-02 13:19:10,089 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-02 13:19:10,089 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-02 13:19:10,089 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-02 13:19:10,089 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-02 13:19:10,089 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-02 13:19:10,089 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-02 13:19:10,093 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-02 13:19:10,093 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-02 13:19:10,093 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-02 13:19:10,097 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-02 13:19:10,159 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-02 13:19:10,159 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-02 13:19:10,180 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-02 13:19:10,180 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-02 13:19:10,182 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-02 13:19:10,182 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-02 13:19:10,185 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-02 13:19:10,186 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-02 13:19:10,186 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-02 13:19:10,186 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-02 13:19:10,186 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-02 13:19:10,186 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-02 13:19:10,187 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-02 13:19:10,188 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-02 13:19:10,188 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-02 13:19:10,188 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-02 13:19:10,188 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-02 13:19:10,935 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] Building WT3000 content...
+2026-07-02 13:19:10,984 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] WT3000 page built, type=<class 'PyQt5.QtWidgets.QScrollArea'>, widget count=8
+2026-07-02 13:19:10,998 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] Building WT1800 content...
+2026-07-02 13:19:11,053 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] WT1800 page built, type=<class 'PyQt5.QtWidgets.QScrollArea'>, widget count=8
+2026-07-02 13:19:11,072 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] Building WT1806E content...
+2026-07-02 13:19:11,130 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] WT1806E page built, type=<class 'PyQt5.QtWidgets.QScrollArea'>, widget count=8
+2026-07-02 13:19:11,157 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] Building WT5000 content...
+2026-07-02 13:19:11,206 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] WT5000 page built, type=<class 'PyQt5.QtWidgets.QScrollArea'>, widget count=8
+2026-07-02 13:19:11,223 INFO logging_setup.py [75] MainThread :[DEBUG-INIT] Stacked widget total pages: 4, current index: 0
+2026-07-02 13:19:15,243 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-02 13:19:15,306 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-02 13:19:15,306 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-02 13:19:15,306 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-02 13:19:15,306 INFO SCPITestWave.py [30021] MainThread :2026-07-02 13:19:15    程式开启
+2026-07-02 13:19:15,306 INFO logging_setup.py [75] MainThread :2026-07-02 13:19:15    程式开启
+2026-07-02 13:19:15,306 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-02 13:19:15,480 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-02 13:23:51,558 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-02 13:23:51,564 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-02 13:23:51,564 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-02 13:24:10,358 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] === 开始保存配置 ===
+2026-07-02 13:24:10,358 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 用户选择 - 输入通道: AI 1/U1, 最大刷新率: Default, 通道二次采样: Auto
+2026-07-02 13:24:10,455 ERROR logging_setup.py [75] MainThread :C:\Users\28468\miniconda3\envs\SolarAutoTestEnv\lib\site-packages\pyvisa\resources\messagebased.py:702: UserWarning: read string doesn't end with termination characters
+2026-07-02 13:24:10,455 ERROR logging_setup.py [75] MainThread :  return self.read()
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 ---
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 8117175369791963156
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 8117175369791963157
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 8117175369791963158
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 8117175369791963159
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 8117175369791963160
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 8117175369791963161
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 8117175369791963162
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 8117175369791963163
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 8117175369791963156
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 8117175369791963157
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 8117175369791963158
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 8117175369791963159
+2026-07-02 13:24:10,459 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备 XML 不可用: 无接线方式，使用本地引导模板
+2026-07-02 13:24:10,487 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 已读取引导模板: 1038472 字符, 258 个通道ID
+2026-07-02 13:24:10,489 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备当前二次采样: Auto (UI 使用用户选择: Auto)
+2026-07-02 13:24:10,489 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 接线类型: 3P4W
+2026-07-02 13:24:10,490 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 <- AI 1/U1
+2026-07-02 13:24:10,490 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 <- AI 1/l1
+2026-07-02 13:24:10,490 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 <- AI 1/U2
+2026-07-02 13:24:10,491 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 <- AI 1/l2
+2026-07-02 13:24:10,491 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 <- AI 1/U3
+2026-07-02 13:24:10,491 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 <- AI 1/l3
+2026-07-02 13:24:10,492 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备 InputChannels 映射 ---
+2026-07-02 13:24:10,492 INFO logging_setup.py [75] MainThread :  I1 -> 3248784172604456980
+2026-07-02 13:24:10,493 INFO logging_setup.py [75] MainThread :  I2 -> 3248784172604456982
+2026-07-02 13:24:10,493 INFO logging_setup.py [75] MainThread :  I3 -> 3248784172604456983
+2026-07-02 13:24:10,493 INFO logging_setup.py [75] MainThread :  I4 -> 18446744073709551615
+2026-07-02 13:24:10,493 INFO logging_setup.py [75] MainThread :  I5 -> 18446744073709551615
+2026-07-02 13:24:10,493 INFO logging_setup.py [75] MainThread :  I6 -> 18446744073709551615
+2026-07-02 13:24:10,493 INFO logging_setup.py [75] MainThread :  I7 -> 18446744073709551615
+2026-07-02 13:24:10,493 INFO logging_setup.py [75] MainThread :  I8 -> 18446744073709551615
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  I9 -> 18446744073709551615
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U1 -> 3248784172604456984
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U2 -> 3248784172604456986
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U3 -> 3248784172604456987
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U4 -> 18446744073709551615
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U5 -> 18446744073709551615
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U6 -> 18446744073709551615
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U7 -> 18446744073709551615
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U8 -> 18446744073709551615
+2026-07-02 13:24:10,494 INFO logging_setup.py [75] MainThread :  U9 -> 18446744073709551615
+2026-07-02 13:24:10,495 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备 InputChannels 映射: 18 个槽位
+2026-07-02 13:24:10,495 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 -> ID=3248784172604456980
+2026-07-02 13:24:10,495 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 -> ID=3248784172604456982
+2026-07-02 13:24:10,495 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 -> ID=3248784172604456983
+2026-07-02 13:24:10,496 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I4 -> ID=18446744073709551615
+2026-07-02 13:24:10,496 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I5 -> ID=18446744073709551615
+2026-07-02 13:24:10,496 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I6 -> ID=18446744073709551615
+2026-07-02 13:24:10,496 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I7 -> ID=18446744073709551615
+2026-07-02 13:24:10,497 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I8 -> ID=18446744073709551615
+2026-07-02 13:24:10,497 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I9 -> ID=18446744073709551615
+2026-07-02 13:24:10,497 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 -> ID=3248784172604456984
+2026-07-02 13:24:10,498 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 -> ID=3248784172604456986
+2026-07-02 13:24:10,498 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 -> ID=3248784172604456987
+2026-07-02 13:24:10,498 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U4 -> ID=18446744073709551615
+2026-07-02 13:24:10,498 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U5 -> ID=18446744073709551615
+2026-07-02 13:24:10,498 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U6 -> ID=18446744073709551615
+2026-07-02 13:24:10,499 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U7 -> ID=18446744073709551615
+2026-07-02 13:24:10,499 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U8 -> ID=18446744073709551615
+2026-07-02 13:24:10,499 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U9 -> ID=18446744073709551615
+2026-07-02 13:24:10,499 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] --- 通道配对 ---
+2026-07-02 13:24:10,500 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 <- AI 1/U1 -> ID=3248784172604456984
+2026-07-02 13:24:10,500 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 <- AI 1/l1 -> ID=3248784172604456980
+2026-07-02 13:24:10,500 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 <- AI 1/U2 -> ID=3248784172604456985
+2026-07-02 13:24:10,501 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 <- AI 1/l2 -> ID=3248784172604456981
+2026-07-02 13:24:10,501 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 <- AI 1/U3 -> ID=3248784172604456986
+2026-07-02 13:24:10,501 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 <- AI 1/l3 -> ID=3248784172604456982
+2026-07-02 13:24:10,503 INFO logging_setup.py [75] MainThread :[DEWETRON] WiringType -> AC_3P4W
+2026-07-02 13:24:10,503 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: {'AI 1/U2', 'AI 1/l3', 'AI 1/U1', 'AI 1/l1', 'AI 1/U3', 'AI 1/l2'}
+2026-07-02 13:24:10,507 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U3: Neon/Active -> True
+2026-07-02 13:24:10,507 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U3: Used -> True
+2026-07-02 13:24:10,508 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U2: Neon/Active -> True
+2026-07-02 13:24:10,509 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U2: Used -> True
+2026-07-02 13:24:10,510 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U1: Neon/Active -> True
+2026-07-02 13:24:10,511 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U1: Used -> True
+2026-07-02 13:24:10,513 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/l3: Neon/Active -> True
+2026-07-02 13:24:10,513 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/l3: Used -> True
+2026-07-02 13:24:10,514 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/l2: Neon/Active -> True
+2026-07-02 13:24:10,515 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/l2: Used -> True
+2026-07-02 13:24:10,515 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/l1: Neon/Active -> True
+2026-07-02 13:24:10,516 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/l1: Used -> True
+2026-07-02 13:24:10,523 INFO logging_setup.py [75] MainThread :[DEWETRON] InputChannels/U3: 3248784172604456987 -> 3248784172604456986
+2026-07-02 13:24:10,523 INFO logging_setup.py [75] MainThread :[DEWETRON] InputChannels/U2: 3248784172604456986 -> 3248784172604456985
+2026-07-02 13:24:10,526 INFO logging_setup.py [75] MainThread :[DEWETRON] InputChannels/I3: 3248784172604456983 -> 3248784172604456982
+2026-07-02 13:24:10,526 INFO logging_setup.py [75] MainThread :[DEWETRON] InputChannels/I2: 3248784172604456982 -> 3248784172604456981
+2026-07-02 13:24:10,526 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/DataSubsampling 无需修改（已与 UI 一致）
+2026-07-02 13:24:10,526 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/FrequencyChannel 无需修改（已与 UI 一致）
+2026-07-02 13:24:10,526 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] XML已修改: 1038472 字符
+2026-07-02 13:24:10,530 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 已保存: dewetron_20260702_13.xml
+2026-07-02 13:24:10,532 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1038532 字节, header: #71038532)
+2026-07-02 13:24:10,534 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:24:10,534 INFO logging_setup.py [75] MainThread :2026-07-02 13:24:10[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:24:10,534 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 配置已应用
+2026-07-02 13:24:13,399 INFO logging_setup.py [75] MainThread :[BuildTestPage] === 开始构造测试界面 ===
+2026-07-02 13:24:17,170 INFO logging_setup.py [75] MainThread :[BuildTestPage] 读取 XML: 1038402 字符
+2026-07-02 13:24:17,170 INFO logging_setup.py [75] MainThread :[BuildTestPage] PowerGroup ChannelID: 8116899349423718400
+2026-07-02 13:24:17,174 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_85: Neon/Active -> True
+2026-07-02 13:24:17,177 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_70: Neon/Active -> True
+2026-07-02 13:24:17,180 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_85: Used -> True
+2026-07-02 13:24:17,181 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_70: Neon/Active -> True
+2026-07-02 13:24:17,182 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_70: Used -> True
+2026-07-02 13:24:17,183 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_70: Neon/Active -> True
+2026-07-02 13:24:17,184 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_70: Used -> True
+2026-07-02 13:24:17,185 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_50: Neon/Active -> True
+2026-07-02 13:24:17,186 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_70: Used -> True
+2026-07-02 13:24:17,187 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_50: Neon/Active -> True
+2026-07-02 13:24:17,188 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_50: Used -> True
+2026-07-02 13:24:17,189 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_30_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,190 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_50: Used -> True
+2026-07-02 13:24:17,191 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_30: Neon/Active -> True
+2026-07-02 13:24:17,192 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_30_hp_RMS: Used -> True
+2026-07-02 13:24:17,193 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_30: Neon/Active -> True
+2026-07-02 13:24:17,194 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Plt_30: Used -> True
+2026-07-02 13:24:17,195 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_td: Neon/Active -> True
+2026-07-02 13:24:17,196 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_30: Used -> True
+2026-07-02 13:24:17,196 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_d_max: Neon/Active -> True
+2026-07-02 13:24:17,199 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_td: Used -> True
+2026-07-02 13:24:17,199 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_dc: Neon/Active -> True
+2026-07-02 13:24:17,199 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_d_max: Used -> True
+2026-07-02 13:24:17,201 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_Pst: Neon/Active -> True
+2026-07-02 13:24:17,201 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_dc: Used -> True
+2026-07-02 13:24:17,203 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_ready: Neon/Active -> True
+2026-07-02 13:24:17,203 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_Pst: Used -> True
+2026-07-02 13:24:17,203 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_85: Neon/Active -> True
+2026-07-02 13:24:17,205 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_ready: Used -> True
+2026-07-02 13:24:17,205 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_85: Neon/Active -> True
+2026-07-02 13:24:17,207 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_85: Used -> True
+2026-07-02 13:24:17,207 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_70: Neon/Active -> True
+2026-07-02 13:24:17,209 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_85: Used -> True
+2026-07-02 13:24:17,209 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_70: Neon/Active -> True
+2026-07-02 13:24:17,211 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_70: Used -> True
+2026-07-02 13:24:17,211 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_70: Neon/Active -> True
+2026-07-02 13:24:17,213 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_70: Used -> True
+2026-07-02 13:24:17,214 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_50: Neon/Active -> True
+2026-07-02 13:24:17,215 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_70: Used -> True
+2026-07-02 13:24:17,216 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_50: Neon/Active -> True
+2026-07-02 13:24:17,217 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_50: Used -> True
+2026-07-02 13:24:17,217 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_30: Neon/Active -> True
+2026-07-02 13:24:17,219 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_50: Used -> True
+2026-07-02 13:24:17,220 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_30: Neon/Active -> True
+2026-07-02 13:24:17,221 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Plt_30: Used -> True
+2026-07-02 13:24:17,221 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_30: Neon/Active -> True
+2026-07-02 13:24:17,223 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_30: Used -> True
+2026-07-02 13:24:17,224 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_td: Neon/Active -> True
+2026-07-02 13:24:17,225 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pinst_30: Used -> True
+2026-07-02 13:24:17,225 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_d_max: Neon/Active -> True
+2026-07-02 13:24:17,225 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_td: Used -> True
+2026-07-02 13:24:17,227 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_dc: Neon/Active -> True
+2026-07-02 13:24:17,228 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_d_max: Used -> True
+2026-07-02 13:24:17,229 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_Pst: Neon/Active -> True
+2026-07-02 13:24:17,229 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_dc: Used -> True
+2026-07-02 13:24:17,229 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_Pinst: Neon/Active -> True
+2026-07-02 13:24:17,232 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_Pst: Used -> True
+2026-07-02 13:24:17,233 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_ready: Neon/Active -> True
+2026-07-02 13:24:17,234 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_Pinst: Used -> True
+2026-07-02 13:24:17,235 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,236 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_ready: Used -> True
+2026-07-02 13:24:17,237 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,238 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_fundPHI: Used -> True
+2026-07-02 13:24:17,238 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,240 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_fundRMS: Used -> True
+2026-07-02 13:24:17,241 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,242 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_fundRMS: Used -> True
+2026-07-02 13:24:17,242 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,242 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_fundPHI: Used -> True
+2026-07-02 13:24:17,244 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,245 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_fundRMS: Used -> True
+2026-07-02 13:24:17,246 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_tPP: Neon/Active -> True
+2026-07-02 13:24:17,247 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_tAVG: Used -> True
+2026-07-02 13:24:17,248 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,249 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_tPP: Used -> True
+2026-07-02 13:24:17,251 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_tPP: Neon/Active -> True
+2026-07-02 13:24:17,252 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_tAVG: Used -> True
+2026-07-02 13:24:17,253 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,254 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_tRMS: Used -> True
+2026-07-02 13:24:17,255 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_tPP: Neon/Active -> True
+2026-07-02 13:24:17,255 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_tAVG: Used -> True
+2026-07-02 13:24:17,257 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF3_fund: Neon/Active -> True
+2026-07-02 13:24:17,258 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_tPP: Used -> True
+2026-07-02 13:24:17,259 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q3_fund: Neon/Active -> True
+2026-07-02 13:24:17,260 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF3_fund: Used -> True
+2026-07-02 13:24:17,261 INFO logging_setup.py [75] MainThread :[BuildTestPage] P3_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,262 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q3_fund: Used -> True
+2026-07-02 13:24:17,263 INFO logging_setup.py [75] MainThread :[BuildTestPage] P3_fund: Neon/Active -> True
+2026-07-02 13:24:17,263 INFO logging_setup.py [75] MainThread :[BuildTestPage] P3_fundPHI: Used -> True
+2026-07-02 13:24:17,265 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,265 INFO logging_setup.py [75] MainThread :[BuildTestPage] P3_fund: Used -> True
+2026-07-02 13:24:17,266 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,267 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fundPHI: Used -> True
+2026-07-02 13:24:17,268 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,269 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fundRMS: Used -> True
+2026-07-02 13:24:17,269 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,271 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fundPHI: Used -> True
+2026-07-02 13:24:17,272 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_fund-: Neon/Active -> True
+2026-07-02 13:24:17,273 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fundRMS: Used -> True
+2026-07-02 13:24:17,274 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_fund+: Neon/Active -> True
+2026-07-02 13:24:17,275 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_fund-: Used -> True
+2026-07-02 13:24:17,275 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_fund: Neon/Active -> True
+2026-07-02 13:24:17,275 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_fund+: Used -> True
+2026-07-02 13:24:17,275 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_fund: Used -> True
+2026-07-02 13:24:17,278 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF3_t: Neon/Active -> True
+2026-07-02 13:24:17,279 INFO logging_setup.py [75] MainThread :[BuildTestPage] S3_t: Neon/Active -> True
+2026-07-02 13:24:17,280 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF3_t: Used -> True
+2026-07-02 13:24:17,281 INFO logging_setup.py [75] MainThread :[BuildTestPage] P3_t: Neon/Active -> True
+2026-07-02 13:24:17,282 INFO logging_setup.py [75] MainThread :[BuildTestPage] S3_t: Used -> True
+2026-07-02 13:24:17,283 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,283 INFO logging_setup.py [75] MainThread :[BuildTestPage] P3_t: Used -> True
+2026-07-02 13:24:17,285 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_tPP: Neon/Active -> True
+2026-07-02 13:24:17,286 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_tAVG: Used -> True
+2026-07-02 13:24:17,287 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_tRMS: Neon/Active -> True
+2026-07-02 13:24:17,288 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_tPP: Used -> True
+2026-07-02 13:24:17,288 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_tPP: Neon/Active -> True
+2026-07-02 13:24:17,290 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_tRMS: Used -> True
+2026-07-02 13:24:17,291 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_t-: Neon/Active -> True
+2026-07-02 13:24:17,292 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_tRMS: Used -> True
+2026-07-02 13:24:17,292 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_d_max_overall: Neon/Active -> True
+2026-07-02 13:24:17,292 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_t-: Used -> True
+2026-07-02 13:24:17,292 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_t+: Neon/Active -> True
+2026-07-02 13:24:17,296 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_d_max_overall: Used -> True
+2026-07-02 13:24:17,297 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_t: Neon/Active -> True
+2026-07-02 13:24:17,298 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_t+: Used -> True
+2026-07-02 13:24:17,299 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_30_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,299 INFO logging_setup.py [75] MainThread :[BuildTestPage] W3_t: Used -> True
+2026-07-02 13:24:17,301 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF2_fund: Neon/Active -> True
+2026-07-02 13:24:17,301 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_30_hp_RMS: Used -> True
+2026-07-02 13:24:17,302 INFO logging_setup.py [75] MainThread :[BuildTestPage] S2_fund: Neon/Active -> True
+2026-07-02 13:24:17,303 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF2_fund: Used -> True
+2026-07-02 13:24:17,305 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q2_fund: Neon/Active -> True
+2026-07-02 13:24:17,305 INFO logging_setup.py [75] MainThread :[BuildTestPage] S2_fund: Used -> True
+2026-07-02 13:24:17,306 INFO logging_setup.py [75] MainThread :[BuildTestPage] P2_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,306 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q2_fund: Used -> True
+2026-07-02 13:24:17,308 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_ready: Neon/Active -> True
+2026-07-02 13:24:17,308 INFO logging_setup.py [75] MainThread :[BuildTestPage] P2_fundPHI: Used -> True
+2026-07-02 13:24:17,308 INFO logging_setup.py [75] MainThread :[BuildTestPage] P2_fund: Neon/Active -> True
+2026-07-02 13:24:17,308 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_ready: Used -> True
+2026-07-02 13:24:17,308 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,313 INFO logging_setup.py [75] MainThread :[BuildTestPage] P2_fund: Used -> True
+2026-07-02 13:24:17,313 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,314 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fundPHI: Used -> True
+2026-07-02 13:24:17,315 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,316 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fundRMS: Used -> True
+2026-07-02 13:24:17,317 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,318 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fundPHI: Used -> True
+2026-07-02 13:24:17,318 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_fund+: Neon/Active -> True
+2026-07-02 13:24:17,318 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fundRMS: Used -> True
+2026-07-02 13:24:17,321 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_fund+: Used -> True
+2026-07-02 13:24:17,321 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF2_t: Neon/Active -> True
+2026-07-02 13:24:17,321 INFO logging_setup.py [75] MainThread :[BuildTestPage] S2_t: Neon/Active -> True
+2026-07-02 13:24:17,321 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF2_t: Used -> True
+2026-07-02 13:24:17,325 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q2_t: Neon/Active -> True
+2026-07-02 13:24:17,326 INFO logging_setup.py [75] MainThread :[BuildTestPage] S2_t: Used -> True
+2026-07-02 13:24:17,327 INFO logging_setup.py [75] MainThread :[BuildTestPage] P2_t: Neon/Active -> True
+2026-07-02 13:24:17,328 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q2_t: Used -> True
+2026-07-02 13:24:17,329 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,330 INFO logging_setup.py [75] MainThread :[BuildTestPage] P2_t: Used -> True
+2026-07-02 13:24:17,330 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_tPP: Neon/Active -> True
+2026-07-02 13:24:17,331 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_tAVG: Used -> True
+2026-07-02 13:24:17,332 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_70_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,333 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_tPP: Used -> True
+2026-07-02 13:24:17,334 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_tRMS: Neon/Active -> True
+2026-07-02 13:24:17,334 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_70_hp_RMS: Used -> True
+2026-07-02 13:24:17,336 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,337 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_tRMS: Used -> True
+2026-07-02 13:24:17,338 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_tPP: Neon/Active -> True
+2026-07-02 13:24:17,338 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_tAVG: Used -> True
+2026-07-02 13:24:17,339 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_t-: Neon/Active -> True
+2026-07-02 13:24:17,340 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_tRMS: Used -> True
+2026-07-02 13:24:17,341 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_t+: Neon/Active -> True
+2026-07-02 13:24:17,343 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_t-: Used -> True
+2026-07-02 13:24:17,344 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_85: Neon/Active -> True
+2026-07-02 13:24:17,345 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_t+: Used -> True
+2026-07-02 13:24:17,345 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_t: Neon/Active -> True
+2026-07-02 13:24:17,347 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_85: Used -> True
+2026-07-02 13:24:17,347 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM: Neon/Active -> True
+2026-07-02 13:24:17,348 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_t: Used -> True
+2026-07-02 13:24:17,349 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM0: Neon/Active -> True
+2026-07-02 13:24:17,350 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM: Used -> True
+2026-07-02 13:24:17,351 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM-: Neon/Active -> True
+2026-07-02 13:24:17,352 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM0: Used -> True
+2026-07-02 13:24:17,353 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM+: Neon/Active -> True
+2026-07-02 13:24:17,354 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM-: Used -> True
+2026-07-02 13:24:17,354 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundUNBAL0: Neon/Active -> True
+2026-07-02 13:24:17,355 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS_SYM+: Used -> True
+2026-07-02 13:24:17,356 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_85_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,357 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundUNBAL0: Used -> True
+2026-07-02 13:24:17,359 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundUNBAL-: Neon/Active -> True
+2026-07-02 13:24:17,359 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_85_hp_RMS: Used -> True
+2026-07-02 13:24:17,360 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundUNBAL+: Neon/Active -> True
+2026-07-02 13:24:17,361 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundUNBAL-: Used -> True
+2026-07-02 13:24:17,362 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM: Neon/Active -> True
+2026-07-02 13:24:17,363 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundUNBAL+: Used -> True
+2026-07-02 13:24:17,364 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM0: Neon/Active -> True
+2026-07-02 13:24:17,365 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM: Used -> True
+2026-07-02 13:24:17,366 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_dc_overall: Neon/Active -> True
+2026-07-02 13:24:17,367 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM0: Used -> True
+2026-07-02 13:24:17,367 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM-: Neon/Active -> True
+2026-07-02 13:24:17,368 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_dc_overall: Used -> True
+2026-07-02 13:24:17,369 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM+: Neon/Active -> True
+2026-07-02 13:24:17,371 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM-: Used -> True
+2026-07-02 13:24:17,372 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_30: Neon/Active -> True
+2026-07-02 13:24:17,373 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS_SYM+: Used -> True
+2026-07-02 13:24:17,374 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundUNBAL0: Neon/Active -> True
+2026-07-02 13:24:17,375 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_30: Used -> True
+2026-07-02 13:24:17,376 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundUNBAL-: Neon/Active -> True
+2026-07-02 13:24:17,377 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundUNBAL0: Used -> True
+2026-07-02 13:24:17,377 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_50_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,378 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundUNBAL-: Used -> True
+2026-07-02 13:24:17,380 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundUNBAL+: Neon/Active -> True
+2026-07-02 13:24:17,380 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_fic_50_hp_RMS: Used -> True
+2026-07-02 13:24:17,381 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundUNBAL+: Used -> True
+2026-07-02 13:24:17,382 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_d_max_overall: Neon/Active -> True
+2026-07-02 13:24:17,383 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_d_max_overall: Used -> True
+2026-07-02 13:24:17,384 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_85: Neon/Active -> True
+2026-07-02 13:24:17,385 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_85: Used -> True
+2026-07-02 13:24:17,386 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_85_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,387 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_Plt: Neon/Active -> True
+2026-07-02 13:24:17,388 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_85_hp_RMS: Used -> True
+2026-07-02 13:24:17,389 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_85: Neon/Active -> True
+2026-07-02 13:24:17,390 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_Plt: Used -> True
+2026-07-02 13:24:17,391 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_85: Neon/Active -> True
+2026-07-02 13:24:17,391 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_85: Used -> True
+2026-07-02 13:24:17,392 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_ready: Neon/Active -> True
+2026-07-02 13:24:17,393 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_85: Used -> True
+2026-07-02 13:24:17,395 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_85: Neon/Active -> True
+2026-07-02 13:24:17,396 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_ready: Used -> True
+2026-07-02 13:24:17,396 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_70_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,397 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_85: Used -> True
+2026-07-02 13:24:17,398 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_85_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,398 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_70_hp_RMS: Used -> True
+2026-07-02 13:24:17,399 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_70: Neon/Active -> True
+2026-07-02 13:24:17,401 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_85_hp_RMS: Used -> True
+2026-07-02 13:24:17,402 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_70: Neon/Active -> True
+2026-07-02 13:24:17,403 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_70: Used -> True
+2026-07-02 13:24:17,404 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_50: Neon/Active -> True
+2026-07-02 13:24:17,404 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_70: Used -> True
+2026-07-02 13:24:17,406 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_70: Neon/Active -> True
+2026-07-02 13:24:17,406 INFO logging_setup.py [75] MainThread :[BuildTestPage] I2_fluc_Pst_50: Used -> True
+2026-07-02 13:24:17,407 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_50: Neon/Active -> True
+2026-07-02 13:24:17,407 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_70: Used -> True
+2026-07-02 13:24:17,408 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_70_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,409 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_50: Used -> True
+2026-07-02 13:24:17,409 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_30: Neon/Active -> True
+2026-07-02 13:24:17,410 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_70_hp_RMS: Used -> True
+2026-07-02 13:24:17,411 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_ready: Neon/Active -> True
+2026-07-02 13:24:17,412 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_30: Used -> True
+2026-07-02 13:24:17,413 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_Pinst: Neon/Active -> True
+2026-07-02 13:24:17,413 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_ready: Used -> True
+2026-07-02 13:24:17,414 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_d_max: Neon/Active -> True
+2026-07-02 13:24:17,414 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_fluc_Pinst: Used -> True
+2026-07-02 13:24:17,415 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_Plt: Neon/Active -> True
+2026-07-02 13:24:17,416 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_d_max: Used -> True
+2026-07-02 13:24:17,417 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_50_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,417 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_Plt: Used -> True
+2026-07-02 13:24:17,418 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_Pst: Neon/Active -> True
+2026-07-02 13:24:17,418 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_fic_50_hp_RMS: Used -> True
+2026-07-02 13:24:17,418 INFO logging_setup.py [75] MainThread :[BuildTestPage] S1_fund: Neon/Active -> True
+2026-07-02 13:24:17,418 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_Pst: Used -> True
+2026-07-02 13:24:17,421 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_tRMS: Neon/Active -> True
+2026-07-02 13:24:17,421 INFO logging_setup.py [75] MainThread :[BuildTestPage] S1_fund: Used -> True
+2026-07-02 13:24:17,421 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_fund-: Neon/Active -> True
+2026-07-02 13:24:17,423 INFO logging_setup.py [75] MainThread :[BuildTestPage] U31_tRMS: Used -> True
+2026-07-02 13:24:17,423 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_tPP: Neon/Active -> True
+2026-07-02 13:24:17,424 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_fund-: Used -> True
+2026-07-02 13:24:17,426 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,426 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_tPP: Used -> True
+2026-07-02 13:24:17,427 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_fund-: Neon/Active -> True
+2026-07-02 13:24:17,428 INFO logging_setup.py [75] MainThread :[BuildTestPage] U23_fundPHI: Used -> True
+2026-07-02 13:24:17,428 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_t: Neon/Active -> True
+2026-07-02 13:24:17,429 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_fund-: Used -> True
+2026-07-02 13:24:17,429 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_Plt: Neon/Active -> True
+2026-07-02 13:24:17,429 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_t: Used -> True
+2026-07-02 13:24:17,429 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q_fund: Neon/Active -> True
+2026-07-02 13:24:17,429 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_Plt: Used -> True
+2026-07-02 13:24:17,429 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,434 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q_fund: Used -> True
+2026-07-02 13:24:17,435 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q1_fund: Neon/Active -> True
+2026-07-02 13:24:17,435 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_tAVG: Used -> True
+2026-07-02 13:24:17,436 INFO logging_setup.py [75] MainThread :[BuildTestPage] S3_fund: Neon/Active -> True
+2026-07-02 13:24:17,437 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q1_fund: Used -> True
+2026-07-02 13:24:17,437 INFO logging_setup.py [75] MainThread :[BuildTestPage] S3_fund: Used -> True
+2026-07-02 13:24:17,438 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,439 INFO logging_setup.py [75] MainThread :[BuildTestPage] F_fund: Neon/Active -> True
+2026-07-02 13:24:17,440 INFO logging_setup.py [75] MainThread :[BuildTestPage] U12_tRMS: Used -> True
+2026-07-02 13:24:17,440 INFO logging_setup.py [75] MainThread :[BuildTestPage] F_fund: Used -> True
+2026-07-02 13:24:17,441 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_50: Neon/Active -> True
+2026-07-02 13:24:17,442 INFO logging_setup.py [75] MainThread :[BuildTestPage] P1_t: Neon/Active -> True
+2026-07-02 13:24:17,442 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pst_50: Used -> True
+2026-07-02 13:24:17,443 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q_t: Neon/Active -> True
+2026-07-02 13:24:17,444 INFO logging_setup.py [75] MainThread :[BuildTestPage] P1_t: Used -> True
+2026-07-02 13:24:17,445 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_t-: Neon/Active -> True
+2026-07-02 13:24:17,446 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q_t: Used -> True
+2026-07-02 13:24:17,447 INFO logging_setup.py [75] MainThread :[BuildTestPage] S1_t: Neon/Active -> True
+2026-07-02 13:24:17,448 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_t-: Used -> True
+2026-07-02 13:24:17,448 INFO logging_setup.py [75] MainThread :[BuildTestPage] P1_fund: Neon/Active -> True
+2026-07-02 13:24:17,448 INFO logging_setup.py [75] MainThread :[BuildTestPage] S1_t: Used -> True
+2026-07-02 13:24:17,449 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_t-: Neon/Active -> True
+2026-07-02 13:24:17,450 INFO logging_setup.py [75] MainThread :[BuildTestPage] P1_fund: Used -> True
+2026-07-02 13:24:17,452 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_t+: Neon/Active -> True
+2026-07-02 13:24:17,453 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_t-: Used -> True
+2026-07-02 13:24:17,453 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q1_t: Neon/Active -> True
+2026-07-02 13:24:17,454 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_t+: Used -> True
+2026-07-02 13:24:17,455 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_fund+: Neon/Active -> True
+2026-07-02 13:24:17,455 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q1_t: Used -> True
+2026-07-02 13:24:17,456 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_fund+: Used -> True
+2026-07-02 13:24:17,457 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_fund+: Neon/Active -> True
+2026-07-02 13:24:17,458 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_tRMS: Neon/Active -> True
+2026-07-02 13:24:17,458 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_fund+: Used -> True
+2026-07-02 13:24:17,459 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_30_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,460 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_tRMS: Used -> True
+2026-07-02 13:24:17,461 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_30: Neon/Active -> True
+2026-07-02 13:24:17,461 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_30_hp_RMS: Used -> True
+2026-07-02 13:24:17,462 INFO logging_setup.py [75] MainThread :[BuildTestPage] P_t: Neon/Active -> True
+2026-07-02 13:24:17,462 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_30: Used -> True
+2026-07-02 13:24:17,464 INFO logging_setup.py [75] MainThread :[BuildTestPage] P_fund: Neon/Active -> True
+2026-07-02 13:24:17,465 INFO logging_setup.py [75] MainThread :[BuildTestPage] P_t: Used -> True
+2026-07-02 13:24:17,465 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,467 INFO logging_setup.py [75] MainThread :[BuildTestPage] P_fund: Used -> True
+2026-07-02 13:24:17,467 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_fund: Neon/Active -> True
+2026-07-02 13:24:17,468 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_fundRMS: Used -> True
+2026-07-02 13:24:17,469 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_tRMS: Neon/Active -> True
+2026-07-02 13:24:17,470 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_fund: Used -> True
+2026-07-02 13:24:17,470 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF_t: Neon/Active -> True
+2026-07-02 13:24:17,472 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_tRMS: Used -> True
+2026-07-02 13:24:17,472 INFO logging_setup.py [75] MainThread :[BuildTestPage] S_t: Neon/Active -> True
+2026-07-02 13:24:17,473 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF_t: Used -> True
+2026-07-02 13:24:17,474 INFO logging_setup.py [75] MainThread :[BuildTestPage] P1_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,475 INFO logging_setup.py [75] MainThread :[BuildTestPage] S_t: Used -> True
+2026-07-02 13:24:17,476 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF_fund: Neon/Active -> True
+2026-07-02 13:24:17,476 INFO logging_setup.py [75] MainThread :[BuildTestPage] P1_fundPHI: Used -> True
+2026-07-02 13:24:17,477 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF1_fund: Neon/Active -> True
+2026-07-02 13:24:17,478 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF_fund: Used -> True
+2026-07-02 13:24:17,479 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,479 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF1_fund: Used -> True
+2026-07-02 13:24:17,481 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_85: Neon/Active -> True
+2026-07-02 13:24:17,481 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fundRMS: Used -> True
+2026-07-02 13:24:17,482 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_td: Neon/Active -> True
+2026-07-02 13:24:17,483 INFO logging_setup.py [75] MainThread :[BuildTestPage] I3_fluc_Pinst_85: Used -> True
+2026-07-02 13:24:17,483 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_50_hp_RMS: Neon/Active -> True
+2026-07-02 13:24:17,484 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_td: Used -> True
+2026-07-02 13:24:17,484 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_30: Neon/Active -> True
+2026-07-02 13:24:17,486 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_fic_50_hp_RMS: Used -> True
+2026-07-02 13:24:17,487 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q3_t: Neon/Active -> True
+2026-07-02 13:24:17,487 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pst_30: Used -> True
+2026-07-02 13:24:17,488 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fundPHI: Neon/Active -> True
+2026-07-02 13:24:17,489 INFO logging_setup.py [75] MainThread :[BuildTestPage] Q3_t: Used -> True
+2026-07-02 13:24:17,490 INFO logging_setup.py [75] MainThread :[BuildTestPage] S_fund: Neon/Active -> True
+2026-07-02 13:24:17,491 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_tRMS: Used -> True
+2026-07-02 13:24:17,491 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_tPP: Neon/Active -> True
+2026-07-02 13:24:17,492 INFO logging_setup.py [75] MainThread :[BuildTestPage] S_fund: Used -> True
+2026-07-02 13:24:17,493 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_fund: Neon/Active -> True
+2026-07-02 13:24:17,494 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_tPP: Used -> True
+2026-07-02 13:24:17,495 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_dc_overall: Neon/Active -> True
+2026-07-02 13:24:17,496 INFO logging_setup.py [75] MainThread :[BuildTestPage] W1_fund: Used -> True
+2026-07-02 13:24:17,497 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,497 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_dc_overall: Used -> True
+2026-07-02 13:24:17,498 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_tAVG: Used -> True
+2026-07-02 13:24:17,498 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,499 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_50: Neon/Active -> True
+2026-07-02 13:24:17,501 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF1_t: Neon/Active -> True
+2026-07-02 13:24:17,502 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Plt_50: Used -> True
+2026-07-02 13:24:17,502 INFO logging_setup.py [75] MainThread :[BuildTestPage] I_fundRMS: Neon/Active -> True
+2026-07-02 13:24:17,502 INFO logging_setup.py [75] MainThread :[BuildTestPage] PF1_t: Used -> True
+2026-07-02 13:24:17,502 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_fund-: Neon/Active -> True
+2026-07-02 13:24:17,504 INFO logging_setup.py [75] MainThread :[BuildTestPage] U2_fluc_dc_overall: Neon/Active -> True
+2026-07-02 13:24:17,506 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_fund: Neon/Active -> True
+2026-07-02 13:24:17,506 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_Pinst: Neon/Active -> True
+2026-07-02 13:24:17,507 INFO logging_setup.py [75] MainThread :[BuildTestPage] W2_fund: Used -> True
+2026-07-02 13:24:17,508 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_ready: Neon/Active -> True
+2026-07-02 13:24:17,509 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_Pinst: Used -> True
+2026-07-02 13:24:17,510 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_d_max_overall: Neon/Active -> True
+2026-07-02 13:24:17,511 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_ready: Used -> True
+2026-07-02 13:24:17,511 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_t: Neon/Active -> True
+2026-07-02 13:24:17,512 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_d_max_overall: Used -> True
+2026-07-02 13:24:17,513 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_tAVG: Neon/Active -> True
+2026-07-02 13:24:17,514 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_t: Used -> True
+2026-07-02 13:24:17,514 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_50: Neon/Active -> True
+2026-07-02 13:24:17,515 INFO logging_setup.py [75] MainThread :[BuildTestPage] U3_tAVG: Used -> True
+2026-07-02 13:24:17,516 INFO logging_setup.py [75] MainThread :[BuildTestPage] W_t+: Neon/Active -> True
+2026-07-02 13:24:17,517 INFO logging_setup.py [75] MainThread :[BuildTestPage] I1_fluc_Pinst_50: Used -> True
+2026-07-02 13:24:17,518 INFO logging_setup.py [75] MainThread :[BuildTestPage] U1_fluc_dc: Neon/Active -> True
+2026-07-02 13:24:17,519 INFO logging_setup.py [75] MainThread :[BuildTestPage] U_tRMS: Used -> True
+2026-07-02 13:24:17,519 INFO logging_setup.py [75] MainThread :[BuildTestPage] 启用了 385 个电力组通道（Used + Neon/Active）
+2026-07-02 13:24:17,521 INFO logging_setup.py [75] MainThread :[BuildTestPage] 已删除 1 个旧电力组页面
+2026-07-02 13:24:17,522 INFO logging_setup.py [75] MainThread :[BuildTestPage] 已注入电力组测试页面（channel_id=8116899349423718400）
+2026-07-02 13:24:17,523 INFO logging_setup.py [75] MainThread :[BuildTestPage] 发送修改后的 XML: 1040093 字符
+2026-07-02 13:24:17,524 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1040153 字节, header: #71040153)
+2026-07-02 13:24:17,525 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:24:17,525 INFO logging_setup.py [75] MainThread :2026-07-02 13:24:17[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:24:17,525 INFO logging_setup.py [75] MainThread :[BuildTestPage] 测试界面构造完成
+2026-07-02 13:27:19,762 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 ---
+2026-07-02 13:27:19,762 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 8117175369791963156
+2026-07-02 13:27:19,762 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 8117175369791963157
+2026-07-02 13:27:19,784 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 8117175369791963158
+2026-07-02 13:27:19,784 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 8117175369791963159
+2026-07-02 13:27:19,784 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 8117175369791963160
+2026-07-02 13:27:19,785 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 8117175369791963161
+2026-07-02 13:27:19,785 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 8117175369791963162
+2026-07-02 13:27:19,789 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 8117175369791963163
+2026-07-02 13:27:19,789 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 8117175369791963156
+2026-07-02 13:27:19,789 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 8117175369791963157
+2026-07-02 13:27:19,789 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 8117175369791963158
+2026-07-02 13:27:19,789 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 8117175369791963159
+2026-07-02 13:27:19,795 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1040291 字节, header: #71040291)
+2026-07-02 13:27:19,795 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:27:19,798 INFO logging_setup.py [75] MainThread :2026-07-02 13:27:19[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:28:11,175 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 ---
+2026-07-02 13:28:11,175 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 8117175369791963156
+2026-07-02 13:28:11,175 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 8117175369791963157
+2026-07-02 13:28:11,175 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 8117175369791963158
+2026-07-02 13:28:11,176 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 8117175369791963159
+2026-07-02 13:28:11,176 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 8117175369791963160
+2026-07-02 13:28:11,176 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 8117175369791963161
+2026-07-02 13:28:11,176 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 8117175369791963162
+2026-07-02 13:28:11,176 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 8117175369791963163
+2026-07-02 13:28:11,176 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 8117175369791963156
+2026-07-02 13:28:11,176 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 8117175369791963157
+2026-07-02 13:28:11,177 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 8117175369791963158
+2026-07-02 13:28:11,177 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 8117175369791963159
+2026-07-02 13:28:11,178 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1040291 字节, header: #71040291)
+2026-07-02 13:28:11,180 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:28:11,181 INFO logging_setup.py [75] MainThread :2026-07-02 13:28:11[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:29:46,890 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 ---
+2026-07-02 13:29:46,890 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 8117175369791963156
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 8117175369791963157
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 8117175369791963158
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 8117175369791963159
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 8117175369791963160
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 8117175369791963161
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 8117175369791963162
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 8117175369791963163
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 8117175369791963156
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 8117175369791963157
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 8117175369791963158
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 8117175369791963159
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1040291 字节, header: #71040291)
+2026-07-02 13:29:46,892 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-02 13:29:46,892 INFO logging_setup.py [75] MainThread :2026-07-02 13:29:46[DEWETRON] :SETUP:APPLY 发送完成

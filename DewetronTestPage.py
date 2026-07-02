@@ -100,6 +100,72 @@ def inject_power_group_screen(xml, channel_id):
             return xml, False, "找不到 </Channels> 标记，无法注入测试页面"
 
 
+# 需要启用的通道 ShortId 前缀（本体 + 子字段全部启用）
+_CHANNEL_PREFIXES = [
+    # Voltage (U)
+    'U1_', 'U2_', 'U3_', 'U_', 'U12_', 'U23_', 'U31_',
+    # Current (I)
+    'I1_', 'I2_', 'I3_', 'I_', 'I4_',
+    # Active Power (P)
+    'P1_', 'P2_', 'P3_', 'P_',
+    # Reactive Power (Q)
+    'Q1_', 'Q2_', 'Q3_', 'Q_',
+    # Apparent Power (S)
+    'S1_', 'S2_', 'S3_', 'S_',
+    # Power Factor (PF)
+    'PF1_', 'PF2_', 'PF3_', 'PF_',
+    # Energy (W)
+    'W1_', 'W2_', 'W3_', 'W_',
+]
+# 需要单独启用的特殊通道
+_SPECIAL_CHANNELS = ['F_fund']
+
+
+def enable_power_group_channels(xml):
+    """启用所有电力组通道（U/I/P/Q/S/PF/W/F 的本体 + 子字段）。
+
+    通过匹配 ShortId 前缀来定位通道，设置 Used=True 和 Neon/Active=True。
+
+    Returns:
+        tuple: (修改后的xml, 启用数量)
+    """
+    replacements = []
+
+    for m in re.finditer(r'ShortId"><StringValue>"([^"]+)"', xml):
+        short_id = m.group(1)
+        pos = m.start()
+
+        # 判断是否是需要启用的通道
+        is_prefix = any(short_id.startswith(pfx) for pfx in _CHANNEL_PREFIXES)
+        is_special = short_id in _SPECIAL_CHANNELS
+        if not (is_prefix or is_special):
+            continue
+
+        # 设置 Used=True
+        before = xml[max(0, pos - 5000):pos]
+        used_match = re.search(r'(<Property name="Used"><BooleanValue>)(True|False)(</BooleanValue>)', before)
+        if used_match and used_match.group(2) == 'False':
+            start = max(0, pos - 5000) + used_match.start(2)
+            end = start + len(used_match.group(2))
+            replacements.append((start, end, 'True', f'{short_id}: Used'))
+
+        # 设置 Neon/Active=True
+        after = xml[pos:min(len(xml), pos + 6000)]
+        neon_match = re.search(r'(<Property name="Neon/Active"><BooleanValue>)(True|False)(</BooleanValue>)', after)
+        if neon_match and neon_match.group(2) == 'False':
+            start = pos + neon_match.start(2)
+            end = start + len(neon_match.group(2))
+            replacements.append((start, end, 'True', f'{short_id}: Neon/Active'))
+
+    # 从后往前替换（避免位置偏移）
+    replacements.sort(key=lambda x: x[0], reverse=True)
+    for start, end, new_val, label in replacements:
+        xml = xml[:start] + new_val + xml[end:]
+        print(f"[BuildTestPage] {label} -> True")
+
+    return xml, len(replacements)
+
+
 def build_test_page_from_device(controller, log_fn=None):
     """主入口：从设备读取 XML，构造电力组测试页面，发送回设备。
 
@@ -134,13 +200,17 @@ def build_test_page_from_device(controller, log_fn=None):
         return False
     _log(f"PowerGroup ChannelID: {channel_id}")
 
-    # 3. 注入测试页面
+    # 3. 启用所有电力组通道（U/I/P/Q/S/PF/W/F 的本体 + 子字段）
+    xml, enabled_count = enable_power_group_channels(xml)
+    _log(f"启用了 {enabled_count} 个电力组通道（Used + Neon/Active）")
+
+    # 4. 注入测试页面
     xml, modified, msg = inject_power_group_screen(xml, channel_id)
     _log(msg)
     if not modified:
         return True
 
-    # 4. 发送到设备
+    # 5. 发送到设备
     _log(f"发送修改后的 XML: {len(xml)} 字符")
     if controller.send_apply_config(xml):
         _log("测试界面构造完成")

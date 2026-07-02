@@ -28,7 +28,12 @@ arrayRow1 = ['Style',
     "checkBox_S5",
         "comboBox_S5_AC",
         "checkBox_S5_DC1", "comboBox_S5_DC1","checkBox_S5_DC2", "comboBox_S5_DC2",
-        "checkBox_S5_DC3", "comboBox_S5_DC3", "checkBox_S5_DC4", "comboBox_S5_DC4", "comboBox_S2_PER_FLICK_COUNT"]
+        "checkBox_S5_DC3", "comboBox_S5_DC3", "checkBox_S5_DC4", "comboBox_S5_DC4", "comboBox_S2_PER_FLICK_COUNT",
+    # 德威创模式配置
+    "DEW_mode", "checkBox_DEW_FlickerStandard", "comboBox_DEW_WeightingType",
+    "comboBox_DEW_MaxRefreshRate", "textEdit_DEW_NominalVoltage",
+    "textEdit_DEW_ShortFlickerTime", "textEdit_DEW_LongFlickerTime",
+    "textEdit_DEW_ShortCircuitPower", "checkBox_DEW_RollingCalc"]
 
 #泰国电压闪变保存设定
 def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian):
@@ -347,6 +352,27 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
 
         comboBox_S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentIndex()
         arrayRow2.append(comboBox_S2_PER_FLICK_COUNT)
+
+        # 德威创模式配置
+        dew_mode = getattr(uiThaiDianYaShanBian, '_mode', 'wt3000')
+        arrayRow2.append(dew_mode)
+
+        if uiThaiDianYaShanBian.checkBox_DEW_FlickerStandard.isChecked():
+            arrayRow2.append('1')
+        else:
+            arrayRow2.append('0')
+
+        arrayRow2.append(uiThaiDianYaShanBian.comboBox_DEW_WeightingType.currentIndex())
+        arrayRow2.append(uiThaiDianYaShanBian.comboBox_DEW_MaxRefreshRate.currentIndex())
+        arrayRow2.append(uiThaiDianYaShanBian.textEdit_DEW_NominalVoltage.toPlainText())
+        arrayRow2.append(uiThaiDianYaShanBian.textEdit_DEW_ShortFlickerTime.toPlainText())
+        arrayRow2.append(uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText())
+        arrayRow2.append(uiThaiDianYaShanBian.textEdit_DEW_ShortCircuitPower.toPlainText())
+
+        if uiThaiDianYaShanBian.checkBox_DEW_RollingCalc.isChecked():
+            arrayRow2.append('1')
+        else:
+            arrayRow2.append('0')
 
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
@@ -1011,6 +1037,51 @@ def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
                         uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.setCurrentIndex(int(comboBox_S2_PER_FLICK_COUNT))
                     else:
                         strFlag = 1
+
+                # 德威创模式配置（兼容旧文件：无 DEWETRON 字段时跳过）
+                if strFlag == "0" and len(arrayRow1) > 82:
+                    if arrayRow1[82] in i:
+                        dew_mode = i[arrayRow1[82]]
+                        if dew_mode == 'dewetron':
+                            uiThaiDianYaShanBian.radio_dewetron.setChecked(True)
+                        else:
+                            uiThaiDianYaShanBian.radio_wt3000.setChecked(True)
+                    else:
+                        uiThaiDianYaShanBian.radio_wt3000.setChecked(True)
+
+                if strFlag == "0" and len(arrayRow1) > 83:
+                    if arrayRow1[83] in i:
+                        val = i[arrayRow1[83]]
+                        uiThaiDianYaShanBian.checkBox_DEW_FlickerStandard.setChecked(val == '1')
+
+                if strFlag == "0" and len(arrayRow1) > 84:
+                    if arrayRow1[84] in i:
+                        uiThaiDianYaShanBian.comboBox_DEW_WeightingType.setCurrentIndex(int(i[arrayRow1[84]]))
+
+                if strFlag == "0" and len(arrayRow1) > 85:
+                    if arrayRow1[85] in i:
+                        uiThaiDianYaShanBian.comboBox_DEW_MaxRefreshRate.setCurrentIndex(int(i[arrayRow1[85]]))
+
+                if strFlag == "0" and len(arrayRow1) > 86:
+                    if arrayRow1[86] in i:
+                        uiThaiDianYaShanBian.textEdit_DEW_NominalVoltage.setText(i[arrayRow1[86]])
+
+                if strFlag == "0" and len(arrayRow1) > 87:
+                    if arrayRow1[87] in i:
+                        uiThaiDianYaShanBian.textEdit_DEW_ShortFlickerTime.setText(i[arrayRow1[87]])
+
+                if strFlag == "0" and len(arrayRow1) > 88:
+                    if arrayRow1[88] in i:
+                        uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.setText(i[arrayRow1[88]])
+
+                if strFlag == "0" and len(arrayRow1) > 89:
+                    if arrayRow1[89] in i:
+                        uiThaiDianYaShanBian.textEdit_DEW_ShortCircuitPower.setText(i[arrayRow1[89]])
+
+                if strFlag == "0" and len(arrayRow1) > 90:
+                    if arrayRow1[90] in i:
+                        val = i[arrayRow1[90]]
+                        uiThaiDianYaShanBian.checkBox_DEW_RollingCalc.setChecked(val == '1')
 
         QMessageBox.information(None, "实验设定提示信息", "电压闪变文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 

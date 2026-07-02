@@ -394,7 +394,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         left_side.addLayout(main_area, 1)
 
-        # -- 底部：对应关系 + 操作按钮 --
+        # -- 底部：对应关系 --
         bottom_layout = QHBoxLayout()
 
         mapping_group = QtWidgets.QGroupBox("对应关系")
@@ -408,19 +408,6 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.wiringDiagramCanvas.set_wiring_type(0)
         self._create_slot_inputs(0)
         self._update_mapping_display()
-
-        btn_col = QVBoxLayout()
-        btn_col.setSpacing(6)
-        self.pushButton_ApplySettings = QtWidgets.QPushButton(self.tab_wiring)
-        self.pushButton_ApplySettings.setText("保存")
-        self.pushButton_ApplySettings.setMinimumSize(130, 36)
-        btn_col.addWidget(self.pushButton_ApplySettings)
-        self.pushButton_BuildTestPage = QtWidgets.QPushButton(self.tab_wiring)
-        self.pushButton_BuildTestPage.setText("测试界面构造")
-        self.pushButton_BuildTestPage.setMinimumSize(130, 36)
-        btn_col.addWidget(self.pushButton_BuildTestPage)
-        btn_col.addStretch()
-        bottom_layout.addLayout(btn_col)
 
         left_side.addLayout(bottom_layout)
         content_area.addLayout(left_side, 1)
@@ -473,7 +460,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
         right_side.addWidget(params_group)
 
         # -- 加载配置按钮 --
-        self.pushButton_LoadLastConfig = QtWidgets.QPushButton(self.tab_wiring)
+        self.pushButton_LoadLastConfig = QtWidgets.QPushButton()
         self.pushButton_LoadLastConfig.setText("加载配置文件")
         self.pushButton_LoadLastConfig.setMinimumSize(130, 36)
         self.pushButton_LoadLastConfig.setStyleSheet(
@@ -482,6 +469,27 @@ class Ui_Dialog_DEWETRON_Setting(object):
             "QPushButton:hover { background-color: #bcc3ce; }"
         )
         right_side.addWidget(self.pushButton_LoadLastConfig)
+
+        # -- 保存和测试界面构造按钮 --
+        self.pushButton_ApplySettings = QtWidgets.QPushButton()
+        self.pushButton_ApplySettings.setText("保存")
+        self.pushButton_ApplySettings.setMinimumSize(130, 36)
+        self.pushButton_ApplySettings.setStyleSheet(
+            "QPushButton { color: white; background-color: #10b981; border: none; "
+            "border-radius: 4px; padding: 6px 14px; font-size: 13px; }"
+            "QPushButton:hover { background-color: #059669; }"
+        )
+        right_side.addWidget(self.pushButton_ApplySettings)
+
+        self.pushButton_BuildTestPage = QtWidgets.QPushButton()
+        self.pushButton_BuildTestPage.setText("测试界面构造")
+        self.pushButton_BuildTestPage.setMinimumSize(130, 36)
+        self.pushButton_BuildTestPage.setStyleSheet(
+            "QPushButton { color: white; background-color: #3b82f6; border: none; "
+            "border-radius: 4px; padding: 6px 14px; font-size: 13px; }"
+            "QPushButton:hover { background-color: #2563eb; }"
+        )
+        right_side.addWidget(self.pushButton_BuildTestPage)
 
         right_side.addStretch()
 

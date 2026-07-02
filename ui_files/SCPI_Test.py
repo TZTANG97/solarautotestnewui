@@ -282,11 +282,13 @@ class Ui_Dialog(object):
         """
 
         def _make_device_page(label_text, connect_btn_name, set_btn_name=None,
-                              combo_name=None, has_editable=True, use_grid=False):
+                              combo_name=None, has_editable=True, use_grid=False,
+                              use_ip_input=False):
             """构造设备页面：标题 + 连接区 + 日志，并将控件存为 Ui_Dialog 实例属性。
 
             use_grid=True 时，创建 QGridLayout 容器供 embed_dialog_content 填充，
             连接控件和日志区由 embed_dialog_content 统一放入网格。
+            use_ip_input=True 时，使用IP地址输入框替代comboBox（用于DEWETRON等TCP设备）。
             """
             page = QtWidgets.QWidget()
             page.setStyleSheet(_pageStyle)
@@ -299,12 +301,30 @@ class Ui_Dialog(object):
             lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
             layout.addWidget(lbl)
 
-            # 创建连接控件（两种模式都需要）
-            combo = QtWidgets.QComboBox()
-            combo.setObjectName(combo_name)
-            combo.setEditable(has_editable)
-            combo.setMinimumWidth(200)
-            setattr(self, combo_name, combo)
+            # 创建连接控件
+            combo = None
+            ip_edit = None
+            port_edit = None
+
+            if use_ip_input:
+                # IP输入模式：用于DEWETRON等TCP设备
+                ip_edit = QtWidgets.QLineEdit()
+                ip_edit.setObjectName(f"lineEdit_{combo_name}_IP" if combo_name else "lineEdit_IP")
+                ip_edit.setPlaceholderText("IP地址 (如 192.168.40.21)")
+                ip_edit.setMinimumWidth(160)
+                port_edit = QtWidgets.QLineEdit()
+                port_edit.setObjectName(f"lineEdit_{combo_name}_Port" if combo_name else "lineEdit_Port")
+                port_edit.setPlaceholderText("端口 (默认10001)")
+                port_edit.setMinimumWidth(100)
+                setattr(self, f"lineEdit_{combo_name}_IP" if combo_name else "lineEdit_IP", ip_edit)
+                setattr(self, f"lineEdit_{combo_name}_Port" if combo_name else "lineEdit_Port", port_edit)
+            else:
+                # ComboBox模式
+                combo = QtWidgets.QComboBox()
+                combo.setObjectName(combo_name)
+                combo.setEditable(has_editable)
+                combo.setMinimumWidth(200)
+                setattr(self, combo_name, combo)
 
             connectBtn = QtWidgets.QPushButton("连接设备")
             connectBtn.setObjectName(connect_btn_name)
@@ -345,10 +365,24 @@ class Ui_Dialog(object):
 
                 row = QtWidgets.QHBoxLayout()
                 row.setSpacing(8)
-                interfaceLabel = QtWidgets.QLabel("接口:")
-                interfaceLabel.setStyleSheet("font-size: 13px; background: transparent;")
-                row.addWidget(interfaceLabel)
-                row.addWidget(combo, 1)
+
+                if use_ip_input:
+                    # IP输入模式：显示IP地址和端口输入框
+                    ipLabel = QtWidgets.QLabel("IP地址:")
+                    ipLabel.setStyleSheet("font-size: 13px; background: transparent;")
+                    row.addWidget(ipLabel)
+                    row.addWidget(ip_edit)
+                    portLabel = QtWidgets.QLabel("端口:")
+                    portLabel.setStyleSheet("font-size: 13px; background: transparent;")
+                    row.addWidget(portLabel)
+                    row.addWidget(port_edit)
+                else:
+                    # ComboBox模式：显示接口下拉框
+                    interfaceLabel = QtWidgets.QLabel("接口:")
+                    interfaceLabel.setStyleSheet("font-size: 13px; background: transparent;")
+                    row.addWidget(interfaceLabel)
+                    row.addWidget(combo, 1)
+
                 row.addWidget(connectBtn)
                 if setBtn is not None:
                     row.addWidget(setBtn)
@@ -361,7 +395,9 @@ class Ui_Dialog(object):
                 _settings_area.setMinimumHeight(400)
                 _settings_area_lay = QtWidgets.QVBoxLayout(_settings_area)
                 _settings_area_lay.setContentsMargins(0, 0, 0, 0)
-                setattr(page, f"_settings_{combo_name}", _settings_area)
+                # 对于use_ip_input模式，使用固定属性名
+                _settings_key = combo_name if combo_name else "comboBox_DEWETRON"
+                setattr(page, f"_settings_{_settings_key}", _settings_area)
                 layout.addWidget(_settings_area, 1)
 
                 log_label = QtWidgets.QLabel("操作日志:")
@@ -377,7 +413,8 @@ class Ui_Dialog(object):
                     "border: 1px solid #4a5568; border-radius: 4px; "
                     "font-family: Consolas; font-size: 12px; padding: 4px; }"
                 )
-                setattr(page, f"_log_{combo_name}", log_edit)
+                _log_key = combo_name if combo_name else "comboBox_DEWETRON"
+                setattr(page, f"_log_{_log_key}", log_edit)
                 layout.addWidget(log_edit)
 
             return page
@@ -582,8 +619,7 @@ class Ui_Dialog(object):
         # ── 页面 7: DEWETRON ──
         self.stackedWidget.addWidget(
             _make_device_page("德威创", "pushButton_ConnectEQUDEWETRON",
-                              combo_name="comboBox_DEWETRON",
-                              has_editable=False))
+                              use_ip_input=True))
 
         # ── 页面 8: 项目配置 ──
         projectPage = QtWidgets.QWidget()

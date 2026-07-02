@@ -85,9 +85,29 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         topLayout.addStretch()
 
+        # ── 模式切换（WT3000闪变 / 德威创模式） ──
+        self._radio_group = QtWidgets.QButtonGroup(None)
+        self._radio_group.setExclusive(True)
+
+        self.radio_wt3000 = QtWidgets.QRadioButton("WT3000闪变")
+        self.radio_wt3000.setChecked(True)
+        self.radio_wt3000.setStyleSheet("font-size: 12px; font-weight: bold; color: #1e293b; background: transparent;")
+        self._radio_group.addButton(self.radio_wt3000, 0)
+        topLayout.addWidget(self.radio_wt3000)
+
+        self.radio_dewetron = QtWidgets.QRadioButton("德威创模式")
+        self.radio_dewetron.setStyleSheet("font-size: 12px; font-weight: bold; color: #1e293b; background: transparent;")
+        self._radio_group.addButton(self.radio_dewetron, 1)
+        topLayout.addWidget(self.radio_dewetron)
+
+        sep2 = QtWidgets.QFrame()
+        sep2.setFrameShape(QtWidgets.QFrame.VLine)
+        sep2.setStyleSheet("color: #cbd5e1; border: none; max-width: 1px;")
+        topLayout.addWidget(sep2)
+
         # 横向步骤指示器
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② WT3000 闪变", "③ DC 开关循环", "④ 判定结果", "⑤ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 闪变", "③ DC 开关循环", "④ 判定结果", "⑤ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -123,7 +143,11 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         # ── 连接步骤复选框联动 ──
         self._connect_step_toggles()
 
-        # 默认显示第一页
+        # ── 连接模式切换信号 ──
+        self._radio_group.buttonToggled.connect(self._on_mode_changed)
+
+        # 默认显示第一页（WT3000 模式）
+        self._mode = 'wt3000'
         self._switch_step(0)
 
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
@@ -193,6 +217,22 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         self.checkBox_S2.toggled.connect(_on_s2_toggled)
         _on_s2_toggled(self.checkBox_S2.isChecked())
+
+        # Step 2: DEWETRON 闪变
+        s2_dew_children = [
+            self.checkBox_DEW_FlickerStandard, self.comboBox_DEW_WeightingType,
+            self.comboBox_DEW_MaxRefreshRate, self.textEdit_DEW_NominalVoltage,
+            self.textEdit_DEW_ShortFlickerTime, self.textEdit_DEW_LongFlickerTime,
+            self.textEdit_DEW_ShortCircuitPower, self.checkBox_DEW_RollingCalc,
+            self.pushButton_DEW_TestApply,
+        ]
+
+        def _on_s2_dew_toggled(checked):
+            for w in s2_dew_children:
+                w.setEnabled(checked)
+
+        self.checkBox_S2_DEW.toggled.connect(_on_s2_dew_toggled)
+        _on_s2_dew_toggled(self.checkBox_S2_DEW.isChecked())
 
         # Step 3: DC 开关循环（DC 复选框联动 step1 DC）
         s3_dc_first = [self.checkBox_S3_DC1, self.checkBox_S3_DC2,
@@ -468,14 +508,18 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # Step 2: WT3000 闪变设置
+    # Step 2: 闪变设置（WT3000 / DEWETRON 双模式）
     # ══════════════════════════════════════════════
     def _build_step2(self):
-        page = QtWidgets.QWidget()
-        page.setStyleSheet("background-color: white;")
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        # step2 用 QStackedWidget 承载两种模式的配置页
+        self._step2Stacked = QtWidgets.QStackedWidget()
+
+        # ── 页面 0: WT3000 闪变 ──
+        wt_page = QtWidgets.QWidget()
+        wt_page.setStyleSheet("background-color: white;")
+        wt_layout = QtWidgets.QVBoxLayout(wt_page)
+        wt_layout.setContentsMargins(16, 16, 16, 16)
+        wt_layout.setSpacing(12)
 
         self.groupBox_3 = QtWidgets.QGroupBox()
         self.groupBox_3.setObjectName("groupBox_3")
@@ -536,9 +580,96 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.comboBox_S2_TIME.setFixedWidth(120)
         g3Layout.addWidget(self.comboBox_S2_TIME, 1, 3)
 
-        layout.addWidget(self.groupBox_3)
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
+        wt_layout.addWidget(self.groupBox_3)
+        wt_layout.addStretch()
+        self._step2Stacked.addWidget(wt_page)
+
+        # ── 页面 1: DEWETRON 闪变 ──
+        dew_page = QtWidgets.QWidget()
+        dew_page.setStyleSheet("background-color: white;")
+        dew_layout = QtWidgets.QVBoxLayout(dew_page)
+        dew_layout.setContentsMargins(16, 16, 16, 16)
+        dew_layout.setSpacing(12)
+
+        dew_group = QtWidgets.QGroupBox()
+        dew_group.setTitle("DEWETRON 闪变测量配置")
+        dew_group.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
+        formLayout = QtWidgets.QFormLayout(dew_group)
+        formLayout.setSpacing(10)
+        formLayout.setContentsMargins(16, 24, 16, 12)
+
+        # step2 复选框（DEWETRON 模式也复用）
+        self.checkBox_S2_DEW = QtWidgets.QCheckBox("step2")
+        self.checkBox_S2_DEW.setChecked(True)
+        self.checkBox_S2_DEW.setObjectName("checkBox_S2_DEW")
+        formLayout.addRow(self.checkBox_S2_DEW)
+
+        self.checkBox_DEW_FlickerStandard = QtWidgets.QCheckBox("闪变计算依照IEC61000-4-15: 2011")
+        self.checkBox_DEW_FlickerStandard.setChecked(True)
+        self.checkBox_DEW_FlickerStandard.setObjectName("checkBox_DEW_FlickerStandard")
+        formLayout.addRow(self.checkBox_DEW_FlickerStandard)
+
+        self.comboBox_DEW_WeightingType = QtWidgets.QComboBox()
+        self.comboBox_DEW_WeightingType.setObjectName("comboBox_DEW_WeightingType")
+        self.comboBox_DEW_WeightingType.addItems(["自动检测", "230V / 50Hz", "230V / 60Hz", "120V / 50Hz", "120V / 60Hz"])
+        self.comboBox_DEW_WeightingType.setFixedWidth(200)
+        formLayout.addRow("加权类型:", self.comboBox_DEW_WeightingType)
+
+        self.comboBox_DEW_MaxRefreshRate = QtWidgets.QComboBox()
+        self.comboBox_DEW_MaxRefreshRate.setObjectName("comboBox_DEW_MaxRefreshRate")
+        self.comboBox_DEW_MaxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1"])
+        self.comboBox_DEW_MaxRefreshRate.setCurrentText("Default")
+        self.comboBox_DEW_MaxRefreshRate.setFixedWidth(200)
+        formLayout.addRow("最大刷新率:", self.comboBox_DEW_MaxRefreshRate)
+
+        self.textEdit_DEW_NominalVoltage = QtWidgets.QTextEdit()
+        self.textEdit_DEW_NominalVoltage.setObjectName("textEdit_DEW_NominalVoltage")
+        self.textEdit_DEW_NominalVoltage.setFixedSize(100, 31)
+        self.textEdit_DEW_NominalVoltage.setPlaceholderText("230")
+        formLayout.addRow("标称电压:", self._make_unit_row(self.textEdit_DEW_NominalVoltage, "V"))
+
+        self.textEdit_DEW_ShortFlickerTime = QtWidgets.QTextEdit()
+        self.textEdit_DEW_ShortFlickerTime.setObjectName("textEdit_DEW_ShortFlickerTime")
+        self.textEdit_DEW_ShortFlickerTime.setFixedSize(100, 31)
+        self.textEdit_DEW_ShortFlickerTime.setPlaceholderText("10")
+        formLayout.addRow("短时闪变计算时间:", self._make_unit_row(self.textEdit_DEW_ShortFlickerTime, "分钟"))
+
+        self.textEdit_DEW_LongFlickerTime = QtWidgets.QTextEdit()
+        self.textEdit_DEW_LongFlickerTime.setObjectName("textEdit_DEW_LongFlickerTime")
+        self.textEdit_DEW_LongFlickerTime.setFixedSize(100, 31)
+        self.textEdit_DEW_LongFlickerTime.setPlaceholderText("120")
+        formLayout.addRow("长时闪变计算时间:", self._make_unit_row(self.textEdit_DEW_LongFlickerTime, "分钟"))
+
+        self.textEdit_DEW_ShortCircuitPower = QtWidgets.QTextEdit()
+        self.textEdit_DEW_ShortCircuitPower.setObjectName("textEdit_DEW_ShortCircuitPower")
+        self.textEdit_DEW_ShortCircuitPower.setFixedSize(100, 31)
+        self.textEdit_DEW_ShortCircuitPower.setPlaceholderText("50")
+        formLayout.addRow("短路视在功率:", self._make_unit_row(self.textEdit_DEW_ShortCircuitPower, "MVA"))
+
+        self.checkBox_DEW_RollingCalc = QtWidgets.QCheckBox("打开滚动计算")
+        self.checkBox_DEW_RollingCalc.setChecked(True)
+        self.checkBox_DEW_RollingCalc.setObjectName("checkBox_DEW_RollingCalc")
+        formLayout.addRow(self.checkBox_DEW_RollingCalc)
+
+        # 测试生效按钮 — 自测用，读取设备XML并应用当前设置
+        self.pushButton_DEW_TestApply = QtWidgets.QPushButton("测试生效")
+        self.pushButton_DEW_TestApply.setMinimumSize(120, 36)
+        self.pushButton_DEW_TestApply.setStyleSheet(
+            "QPushButton { color: white; background-color: #059669; border: none; "
+            "border-radius: 4px; padding: 6px 14px; font-size: 13px; }"
+            "QPushButton:hover { background-color: #047857; }"
+        )
+        formLayout.addRow("", self.pushButton_DEW_TestApply)
+
+        dew_layout.addWidget(dew_group)
+        dew_layout.addStretch()
+        self._step2Stacked.addWidget(dew_page)
+
+        # 默认显示 WT3000 页面
+        self._step2Stacked.setCurrentIndex(0)
+
+        # 直接加入主 stackedWidget（index 1 = step2）
+        self.stackedWidget.addWidget(self._step2Stacked)
 
     # ══════════════════════════════════════════════
     # Step 3: DC 开关循环
@@ -748,6 +879,31 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         layout.addWidget(self.groupBox)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    @staticmethod
+    def _make_unit_row(widget, unit_text):
+        """创建带单位标签的行容器。"""
+        container = QtWidgets.QWidget()
+        h = QtWidgets.QHBoxLayout(container)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
+        h.addWidget(widget)
+        lbl = QtWidgets.QLabel(unit_text)
+        lbl.setStyleSheet("color: #64748b; background: transparent;")
+        h.addWidget(lbl)
+        h.addStretch()
+        return container
+
+    def _on_mode_changed(self, button, checked):
+        """模式切换回调（WT3000闪变 / 德威创模式）。只切换 step2 内容。"""
+        if not checked:
+            return
+        if button == self.radio_wt3000:
+            self._mode = 'wt3000'
+            self._step2Stacked.setCurrentIndex(0)
+        elif button == self.radio_dewetron:
+            self._mode = 'dewetron'
+            self._step2Stacked.setCurrentIndex(1)
 
     def retranslateUi(self, Dialog_thaiguodianyashanbian):
         _translate = QtCore.QCoreApplication.translate

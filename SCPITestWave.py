@@ -413,7 +413,10 @@ def SaveDEWETRONConfig():
     else:
         _log("APPLY 发送失败")
         from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.warning(None, "保存失败", "配置应用失败，请检查设备连接")
+        if dewetron_controller.connected:
+            QMessageBox.warning(None, "保存失败", "配置应用失败，可能原因：\n1. 设备处理超时\n2. XML 格式错误\n\n请检查设备状态后重试")
+        else:
+            QMessageBox.warning(None, "连接丢失", "DEWETRON 连接已断开，重连失败。\n\n请手动断开后重新连接设备")
 
 
 def BuildDEWETRONTestPageWithLoading():
@@ -439,15 +442,26 @@ def BuildDEWETRONTestPage():
     global dewetron_controller
     from DewetronTestPage import build_test_page_from_device
     from PyQt5.QtWidgets import QMessageBox
+    import time
 
     if dewetron_controller is None or not dewetron_controller.connected:
         _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
+        QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
         return
 
-    if build_test_page_from_device(dewetron_controller, log_fn=uiDewetronSetting.log):
-        QMessageBox.information(None, "构造完成", "测试界面已构造")
-    else:
-        QMessageBox.warning(None, "构造失败", "测试界面构造失败，请检查设备连接")
+    # 读取设备 XML，失败时重试（设备可能还在处理配置）
+    for attempt in range(3):
+        if attempt > 0:
+            wait_time = 2 * attempt
+            uiDewetronSetting.log(f"等待 {wait_time} 秒后重试...")
+            print(f"[BuildTestPage] 等待 {wait_time} 秒后重试...")
+            time.sleep(wait_time)
+
+        if build_test_page_from_device(dewetron_controller, log_fn=uiDewetronSetting.log):
+            QMessageBox.information(None, "构造完成", "测试界面已构造")
+            return
+
+    QMessageBox.warning(None, "构造失败", "测试界面构造失败，请检查设备连接")
 
 
 def CloseACOUTPUTON():
@@ -799,7 +813,6 @@ def _refresh_all_equ_combo_boxes(resources, connected_resources):
         "comboBox_DC4",
         "comboBox_DL850",
         "comboBox_WT3000",
-        "comboBox_DEWETRON",
     ]
     for name in combo_names:
         combo = getattr(ui, name, None)
@@ -947,17 +960,11 @@ def DisconnectEQUDL850():
 def DisconnectEQUDEWETRON():
     """断开 DEWETRON 并解锁选择框。"""
     global dewetron_controller
-    setting_ip = uiDewetronSetting.lineEdit_deviceIP.text().strip()
-    setting_port = uiDewetronSetting.lineEdit_port.text().strip()
-    if setting_ip:
-        tcp_addr = f"{setting_ip}:{setting_port}" if setting_port else setting_ip
-    else:
-        tcp_addr = _normalize_equ_resource_text(ui.comboBox_DEWETRON.currentText())
+
     if dewetron_controller is None:
-        dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
+        return
+
     dewetron_controller.disconnect(_safe_close_handle)
-    _restore_equ_to_combo_boxes(tcp_addr)
-    _set_equ_combo_locked("comboBox_DEWETRON", False)
     _toggle_connection_button("pushButton_ConnectEQUDEWETRON", False)
     _save_device_status("DEWETRON", False)
 
@@ -1460,26 +1467,43 @@ def ConnectEQUDL850():
 
 def ConnectEQUDEWETRON():
     """连接 DEWETRON。"""
+    from PyQt5.QtWidgets import QMessageBox
     global dewetron_controller
     if ui.pushButton_ConnectEQUDEWETRON.text() == "取消连接":
         DisconnectEQUDEWETRON()
         return
-    setting_ip = uiDewetronSetting.lineEdit_deviceIP.text().strip()
-    setting_port = uiDewetronSetting.lineEdit_port.text().strip()
-    if setting_ip:
-        tcp_addr = f"{setting_ip}:{setting_port}" if setting_port else setting_ip
-    else:
-        tcp_addr = _normalize_equ_resource_text(ui.comboBox_DEWETRON.currentText())
-    logger.info(tcp_addr)
+
+    # 从UI对象获取IP输入框
+    tcp_addr = ''
+    ip_edit = getattr(ui, "lineEdit_IP", None)
+    port_edit = getattr(ui, "lineEdit_Port", None)
+
+    if ip_edit is not None:
+        ip_text = ip_edit.text().strip()
+        if ip_text:
+            port_text = port_edit.text().strip() if port_edit else ''
+            if port_text:
+                tcp_addr = f"{ip_text}:{port_text}"
+            else:
+                tcp_addr = ip_text
+
+    logger.info(f"DEWETRON 连接地址: {tcp_addr}")
+
+    if not tcp_addr:
+        logger.warning("DEWETRON 未输入连接地址")
+        print("DEWETRON 未输入连接地址")
+        return
+
     if dewetron_controller is None:
         dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
     dewetron_controller.connect(tcp_addr)
     if dewetron_controller.connected:
         _remove_equ_from_combo_boxes(tcp_addr)
-        _set_equ_combo_locked("comboBox_DEWETRON", True)
         _toggle_connection_button("pushButton_ConnectEQUDEWETRON", True)
         ui.pushButton_ConnectEQUDEWETRON.setText("取消连接")
         _save_device_status("DEWETRON", True, tcp_addr)
+    else:
+        QMessageBox.warning(None, "连接失败", "DEWETRON连接失败，请检查IP地址和网络连接")
 
 def is_ip_address_format(addr):
     """判断输入是否为IPv4地址，支持可选端口（如 192.168.40.1:5000）。"""
@@ -1889,6 +1913,12 @@ def thaidianyashanbianSend():
     global command_save_file_path, flicker_append_count
     if 'flicker_append_count' not in globals():
         flicker_append_count = 0
+
+    # ── 德威创模式：跳过 WT3000 命令生成 ──
+    if hasattr(uiThaiDianYaShanBian, '_mode') and uiThaiDianYaShanBian._mode == 'dewetron':
+        ui.textEdit_ReturnMessage.append("[闪变] 德威创模式：请通过 DEWETRON 设置页面配置闪变参数")
+        return
+
     def _get_wait_seconds(str_array_single):
         """提取单条命令的等待时间（秒）。
 
@@ -29445,7 +29475,7 @@ if __name__ == "__main__":
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT, EQUList, _connected_equ_resources)
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT, EQUList, _connected_equ_resources)
             _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT, EQUList, _connected_equ_resources)
-            for combo_name in ["comboBox_AC", "comboBox_DC1", "comboBox_DC2", "comboBox_DC3", "comboBox_DC4", "comboBox_DL850", "comboBox_WT3000", "comboBox_DEWETRON"]:
+            for combo_name in ["comboBox_AC", "comboBox_DC1", "comboBox_DC2", "comboBox_DC3", "comboBox_DC4", "comboBox_DL850", "comboBox_WT3000"]:
                 combo = getattr(ui, combo_name, None)
                 if combo is not None and combo.count() > 0:
                     combo.setCurrentIndex(0)
@@ -29683,7 +29713,37 @@ if __name__ == "__main__":
             # ThaiDianYaShanBian的的配置档读取写入
             _safe_click(uiThaiDianYaShanBian, "pushButton_ReadSettingFile", OpenFileDialogThaiDianYaShanBian)
             _safe_click(uiThaiDianYaShanBian, "pushButton_SaveSettingFile", SaveFileDialogThaidianyashanbian)
-            
+
+            # DEWETRON 闪变测试生效按钮 — 自测用
+            def dewetron_flicker_test_apply():
+                """读取设备XML，应用闪变参数，发送到设备。"""
+                if dewetron_controller is None or not dewetron_controller.connected:
+                    QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
+                    return
+                channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
+                if not xml_string:
+                    QMessageBox.warning(None, "读取失败", "无法从设备读取配置")
+                    return
+                # 读取闪变参数（目前只读取，不修改XML，因为设备不接受SCPI修改这些属性）
+                weighting = uiThaiDianYaShanBian.comboBox_DEW_WeightingType.currentText()
+                max_rate = uiThaiDianYaShanBian.comboBox_DEW_MaxRefreshRate.currentText()
+                nom_v = uiThaiDianYaShanBian.textEdit_DEW_NominalVoltage.toPlainText()
+                short_t = uiThaiDianYaShanBian.textEdit_DEW_ShortFlickerTime.toPlainText()
+                long_t = uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText()
+                scp = uiThaiDianYaShanBian.textEdit_DEW_ShortCircuitPower.toPlainText()
+                rolling = uiThaiDianYaShanBian.checkBox_DEW_RollingCalc.isChecked()
+                ui.textEdit_ReturnMessage.append(
+                    f"[DEWETRON 闪变] 参数: 加权={weighting}, 刷新率={max_rate}, "
+                    f"标称电压={nom_v}V, 短时={short_t}min, 长时={long_t}min, "
+                    f"短路视在功率={scp}MVA, 滚动计算={'开' if rolling else '关'}"
+                )
+                # 直接发送原始XML（这些属性需在设备端设置）
+                if dewetron_controller.send_apply_config(xml_string):
+                    QMessageBox.information(None, "测试生效", "DEWETRON 配置已重新加载")
+                else:
+                    QMessageBox.warning(None, "失败", "配置发送失败")
+            _safe_click(uiThaiDianYaShanBian, "pushButton_DEW_TestApply", dewetron_flicker_test_apply)
+
             # 谐波电流
             _safe_click(uiThaiXieBoDianLiu, "pushButton_TestAppend", thaixiebodianliuAppend)
 

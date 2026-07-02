@@ -1,0 +1,2345 @@
+Total pages: 70
+
+--- Page 1 ---
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+OXYGEN REMOTE CONTROL – 
+SCPI 
+ 
+ 
+ 
+ 
+ 
+ 
+TECHNICAL 
+REFERENCE 
+MANUAL 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Version: 1.16 
+Date: 23/02/2021 
+Author: Michael.Oberhofer@dewetron.com;Matthias.Straka@dewetron.com 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+CUSTOMIZED MODULAR COMPETENT COMMITTED APPROVED 
+© 2021 DEWETRON GmbH 
+
+--- Page 2 ---
+© 2021 DEWETRON GmbH 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Copyright © 2021 DEWETRON GmbH 
+ 
+This document contains information which is protected by copyright. All rights are reserved. Reproduction, 
+adaptation, or translation without prior written permission is prohibited, except as allowed under the 
+copyright laws. 
+ 
+All trademarks and registered trademarks are acknowledged to be the property of their owners. 
+  
+
+--- Page 3 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 3 
+© 2021 DEWETRON GmbH 
+DOCUMENT INFORMATION 
+Document Type:  Technical Reference Manual 
+Document Name:  OXYGEN REMOTE CONTROL – SCPI 
+Document Owner: Michael Oberhofer 
+ 
+DOCUMENT HISTORY 
+Date Author Changes Rev. 
+08/30/2017 M. Oberhofer, 
+A. Landgraf 
+S. Knorr 
+• First release version of the document. 1.5 
+10/02/2017 H. Ploner • Added section on document information and history. 
+• Added :NUM:DIM command and query. 
+• Added :NUM:DIMS query. 
+• Updated description of :NUM:VAL query for array channels. 
+• Updated parameter description of :NUM:NORM:ITEM 
+command and query. 
+• Updated explanation of :RATE command for array channels. 
+1.6 
+09/29/2018 M. Oberhofer • Removed loose Reference 1.6.1 
+10/09/2018 G. Terler, 
+M. Straka 
+M. Seidl 
+• Added :ELOG commands and queries 
+• Added:DSTream command and queries 
+• Updated ELOG:ITEMs & DSTREAM:ITEMs entries with error 
+handling 
+• Added ELOG limitation info 
+• Added ELOG:PERiod limitation info 
+• Update ELOG supported channels 
+1.7 
+02/11/2019 M. Straka • Added: ELOG new timestamp format 1.8 
+03/18/2019 M. Straka • Trigger support for STORE subsystem 1.9 
+04/28/2020 M. Straka • Updated documentation 1.11 
+06/09/2020 M.Oberhofer • Corrected quotation mark character for simple copy&paste 1.12 
+09/01/2020 W.Gaggl • Added :SETUP:ASYNC:LOAD  command for async load 
+configuration from file 
+• Added :SETUP:ASYNC:STATE? query for the async loading state 
+• Added :SETUP:NAME? query for the current setup name 
+1.13 
+10/01/2020 M.Oberhofer • Fixed Typo 1.14 
+12/22/2020 W. Gaggl • Added SYNC:STATE? query 1.15 
+23/02/2021 W.Gaggl • Added HEAD commands and queries 1.16 
+
+--- Page 4 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 4 
+© 2021 DEWETRON GmbH 
+TABLE OF CONTENTS 
+DOCUMENT INFORMATION ................................ ................................ ................................ ..............................  3 
+DOCUMENT HISTORY ................................ ................................ ................................ ................................ ..... 3 
+INTRODUCTION ................................ ................................ ................................ ................................ ......... 8 
+SCOPE ................................ ................................ ................................ ................................ ........................  8 
+CONVENTIONS AND STRUCTURE ................................ ................................ ................................ ........................  8 
+RELATED DOCUMENTS ................................ ................................ ................................ ................................ ... 11 
+SYNTAX CONVENTIONS ................................ ................................ ................................ ............................  12 
+SCPI MESSAGE STRUCTURE ................................ ................................ ................................ ............................  12 
+PARAMETER AND RESPONSE TYPES ................................ ................................ ................................ .................. 13 
+SCPI WITH OXYGEN ................................ ................................ ................................ ................................ .. 15 
+SETUP OXYGEN MEASUREMENT SOFTWARE FOR SCPI USE ................................ ................................ ................... 16 
+COMMON COMMANDS ................................ ................................ ................................ ............................  17 
+*IDN? ................................................................................................................................................................... 17 
+*VER? ................................................................................................................................................................... 17 
+*CLS ..................................................................................................................................................................... 17 
+*ESE ..................................................................................................................................................................... 18 
+*ESE? ................................................................................................................................................................... 18 
+*ESR? ................................................................................................................................................................... 19 
+*OPC .................................................................................................................................................................... 19 
+*OPC? .................................................................................................................................................................. 20 
+*RST ..................................................................................................................................................................... 20 
+*SRE ..................................................................................................................................................................... 21 
+*SRE? ................................................................................................................................................................... 21 
+*STB? ................................................................................................................................................................... 22 
+*TST? ................................................................................................................................................................... 22 
+*WAI .................................................................................................................................................................... 23 
+APPLICATION CONTROL ................................ ................................ ................................ ............................  24 
+SETUP ................................ ................................ ................................ ................................ ....................... 24 
+:SETUP:LOAD "PATH" ............................................................................................................................................. 24 
+:SETUP:APPLY "XML-STRING" ................................................................................................................................. 24 
+:SETUP:SAVE "PATH".............................................................................................................................................. 25 
+:SETUP:READ? ["PATH"] ......................................................................................................................................... 25 
+: SETUP:NAME? ..................................................................................................................................................... 26 
+
+--- Page 5 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 5 
+© 2021 DEWETRON GmbH 
+:SETUP:ASYNC:LOAD "PATH" .................................................................................................................................. 27 
+:SETUP:ASYNC:STATE? ........................................................................................................................................... 27 
+UI CONTROL ................................ ................................ ................................ ................................ ............... 28 
+:SYSTEM:DATE? .................................................................................................................................................... 28 
+:SYSTEM:KLOCK {ON|OFF} .................................................................................................................................... 28 
+:SYSTEM:KLOCK?................................................................................................................................................... 29 
+:SYSTEM:TIME? ..................................................................................................................................................... 30 
+:SYSTEM:TZONE? .................................................................................................................................................. 31 
+:COMMUNICATE:HEADER {ON|OFF} ...................................................................................................................... 31 
+:COMMUNICATE:HEADER? ..................................................................................................................................... 32 
+:COMMUNICATE:VERBOSE {ON|OFF} ..................................................................................................................... 32 
+:COMMUNICATE:VERBOSE? .................................................................................................................................... 33 
+ACQUISITION CONTROL ................................ ................................ ................................ ............................  34 
+:ACQUISITION:START .............................................................................................................................................. 34 
+:ACQUISITION:STOP ............................................................................................................................................... 34 
+:ACQUISITION:RESTART ......................................................................................................................................... 34 
+:ACQUISITION:STATE? ............................................................................................................................................ 35 
+RECORDING CONTROL ................................ ................................ ................................ ..............................  36 
+:STORE:FILE:NAME "PATH" .................................................................................................................................. 36 
+:STORE:FILE:NAME? ............................................................................................................................................. 36 
+:STORE:START ....................................................................................................................................................... 37 
+:STORE:PAUSE ...................................................................................................................................................... 37 
+:STORE:STOP ........................................................................................................................................................ 37 
+:STORE:STATE? ..................................................................................................................................................... 38 
+CHANNELLIST ACCESS ................................ ................................ ................................ ...............................  39 
+:CHANNELLIST:NAMES? ......................................................................................................................................... 39 
+:CHANNELLIST:IDS? ............................................................................................................................................... 39 
+:CHANNELLIST:PROPERTY? ..................................................................................................................................... 40 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR................................................................................................................ 40 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR:NAMES? ................................................................................................. 41 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR:VAL? ...................................................................................................... 41 
+MEASUREMENT VALUES................................ ................................ ................................ ...........................  42 
+:RATE {<NUM>[<UNIT>]|NONE} ............................................................................................................................. 42 
+:RATE? .................................................................................................................................................................. 42 
+:NUMERIC:NORMAL:ITEMS <CHANNEL>[,<CHANNEL>[,…]] ....................................................................................... 43 
+:NUMERIC:NORMAL:ITEMS? ................................................................................................................................. 43 
+:NUMERIC:NORMAL:ITEM<X> <CHANNEL> ............................................................................................................. 43 
+
+--- Page 6 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 6 
+© 2021 DEWETRON GmbH 
+:NUMERIC:NORMAL:ITEM<X>? ............................................................................................................................. 44 
+:NUMERIC:NORMAL:CLEAR {ALL|<NUM>[,<NUM>]} ............................................................................................. 44 
+:NUMERIC:NORMAL:DELETE <NUM>[,<NUM>] ..................................................................................................... 44 
+:NUMERIC:NORMAL:NUMBER {<NUM>|ALL} .......................................................................................................... 45 
+:NUMERIC:NORMAL:NUMBER? .............................................................................................................................. 45 
+:NUMERIC:NORMAL:DIM<X> { <I_MAX> | <I_LIST> | MAX } .................................................................................... 46 
+:NUMERIC:NORMAL:DIM<X>? ............................................................................................................................... 47 
+:NUMERIC:NORMAL:DIMS? ................................................................................................................................... 47 
+:NUMERIC:NORMAL:VALUE? [<NUM>] .................................................................................................................. 48 
+EXTERNAL DATA LOGGING (ELOG) ................................ ................................ ................................ ............ 49 
+:ELOG:ITEMS <CHANNEL>[,<CHANNEL>[,…]] ............................................................................................................ 49 
+:ELOG:ITEMS? ...................................................................................................................................................... 49 
+:ELOG:PERIOD <DURATION> ................................................................................................................................... 50 
+:ELOG:PERIOD? ..................................................................................................................................................... 50 
+:ELOG:CALCULATIONS {AVG|MIN|MAX|RMS} ...................................................................................................... 50 
+:ELOG:CALCULATIONS? .......................................................................................................................................... 51 
+:ELOG:FORMAT {ASCII|BIN_INTEL|BIN_MOTOROLA} ......................................................................................... 51 
+:ELOG:FORMAT? ................................................................................................................................................... 51 
+:ELOG:TIMESTAMP {OFF|REL|ABS|ELOG} ............................................................................................................. 52 
+:ELOG:TIMESTAMP? ............................................................................................................................................... 52 
+:ELOG:START ........................................................................................................................................................ 52 
+:ELOG:FETCH? [<NUM>] ....................................................................................................................................... 53 
+:ELOG:STOP .......................................................................................................................................................... 54 
+:ELOG:RESET ......................................................................................................................................................... 54 
+:ELOG:STATE? ....................................................................................................................................................... 54 
+DATA STREAMING (DSTREAM) ................................ ................................ ................................ ................. 55 
+:DSTREAM:ITEMS[<GRP>] <CHANNEL>[,<CHANNEL>[,…]] .......................................................................................... 55 
+:DSTREAM:ITEMS[<GRP>]? .................................................................................................................................... 56 
+:DSTREAM:PORT[<GRP>] <PORT> ......................................................................................................................... 56 
+:DSTREAM:PORT[<GRP>]? ..................................................................................................................................... 56 
+:DSTREAM:INIT [<GRP> | ALL] ............................................................................................................................... 57 
+:DSTREAM:START [<GRP> | ALL] ............................................................................................................................ 57 
+:DSTREAM:STOP [<GRP> | ALL] ............................................................................................................................. 57 
+:DSTREAM:DELETE [<GRP> | ALL] ........................................................................................................................... 58 
+: DSTREAM:RESET ................................................................................................................................................... 58 
+: DSTREAM:STATE[<GRP>]? ................................................................................................................................... 58 
+MARKER COMMANDS ................................ ................................ ................................ ..............................  59 
+:MARKER:ADD <LABEL>[,<DESCRIPTION>|<TIME>|,<DESCRIPTION>,<TIME>]] .............................................................. 59 
+SYNCHRONISATION STATE ................................ ................................ ................................ ........................  60 
+
+--- Page 7 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 7 
+© 2021 DEWETRON GmbH 
+:SYNC:STATE ......................................................................................................................................................... 60 
+MEASUREMENT HEADER DATA................................ ................................ ................................ ................. 61 
+:HEADER:ADD <KEY>,<DESCRIPTION> ....................................................................................................................... 61 
+:HEADER:GET? <KEY> ............................................................................................................................................ 61 
+:HEADER:KEYS? ..................................................................................................................................................... 62 
+:HEADER:SET <KEY>,<DESCRIPTION> ........................................................................................................................ 62 
+:HEADER:DELETE <KEY>[,<KEY>[,…]] ....................................................................................................................... 63 
+:HEADER:VALUES? ................................................................................................................................................. 63 
+UTILITY COMMANDS ................................ ................................ ................................ ................................  64 
+:SYSTEM:VERSION? ................................................................................................................................................ 64 
+:SYSTEM:HELP:HEADERS? ...................................................................................................................................... 64 
+ERROR HANDLING ................................ ................................ ................................ ................................ .... 65 
+:SYSTEM:ERROR[:NEXT]? ....................................................................................................................................... 65 
+:SYSTEM:ERROR:ALL? ............................................................................................................................................ 65 
+:SYSTEM:ERROR:CODE[:NEXT]? ............................................................................................................................. 66 
+:SYSTEM:ERROR:CODE:ALL? .................................................................................................................................. 66 
+:SYSTEM:ERROR:COUNT? ...................................................................................................................................... 66 
+:SYSTEM:ERROR:ENABLE:ADD (<NUM>:<NUM>) ..................................................................................................... 67 
+:SYSTEM:ERROR:ENABLE:DELETE (<NUM>:<NUM>) .................................................................................................. 67 
+:SYSTEM:ERROR:ENABLE[:LIST]? ............................................................................................................................ 67 
+ERROR CODES ................................ ................................ ................................ ................................ .......... 68 
+EXAMPLES ................................ ................................ ................................ ................................ ............... 70 
+FETCH ONLINE MEASUREMENT DATA................................ ................................ ................................ ................ 70 
+STORE MEASUREMENT DATA ON DEVICE ................................ ................................ ................................ ........... 70 
+
+--- Page 8 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 8 
+© 2021 DEWETRON GmbH 
+INTRODUCTION 
+This Technical Reference Document describes the Standard Commands for Programmable Instruments (SCPI) remote 
+control interface to communicate with the DEWETRON Oxygen Software (OXYGEN). The intended audience of this 
+document are instrument programmers who are responsible for writing SCPI-based programs to control the OXYGEN 
+software product. 
+SCOPE 
+This document describes a set of SCPI commands and queries usable to programmers of SCPI-based devices and 
+controllers via Ethernet based TCP networking, and interfacing to the OXYGEN software. This document also defines the 
+basic TCP operation parameters necessary for a successful connection attempt to the OXYGEN software.  
+CONVENTIONS AND STRUCTURE 
+Notes provide useful information about the context and awareness of special emphasis. Examples provide overview of 
+real world data transmission. 
+ 
+The organization of this document is as follows to provide you a programmer -friendly guide for communicating with the 
+OXYGEN software: 
+• Chapter "Syntax Conventions" describes the syntax conventions used. 
+• Chapter "SCPI with OXYGEN" provides information about the TCP networking and an overview of the mapping 
+from the OXYGEN software model to corresponding SCPI systems. 
+• Chapter "Common Commands" describes the common SCPI commands and queries that are available for the 
+OXYGEN software. 
+• Chapter "Application Control" describes the SCPI commands and queries that configure basic operation of the 
+OXYGEN software. 
+• Chapter "Acquisition Control" describes the SCPI commands and queries that act on the acquisition module of 
+the OXYGEN software. 
+• Chapter "Recording Control" describes the SCPI commands and queries that act on the recording module of the 
+OXYGEN software. 
+• Chapter "Channellist access 
+• :CHANNELlist:NAMes? 
+• Syntax :CHANNELLIST:NAMES? 
+Description Queries the name and ids of all channels 
+Parameter None 
+Explanation Returns a list of elements alternating the numeric channel-id and the channel-name 
+Return Format (<String >, <String>)[,(< String >, <String>), …])|NONE 
+Example → :CHANNEL:NAMes? 
+← ("5770799963931934732","AI 2/1 Sim"),("5770799963931934733","AI 2/2 
+Sim") 
+
+--- Page 9 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 9 
+© 2021 DEWETRON GmbH 
+:CHANNELLIST:IDS? 
+Syntax :CHANNELLIST:IDS? 
+Description Queries the ids of all channels 
+Parameter None 
+Explanation Returns a list of the numeric channel-ids 
+Return Format (<String > [,<String >, …])|NONE 
+Example → :CHANNEL:IDs? 
+← "5770799963931934732","5770799963931934733" 
+:CHANNELLIST:PROPERTY? 
+Syntax :CHANNELLIST:PROPERTY? <CHANNELID>,<PROPERTYNAME> 
+Description Queries a specific property (config-item) of a given channel 
+Parameter Name Type Range Default 
+<CHANNELID> ASCII string  None 
+<PROPERTYNAME> ASCII string  None 
+ 
+Explanation Returns the name of the property as string and the value of the property in the most appropriate 
+format 
+Return Format (<String>,<String>)|(<String>,<NRf>,<String>)|(<String>,<NRf>)|(<String>,<NRf>,<NRf>)|  
+(<String>,<NR1>)|(<String>,<NR1>,<NR1>)|(<String>,<NRf>,<String>,<NRf>,<String>) |NONE  
+Example → :CHANNEL:PROPerty? "5770799963931934732","Range" 
+← (RANGE,-10.0,"V",10.0,"V") 
+ 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR 
+The following channel config items (properties) should be possible to access (if available for channel type) : 
+ 
+Key  
+ 
+Explanation SCPI grammar and example 
+Neon/Active  Indicates that the selected channel 
+is enabled 
+<Boolean> 
+TRUE 
+Neon/LongName  Channel name and device <String> 
+"Formula 0@DEWE-PC" 
+Neon/Name Channel name <String> 
+"Formula 0" 
+Neon/PhysicalScaleFactor  Scale factor for the selected 
+channel 
+<NRf> 
+1.0 
+Neon/PhysicalScaleOffset  Offset for the selected channel <NRf> 
+
+--- Page 10 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 10 
+© 2021 DEWETRON GmbH 
+0.0 
+Neon/Stored  Indicates whether the channel data 
+will be recorded to the datafile 
+<String> 
+"ChannelStored:Auto" 
+Range  Physical measurement range  (<String>,<NRf>,<String>,<NRf>,<String>) 
+(RANGE,-20580.0,"V",20580.0,"V") 
+SampleRate  Sample rate  (<String>,<NRf>,<String>) 
+(SCALAR,0.0,"Hz") 
+Unit Physical measurement unit <String> 
+ "V" 
+Used Indicates that the selected channel 
+is enabled 
+<Boolean> 
+FALSE 
+ 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR:NAMES? 
+SYNTAX :CHANNELLIST:ITEM<CHANNELID>:ATTR:NAMES? 
+Description Queries the names (keys) of properties (config-items) of a given channel 
+Parameter None 
+Explanation Returns a list of available attribute names 
+Return Format (<String > [,<String >, …])|NONE 
+Example → :CHANNEL:ITEM8316741119689883648:ATTR:NAM? 
+← "ChannelType","DefaultName","Neon/Name","Neon/Stored" 
+ 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR:VAL? 
+SYNTAX :CHANNELLIST:ITEM<CHANNELID>:ATTR:VAL? <PROPERTYNAME> 
+Description Queries a specific property (config-item) of a given channel 
+Parameter Name Type Range Default 
+<CHANNELID> Integer 0… 18446744073709551615 None 
+<PROPERTYNAME> ASCII string  None 
+ 
+Explanation Returns the name of the property as string and the value of the property in the most appropriate 
+format 
+Return Format (<String>,<String>)|(<String>,<NRf>,<String>)|(<String>,<NRf>)|(<String>,<NRf>,<NRf>)|  
+(<String>,<NR1>)|(<String>,<NR1>,<NR1>)|(<String>,<NRf>,<String>,<NRf>,<String>) |NONE  
+Example → :CHANNEL:ITEM5770799963931934732:ATTR:VAL? "Range" 
+← (RANGE,-10.0,"V",10.0,"V") 
+ 
+• Measurement Values" describes the SCPI commands and queries that act on the retrieval of measurement 
+values of the OXYGEN software. 
+
+--- Page 11 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 11 
+© 2021 DEWETRON GmbH 
+RELATED DOCUMENTS 
+Refer to the following documents for more information: 
+• Oxygen 5.1 Feature Manual. This document describes the operation of OXYGEN software and its software and 
+related hardware components. 
+• Oxygen 5.1 Power Manual. This document describes the operation of OXYGEN software as a highly configurable 
+and most accurate Power Analyzer. 
+• Standards Commands for Programmable Instruments (SCPI), Volume 1-4, Version 1999.0 May 1999, SCPI 
+Consortium. 
+• Standard digital interface for programmable instrumentation – Part 2: Codes, formats, protocols, and common 
+commands, IEC 60488-2 First Edition 2004-5, IEEE. 
+
+--- Page 12 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 12 
+© 2021 DEWETRON GmbH 
+SYNTAX CONVENTIONS 
+The SCPI (Standard Commands for Programmable Instruments) is a universal ASCII -based textual remote programming 
+language for electronic test and measurement (T&M) instruments. Based on the IEC 60488-2 specification, the remote 
+transportation interface to the OXYGEN software is Ethernet based, as defined by the IEEE 802.3 working group , and the 
+networking protocol is TCP. 
+ 
+Note: Check the reference manual of your DEWETRON measurement device for the availability and configuration options 
+of the Ethernet interface. 
+ 
+The SCPI defines messages in the form of commands and queries to control the operation and functions for T&M 
+instruments. The related topics below describe the syntax of these commands a nd queries, and the conventions that the 
+OXYGEN software uses to process them. Commands modify settings and parameters of the OXYGEN software. Further, 
+commands tell the OXYGEN software to perform a specific action. Queries cause the OXYGEN software to return data 
+and status information. 
+ 
+Refer to the following table for the symbols used to describe the syntax of commands and queries. 
+ 
+Symbol Meaning 
+< > A defined element 
+::= Is defined as 
+| Exclusive OR 
+{ } Option group; one element is required 
+[ ] Optional; can be omitted 
+… Previous elements can be repeated 
+SCPI MESSAGE STRUCTURE 
+The SCPI messages may consist of five element types, defined in the following table. 
+ 
+Element Meaning 
+<Header> This element represents the basic command name. In case if the header ends with a question mark, 
+the command is a query. The header may begin with a colon or asterisk character. A header consists 
+of one or more <Mnemonic> elements, representing the system or subsystem of the command or 
+query category. The only exception  
+<Mnemonic> A part of the <Header>. Some commands have only one <Mnemonic> defined by their <Header>. 
+Mnemonics can have a short and a long form. The syntax of the mnemonics in this document is to 
+capitalize the short form while the long form finalizes the <Mnemonic> in lower case characters. 
+<Parameter> This is a parameter used as input to the addressed command or query identified by the <Header>. 
+Some commands have no parameters while others have multiple parameters. A <Space> separates 
+parameters from the <Header>, while a <Comma> separates parameters from each other. 
+
+--- Page 13 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 13 
+© 2021 DEWETRON GmbH 
+<Comma> A single comma separates parameters of multiple-parameter commands. 
+<Space> A white space character separates the <Header> from its <Parameter> list. 
+ 
+Commands have the structure: 
+<Header>[<Space><Parameter>[<Comma><Parameter>]...] 
+Queries have the structure: 
+<Header>?[<Space><Parameter>[<Comma><Parameter>]...] 
+ 
+SCPI defines systems and subsystems as a grouping for mnemonics. For example, the mnemonics operating on the 
+acquisition control are summarized within a group :ACQUISITION, containing the mnemonics START, STOP, PAUSE and 
+STATE. Subsystems are additional groupings within a system or a subsystem. Some SCPI systems have no subsystem 
+while others have many subsystems. Not all functions are grouped in systems or subsystems. Therefore, this document 
+uses a logical grouping of function blocks. 
+ 
+A SCPI message can be composed of multiple commands and queries by separating them with a semicolon. The following 
+rules apply when concatenating commands and queries: 
+1. Separate completely different headers by a semicolon and by the beginning colon on all headers. For example, 
+the command :ACQUISITION:START and the query :STORE:STATE?, can be concatenated into the following 
+single message: 
+:ACQUISITION:START; :STORE:STATE? 
+2. If concatenated headers differ by only the last mnemonics, you can abbreviate the subsequent headers and 
+eliminate the beginning colon. For example, to concatenate the command :ACQUISITION:START and the 
+query :ACQUISITION:STATE?, the following single message can be formed: 
+:ACQUISITION:START; STATE? 
+3. When concatenating multiple queries, a single response message is been generated by concatenating the 
+responses to all queries. 
+4. The processing order of concatenated commands and queries is the order received. 
+ 
+An <EOM> message terminator must terminate each SCPI message. The OXYGEN software allows the usage of LF and 
+CR LF characters as a valid message termination. The OXYGEN software evaluates only terminated messages. 
+PARAMETER AND RESPONSE TYPES 
+Angle brackets, such as <num>, indicate parameters of commands. Angle brackets containing the parameter type 
+indicate a response type of queries, such as <String>. There are several different types of parameters and response 
+types defined by the SCPI and used by the RC_SCPI of the OXYGEN software, as listed in the following table:  
+ 
+Parameter Type Description Example 
+Arbitrary Block A block of ASCII raw data described by a simple 
+header of the format: 
+#[1-9][0-9]* 
+The hashtag indicates the beginning of an arbitrary 
+block header. The following digit indicates the 
+number of subsequent digits specifying the length of 
+the data in bytes. 
+#14AHOI 
+
+--- Page 14 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 14 
+© 2021 DEWETRON GmbH 
+Arbitrary ASCII String An unquoted block of ASCII character terminated by 
+a <CR> 
+Lorem Ipsum 
+String Quoted alphanumeric characters, by either a single 
+or a double quote. 
+"17E24 * 37E87 = BIG NUMBER" 
+‘Lorem Ipsum‘ 
+Character Unquoted alphanumeric characters in the format 
+[a-zA-Z][a-zA-Z0-9_]* 
+The first character must not be a digit. 
+Test123 
+Boolean Boolean numbers or values. The response type 
+returns only boolean numbers 0 and 1. 
+ON or ≠ 0 
+OFF or 0 
+Hexadecimal Hexadecimal coded integers of the form 
+#Hxxxx 
+#HFF 
+Octal Octal coded integers of the form 
+#Qxxxx 
+#Q77 
+Binary Binary coded integers of the form 
+#Bxxxx 
+#B1101 
+NR1 Integers 0, 1, 42, -37 
+NR2 Decimal numbers 3.432, -74.43 
+NR3 Decimal numbers in scientific notation 1.55433E+6 
+NRf Flexible decimal numbers that may be of type NR1, 
+NR2 or NR3 
+See NR1, NR2 and NR3 examples 
+ 
+SCPI defines special numeric values as possible parameters for commands and queries . If mentioned in the specific 
+command or query documentation, you can use the following special character values instead of the numeric values: 
+ 
+Special Character Value Description Numeric Value 
+NAN Not a Number, as defined in IEEE 754 for 32-bit 
+floating point numbers 
+9.91 E 37 
+INFinity 
+NINFinity 
+Infinity and negative infinity, as defined in IEEE 754 
+for 32-bit floating point numbers 
+9.9 E 37 
+-9.9 E 37 
+MINimum 
+MAXimum 
+Denotes the minimum and maximum value of a 
+range of numeric values 
+For the range 20..100 
+MIN = 20 
+MAX = 100 
+DEFault The preset value which is set by the *RST command See NR1, NR2 and NR3 examples 
+ 
+
+--- Page 15 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 15 
+© 2021 DEWETRON GmbH 
+SCPI WITH OXYGEN 
+The OXYGEN SCPI remote control (RC_SCPI) interface is available via TCP networking using the TCP endpoint port 
+number 10001. You can easily use HyperTerminal or PuTTY in raw TCP configuration and ASCII encoding to test the 
+connection and issue SCPI commands and queries. 
+ 
+Note: The RC_SCPI interface permits only one active client connection to transmit TCP data. Multiple connect ions are not 
+possible. 
+ 
+The OXYGEN software executes the received SCPI messages in sequential order.  Each SCPI command and query is 
+blocking and does not allow any further commands or queries executed until it is finished.  
+ 
+The internal application model of the OXYGEN software consists of major functions, potentially mapped to SCPI systems. 
+The following table gives an overview to those mappings: 
+ 
+Part of OXYGEN Description SCPI Headers and Systems 
+Application Control Control the application state and configuration via 
+setups. 
+:SETUP:* 
+:SYSTEM:* 
+:COMMUNICATE:* 
+Acquisition Control Control the acquisition state of the application. :ACQUISITION:* 
+Recording Control Control the recording state of the application. :STORE:* 
+Measurement Values Read out actual measurement values. :RATE 
+:NUMERIC:* 
+ 
+  
+
+--- Page 16 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 16 
+© 2021 DEWETRON GmbH 
+SETUP OXYGEN MEASUREMENT SOFTWARE FOR SCPI USE 
+1. Navigate to System Settings on the Dewetron Measurement device with Oxygen Software  
+2. Go to "Remote Control" Tab on the left 
+3. Enable the Remote Control feature and select the protocol type 
+4. Change the TCP/IP Port number if needed 
+ 
+ 
+
+
+--- Page 17 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 17 
+© 2021 DEWETRON GmbH 
+COMMON COMMANDS 
+*IDN? 
+Syntax *IDN? 
+Description Query the ID string of the instrument 
+Parameter None 
+Explanation The query returns a colon-separated four-field ASCII string. The first field contains the manufacturer 
+name, the second field is the product name, the third field is the device serial number, and the fourth 
+field is the product revision number 
+Return Format <Arbitrary ASCII String> 
+Example → *IDN? 
+← DEWETRON,OXYGEN,0,2.5.0 
+*VER? 
+Syntax *VER? 
+Description Query the software and SCPI interface version string 
+Parameter None 
+Explanation The query returns the version information for the relevant parts. The SCPI version, the RC_SCPI 
+plugin version and the OXYGEN version is mandatory and always reported  
+Return Format <Character>,<String>[,<Character>,<String>]... 
+Example → *VER? 
+← SCPI,"1999.0",RC_SCPI,"1.10",OXYGEN,"5.1.1" 
+*CLS 
+Syntax *CLS 
+Description Clears the standard event register, extended event register, and error queue  
+Parameter None 
+Explanation If the *CLS command is located immediately after the program message terminator, the output 
+queue is also cleared 
+Example → *CLS 
+
+--- Page 18 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 18 
+© 2021 DEWETRON GmbH 
+*ESE 
+Syntax *ESE <NUM> 
+Description Sets the standard event status enable register 
+Parameter Name Type Range Default 
+<NUM> Integer 0 to 255 0 
+ 
+Explanation • Specify the value as a sum of decimal values of each bit 
+• For example, specifying "*ESE 251" will cause the standard enable register to be set to 
+"11111011." In this case, bit 2 of the standard event register is disabled which means that 
+bit 5 (ESB) of the status byte register is not set to 1, even if a "query error" occurs 
+• A query using *ESE? will not clear the contents of the standard event enable register  
+Example → *ESE 251 
+→ *ESE? 
+← 251 
+*ESE? 
+Syntax *ESE? 
+Description Queries the current setting of the standard event status enable register 
+Parameter None 
+Explanation The query returns the content of the standard event status enable register 
+Return Format <NR1> 
+Example → *ESE 251 
+→ *ESE? 
+← 251 
+
+--- Page 19 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 19 
+© 2021 DEWETRON GmbH 
+*ESR? 
+Syntax *ESR? 
+Description Queries the standard event status register and clears the register 
+Parameter None 
+Explanation • A sum of decimal values of each bit is returned 
+• You can check what type of events occurred when an SRQ is generated  
+• For example, if a value of "32" is returned, this indicates that the standard event register is 
+set to "00100000." In this case, you can see that the SRQ occurred due to a "command  
+syntax error." 
+• A query using *ESR? will clear the contents of the standard event register  
+Return Format <NR1> 
+Example → *ESR? 
+← 32 
+*OPC 
+Syntax *OPC 
+Description Sets bit 0 (OPC bit) of the standard event register to 1 upon the completion of the specified overlap 
+command 
+Parameter None 
+Explanation Currently all operations are non-overlapped.*OPC sets the OPC bit and *OPC? returns the state of 
+the OPC bit 
+Example → *OPC 
+→ *OPC? 
+← 1 
+
+--- Page 20 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 20 
+© 2021 DEWETRON GmbH 
+*OPC? 
+Syntax *OPC? 
+Description Queries the state of specified overlapped command 
+Parameter None 
+Explanation Currently all operations are non-overlapped.*OPC sets the OPC bit 
+Return Format <Boolean> 
+Example → *OPC 
+→ *OPC? 
+← 1 
+*RST 
+Syntax *RST 
+Description Initializes the device to default settings 
+Parameter None 
+Explanation • Stops the recording 
+• Restarts the acquisition 
+• Clears the event queue 
+• Resets all settings except communication settings to factory default values 
+Example → *RST 
+
+--- Page 21 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 21 
+© 2021 DEWETRON GmbH 
+*SRE 
+Syntax *SRE <NUM> 
+Description Sets the service request enable register 
+Parameter Name Type Range Default 
+<NUM > Integer 0 to 255 0 
+ 
+Explanation • Specify the value as a sum of decimal values of each bit 
+• For example, specifying "*SRE 239" will cause the service request enable register to be set to 
+"11101111." In this case, bit 4 of the service request enable register is disabled which means 
+that bit 4 (MAV) of the status byte register is not set to 1, even if "the output queue is not 
+empty". 
+• Bit 6 (MSS) of the status byte register is the MSS bit itself, and therefore, is ignored  
+• A query using *SRE? will not clear the contents of the service request enable register 
+Example → *SRE 239 
+→ *SRE? 
+← 175 
+*SRE? 
+Syntax *SRE? 
+Description Queries the current setting of the service request enable register 
+Parameter None 
+Explanation The query returns the content of the service request enable register 
+Return Format <NR1> 
+Example → *SRE 239 
+→ *SRE? 
+← 175 
+
+--- Page 22 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 22 
+© 2021 DEWETRON GmbH 
+*STB? 
+Syntax *STB? 
+Description Queries the status byte register 
+Parameter None 
+Explanation The query returns the content of the status byte register. 
+• Bits 0, 1, 3, 4 and 7 
+Not used (always 0) 
+• Bit 2 EAV (Error Available) 
+Set to 1 when the error queue is not empty. In other words, this bit is set to 1 when an error 
+occurs. See the page 7-9. 
+• Bit 5 ESB (Event Summary Bit) 
+Set to 0 when the logical product of the standard event register and the corresponding 
+enable register is 1. In other words, this bit is set to 1 when an event takes place inside the 
+instrument. 
+• Bit 6 RQS (Request Service)/MSS (Master Status Summary) 
+Set to 1 when the logical AND of the status byte excluding Bit 6 and the service request 
+enable register is not 0. In other words, this bit is set to 1 when the instrument is requesting 
+service from the controller. 
+RQS is set to 1 when the MSS bit changes from 0 to 1, and cleared when serial pol ling is 
+carried out or when the MSS bit changes to 0. 
+Return Format <NR1> 
+Example → *STB? 
+← 4 
+*TST? 
+Syntax *TST? 
+Description Performs a self-test and queries the result 
+Parameter None 
+Explanation Currently a self-test is not defined and this query is no-op. 
+Return Format <NR1> 
+Example → *TST? 
+← 0 
+
+--- Page 23 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 23 
+© 2021 DEWETRON GmbH 
+*WAI 
+Syntax *WAI 
+Description Holds the subsequent command until the completion of the async hronous operation 
+Parameter None 
+Explanation Currently all operations are synchronous operations 
+Example → *WAI 
+
+--- Page 24 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 24 
+© 2021 DEWETRON GmbH 
+APPLICATION CONTROL 
+SETUP 
+:SETUP:LOAD "PATH" 
+Syntax :SETUP:LOAD <FILE_NAME> 
+:SETUP:LOAD <PATH> 
+Description Load specified setup file of the current configuration directory or an absolute path 
+Parameter Name Type Range Default 
+<FILE_NAME> String The filename of the setup file in 
+the default directory (data folder) 
+None 
+<PATH> String The absolute path of the setup 
+file to load 
+None 
+ 
+Explanation This command loads a setup (measurement configuration) file from the current configuration 
+location or an absolute path and applies it directly. The <FILE_NAME> does not need to include the file 
+extension ".dms". 
+Example → :SETup:LOAD "setup1.dms" 
+→ :SETup:LOAD "C:\DATA\setup1.dms" 
+:SETUP:APPLY "XML-STRING" 
+Syntax :SETUP:APPLY #<NUM_INT><NUM_CHAR><XML_SETUP> 
+Description Upload a measurement setup to device and apply it 
+Parameter Name Type Range Default 
+<NUM_INT> NR1 Number of Integers following 
+after this Integer 1 to 9 
+None 
+<NUM_CHAR> NR1 Number of Characters to be 
+transferred 1 to 999999999 
+None 
+<XML_SETUP> Arbitrary Data Setup data (XML) None 
+ 
+Explanation This command uploads a measurement setup to the device and applies it after transfer complete. 
+The measurement setup is a XML-String which can be downloaded via :SETUP:READ?. 
+Example → :SETup:APPLY #41234... 
+Related 
+Commands 
+:SETUP:READ? 
+
+--- Page 25 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 25 
+© 2021 DEWETRON GmbH 
+:SETUP:SAVE "PATH" 
+Syntax :SETUP:SAVE <FILE_NAME> 
+:SETUP:SAVE <PATH> 
+Description Saves to current setup to the specified file in the current configuration directory or to an absolute 
+path 
+Parameter Name Type Range Default 
+<FILE_NAME> String The filename of the setup file in 
+the default directory 
+None 
+<PATH> String The absolute path of the setup 
+file to load 
+None 
+ 
+Explanation This command saves the current setup (measurement configuration) to a file in the current 
+configuration location or an absolute path. The <FILE_NAME> does not need to include the file 
+extension ".dms". 
+Example → :SETup:LOAD "setup1.dms" 
+→ :SETup:LOAD "C:/DATA/setup1.dms" 
+:SETUP:READ? ["PATH"] 
+Syntax :SETUP:READ? 
+:SETUP:READ? <PATH> 
+Description Download the current measurement setup or, if a path is specified, the measurement setup 
+referenced to path from the device 
+Parameter Name Type Range Default 
+<PATH> ASCII string Path to setup file (XML) None 
+ 
+Explanation Download the current measurement setup or, if a path is specified, the measurement setup 
+referenced to path from the device 
+Return Format <Arbitrary Data> 
+Example → :SETup:READ? 
+← #43432........ 
+→ :SETup:READ? "C:\Data\test.dms" 
+← #41242........ 
+Related 
+Commands 
+:SETUP:LOAD 
+:SETUP:APPLY 
+
+--- Page 26 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 26 
+© 2021 DEWETRON GmbH 
+: SETUP:NAME? 
+Syntax :SETUP:NAME? 
+Description Get name of the current loaded oxygen setup  
+Parameter None 
+Explanation This query returns the filename of the current loaded setup file 
+Return Format <String>|NONE 
+Example → :SETup:NAMe? 
+← :SET:NAM "D:/DATA/last.dms" 
+ 
+  
+
+--- Page 27 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 27 
+© 2021 DEWETRON GmbH 
+:SETUP:ASYNC:LOAD "PATH" 
+Syntax :SETUP:ASYNC:LOAD <FILE_NAME> 
+:SETUP:ASYNC:LOAD <PATH> 
+Description Starts loading a specified setup file of the current configuration directory or an absolute path 
+Parameter Name Type Range Default 
+<FILE_NAME> String The filename of the setup file in 
+the default directory (data folder) 
+None 
+<PATH> String The absolute path of the setup 
+file to load 
+None 
+ 
+Explanation This command asynchronously loads a setup (measurement configuration) file from the current 
+configuration location or an absolute path and applies it. The <FILE_NAME> does not need to include 
+the file extension ".dms".  Since this command only starts loading, other device commands or 
+queries could be invalid or causes problems, when the loading is not finished yet. Use the query 
+“:SETup:ASync:STATE?” to acquire the state of the loading operation. 
+Example → :SETup:ASync::LOAD "setup1.dms" 
+→ :SETup:ASync::LOAD "C:\DATA\setup1.dms" 
+:SETUP:ASYNC:STATE?  
+Syntax :SETUP:ASYNC:STATE 
+Description Queries the state of the last async load configuration operation 
+Parameter None 
+Explanation This command queries the state of the last async config load operation. The state could be 
+• IDLE 
+• LOADing 
+ 
+Some execution errors are added, if the load operation  is not finished correctly. 
+Return Format <String> 
+Example → :SETup:ASync::STATe? 
+← IDLE 
+→ :SETup:ASync::LOAD "C:\DATA\setup1.dms" 
+→ :SETup:ASync::STATe? 
+← LOAD 
+→ :SETup:ASync::STATe? 
+← LOAD 
+→ :SETup:ASync::STATe? 
+← IDLE 
+→ :SYST:ERR:ALL? 
+← -256, "File name not found" 
+ 
+ 
+
+--- Page 28 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 28 
+© 2021 DEWETRON GmbH 
+UI CONTROL 
+:SYSTEM:DATE? 
+Syntax :SYSTEM:DATE? 
+Description Queries the system date 
+Parameter None 
+Explanation Returns the system date in the form <year>,<month>,<day> 
+• <year>: INTEGER, four digit number 
+• <month>: INTEGER with the range 1 to 12 
+• <day>: INTEGER with the range 1 to 31 
+Return Format <NR1>,<NR1>,<NR1> 
+Example → :SYSTem:DATE? 
+← 2017,07,25 
+Related 
+Commands 
+:SYSTEM:TIME? 
+:SYSTEM:TZONE? 
+:SYSTEM:KLOCK {ON|OFF} 
+Syntax :SYSTEM:KLOCK {ON|1|OFF|0} 
+Description Locks/Unlocks the Screen 
+Parameter Name Type Range Default 
+{ON|1|OFF|0} Boolean ON|1|OFF|0 OFF 
+ 
+Explanation Locks/Unlocks the Screen of Oxygen Software 
+Example → :SYSTem:KLOCK ON 
+→ :SYSTem:KLOCK OFF 
+Related 
+Commands 
+:SYSTEM:KLOCK? 
+
+--- Page 29 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 29 
+© 2021 DEWETRON GmbH 
+:SYSTEM:KLOCK? 
+Syntax :SYSTEM:KLOCK? 
+Description Queries the Screen Lock status 
+Parameter None 
+Explanation  
+Return Format <Boolean> 
+Example → :SYSTem:KLOCK ON 
+→ :SYSTem:KLOCK? 
+← 1 
+Related 
+Commands 
+:SYSTEM:KLOCK 
+ 
+
+--- Page 30 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 30 
+© 2021 DEWETRON GmbH 
+:SYSTEM:TIME? 
+Syntax :SYSTEM:TIME? 
+Description Queries the system time 
+Parameter None 
+Explanation Returns the local system time in the form <hour>,<minute>,<second> 
+• <hour>: INTEGER with the range 0 to +23 
+• <minute>: INTEGER with the range 0 to 59 
+• <second>: INTEGER with the range 0 to 59.99999… 
+If Acquisition is not running, :SYSTEM:TIME? Returns the last known Time 
+Return Format <NR1>,<NR1>,<NRf> 
+Example → :SYSTem:TIME? 
+← 17,31,1.0237 
+Related 
+Commands 
+:SYSTEM:DATE? 
+:SYSTEM:TZONE? 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+--- Page 31 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 31 
+© 2021 DEWETRON GmbH 
+:SYSTEM:TZONE? 
+Syntax :SYSTEM:TZONE? 
+Description Queries the system time zone 
+Parameter None 
+Explanation Returns the system time zone offset in the form <hour>,<minute> 
+• <hour>: INTEGER with the range -12 to +12 
+• <minute>: INTEGER with the range -59 to +59 
+ 
+When each field is subtracted from the value of the TIME command, the result is the correct  
+universal coordinated time (also known as UCT, Zulu, Greenwich Mean Time).  
+Return Format <NR1>,<NR1> 
+Example → :SYSTem:TZONE? 
+← 2,0 
+Related 
+Commands 
+:SYSTEM:DATE? 
+:SYSTEM:TZONE? 
+:COMMUNICATE:HEADER {ON|OFF} 
+Syntax :COMMUNICATE:HEADER {ON|1|OFF|0} 
+Description Sets whether query responses should generate an output for the header.  
+Parameter Name Type Range Default 
+{ON|1|OFF|0} Boolean ON|1|OFF|0 ON 
+ 
+Explanation Sets whether query responses include the header.  
+Example → :COMMunicate:HEADer ON 
+→ :SYSTem:TIME? 
+← :SYSTEM:TIME 15,14,15.7644 
+Related 
+Commands 
+:COMMUNICATE:VERBOSE 
+
+--- Page 32 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 32 
+© 2021 DEWETRON GmbH 
+:COMMUNICATE:HEADER? 
+Syntax :COMMUNICATE:HEADER? 
+Description Queries the communication response header setting 
+Parameter None 
+Explanation Queries the setting whether the response includes the header or not  
+Return Format <Boolean> 
+Example → :COMMunicate:HEADer? 
+← 1 
+Related 
+Commands 
+:COMMUNICATE:HEADER 
+:COMMUNICATE:VERBOSE {ON|OFF} 
+Syntax :COMMUNICATE:VERBOSE {ON|1|OFF|0} 
+Description Sets whether query responses should generate the long or short form of the header  
+Parameter Name Type Range Default 
+{ON|1|OFF|0} Boolean ON|1|OFF|0 OFF 
+ 
+Explanation Sets whether query responses should generate the long or short form of the header  
+Example → :COMMunicate:HEADer ON 
+→ :COMMunicate:VERBose OFF 
+→ :SYSTem:TIME? 
+← :SYST:TIME 15,14,15.7644 
+→ :COMMunicate:VERBose ON 
+→ :SYSTem:TIME? 
+← :SYSTEM:TIME 15,14,32.7265 
+Related 
+Commands 
+:COMMUNICATE:HEADER 
+
+--- Page 33 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 33 
+© 2021 DEWETRON GmbH 
+:COMMUNICATE:VERBOSE? 
+Syntax :COMMUNICATE:VERBOSE? 
+Description Queries the setting, whether the response header is short - or long form 
+Parameter None 
+Explanation Queries the setting, whether the response header is short - or long form 
+Return Format <Boolean> 
+Example → :COMMunicate:VERBose? 
+← 1 
+Related 
+Commands 
+:COMMUNICATE:VERBOSE 
+
+--- Page 34 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 34 
+© 2021 DEWETRON GmbH 
+ACQUISITION CONTROL 
+:ACQUISITION:START 
+Syntax :ACQUISITION:START 
+Description Start the acquisition if not already running 
+Parameter None 
+Explanation Start the acquisition if not already running 
+Example  
+:ACQUISITION:STOP 
+Syntax :ACQUISITION:STOP 
+Description Stops the acquisition if not already stopped 
+Parameter None 
+Explanation Stops the acquisition if not already stopped 
+Example  
+:ACQUISITION:RESTART 
+Syntax :ACQUISITION:RESTART 
+Description Restarts the acquisition 
+Parameter None 
+Explanation Stops, then starts the acquisition. 
+If the acquisition was stopped or paused before, it will only be started. 
+Example  
+
+--- Page 35 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 35 
+© 2021 DEWETRON GmbH 
+:ACQUISITION:STATE? 
+Syntax :ACQUISITION:STATE? 
+Description Queries the acquisition state 
+Parameter None 
+Explanation Returns the acquisition state as string: 
+• Stopped 
+• Waiting_for_sync 
+• Started 
+Return Format <String> 
+Example → :ACQUisition:STARt 
+→ ACQUisition:STATe? 
+← Started 
+
+--- Page 36 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 36 
+© 2021 DEWETRON GmbH 
+RECORDING CONTROL 
+:STORE:FILE:NAME "PATH" 
+Syntax :STORE:FILE:NAME <FILENAME> 
+:STORE:FILE:NAME <PATH> 
+Description Set File Name or Path of the Recording File 
+Parameter Name Type Range Default 
+<FILE_NAME> String The filename of the data file in 
+the default directory 
+None 
+<PATH> String The absolute path of data file None 
+ 
+Explanation Set File Name or Path of the Recording File. The File will be overwritten on storing start, if the file 
+already exists. If the file extension is not provided (.dmd), it will be appended automatically.  
+Example → :STORe:FILE:NAME "Testrun_1" 
+→ :STORe:FILE:NAME "D:\DATA\Testrun_1" 
+:STORE:FILE:NAME? 
+Syntax :STORE:FILE:NAME? 
+Description Get File Name and Path of the Recording File during recording 
+Parameter None 
+Explanation Get the File Name and Path of the Recording File while recording is started. If recording is currently 
+stopped, NONE is returned. 
+Return Format <String>|NONE 
+Example → :STORe:FILE:NAME? 
+← :STOR:FILE "D:\DATA\Testrun_1.dmd" 
+→ :STORe:FILE:NAME? 
+← :STOR:FILE NONE 
+
+--- Page 37 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 37 
+© 2021 DEWETRON GmbH 
+:STORE:START 
+Syntax :STORE:START 
+Description Start storing operation 
+Parameter None 
+Explanation Starts the storing operation or arms configured triggers. The file will be overwritten, if it exists. 
+If the storing operation was paused, the storing operation will be resumed  in the same file.  
+Example  
+:STORE:PAUSE 
+Syntax :STORE:PAUSE 
+Description Pause storing operation 
+Parameter None 
+Explanation Pauses the storing operation. Pausing in triggered recording is not supported and the PAUSE 
+command will return an error if triggered recording is configured. 
+Example  
+:STORE:STOP 
+Syntax :STORE:STOP 
+Description Stop storing operation 
+Parameter None 
+Explanation Stops the storing operation or disarms the triggers 
+Example  
+
+--- Page 38 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 38 
+© 2021 DEWETRON GmbH 
+:STORE:STATE? 
+Syntax :STORE:STATE? 
+Description Queries the state of the recording operation {Started|Stopped|Stopping|Paused|Armed} 
+Parameter None 
+Explanation Returns the recording  
+• Stopped (Storing can be started now) 
+• Stopping (Waiting for a previous store to stop) 
+• Paused (A current storing operation is pause) 
+• Started (Storing is started) 
+• Armed (Triggers for storing are armed) 
+Return Format <String> 
+Example → :STORe:STARt 
+→ :STORe:STATe? 
+← Started 
+
+--- Page 39 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 39 
+© 2021 DEWETRON GmbH 
+CHANNELLIST ACCESS 
+:CHANNELLIST:NAMES? 
+Syntax :CHANNELLIST:NAMES? 
+Description Queries the name and ids of all channels 
+Parameter None 
+Explanation Returns a list of elements alternating the numeric channel-id and the channel-name 
+Return Format (<String >, <String>)[,(< String >, <String>), …])|NONE 
+Example → :CHANNEL:NAMes? 
+← ("5770799963931934732","AI 2/1 Sim"),("5770799963931934733","AI 2/2 
+Sim") 
+:CHANNELLIST:IDS? 
+Syntax :CHANNELLIST:IDS? 
+Description Queries the ids of all channels 
+Parameter None 
+Explanation Returns a list of the numeric channel-ids 
+Return Format (<String > [,<String >, …])|NONE 
+Example → :CHANNEL:IDs? 
+← "5770799963931934732","5770799963931934733" 
+
+--- Page 40 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 40 
+© 2021 DEWETRON GmbH 
+:CHANNELLIST:PROPERTY? 
+Syntax :CHANNELLIST:PROPERTY? <CHANNELID>,<PROPERTYNAME> 
+Description Queries a specific property (config-item) of a given channel 
+Parameter Name Type Range Default 
+<CHANNELID> ASCII string  None 
+<PROPERTYNAME> ASCII string  None 
+ 
+Explanation Returns the name of the property as string and the value of the property in the most appropriate 
+format 
+Return Format (<String>,<String>)|(<String>,<NRf>,<String>)|(<String>,<NRf>)|(<String>,<NRf>,<NRf>)|  
+(<String>,<NR1>)|(<String>,<NR1>,<NR1>)|(<String>,<NRf>,<String>,<NRf>,<String>) |NONE  
+Example → :CHANNEL:PROPerty? "5770799963931934732","Range" 
+← (RANGE,-10.0,"V",10.0,"V") 
+ 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR 
+The following channel config items (properties) should be possible to access (if available for channel type) : 
+ 
+Key  
+ 
+Explanation SCPI grammar and example 
+Neon/Active  Indicates that the selected channel 
+is enabled 
+<Boolean> 
+TRUE 
+Neon/LongName  Channel name and device <String> 
+"Formula 0@DEWE-PC" 
+Neon/Name Channel name <String> 
+"Formula 0" 
+Neon/PhysicalScaleFactor  Scale factor for the selected 
+channel 
+<NRf> 
+1.0 
+Neon/PhysicalScaleOffset  Offset for the selected channel <NRf> 
+0.0 
+Neon/Stored  Indicates whether the channel data 
+will be recorded to the datafile 
+<String> 
+"ChannelStored:Auto" 
+Range  Physical measurement range  (<String>,<NRf>,<String>,<NRf>,<String>) 
+(RANGE,-20580.0,"V",20580.0,"V") 
+SampleRate  Sample rate  (<String>,<NRf>,<String>) 
+(SCALAR,0.0,"Hz") 
+Unit Physical measurement unit <String> 
+ "V" 
+Used Indicates that the selected channel 
+is enabled 
+<Boolean> 
+FALSE 
+ 
+
+--- Page 41 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 41 
+© 2021 DEWETRON GmbH 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR:NAMES? 
+SYNTAX :CHANNELLIST:ITEM<CHANNELID>:ATTR:NAMES? 
+Description Queries the names (keys) of properties (config-items) of a given channel 
+Parameter None 
+Explanation Returns a list of available attribute names 
+Return Format (<String > [,<String >, …])|NONE 
+Example → :CHANNEL:ITEM8316741119689883648:ATTR:NAM? 
+← "ChannelType","DefaultName","Neon/Name","Neon/Stored" 
+ 
+:CHANNELLIST:ITEM<CHANNELID>:ATTR:VAL? 
+SYNTAX :CHANNELLIST:ITEM<CHANNELID>:ATTR:VAL? <PROPERTYNAME> 
+Description Queries a specific property (config-item) of a given channel 
+Parameter Name Type Range Default 
+<CHANNELID> Integer 0… 18446744073709551615 None 
+<PROPERTYNAME> ASCII string  None 
+ 
+Explanation Returns the name of the property as string and the value of the property in the most appropriate 
+format 
+Return Format (<String>,<String>)|(<String>,<NRf>,<String>)|(<String>,<NRf>)|(<String>,<NRf>,<NRf>)|  
+(<String>,<NR1>)|(<String>,<NR1>,<NR1>)|(<String>,<NRf>,<String>,<NRf>,<String>) |NONE  
+Example → :CHANNEL:ITEM5770799963931934732:ATTR:VAL? "Range" 
+← (RANGE,-10.0,"V",10.0,"V") 
+ 
+
+--- Page 42 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 42 
+© 2021 DEWETRON GmbH 
+MEASUREMENT VALUES 
+:RATE {<NUM>[<UNIT>]|NONE} 
+Syntax :RATE {<NUM>[<UNIT>]|NONE} 
+Description Set numeric data aggregation time for output 
+Parameter Name Type Range Default 
+{<NUM>[<UNIT>]|NONE} NRf|Character 1 – 5000ms|0.001-5s|NONE NONE 
+ 
+Explanation Set numeric data aggregation for output. If "NONE" specified, the aggregation time is off and the last 
+hold value will be returned on :NUM:NORM:VAL? 
+The resolution is milliseconds. 
+Since 1.6: Data aggregation is implemented for scalar values only. More precisely, the last hold value 
+will be returned for array channels. 
+Example → :RATE 500ms 
+:RATE? 
+Syntax :RATE? 
+Description Queries the numeric data aggregation time for output 
+Parameter None 
+Explanation The returned numeric is without unit according to the SCPI reference. But, the implicit unit is [s]. 
+Return Format <NRf>|NONE 
+Example → :RATE 500ms 
+→ :RATE? 
+← 5.0E-1 
+
+--- Page 43 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 43 
+© 2021 DEWETRON GmbH 
+:NUMERIC:NORMAL:ITEMS <CHANNEL>[,<CHANNEL>[,…]] 
+Syntax :NUMERIC:NORMAL:ITEMS <CHANNEL> [,<CHANNEL> [,…]] 
+Description Set numeric data output items 
+Parameter Name Type Range Default 
+<CHANNEL> ASCII string Oxygen Channel Name None 
+"ABS-TIME" ASCII string Include Absolute Time Channel 
+"YYYY-MM-DDTHH:mm:ss.sss" 
+ 
+"REL-TIME" ASCII string Include Relative Time Channel 
+<NRf> Seconds since Acquisition 
+Start 
+ 
+ 
+Explanation Set numeric data output items starting from index 1 on directly 
+Example → :NUMeric:NORMal:ITEMS "Channel-Name1","U1_tRMS@PowerGroup" 
+:NUMERIC:NORMAL:ITEMS? 
+Syntax :NUMERIC:NORMAL:ITEMS? 
+Description Query numeric data output items 
+Parameter None 
+Explanation Get the full list of channels in the numeric data output system  
+Return Format <NR1> 
+Example → :NUMeric:NORMal:ITEMS "ABS-TIME","U1_tRMS@PowerGroup" 
+→ :NUMeric:NORMal:ITEMS? 
+← "ABS-TIME","U1_tRMS@PowerGroup" 
+:NUMERIC:NORMAL:ITEM<X> <CHANNEL> 
+Syntax :NUMERIC:NORMAL:ITEM<X> <CHANNEL> 
+Description Set output item to specified channel name or system channel 
+Parameter Name Type Range Default 
+<CHANNEL> String Oxygen Channel Name or a 
+system channel ("ABS-TIME", 
+"REL-TIME") 
+None 
+ 
+Explanation  
+Example → :NUMeric:NORMAL:ITEM1 "U1_tRMS@PowerGroup" 
+
+--- Page 44 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 44 
+© 2021 DEWETRON GmbH 
+:NUMERIC:NORMAL:ITEM<X>? 
+Syntax :NUMERIC:NORMAL:ITEM<X>? 
+Description Query channel name of output item 
+Parameter None 
+Explanation  
+Return Format String 
+Example → :NUMeric:NORMAL:ITEM1 "U1_tRMS@PowerGroup" 
+→ :NUMeric:NORMAL:ITEM1? 
+← "U1_tRMS@PowerGroup" 
+:NUMERIC:NORMAL:CLEAR {ALL|<NUM>[,<NUM>]} 
+Syntax :NUMERIC:NORMAL:CLEAR {ALL|<NUM>[,<NUM>]} 
+Description Clear (Set to NONE) given items 
+Parameter Name Type Range Default 
+<NUM> Integer 1…32768 None 
+ALL ASCII string  None 
+ 
+Explanation Clear (Set to NONE) given items. If "ALL" is specified the hole list is cleared 
+Example → :NUMeric:NORMal:ITEMS "ABS-TIME","U1_tRMS@PowerGroup" 
+→ :NUMeric:NORMal:CLEar ALL 
+→ :NUMeric:NORMal:ITEMS? 
+← 0 
+:NUMERIC:NORMAL:DELETE <NUM>[,<NUM>] 
+Syntax :NUMERIC:NORMAL:DELETE {<NUM>[,<NUM>]} 
+Description Delete Items, shift remaining to left 
+Parameter Name Type Range Default 
+<NUM> Integer 1…32768 None 
+ 
+Explanation  
+Example → :NUMeric:NORMal:ITEMS "ABS-TIME","U1_tRMS@PowerGroup" 
+→ :NUMeric:NORMal:DELete 1 
+→ :NUMeric:NORMAL:ITEM1? 
+← "U1_tRMS@PowerGroup" 
+
+--- Page 45 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 45 
+© 2021 DEWETRON GmbH 
+:NUMERIC:NORMAL:NUMBER {<NUM>|ALL} 
+Syntax :NUMERIC:NORMAL:NUMBER {<NUM>|ALL} 
+Description Sets the number of items to be transferred beginning from index 0  
+Parameter Name Type Range Default 
+<NUM> Integer 1...32768 15 
+ALL ASCII string  None 
+ 
+Explanation  
+Example → :NUMeric:NORMal:ITEMS "ABS-TIME","U1_tRMS@PowerGroup" 
+→ :NUMeric:NORMal:NUMber 2 
+:NUMERIC:NORMAL:NUMBER? 
+Syntax :NUMERIC:NORMAL:NUMBER? 
+Description Queries the number of items to be transferred 
+Parameter None 
+Explanation Queries the number of items to be transferred 
+Return Format <NR1> 
+Example → :NUMeric:NORMal:ITEMS "ABS-TIME","U1_tRMS@PowerGroup" 
+→ :NUMeric:NORMal:NUMber 1 
+→ :NUMeric:NORMal:NUMber? 
+← 1 
+
+--- Page 46 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 46 
+© 2021 DEWETRON GmbH 
+:NUMERIC:NORMAL:DIM<X> { <I_MAX> | <I_LIST> | MAX } 
+Syntax :NUMERIC:NORMAL:DIM Since 1.6 
+Description Selects indices of array channels to be included in output of :NUMERIC:NORMAL:VALUE? 
+Parameter Name Type Range Default 
+<I_MAX> Integer 1...32768 None 
+<I_LIST> Numeric list  None 
+MAX ASCII string  None 
+ 
+Explanation By specifying the single value parameter <I_MAX>, you limit the number of elements of array 
+channels to the first <I_MAX> values. 
+If you want to include a specific set of indices, you can provide an <I_LIST>. 
+In order to reset the selected indices to all available indices, use the parameter mnemonic MAX. 
+If <I_MAX> or entries from <I_LIST> lie outside the range supported by the array channel, only 
+indices in the allowed range will be saved, and an error will be generated.  
+Any call to this command will clear the effect of a previously issued :NUM:NORM:DIM command for 
+the selected item. 
+Note that the indexing of array channels starts at 1.  
+Example → :NUMeric:NORMal:ITEM1 "AI 1/1" 
+→ :NUMeric:NORMal:ITEM3 "U1_hRMS@PowerGroup" 
+→ :NUMeric:NORMal:DIM1? 
+← 1 
+→ :NUMeric:NORMal:DIM2? 
+← 1 
+→ :NUMeric:NORMal:DIM3? 
+← 128 
+→ :NUMeric:NORMal:DIM3 10 
+→ :NUMeric:NORMal:DIM3? 
+← 10 
+→ :NUMeric:NORMal:DIM3 MAX 
+→ :NUMeric:NORMal:DIM3? 
+← 128 
+→ :NUMeric:NORMal:DIM3 (1:10,50,60:70) 
+→ :NUMeric:NORMal:DIM3? 
+← (1:10,50,60:70) 
+
+--- Page 47 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 47 
+© 2021 DEWETRON GmbH 
+:NUMERIC:NORMAL:DIM<X>? 
+Syntax :NUMERIC:NORMAL:DIM<X>? Since 1.6 
+Description Queries the dimension of the data to be transferred for one item 
+Parameter None 
+Explanation • for each scalar channel, 1 will be returned; 
+• for each NONE item, 1 will be returned; 
+• for array channels, the output format will vary depending on how the item was set up with 
+:NUM:DIM<X>: 
+o if no upper bound was set, the number of items of the array channel will be 
+returned 
+o if an upper bound was set, that value will be returned 
+o if a range of indices was selected, that range will be returned 
+Return Format <NR1>|<NumericList> 
+Example Cf. :NUMERIC:NORMAL:DIM<X> command. 
+:NUMERIC:NORMAL:DIMS? 
+Syntax :NUMERIC:NORMAL:DIMS? Since 1.6 
+Description Queries the dimension of the data to be transferred for each item 
+Parameter None 
+Explanation The list returned will contain one entry for each item in the format used for :NUM:NORM:DIM<X>?  
+Return Format [<NR1>|<NumericList>[,...]] 
+Example Cf. :NUMERIC:NORMAL:DIM<X> command. 
+
+--- Page 48 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 48 
+© 2021 DEWETRON GmbH 
+:NUMERIC:NORMAL:VALUE? [<NUM>] 
+Syntax :NUMERIC:NORMAL:VALUE? [<NUM>] 
+Description Query Numeric Values of the preset item lists 
+Parameter Name Type Range Default 
+<NUM> Integer 1…32768 None 
+ 
+Explanation If no index is specified, all values in the list will be returned in a comma separated list up to the 
+number of items to be transferred. 
+Since 1.6: The list returned by this query will be flat, i.e. values for array channels will be included as a 
+sequence of values. Use the :NUM:NORM:DIMS? query to retrieve the number of elements that can 
+be expected for each item. 
+If an index is specified the value for the item at index is returned, regardless if the index is higher 
+than the number of items to be transferred. 
+Return Format <String>|<NRf>[,<NRf>]... 
+Example → :NUMeric:NORMal:ITEMS "ABS-TIME","U1_tRMS@PowerGroup" 
+→ :NUMeric:NORMal:VALue? 2 
+← 2.4553 
+← :NUMeric:NORMal:ITEM3 "U1_fRMS@PowerGroup" 
+← :NUMeric:NORMal:VALue? 3 
+← 2.3451,-1.2425,...,4.0124 
+
+--- Page 49 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 49 
+© 2021 DEWETRON GmbH 
+EXTERNAL DATA LOGGING (ELOG) 
+The ELOG subsystem allows the SCPI user to retrieve synchronized access to multiple channels via statistics calculations. 
+First, the subsystem needs to be configured. Possible parameters are a channel list, aggregation calculations, aggregation 
+duration as well as result formats and timestamp formats. 
+After configuration, the user can start the computations and fetch all values. By continuously requesting data records, gap-
+less readout is possible.  Data is kept available inside Oxygen for at least 20 seconds before fetching of old samples is no 
+longer possible. 
+ 
+ELOG cannot be configured during recording or armed triggers state. 
+:ELOG:ITEMS <CHANNEL>[,<CHANNEL>[,…]] 
+Syntax :ELOG:ITEMS <CHANNEL> [,<CHANNEL> [,…]] 
+Description Defines the ordered list of requested channels  
+Parameter Name Type Range Default 
+<CHANNEL> ASCII string Oxygen Channel Name None 
+ 
+Explanation The user can specify a list of multiple scalar channels. The channels need not share the same sample-
+rate or raw numeric format. If a channel is not compatible, an error is generated, and the channel is 
+not added to the list. If one of the registered channels becomes unused or is changed, the whole 
+dataset will be discarded and the ELOG system will be in an error state. Use :ELOG:STATe? to get 
+more details. 
+ 
+The following channel types are supported: Analog, Counter, Math, Statistics, Filter, Power, AI Async 
+Pad, CAN Signals, GPS-Position/Velocity/Heading/SecondsOfDay/Distance and Acceleration. For 
+proper operation, a minimum sample rate of 5Hz is suggested. 
+Example → :ELOG:ITEMs "U1_tRMS@PowerGroup","AI 1/2" 
+:ELOG:ITEMS? 
+Syntax :ELOG:ITEMS? 
+Description Returns the current list of requested channels  
+Parameter None 
+Explanation  
+Example → :ELOG:ITEMs? 
+← "U1_tRMS@PowerGroup","AI 1/2" 
+
+--- Page 50 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 50 
+© 2021 DEWETRON GmbH 
+:ELOG:PERIOD <DURATION> 
+Syntax :ELOG:PERIOD <DURATION> 
+Description Sets the duration (in seconds) of the data aggregation time of statistics from source channels 
+Parameter Name Type Range Default 
+DURATION NRf > 0 0.1 seconds 
+ 
+Explanation The duration period is the number of seconds where statistics values such as MIN/AVG/… are 
+collected from the source channels (ITEMS). The minimum duration is limited by the frequency of the 
+source channel. Values below the inverse of the source channel frequency will lead to an error state.  
+Example → :ELOG:PERiod 0.4 (2.5Hz minimum source channel frequency) 
+→ :ELOG:PERiod 0.001 (1kHz minimum source channel frequency) 
+:ELOG:PERIOD? 
+Syntax :ELOG:PERIOD? 
+Description Queries the numeric data aggregation time for output (in seconds) 
+Parameter None 
+Explanation  
+Return Format <NR2> 
+Example → :ELOG:PER 0.5 
+→ :ELOG:PER? 
+← 0.5 
+:ELOG:CALCULATIONS {AVG|MIN|MAX|RMS} 
+Syntax :ELOG:CALCULATIONS {AVG|MIN|MAX|RMS}[,{AVG|MIN|MAX|RMS}[,…]] 
+Description Sets a list of requested statistical calculations for all channels 
+Parameter Name Type Range Default 
+MODES ASCII literal(s) AVG Average values 
+MIN Minimum values 
+MAX Maximum values 
+RMS root-mean-square values 
+AVG 
+ 
+Explanation One or multiple calculations are performed for each ITEMS channel. When fetching data, calculations 
+are returned in the same order as requested in CALC.  
+Example → :ELOG:CALCulations AVG,MAX,RMS 
+
+--- Page 51 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 51 
+© 2021 DEWETRON GmbH 
+:ELOG:CALCULATIONS? 
+Syntax :ELOG:CALC? 
+Description Queries the list of configured calculation modes 
+Parameter None 
+Explanation  
+Return Format {AVG|MIN|MAX|RMS}[,{AVG|MIN|MAX|RMS}[,…]] 
+Example → :ELOG:CALC MIN,MAX 
+→ :ELOG:CALC? 
+← MIN,MAX 
+:ELOG:FORMAT {ASCII|BIN_INTEL|BIN_MOTOROLA} 
+Syntax :ELOG:FORMAT {ASCII|BIN_INTEL|BIN_MOTOROLA} 
+Description Sets the requested output format 
+Parameter Name Type Range Default 
+FORMAT ASCII literal ASCII|BIN_INTEL|BIN_MOTOROLA ASCII 
+ 
+Explanation When format is set to ASCII, all numbers are returned in the NR3 format (timestamps in NR2 format) 
+When format is set to BIN_INTEL or BIN_MOTOROLA, all values are returned in IEEE 754 float32 
+formats (in the corresponding byte order). See FETCH for more details about record layouts. 
+Example → :ELOG:FORM BIN_INTEL 
+:ELOG:FORMAT? 
+Syntax :ELOG:FORMAT? 
+Description Queries the currently configured output format 
+Parameter None 
+Explanation  
+Return Format {ASCII|BIN_INTEL|BIN_MOTOROLA} 
+Example → :ELOG:FORM ASCII 
+→ :ELOG:FORM? 
+← ASCII 
+
+--- Page 52 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 52 
+© 2021 DEWETRON GmbH 
+:ELOG:TIMESTAMP {OFF|REL|ABS|ELOG} 
+Syntax :ELOG:TIMESTAMP {OFF|REL|ABS|ELOG} 
+Description Sets the requested timestamp format 
+Parameter Name Type Range Default 
+MODE ASCII literal OFF No timestamp 
+REL Seconds since acquisition 
+start 
+ABS Absolute timestamp as 
+ISO date/time 
+ELOG Seconds since the current 
+ELOG session was started 
+OFF 
+ 
+Explanation Enables or disables timestamp reporting when requesting data through FETCH.  
+Relative times (REL) are reported as seconds since acquisition start, ELOG times are seconds since the 
+first sample from the current ELOG session (after calling :ELOG:STARt). Absolute times are only 
+reported in ASCII output format and have the following format: YYYY -MM-DDThh:mm:ss.xxxxxx 
+Example → :ELOG:TIM REL 
+:ELOG:TIMESTAMP? 
+Syntax :ELOG:TIMESTAMP? 
+Description Queries the currently configured timestamp format 
+Parameter None 
+Explanation  
+Return Format {OFF|REL|ABS|ELOG} 
+Example → :ELOG:TIM REL 
+→ :ELOG:TIM? 
+← REL 
+:ELOG:START  
+Syntax :ELOG:START  
+Description Initializes and starts ELOG data gathering. Samples values can be fetched as early as one aggregation 
+period after STARt. After calling STARt, no ELOG configuration is possible. 
+Parameter None 
+Explanation  
+Example → :ELOG:STARt 
+
+--- Page 53 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 53 
+© 2021 DEWETRON GmbH 
+:ELOG:FETCH? [<NUM>]  
+Syntax :ELOG:FETCH [<MAX_RECORDS>] 
+Description Fetches MAX_RECORDS records or less from the internal ELOG buffer. If no parameter is given, all 
+available records are returned. FETCh is only possible after STARt. 
+Parameter Name Type Range Default 
+MAX_RECORDS NR1 1 .. MAX MAX 
+ 
+Explanation Fetch returns values at record level granularity. There is one record for each timestamp. Each record 
+consists of values from all channels (ITEMs) and all calculation modes (CALC). If no data is available, 
+NONE is returned. ERROR indicates an error. 
+In ASCII mode, the result is a list of NRf values, all values of one record are returned consecutively, 
+possibly prepended by the timestamp value (see example). 
+In binary mode, for every channel-calculation, a separate Arbitrary Block with up to MAX_RECORDS 
+float32 values is returned. When using timestamps, an Arbitrary Block with float32 timestamp values 
+is returned as the first result. 
+ 
+In the following examples, we assume the following settings, which configure a record of four values: 
+ 
+→ :ELOG:ITEMs "CH0", "CH1" 
+→ :ELOG:CALC AVG, MIN 
+Example Timestamp CH0.AVG CH0.MIN CH1.AVG CH1.MIN 
+0.1 1.5 1 10.5 10 
+0.2 2.5 2 20.5 20 
+ 
+→ :ELOG:FORM ASCII; :ELOG:TIM OFF; :ELOG:STARt 
+→ :ELOG:FETCh? 2 
+← 1.5, 1, 10.5, 10, 2.5, 2, 20.5, 20 
+→ :ELOG:STOP 
+ 
+→ :ELOG:FORM ASCII; :ELOG:TIM REL; :ELOG:STARt 
+→ :ELOG:FETCh? 2 
+→ 0.1, 1.5, 1, 10.5, 10, 0.2, 2.5, 2, 20.5, 20 
+→ :ELOG:STOP 
+ 
+→ :ELOG:FORM BIN_INTEL; :ELOG:TIM OFF; :ELOG:STARt 
+→ :ELOG:FETCh? 2 
+← {1.5, 2.5}, {1, 2}, {10.5, 20.5}, {10, 20} 
+→ :ELOG:STOP 
+ 
+→ :ELOG:FORM BIN_INTEL; :ELOG:TIM REL; :ELOG:STARt 
+→ :ELOG:FETCh? 2 
+← {0.1, 0.2}, {1.5, 2.5}, {1, 2}, {10.5, 20.5}, {10, 20} 
+→ :ELOG:STOP 
+ 
+
+--- Page 54 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 54 
+© 2021 DEWETRON GmbH 
+:ELOG:STOP  
+Syntax :ELOG:STOP  
+Description Stops buffering data after a previous STARt call, clears the data buffer and disables fetching. 
+Parameter None 
+Explanation The configuration is not changed; therefore, data acquisition can be restarted by calling STARt again. 
+Example → :ELOG:STOP 
+:ELOG:RESET  
+Syntax :ELOG:RESET  
+Description Resets the ELOG configuration and stops fetching if started with STARt. All parameters are set to 
+their default values and the channel list (ITEMs) is cleared. 
+Parameter None 
+Explanation Same behavior as when calling *RST, but limited to the ELOG subsystem. 
+Example → :ELOG:RESet 
+:ELOG:STATE?  
+Syntax :ELOG:STATE?  
+Description Returns the internal state of the ELOG subsystem. This command is not needed for regular 
+operations but is useful for information purposes. 
+Possible states are: CONFIG, RUNNING and INVALID 
+Parameter None 
+Explanation The ELOG subsystem uses states internally. Initially, ELOG is in configuration state (CONFIG) which 
+accepts commands like ITEMs, PER, CALC, FORM and TIM. After calling STARt, the subsystem is 
+switched into a data gathering state (RUNNING) which no longer allows to modify the configuration. 
+The configuration state can be entered again by either calling STOP or RESet. 
+ 
+While fetching data from Oxygen through ELOG, the measurement configuration in Oxygen must not 
+be changed. If a change of the configuration is detected, ELOG will stop fetching data and an error is 
+reported when calling FETCh. The state query will return the INVALID state in this case. 
+Example → :ELOG:STATe? 
+← RUNNING 
+
+--- Page 55 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 55 
+© 2021 DEWETRON GmbH 
+DATA STREAMING (DSTREAM) 
+The DSTREAM subsystem allows the SCPI user to configure and control fast data streaming via a TCP network protocol. 
+This documentation describes the SCPI commands to control the subsystem. Details about the TCP transfer and examples 
+can be found in a separate documentation. 
+ 
+The following SCPI commands can be used to configure and control one or more streaming groups (distinguished via a GRP 
+number). Each group has its own list of channels and a TCP port where data is provided. Each group can be configured and 
+started individually. Some commands provide an ALL option to start/stop all configured groups.  
+ 
+Each streaming group has its own internal state. It can be queried using the STATe? query. The following list describes the 
+allowed operations in each state: 
+INVALID: An invalid state means the streaming group does not exist, it will be automatically creat ed when calling 
+configuration commands such as ITEMs and PORT 
+CONFIG: In the configuration state, ITEMs and PORT commands can be used to configure the group. The INIT 
+command will initialize the subsystem. 
+INITIALIZED: The streaming group is initialized (e.g. has an open TCP port) and is waiting for connections and the STARt 
+command. If a configuration command such as ITEMs or PORT is executed, the state is set back to CONFIG.  
+RUNNING: The streaming group is actively sending data. Call STOP to enter the INITIALIZED state again. 
+ERROR: If one of the channels to register is unused, the whole dataset will be discarded and the DSTREAM system 
+will be in an error state. Use :DSTream:STATe? to get more details. It can be reset using the RESet command. 
+ 
+:DSTREAM:ITEMS[<GRP>] <CHANNEL>[,<CHANNEL>[,…]] 
+Syntax :DSTREAM:ITEMS[<GRP>] <CHANNEL>[,<CHANNEL> [,…]] 
+Description Defines the ordered list of requested channels for one stream group GRP 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+CHANNEL ASCII string Oxygen Channel Name None 
+ 
+Explanation The user can specify a list of multiple channels. 
+ 
+If one channel does not exist, is invalid or disabled, no channel is set for the streaming group  (see 
+system error log for more details). In addition, the following channel types are not supported: Digital 
+channels, video channels and Rosette group channels. 
+Example Set two channels for stream group 2: AI 1/1 and AI 1/2  
+→ :DST:ITEMs2 "AI 1/1", "AI 1/2" 
+ 
+
+--- Page 56 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 56 
+© 2021 DEWETRON GmbH 
+:DSTREAM:ITEMS[<GRP>]? 
+Syntax :DSTREAM:ITEMS[<GRP>]? 
+Description Returns the current list of requested channels for one channel group GRP 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+ 
+Explanation Returns NONE if no items are set 
+Example Query the items of stream group 2: 
+→ :DST:ITEMs2? 
+← "AI 1/1", "AI 1/2" 
+ 
+:DSTREAM:PORT[<GRP>] <PORT> 
+Syntax :DSTREAM:PORT[<GRP>] <PORT> 
+Description Configures the port number of the TCP server for a streaming group GRP 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+PORT NR1 1 .. 65536 10003 
+ 
+Explanation The port must be a valid TCP port. It must not be used by any other TCP server on the local system 
+but can be shared by multiple streaming groups of the Oxygen instance.  
+Example Set the TCP port for stream group 2 to 10005: 
+→ :DST:PORT2 10005 
+ 
+:DSTREAM:PORT[<GRP>]? 
+Syntax :DSTREAM:PORT[<GRP>]? 
+Description Queries the currently configured TCP port 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+ 
+Explanation Returns the NR1 numeric value of the configured TCP port 
+Example → :DST:PORT2? 
+← 10005 
+ 
+
+--- Page 57 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 57 
+© 2021 DEWETRON GmbH 
+:DSTREAM:INIT [<GRP> | ALL] 
+Syntax :DSTREAM:INIT [<GRP> | ALL] 
+Description Initializes one or all data streaming groups and opens the TCP port 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+ALL Literal Start all groups None 
+ 
+Explanation The server will listen for new connection on the configured port 
+Example Initializes the streaming group 1: 
+→ :DST:INIT 1 
+:DSTREAM:START [<GRP> | ALL] 
+Syntax :DSTREAM:START [<GRP> | ALL] 
+Description Starts streaming of one or all data streaming groups 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+ALL Literal Start all groups None 
+ 
+Explanation Only possible after calling INIT for the specified group(s). 
+Example Start streaming for all configured streaming groups: 
+→ :DST:STARt ALL 
+ 
+:DSTREAM:STOP [<GRP> | ALL] 
+Syntax :DSTREAM:STOP [<GRP> | ALL] 
+Description Stops streaming of one or all started data streaming groups 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+ALL Literal Start all groups None 
+ 
+Explanation Only possible after calling STARt for the specified group(s). After stopping, the streaming group is in 
+INITIALIZED state. 
+Example Stop streaming for all configured streaming groups: 
+→ :DST:STOP ALL 
+
+--- Page 58 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 58 
+© 2021 DEWETRON GmbH 
+:DSTREAM:DELETE [<GRP> | ALL] 
+Syntax :DSTREAM:DELETE [<GRP> | ALL] 
+Description Deletes a configured streaming group 
+Parameter Name Type Range Default 
+GRP NR1 Group number >= 1 1 
+ALL Literal Start all groups None 
+ 
+Explanation The streaming group must be in config state. All ITEMs and port settings are deleted. 
+Example Delete streaming group 1: 
+→ :DST:DEL 1 
+ 
+: DSTREAM:RESET 
+Syntax : DSTREAM:RESET 
+Description Resets the data streaming subsystem 
+Parameter None 
+Explanation Stops the server if started, and resets the configuration to its default settings  
+Example → :DST:RES 
+ 
+: DSTREAM:STATE[<GRP>]? 
+Syntax : DSTREAM:STATE[<GRP>]? 
+Description Queries the internal state of the data streaming subsystem 
+Parameter Name Type Range Default 
+<GRP> NR1 Group number >= 1 1 
+ 
+Explanation Possible states are: 
+INVALID:  Streaming group does not exist 
+CONFIG:  Configuration state (allows settings of ITEMs and PORT) 
+INITIALIZED: The streaming group has already been initialized 
+RUNNING: The server is started and cannot be configured anymore 
+ERROR: An error has occurred; the user needs to call RESet 
+UNLICENSED: A valid license for the data streaming subsystem was not found 
+Example Query the state of the streaming group 1 (default value): 
+→ :DST:STATe? 
+← CONFIG 
+
+--- Page 59 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 59 
+© 2021 DEWETRON GmbH 
+MARKER COMMANDS 
+:MARKER:ADD <LABEL>[,<DESCRIPTION>|<TIME>|,<DESCRIPTION>,<TIME>]] 
+Syntax :MARKER:ADD <LABEL>[,<DESCRIPTION>|,<TIME>|[,<DESCRIPTION>,<TIME>]] 
+Description Add markers to current measurement 
+Parameter Name Type Range Default 
+<LABEL> ASCII String  None 
+<DESCRIPTION> ASCII string  None 
+<TIME> NR2  Current time 
+ 
+Explanation Add a single marker at position <TIME> (in seconds from acquisition start) with <LABEL>  and 
+description <DESCRIPTION>. If no  <TIME>-parameter is specified in the parameter list, the marker is 
+added at the current time. 
+Example → :MARKer:ADD "Label 1" 
+→ :MARK:ADD "Label 1","Description of Marker 1" 
+→ :MARK:ADD "Label 1",0.0 
+→ :MARK:ADD "Label 1","Description of Marker 1",1.2345 
+← 0 
+ 
+ 
+
+--- Page 60 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 60 
+© 2021 DEWETRON GmbH 
+SYNCHRONISATION STATE 
+:SYNC:STATE 
+Syntax :SYNC:STATE 
+Description Returns the current synchronization hardware state 
+Parameter  
+Explanation Return  
+• UNKNOWN : the software cannot evaluate the current sync state 
+• NOT_SYNCABLE : no valid sync hardware found 
+• INVALID_INPUT : the sync input has no valid sync signal 
+• UNSYNCED : current state is not synced (correspond to the grey sync symbol) 
+• SYNCING : hardware is syncing (correspond to the yellow sync symbol)  
+• SYNCED:  hardware is synced (correspond to the green sync symbol)  
+• SYNC_STATUS_SYNCED_WITH_OFFSET: hardware is synced with an offset in a net 
+environment. If a measurement is running this will be marked.  
+ 
+Example → :SYNC:STATe? 
+← :SYNC:STATe "SYNCED" 
+ 
+  
+
+--- Page 61 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 61 
+© 2021 DEWETRON GmbH 
+MEASUREMENT HEADER DATA 
+With the Measurement Header Data the user can tag stored recordings with specific user defined data lines. The lines are 
+managed via the Oxygen System Setup. 
+ 
+The following SCPI commands allows to retrieve and manipulate the measurement header data lines from the System 
+Setup.  
+ 
+ 
+:HEADER:ADD <KEY>,<DESCRIPTION> 
+Syntax :HEADER:ADD (<KEY>:<DESCRIPTION>) 
+Description Add a new measure header data line 
+Parameter Name Type Range Default 
+<KEY> ASCII String  NONE 
+<DESCRIPTION> ASCII String  NONE 
+ 
+Explanation Adds a new measurement header data line entry with the specified key  
+Example → :HEAD:GET? "Header 1" 
+→ :HEAD:ADD "Header 1","Description in Line 1" 
+→ :HEAD:GET? "Header 1" 
+← :HEAD:GET "Description in Line 1" 
+ 
+:HEADER:GET? <KEY> 
+Syntax :HEADER:GET? <KEY> 
+Description Query a measurement data line 
+Parameter Name Type Range Default 
+<KEY> ASCII String  NONE 
+ 
+Explanation Returns the content (description) of the header data line with the specified  key.  
+Example → :HEADer:GET? "Key 1" 
+← :HEAD:GET "HEAD DATA Line 1" 
+ 
+ 
+
+--- Page 62 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 62 
+© 2021 DEWETRON GmbH 
+:HEADER:KEYS? 
+Syntax :HEADER:KEYS? 
+Description Query all keys of the measurement header data 
+Parameter  
+Explanation Returns a list of all keys (names) of all measurement header data lines. 
+Example → :HEAD:ADD "Header 1","Description in Line 1" 
+→ :HEAD:ADD "Header 2","Description in Line 2" 
+→ :HEAD:KEYs? 
+← :HEAD:KEY "Header 1","Header 2" 
+ 
+ 
+:HEADER:SET <KEY>,<DESCRIPTION> 
+Syntax :HEADER:SET <KEY>,<DESCRIPTION> 
+Description Sets a content to a measure header data line 
+Parameter Name Type Range Default 
+<KEY> ASCII String  NONE 
+<DESCRIPTION> ASCII String  NONE 
+ 
+Explanation Set the description value of the measurement header data line with the key <key>.  
+Example → :HEAD:GET? "Header 1" 
+← :HEAD:GET "Description in Line 1” 
+ 
+→ :HEAD:SET "Header 1","A new description in line 1" 
+ 
+→ :HEAD:GET? "Header 1" 
+← :HEAD:GET "A new description in line 1" 
+ 
+
+--- Page 63 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 63 
+© 2021 DEWETRON GmbH 
+:HEADER:DELETE <KEY>[,<KEY>[,…]] 
+Syntax :HEADER:DELETE <KEY>,<KEY>,… 
+Description Delete measurement header data line(s) 
+Parameter Name Type Range Default 
+<KEY> ASCII String  NONE 
+ 
+Explanation This command allows to delete one or more measurement header data lines.  
+Example → :HEAD:GET? "Header 1" 
+← :HEAD:GET "Description in Line 1” 
+ 
+→ :HEAD:KEYs? 
+← :HEAD:KEY "Header 1","Header 2",”Header 3” 
+ 
+→ :HEAD:DELete "Header 1","Header 3" 
+ 
+→ :HEAD:KEYs? 
+← :HEAD:KEY "Header 2" 
+ 
+:HEADER:VALUES? 
+Syntax :HEADER:VALUES? 
+Description Query the measurement header data 
+Parameter Name Type Range Default 
+<KEY> ASCII String  NONE 
+ 
+Explanation Returns a list of all key value pairs stored in the measurement header data.  
+Example → :HEAD:VALues? 
+← :HEAD:VAL ("Header 1","Description in line 1"),("Header 2","Description 
+in Line 2") 
+ 
+ 
+
+--- Page 64 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 64 
+© 2021 DEWETRON GmbH 
+UTILITY COMMANDS 
+:SYSTEM:VERSION? 
+Syntax :SYSTEM:VERSION? 
+Description Queries the implemented SCPI Standard Version 
+Parameter None 
+Explanation Queries the implemented SCPI Standard Version 
+Return Format ASCII String 
+Example → :SYSTem:VERSion? 
+← "1999.0" 
+:SYSTEM:HELP:HEADERS? 
+Syntax :SYSTEM:HELP:HEADERS? 
+Description Queries the implemented commands as list 
+Parameter None 
+Explanation Queries the implemented commands as list 
+Return Format #<num_int><num_char><Arbitrary Data> 
+Example → :SYSTem:HELP:HEADers? 
+← #41063 
+← :SYSTem:ERRor:ALL?/qonly/ 
+← :SYSTem:ERRor:CODE:ALL?/qonly/ 
+← :SYSTem:ERRor:CODE[:NEXT]?/qonly/ 
+← :SYSTem:ERRor:COUNt?/qonly/ 
+← … 
+ 
+
+--- Page 65 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 65 
+© 2021 DEWETRON GmbH 
+ERROR HANDLING 
+:SYSTEM:ERROR[:NEXT]? 
+Syntax :SYSTEM:ERROR[:NEXT]? 
+Description Queries the next element in the Error Queue  
+Parameter None 
+Explanation Queries the next element in the Error Queue 
+Return Format <NR1>, String 
+Example → :SYSTem:ERRor? 
+← -102, "Syntax error" 
+← :SYSTem:ERRor? 
+← -108, "Parameter not allowed" 
+← :SYSTem:ERRor? 
+← 0, "No error" 
+:SYSTEM:ERROR:ALL? 
+Syntax :SYSTEM:ERROR:ALL? 
+Description Queries all entries the Error Queue 
+Parameter None 
+Explanation Queries all entries the Error Queue 
+Return Format <NR1>, String, <NR1>, String, … 
+Example → :SYSTem:ERRor:ALL? 
+← -102, "Syntax error", -108, "Parameter not allowed" 
+
+--- Page 66 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 66 
+© 2021 DEWETRON GmbH 
+:SYSTEM:ERROR:CODE[:NEXT]? 
+Syntax :SYSTEM:ERROR:CODE:NEXT? 
+Description Queries next error code in the Error Queue 
+Parameter None 
+Explanation Queries next error code in the Error Queue 
+Return Format <NR1> 
+Example → :SYSTem:ERRor:CODE? 
+← -102 
+→ :SYSTem:ERRor:CODE? 
+← -108 
+:SYSTEM:ERROR:CODE:ALL? 
+Syntax :SYSTEM:ERROR:CODE:ALL? 
+Description Queries all error codes in the Error Queue 
+Parameter None 
+Explanation Queries all error codes in the Error Queue 
+Return Format <NR1>,<NR1>,… 
+Example → :SYSTem:ERRor:CODE:ALL? 
+← -102,-108 
+:SYSTEM:ERROR:COUNT? 
+Syntax :SYSTEM:ERROR:COUNT? 
+Description Queries the Error Queue number of elements 
+Parameter None 
+Explanation Queries the Error Queue number of elements 
+Return Format <NR1> 
+Example → :SYSTem:ERRor:COUNt? 
+← 2 
+
+--- Page 67 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 67 
+© 2021 DEWETRON GmbH 
+:SYSTEM:ERROR:ENABLE:ADD (<NUM>:<NUM>) 
+Syntax :SYSTEM:ERROR:ENABLE:ADD (<NUM>:<NUM>) 
+Description Add a range of error codes to be queued in the Error Queue 
+Parameter Name Type Range Default 
+<NUM> Integer -32768 to 32768 None 
+ 
+Explanation Add a range of error codes to be queued in the Error Queue. 
+Example → :SYSTem:ERRor:ENABle:LIST? 
+← (-499:-100,1:32767) 
+→ :SYSTem:ERRor:ENABle:ADD (-1000:-900) 
+→ :SYSTem:ERRor:ENABle:LIST? 
+← (-1000:-900,-499:-100,1:32767) 
+:SYSTEM:ERROR:ENABLE:DELETE (<NUM>:<NUM>) 
+Syntax :SYSTEM:ERROR:ENABLE:DELETE (<NUM>:<NUM>) 
+Description Delete a range of error codes to be queued in the Error Queue 
+Parameter Name Type Range Default 
+<NUM> Integer -32768 to 32768 None 
+ 
+Explanation Delete a range of error codes to be queued in the Error Queue 
+Example → :SYSTem:ERRor:ENABle:LIST? 
+← (-499:-100,1:32767) 
+→ :SYSTem:ERRor:ENABle:DELete (-199:-100) 
+→ :SYSTem:ERRor:ENABle:LIST? 
+← (-499:-200,1:32767) 
+:SYSTEM:ERROR:ENABLE[:LIST]? 
+Syntax :SYSTEM:ERROR:ENABLE:LIST 
+Description Queries the range of error codes to be queued in the Error Queue 
+Parameter None 
+Explanation Queries the range of error codes to be queued in the Error Queue  
+Example → :SYSTem:ERRor:ENABle:LIST 
+← (-499:-100,1:32767) 
+
+--- Page 68 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 68 
+© 2021 DEWETRON GmbH 
+ERROR CODES 
+Use the :SYSTEM:ERROR:ALL? command to return all errors that have occurred. The errors returned have to following 
+syntax <Error Code>,<Error Message>. The following table shows the error codes possible when interacting with 
+OXYGEN software. SCPI defines the negative error codes, while the vendor specific error codes defined by DEWETRON 
+GmbH are positive numbers (currently unused). 
+ 
+Error Code Error Message Description 
+0 No error  
+-100 Command error  
+-102 Syntax error Indicates that an unrecognized command or data type was 
+encountered. For example, a string was received when the 
+device does not accept strings. 
+-104 Data type error The parser recognized a data element different than one 
+allowed. For example, numeric or string data was expected but 
+block data was encountered. 
+-108 Missing parameter Indicates that more parameters were received than expected 
+for the header. 
+-109 Parameter not allowed Indicates that less parameters were received than required for 
+the header. 
+-113 Undefined header Indicates the header is syntactically correct, but it is undefined 
+for this specific device. 
+-114 Header suffix out of range Indicates the value of a header suffix attached to a program 
+mnemonic makes the header invalid. 
+-138 Suffix not allowed Indicates that a suffix was encountered after a numeric 
+element that does not allow suffixes. 
+-200 Execution error General execution error. 
+-220 Parameter error Indicates that a program data element related error occurred. 
+-221 Settings conflict Indicates that a legal program data element was parsed but 
+could not be executed due to the current device state. 
+-222 Data out of range Indicates that a legal program data element was parsed but 
+could not be executed because the interpreted value was 
+outside the legal range defined by the devices. 
+-224 Illegal parameter value Indicates that a program data element is ill-formed 
+-250 Mass storage error Indicates that a mass storage error occurred. 
+
+--- Page 69 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 69 
+© 2021 DEWETRON GmbH 
+-256 File name not found Indicates that a legal program command or query could not be 
+executed because the file name was not found on the media. 
+-294 Incompatible type  
+-300 Device-specific error  
+-350 Queue overflow  
+-400 Query error  
+ 
+
+--- Page 70 ---
+OXYGEN REMOTE CONTROL – SCPI 
+ OXYGEN REMOTE CONTROL – SCPI • Technical Reference Manual • Version 1.126 70 
+© 2021 DEWETRON GmbH 
+EXAMPLES 
+FETCH ONLINE MEASUREMENT DATA 
+→ *RST       // Reset Device 
+→ :COMMunicate:HEADer 0     // Switch Off Header response 
+→ *IDN?       // Query Identification 
+← "DEWETRON,OXYGEN,0,2.5 RC1" 
+→ *VER?       // Query Version Information 
+← "SCPI,"1999.0",RC_SCPI,"1.5",OXYGEN,"2.5 RC1"" 
+→ :SETUP:LOAD "scpi_test_setup.dms"   // Load Measurement setup 
+→ :ACQU:STAT?      // Query Acquisition state 
+← Waiting_for_sync 
+→ :ACQU:STAT?      // Query Acquisition state 
+← Started  
+→ :RATE 500ms      // Set Aggregation Rate to 500ms 
+→ :NUM:NORMal:ITEMs "ABS-TIME","U1_tRMS@PG1","I1_tRMS@PG1","P1_t@PG1" 
+         // Set Output Channels 
+→ :NUM:NORMal:ITEMs?     // Query Output Channels 
+← "ABS-TIME","U1_tRMS@PG1","I1_tRMS@PG1","P1_t@PG1" 
+→ :NUM:NORMal:VAL? 
+← "2017-08-28T13:17:26.9715+00:00",5.6568531E+1,5.6568531E+1,3.1999988E+3 
+ 
+ 
+STORE MEASUREMENT DATA ON DEVICE 
+→ *RST       // Reset Device 
+→ :COMMunicate:HEADer 0     // Switch Off Header response 
+→ *IDN?       // Query Identification 
+← "DEWETRON,OXYGEN,0,5.1.1" 
+→ *VER?       // Query Version Information 
+← "SCPI,"1999.0",RC_SCPI,"1.10",OXYGEN,"5.1.1"" 
+→ :SETUP:LOAD "scpi_test_setup.dms"   // Load Measurement setup 
+→ :ACQU:STAT?      // Query Acquisition state 
+← Waiting_for_sync 
+→ :ACQU:STAT?      // Query Acquisition state 
+← Started  
+→ :STORe:FILE:NAME "TEST_1"     // Set File Name for storing operation 
+→ :STORe:STARt      // Start storing operation 
+→ :STORe:PAUSe      // Pause storing operation 
+→ :STORe:STARt      // Resume storing operation 
+→ :STORe:STOP      // Stop storing operation 
+

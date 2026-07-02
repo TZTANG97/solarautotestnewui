@@ -6,9 +6,14 @@ output_path = r'C:\Users\28468\Desktop\workspace\codes\solarautotestdev\dewetron
 reader = PdfReader(pdf_path)
 print(f'Total pages: {len(reader.pages)}')
 
+# Search for flicker-related commands
+flicker_keywords = ['flicker', 'weighting', 'short circuit', 'apparent power', 'rolling']
+
 with open(output_path, 'w', encoding='utf-8') as out:
-    out.write(f'Total pages: {len(reader.pages)}\n')
-    for i in range(min(40, len(reader.pages))):
+    out.write(f'Total pages: {len(reader.pages)}\n\n')
+
+    # First, dump all pages to see the structure
+    for i in range(len(reader.pages)):
         text = reader.pages[i].extract_text()
         if text:
             out.write(f'--- Page {i+1} ---\n')

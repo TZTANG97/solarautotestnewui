@@ -51,10 +51,10 @@
     },
     {
       "name": "DEWETRON",
-      "resource": "TCPIP0::192.168.1.200::10001::SOCKET",
-      "connected": false,
+      "resource": "192.168.40.25",
+      "connected": true,
       "page": 8,
-      "last_connected": ""
+      "last_connected": "2026-07-02 13:23:51"
     }
   ],
   "project": {

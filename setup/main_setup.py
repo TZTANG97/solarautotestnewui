@@ -152,11 +152,12 @@ class MainSetup(BaseSetup):
             elif cls == 'QLabel':
                 w.setStyleSheet(_LABEL_QSS)
 
-        # 构建 objectName -> widget 索引（dialog 的直接子控件）
+        # 构建 objectName -> widget 索引（查找所有嵌套的widget）
         all_widgets = {}
         for child in dialog.findChildren(QWidget):
-            if child.parent() is dialog:
-                all_widgets[child.objectName()] = child
+            obj_name = child.objectName()
+            if obj_name and obj_name not in all_widgets:
+                all_widgets[obj_name] = child
 
         # 合并页面上预置的额外控件（如 WT3000 波特率下拉框）
         extra = getattr(page_widget, f"_extra_widgets_{settings_attr_name}", None)
@@ -312,11 +313,25 @@ class MainSetup(BaseSetup):
             _dewetron_tips.setWordWrap(True)
             _dewetron_tips.setStyleSheet(_tips_qss)
             target_layout.insertWidget(0, _dewetron_tips)
-            while dlg_layout.count():
-                item = dlg_layout.takeAt(0)
-                w = item.widget()
-                if w is not None:
-                    target_layout.addWidget(w)
+
+            def _extract_all_widgets(layout):
+                """递归提取布局中的所有widget和嵌套layout中的widget。"""
+                widgets = []
+                while layout.count():
+                    item = layout.takeAt(0)
+                    w = item.widget()
+                    if w is not None:
+                        widgets.append(w)
+                    else:
+                        # 嵌套layout，递归提取
+                        sub_layout = item.layout()
+                        if sub_layout is not None:
+                            widgets.extend(_extract_all_widgets(sub_layout))
+                return widgets
+
+            all_widgets = _extract_all_widgets(dlg_layout)
+            for w in all_widgets:
+                target_layout.addWidget(w)
             return
 
         scroll = QScrollArea()

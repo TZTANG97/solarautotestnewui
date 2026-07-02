@@ -75,17 +75,55 @@ class DewetronController:
         self.resource = ''
         return None, '0'
 
-    def _send(self, command, success_log, error_prefix):
-        """发送 SCPI 命令。"""
+    def _reconnect(self):
+        """尝试重新连接 DEWETRON 设备。成功返回 True。"""
+        saved_resource = self.resource
+        self.handle = None
+        self.connected = False
+        if not saved_resource:
+            return False
+        print(f"[DEWETRON] 尝试重连: {saved_resource}")
+        self.logger.info(f"DEWETRON 尝试重连: {saved_resource}")
+        handle, status = self.connect(saved_resource)
+        if status == '1':
+            print("[DEWETRON] 重连成功")
+            self.logger.info("DEWETRON 重连成功")
+            return True
+        print("[DEWETRON] 重连失败")
+        self.logger.info("DEWETRON 重连失败")
+        return False
+
+    def _send(self, command, success_log, error_prefix, timeout_ms=None):
+        """发送 SCPI 命令。连接丢失时自动重连并重试一次。"""
         if self.handle is None:
             return False
         try:
+            if timeout_ms is not None:
+                self.handle.timeout = timeout_ms
             self.handle.write(command)
         except Exception as e:
-            strtimenow = self.now_to_datenow()
-            self.logger.info(f"{error_prefix} error :{e}")
-            print(f'{strtimenow} {error_prefix} error :{e}')
-            return False
+            err_str = str(e)
+            if 'CONN_LOST' in err_str or '1073807194' in err_str:
+                print(f"[DEWETRON] 连接丢失: {e}")
+                self.logger.info(f"DEWETRON 连接丢失: {e}")
+                self.connected = False
+                if self._reconnect():
+                    try:
+                        if timeout_ms is not None:
+                            self.handle.timeout = timeout_ms
+                        self.handle.write(command)
+                    except Exception as e2:
+                        strtimenow = self.now_to_datenow()
+                        self.logger.info(f"{error_prefix} (重试) error :{e2}")
+                        print(f'{strtimenow} {error_prefix} (重试) error :{e2}')
+                        return False
+                else:
+                    return False
+            else:
+                strtimenow = self.now_to_datenow()
+                self.logger.info(f"{error_prefix} error :{e}")
+                print(f'{strtimenow} {error_prefix} error :{e}')
+                return False
         self.logger.info(success_log)
         print(self.now_to_datenow() + success_log)
         return True
@@ -100,15 +138,31 @@ class DewetronController:
         # TODO: 替换为 DEWETRON 实际 SCPI 命令
         return self._send("STOP", "SendMessageStopToDEWETRON:STOP", "Send stop message to DEWETRON")
 
-    def _query(self, command):
-        """发送 SCPI 查询命令并返回响应。失败返回 None。"""
+    def _query(self, command, timeout_ms=30000):
+        """发送 SCPI 查询命令并返回响应。连接丢失时自动重连并重试一次。"""
         if self.handle is None:
             return None
         try:
+            self.handle.timeout = timeout_ms
             resp = self.handle.query(command)
             return resp.strip()
         except Exception as e:
+            err_str = str(e)
+            if 'CONN_LOST' in err_str or '1073807194' in err_str:
+                print(f"[DEWETRON] query 连接丢失: {e}")
+                self.logger.info(f"DEWETRON query 连接丢失: {e}")
+                self.connected = False
+                if self._reconnect():
+                    try:
+                        self.handle.timeout = timeout_ms
+                        resp = self.handle.query(command)
+                        return resp.strip()
+                    except Exception as e2:
+                        print(f"DEWETRON query error (重试): {e2}")
+                        return None
+                return None
             print(f"DEWETRON query error: {e}")
+            self.logger.info(f"DEWETRON query error: {e}")
             return None
 
     def read_channel_id_map(self):
@@ -117,7 +171,7 @@ class DewetronController:
         Returns:
             tuple: (dict, str) — {short_id: channel_id} 和原始 XML
         """
-        xml = self._query(":SETUP:READ?")
+        xml = self._query(":SETUP:READ?", timeout_ms=30000)
         if not xml:
             print("[DEWETRON] read_channel_id_map: :SETUP:READ? 返回空")
             return {}, None
@@ -169,9 +223,8 @@ class DewetronController:
             num_digits = len(str(xml_len))
             full_cmd = f":SETUP:APPLY #{num_digits}{xml_len}" + xml_string
             print(f"[DEWETRON] 发送 :SETUP:APPLY (XML: {xml_len} 字节, header: #{num_digits}{xml_len})")
-            self.handle.write(full_cmd)
-            print(f"[DEWETRON] :SETUP:APPLY 发送完成")
-            return True
+            # 大文件写入需要更长超时（默认 10s 对 750K+ 数据不够）
+            return self._send(full_cmd, "[DEWETRON] :SETUP:APPLY 发送完成", "DEWETRON :SETUP:APPLY", timeout_ms=60000)
         except Exception as e:
             strtimenow = self.now_to_datenow()
             print(f'{strtimenow} DEWETRON :SETUP:APPLY error: {e}')

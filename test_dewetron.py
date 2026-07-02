@@ -134,7 +134,7 @@ def test_cmds(handle):
 
 def main():
     parser = argparse.ArgumentParser(description="DEWETRON 测试脚本")
-    parser.add_argument("ip", nargs="?", default="192.168.40.21", help="德威创设备 IP（默认 192.168.40.21）")
+    parser.add_argument("ip", nargs="?", default="192.168.40.80", help="德威创设备 IP（默认 192.168.40.21）")
     parser.add_argument("port", type=int, nargs="?", default=10001, help="SCPI 端口（默认 10001）")
     args = parser.parse_args()
 
