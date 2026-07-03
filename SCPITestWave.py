@@ -28065,7 +28065,8 @@ def translate_to_bluesight(text, value=None):
         return (addr, default_val)
 
 
-if __name__ == "__main__":
+def main():
+    """程序入口函数，供 uv run 调用。"""
     print("[DEBUG_STARTUP] 1/9 进入 __main__ 入口", flush=True)
     global EQUList,dialog_windowguoqianpin
     global rm,ui,projectSecondList,uithaiguoqianya
@@ -30175,3 +30176,7 @@ if __name__ == "__main__":
     #         print("配置文件缺失，请联系软件管理员")
     # else:
     #     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
+
+
+if __name__ == "__main__":
+    main()

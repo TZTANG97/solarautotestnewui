@@ -8,18 +8,21 @@ Photovoltaic (solar) inverter automated test system. A PyQt5 desktop application
 
 ## Running the Application
 
-**必须使用 Conda 虚拟环境 `SolarAutoTestEnv`。** 本项目中所有测试、运行、代码审查都必须在此环境下执行。
+**必须使用项目根目录的 `.venv` 虚拟环境（由 uv 管理）。** 本项目中所有测试、运行、代码审查都必须在此环境下执行。Conda 环境 `SolarAutoTestEnv` 已弃用。
 
 ```bash
-conda activate SolarAutoTestEnv
+.venv/Scripts/python.exe SCPITestWave.py
+# 或激活 venv 后直接运行
+.venv/Scripts/activate
 python SCPITestWave.py
 ```
 
 No build step. Python 3.10+ required. Install dependencies:
 
 ```bash
-conda activate SolarAutoTestEnv
-pip install -r requirements.txt
+uv sync
+# 或
+.venv/Scripts/pip install -r requirements.txt
 ```
 
 Key dependencies: PyQt5, pyvisa, pymodbus, pyautogui, pywin32, numpy, xlwt.
