@@ -2,6 +2,9 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QDialog, \
     QFileDialog, QMessageBox
 import csv
 
+# 上次打开的闪变配置文件路径，供 SCPITestWave.py 读取导出字段对比
+last_opened_csv_path = None
+
 arrayRow1 = ['Style',
     'checkBox_S1',
         'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "textEdit_S1_AC_VOLT_2", "textEdit_S1_AC_VOLT_3",
@@ -392,11 +395,13 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
 
 #泰国电压闪变读取设定
 def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian):
+    global last_opened_csv_path
     strFlag = "0"
     directory1 = QFileDialog.getOpenFileName(None, "单个文件选择", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
+        last_opened_csv_path = directory1[0]
 
         try:
             f1 = open(directory1[0], 'r', encoding='utf-8-sig')

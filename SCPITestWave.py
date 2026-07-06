@@ -3924,41 +3924,82 @@ def SaveFileDialogThaidianyashanbian():
 def OpenFileDialogThaiDianYaShanBian():
     global dialog_windowTdianyashanbian, uiThaiDianYaShanBian, dewetron_controller
     Open_Save_ThaiDianYaShanBian.Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanBian)
-    # 德威创模式 — 从设备拉取最新导出设置并回显
+
+    # 文件选择完成后，读取 CSV 中保存的导出字段
+    csv_saved_fields = []
+    csv_path = Open_Save_ThaiDianYaShanBian.last_opened_csv_path
+    if csv_path:
+        try:
+            with open(csv_path, 'r', encoding='utf-8-sig') as f:
+                import csv as _csv
+                reader = _csv.reader(f)
+                rows = list(reader)
+                if len(rows) >= 2 and len(rows[0]) > 93 and rows[1][93].strip():
+                    csv_saved_fields = [x.strip() for x in rows[1][93].split('|') if x.strip()]
+        except Exception:
+            pass
+
+    # 德威创模式 — 始终从设备读取最新配置，对比 CSV 保存的字段
     if uiThaiDianYaShanBian._mode == 'dewetron' and dewetron_controller and dewetron_controller.connected:
         try:
             channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
-            if xml_string and channel_id_map:
-                # 构建 ChannelID -> ShortId 反向映射
-                cid_to_short = {}
-                for short_id, cid in channel_id_map.items():
-                    cid_to_short[str(cid)] = short_id
+            if not xml_string or not channel_id_map:
+                ui.textEdit_ReturnMessage.append("[DEWETRON] 无法读取设备配置")
+                return
 
-                # 解析 ExportChannels 中选中的 channel_id
-                ec_match = re.search(r'<ExportChannels>(.*?)</ExportChannels>', xml_string, re.DOTALL)
-                if ec_match:
-                    selected_short_ids = []
-                    for ch_m in re.finditer(r'<ExportChannel channel_id="(\d+)"', ec_match.group(1)):
-                        cid_str = ch_m.group(1)
-                        if cid_str in cid_to_short:
-                            selected_short_ids.append(cid_to_short[cid_str])
-                    if selected_short_ids:
-                        uiThaiDianYaShanBian.set_checked_export_fields(selected_short_ids)
-                        ui.textEdit_ReturnMessage.append(
-                            f"[DEWETRON] 从设备读取导出字段: {len(selected_short_ids)} 个")
+            # 从设备 XML 获取当前电力组所有可用字段（叶子节点名）
+            from Dialog_thaiguodianyashanbian import parse_power_group_tree
+            tree_data = parse_power_group_tree(xml_string)
+            device_available_fields = set()
+            if tree_data:
+                for cat, subs in tree_data.items():
+                    for sub, channels in subs.items():
+                        device_available_fields.update(channels)
 
-                # 解析 ExportProperties
-                ep_match = re.search(r'<ExportProperties>(.*?)</ExportProperties>', xml_string, re.DOTALL)
-                if ep_match:
-                    ep_xml = ep_match.group(0)
-                    prec_m = re.search(r'<Property name="EXPORT_VALUE_PRECISION"><UnsignedInt64>(\d+)</UnsignedInt64>', ep_xml)
-                    if prec_m:
-                        uiThaiDianYaShanBian.spinBox_DEW_DecimalPlaces.setValue(int(prec_m.group(1)))
-                    wf_m = re.search(r'<Property name="WAVEFORM"><BooleanValue>(True|False)</BooleanValue>', ep_xml)
-                    if wf_m:
-                        uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.setChecked(wf_m.group(1) == 'True')
+            # 从 ExportChannels 解析设备当前选中的字段
+            cid_to_short = {}
+            for short_id, cid in channel_id_map.items():
+                cid_to_short[str(cid)] = short_id
+            device_selected_fields = set()
+            ec_match = re.search(r'<ExportChannels>(.*?)</ExportChannels>', xml_string, re.DOTALL)
+            if ec_match:
+                for ch_m in re.finditer(r'<ExportChannel channel_id="(\d+)"', ec_match.group(1)):
+                    cid_str = ch_m.group(1)
+                    if cid_str in cid_to_short:
+                        device_selected_fields.add(cid_to_short[cid_str])
+
+            # 对比 CSV 保存的字段 vs 设备当前可用字段
+            csv_set = set(csv_saved_fields) if csv_saved_fields else set()
+            missing_in_device = csv_set - device_available_fields  # CSV 有但设备没有
+
+            if missing_in_device:
+                msg = "以下字段在 CSV 中已保存，但设备当前电力组中不存在：\n\n"
+                msg += "\n".join(f"  - {f}" for f in sorted(missing_in_device))
+                msg += "\n\n可能原因：设备电力组配置已变更。"
+                QMessageBox.warning(None, "字段不匹配", msg)
+                ui.textEdit_ReturnMessage.append(f"[DEWETRON] CSV 字段与设备不匹配: {len(missing_in_device)} 个字段在设备中不存在")
+
+            # 刷新树控件（用设备最新 XML），按 CSV 与设备的交集勾选
+            fields_to_check = csv_set & device_available_fields if csv_saved_fields else None
+            uiThaiDianYaShanBian.refresh_export_field_tree(xml_string, fields_to_check)
+
+            # 更新 ExportProperties
+            ep_match = re.search(r'<ExportProperties>(.*?)</ExportProperties>', xml_string, re.DOTALL)
+            if ep_match:
+                ep_xml = ep_match.group(0)
+                prec_m = re.search(r'<Property name="EXPORT_VALUE_PRECISION"><UnsignedInt64>(\d+)</UnsignedInt64>', ep_xml)
+                if prec_m:
+                    uiThaiDianYaShanBian.spinBox_DEW_DecimalPlaces.setValue(int(prec_m.group(1)))
+                wf_m = re.search(r'<Property name="WAVEFORM"><BooleanValue>(True|False)</BooleanValue>', ep_xml)
+                if wf_m:
+                    uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.setChecked(wf_m.group(1) == 'True')
+            checked_count = len(fields_to_check) if fields_to_check else len(device_selected_fields)
+            ui.textEdit_ReturnMessage.append(
+                f"[DEWETRON] 从设备读取导出字段: {checked_count} 个，与配置文件一致")
         except Exception as e:
             ui.textEdit_ReturnMessage.append(f"[DEWETRON] 读取设备导出设置失败: {e}")
+    elif csv_has_dew_fields:
+        ui.textEdit_ReturnMessage.append("[DEWETRON] 导出字段已从配置文件加载")
 
 #德国重连代码
 def thaichonglianSend():
@@ -28065,8 +28106,7 @@ def translate_to_bluesight(text, value=None):
         return (addr, default_val)
 
 
-def main():
-    """程序入口函数，供 uv run 调用。"""
+if __name__ == "__main__":
     print("[DEBUG_STARTUP] 1/9 进入 __main__ 入口", flush=True)
     global EQUList,dialog_windowguoqianpin
     global rm,ui,projectSecondList,uithaiguoqianya
@@ -30176,7 +30216,3 @@ def main():
     #         print("配置文件缺失，请联系软件管理员")
     # else:
     #     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
-
-
-if __name__ == "__main__":
-    main()

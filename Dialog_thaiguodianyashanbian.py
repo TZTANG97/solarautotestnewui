@@ -1029,12 +1029,13 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         self.stackedWidget.addWidget(self._step4Stacked)
 
-    def _build_export_field_tree(self, tree_data=None):
+    def _build_export_field_tree(self, tree_data=None, checked_fields=None):
         """构建 DEWETRON 导出字段选择树。
 
         Args:
             tree_data: parse_power_group_tree() 返回的嵌套字典。
                        None 时显示占位提示。
+            checked_fields: 需要勾选的字段名集合。None 时全部勾选。
         """
         tree = self.treeWidget_DEW_ExportFields
         tree.clear()
@@ -1050,6 +1051,8 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             tree.itemChanged.disconnect(self._on_export_field_item_changed)
         except (TypeError, RuntimeError):
             pass
+
+        check_set = set(checked_fields) if checked_fields is not None else None
 
         # 类别图标映射
         cat_icons = {
@@ -1067,7 +1070,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             # 类别节点：带图标 + 紫色背景
             cat_icon = cat_icons.get(category, '•')
             cat_item = QtWidgets.QTreeWidgetItem(tree, [f"  {category}"])
-            cat_item.setFlags(cat_item.flags() | QtCore.Qt.ItemIsTristate)
+            cat_item.setFlags(cat_item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsTristate)
             cat_item.setCheckState(0, QtCore.Qt.Checked)
             cat_item.setForeground(0, QtGui.QColor("#5b21b6"))
             cat_item.setBackground(0, QtGui.QColor("#f5f3ff"))
@@ -1080,7 +1083,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             for sub_name, channels in sub_cats.items():
                 # 子类别节点：蓝色文字
                 sub_item = QtWidgets.QTreeWidgetItem(cat_item, [f"    {sub_name}"])
-                sub_item.setFlags(sub_item.flags() | QtCore.Qt.ItemIsTristate)
+                sub_item.setFlags(sub_item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsTristate)
                 sub_item.setCheckState(0, QtCore.Qt.Checked)
                 sub_item.setForeground(0, QtGui.QColor("#1d4ed8"))
                 font = sub_item.font(0)
@@ -1091,17 +1094,26 @@ class Ui_Dialog_thaiguodianyashanbian(object):
                 for ch_name in channels:
                     # 叶子节点：普通样式
                     ch_item = QtWidgets.QTreeWidgetItem(sub_item, [f"      {ch_name}"])
-                    ch_item.setFlags(ch_item.flags() | QtCore.Qt.ItemIsTristate)
-                    ch_item.setCheckState(0, QtCore.Qt.Checked)
+                    ch_item.setFlags(ch_item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsTristate)
+                    # 构建时直接设好勾选状态
+                    if check_set is not None:
+                        ch_item.setCheckState(0, QtCore.Qt.Checked if ch_name in check_set else QtCore.Qt.Unchecked)
+                    else:
+                        ch_item.setCheckState(0, QtCore.Qt.Checked)
                     ch_item.setForeground(0, QtGui.QColor("#475569"))
 
         tree.expandToDepth(1)
         tree.itemChanged.connect(self._on_export_field_item_changed)
 
-    def refresh_export_field_tree(self, xml_string):
-        """从设备 XML 动态刷新导出字段树。供 SCPITestWave.py 调用。"""
+    def refresh_export_field_tree(self, xml_string, checked_fields=None):
+        """从设备 XML 动态刷新导出字段树。供 SCPITestWave.py 调用。
+
+        Args:
+            xml_string: 设备 XML
+            checked_fields: 需要勾选的字段名集合。None 时全部勾选。
+        """
         tree_data = parse_power_group_tree(xml_string)
-        self._build_export_field_tree(tree_data)
+        self._build_export_field_tree(tree_data, checked_fields)
 
     def get_checked_export_fields(self):
         """获取当前勾选的导出字段列表。

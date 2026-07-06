@@ -8,21 +8,23 @@ Photovoltaic (solar) inverter automated test system. A PyQt5 desktop application
 
 ## Running the Application
 
-**必须使用项目根目录的 `.venv` 虚拟环境（由 uv 管理）。** 本项目中所有测试、运行、代码审查都必须在此环境下执行。Conda 环境 `SolarAutoTestEnv` 已弃用。
+**所有 Python 程序必须使用 `uv run` 执行。** uv 自动使用项目根目录的 `.venv` 虚拟环境，无需手动激活。Conda 环境 `SolarAutoTestEnv` 已弃用，**禁止**使用 `.venv/Scripts/python.exe` 或 `conda activate`。
 
 ```bash
-.venv/Scripts/python.exe SCPITestWave.py
-# 或激活 venv 后直接运行
-.venv/Scripts/activate
-python SCPITestWave.py
+# 启动主程序
+uv run python SCPITestWave.py
+
+# 运行任意脚本
+uv run python <script>.py
+
+# 运行测试
+uv run pytest
 ```
 
 No build step. Python 3.10+ required. Install dependencies:
 
 ```bash
 uv sync
-# 或
-.venv/Scripts/pip install -r requirements.txt
 ```
 
 Key dependencies: PyQt5, pyvisa, pymodbus, pyautogui, pywin32, numpy, xlwt.
@@ -261,6 +263,7 @@ replacements.append((m.start(2), m.end(2), flicker_type, label))
 
 - Every function in `devices/dc_controller.py` must include a short docstring describing its purpose.
 - Keep functions small and focused; extract shared logic into reusable helpers.
+- **Claude Code / AI 调用 Python 时必须使用 `uv run python xxx.py`**，禁止使用 `.venv/Scripts/python.exe`、`python xxx.py`、`conda run` 等方式。
 
 ## 目录结构规则
 
@@ -714,6 +717,19 @@ if disconnected:
 - **影响**：不影响运行（所有引用处命名一致），但命名不直观，易造成混淆
 - **修改范围**：需同时修改 `Dialog_thaixiebodianliu.py` 通道映射字典 + `SCPITestWave.py` 中 `thaixiebodianliuSend()` 函数
 - **建议**：功能正常可暂不改，下次调试谐波电流时统一修正
+
+## 待验证
+
+### 闪变 DEWETRON 导出设置 — 读取设定未验证
+- **日期**：2026-07-02
+- **内容**：闪变项目切换到德威创模式后，「读取设定」从设备拉取最新导出设置（ExportChannels + ExportProperties）并回显到 UI（treeWidget 勾选、小数位数、实时波形）
+- **状态**：代码已写好（`OpenFileDialogThaiDianYaShanBian()`），但设备不在身边，未实机验证
+- **验证要点**：
+  1. 德威创模式下点击「读取设定」，treeWidget 是否正确勾选设备当前的导出字段
+  2. `spinBox_DEW_DecimalPlaces` 是否回显设备当前值
+  3. `checkBox_DEW_RealtimeWaveform` 是否回显设备当前值
+  4. CSV 保存/读取后，这三个字段是否正确还原
+  5. 连续两次「测试生效」提交是否正常（重试机制）
 
 ## PyQt5 布局注意事项
 
