@@ -749,6 +749,20 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         _s2_h.addStretch()
         formLayout.addRow("首次闪变间隔:", _s2_container)
 
+        # 每组闪变次数
+        self.comboBox_DEW_S2_PER_FLICK_COUNT = QtWidgets.QComboBox()
+        self.comboBox_DEW_S2_PER_FLICK_COUNT.setObjectName("comboBox_DEW_S2_PER_FLICK_COUNT")
+        self.comboBox_DEW_S2_PER_FLICK_COUNT.addItems(["3", "1", "2"])
+        self.comboBox_DEW_S2_PER_FLICK_COUNT.setFixedWidth(120)
+        _flick_count_container = QtWidgets.QWidget()
+        _fc_h = QtWidgets.QHBoxLayout(_flick_count_container)
+        _fc_h.setContentsMargins(0, 0, 0, 0)
+        _fc_h.setSpacing(4)
+        _fc_h.addWidget(self.comboBox_DEW_S2_PER_FLICK_COUNT)
+        _fc_h.addWidget(QtWidgets.QLabel("次"))
+        _fc_h.addStretch()
+        formLayout.addRow("每组闪变次数:", _flick_count_container)
+
         self.textEdit_DEW_ShortCircuitPower = QtWidgets.QTextEdit()
         self.textEdit_DEW_ShortCircuitPower.setObjectName("textEdit_DEW_ShortCircuitPower")
         self.textEdit_DEW_ShortCircuitPower.setFixedSize(100, 31)

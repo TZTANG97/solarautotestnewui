@@ -1970,11 +1970,23 @@ def thaidianyashanbianSend():
     # 预先读取跨 step 复用参数，避免某个 step 未勾选时出现未定义变量
     S1ACVOLT = uiThaiDianYaShanBian.textEdit_S1_AC_VOLT.toPlainText()
     S1ACFR = uiThaiDianYaShanBian.textEdit_S1_AC_FR.toPlainText()
-    S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentText()
+
+    # ── 每组闪变次数：德威创模式读 DEWETRON 字段，WT 模式读 WT 字段 ──
+    if is_dewetron:
+        S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_DEW_S2_PER_FLICK_COUNT.currentText()
+    else:
+        S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentText()
+
     S2_WT3000_Setting = uiThaiDianYaShanBian.comboBox_S2_WT3000_Setting.currentText()
     S2_WT3000_Single = uiThaiDianYaShanBian.comboBox_S2_WT.currentText()
-    S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText().strip()
-    S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
+
+    # ── 首次闪变间隔：德威创模式读 DEWETRON 字段，WT 模式读 WT 字段 ──
+    if is_dewetron:
+        S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_DEW_S2_TIME.toPlainText().strip()
+        S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_DEW_S2_TIME.currentText()
+    else:
+        S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText().strip()
+        S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
     fS2SetTime = 0.0 if S2_TIME_VALUE == "" else float(S2_TIME_VALUE)
     fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
 
@@ -2325,22 +2337,71 @@ def thaidianyashanbianSend():
 
         S2_WT3000_Setting = uiThaiDianYaShanBian.comboBox_S2_WT3000_Setting.currentText()
 
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "WT3000"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "DISPLAY:MODE FLICker"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        # ── WT3000 命令仅在 WT 模式下生成，DEWETRON 模式跳过 ──
+        if not is_dewetron:
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "WT3000"
+            strArraySingle[1] = "write"
+            strArraySingle[2] = "DISPLAY:MODE FLICker"
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
 
-        S2_WT3000_Single = uiThaiDianYaShanBian.comboBox_S2_WT.currentText()
-        if S2_WT3000_Single == "单相":
-            if S2_WT3000_Setting == "ELEMENT1":
+            S2_WT3000_Single = uiThaiDianYaShanBian.comboBox_S2_WT.currentText()
+            if S2_WT3000_Single == "单相":
+                if S2_WT3000_Setting == "ELEMENT1":
 
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 1"
+                    strArraySingle[8] = 1
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:ELEMENT1 ON"
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+                elif S2_WT3000_Setting == "ELEMENT2":
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 2"
+                    strArraySingle[8] = 1
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:ELEMENT2 ON"
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+                elif S2_WT3000_Setting == "ELEMENT3":
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 3"
+                    strArraySingle[8] = 1
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:ELEMENT3 ON"
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+            elif S2_WT3000_Single == "三相":
                 strArraySingle = ["" for _ in range(10)]
                 strArraySingle[0] = "WT3000"
                 strArraySingle[1] = "write"
                 strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 1"
-                strArraySingle[8] = 1
+                strArraySingle[9] = 1
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2350,29 +2411,11 @@ def thaidianyashanbianSend():
                 strArraySingle[2] = "FLICKER:ELEMENT1 ON"
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
-            elif S2_WT3000_Setting == "ELEMENT2":
-
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 2"
-                strArraySingle[8] = 1
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
 
                 strArraySingle = ["" for _ in range(10)]
                 strArraySingle[0] = "WT3000"
                 strArraySingle[1] = "write"
                 strArraySingle[2] = "FLICKER:ELEMENT2 ON"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-            elif S2_WT3000_Setting == "ELEMENT3":
-
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 3"
-                strArraySingle[8] = 1
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
@@ -2382,99 +2425,77 @@ def thaidianyashanbianSend():
                 strArraySingle[2] = "FLICKER:ELEMENT3 ON"
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
-        elif S2_WT3000_Single == "三相":
+
+
             strArraySingle = ["" for _ in range(10)]
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
-            strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 1"
-            strArraySingle[9] = 1
+            strArraySingle[2] = "FLICKER:RESET"
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
             strArraySingle = ["" for _ in range(10)]
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
-            strArraySingle[2] = "FLICKER:ELEMENT1 ON"
+            strArraySingle[2] = "FLICKER:COUNT " + S2_FLICKER_COUNT
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
             strArraySingle = ["" for _ in range(10)]
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
-            strArraySingle[2] = "FLICKER:ELEMENT2 ON"
+            strArraySingle[2] = "FLICKER:UN:VALue " + S1ACVOLT
+            strArraySingle[9] = 2
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
             strArraySingle = ["" for _ in range(10)]
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
-            strArraySingle[2] = "FLICKER:ELEMENT3 ON"
+            strArraySingle[2] = "FLICKER:FREQuency " + S1ACFR
+            strArraySingle[9] = 2
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "WT3000"
+            strArraySingle[1] = "write"
+            strArraySingle[2] = "FLICKER:INITIALIZE"
+            strArraySingle[9] = 1000
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
 
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "WT3000"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:RESET"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "WT3000"
+            strArraySingle[1] = "write"
+            strArraySingle[2] = "FLICKER:START"
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
 
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "WT3000"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:COUNT " + S2_FLICKER_COUNT
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        # ── DEWETRON 模式 Step2：启动采集 + 设置保存位置 + 启动录制 ──
+        if is_dewetron:
+            dew_store_file_name = uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.text().strip()
+            if not dew_store_file_name:
+                QMessageBox.warning(None, "提示", "请输入保存文件名")
+                return
 
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "WT3000"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:UN:VALue " + S1ACVOLT
-        strArraySingle[9] = 2
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
 
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "WT3000"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:FREQuency " + S1ACFR
-        strArraySingle[9] = 2
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", f':STORE:FILE:NAME "{dew_store_file_name}"'
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
 
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "WT3000"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:INITIALIZE"
-        strArraySingle[9] = 1000
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:START"
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
 
-        # strArraySingle = ["" for _ in range(10)]
-        # strArraySingle[0] = "WT3000"
-        # strArraySingle[1] = "judge"
-        # strArraySingle[2] = "FLICKER:COUNT?"
-        # strArraySingle[3] = "READ"
-        # strArraySingle[9] = 5
-        # strArrayTest.append(strArraySingle)
-        # strArrayTestStepSingle.append(strArraySingle)
-
-        # strArraySingle = ["" for _ in range(10)]
-        # strArraySingle[0] = "WT3000"
-        # strArraySingle[1] = "judge"
-        # strArraySingle[2] = "FLICKER:STAT?"
-        # strArraySingle[3] = "READ"
-        # strArraySingle[8] = 10
-        # strArrayTest.append(strArraySingle)
-        # strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "WT3000"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "FLICKER:START"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+            ui.textEdit_ReturnMessage.append(
+                f"[闪变] 德威创模式：启动采集+录制，文件: {dew_store_file_name}")
 
         # strArraySingle = ["" for _ in range(10)]
         # strArraySingle[0] = "WT3000"
@@ -3583,69 +3604,8 @@ def thaidianyashanbianSend():
 
     if uiThaiDianYaShanBian.checkBox_S4.isChecked():
         if is_dewetron:
-            # ── 德威创模式 Step4：采集 + 录制 ──
-            store_file_name = uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.text().strip()
-            if not store_file_name:
-                QMessageBox.warning(None, "提示", "请输入保存文件名")
-                return
-
-            # 计算采集等待时间 = 长时闪变计算时间（分钟 → 秒）
-            long_flicker_val = uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText().strip()
-            short_flicker_val = uiThaiDianYaShanBian.textEdit_DEW_ShortFlickerTime.toPlainText().strip()
-            long_minutes = float(long_flicker_val) if long_flicker_val else 120
-            short_minutes = float(short_flicker_val) if short_flicker_val else 10
-            wait_seconds = int(long_minutes * 60)
-            num_groups = int(long_minutes / short_minutes) if short_minutes > 0 else 12
-
-            strArrayTestStepSingle = []
-
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "DEWETRON", "write", f':STORE:FILE:NAME "{store_file_name}"'
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:START"
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
-            # 首次闪变间隔等待（与 WT 模式一致，使用 SetTimeFunction 转换）
-            s2_time_val = uiThaiDianYaShanBian.textEdit_DEW_S2_TIME.toPlainText().strip()
-            s2_time_unit = uiThaiDianYaShanBian.comboBox_DEW_S2_TIME.currentText()
-            if s2_time_val:
-                first_interval = SetTimeFunction(float(s2_time_val), s2_time_unit) * 0.1
-                s = ["" for _ in range(10)]
-                s[0], s[1], s[2] = "AC", "query", "*IDN?"
-                s[8] = int(first_interval * 10)
-                strArrayTest.append(s)
-                strArrayTestStepSingle.append(s)
-
-            # 主采集等待（长时闪变时间）
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "AC", "query", "*IDN?"
-            s[8] = wait_seconds * 10
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:STOP"
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
-            strArrayTestStep.append(strArrayTestStepSingle)
-            ui.textEdit_ReturnMessage.append(
-                f"[闪变] 德威创模式：首次间隔{s2_time_val}{s2_time_unit}，长时{int(long_minutes)}min = "
-                f"{num_groups}组×{int(short_minutes)}min，采集 {wait_seconds}s，文件: {store_file_name}")
+            # DEWETRON 模式 step4 开始部分已在 step2 处理
+            pass
 
         if not is_dewetron:
             # ── WT3000 模式 Step4 ──
@@ -3822,6 +3782,30 @@ def thaidianyashanbianSend():
                 strArraySingle[8] = 40
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
+
+    # ── 德威创模式 Step4 结束：停止录制 + 停止采集（在 step5 关机之前）──
+    if is_dewetron and uiThaiDianYaShanBian.checkBox_S4.isChecked():
+        # 读取等待时间参数
+        long_flicker_val = uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText().strip()
+        long_minutes = float(long_flicker_val) if long_flicker_val else 120
+        dew_wait_seconds = int(long_minutes * 60)
+
+        # 主采集等待（长时闪变时间）
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "AC", "query", "*IDN?"
+        s[8] = dew_wait_seconds * 10
+        strArrayTest.append(s)
+
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:STOP"
+        strArrayTest.append(s)
+
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
+        strArrayTest.append(s)
+
+        ui.textEdit_ReturnMessage.append(
+            f"[闪变] 德威创模式：采集完成，等待 {dew_wait_seconds}s，停止录制")
 
     if uiThaiDianYaShanBian.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
