@@ -731,6 +731,15 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.textEdit_DEW_LongFlickerTime.setText("120")
         formLayout.addRow("长时闪变计算时间:", self._make_unit_row(self.textEdit_DEW_LongFlickerTime, "分钟"))
 
+        # 首次闪变间隔（与 WT 模式的 S2 对应）
+        self.spinBox_DEW_FirstFlickerInterval = QtWidgets.QSpinBox()
+        self.spinBox_DEW_FirstFlickerInterval.setRange(0, 600)
+        self.spinBox_DEW_FirstFlickerInterval.setValue(5)
+        self.spinBox_DEW_FirstFlickerInterval.setSuffix(" 秒")
+        self.spinBox_DEW_FirstFlickerInterval.setFixedWidth(100)
+        self.spinBox_DEW_FirstFlickerInterval.setObjectName("spinBox_DEW_FirstFlickerInterval")
+        formLayout.addRow("首次闪变间隔:", self.spinBox_DEW_FirstFlickerInterval)
+
         self.textEdit_DEW_ShortCircuitPower = QtWidgets.QTextEdit()
         self.textEdit_DEW_ShortCircuitPower.setObjectName("textEdit_DEW_ShortCircuitPower")
         self.textEdit_DEW_ShortCircuitPower.setFixedSize(100, 31)
@@ -941,15 +950,6 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/dxl/flicker_test")
         self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
         dew_form.addRow("保存文件名:", self.lineEdit_DEW_StoreFileName)
-
-        # 首次闪变间隔
-        self.spinBox_DEW_FirstFlickerInterval = QtWidgets.QSpinBox()
-        self.spinBox_DEW_FirstFlickerInterval.setRange(0, 600)
-        self.spinBox_DEW_FirstFlickerInterval.setValue(5)
-        self.spinBox_DEW_FirstFlickerInterval.setSuffix(" 秒")
-        self.spinBox_DEW_FirstFlickerInterval.setFixedWidth(100)
-        self.spinBox_DEW_FirstFlickerInterval.setObjectName("spinBox_DEW_FirstFlickerInterval")
-        dew_form.addRow("首次闪变间隔:", self.spinBox_DEW_FirstFlickerInterval)
 
         # 保留小数位数
         self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()
