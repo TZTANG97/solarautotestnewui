@@ -1914,10 +1914,8 @@ def thaidianyashanbianSend():
     if 'flicker_append_count' not in globals():
         flicker_append_count = 0
 
-    # ── 德威创模式：跳过 WT3000 命令生成 ──
-    if hasattr(uiThaiDianYaShanBian, '_mode') and uiThaiDianYaShanBian._mode == 'dewetron':
-        ui.textEdit_ReturnMessage.append("[闪变] 德威创模式：请通过 DEWETRON 设置页面配置闪变参数")
-        return
+    # ── 德威创模式标记 ──
+    is_dewetron = hasattr(uiThaiDianYaShanBian, '_mode') and uiThaiDianYaShanBian._mode == 'dewetron'
 
     def _get_wait_seconds(str_array_single):
         """提取单条命令的等待时间（秒）。
@@ -3584,19 +3582,140 @@ def thaidianyashanbianSend():
                         strArrayTest.append(strArrayTestStepSingle[xxxx])
 
     if uiThaiDianYaShanBian.checkBox_S4.isChecked():
-        # strArrayTestStepSingle = []
-        # strArraySingle = ["" for _ in range(10)]
-        # strArraySingle[0] = "WT3000"
-        # strArraySingle[1] = "judge"
-        # strArraySingle[2] = "FLICKER:STAT?"
-        # strArraySingle[3] = "COMP"
-        # strArraySingle[8] = 10
-        # strArrayTest.append(strArraySingle)
-        # strArrayTestStepSingle.append(strArraySingle)
+        if is_dewetron:
+            # ── 德威创模式 Step4：采集 + 录制 ──
+            store_file_name = uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.text().strip()
+            if not store_file_name:
+                QMessageBox.warning(None, "提示", "请输入保存文件名")
+                return
 
-        if S2_WT3000_Single == "单相":
-            if S2_WT3000_Setting == "ELEMENT1":
+            # 计算采集等待时间
+            wait_seconds = 600
+            if uiThaiDianYaShanBian.checkBox_S2.isChecked():
+                s2_val = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText().strip()
+                s2_unit = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
+                s3_val = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText().strip()
+                s3_unit = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
+                s3_cycle = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText().strip()
+                if s2_val and s3_val and s3_cycle:
+                    f_s2 = SetTimeFunction(float(s2_val), s2_unit) * 0.1
+                    f_s3 = SetTimeFunction(float(s3_val), s3_unit) * 0.1
+                    wait_seconds = int(f_s2 + int(s3_cycle) * f_s3)
 
+            strArrayTestStepSingle = []
+
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
+
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", f':STORE:FILE:NAME "{store_file_name}"'
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
+
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:START"
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
+
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "AC", "query", "*IDN?"
+            s[8] = wait_seconds * 10
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
+
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:STOP"
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
+
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
+            strArrayTest.append(s)
+            strArrayTestStepSingle.append(s)
+
+            strArrayTestStep.append(strArrayTestStepSingle)
+            ui.textEdit_ReturnMessage.append(
+                f"[闪变] 德威创模式：采集 {wait_seconds}s，文件: {store_file_name}")
+
+        if not is_dewetron:
+            # ── WT3000 模式 Step4 ──
+
+            if S2_WT3000_Single == "单相":
+                if S2_WT3000_Setting == "ELEMENT1":
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 1"
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                    strArraySingle = ["" for _ in range(10)]
+                    S1Command = "*IDN?"
+                    strArraySingle[0] = "AC"
+                    strArraySingle[1] = "query"
+                    strArraySingle[2] = S1Command
+                    strArraySingle[8] = 40
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                elif S2_WT3000_Setting == "ELEMENT2":
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 2"
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                    strArraySingle = ["" for _ in range(10)]
+                    S1Command = "*IDN?"
+                    strArraySingle[0] = "AC"
+                    strArraySingle[1] = "query"
+                    strArraySingle[2] = S1Command
+                    strArraySingle[8] = 40
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                elif S2_WT3000_Setting == "ELEMENT3":
+
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 3"
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+                    strArraySingle = ["" for _ in range(10)]
+                    S1Command = "*IDN?"
+                    strArraySingle[0] = "AC"
+                    strArraySingle[1] = "query"
+                    strArraySingle[2] = S1Command
+                    strArraySingle[8] = 40
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+
+
+                strArraySingle = ["" for _ in range(10)]
+                strArraySingle[0] = "WT3000"
+                strArraySingle[1] = "write"
+                strArraySingle[2] = "IMAGE:EXEC"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+                strArrayTestStep.append(strArrayTestStepSingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 40
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+            else:
                 strArraySingle = ["" for _ in range(10)]
                 strArraySingle[0] = "WT3000"
                 strArraySingle[1] = "write"
@@ -3613,7 +3732,22 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            elif S2_WT3000_Setting == "ELEMENT2":
+                strArraySingle = ["" for _ in range(10)]
+                strArraySingle[0] = "WT3000"
+                strArraySingle[1] = "write"
+                strArraySingle[2] = "IMAGE:EXEC"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+                strArrayTestStep.append(strArrayTestStepSingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 40
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
 
                 strArraySingle = ["" for _ in range(10)]
                 strArraySingle[0] = "WT3000"
@@ -3631,7 +3765,22 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-            elif S2_WT3000_Setting == "ELEMENT3":
+                strArraySingle = ["" for _ in range(10)]
+                strArraySingle[0] = "WT3000"
+                strArraySingle[1] = "write"
+                strArraySingle[2] = "IMAGE:EXEC"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+                strArrayTestStep.append(strArrayTestStepSingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 40
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
 
                 strArraySingle = ["" for _ in range(10)]
                 strArraySingle[0] = "WT3000"
@@ -3643,129 +3792,28 @@ def thaidianyashanbianSend():
                 strArraySingle = ["" for _ in range(10)]
                 S1Command = "*IDN?"
                 strArraySingle[0] = "AC"
-                strArraySingle[1] = "query"
+                strArraySingle[1] = "write"
                 strArraySingle[2] = S1Command
                 strArraySingle[8] = 40
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
+                strArraySingle = ["" for _ in range(10)]
+                strArraySingle[0] = "WT3000"
+                strArraySingle[1] = "write"
+                strArraySingle[2] = "IMAGE:EXEC"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+                strArrayTestStep.append(strArrayTestStepSingle)
 
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT3000"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "IMAGE:EXEC"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 40
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        else:
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT3000"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 1"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 40
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT3000"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "IMAGE:EXEC"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 40
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT3000"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 2"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 40
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT3000"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "IMAGE:EXEC"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 40
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT3000"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 3"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 40
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT3000"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "IMAGE:EXEC"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 40
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+                strArraySingle = ["" for _ in range(10)]
+                S1Command = "*IDN?"
+                strArraySingle[0] = "AC"
+                strArraySingle[1] = "query"
+                strArraySingle[2] = S1Command
+                strArraySingle[8] = 40
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
 
     if uiThaiDianYaShanBian.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
@@ -24416,6 +24464,41 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+
+            # ---------------- DEWETRON 分支 ----------------
+            elif strArrayTest[i][0] == "DEWETRON":
+                if strArrayTest[i][1] == "write":
+                    try:
+                        if strTestStatusFlag == "结束":
+                            break
+                        command = strArrayTest[i][2].strip()
+                        if dewetron_controller is not None and dewetron_controller.connected:
+                            dewetron_controller._send(command, f"[DEWETRON] {command}", f"[DEWETRON] {command} 失败", timeout_ms=10000)
+                            strtimenow = now_to_datenow()
+                            logger.info(strtimenow + " DEWETRON " + command)
+                            print(strtimenow + " DEWETRON " + command)
+                        else:
+                            raise RuntimeError("DEWETRON未连接，无法发送命令")
+                    except Exception as e:
+                        print(e)
+                        logger.error(f"DEWETRON命令失败: {e}")
+                        _show_connect_message(f"DEWETRON执行失败: {e}", ui)
+                    else:
+                        for wait_col in (8, 9):
+                            if wait_col < len(strArrayTest[i]) and strArrayTest[i][wait_col] != '':
+                                try:
+                                    iTestTime = int(strArrayTest[i][wait_col])
+                                    for x in range(iTestTime):
+                                        while True:
+                                            if strTestStatusFlag == "暂停":
+                                                time.sleep(0.01)
+                                            else:
+                                                break
+                                        if strTestStatusFlag == "结束":
+                                            break
+                                        time.sleep(0.1)
+                                except (ValueError, TypeError):
+                                    pass
 
             # ---------------- WT 宏回放分支 ----------------
             elif strArrayTest[i][0] == "WT":
