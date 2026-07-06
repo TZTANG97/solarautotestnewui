@@ -39,7 +39,7 @@ arrayRow1 = ['Style',
     "textEdit_DEW_ShortCircuitPower", "checkBox_DEW_RollingCalc",
     "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
     "treeWidget_DEW_ExportFields", "lineEdit_DEW_StoreFileName",
-    "spinBox_DEW_FirstFlickerInterval",
+    "textEdit_DEW_S2_TIME", "comboBox_DEW_S2_TIME",
     ]
 
 #泰国电压闪变保存设定
@@ -387,7 +387,8 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
         checked_fields = uiThaiDianYaShanBian.get_checked_export_fields()
         arrayRow2.append('|'.join(checked_fields))
         arrayRow2.append(uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.text())
-        arrayRow2.append(uiThaiDianYaShanBian.spinBox_DEW_FirstFlickerInterval.value())
+        arrayRow2.append(uiThaiDianYaShanBian.textEdit_DEW_S2_TIME.toPlainText())
+        arrayRow2.append(uiThaiDianYaShanBian.comboBox_DEW_S2_TIME.currentIndex())
 
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
@@ -1122,7 +1123,11 @@ def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
 
                 if strFlag == "0" and len(arrayRow1) > 95:
                     if arrayRow1[95] in i:
-                        uiThaiDianYaShanBian.spinBox_DEW_FirstFlickerInterval.setValue(int(i[arrayRow1[95]]))
+                        uiThaiDianYaShanBian.textEdit_DEW_S2_TIME.setText(i[arrayRow1[95]])
+
+                if strFlag == "0" and len(arrayRow1) > 96:
+                    if arrayRow1[96] in i:
+                        uiThaiDianYaShanBian.comboBox_DEW_S2_TIME.setCurrentIndex(int(i[arrayRow1[96]]))
 
         QMessageBox.information(None, "实验设定提示信息", "电压闪变文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
