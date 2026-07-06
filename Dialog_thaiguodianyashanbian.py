@@ -942,6 +942,15 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
         dew_form.addRow("保存文件名:", self.lineEdit_DEW_StoreFileName)
 
+        # 首次闪变间隔
+        self.spinBox_DEW_FirstFlickerInterval = QtWidgets.QSpinBox()
+        self.spinBox_DEW_FirstFlickerInterval.setRange(0, 600)
+        self.spinBox_DEW_FirstFlickerInterval.setValue(5)
+        self.spinBox_DEW_FirstFlickerInterval.setSuffix(" 秒")
+        self.spinBox_DEW_FirstFlickerInterval.setFixedWidth(100)
+        self.spinBox_DEW_FirstFlickerInterval.setObjectName("spinBox_DEW_FirstFlickerInterval")
+        dew_form.addRow("首次闪变间隔:", self.spinBox_DEW_FirstFlickerInterval)
+
         # 保留小数位数
         self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()
         self.spinBox_DEW_DecimalPlaces.setRange(0, 6)

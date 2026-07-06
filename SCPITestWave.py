@@ -3615,13 +3615,11 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(s)
 
             # 首次闪变间隔等待
-            s2_time_val = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText().strip()
-            s2_time_unit = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
-            if s2_time_val:
-                first_interval = SetTimeFunction(float(s2_time_val), s2_time_unit) * 0.1
+            first_interval_sec = uiThaiDianYaShanBian.spinBox_DEW_FirstFlickerInterval.value()
+            if first_interval_sec > 0:
                 s = ["" for _ in range(10)]
                 s[0], s[1], s[2] = "AC", "query", "*IDN?"
-                s[8] = int(first_interval * 10)
+                s[8] = first_interval_sec * 10
                 strArrayTest.append(s)
                 strArrayTestStepSingle.append(s)
 
@@ -3643,9 +3641,8 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(s)
 
             strArrayTestStep.append(strArrayTestStepSingle)
-            first_info = f"首次间隔{s2_time_val}{s2_time_unit}" if s2_time_val else ""
             ui.textEdit_ReturnMessage.append(
-                f"[闪变] 德威创模式：{first_info}，长时{int(long_minutes)}min = "
+                f"[闪变] 德威创模式：首次间隔{first_interval_sec}s，长时{int(long_minutes)}min = "
                 f"{num_groups}组×{int(short_minutes)}min，采集 {wait_seconds}s，文件: {store_file_name}")
 
         if not is_dewetron:

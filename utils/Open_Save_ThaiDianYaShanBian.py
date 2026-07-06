@@ -39,6 +39,7 @@ arrayRow1 = ['Style',
     "textEdit_DEW_ShortCircuitPower", "checkBox_DEW_RollingCalc",
     "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
     "treeWidget_DEW_ExportFields", "lineEdit_DEW_StoreFileName",
+    "spinBox_DEW_FirstFlickerInterval",
     ]
 
 #泰国电压闪变保存设定
@@ -386,6 +387,7 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
         checked_fields = uiThaiDianYaShanBian.get_checked_export_fields()
         arrayRow2.append('|'.join(checked_fields))
         arrayRow2.append(uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.text())
+        arrayRow2.append(uiThaiDianYaShanBian.spinBox_DEW_FirstFlickerInterval.value())
 
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
@@ -1117,6 +1119,10 @@ def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
                 if strFlag == "0" and len(arrayRow1) > 94:
                     if arrayRow1[94] in i:
                         uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.setText(i[arrayRow1[94]])
+
+                if strFlag == "0" and len(arrayRow1) > 95:
+                    if arrayRow1[95] in i:
+                        uiThaiDianYaShanBian.spinBox_DEW_FirstFlickerInterval.setValue(int(i[arrayRow1[95]]))
 
         QMessageBox.information(None, "实验设定提示信息", "电压闪变文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
