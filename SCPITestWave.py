@@ -3589,18 +3589,13 @@ def thaidianyashanbianSend():
                 QMessageBox.warning(None, "提示", "请输入保存文件名")
                 return
 
-            # 计算采集等待时间
-            wait_seconds = 600
-            if uiThaiDianYaShanBian.checkBox_S2.isChecked():
-                s2_val = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText().strip()
-                s2_unit = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
-                s3_val = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText().strip()
-                s3_unit = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
-                s3_cycle = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText().strip()
-                if s2_val and s3_val and s3_cycle:
-                    f_s2 = SetTimeFunction(float(s2_val), s2_unit) * 0.1
-                    f_s3 = SetTimeFunction(float(s3_val), s3_unit) * 0.1
-                    wait_seconds = int(f_s2 + int(s3_cycle) * f_s3)
+            # 计算采集等待时间 = 长时闪变计算时间（分钟 → 秒）
+            long_flicker_val = uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText().strip()
+            short_flicker_val = uiThaiDianYaShanBian.textEdit_DEW_ShortFlickerTime.toPlainText().strip()
+            long_minutes = float(long_flicker_val) if long_flicker_val else 120
+            short_minutes = float(short_flicker_val) if short_flicker_val else 10
+            wait_seconds = int(long_minutes * 60)
+            num_groups = int(long_minutes / short_minutes) if short_minutes > 0 else 12
 
             strArrayTestStepSingle = []
 
@@ -3637,7 +3632,8 @@ def thaidianyashanbianSend():
 
             strArrayTestStep.append(strArrayTestStepSingle)
             ui.textEdit_ReturnMessage.append(
-                f"[闪变] 德威创模式：采集 {wait_seconds}s，文件: {store_file_name}")
+                f"[闪变] 德威创模式：长时{int(long_minutes)}min = {num_groups}组×{int(short_minutes)}min，"
+                f"采集 {wait_seconds}s，文件: {store_file_name}")
 
         if not is_dewetron:
             # ── WT3000 模式 Step4 ──
