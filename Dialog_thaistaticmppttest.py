@@ -119,6 +119,9 @@ class Ui_Dialog_thaistaticmppttest(object):
         self._build_step3()
         self._build_step4()
 
+        # ── DC 联动（step1 → 关机步骤） ──
+        self._connect_dc_linkage()
+
         # 默认显示第一页
         self._switch_step(0)
 
@@ -607,6 +610,23 @@ class Ui_Dialog_thaistaticmppttest(object):
         layout.addWidget(self.groupBox_11)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    def _connect_dc_linkage(self):
+        """连接 step1 DC 复选框与关机步骤 DC 复选框的联动。"""
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+        def _update_end_dc(_checked=None):
+            step_end_on = self.checkBox_S_End.isChecked()
+            any_dc_on = any(dc.isChecked() for dc in step1_dcs)
+            should_enable = step_end_on and any_dc_on
+            self.checkBox_S_End_DC.setEnabled(should_enable)
+            self.checkBox_S_End_DC.setChecked(should_enable)
+
+        self.checkBox_S_End.toggled.connect(_update_end_dc)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_end_dc)
+        _update_end_dc()  # 初始化状态
 
     def retranslateUi(self, Dialog_thaistaticmppttest):
         _translate = QtCore.QCoreApplication.translate

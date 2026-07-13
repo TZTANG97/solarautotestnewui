@@ -652,6 +652,14 @@ if disconnected:
   - 巴西CosPhi `thaicosPhiBrazilSend()`：step3（4 块）+ step5（4 块）+ step5 关机（4 块）
 - **新项目接入时必须检查**：接入新项目的 Send 函数时，搜索所有 `checkBox_S*_DC`（包括 step3、step4、step5、step7），确保每个都有对应的 `checkBox_S1_DC` 联动
 
+**坑19：动态构建的 DC 复选框必须调用 `setattr(self, name, widget)`**
+- 在 `_build_cosPhi_card`、`_build_shutdown_step` 等循环构建 DC 复选框的方法中，容易只写 `setObjectName(dcCbName)` 而遗漏 `setattr(self, dcCbName, dcCb)`
+- `setObjectName` 只设置 Qt 内部名称，不会让 `self.checkBox_S4_DC1` 这种属性访问生效
+- **典型报错**：`AttributeError: 'Ui_Dialog_thaistaticcosPhi' object has no attribute 'checkBox_S4_DC1'`
+- **修复**：创建 DC checkbox 的循环中，`addWidget` 之后必须加 `setattr(self, dcCbName, dcCb)`
+- **检查方法**：搜索所有 `_build_` 方法中创建 checkbox 的 for 循环，确认每个循环内都有 `setattr`
+- **注意**：不仅是 checkbox，循环中创建的 `QTextEdit`、`QComboBox` 等控件也需要 `setattr`
+
 ### 功率分析仪配置内嵌规则
 
 当测试项目的 step2 是功率分析仪配置时，采用以下模式：

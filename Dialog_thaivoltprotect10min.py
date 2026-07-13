@@ -2,6 +2,10 @@
 # 10min过压保护项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content
+)
 
 
 class Ui_Dialog_thaivoltprotect10min(object):
@@ -120,6 +124,9 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self._build_step4()
         self._build_step5()
 
+        # ── DC 联动（step1 → 关机步骤） ──
+        self._connect_dc_linkage()
+
         # 默认显示第一页
         self._switch_step(0)
 
@@ -151,6 +158,16 @@ class Ui_Dialog_thaivoltprotect10min(object):
                     }
                     QLabel:hover { background-color: #f1f5f9; }
                 """)
+
+    def _make_radio(self, name, text, parent=None, checked=False):
+        """创建 QRadioButton，不调用 setParent（Dialog 不是 QWidget）。"""
+        rb = QtWidgets.QRadioButton(text)
+        rb.setObjectName(name)
+        if parent is not None:
+            setattr(self, name, rb)
+        if checked:
+            rb.setChecked(True)
+        return rb
 
     # ══════════════════════════════════════════════
     # Step 1: AC + DC 电源设置 + 时序
@@ -360,7 +377,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # Step 2: 功率分析仪设置
+    # Step 2: 功率分析仪设置（radio + stackedWidget 内嵌）
     # ══════════════════════════════════════════════
     def _build_step2(self):
         page = QtWidgets.QWidget()
@@ -382,65 +399,40 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.checkBox_S2.setObjectName("checkBox_S2")
         g5Layout.addWidget(self.checkBox_S2, 0, 0)
 
-        # WT3000
-        self.checkBox_S2_WT3000 = QtWidgets.QCheckBox("WT3000")
-        self.checkBox_S2_WT3000.setChecked(True)
-        self.checkBox_S2_WT3000.setObjectName("checkBox_S2_WT3000")
-        g5Layout.addWidget(self.checkBox_S2_WT3000, 1, 0)
+        # Radio buttons
+        self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
+        self.radioButton_S2_WT1800 = self._make_radio("radio_S2_WT1800", "WT1800", parent=self)
+        self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
+        self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
 
-        self.pushButton_S2_WT_3000_CONFIG = QtWidgets.QPushButton("WT_3000_config")
-        self.pushButton_S2_WT_3000_CONFIG.setObjectName("pushButton_S2_WT_3000_CONFIG")
-        self.pushButton_S2_WT_3000_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 14px; font-size: 12px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_3000_CONFIG, 1, 1)
+        radio_group = QtWidgets.QButtonGroup(None)
+        radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        radio_group.addButton(self.radioButton_S2_WT5000, 3)
+        self._radio_group = radio_group  # 保持引用，防止垃圾回收
 
-        # WT1800
-        self.checkBox_S2_WT1800 = QtWidgets.QCheckBox("WT1800")
-        self.checkBox_S2_WT1800.setChecked(True)
-        self.checkBox_S2_WT1800.setObjectName("checkBox_S2_WT1800")
-        g5Layout.addWidget(self.checkBox_S2_WT1800, 2, 0)
+        # Radio 行布局
+        radio_layout = QtWidgets.QHBoxLayout()
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        g5Layout.addLayout(radio_layout, 0, 1, 1, 3)
 
-        self.pushButton_S2_WT_1800_CONFIG = QtWidgets.QPushButton("WT_1800_config")
-        self.pushButton_S2_WT_1800_CONFIG.setObjectName("pushButton_S2_WT_1800_CONFIG")
-        self.pushButton_S2_WT_1800_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 14px; font-size: 12px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_1800_CONFIG, 2, 1)
+        # QStackedWidget
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))   # index 0
+        self._wtStacked.addWidget(build_wt1800_content(self))   # index 1
+        self._wtStacked.addWidget(build_wt1806e_content(self))  # index 2
+        self._wtStacked.addWidget(build_wt5000_content(self))   # index 3
+        g5Layout.addWidget(self._wtStacked, 1, 0, 1, 4)
 
-        # WT1806E
-        self.checkBox_S2_WT1806E = QtWidgets.QCheckBox("WT1806E")
-        self.checkBox_S2_WT1806E.setChecked(True)
-        self.checkBox_S2_WT1806E.setObjectName("checkBox_S2_WT1806E")
-        g5Layout.addWidget(self.checkBox_S2_WT1806E, 3, 0)
-
-        self.pushButton_S2_WT_1806E_CONFIG = QtWidgets.QPushButton("WT_1806E_config")
-        self.pushButton_S2_WT_1806E_CONFIG.setObjectName("pushButton_S2_WT_1806E_CONFIG")
-        self.pushButton_S2_WT_1806E_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 14px; font-size: 12px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_1806E_CONFIG, 3, 1)
-
-        # WT5000
-        self.checkBox_S2_WT5000 = QtWidgets.QCheckBox("WT5000")
-        self.checkBox_S2_WT5000.setChecked(True)
-        self.checkBox_S2_WT5000.setObjectName("checkBox_S2_WT5000")
-        g5Layout.addWidget(self.checkBox_S2_WT5000, 4, 0)
-
-        self.pushButton_S2_WT_5000_CONFIG = QtWidgets.QPushButton("WT_5000_config")
-        self.pushButton_S2_WT_5000_CONFIG.setObjectName("pushButton_S2_WT_5000_CONFIG")
-        self.pushButton_S2_WT_5000_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 14px; font-size: 12px; }
-            QPushButton:hover { background-color: #2563eb; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_5000_CONFIG, 4, 1)
+        # Radio 切换联动
+        def _on_radio_toggled(btn, checked):
+            if checked:
+                self._wtStacked.setCurrentIndex(radio_group.id(btn))
+        radio_group.buttonToggled.connect(_on_radio_toggled)
 
         layout.addWidget(self.groupBox_5)
         layout.addStretch()
@@ -481,6 +473,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S3_AC_VOLT = QtWidgets.QTextEdit()
         self.textEdit_S3_AC_VOLT.setObjectName("textEdit_S3_AC_VOLT")
         self.textEdit_S3_AC_VOLT.setFixedSize(100, 31)
+        self.textEdit_S3_AC_VOLT.setText("230")
         g3Layout.addWidget(self.textEdit_S3_AC_VOLT, 1, 2)
 
         self.label_21 = QtWidgets.QLabel("V")
@@ -494,6 +487,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S3_AC_VOLT_2 = QtWidgets.QTextEdit()
         self.textEdit_S3_AC_VOLT_2.setObjectName("textEdit_S3_AC_VOLT_2")
         self.textEdit_S3_AC_VOLT_2.setFixedSize(100, 31)
+        self.textEdit_S3_AC_VOLT_2.setText("230")
         g3Layout.addWidget(self.textEdit_S3_AC_VOLT_2, 1, 5)
 
         self.label_28 = QtWidgets.QLabel("V")
@@ -507,6 +501,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S3_AC_VOLT_3 = QtWidgets.QTextEdit()
         self.textEdit_S3_AC_VOLT_3.setObjectName("textEdit_S3_AC_VOLT_3")
         self.textEdit_S3_AC_VOLT_3.setFixedSize(100, 31)
+        self.textEdit_S3_AC_VOLT_3.setText("230")
         g3Layout.addWidget(self.textEdit_S3_AC_VOLT_3, 1, 8)
 
         self.label_30 = QtWidgets.QLabel("V")
@@ -521,6 +516,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S3_TIME = QtWidgets.QTextEdit()
         self.textEdit_S3_TIME.setObjectName("textEdit_S3_TIME")
         self.textEdit_S3_TIME.setFixedSize(100, 31)
+        self.textEdit_S3_TIME.setText("10")
         g3Layout.addWidget(self.textEdit_S3_TIME, 2, 1)
 
         self.comboBox_S3_TIME = QtWidgets.QComboBox()
@@ -568,6 +564,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S4_AC_VOLT = QtWidgets.QTextEdit()
         self.textEdit_S4_AC_VOLT.setObjectName("textEdit_S4_AC_VOLT")
         self.textEdit_S4_AC_VOLT.setFixedSize(100, 31)
+        self.textEdit_S4_AC_VOLT.setText("230")
         gLayout.addWidget(self.textEdit_S4_AC_VOLT, 1, 2)
 
         self.label_27 = QtWidgets.QLabel("V")
@@ -581,6 +578,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S4_AC_VOLT_2 = QtWidgets.QTextEdit()
         self.textEdit_S4_AC_VOLT_2.setObjectName("textEdit_S4_AC_VOLT_2")
         self.textEdit_S4_AC_VOLT_2.setFixedSize(100, 31)
+        self.textEdit_S4_AC_VOLT_2.setText("230")
         gLayout.addWidget(self.textEdit_S4_AC_VOLT_2, 1, 5)
 
         self.label_32 = QtWidgets.QLabel("V")
@@ -594,6 +592,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S4_AC_VOLT_3 = QtWidgets.QTextEdit()
         self.textEdit_S4_AC_VOLT_3.setObjectName("textEdit_S4_AC_VOLT_3")
         self.textEdit_S4_AC_VOLT_3.setFixedSize(100, 31)
+        self.textEdit_S4_AC_VOLT_3.setText("230")
         gLayout.addWidget(self.textEdit_S4_AC_VOLT_3, 1, 8)
 
         self.label_34 = QtWidgets.QLabel("V")
@@ -608,6 +607,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S4_TIME = QtWidgets.QTextEdit()
         self.textEdit_S4_TIME.setObjectName("textEdit_S4_TIME")
         self.textEdit_S4_TIME.setFixedSize(100, 31)
+        self.textEdit_S4_TIME.setText("10")
         gLayout.addWidget(self.textEdit_S4_TIME, 2, 1)
 
         self.comboBox_S4_TIME = QtWidgets.QComboBox()
@@ -678,6 +678,25 @@ class Ui_Dialog_thaivoltprotect10min(object):
         layout.addWidget(self.groupBox_11)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    def _connect_dc_linkage(self):
+        """连接 step1 DC 复选框与关机步骤 DC 复选框的联动。"""
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+        end_dcs = [self.checkBox_S_End_DC1, self.checkBox_S_End_DC2,
+                   self.checkBox_S_End_DC3, self.checkBox_S_End_DC4]
+
+        def _update_end_dc(_checked=None):
+            step_end_on = self.checkBox_S_End.isChecked()
+            for i in range(4):
+                should_enable = step_end_on and step1_dcs[i].isChecked()
+                end_dcs[i].setEnabled(should_enable)
+                end_dcs[i].setChecked(should_enable)
+
+        self.checkBox_S_End.toggled.connect(_update_end_dc)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_end_dc)
+        _update_end_dc()  # 初始化状态
 
     def retranslateUi(self, Dialog_thaivoltprotect10min):
         _translate = QtCore.QCoreApplication.translate

@@ -15,6 +15,7 @@ from utils.Open_Save_ThaiWT3000_Config import Open_File_ThaiWT3000_Config, Save_
 from utils.Open_Save_ThaiWT1800_Config import Open_File_ThaiWT1800_Config, Save_File_ThaiWT1800_Config
 from utils.Open_Save_ThaiWT1806E_Config import Open_File_ThaiWT1806E_Config, Save_File_ThaiWT1806E_Config
 from utils.Open_Save_ThaiWT5000_Config import Open_File_ThaiWT5000_Config, Save_File_ThaiWT5000_Config
+from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
 
 
 FILE_TAG = "ThaiFrequencyAdaptability"
@@ -155,14 +156,14 @@ def Save_File_ThaiFrequencyAdaptability(kwargs):
         row.append(_widget_to_csv(ui, col))
 
     result = []
-    if ui.checkBox_S2_WT3000.isChecked():
-        result = Save_File_ThaiWT3000_Config(ui_thia_wt3000e)
-    if ui.checkBox_S2_WT1800.isChecked():
-        result = Save_File_ThaiWT1800_Config(ui_thia_wt1800)
-    if ui.checkBox_S2_WT1806E.isChecked():
-        result = Save_File_ThaiWT1806E_Config(ui_thia_wt1806e)
-    if ui.checkBox_S2_WT5000.isChecked():
-        result = Save_File_ThaiWT5000_Config(ui_thia_wt5000)
+    if ui.radioButton_S2_WT3000.isChecked():
+        result = Save_File_ThaiWT3000_Config(_PageWidgetFinder(ui._wtStacked.widget(0)))
+    if ui.radioButton_S2_WT1800.isChecked():
+        result = Save_File_ThaiWT1800_Config(_PageWidgetFinder(ui._wtStacked.widget(1)))
+    if ui.radioButton_S2_WT1806E.isChecked():
+        result = Save_File_ThaiWT1806E_Config(_PageWidgetFinder(ui._wtStacked.widget(2)))
+    if ui.radioButton_S2_WT5000.isChecked():
+        result = Save_File_ThaiWT5000_Config(_PageWidgetFinder(ui._wtStacked.widget(3)))
 
     with open(directory[0], "w", newline="", encoding="utf-8-sig") as fp:
         writer = csv.writer(fp)
@@ -236,14 +237,14 @@ def Open_File_ThaiFrequencyAdaptability(kwargs):
         if col in config:
             _apply_csv_value(ui, col, config[col])
 
-    if ui.checkBox_S2_WT3000.isChecked():
-        Open_File_ThaiWT3000_Config(ui_thia_wt3000e, wt_config_dict)
-    if ui.checkBox_S2_WT1800.isChecked():
-        Open_File_ThaiWT1800_Config(ui_thia_wt1800, wt_config_dict)
-    if ui.checkBox_S2_WT1806E.isChecked():
-        Open_File_ThaiWT1806E_Config(ui_thia_wt1806e, wt_config_dict)
-    if ui.checkBox_S2_WT5000.isChecked():
-        Open_File_ThaiWT5000_Config(ui_thia_wt5000, wt_config_dict)
+    if ui.radioButton_S2_WT3000.isChecked():
+        Open_File_ThaiWT3000_Config(_PageWidgetFinder(ui._wtStacked.widget(0)), wt_config_dict)
+    if ui.radioButton_S2_WT1800.isChecked():
+        Open_File_ThaiWT1800_Config(_PageWidgetFinder(ui._wtStacked.widget(1)), wt_config_dict)
+    if ui.radioButton_S2_WT1806E.isChecked():
+        Open_File_ThaiWT1806E_Config(_PageWidgetFinder(ui._wtStacked.widget(2)), wt_config_dict)
+    if ui.radioButton_S2_WT5000.isChecked():
+        Open_File_ThaiWT5000_Config(_PageWidgetFinder(ui._wtStacked.widget(3)), wt_config_dict)
 
     QMessageBox.information(
         dialog_window,

@@ -2,6 +2,10 @@
 # 过频降载项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content
+)
 
 
 class Ui_Dialog_thaiguopinjiangzai(object):
@@ -83,7 +87,7 @@ class Ui_Dialog_thaiguopinjiangzai(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 过频1", "④ 过频2", "⑤ 过频3", "⑥ 过频4", "⑦ 过频5", "⑧ 过频6", "⑨ 过频7", "⑩ 过频8", "⑪ 过频9", "⑫ 过频10", "⑬ 过频11", "⑭ 过频12", "⑮ 过频13", "⑯ 过频14", "⑰ 过频15", "⑱ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 过频设置", "④ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -109,22 +113,11 @@ class Ui_Dialog_thaiguopinjiangzai(object):
         # ── 构建各步骤页面 ──
         self._build_step1()   # ① AC/DC 电源
         self._build_step2()   # ② 功率分析仪
-        self._build_step_overfreq(3, "S3", "过频 1")   # ③
-        self._build_step_overfreq(4, "S4", "过频 2")   # ④
-        self._build_step_overfreq(5, "S5", "过频 3")   # ⑤
-        self._build_step_overfreq(6, "S6", "过频 4")   # ⑥
-        self._build_step_overfreq(7, "S7", "过频 5")   # ⑦
-        self._build_step_overfreq(8, "S8", "过频 6")   # ⑧
-        self._build_step_overfreq(9, "S9", "过频 7")   # ⑨
-        self._build_step_overfreq(10, "S10", "过频 8")  # ⑩
-        self._build_step_overfreq(11, "S11", "过频 9")  # ⑪
-        self._build_step_overfreq(12, "S12", "过频 10") # ⑫
-        self._build_step_overfreq(13, "S13", "过频 11") # ⑬
-        self._build_step_overfreq(14, "S14", "过频 12") # ⑭
-        self._build_step_overfreq(15, "S15", "过频 13") # ⑮
-        self._build_step_overfreq(16, "S16", "过频 14") # ⑯
-        self._build_step_overfreq(17, "S17", "过频 15") # ⑰
-        self._build_step_last()  # ⑱ 关机设置
+        self._build_overfreq_steps()  # ③ 过频设置（15个卡片合并）
+        self._build_step_last()  # ④ 关机设置
+
+        # ── DC 联动（step1 → 关机步骤） ──
+        self._connect_dc_linkage()
 
         # 默认显示第一页
         self._switch_step(0)
@@ -158,22 +151,70 @@ class Ui_Dialog_thaiguopinjiangzai(object):
                     QLabel:hover { background-color: #f1f5f9; }
                 """)
 
+    def _make_radio(self, name, text, parent=None, checked=False):
+        """创建 QRadioButton，不调用 setParent（Dialog 不是 QWidget）。"""
+        rb = QtWidgets.QRadioButton(text)
+        rb.setObjectName(name)
+        if parent is not None:
+            setattr(self, name, rb)
+        if checked:
+            rb.setChecked(True)
+        return rb
+
     # ══════════════════════════════════════════════
-    # 通用过频步骤构建（步骤 3-17，S3-S17）
+    # 过频步骤合并（15个卡片 → 1个滚动页面）
     # ══════════════════════════════════════════════
-    def _build_step_overfreq(self, step_index, suffix, title):
-        """Build an overfrequency step page with AC_VOLT, AC_FR, TIME."""
+    def _build_overfreq_steps(self):
+        """构建合并的过频设置页面，15个卡片垂直排列，可滚动。"""
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(0)
 
-        groupBox = QtWidgets.QGroupBox()
-        groupBox.setObjectName(f"groupBox_{suffix}")
-        groupBox.setTitle(f"过频降载设置 - {title}")
-        groupBox.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
-        gLayout = QtWidgets.QGridLayout(groupBox)
+        # 步骤启用复选框
+        self.checkBox_S3 = QtWidgets.QCheckBox("step3")
+        self.checkBox_S3.setChecked(True)
+        self.checkBox_S3.setObjectName("checkBox_S3")
+        self.checkBox_S3.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
+        layout.addWidget(self.checkBox_S3)
+
+        # QScrollArea 承载所有卡片
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_widget = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 8, 0, 8)
+        scroll_layout.setSpacing(8)
+
+        # 构建15个过频卡片
+        for i in range(15):
+            step_index = i + 3  # S3 ~ S17
+            suffix = f"S{step_index}"
+            title = f"过频 {i + 1}"
+            card = self._build_overfreq_card(step_index, suffix, title)
+            scroll_layout.addWidget(card)
+
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
+
+        self.stackedWidget.addWidget(page)
+
+    def _build_overfreq_card(self, step_index, suffix, title):
+        """构建单个过频配置卡片。"""
+        card = QtWidgets.QWidget()
+        card.setStyleSheet("background-color: white;")
+        cardLayout = QtWidgets.QVBoxLayout(card)
+        cardLayout.setContentsMargins(0, 0, 0, 0)
+        cardLayout.setSpacing(0)
+
+        grp = QtWidgets.QGroupBox()
+        grp.setObjectName(f"groupBox_{suffix}")
+        grp.setTitle(title)
+        grp.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
+        gLayout = QtWidgets.QGridLayout(grp)
         gLayout.setSpacing(10)
         gLayout.setContentsMargins(16, 24, 16, 12)
 
@@ -234,9 +275,19 @@ class Ui_Dialog_thaiguopinjiangzai(object):
         setattr(self, f"comboBox_{suffix}_TIME", combo_time)
         gLayout.addWidget(combo_time, 1, 3)
 
-        layout.addWidget(groupBox)
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
+        # 联动：步骤复选框禁用时，禁用内部控件
+        inner_widgets = [te_volt, te_fr, te_time, combo_time,
+                         lbl_ac, lbl_v, lbl_fr_title, lbl_hz, lbl_time_title]
+        step_cb = cb  # 局部引用
+
+        def _on_step_toggled(checked, widgets=inner_widgets, scb=step_cb):
+            for w in widgets:
+                w.setEnabled(checked)
+
+        cb.toggled.connect(_on_step_toggled)
+
+        cardLayout.addWidget(grp)
+        return card
 
     # ══════════════════════════════════════════════
     # Step 1: AC + DC 电源设置 + 时序
@@ -426,7 +477,7 @@ class Ui_Dialog_thaiguopinjiangzai(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # Step 2: 功率分析仪设置
+    # Step 2: 功率分析仪设置（radio + stackedWidget 内嵌）
     # ══════════════════════════════════════════════
     def _build_step2(self):
         page = QtWidgets.QWidget()
@@ -448,69 +499,40 @@ class Ui_Dialog_thaiguopinjiangzai(object):
         self.checkBox_S2.setObjectName("checkBox_S2")
         g5Layout.addWidget(self.checkBox_S2, 0, 0)
 
-        # Row 0: WT3000
-        self.checkBox_S2_WT3000 = QtWidgets.QCheckBox("WT3000")
-        self.checkBox_S2_WT3000.setChecked(True)
-        self.checkBox_S2_WT3000.setObjectName("checkBox_S2_WT3000")
-        g5Layout.addWidget(self.checkBox_S2_WT3000, 1, 0)
+        # Radio buttons
+        self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
+        self.radioButton_S2_WT1800 = self._make_radio("radio_S2_WT1800", "WT1800", parent=self)
+        self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
+        self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
 
-        self.pushButton_S2_WT_3000_CONFIG = QtWidgets.QPushButton("WT_3000_config")
-        self.pushButton_S2_WT_3000_CONFIG.setObjectName("pushButton_S2_WT_3000_CONFIG")
-        self.pushButton_S2_WT_3000_CONFIG.setFixedHeight(34)
-        self.pushButton_S2_WT_3000_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #6366f1; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 12px; }
-            QPushButton:hover { background-color: #4f46e5; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_3000_CONFIG, 1, 1)
+        radio_group = QtWidgets.QButtonGroup(None)
+        radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        radio_group.addButton(self.radioButton_S2_WT5000, 3)
+        self._radio_group = radio_group  # 保持引用，防止垃圾回收
 
-        # WT1800
-        self.checkBox_S2_WT1800 = QtWidgets.QCheckBox("WT1800")
-        self.checkBox_S2_WT1800.setChecked(True)
-        self.checkBox_S2_WT1800.setObjectName("checkBox_S2_WT1800")
-        g5Layout.addWidget(self.checkBox_S2_WT1800, 2, 0)
+        # Radio 行布局
+        radio_layout = QtWidgets.QHBoxLayout()
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        g5Layout.addLayout(radio_layout, 0, 1, 1, 3)
 
-        self.pushButton_S2_WT_1800_CONFIG = QtWidgets.QPushButton("WT_1800_config")
-        self.pushButton_S2_WT_1800_CONFIG.setObjectName("pushButton_S2_WT_1800_CONFIG")
-        self.pushButton_S2_WT_1800_CONFIG.setFixedHeight(34)
-        self.pushButton_S2_WT_1800_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #6366f1; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 12px; }
-            QPushButton:hover { background-color: #4f46e5; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_1800_CONFIG, 2, 1)
+        # QStackedWidget
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))   # index 0
+        self._wtStacked.addWidget(build_wt1800_content(self))   # index 1
+        self._wtStacked.addWidget(build_wt1806e_content(self))  # index 2
+        self._wtStacked.addWidget(build_wt5000_content(self))   # index 3
+        g5Layout.addWidget(self._wtStacked, 1, 0, 1, 4)
 
-        # WT1806E
-        self.checkBox_S2_WT1806E = QtWidgets.QCheckBox("WT1806E")
-        self.checkBox_S2_WT1806E.setChecked(True)
-        self.checkBox_S2_WT1806E.setObjectName("checkBox_S2_WT1806E")
-        g5Layout.addWidget(self.checkBox_S2_WT1806E, 3, 0)
-
-        self.pushButton_S2_WT_1806E_CONFIG = QtWidgets.QPushButton("WT_1806E_config")
-        self.pushButton_S2_WT_1806E_CONFIG.setObjectName("pushButton_S2_WT_1806E_CONFIG")
-        self.pushButton_S2_WT_1806E_CONFIG.setFixedHeight(34)
-        self.pushButton_S2_WT_1806E_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #6366f1; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 12px; }
-            QPushButton:hover { background-color: #4f46e5; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_1806E_CONFIG, 3, 1)
-
-        # WT5000
-        self.checkBox_S2_WT5000 = QtWidgets.QCheckBox("WT5000")
-        self.checkBox_S2_WT5000.setChecked(True)
-        self.checkBox_S2_WT5000.setObjectName("checkBox_S2_WT5000")
-        g5Layout.addWidget(self.checkBox_S2_WT5000, 4, 0)
-
-        self.pushButton_S2_WT_5000_CONFIG = QtWidgets.QPushButton("WT_5000_config")
-        self.pushButton_S2_WT_5000_CONFIG.setObjectName("pushButton_S2_WT_5000_CONFIG")
-        self.pushButton_S2_WT_5000_CONFIG.setFixedHeight(34)
-        self.pushButton_S2_WT_5000_CONFIG.setStyleSheet("""
-            QPushButton { background-color: #6366f1; color: white; border: none; border-radius: 4px;
-                          padding: 6px 12px; font-size: 12px; }
-            QPushButton:hover { background-color: #4f46e5; }
-        """)
-        g5Layout.addWidget(self.pushButton_S2_WT_5000_CONFIG, 4, 1)
+        # Radio 切换联动
+        def _on_radio_toggled(btn, checked):
+            if checked:
+                self._wtStacked.setCurrentIndex(radio_group.id(btn))
+        radio_group.buttonToggled.connect(_on_radio_toggled)
 
         layout.addWidget(self.groupBox_5)
         layout.addStretch()
@@ -598,6 +620,25 @@ class Ui_Dialog_thaiguopinjiangzai(object):
         layout.addWidget(self.groupBox_11)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    def _connect_dc_linkage(self):
+        """连接 step1 DC 复选框与关机步骤 DC 复选框的联动。"""
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+        end_dcs = [self.checkBox_S_End_DC1, self.checkBox_S_End_DC2,
+                   self.checkBox_S_End_DC3, self.checkBox_S_End_DC4]
+
+        def _update_end_dc(_checked=None):
+            step_end_on = self.checkBox_S_End.isChecked()
+            for i in range(4):
+                should_enable = step_end_on and step1_dcs[i].isChecked()
+                end_dcs[i].setEnabled(should_enable)
+                end_dcs[i].setChecked(should_enable)
+
+        self.checkBox_S_End.toggled.connect(_update_end_dc)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_end_dc)
+        _update_end_dc()  # 初始化状态
 
     def retranslateUi(self, Dialog_thaiguopinjiangzai):
         _translate = QtCore.QCoreApplication.translate

@@ -10,9 +10,8 @@ description: SolarAutoTest AutoTest 测试项目对话框接入技能。用于�
 ## 前置条件
 
 - 闪变测试（fluctuation）是标准参考，只读参考，不允许修改
-- 已完成项目：闪变、谐波电流、过载能力测试
-- 所有改动必须在 `SolarAutoTestEnv` conda 环境下测试
-- 运行命令：`conda activate SolarAutoTestEnv && python SCPITestWave.py`
+- 已完成项目：闪变、固定PF=1（不要动）
+- 运行命令：`uv run python SCPITestWave.py`
 
 ## 项目信息收集
 
@@ -736,6 +735,60 @@ def xxxSend():
 - **检查方法**：搜索每个步骤的 DC 块，确认 DC1 用 `"1"/"2"`、DC2 用 `"3"/"4"`、DC3 用 `"5"/"6"`、DC4 用 `"7"/"8"`
 - **新项目接入时必须检查**：接入新项目的 Send 函数时，逐个核对每个 DC 块的错误码
 
+### 坑17：`_make_radio` 不能调用 `setParent(parent)`，`self` 不是 QWidget
+
+- `Dialog_thaiXxx` 类继承自 `object`（不是 QWidget），`self` 不能作为 Qt 控件的 parent
+- `_make_radio` 中 `rb.setParent(parent)` 会报 `TypeError: arguments did not match any overloaded call: setParent(self, parent: Optional[QWidget]): argument 1 has unexpected type 'Ui_Dialog_thaichonglian'`
+- **修复**：`_make_radio` 只做 `setattr(self, name, rb)` 存储属性，不调用 `setParent`
+- **代码模式**：
+  ```python
+  def _make_radio(self, name, text, parent=None, checked=False):
+      rb = QtWidgets.QRadioButton(text)
+      rb.setObjectName(name)
+      if parent is not None:
+          setattr(self, name, rb)  # 只 setattr，不 setParent
+      if checked:
+          rb.setChecked(True)
+      return rb
+  ```
+- **检查方法**：搜索所有 `Dialog_thaiXxx.py` 中的 `_make_radio` 方法，确认没有 `rb.setParent(parent)` 调用
+- **涉及项目**：重连（Dialog_thaichonglian.py）已修复，后续新项目接入时直接复制正确版本
+- **注意**：`_make_checkbox`、`_make_combo`、`_make_input` 等辅助方法如果也调用了 `setParent`，同样会报此错误，需一并检查
+
+### 坑19：动态构建的 DC 复选框必须调用 `setattr(self, name, widget)`
+
+- 在 `_build_cosPhi_card`、`_build_shutdown_step` 等循环构建 DC 复选框的方法中，容易只写 `setObjectName(dcCbName)` 而遗漏 `setattr(self, dcCbName, dcCb)`
+- `setObjectName` 只设置 Qt 内部名称，不会让 `self.checkBox_S4_DC1` 这种属性访问生效
+- **典型报错**：`AttributeError: 'Ui_Dialog_thaistaticcosPhi' object has no attribute 'checkBox_S4_DC1'`
+- **易发场景**：cosPhi 合并卡片、过载卡片、任何用 for 循环批量创建 DC checkbox 的地方
+- **修复**：创建 DC checkbox 的循环中，`addWidget` 之后必须加 `setattr(self, dcCbName, dcCb)`
+- **代码模式**：
+  ```python
+  for c, dcCbName in enumerate(dc_cb_names):
+      dcCb = QtWidgets.QCheckBox("直流电源" + str(c + 1))
+      dcCb.setChecked(True)
+      dcCb.setObjectName(dcCbName)
+      gLayout.addWidget(dcCb, 1, c)
+      setattr(self, dcCbName, dcCb)  # 必须！
+  ```
+- **检查方法**：搜索所有 `_build_` 方法中创建 checkbox 的 for 循环，确认每个循环内都有 `setattr`
+- **涉及文件**：`Dialog_thaistaticcosPhi.py`、`Dialog_thaicosPhi_Brazil.py` 以及其他有循环创建 DC checkbox 的 Dialog 文件
+- **注意**：不仅是 checkbox，循环中创建的 `QTextEdit`、`QComboBox` 等控件也需要 `setattr`
+
+### 坑18：DC 联动必须覆盖所有有 DC 块的步骤，不能只检查标准步骤
+
+- **不要假设只有 step3/5/7 有 DC 块**——不同项目的步骤数量和 DC 分布不同
+- **典型遗漏**：只给 step3/5/7 加了 DC 联动，漏掉了 step4/6 或其他步骤
+- **实际案例**：
+  - 直流分量有 step3/4/5/6/7 共 5 个步骤含 DC 块，最初只加了 step4/6/7，漏了 step3/5
+  - 重连有关机步骤 `checkBox_S_End_DC*`，不是标准的 `checkBox_S7_DC*` 命名
+- **正确做法**：逐个检查 Dialog 文件中所有含 `checkBox_S*_DC*` 的步骤，每个都要联动 step1 DC
+- **检查方法**：
+  1. 在 Dialog 文件中搜索所有 `checkBox_S.*_DC`（排除 step1 本身的 `checkBox_S1_DC*`）
+  2. 对每个找到的步骤，确认 `_connect_dc_linkage()` 中有对应的联动逻辑
+  3. 在 Send 函数中搜索所有 `checkBox_S.*_DC.*isChecked`，确认每个 DC 块都同时检查了 `checkBox_S1_DC`
+- **新项目接入时必须检查**：接入新项目时，第一步就是搜索 Dialog 文件中所有 DC 复选框，列出需要联动的步骤清单
+
 ---
 
 ## 自测清单（必须逐一完成）
@@ -965,6 +1018,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 | Dialog: step5 DC 联动 step1 | ☐ | (如果有) |
 | Dialog: step7 DC 联动 step1 | ☐ | (如果有) |
 | Dialog: 关机步骤 DC 联动 step1 | ☐ | |
+| Dialog: 循环创建的控件都有 setattr（坑19） | ☐ | |
 | Dialog: radio+stackedWidget 内嵌 | ☐ | (如果有) |
 | Dialog: 步骤合并（ComboBox+StackedWidget） | ☐ | (如果用户要求) |
 | Dialog: 合并卡片 DC 联动遍历所有 | ☐ | (如果合并) |

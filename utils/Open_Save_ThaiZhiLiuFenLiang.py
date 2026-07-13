@@ -4,6 +4,7 @@ from utils.Open_Save_ThaiWT3000_Config import Save_File_ThaiWT3000_Config, Open_
 from utils.Open_Save_ThaiWT1800_Config import Save_File_ThaiWT1800_Config, Open_File_ThaiWT1800_Config
 from utils.Open_Save_ThaiWT1806E_Config import Save_File_ThaiWT1806E_Config, Open_File_ThaiWT1806E_Config
 from utils.Open_Save_ThaiWT5000_Config import Save_File_ThaiWT5000_Config, Open_File_ThaiWT5000_Config
+from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
 
 arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "textEdit_S1_AC_VOLT_2",
     "textEdit_S1_AC_VOLT_3","textEdit_S1_AC_FR","comboBox_S1_AC_2",
@@ -31,7 +32,7 @@ def Save_File_ThaiZhiLiuFenLiang(kwargs):
     uiThiaWT1806E = kwargs['uiThiaWT1806E']
     uiThiaWT5000 = kwargs['uiThiaWT5000']
     result = []
-    directory1 = QFileDialog.getSaveFileName(Nonezhiliufenliang, "单个文件保存", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getSaveFileName(None, "单个文件保存", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print('请选择一个文件')
     else:
@@ -177,13 +178,13 @@ def Save_File_ThaiZhiLiuFenLiang(kwargs):
             checkBox_S2 = '0'
         arrayRow2.append(checkBox_S2)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT3000.isChecked():
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT3000.isChecked():
             checkBox_S2_WT3000 = '1'
         else:
             checkBox_S2_WT3000 = '0'
         arrayRow2.append(checkBox_S2_WT3000)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT1800.isChecked():
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT1800.isChecked():
             checkBox_S2_WT1800 = '1'
         else:
             checkBox_S2_WT1800 = '0'
@@ -383,29 +384,29 @@ def Save_File_ThaiZhiLiuFenLiang(kwargs):
         comboBox_S7_DC4 = uiThaiZhiLiuFenLiang.comboBox_S7_DC4.currentIndex()
         arrayRow2.append(comboBox_S7_DC4)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT1806E.isChecked():
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT1806E.isChecked():
             checkBox_S2_WT1806E = '1'
         else:
             checkBox_S2_WT1806E = '0'
         arrayRow2.append(checkBox_S2_WT1806E)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT5000.isChecked():
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.isChecked():
             checkBox_S2_WT5000 = '1'
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT3000.isChecked():
-            result = Save_File_ThaiWT3000_Config(uiThiaWT3000E)
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT3000.isChecked():
+            result = Save_File_ThaiWT3000_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(0)))
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT1800.isChecked():
-            result = Save_File_ThaiWT1800_Config(uiThiaWT1800)
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT1800.isChecked():
+            result = Save_File_ThaiWT1800_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(1)))
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT1806E.isChecked():
-            result = Save_File_ThaiWT1806E_Config(uiThiaWT1806E)
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT1806E.isChecked():
+            result = Save_File_ThaiWT1806E_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(2)))
 
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT5000.isChecked():
-            result = Save_File_ThaiWT5000_Config(uiThiaWT5000)
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.isChecked():
+            result = Save_File_ThaiWT5000_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(3)))
 
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
@@ -415,7 +416,7 @@ def Save_File_ThaiZhiLiuFenLiang(kwargs):
             csv_write.writerow(result[0])
             csv_write.writerow(result[1])
         out.close()
-        QMessageBox.information(Nonezhiliufenliang, "实验设定提示信息", "直流分量文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "直流分量文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 #谐波电流读取设定
 def Open_File_ThaiZhiLiuFenLiang(kwargs):
@@ -429,7 +430,7 @@ def Open_File_ThaiZhiLiuFenLiang(kwargs):
     result_list = []
     config_dict = {}
     wt_config_dict = {}
-    directory1 = QFileDialog.getOpenFileName(Nonezhiliufenliang, "单个文件选择", "./", "Text Files(*.csv)")
+    directory1 = QFileDialog.getOpenFileName(None, "单个文件选择", "./", "Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
@@ -769,9 +770,9 @@ def Open_File_ThaiZhiLiuFenLiang(kwargs):
                         if arrayRow1[41] in config_dict:
                             checkBox_S2_WT3000 = config_dict[arrayRow1[41]]
                             if checkBox_S2_WT3000 == '1':
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT3000.setChecked(True)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT3000.setChecked(True)
                             else:
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT3000.setChecked(False)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT3000.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -779,9 +780,9 @@ def Open_File_ThaiZhiLiuFenLiang(kwargs):
                         if arrayRow1[42] in config_dict:
                             checkBox_S2_WT1800 = config_dict[arrayRow1[42]]
                             if checkBox_S2_WT1800 == '1':
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT1800.setChecked(True)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT1800.setChecked(True)
                             else:
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT1800.setChecked(False)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT1800.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -1134,9 +1135,9 @@ def Open_File_ThaiZhiLiuFenLiang(kwargs):
                         if arrayRow1[81] in config_dict:
                             checkBox_S2_WT1806E = config_dict[arrayRow1[81]]
                             if checkBox_S2_WT1806E == '1':
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT1806E.setChecked(True)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT1806E.setChecked(True)
                             else:
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT1806E.setChecked(False)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT1806E.setChecked(False)
                         else:
                             strFlag = 1
 
@@ -1144,43 +1145,43 @@ def Open_File_ThaiZhiLiuFenLiang(kwargs):
                         if arrayRow1[82] in config_dict:
                             checkBox_S2_WT5000 = config_dict[arrayRow1[82]]
                             if checkBox_S2_WT5000 == '1':
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT5000.setChecked(True)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.setChecked(True)
                             else:
-                                uiThaiZhiLiuFenLiang.checkBox_S2_WT5000.setChecked(False)
+                                uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.setChecked(False)
                         else:
                             strFlag = 1
                     
                     if arrayRow1[41] in config_dict:
                         checkBox_S2_WT3000 = config_dict[arrayRow1[41]]
                         if checkBox_S2_WT3000 == '1':
-                            Open_File_ThaiWT3000_Config(uiThiaWT3000E, wt_config_dict)
-                        
+                            Open_File_ThaiWT3000_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(0)), wt_config_dict)
+
                     else:
                         strFlag = 1
 
                     if arrayRow1[42] in config_dict:
                         checkBox_S2_WT1800 = config_dict[arrayRow1[42]]
                         if checkBox_S2_WT1800 == '1':
-                            Open_File_ThaiWT1800_Config(uiThiaWT1800, wt_config_dict)
+                            Open_File_ThaiWT1800_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(1)), wt_config_dict)
                     else:
                         strFlag = 1
 
                     if arrayRow1[81] in config_dict:
                         checkBox_S2_WT1806E = config_dict[arrayRow1[81]]
                         if checkBox_S2_WT1806E == '1':
-                            Open_File_ThaiWT1806E_Config(uiThiaWT1806E, wt_config_dict)
+                            Open_File_ThaiWT1806E_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(2)), wt_config_dict)
                     else:
                         strFlag = 1
 
                     if arrayRow1[82] in config_dict:
                         checkBox_S2_WT5000 = config_dict[arrayRow1[82]]
                         if checkBox_S2_WT5000 == '1':
-                            Open_File_ThaiWT5000_Config(uiThiaWT5000, wt_config_dict)
+                            Open_File_ThaiWT5000_Config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(3)), wt_config_dict)
                     else:
                         strFlag = 1
 
 
-        QMessageBox.information(Nonezhiliufenliang, "实验设定提示信息", "直流分量文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "直流分量文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
 # def save_file_header():
 #     directory1 = [r"D:\\project\\photovoltaic_automation_t\\config_files\\project_step_configs\\zhiliufenliang.csv"]

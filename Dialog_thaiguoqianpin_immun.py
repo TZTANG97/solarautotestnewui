@@ -2,6 +2,10 @@
 # 过欠频稳定性项目配置 - 横向步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content
+)
 
 
 class Ui_Dialog_thaiguoqianpin_immun(object):
@@ -83,7 +87,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 频率扫描1", "④ 频率扫描2", "⑤ 频率扫描3", "⑥ 频率扫描4", "⑦ 频率扫描5", "⑧ 频率扫描6", "⑨ 频率扫描7", "⑩ 频率扫描8", "⑪ 频率扫描9", "⑫ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 频率扫描", "④ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -109,16 +113,11 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         # ── 构建各步骤页面 ──
         self._build_step1()   # AC/DC 电源
         self._build_step2()   # 功率分析仪
-        self._build_step3()   # 频率扫描1
-        self._build_step4()   # 频率扫描2
-        self._build_step5()   # 频率扫描3
-        self._build_step6()   # 频率扫描4
-        self._build_step7()   # 频率扫描5
-        self._build_step8()   # 频率扫描6
-        self._build_step9()   # 频率扫描7
-        self._build_step10()  # 频率扫描8
-        self._build_step11()  # 频率扫描9
+        self._build_freq_sweep_steps()  # 频率扫描（9个卡片合并）
         self._build_step12()  # 关机设置
+
+        # ── DC 联动（step1 → 关机步骤） ──
+        self._connect_dc_linkage()
 
         # 默认显示第一页
         self._switch_step(0)
@@ -151,6 +150,16 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
                     }
                     QLabel:hover { background-color: #f1f5f9; }
                 """)
+
+    def _make_radio(self, name, text, parent=None, checked=False):
+        """创建 QRadioButton，不调用 setParent（Dialog 不是 QWidget）。"""
+        rb = QtWidgets.QRadioButton(text)
+        rb.setObjectName(name)
+        if parent is not None:
+            setattr(self, name, rb)
+        if checked:
+            rb.setChecked(True)
+        return rb
 
     # ══════════════════════════════════════════════
     # Step 1: AC/DC 电源设置
@@ -193,6 +202,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.textEdit_S1_AC_VOLT = QtWidgets.QTextEdit()
         self.textEdit_S1_AC_VOLT.setObjectName("textEdit_S1_AC_VOLT")
         self.textEdit_S1_AC_VOLT.setFixedSize(100, 31)
+        self.textEdit_S1_AC_VOLT.setText("230")
         gAcLayout.addWidget(self.textEdit_S1_AC_VOLT, 0, 4)
 
         self.label_5 = QtWidgets.QLabel("V")
@@ -206,6 +216,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.textEdit_S1_AC_VOLT_2 = QtWidgets.QTextEdit()
         self.textEdit_S1_AC_VOLT_2.setObjectName("textEdit_S1_AC_VOLT_2")
         self.textEdit_S1_AC_VOLT_2.setFixedSize(100, 31)
+        self.textEdit_S1_AC_VOLT_2.setText("230")
         gAcLayout.addWidget(self.textEdit_S1_AC_VOLT_2, 0, 7)
 
         self.label_107 = QtWidgets.QLabel("V")
@@ -219,6 +230,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.textEdit_S1_AC_VOLT_3 = QtWidgets.QTextEdit()
         self.textEdit_S1_AC_VOLT_3.setObjectName("textEdit_S1_AC_VOLT_3")
         self.textEdit_S1_AC_VOLT_3.setFixedSize(100, 31)
+        self.textEdit_S1_AC_VOLT_3.setText("230")
         gAcLayout.addWidget(self.textEdit_S1_AC_VOLT_3, 1, 1)
 
         self.label_102 = QtWidgets.QLabel("V")
@@ -232,6 +244,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.textEdit_S1_AC_FR = QtWidgets.QTextEdit()
         self.textEdit_S1_AC_FR.setObjectName("textEdit_S1_AC_FR")
         self.textEdit_S1_AC_FR.setFixedSize(100, 31)
+        self.textEdit_S1_AC_FR.setText("50")
         gAcLayout.addWidget(self.textEdit_S1_AC_FR, 1, 4)
 
         self.label_18 = QtWidgets.QLabel("Hz")
@@ -352,6 +365,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.textEdit_S1_ACWaitTIME = QtWidgets.QTextEdit()
         self.textEdit_S1_ACWaitTIME.setObjectName("textEdit_S1_ACWaitTIME")
         self.textEdit_S1_ACWaitTIME.setFixedSize(100, 31)
+        self.textEdit_S1_ACWaitTIME.setText("3")
         gTimeLayout.addWidget(self.textEdit_S1_ACWaitTIME, 0, 1)
         self.comboBox_S1_ACWaitTIME = QtWidgets.QComboBox()
         self.comboBox_S1_ACWaitTIME.setObjectName("comboBox_S1_ACWaitTIME")
@@ -365,6 +379,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.textEdit_S1_TIME = QtWidgets.QTextEdit()
         self.textEdit_S1_TIME.setObjectName("textEdit_S1_TIME")
         self.textEdit_S1_TIME.setFixedSize(100, 31)
+        self.textEdit_S1_TIME.setText("5")
         gTimeLayout.addWidget(self.textEdit_S1_TIME, 0, 4)
         self.comboBox_S1_TIME = QtWidgets.QComboBox()
         self.comboBox_S1_TIME.setObjectName("comboBox_S1_TIME")
@@ -378,7 +393,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # Step 2: 功率分析仪设置
+    # Step 2: 功率分析仪设置（radio + stackedWidget 内嵌）
     # ══════════════════════════════════════════════
     def _build_step2(self):
         page = QtWidgets.QWidget()
@@ -400,105 +415,144 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.checkBox_S2.setObjectName("checkBox_S2")
         g2Layout.addWidget(self.checkBox_S2, 0, 0)
 
-        # WT 选择
-        self.checkBox_S2_WT3000 = QtWidgets.QCheckBox("WT3000")
-        self.checkBox_S2_WT3000.setChecked(True)
-        self.checkBox_S2_WT3000.setObjectName("checkBox_S2_WT3000")
-        g2Layout.addWidget(self.checkBox_S2_WT3000, 1, 0)
+        # Radio buttons
+        self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
+        self.radioButton_S2_WT1800 = self._make_radio("radio_S2_WT1800", "WT1800", parent=self)
+        self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
+        self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
 
-        self.pushButton_S2_WT_3000_CONFIG = QtWidgets.QPushButton("WT_3000_config")
-        self.pushButton_S2_WT_3000_CONFIG.setObjectName("pushButton_S2_WT_3000_CONFIG")
-        self.pushButton_S2_WT_3000_CONFIG.setFixedWidth(141)
-        g2Layout.addWidget(self.pushButton_S2_WT_3000_CONFIG, 1, 1)
+        radio_group = QtWidgets.QButtonGroup(None)
+        radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        radio_group.addButton(self.radioButton_S2_WT5000, 3)
+        self._radio_group = radio_group  # 保持引用，防止垃圾回收
 
-        self.checkBox_S2_WT1800 = QtWidgets.QCheckBox("WT1800")
-        self.checkBox_S2_WT1800.setChecked(True)
-        self.checkBox_S2_WT1800.setObjectName("checkBox_S2_WT1800")
-        g2Layout.addWidget(self.checkBox_S2_WT1800, 1, 2)
+        # Radio 行布局
+        radio_layout = QtWidgets.QHBoxLayout()
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        g2Layout.addLayout(radio_layout, 0, 1, 1, 3)
 
-        self.pushButton_S2_WT_1800_CONFIG = QtWidgets.QPushButton("WT_1800_config")
-        self.pushButton_S2_WT_1800_CONFIG.setObjectName("pushButton_S2_WT_1800_CONFIG")
-        self.pushButton_S2_WT_1800_CONFIG.setFixedWidth(141)
-        g2Layout.addWidget(self.pushButton_S2_WT_1800_CONFIG, 1, 3)
+        # QStackedWidget
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))   # index 0
+        self._wtStacked.addWidget(build_wt1800_content(self))   # index 1
+        self._wtStacked.addWidget(build_wt1806e_content(self))  # index 2
+        self._wtStacked.addWidget(build_wt5000_content(self))   # index 3
+        g2Layout.addWidget(self._wtStacked, 1, 0, 1, 4)
 
-        self.checkBox_S2_WT1806E = QtWidgets.QCheckBox("WT1806E")
-        self.checkBox_S2_WT1806E.setChecked(True)
-        self.checkBox_S2_WT1806E.setObjectName("checkBox_S2_WT1806E")
-        g2Layout.addWidget(self.checkBox_S2_WT1806E, 1, 4)
-
-        self.pushButton_S2_WT_1806E_CONFIG = QtWidgets.QPushButton("WT_1806E_config")
-        self.pushButton_S2_WT_1806E_CONFIG.setObjectName("pushButton_S2_WT_1806E_CONFIG")
-        self.pushButton_S2_WT_1806E_CONFIG.setFixedWidth(141)
-        g2Layout.addWidget(self.pushButton_S2_WT_1806E_CONFIG, 1, 5)
-
-        self.checkBox_S2_WT5000 = QtWidgets.QCheckBox("WT5000")
-        self.checkBox_S2_WT5000.setChecked(True)
-        self.checkBox_S2_WT5000.setObjectName("checkBox_S2_WT5000")
-        g2Layout.addWidget(self.checkBox_S2_WT5000, 2, 0)
-
-        self.pushButton_S2_WT_5000_CONFIG = QtWidgets.QPushButton("WT_5000_config")
-        self.pushButton_S2_WT_5000_CONFIG.setObjectName("pushButton_S2_WT_5000_CONFIG")
-        self.pushButton_S2_WT_5000_CONFIG.setFixedWidth(141)
-        g2Layout.addWidget(self.pushButton_S2_WT_5000_CONFIG, 2, 1)
+        # Radio 切换联动
+        def _on_radio_toggled(btn, checked):
+            if checked:
+                self._wtStacked.setCurrentIndex(radio_group.id(btn))
+        radio_group.buttonToggled.connect(_on_radio_toggled)
 
         # 更新率
         self.checkBox_RATE = QtWidgets.QCheckBox("更新率")
         self.checkBox_RATE.setChecked(True)
         self.checkBox_RATE.setObjectName("checkBox_RATE")
-        g2Layout.addWidget(self.checkBox_RATE, 2, 2)
+        g2Layout.addWidget(self.checkBox_RATE, 2, 0)
 
         self.textEdit_S2_RATE_TIME = QtWidgets.QTextEdit()
         self.textEdit_S2_RATE_TIME.setObjectName("textEdit_S2_RATE_TIME")
         self.textEdit_S2_RATE_TIME.setFixedSize(100, 31)
-        g2Layout.addWidget(self.textEdit_S2_RATE_TIME, 2, 3)
+        self.textEdit_S2_RATE_TIME.setText("50")
+        g2Layout.addWidget(self.textEdit_S2_RATE_TIME, 2, 1)
 
         self.comboBox_S2_RATE_TIME = QtWidgets.QComboBox()
         self.comboBox_S2_RATE_TIME.setObjectName("comboBox_S2_RATE_TIME")
         self.comboBox_S2_RATE_TIME.addItems(["毫秒", "秒", "分钟"])
         self.comboBox_S2_RATE_TIME.setFixedWidth(120)
-        g2Layout.addWidget(self.comboBox_S2_RATE_TIME, 2, 4)
+        g2Layout.addWidget(self.comboBox_S2_RATE_TIME, 2, 2)
 
         layout.addWidget(self.groupBox_5)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # 频率扫描步骤构建辅助方法
+    # 频率扫描步骤合并（9个卡片 → 1个滚动页面）
     # ══════════════════════════════════════════════
-    def _build_freq_sweep_step(self, step_num, step_label, groupbox_name,
-                               cb_name, rate_cb_name,
-                               fr_start_name, fr_end_name, tilde_label_name,
-                               time_cb_name, time_te_name,
-                               freq_range_label_name, hz_label1_name,
-                               tilde_display, hz_label2_name,
-                               data_label_name, data_display):
-        """构建一个频率扫描步骤页面"""
+    def _build_freq_sweep_steps(self):
+        """构建合并的频率扫描页面，9个卡片垂直排列，可滚动。"""
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(0)
 
-        groupBox = QtWidgets.QGroupBox()
-        groupBox.setObjectName(groupbox_name)
-        groupBox.setTitle(f"频率扫描设置 - {step_label}")
-        groupBox.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
-        gLayout = QtWidgets.QGridLayout(groupBox)
+        # 步骤启用复选框
+        self.checkBox_S3 = QtWidgets.QCheckBox("step3")
+        self.checkBox_S3.setChecked(True)
+        self.checkBox_S3.setObjectName("checkBox_S3")
+        self.checkBox_S3.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
+        layout.addWidget(self.checkBox_S3)
+
+        # QScrollArea 承载所有卡片
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_widget = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 8, 0, 8)
+        scroll_layout.setSpacing(8)
+
+        # 构建9个频率扫描卡片
+        freq_configs = [
+            (3, "S3", "频率扫描 1", "label_7", "label_37", "label_34", "label_78", "label_23"),
+            (4, "S4", "频率扫描 2", "label_20", "label_38", "label_35", "label_94", "label_26"),
+            (5, "S5", "频率扫描 3", "label_31", "label_39", "label_36", "label_98", "label_29"),
+            (6, "S6", "频率扫描 4", "label_10", "label_73", "label_72", "label_82", "label_75"),
+            (7, "S7", "频率扫描 5", "label_12", "label_86", "label_85", "label_90", "label_88"),
+            (8, "S8", "频率扫描 6", "label_33", "label_136", "label_135", "label_140", "label_138"),
+            (9, "S9", "频率扫描 7", "label_40", "label_141", "label_142", "label_143", "label_144"),
+            (10, "S10", "频率扫描 8", "label_41", "label_145", "label_146", "label_147", "label_148"),
+            (11, "S11", "频率扫描 9", "label_42", "label_149", "label_150", "label_151", "label_152"),
+        ]
+        for step_num, suffix, title, tilde_name, fr_range_name, hz1_name, hz2_name, data_name in freq_configs:
+            card = self._build_freq_sweep_card(step_num, suffix, title,
+                                                tilde_name, fr_range_name,
+                                                hz1_name, hz2_name, data_name)
+            scroll_layout.addWidget(card)
+
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
+
+        self.stackedWidget.addWidget(page)
+
+    def _build_freq_sweep_card(self, step_num, suffix, title,
+                                tilde_label_name, freq_range_label_name,
+                                hz_label1_name, hz_label2_name, data_label_name):
+        """构建单个频率扫描配置卡片。"""
+        card = QtWidgets.QWidget()
+        card.setStyleSheet("background-color: white;")
+        cardLayout = QtWidgets.QVBoxLayout(card)
+        cardLayout.setContentsMargins(0, 0, 0, 0)
+        cardLayout.setSpacing(0)
+
+        grp = QtWidgets.QGroupBox()
+        grp.setObjectName(f"groupBox_{suffix}")
+        grp.setTitle(title)
+        grp.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
+        gLayout = QtWidgets.QGridLayout(grp)
         gLayout.setSpacing(10)
         gLayout.setContentsMargins(16, 24, 16, 12)
 
         # Row 0: checkBox + 更新率
-        cb = QtWidgets.QCheckBox(step_label)
+        cb = QtWidgets.QCheckBox(f"step{step_num}")
         cb.setChecked(True)
-        cb.setObjectName(cb_name)
+        cb.setObjectName(f"checkBox_{suffix}")
+        setattr(self, f"checkBox_{suffix}", cb)
         gLayout.addWidget(cb, 0, 0)
-        setattr(self, cb_name, cb)
 
         rateCb = QtWidgets.QCheckBox("更新率")
         rateCb.setChecked(True)
-        rateCb.setObjectName(rate_cb_name)
+        rateCb.setObjectName(f"checkBox_{suffix}_RATE")
+        setattr(self, f"checkBox_{suffix}_RATE", rateCb)
         gLayout.addWidget(rateCb, 0, 1)
-        setattr(self, rate_cb_name, rateCb)
 
         # Row 1: 频率变动区间
         freqRangeLbl = QtWidgets.QLabel("频率变动区间")
@@ -506,24 +560,24 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         gLayout.addWidget(freqRangeLbl, 1, 0)
 
         frStartTe = QtWidgets.QTextEdit()
-        frStartTe.setObjectName(fr_start_name)
+        frStartTe.setObjectName(f"textEdit_{suffix}_AC_FR_Start")
         frStartTe.setFixedSize(100, 31)
         gLayout.addWidget(frStartTe, 1, 1)
-        setattr(self, fr_start_name, frStartTe)
+        setattr(self, f"textEdit_{suffix}_AC_FR_Start", frStartTe)
 
         hz1Lbl = QtWidgets.QLabel("Hz")
         hz1Lbl.setObjectName(hz_label1_name)
         gLayout.addWidget(hz1Lbl, 1, 2)
 
-        tildeLbl = QtWidgets.QLabel(tilde_display)
+        tildeLbl = QtWidgets.QLabel("~")
         tildeLbl.setObjectName(tilde_label_name)
         gLayout.addWidget(tildeLbl, 1, 3)
 
         frEndTe = QtWidgets.QTextEdit()
-        frEndTe.setObjectName(fr_end_name)
+        frEndTe.setObjectName(f"textEdit_{suffix}_AC_FR_End")
         frEndTe.setFixedSize(100, 31)
         gLayout.addWidget(frEndTe, 1, 4)
-        setattr(self, fr_end_name, frEndTe)
+        setattr(self, f"textEdit_{suffix}_AC_FR_End", frEndTe)
 
         hz2Lbl = QtWidgets.QLabel("Hz")
         hz2Lbl.setObjectName(hz_label2_name)
@@ -535,156 +589,31 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         gLayout.addWidget(dataLbl, 2, 0)
 
         timeTe = QtWidgets.QTextEdit()
-        timeTe.setObjectName(time_te_name)
+        timeTe.setObjectName(f"textEdit_{suffix}_TIME")
         timeTe.setFixedSize(100, 31)
         gLayout.addWidget(timeTe, 2, 1)
-        setattr(self, time_te_name, timeTe)
+        setattr(self, f"textEdit_{suffix}_TIME", timeTe)
 
         timeCombo = QtWidgets.QComboBox()
-        timeCombo.setObjectName(time_cb_name)
+        timeCombo.setObjectName(f"comboBox_{suffix}_TIME")
         timeCombo.addItems(["秒", "毫秒", "分钟"])
         timeCombo.setFixedWidth(120)
         gLayout.addWidget(timeCombo, 2, 2)
-        setattr(self, time_cb_name, timeCombo)
+        setattr(self, f"comboBox_{suffix}_TIME", timeCombo)
 
-        layout.addWidget(groupBox)
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
+        # 联动：步骤复选框禁用时，禁用内部控件
+        inner_widgets = [rateCb, frStartTe, frEndTe, timeTe, timeCombo,
+                         freqRangeLbl, hz1Lbl, tildeLbl, hz2Lbl, dataLbl]
+        step_cb = cb
 
-    # ══════════════════════════════════════════════
-    # Step 3: 频率扫描1
-    # ══════════════════════════════════════════════
-    def _build_step3(self):
-        self._build_freq_sweep_step(
-            step_num=3, step_label="step3", groupbox_name="groupBox_3",
-            cb_name="checkBox_S3", rate_cb_name="checkBox_S3_RATE",
-            fr_start_name="textEdit_S3_AC_FR_Start", fr_end_name="textEdit_S3_AC_FR_End",
-            tilde_label_name="label_7",
-            time_cb_name="comboBox_S3_TIME", time_te_name="textEdit_S3_TIME",
-            freq_range_label_name="label_37", hz_label1_name="label_34",
-            tilde_display="~", hz_label2_name="label_78",
-            data_label_name="label_23", data_display="数据采集"
-        )
+        def _on_step_toggled(checked, widgets=inner_widgets, scb=step_cb):
+            for w in widgets:
+                w.setEnabled(checked)
 
-    # ══════════════════════════════════════════════
-    # Step 4: 频率扫描2
-    # ══════════════════════════════════════════════
-    def _build_step4(self):
-        self._build_freq_sweep_step(
-            step_num=4, step_label="step4", groupbox_name="groupBox_6",
-            cb_name="checkBox_S4", rate_cb_name="checkBox_S4_RATE",
-            fr_start_name="textEdit_S4_AC_FR_Start", fr_end_name="textEdit_S4_AC_FR_End",
-            tilde_label_name="label_20",
-            time_cb_name="comboBox_S4_TIME", time_te_name="textEdit_S4_TIME",
-            freq_range_label_name="label_38", hz_label1_name="label_35",
-            tilde_display="~", hz_label2_name="label_94",
-            data_label_name="label_26", data_display="数据采集"
-        )
+        cb.toggled.connect(_on_step_toggled)
 
-    # ══════════════════════════════════════════════
-    # Step 5: 频率扫描3
-    # ══════════════════════════════════════════════
-    def _build_step5(self):
-        self._build_freq_sweep_step(
-            step_num=5, step_label="step5", groupbox_name="groupBox_7",
-            cb_name="checkBox_S5", rate_cb_name="checkBox_S5_RATE",
-            fr_start_name="textEdit_S5_AC_FR_Start", fr_end_name="textEdit_S5_AC_FR_End",
-            tilde_label_name="label_31",
-            time_cb_name="comboBox_S5_TIME", time_te_name="textEdit_S5_TIME",
-            freq_range_label_name="label_39", hz_label1_name="label_36",
-            tilde_display="~", hz_label2_name="label_98",
-            data_label_name="label_29", data_display="数据采集"
-        )
-
-    # ══════════════════════════════════════════════
-    # Step 6: 频率扫描4
-    # ══════════════════════════════════════════════
-    def _build_step6(self):
-        self._build_freq_sweep_step(
-            step_num=6, step_label="step6", groupbox_name="groupBox_13",
-            cb_name="checkBox_S6", rate_cb_name="checkBox_S6_RATE",
-            fr_start_name="textEdit_S6_AC_FR_Start", fr_end_name="textEdit_S6_AC_FR_End",
-            tilde_label_name="label_10",
-            time_cb_name="comboBox_S6_TIME", time_te_name="textEdit_S6_TIME",
-            freq_range_label_name="label_73", hz_label1_name="label_72",
-            tilde_display="~", hz_label2_name="label_82",
-            data_label_name="label_75", data_display="数据采集"
-        )
-
-    # ══════════════════════════════════════════════
-    # Step 7: 频率扫描5
-    # ══════════════════════════════════════════════
-    def _build_step7(self):
-        self._build_freq_sweep_step(
-            step_num=7, step_label="step7", groupbox_name="groupBox_14",
-            cb_name="checkBox_S7", rate_cb_name="checkBox_S7_RATE",
-            fr_start_name="textEdit_S7_AC_FR_Start", fr_end_name="textEdit_S7_AC_FR_End",
-            tilde_label_name="label_12",
-            time_cb_name="comboBox_S7_TIME", time_te_name="textEdit_S7_TIME",
-            freq_range_label_name="label_86", hz_label1_name="label_85",
-            tilde_display="~", hz_label2_name="label_90",
-            data_label_name="label_88", data_display="数据采集"
-        )
-
-    # ══════════════════════════════════════════════
-    # Step 8: 频率扫描6
-    # ══════════════════════════════════════════════
-    def _build_step8(self):
-        self._build_freq_sweep_step(
-            step_num=8, step_label="step8", groupbox_name="groupBox_15",
-            cb_name="checkBox_S8", rate_cb_name="checkBox_S8_RATE",
-            fr_start_name="textEdit_S8_AC_FR_Start", fr_end_name="textEdit_S8_AC_FR_End",
-            tilde_label_name="label_33",
-            time_cb_name="comboBox_S8_TIME", time_te_name="textEdit_S8_TIME",
-            freq_range_label_name="label_136", hz_label1_name="label_135",
-            tilde_display="~", hz_label2_name="label_140",
-            data_label_name="label_138", data_display="数据采集"
-        )
-
-    # ══════════════════════════════════════════════
-    # Step 9: 频率扫描7
-    # ══════════════════════════════════════════════
-    def _build_step9(self):
-        self._build_freq_sweep_step(
-            step_num=9, step_label="step9", groupbox_name="groupBox_17",
-            cb_name="checkBox_S9", rate_cb_name="checkBox_S9_RATE",
-            fr_start_name="textEdit_S9_AC_FR_Start", fr_end_name="textEdit_S9_AC_FR_End",
-            tilde_label_name="label_11",
-            time_cb_name="comboBox_S9_TIME", time_te_name="textEdit_S9_TIME",
-            freq_range_label_name="label_76", hz_label1_name="label_74",
-            tilde_display="~", hz_label2_name="label_87",
-            data_label_name="label_77", data_display="数据采集"
-        )
-
-    # ══════════════════════════════════════════════
-    # Step 10: 频率扫描8
-    # ══════════════════════════════════════════════
-    def _build_step10(self):
-        self._build_freq_sweep_step(
-            step_num=10, step_label="step10", groupbox_name="groupBox_18",
-            cb_name="checkBox_S10", rate_cb_name="checkBox_S10_RATE",
-            fr_start_name="textEdit_S10_AC_FR_Start", fr_end_name="textEdit_S10_AC_FR_End",
-            tilde_label_name="label_16",
-            time_cb_name="comboBox_S10_TIME", time_te_name="textEdit_S10_TIME",
-            freq_range_label_name="label_134", hz_label1_name="label_97",
-            tilde_display="~", hz_label2_name="label_148",
-            data_label_name="label_147", data_display="数据采集"
-        )
-
-    # ══════════════════════════════════════════════
-    # Step 11: 频率扫描9
-    # ══════════════════════════════════════════════
-    def _build_step11(self):
-        self._build_freq_sweep_step(
-            step_num=11, step_label="step11", groupbox_name="groupBox_16",
-            cb_name="checkBox_S11", rate_cb_name="checkBox_S11_RATE",
-            fr_start_name="textEdit_S11_AC_FR_Start", fr_end_name="textEdit_S11_AC_FR_End",
-            tilde_label_name="label_40",
-            time_cb_name="comboBox_S11_TIME", time_te_name="textEdit_S11_TIME",
-            freq_range_label_name="label_139", hz_label1_name="label_137",
-            tilde_display="~", hz_label2_name="label_144",
-            data_label_name="label_143", data_display="数据采集"
-        )
+        cardLayout.addWidget(grp)
+        return card
 
     # ══════════════════════════════════════════════
     # Step 12: 关机设置
@@ -769,6 +698,25 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         layout.addStretch()
 
         self.stackedWidget.addWidget(page)
+
+    def _connect_dc_linkage(self):
+        """连接 step1 DC 复选框与关机步骤 DC 复选框的联动。"""
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+        end_dcs = [self.checkBox_S_End_DC1, self.checkBox_S_End_DC2,
+                   self.checkBox_S_End_DC3, self.checkBox_S_End_DC4]
+
+        def _update_end_dc(_checked=None):
+            step_end_on = self.checkBox_S_End.isChecked()
+            for i in range(4):
+                should_enable = step_end_on and step1_dcs[i].isChecked()
+                end_dcs[i].setEnabled(should_enable)
+                end_dcs[i].setChecked(should_enable)
+
+        self.checkBox_S_End.toggled.connect(_update_end_dc)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_end_dc)
+        _update_end_dc()  # 初始化状态
 
     def retranslateUi(self, Dialog_thaiguoqianpin_immun):
         _translate = QtCore.QCoreApplication.translate

@@ -54,7 +54,7 @@ from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
                    Open_Save_ThaiVoltProtect10min, Open_Save_ThaiGuoPinJiangZai,
                    Open_Save_ThaiGuoQianYa_Pin,Open_Save_ThaiOverLoads,
                    Open_Save_ThaiCosPhiBrazil, Open_Save_ThaiGuoQianPin_Immun,
-                   Open_Save_ThaiStaticMPPTTest, Open_Save_ThaitestPU,
+                   Open_Save_ThaiStaticMPPTTest, Open_Save_ThaiTestPU,
                    Open_Save_ThaiFrequencyAdaptability,
                    Open_Save_ThaiFixedPF)
 from utils.Open_Save_ThaiWT3000_Config import WT3000E_params_config
@@ -1655,7 +1655,7 @@ def reset_wt_automation_state():
 
 def _sync_start_end_buttons():
     """根据当前项目的计数器决定启用/禁用开始/结束按钮。计数>=1启用，=0禁用。"""
-    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, testPU_append_count, staticcosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count
     current = ui.comboBox_PS.currentText()
     count = 0
     if current == '电压闪变':
@@ -1674,12 +1674,60 @@ def _sync_start_end_buttons():
         if 'fixedpf_append_count' not in globals():
             fixedpf_append_count = 0
         count = fixedpf_append_count
+    elif current == '重连':
+        if 'chonglian_append_count' not in globals():
+            chonglian_append_count = 0
+        count = chonglian_append_count
+    elif current == '直流分量':
+        if 'zhiliufenliang_append_count' not in globals():
+            zhiliufenliang_append_count = 0
+        count = zhiliufenliang_append_count
+    elif current == '静态QU':
+        if 'staticQU_append_count' not in globals():
+            staticQU_append_count = 0
+        count = staticQU_append_count
+    elif current == 'Test_PU':
+        if 'testPU_append_count' not in globals():
+            testPU_append_count = 0
+        count = testPU_append_count
+    elif current == '静态Cos(φ)':
+        if 'staticcosPhi_append_count' not in globals():
+            staticcosPhi_append_count = 0
+        count = staticcosPhi_append_count
+    elif current == 'Cos(φ)_Brazil':
+        if 'cosPhiBrazil_append_count' not in globals():
+            cosPhiBrazil_append_count = 0
+        count = cosPhiBrazil_append_count
+    elif current == '10min过压保护':
+        if 'voltprotect10min_append_count' not in globals():
+            voltprotect10min_append_count = 0
+        count = voltprotect10min_append_count
+    elif current == '过频降载':
+        if 'guopinjiangzai_append_count' not in globals():
+            guopinjiangzai_append_count = 0
+        count = guopinjiangzai_append_count
+    elif current == '过欠压_过欠频':
+        if 'guoqianya_pin_append_count' not in globals():
+            guoqianya_pin_append_count = 0
+        count = guoqianya_pin_append_count
+    elif current == '巴西过欠频稳定性':
+        if 'guoqianpin_immun_append_count' not in globals():
+            guoqianpin_immun_append_count = 0
+        count = guoqianpin_immun_append_count
+    elif current == '静态MPPT测试':
+        if 'staticMPPTtest_append_count' not in globals():
+            staticMPPTtest_append_count = 0
+        count = staticMPPTtest_append_count
+    elif current == '频率适应性':
+        if 'frequencyadaptability_append_count' not in globals():
+            frequencyadaptability_append_count = 0
+        count = frequencyadaptability_append_count
     ui.pushButton_StartTest.setEnabled(count >= 1)
     ui.pushButton_EndTest.setEnabled(count >= 1)
 
 def _reset_current_project_count():
     """试验完成后重置当前项目的计数器为0，并更新label显示。"""
-    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, testPU_append_count, staticcosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count
     current = ui.comboBox_PS.currentText()
     if current == '电压闪变':
         flicker_append_count = 0
@@ -1693,6 +1741,42 @@ def _reset_current_project_count():
     elif current == '固定PF=1':
         fixedpf_append_count = 0
         uiThaiFixedPF.label_append_count.setText("0")
+    elif current == '重连':
+        chonglian_append_count = 0
+        uithaichonglian.label_append_count.setText("0")
+    elif current == '直流分量':
+        zhiliufenliang_append_count = 0
+        uiThaiZhiLiuFenLiang.label_append_count.setText("0")
+    elif current == '静态QU':
+        staticQU_append_count = 0
+        uiThaiStaticQU.label_append_count.setText("0")
+    elif current == 'Test_PU':
+        testPU_append_count = 0
+        uiThaiTestPU.label_append_count.setText("0")
+    elif current == '静态Cos(φ)':
+        staticcosPhi_append_count = 0
+        uiThaiStaticCosPhi.label_append_count.setText("0")
+    elif current == 'Cos(φ)_Brazil':
+        cosPhiBrazil_append_count = 0
+        uiThaiCosPhiBrazil.label_append_count.setText("0")
+    elif current == '10min过压保护':
+        voltprotect10min_append_count = 0
+        uiThaiVoltProtect10min.label_append_count.setText("0")
+    elif current == '过频降载':
+        guopinjiangzai_append_count = 0
+        uiThaiGuoPinJiangZai.label_append_count.setText("0")
+    elif current == '过欠压_过欠频':
+        guoqianya_pin_append_count = 0
+        uiThaiGuoQianYa_Pin.label_append_count.setText("0")
+    elif current == '巴西过欠频稳定性':
+        guoqianpin_immun_append_count = 0
+        uiThaiGuoQianPin_Immun.label_append_count.setText("0")
+    elif current == '静态MPPT测试':
+        staticMPPTtest_append_count = 0
+        uiThaiStaticMPPTTest.label_append_count.setText("0")
+    elif current == '频率适应性':
+        frequencyadaptability_append_count = 0
+        uiThaiFrequencyAdaptability.label_append_count.setText("0")
 
 #试验对话框选择函数
 def chooseDetailDialog():
@@ -1701,6 +1785,7 @@ def chooseDetailDialog():
     global dialog_windowstaticQU, dialog_windowguoqianya_pin
     global strAddTestFlag, config_dict, setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig
     global project_change, project_now, wt_config_nums
+    global chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, testPU_append_count, staticcosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count
     global Mppt_step1, Mppt_step2, Mppt_step_end, first_test
     global next_project_flag, flicker_append_count, harmonic_append_count, overloads_append_count
     global fixedpf_append_count
@@ -1711,6 +1796,18 @@ def chooseDetailDialog():
     harmonic_append_count = 0
     if 'fixedpf_append_count' not in globals():
         fixedpf_append_count = 0
+    if 'voltprotect10min_append_count' not in globals():
+        voltprotect10min_append_count = 0
+    if 'guopinjiangzai_append_count' not in globals():
+        guopinjiangzai_append_count = 0
+    if 'guoqianya_pin_append_count' not in globals():
+        guoqianya_pin_append_count = 0
+    if 'guoqianpin_immun_append_count' not in globals():
+        guoqianpin_immun_append_count = 0
+    if 'staticMPPTtest_append_count' not in globals():
+        staticMPPTtest_append_count = 0
+    if 'frequencyadaptability_append_count' not in globals():
+        frequencyadaptability_append_count = 0
     setting_status = '' 
     messure_status = ''
     messsure_deatil_cofig = ''
@@ -1726,6 +1823,10 @@ def chooseDetailDialog():
 
     if currentProject == 'Auto_Test':
         if currentSecond == '重连':
+            if 'chonglian_append_count' not in globals():
+                chonglian_append_count = 0
+            uithaichonglian.label_append_count.setText(str(chonglian_append_count))
+            _sync_start_end_buttons()
             dialog_window.show()
         # elif currentSecond == '过欠频':
         #     dialog_windowguoqianpin.show()
@@ -1752,26 +1853,58 @@ def chooseDetailDialog():
             _sync_start_end_buttons()
             dialog_windowoverloads.show()
         elif currentSecond == '直流分量':
+            if 'zhiliufenliang_append_count' not in globals():
+                zhiliufenliang_append_count = 0
+            uiThaiZhiLiuFenLiang.label_append_count.setText(str(zhiliufenliang_append_count))
+            _sync_start_end_buttons()
             dialog_windowzhiliufenliang.show()
         elif currentSecond == '静态QU':
+            if 'staticQU_append_count' not in globals():
+                staticQU_append_count = 0
+            uiThaiStaticQU.label_append_count.setText(str(staticQU_append_count))
+            _sync_start_end_buttons()
             dialog_windowstaticQU.show()
         elif currentSecond == 'Test_PU':
+            if 'testPU_append_count' not in globals():
+                testPU_append_count = 0
+            uiThaiTestPU.label_append_count.setText(str(testPU_append_count))
+            _sync_start_end_buttons()
             dialog_windowtestPU.show()
         elif currentSecond == '静态Cos(φ)':
+            if 'staticcosPhi_append_count' not in globals():
+                staticcosPhi_append_count = 0
+            uiThaiStaticCosPhi.label_append_count.setText(str(staticcosPhi_append_count))
+            _sync_start_end_buttons()
             dialog_windowstaticcosPhi.show()
         elif currentSecond == 'Cos(φ)_Brazil':
+            if 'cosPhiBrazil_append_count' not in globals():
+                cosPhiBrazil_append_count = 0
+            uiThaiCosPhiBrazil.label_append_count.setText(str(cosPhiBrazil_append_count))
+            _sync_start_end_buttons()
             dialog_windowcosPhiBrazil.show()
         elif currentSecond == '10min过压保护':
+            uiThaiVoltProtect10min.label_append_count.setText(str(voltprotect10min_append_count))
+            _sync_start_end_buttons()
             dialog_windowvoltprotect10min.show()
         elif currentSecond == '过频降载':
+            uiThaiGuoPinJiangZai.label_append_count.setText(str(guopinjiangzai_append_count))
+            _sync_start_end_buttons()
             dialog_windowguopinjiangzai.show()
         elif currentSecond == '过欠压_过欠频':
+            uiThaiGuoQianYa_Pin.label_append_count.setText(str(guoqianya_pin_append_count))
+            _sync_start_end_buttons()
             dialog_windowguoqianya_pin.show()
         elif currentSecond == '巴西过欠频稳定性':
+            uiThaiGuoQianPin_Immun.label_append_count.setText(str(guoqianpin_immun_append_count))
+            _sync_start_end_buttons()
             dialog_windowguoqianpin_immun.show()
         elif currentSecond == '静态MPPT测试':
+            uiThaiStaticMPPTTest.label_append_count.setText(str(staticMPPTtest_append_count))
+            _sync_start_end_buttons()
             dialog_windowstaticmppttest.show()
         elif currentSecond == '频率适应性':
+            uiThaiFrequencyAdaptability.label_append_count.setText(str(frequencyadaptability_append_count))
+            _sync_start_end_buttons()
             dialog_windowfrequencyadaptability.show()
         logger.info(f'测试项目--{currentProject}--{currentSecond}')
         print(f'测试项目--{currentProject}--{currentSecond}')
@@ -1788,7 +1921,7 @@ def addtestDialog():
     global project_change, project_now
     global strArrayTestStepSingle
     global next_project_flag, flicker_append_count, harmonic_append_count, overloads_append_count
-    global fixedpf_append_count
+    global fixedpf_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, testPU_append_count, staticcosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count
 
     if 'project_now' not in globals():
         project_now = ''
@@ -1800,6 +1933,30 @@ def addtestDialog():
         harmonic_append_count = 0
     if 'fixedpf_append_count' not in globals():
         fixedpf_append_count = 0
+    if 'voltprotect10min_append_count' not in globals():
+        voltprotect10min_append_count = 0
+    if 'guopinjiangzai_append_count' not in globals():
+        guopinjiangzai_append_count = 0
+    if 'guoqianya_pin_append_count' not in globals():
+        guoqianya_pin_append_count = 0
+    if 'guoqianpin_immun_append_count' not in globals():
+        guoqianpin_immun_append_count = 0
+    if 'staticMPPTtest_append_count' not in globals():
+        staticMPPTtest_append_count = 0
+    if 'frequencyadaptability_append_count' not in globals():
+        frequencyadaptability_append_count = 0
+    if 'chonglian_append_count' not in globals():
+        chonglian_append_count = 0
+    if 'zhiliufenliang_append_count' not in globals():
+        zhiliufenliang_append_count = 0
+    if 'staticQU_append_count' not in globals():
+        staticQU_append_count = 0
+    if 'testPU_append_count' not in globals():
+        testPU_append_count = 0
+    if 'staticcosPhi_append_count' not in globals():
+        staticcosPhi_append_count = 0
+    if 'cosPhiBrazil_append_count' not in globals():
+        cosPhiBrazil_append_count = 0
 
     strAddTestFlag = "1"
     currentProject = ui.comboBox_P.currentText()
@@ -1813,6 +1970,10 @@ def addtestDialog():
 
     if currentProject == 'Auto_Test':
         if currentSecond == '重连':
+            if 'chonglian_append_count' not in globals():
+                chonglian_append_count = 0
+            uithaichonglian.label_append_count.setText(str(chonglian_append_count))
+            _sync_start_end_buttons()
             dialog_window.show()
         # elif currentSecond == '过欠频':
         #     dialog_windowguoqianpin.show()
@@ -1839,26 +2000,58 @@ def addtestDialog():
             _sync_start_end_buttons()
             dialog_windowoverloads.show()
         elif currentSecond == '直流分量':
+            if 'zhiliufenliang_append_count' not in globals():
+                zhiliufenliang_append_count = 0
+            uiThaiZhiLiuFenLiang.label_append_count.setText(str(zhiliufenliang_append_count))
+            _sync_start_end_buttons()
             dialog_windowzhiliufenliang.show()
         elif currentSecond == '静态QU':
+            if 'staticQU_append_count' not in globals():
+                staticQU_append_count = 0
+            uiThaiStaticQU.label_append_count.setText(str(staticQU_append_count))
+            _sync_start_end_buttons()
             dialog_windowstaticQU.show()
         elif currentSecond == 'Test_PU':
+            if 'testPU_append_count' not in globals():
+                testPU_append_count = 0
+            uiThaiTestPU.label_append_count.setText(str(testPU_append_count))
+            _sync_start_end_buttons()
             dialog_windowtestPU.show()
         elif currentSecond == '静态Cos(φ)':
+            if 'staticcosPhi_append_count' not in globals():
+                staticcosPhi_append_count = 0
+            uiThaiStaticCosPhi.label_append_count.setText(str(staticcosPhi_append_count))
+            _sync_start_end_buttons()
             dialog_windowstaticcosPhi.show()
         elif currentSecond == 'Cos(φ)_Brazil':
+            if 'cosPhiBrazil_append_count' not in globals():
+                cosPhiBrazil_append_count = 0
+            uiThaiCosPhiBrazil.label_append_count.setText(str(cosPhiBrazil_append_count))
+            _sync_start_end_buttons()
             dialog_windowcosPhiBrazil.show()
         elif currentSecond == '10min过压保护':
+            uiThaiVoltProtect10min.label_append_count.setText(str(voltprotect10min_append_count))
+            _sync_start_end_buttons()
             dialog_windowvoltprotect10min.show()
         elif currentSecond == '过频降载':
+            uiThaiGuoPinJiangZai.label_append_count.setText(str(guopinjiangzai_append_count))
+            _sync_start_end_buttons()
             dialog_windowguopinjiangzai.show()
         elif currentSecond == '过欠压_过欠频':
+            uiThaiGuoQianYa_Pin.label_append_count.setText(str(guoqianya_pin_append_count))
+            _sync_start_end_buttons()
             dialog_windowguoqianya_pin.show()
         elif currentSecond == '巴西过欠频稳定性':
+            uiThaiGuoQianPin_Immun.label_append_count.setText(str(guoqianpin_immun_append_count))
+            _sync_start_end_buttons()
             dialog_windowguoqianpin_immun.show()
         elif currentSecond == '静态MPPT测试':
+            uiThaiStaticMPPTTest.label_append_count.setText(str(staticMPPTtest_append_count))
+            _sync_start_end_buttons()
             dialog_windowstaticmppttest.show()
         elif currentSecond == '频率适应性':
+            uiThaiFrequencyAdaptability.label_append_count.setText(str(frequencyadaptability_append_count))
+            _sync_start_end_buttons()
             dialog_windowfrequencyadaptability.show()
 
         logger.info(f'测试项目--{currentProject}--{currentSecond}')
@@ -4041,6 +4234,16 @@ def OpenFileDialogThaiDianYaShanBian():
     elif csv_has_dew_fields:
         ui.textEdit_ReturnMessage.append("[DEWETRON] 导出字段已从配置文件加载")
 
+#德国重连
+def thaichonglianAppend():
+    global strAddTestFlag, chonglian_append_count
+    if 'chonglian_append_count' not in globals():
+        chonglian_append_count = 0
+    strAddTestFlag = "0" if chonglian_append_count == 0 else "1"
+    mode = "覆盖" if chonglian_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[重连] 第{chonglian_append_count + 1}次{mode}模式，开始生成命令...")
+    thaichonglianSend()
+
 #德国重连代码
 def thaichonglianSend():
     global uithaichonglian,dialog_window,strArrayTest
@@ -4050,6 +4253,9 @@ def thaichonglianSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global chonglian_append_count
+    if 'chonglian_append_count' not in globals():
+        chonglian_append_count = 0
 
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -4058,14 +4264,14 @@ def thaichonglianSend():
         test_program = []
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uithaichonglian.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uithaichonglian.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uithaichonglian.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uithaichonglian.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uithaichonglian.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uithaichonglian._wtStacked.widget(0)))
+        elif uithaichonglian.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uithaichonglian._wtStacked.widget(1)))
+        elif uithaichonglian.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uithaichonglian._wtStacked.widget(2)))
+        elif uithaichonglian.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uithaichonglian._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -4416,13 +4622,13 @@ def thaichonglianSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '2'
-            if uithaichonglian.checkBox_S2_WT3000.isChecked():
+            if uithaichonglian.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uithaichonglian.checkBox_S2_WT1800.isChecked():
+            elif uithaichonglian.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uithaichonglian.checkBox_S2_WT1806E.isChecked():
+            elif uithaichonglian.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uithaichonglian.checkBox_S2_WT5000.isChecked():
+            elif uithaichonglian.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -5149,6 +5355,12 @@ def thaichonglianSend():
             for i in range(len(strArrayTest)):
                 csv_write.writerow(strArrayTest[i])
             out.close()
+
+        # 计数递增
+        chonglian_append_count += 1
+        uithaichonglian.label_append_count.setText(str(chonglian_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[重连] 追加完成，当前计数: {chonglian_append_count}，开始/结束试验按钮已启用")
 
         dialog_window.close()
 
@@ -9082,6 +9294,15 @@ def OpenFileDialogThaiOverLoads():
     Open_Save_ThaiOverLoads.Open_File_ThaiOverLoads(kwargs)
 
 # 直流分量
+def thaizhiliufenliangAppend():
+    global strAddTestFlag, zhiliufenliang_append_count
+    if 'zhiliufenliang_append_count' not in globals():
+        zhiliufenliang_append_count = 0
+    strAddTestFlag = "0" if zhiliufenliang_append_count == 0 else "1"
+    mode = "覆盖" if zhiliufenliang_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[直流分量] 第{zhiliufenliang_append_count + 1}次{mode}模式，开始生成命令...")
+    thaizhiliufenliangSend()
+
 def thaizhiliufenliangSend():
     global uiThaiZhiLiuFenLiang, strArrayTest, dialog_windowzhiliufenliang
     global strSettingTestFlag, strArrayTestStep
@@ -9090,6 +9311,9 @@ def thaizhiliufenliangSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global zhiliufenliang_append_count
+    if 'zhiliufenliang_append_count' not in globals():
+        zhiliufenliang_append_count = 0
 
     strShowErrorMessageBoxFlag = "0"
     if strAddTestFlag == "0":
@@ -9098,14 +9322,14 @@ def thaizhiliufenliangSend():
         test_program = []
 
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiZhiLiuFenLiang.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiZhiLiuFenLiang.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiZhiLiuFenLiang.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiZhiLiuFenLiang.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiZhiLiuFenLiang.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(0)))
+        elif uiThaiZhiLiuFenLiang.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(1)))
+        elif uiThaiZhiLiuFenLiang.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(2)))
+        elif uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -9460,13 +9684,13 @@ def thaizhiliufenliangSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '1'
-            if uiThaiZhiLiuFenLiang.checkBox_S2_WT3000.isChecked():
+            if uiThaiZhiLiuFenLiang.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiZhiLiuFenLiang.checkBox_S2_WT1800.isChecked():
+            elif uiThaiZhiLiuFenLiang.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiZhiLiuFenLiang.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiZhiLiuFenLiang.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiZhiLiuFenLiang.checkBox_S2_WT5000.isChecked():
+            elif uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -9961,6 +10185,12 @@ def thaizhiliufenliangSend():
                 csv_write.writerow(strArrayTest[i])
             out.close()
 
+        # 计数递增
+        zhiliufenliang_append_count += 1
+        uiThaiZhiLiuFenLiang.label_append_count.setText(str(zhiliufenliang_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[直流分量] 追加完成，当前计数: {zhiliufenliang_append_count}，开始/结束试验按钮已启用")
+
         dialog_windowzhiliufenliang.close()
 
 # 直流分量保存设定
@@ -9995,6 +10225,15 @@ def OpenFileDialogThaiZhiLiuFenLiang():
     Open_Save_ThaiZhiLiuFenLiang.Open_File_ThaiZhiLiuFenLiang(kwargs)
 
 # 静态QU
+def thaistaticQUAppend():
+    global strAddTestFlag, staticQU_append_count
+    if 'staticQU_append_count' not in globals():
+        staticQU_append_count = 0
+    strAddTestFlag = "0" if staticQU_append_count == 0 else "1"
+    mode = "覆盖" if staticQU_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[静态QU] 第{staticQU_append_count + 1}次{mode}模式，开始生成命令...")
+    thaistaticQUSend()
+
 def thaistaticQUSend():
     global uiThaiStaticQU,dialog_windowstaticQU,strArrayTest,Ui_Dialog_thaiStaticQU
     global strSettingTestFlag,strArrayTestStep
@@ -10003,6 +10242,9 @@ def thaistaticQUSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global staticQU_append_count
+    if 'staticQU_append_count' not in globals():
+        staticQU_append_count = 0
 
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -10011,14 +10253,14 @@ def thaistaticQUSend():
         test_program = []
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiStaticQU.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiStaticQU.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiStaticQU.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiStaticQU.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiStaticQU.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiStaticQU._wtStacked.widget(0)))
+        elif uiThaiStaticQU.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiStaticQU._wtStacked.widget(1)))
+        elif uiThaiStaticQU.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiStaticQU._wtStacked.widget(2)))
+        elif uiThaiStaticQU.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiStaticQU._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -10361,13 +10603,13 @@ def thaistaticQUSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '3'
-            if uiThaiStaticQU.checkBox_S2_WT3000.isChecked():
+            if uiThaiStaticQU.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiStaticQU.checkBox_S2_WT1800.isChecked():
+            elif uiThaiStaticQU.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiStaticQU.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiStaticQU.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiStaticQU.checkBox_S2_WT5000.isChecked():
+            elif uiThaiStaticQU.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -11093,6 +11335,12 @@ def thaistaticQUSend():
                 csv_write.writerow(strArrayTest[i])
             out.close()
 
+        # 计数递增
+        staticQU_append_count += 1
+        uiThaiStaticQU.label_append_count.setText(str(staticQU_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[静态QU] 追加完成，当前计数: {staticQU_append_count}，开始/结束试验按钮已启用")
+
         dialog_windowstaticQU.close()
 
 # 静态QU读取设定
@@ -11126,6 +11374,15 @@ def SaveFileDialogThaiStaticQU():
     Open_Save_ThaiStaticQU.Save_File_ThaiStaticQU(kwargs)
 
 # 静态Cos(φ)
+def thaistaticcosPhiAppend():
+    global strAddTestFlag, staticcosPhi_append_count
+    if 'staticcosPhi_append_count' not in globals():
+        staticcosPhi_append_count = 0
+    strAddTestFlag = "0" if staticcosPhi_append_count == 0 else "1"
+    mode = "覆盖" if staticcosPhi_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[静态Cos(φ)] 第{staticcosPhi_append_count + 1}次{mode}模式，开始生成命令...")
+    thaistaticcosPhiSend()
+
 def thaistaticcosPhiSend():
     global uiThaiStaticCosPhi,dialog_windowstaticcosPhi,strArrayTest,Ui_Dialog_thaistaticcosPhi
     global strSettingTestFlag,strArrayTestStep
@@ -11134,6 +11391,9 @@ def thaistaticcosPhiSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global staticcosPhi_append_count
+    if 'staticcosPhi_append_count' not in globals():
+        staticcosPhi_append_count = 0
 
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -11143,14 +11403,14 @@ def thaistaticcosPhiSend():
         wt_config_nums = 0
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiStaticCosPhi.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiStaticCosPhi.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiStaticCosPhi.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiStaticCosPhi.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiStaticCosPhi.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiStaticCosPhi._wtStacked.widget(0)))
+        elif uiThaiStaticCosPhi.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiStaticCosPhi._wtStacked.widget(1)))
+        elif uiThaiStaticCosPhi.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiStaticCosPhi._wtStacked.widget(2)))
+        elif uiThaiStaticCosPhi.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiStaticCosPhi._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -11492,13 +11752,13 @@ def thaistaticcosPhiSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '4'
-            if uiThaiStaticCosPhi.checkBox_S2_WT3000.isChecked():
+            if uiThaiStaticCosPhi.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiStaticCosPhi.checkBox_S2_WT1800.isChecked():
+            elif uiThaiStaticCosPhi.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiStaticCosPhi.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiStaticCosPhi.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiStaticCosPhi.checkBox_S2_WT5000.isChecked():
+            elif uiThaiStaticCosPhi.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -12194,6 +12454,12 @@ def thaistaticcosPhiSend():
                 csv_write.writerow(strArrayTest[i])
             out.close()
 
+        # 计数递增
+        staticcosPhi_append_count += 1
+        uiThaiStaticCosPhi.label_append_count.setText(str(staticcosPhi_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[静态Cos(φ)] 追加完成，当前计数: {staticcosPhi_append_count}，开始/结束试验按钮已启用")
+
         dialog_windowstaticcosPhi.close()
 
 # 静态Cos(φ)读取设定
@@ -12227,6 +12493,15 @@ def SaveFileDialogThaiStaticCosPhi():
     Open_Save_ThaiStaticCosPhi.Save_File_ThaiStaticCosPhi(kwargs)
 
 # 巴西Cos(φ)
+def thaicosPhiBrazilAppend():
+    global strAddTestFlag, cosPhiBrazil_append_count
+    if 'cosPhiBrazil_append_count' not in globals():
+        cosPhiBrazil_append_count = 0
+    strAddTestFlag = "0" if cosPhiBrazil_append_count == 0 else "1"
+    mode = "覆盖" if cosPhiBrazil_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[巴西Cos(φ)] 第{cosPhiBrazil_append_count + 1}次{mode}模式，开始生成命令...")
+    thaicosPhiBrazilSend()
+
 def thaicosPhiBrazilSend():
     global uiThaiCosPhiBrazil,dialog_windowcosPhiBrazil,strArrayTest,Ui_Dialog_thaicosPhiBrazil
     global strSettingTestFlag,strArrayTestStep
@@ -12235,6 +12510,9 @@ def thaicosPhiBrazilSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global cosPhiBrazil_append_count
+    if 'cosPhiBrazil_append_count' not in globals():
+        cosPhiBrazil_append_count = 0
 
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -12244,14 +12522,14 @@ def thaicosPhiBrazilSend():
         wt_config_nums = 0
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiCosPhiBrazil.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiCosPhiBrazil.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiCosPhiBrazil.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiCosPhiBrazil.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiCosPhiBrazil.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiCosPhiBrazil._wtStacked.widget(0)))
+        elif uiThaiCosPhiBrazil.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiCosPhiBrazil._wtStacked.widget(1)))
+        elif uiThaiCosPhiBrazil.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiCosPhiBrazil._wtStacked.widget(2)))
+        elif uiThaiCosPhiBrazil.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiCosPhiBrazil._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -12596,13 +12874,13 @@ def thaicosPhiBrazilSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '10'
-            if uiThaiCosPhiBrazil.checkBox_S2_WT3000.isChecked():
+            if uiThaiCosPhiBrazil.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiCosPhiBrazil.checkBox_S2_WT1800.isChecked():
+            elif uiThaiCosPhiBrazil.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiCosPhiBrazil.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiCosPhiBrazil.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiCosPhiBrazil.checkBox_S2_WT5000.isChecked():
+            elif uiThaiCosPhiBrazil.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -13274,6 +13552,12 @@ def thaicosPhiBrazilSend():
                 csv_write.writerow(strArrayTest[i])
             out.close()
 
+        # 计数递增
+        cosPhiBrazil_append_count += 1
+        uiThaiCosPhiBrazil.label_append_count.setText(str(cosPhiBrazil_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[巴西Cos(φ)] 追加完成，当前计数: {cosPhiBrazil_append_count}，开始/结束试验按钮已启用")
+
         dialog_windowcosPhiBrazil.close()
 
 # 巴西Cos(φ)读取设定
@@ -13308,6 +13592,16 @@ def SaveFileDialogThaiCosPhiBrazil():
 
 
 # 10min过压保护
+def thaivoltprotect10minAppend():
+    global strAddTestFlag, voltprotect10min_append_count
+    if 'voltprotect10min_append_count' not in globals():
+        voltprotect10min_append_count = 0
+    strAddTestFlag = "0" if voltprotect10min_append_count == 0 else "1"
+    mode = "覆盖" if voltprotect10min_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[10min过压保护] 第{voltprotect10min_append_count + 1}次{mode}模式，开始生成命令...")
+    thaivoltprotect10minSend()
+
+
 def thaivoltprotect10minSend():
     global uiThaiVoltProtect10min,dialog_windowvoltprotect10min,strArrayTest,Ui_Dialog_thaivoltprotect10min
     global strSettingTestFlag,strArrayTestStep
@@ -13316,6 +13610,9 @@ def thaivoltprotect10minSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global voltprotect10min_append_count
+    if 'voltprotect10min_append_count' not in globals():
+        voltprotect10min_append_count = 0
 
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -13325,14 +13622,14 @@ def thaivoltprotect10minSend():
         wt_config_nums = 0
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiVoltProtect10min.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiVoltProtect10min.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiVoltProtect10min.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiVoltProtect10min.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiVoltProtect10min.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiVoltProtect10min._wtStacked.widget(0)))
+        elif uiThaiVoltProtect10min.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiVoltProtect10min._wtStacked.widget(1)))
+        elif uiThaiVoltProtect10min.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiVoltProtect10min._wtStacked.widget(2)))
+        elif uiThaiVoltProtect10min.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiVoltProtect10min._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -13683,13 +13980,13 @@ def thaivoltprotect10minSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '5'
-            if uiThaiVoltProtect10min.checkBox_S2_WT3000.isChecked():
+            if uiThaiVoltProtect10min.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiVoltProtect10min.checkBox_S2_WT1800.isChecked():
+            elif uiThaiVoltProtect10min.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiVoltProtect10min.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiVoltProtect10min.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiVoltProtect10min.checkBox_S2_WT5000.isChecked():
+            elif uiThaiVoltProtect10min.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -13888,7 +14185,7 @@ def thaivoltprotect10minSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiVoltProtect10min.checkBox_S_End_DC1.isChecked():
+        if uiThaiVoltProtect10min.checkBox_S1_DC1.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC1Status = uiThaiVoltProtect10min.comboBox_S_End_DC1.currentText()
             if S_end_DC1Status == "开启":
@@ -13911,7 +14208,7 @@ def thaivoltprotect10minSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiVoltProtect10min.checkBox_S_End_DC2.isChecked():
+        if uiThaiVoltProtect10min.checkBox_S1_DC2.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC2Status = uiThaiVoltProtect10min.comboBox_S_End_DC2.currentText()
             if S_end_DC2Status == "开启":
@@ -13934,7 +14231,7 @@ def thaivoltprotect10minSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiVoltProtect10min.checkBox_S_End_DC3.isChecked():
+        if uiThaiVoltProtect10min.checkBox_S1_DC3.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC3Status = uiThaiVoltProtect10min.comboBox_S_End_DC3.currentText()
             if S_end_DC3Status == "开启":
@@ -13957,7 +14254,7 @@ def thaivoltprotect10minSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
         
-        if uiThaiVoltProtect10min.checkBox_S_End_DC4.isChecked():
+        if uiThaiVoltProtect10min.checkBox_S1_DC4.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC4Status = uiThaiVoltProtect10min.comboBox_S_End_DC4.currentText()
             if S_end_DC4Status == "开启":
@@ -14017,6 +14314,14 @@ def thaivoltprotect10minSend():
 
         dialog_windowvoltprotect10min.close()
 
+    # 计数递增
+    if 'voltprotect10min_append_count' not in globals():
+        voltprotect10min_append_count = 0
+    voltprotect10min_append_count += 1
+    uiThaiVoltProtect10min.label_append_count.setText(str(voltprotect10min_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(f"[10min过压保护] 追加完成，当前计数: {voltprotect10min_append_count}，开始/结束试验按钮已启用")
+
 # 10min过压保护读取设定
 def OpenFileDialogThaiVoltProtect10min():
     global dialog_windowvoltprotect10min, uiThaiVoltProtect10min
@@ -14048,6 +14353,16 @@ def SaveFileDialogThaiVoltProtect10min():
     Open_Save_ThaiVoltProtect10min.Save_File_ThaiVoltProtect10min(kwargs)
 
 # 过频降载
+def thaiguopinjiangzaiAppend():
+    global strAddTestFlag, guopinjiangzai_append_count
+    if 'guopinjiangzai_append_count' not in globals():
+        guopinjiangzai_append_count = 0
+    strAddTestFlag = "0" if guopinjiangzai_append_count == 0 else "1"
+    mode = "覆盖" if guopinjiangzai_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[过频降载] 第{guopinjiangzai_append_count + 1}次{mode}模式，开始生成命令...")
+    thaiguopinjiangzaiSend()
+
+
 def thaiguopinjiangzaiSend():
     global uiThaiGuoPinJiangZai,dialog_windowguopinjiangzai,strArrayTest,Ui_Dialog_thaiguopinjiangzai
     global strSettingTestFlag,strArrayTestStep
@@ -14056,6 +14371,9 @@ def thaiguopinjiangzaiSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global guopinjiangzai_append_count
+    if 'guopinjiangzai_append_count' not in globals():
+        guopinjiangzai_append_count = 0
     
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -14064,14 +14382,14 @@ def thaiguopinjiangzaiSend():
         test_program = []
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiGuoPinJiangZai.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiGuoPinJiangZai.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiGuoPinJiangZai.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiGuoPinJiangZai.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiGuoPinJiangZai.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiGuoPinJiangZai._wtStacked.widget(0)))
+        elif uiThaiGuoPinJiangZai.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiGuoPinJiangZai._wtStacked.widget(1)))
+        elif uiThaiGuoPinJiangZai.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiGuoPinJiangZai._wtStacked.widget(2)))
+        elif uiThaiGuoPinJiangZai.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiGuoPinJiangZai._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -14422,13 +14740,13 @@ def thaiguopinjiangzaiSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '6'
-            if uiThaiGuoPinJiangZai.checkBox_S2_WT3000.isChecked():
+            if uiThaiGuoPinJiangZai.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiGuoPinJiangZai.checkBox_S2_WT1800.isChecked():
+            elif uiThaiGuoPinJiangZai.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiGuoPinJiangZai.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiGuoPinJiangZai.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiGuoPinJiangZai.checkBox_S2_WT5000.isChecked():
+            elif uiThaiGuoPinJiangZai.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -16159,7 +16477,7 @@ def thaiguopinjiangzaiSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoPinJiangZai.checkBox_S_End_DC1.isChecked():
+        if uiThaiGuoPinJiangZai.checkBox_S1_DC1.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC1Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC1.currentText()
             if S_end_DC1Status == "开启":
@@ -16182,7 +16500,7 @@ def thaiguopinjiangzaiSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoPinJiangZai.checkBox_S_End_DC2.isChecked():
+        if uiThaiGuoPinJiangZai.checkBox_S1_DC2.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC2Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC2.currentText()
             if S_end_DC2Status == "开启":
@@ -16205,7 +16523,7 @@ def thaiguopinjiangzaiSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoPinJiangZai.checkBox_S_End_DC3.isChecked():
+        if uiThaiGuoPinJiangZai.checkBox_S1_DC3.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC3Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC3.currentText()
             if S_end_DC3Status == "开启":
@@ -16228,7 +16546,7 @@ def thaiguopinjiangzaiSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
         
-        if uiThaiGuoPinJiangZai.checkBox_S_End_DC4.isChecked():
+        if uiThaiGuoPinJiangZai.checkBox_S1_DC4.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC4Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC4.currentText()
             if S_end_DC4Status == "开启":
@@ -16288,6 +16606,14 @@ def thaiguopinjiangzaiSend():
 
         dialog_windowguopinjiangzai.close()
 
+    # 计数递增
+    if 'guopinjiangzai_append_count' not in globals():
+        guopinjiangzai_append_count = 0
+    guopinjiangzai_append_count += 1
+    uiThaiGuoPinJiangZai.label_append_count.setText(str(guopinjiangzai_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(f"[过频降载] 追加完成，当前计数: {guopinjiangzai_append_count}，开始/结束试验按钮已启用")
+
 # 过频降载读取设定
 def OpenFileDialogThaiGuoPinJiangZai():
     global dialog_windowguopinjiangzai, uiThaiGuoPinJiangZai
@@ -16319,6 +16645,15 @@ def SaveFileDialogThaiGuoPinJiangZai():
     Open_Save_ThaiGuoPinJiangZai.Save_File_ThaiGuoPinJiangZai(kwargs)
 
 # PU
+def thaitestPUAppend():
+    global strAddTestFlag, testPU_append_count
+    if 'testPU_append_count' not in globals():
+        testPU_append_count = 0
+    strAddTestFlag = "0" if testPU_append_count == 0 else "1"
+    mode = "覆盖" if testPU_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[Test_PU] 第{testPU_append_count + 1}次{mode}模式，开始生成命令...")
+    thaitestPUSend()
+
 def thaitestPUSend():
     global uiThaiTestPU,dialog_windowtestPU,strArrayTest,Ui_Dialog_thaitestPU
     global strSettingTestFlag,strArrayTestStep
@@ -16327,6 +16662,9 @@ def thaitestPUSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global testPU_append_count
+    if 'testPU_append_count' not in globals():
+        testPU_append_count = 0
     
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -16335,14 +16673,14 @@ def thaitestPUSend():
         test_program = []
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiTestPU.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiTestPU.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiTestPU.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiTestPU.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiTestPU.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiTestPU._wtStacked.widget(0)))
+        elif uiThaiTestPU.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiTestPU._wtStacked.widget(1)))
+        elif uiThaiTestPU.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiTestPU._wtStacked.widget(2)))
+        elif uiThaiTestPU.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiTestPU._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -16693,13 +17031,13 @@ def thaitestPUSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '6'
-            if uiThaiTestPU.checkBox_S2_WT3000.isChecked():
+            if uiThaiTestPU.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiTestPU.checkBox_S2_WT1800.isChecked():
+            elif uiThaiTestPU.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiTestPU.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiTestPU.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiTestPU.checkBox_S2_WT5000.isChecked():
+            elif uiThaiTestPU.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -18421,6 +18759,12 @@ def thaitestPUSend():
                 csv_write.writerow(strArrayTest[i])
             out.close()
 
+        # 计数递增
+        testPU_append_count += 1
+        uiThaiTestPU.label_append_count.setText(str(testPU_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(f"[Test_PU] 追加完成，当前计数: {testPU_append_count}，开始/结束试验按钮已启用")
+
         dialog_windowtestPU.close()
 
 # PU读取设定
@@ -18436,7 +18780,7 @@ def OpenFileDialogThaiTestPU():
         'uiThiaWT1806E': uiThiaWT1806E,
         'uiThiaWT5000': uiThiaWT5000,
     }
-    Open_Save_ThaitestPU.Open_File_ThaiTestPU(kwargs)
+    Open_Save_ThaiTestPU.Open_File_ThaiTestPU(kwargs)
 
 # PU保存设定
 def SaveFileDialogThaiTestPU():
@@ -18451,9 +18795,19 @@ def SaveFileDialogThaiTestPU():
         'uiThiaWT1806E': uiThiaWT1806E,
         'uiThiaWT5000': uiThiaWT5000,
     }
-    Open_Save_ThaitestPU.Save_File_ThaiTestPU(kwargs)
+    Open_Save_ThaiTestPU.Save_File_ThaiTestPU(kwargs)
 
 # 过欠压_过欠频
+def thaiguoqianya_pinAppend():
+    global strAddTestFlag, guoqianya_pin_append_count
+    if 'guoqianya_pin_append_count' not in globals():
+        guoqianya_pin_append_count = 0
+    strAddTestFlag = "0" if guoqianya_pin_append_count == 0 else "1"
+    mode = "覆盖" if guoqianya_pin_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[过欠压_过欠频] 第{guoqianya_pin_append_count + 1}次{mode}模式，开始生成命令...")
+    thaiguoqianya_pinSend()
+
+
 def thaiguoqianya_pinSend():
     global uiThaiGuoQianYa_Pin,dialog_windowguoqianya_pin,strArrayTest
     global strSettingTestFlag,strArrayTestStep
@@ -18464,6 +18818,9 @@ def thaiguoqianya_pinSend():
     global per_test_time_list
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global guoqianya_pin_append_count
+    if 'guoqianya_pin_append_count' not in globals():
+        guoqianya_pin_append_count = 0
 
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -18475,14 +18832,14 @@ def thaiguoqianya_pinSend():
         test_program = []
     
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiGuoQianYa_Pin.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiGuoQianYa_Pin.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiGuoQianYa_Pin.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiGuoQianYa_Pin.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiGuoQianYa_Pin.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiGuoQianYa_Pin._wtStacked.widget(0)))
+        elif uiThaiGuoQianYa_Pin.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiGuoQianYa_Pin._wtStacked.widget(1)))
+        elif uiThaiGuoQianYa_Pin.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiGuoQianYa_Pin._wtStacked.widget(2)))
+        elif uiThaiGuoQianYa_Pin.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiGuoQianYa_Pin._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -18835,13 +19192,13 @@ def thaiguoqianya_pinSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '7'
-            if uiThaiGuoQianYa_Pin.checkBox_S2_WT3000.isChecked():
+            if uiThaiGuoQianYa_Pin.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiGuoQianYa_Pin.checkBox_S2_WT1800.isChecked():
+            elif uiThaiGuoQianYa_Pin.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiGuoQianYa_Pin.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiGuoQianYa_Pin.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiGuoQianYa_Pin.checkBox_S2_WT5000.isChecked():
+            elif uiThaiGuoQianYa_Pin.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -21369,7 +21726,7 @@ def thaiguoqianya_pinSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoQianYa_Pin.checkBox_S_End_DC1.isChecked():
+        if uiThaiGuoQianYa_Pin.checkBox_S1_DC1.isChecked() and uiThaiGuoQianYa_Pin.checkBox_S_End_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC1Status = uiThaiGuoQianYa_Pin.comboBox_S_End_DC1.currentText()
             if S_end_DC1Status == "开启":
@@ -21392,7 +21749,7 @@ def thaiguoqianya_pinSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoQianYa_Pin.checkBox_S_End_DC2.isChecked():
+        if uiThaiGuoQianYa_Pin.checkBox_S1_DC2.isChecked() and uiThaiGuoQianYa_Pin.checkBox_S_End_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC2Status = uiThaiGuoQianYa_Pin.comboBox_S_End_DC2.currentText()
             if S_end_DC2Status == "开启":
@@ -21415,7 +21772,7 @@ def thaiguoqianya_pinSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoQianYa_Pin.checkBox_S_End_DC3.isChecked():
+        if uiThaiGuoQianYa_Pin.checkBox_S1_DC3.isChecked() and uiThaiGuoQianYa_Pin.checkBox_S_End_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC3Status = uiThaiGuoQianYa_Pin.comboBox_S_End_DC3.currentText()
             if S_end_DC3Status == "开启":
@@ -21438,7 +21795,7 @@ def thaiguoqianya_pinSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
         
-        if uiThaiGuoQianYa_Pin.checkBox_S_End_DC4.isChecked():
+        if uiThaiGuoQianYa_Pin.checkBox_S1_DC4.isChecked() and uiThaiGuoQianYa_Pin.checkBox_S_End_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC4Status = uiThaiGuoQianYa_Pin.comboBox_S_End_DC4.currentText()
             if S_end_DC4Status == "开启":
@@ -21500,6 +21857,14 @@ def thaiguoqianya_pinSend():
 
         dialog_windowguoqianya_pin.close()
 
+    # 计数递增
+    if 'guoqianya_pin_append_count' not in globals():
+        guoqianya_pin_append_count = 0
+    guoqianya_pin_append_count += 1
+    uiThaiGuoQianYa_Pin.label_append_count.setText(str(guoqianya_pin_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(f"[过欠压_过欠频] 追加完成，当前计数: {guoqianya_pin_append_count}，开始/结束试验按钮已启用")
+
 # 过欠压_过欠频读取设定
 def OpenFileDialogThaiGuoQianYa_Pin():
     global dialog_windowguoqianya_pin, uiThaiGuoQianYa_Pin
@@ -21530,6 +21895,16 @@ def SaveFileDialogThaiGuoQianYa_Pin():
     Open_Save_ThaiGuoQianYa_Pin.Save_File_ThaiGuoQianYa_Pin(kwargs)
 
 # 巴西过欠频稳定性
+def thaiguoqianpin_immunAppend():
+    global strAddTestFlag, guoqianpin_immun_append_count
+    if 'guoqianpin_immun_append_count' not in globals():
+        guoqianpin_immun_append_count = 0
+    strAddTestFlag = "0" if guoqianpin_immun_append_count == 0 else "1"
+    mode = "覆盖" if guoqianpin_immun_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[巴西过欠频稳定性] 第{guoqianpin_immun_append_count + 1}次{mode}模式，开始生成命令...")
+    thaiguoqianpin_immunSend()
+
+
 def thaiguoqianpin_immunSend():
     global uiThaiGuoQianPin_Immun,dialog_windowguoqianpin_immun,strArrayTest
     global strSettingTestFlag,strArrayTestStep
@@ -21539,6 +21914,9 @@ def thaiguoqianpin_immunSend():
     # 每轮测试总时长list
     global per_test_time_list, uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
+    global guoqianpin_immun_append_count
+    if 'guoqianpin_immun_append_count' not in globals():
+        guoqianpin_immun_append_count = 0
 
     strShowErrorMessageBoxFlag = ''
     if strAddTestFlag == "0":
@@ -21547,14 +21925,14 @@ def thaiguoqianpin_immunSend():
         test_program = []
 
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
-        if uiThaiGuoQianPin_Immun.checkBox_S2_WT3000.isChecked():
-            wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-        elif uiThaiGuoQianPin_Immun.checkBox_S2_WT1800.isChecked():
-            wt_config_dict = WT1800_params_config(uiThiaWT1800)
-        elif uiThaiGuoQianPin_Immun.checkBox_S2_WT1806E.isChecked():
-            wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-        elif uiThaiGuoQianPin_Immun.checkBox_S2_WT5000.isChecked():
-            wt_config_dict = WT5000_params_config(uiThiaWT5000)
+        if uiThaiGuoQianPin_Immun.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiGuoQianPin_Immun._wtStacked.widget(0)))
+        elif uiThaiGuoQianPin_Immun.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiGuoQianPin_Immun._wtStacked.widget(1)))
+        elif uiThaiGuoQianPin_Immun.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiGuoQianPin_Immun._wtStacked.widget(2)))
+        elif uiThaiGuoQianPin_Immun.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiGuoQianPin_Immun._wtStacked.widget(3)))
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -21907,13 +22285,13 @@ def thaiguoqianpin_immunSend():
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '11'
-            if uiThaiGuoQianPin_Immun.checkBox_S2_WT3000.isChecked():
+            if uiThaiGuoQianPin_Immun.radioButton_S2_WT3000.isChecked():
                 wt_type = 'WT3000'
-            elif uiThaiGuoQianPin_Immun.checkBox_S2_WT1800.isChecked():
+            elif uiThaiGuoQianPin_Immun.radioButton_S2_WT1800.isChecked():
                 wt_type = 'WT1800'
-            elif uiThaiGuoQianPin_Immun.checkBox_S2_WT1806E.isChecked():
+            elif uiThaiGuoQianPin_Immun.radioButton_S2_WT1806E.isChecked():
                 wt_type = 'WT1806E'
-            elif uiThaiGuoQianPin_Immun.checkBox_S2_WT5000.isChecked():
+            elif uiThaiGuoQianPin_Immun.radioButton_S2_WT5000.isChecked():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
@@ -22858,7 +23236,7 @@ def thaiguoqianpin_immunSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoQianPin_Immun.checkBox_S_End_DC1.isChecked():
+        if uiThaiGuoQianPin_Immun.checkBox_S1_DC1.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC1Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC1.currentText()
             if S_end_DC1Status == "开启":
@@ -22881,7 +23259,7 @@ def thaiguoqianpin_immunSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoQianPin_Immun.checkBox_S_End_DC2.isChecked():
+        if uiThaiGuoQianPin_Immun.checkBox_S1_DC2.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC2Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC2.currentText()
             if S_end_DC2Status == "开启":
@@ -22904,7 +23282,7 @@ def thaiguoqianpin_immunSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiGuoQianPin_Immun.checkBox_S_End_DC3.isChecked():
+        if uiThaiGuoQianPin_Immun.checkBox_S1_DC3.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC3Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC3.currentText()
             if S_end_DC3Status == "开启":
@@ -22927,7 +23305,7 @@ def thaiguoqianpin_immunSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
         
-        if uiThaiGuoQianPin_Immun.checkBox_S_End_DC4.isChecked():
+        if uiThaiGuoQianPin_Immun.checkBox_S1_DC4.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC4Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC4.currentText()
             if S_end_DC4Status == "开启":
@@ -22989,6 +23367,14 @@ def thaiguoqianpin_immunSend():
 
         dialog_windowguoqianpin_immun.close()
 
+    # 计数递增
+    if 'guoqianpin_immun_append_count' not in globals():
+        guoqianpin_immun_append_count = 0
+    guoqianpin_immun_append_count += 1
+    uiThaiGuoQianPin_Immun.label_append_count.setText(str(guoqianpin_immun_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(f"[巴西过欠频稳定性] 追加完成，当前计数: {guoqianpin_immun_append_count}，开始/结束试验按钮已启用")
+
 # 巴西过欠频稳定性读取设定
 def OpenFileDialogThaiGuoQianPin_Immun():
     global dialog_windowguoqianpin_immun, uiThaiGuoQianPin_Immun
@@ -23020,6 +23406,16 @@ def SaveFileDialogThaiGuoQianPin_Immun():
     Open_Save_ThaiGuoQianPin_Immun.Save_File_ThaiGuoQianPin_Immun(kwargs)
 
 # 静态MPPT测试
+def thaistaticMPPTtestAppend():
+    global strAddTestFlag, staticMPPTtest_append_count
+    if 'staticMPPTtest_append_count' not in globals():
+        staticMPPTtest_append_count = 0
+    strAddTestFlag = "0" if staticMPPTtest_append_count == 0 else "1"
+    mode = "覆盖" if staticMPPTtest_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[静态MPPT测试] 第{staticMPPTtest_append_count + 1}次{mode}模式，开始生成命令...")
+    thaistaticMPPTtestSend()
+
+
 def thaistaticMPPTtestSend():
     global uiThaiStaticMPPTTest,dialog_windowstaticmppttest,strArrayTest
     global strSettingTestFlag,strArrayTestStep
@@ -23027,6 +23423,11 @@ def thaistaticMPPTtestSend():
     # 多项目切换测试相关参数
     global project_change, wt_config_nums
     global DC_port_list, command_save_file_path
+    global staticMPPTtest_append_count
+    if 'staticMPPTtest_append_count' not in globals():
+        staticMPPTtest_append_count = 0
+    if 'wt_config_nums' not in globals():
+        wt_config_nums = 0
     # 每轮测试总时长list
 
     DC1_config_file = []
@@ -23503,7 +23904,8 @@ def thaistaticMPPTtestSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiStaticMPPTTest.checkBox_S_End_DC.isChecked():
+        if (uiThaiStaticMPPTTest.checkBox_S1_DC1.isChecked() or uiThaiStaticMPPTTest.checkBox_S1_DC2.isChecked() or
+            uiThaiStaticMPPTTest.checkBox_S1_DC3.isChecked() or uiThaiStaticMPPTTest.checkBox_S1_DC4.isChecked()) and uiThaiStaticMPPTTest.checkBox_S_End_DC.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC1Status = uiThaiStaticMPPTTest.comboBox_S_End_DC.currentText()
             if S_end_DC1Status == "开启":
@@ -23571,6 +23973,14 @@ def thaistaticMPPTtestSend():
 
         dialog_windowstaticmppttest.close()
 
+    # 计数递增
+    if 'staticMPPTtest_append_count' not in globals():
+        staticMPPTtest_append_count = 0
+    staticMPPTtest_append_count += 1
+    uiThaiStaticMPPTTest.label_append_count.setText(str(staticMPPTtest_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(f"[静态MPPT测试] 追加完成，当前计数: {staticMPPTtest_append_count}，开始/结束试验按钮已启用")
+
 # 静态MPPT测试读取设定
 def OpenFileDialogThaiStaticMPPTTest():
     global dialog_windowstaticmppttest, uiThaiStaticMPPTTest
@@ -23583,18 +23993,39 @@ def SaveFileDialogThaiStaticMPPTTest():
 
 
 # 频率适应性（试验设定壳）
+def thaifrequencyadaptabilityAppend():
+    global strAddTestFlag, frequencyadaptability_append_count
+    if 'frequencyadaptability_append_count' not in globals():
+        frequencyadaptability_append_count = 0
+    strAddTestFlag = "0" if frequencyadaptability_append_count == 0 else "1"
+    mode = "覆盖" if frequencyadaptability_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[频率适应性] 第{frequencyadaptability_append_count + 1}次{mode}模式，开始生成命令...")
+    thaifrequencyadaptabilitySend()
+
+
 def thaifrequencyadaptabilitySend():
     global dialog_windowfrequencyadaptability
+    global frequencyadaptability_append_count
+    if 'frequencyadaptability_append_count' not in globals():
+        frequencyadaptability_append_count = 0
     strtimenow = now_to_datenow()
     logger.info(strtimenow + "    频率适应性提交（占位，尚未生成试验命令）")
     QMessageBox.information(
-        dialog_windowfrequencyadaptability,
+        None,
         "提示",
         "频率适应性试验逻辑尚未实现，当前为界面占位。",
         QMessageBox.Ok,
         QMessageBox.Ok,
     )
     dialog_windowfrequencyadaptability.close()
+
+    # 计数递增
+    if 'frequencyadaptability_append_count' not in globals():
+        frequencyadaptability_append_count = 0
+    frequencyadaptability_append_count += 1
+    uiThaiFrequencyAdaptability.label_append_count.setText(str(frequencyadaptability_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(f"[频率适应性] 追加完成，当前计数: {frequencyadaptability_append_count}，开始/结束试验按钮已启用")
 
 
 def OpenFileDialogThaiFrequencyAdaptability():
@@ -29688,7 +30119,7 @@ if __name__ == "__main__":
 
             # 存储对话框和设置栈的映射关系
             _auto_test_dialogs = {
-                '重连': (dialog_window, None),
+                '重连': (dialog_window, uithaichonglian),
                 '电压闪变': (dialog_windowTdianyashanbian, uiThaiDianYaShanBian),
                 '谐波电流': (dialog_windowxiebodianliu, uiThaiXieBoDianLiu),
                 '固定PF=1': (dialog_windowfixedpf, uiThaiFixedPF),
@@ -29872,14 +30303,22 @@ if __name__ == "__main__":
             print("[DEBUG_STARTUP]    信号连接段 德国重连...", flush=True)
             #德国重连
             uithaichonglian.pushButton_Send.clicked.connect(thaichonglianSend)
-            uithaichonglian.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uithaichonglian.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uithaichonglian.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uithaichonglian.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
 
             #ThaiChonglian的配置档读取写入SaveFileDialogThaiChongLian
             _safe_click(uithaichonglian, "pushButton_ReadSettingFile", OpenFileDialogThaiChongLian)
             _safe_click(uithaichonglian, "pushButton_SaveSettingFile", SaveFileDialogThaiChongLian)
+
+            # 追加测试
+            _safe_click(uithaichonglian, "pushButton_TestAppend", thaichonglianAppend)
+
+            # 重置计数
+            def reset_chonglian_count():
+                global chonglian_append_count
+                chonglian_append_count = 0
+                uithaichonglian.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[重连] 计数器已重置为0")
+            _safe_click(uithaichonglian, "pushButton_ResetCount", reset_chonglian_count)
 
             # # 德国过欠频
             # uithaiguoqianpin.pushButton_Send.clicked.connect(thaiguoqianpinSend)
@@ -30127,10 +30566,18 @@ if __name__ == "__main__":
             
             # 直流分量
             uiThaiZhiLiuFenLiang.pushButton_Send.clicked.connect(thaizhiliufenliangSend)
-            uiThaiZhiLiuFenLiang.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiZhiLiuFenLiang.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiZhiLiuFenLiang.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiZhiLiuFenLiang.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiZhiLiuFenLiang, "pushButton_TestAppend", thaizhiliufenliangAppend)
+
+            # 重置计数
+            def reset_zhiliufenliang_count():
+                global zhiliufenliang_append_count
+                zhiliufenliang_append_count = 0
+                uiThaiZhiLiuFenLiang.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[直流分量] 计数器已重置为0")
+            _safe_click(uiThaiZhiLiuFenLiang, "pushButton_ResetCount", reset_zhiliufenliang_count)
 
             # ZhiLiuFenLiang的的配置档读取写入
             _safe_click(uiThaiZhiLiuFenLiang, "pushButton_ReadSettingFile", OpenFileDialogThaiZhiLiuFenLiang)
@@ -30138,10 +30585,18 @@ if __name__ == "__main__":
             
             # 静态QU
             uiThaiStaticQU.pushButton_Send.clicked.connect(thaistaticQUSend)
-            uiThaiStaticQU.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiStaticQU.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiStaticQU.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiStaticQU.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiStaticQU, "pushButton_TestAppend", thaistaticQUAppend)
+
+            # 重置计数
+            def reset_staticQU_count():
+                global staticQU_append_count
+                staticQU_append_count = 0
+                uiThaiStaticQU.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[静态QU] 计数器已重置为0")
+            _safe_click(uiThaiStaticQU, "pushButton_ResetCount", reset_staticQU_count)
 
             # 静态QU的的配置档读取写入
             _safe_click(uiThaiStaticQU, "pushButton_ReadSettingFile", OpenFileDialogThaiStaticQU)
@@ -30149,10 +30604,18 @@ if __name__ == "__main__":
 
             # 静态Cos(φ)
             uiThaiStaticCosPhi.pushButton_Send.clicked.connect(thaistaticcosPhiSend)
-            uiThaiStaticCosPhi.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiStaticCosPhi.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiStaticCosPhi.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiStaticCosPhi.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiStaticCosPhi, "pushButton_TestAppend", thaistaticcosPhiAppend)
+
+            # 重置计数
+            def reset_staticcosPhi_count():
+                global staticcosPhi_append_count
+                staticcosPhi_append_count = 0
+                uiThaiStaticCosPhi.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[静态Cos(φ)] 计数器已重置为0")
+            _safe_click(uiThaiStaticCosPhi, "pushButton_ResetCount", reset_staticcosPhi_count)
 
             # 静态Cos(φ)的的配置档读取写入
             _safe_click(uiThaiStaticCosPhi, "pushButton_ReadSettingFile", OpenFileDialogThaiStaticCosPhi)
@@ -30160,10 +30623,18 @@ if __name__ == "__main__":
             
             # 巴西Cos(φ)
             uiThaiCosPhiBrazil.pushButton_Send.clicked.connect(thaicosPhiBrazilSend)
-            uiThaiCosPhiBrazil.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiCosPhiBrazil.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiCosPhiBrazil.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiCosPhiBrazil.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiCosPhiBrazil, "pushButton_TestAppend", thaicosPhiBrazilAppend)
+
+            # 重置计数
+            def reset_cosPhiBrazil_count():
+                global cosPhiBrazil_append_count
+                cosPhiBrazil_append_count = 0
+                uiThaiCosPhiBrazil.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[巴西Cos(φ)] 计数器已重置为0")
+            _safe_click(uiThaiCosPhiBrazil, "pushButton_ResetCount", reset_cosPhiBrazil_count)
 
             # 巴西Cos(φ)的的配置档读取写入
             _safe_click(uiThaiCosPhiBrazil, "pushButton_ReadSettingFile", OpenFileDialogThaiCosPhiBrazil)
@@ -30171,10 +30642,18 @@ if __name__ == "__main__":
 
             # 10分钟过压保护
             uiThaiVoltProtect10min.pushButton_Send.clicked.connect(thaivoltprotect10minSend)
-            uiThaiVoltProtect10min.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiVoltProtect10min.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiVoltProtect10min.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiVoltProtect10min.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiVoltProtect10min, "pushButton_TestAppend", thaivoltprotect10minAppend)
+
+            # 重置计数
+            def reset_voltprotect10min_count():
+                global voltprotect10min_append_count
+                voltprotect10min_append_count = 0
+                uiThaiVoltProtect10min.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[10min过压保护] 计数器已重置为0")
+            _safe_click(uiThaiVoltProtect10min, "pushButton_ResetCount", reset_voltprotect10min_count)
 
             # 10分钟过压保护的的配置档读取写入
             _safe_click(uiThaiVoltProtect10min, "pushButton_ReadSettingFile", OpenFileDialogThaiVoltProtect10min)
@@ -30182,10 +30661,18 @@ if __name__ == "__main__":
 
             # 过频降载
             uiThaiGuoPinJiangZai.pushButton_Send.clicked.connect(thaiguopinjiangzaiSend)
-            uiThaiGuoPinJiangZai.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiGuoPinJiangZai.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiGuoPinJiangZai.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiGuoPinJiangZai.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiGuoPinJiangZai, "pushButton_TestAppend", thaiguopinjiangzaiAppend)
+
+            # 重置计数
+            def reset_guopinjiangzai_count():
+                global guopinjiangzai_append_count
+                guopinjiangzai_append_count = 0
+                uiThaiGuoPinJiangZai.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[过频降载] 计数器已重置为0")
+            _safe_click(uiThaiGuoPinJiangZai, "pushButton_ResetCount", reset_guopinjiangzai_count)
 
             # 过频降载的的配置档读取写入
             _safe_click(uiThaiGuoPinJiangZai, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoPinJiangZai)
@@ -30193,10 +30680,18 @@ if __name__ == "__main__":
             
             # PU
             uiThaiTestPU.pushButton_Send.clicked.connect(thaitestPUSend)
-            uiThaiTestPU.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiTestPU.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiTestPU.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiTestPU.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiTestPU, "pushButton_TestAppend", thaitestPUAppend)
+
+            # 重置计数
+            def reset_testPU_count():
+                global testPU_append_count
+                testPU_append_count = 0
+                uiThaiTestPU.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[Test_PU] 计数器已重置为0")
+            _safe_click(uiThaiTestPU, "pushButton_ResetCount", reset_testPU_count)
 
             # PU的配置档读取写入
             _safe_click(uiThaiTestPU, "pushButton_ReadSettingFile", OpenFileDialogThaiTestPU)
@@ -30204,10 +30699,18 @@ if __name__ == "__main__":
 
             # 过欠压_过欠频
             uiThaiGuoQianYa_Pin.pushButton_Send.clicked.connect(thaiguoqianya_pinSend)
-            uiThaiGuoQianYa_Pin.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiGuoQianYa_Pin.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiGuoQianYa_Pin.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiGuoQianYa_Pin.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiGuoQianYa_Pin, "pushButton_TestAppend", thaiguoqianya_pinAppend)
+
+            # 重置计数
+            def reset_guoqianya_pin_count():
+                global guoqianya_pin_append_count
+                guoqianya_pin_append_count = 0
+                uiThaiGuoQianYa_Pin.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[过欠压_过欠频] 计数器已重置为0")
+            _safe_click(uiThaiGuoQianYa_Pin, "pushButton_ResetCount", reset_guoqianya_pin_count)
 
             # 过欠压_过欠频的的配置档读取写入
             _safe_click(uiThaiGuoQianYa_Pin, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoQianYa_Pin)
@@ -30215,10 +30718,18 @@ if __name__ == "__main__":
             
             # 巴西过欠频稳定性
             uiThaiGuoQianPin_Immun.pushButton_Send.clicked.connect(thaiguoqianpin_immunSend)
-            uiThaiGuoQianPin_Immun.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiGuoQianPin_Immun.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiGuoQianPin_Immun.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiGuoQianPin_Immun.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiGuoQianPin_Immun, "pushButton_TestAppend", thaiguoqianpin_immunAppend)
+
+            # 重置计数
+            def reset_guoqianpin_immun_count():
+                global guoqianpin_immun_append_count
+                guoqianpin_immun_append_count = 0
+                uiThaiGuoQianPin_Immun.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[巴西过欠频稳定性] 计数器已重置为0")
+            _safe_click(uiThaiGuoQianPin_Immun, "pushButton_ResetCount", reset_guoqianpin_immun_count)
 
             # 巴西过欠频稳定性的配置档读取写入
             _safe_click(uiThaiGuoQianPin_Immun, "pushButton_ReadSettingFile", OpenFileDialogThaiGuoQianPin_Immun)
@@ -30227,16 +30738,36 @@ if __name__ == "__main__":
             # 静态MPPT测试
             uiThaiStaticMPPTTest.pushButton_Send.clicked.connect(thaistaticMPPTtestSend)
 
+            # 追加测试
+            _safe_click(uiThaiStaticMPPTTest, "pushButton_TestAppend", thaistaticMPPTtestAppend)
+
+            # 重置计数
+            def reset_staticMPPTtest_count():
+                global staticMPPTtest_append_count
+                staticMPPTtest_append_count = 0
+                uiThaiStaticMPPTTest.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[静态MPPT测试] 计数器已重置为0")
+            _safe_click(uiThaiStaticMPPTTest, "pushButton_ResetCount", reset_staticMPPTtest_count)
+
             # 静态MPPT测试的配置档读取写入
             _safe_click(uiThaiStaticMPPTTest, "pushButton_ReadSettingFile", OpenFileDialogThaiStaticMPPTTest)
             _safe_click(uiThaiStaticMPPTTest, "pushButton_SaveSettingFile", SaveFileDialogThaiStaticMPPTTest)
 
             # 频率适应性
             uiThaiFrequencyAdaptability.pushButton_Send.clicked.connect(thaifrequencyadaptabilitySend)
-            uiThaiFrequencyAdaptability.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
-            uiThaiFrequencyAdaptability.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
-            uiThaiFrequencyAdaptability.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
-            uiThaiFrequencyAdaptability.pushButton_S2_WT_5000_CONFIG.clicked.connect(wt_5000_show)
+
+            # 追加测试
+            _safe_click(uiThaiFrequencyAdaptability, "pushButton_TestAppend", thaifrequencyadaptabilityAppend)
+
+            # 重置计数
+            def reset_frequencyadaptability_count():
+                global frequencyadaptability_append_count
+                frequencyadaptability_append_count = 0
+                uiThaiFrequencyAdaptability.label_append_count.setText("0")
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[频率适应性] 计数器已重置为0")
+            _safe_click(uiThaiFrequencyAdaptability, "pushButton_ResetCount", reset_frequencyadaptability_count)
 
             # 频率适应性的配置档读取写入
             _safe_click(uiThaiFrequencyAdaptability, "pushButton_ReadSettingFile", OpenFileDialogThaiFrequencyAdaptability)

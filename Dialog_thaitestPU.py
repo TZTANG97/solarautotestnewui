@@ -2,6 +2,10 @@
 # PU项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content
+)
 
 # 全局样式
 _QSS_COMMON = """
@@ -108,7 +112,7 @@ class Ui_Dialog_thaitestPU(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪+PU", "③ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪+PU", "③ PU 测试", "④ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -134,10 +138,14 @@ class Ui_Dialog_thaitestPU(object):
         # ── 构建各步骤页面 ──
         self._build_step1()
         self._build_step2()
+        self._build_pu_steps()
         self._build_step_shutdown()
 
         # 默认显示第一页
         self._switch_step(0)
+
+        # DC 联动
+        self._connect_dc_linkage()
 
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
         self.pushButton_Send = QtWidgets.QPushButton()
@@ -173,6 +181,16 @@ class Ui_Dialog_thaitestPU(object):
 
     def _group_box_style(self):
         return "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }"
+
+    def _make_radio(self, name, text, parent=None, checked=False):
+        """创建 QRadioButton 并存储到 self。"""
+        rb = QtWidgets.QRadioButton(text)
+        rb.setObjectName(name)
+        if parent is not None:
+            setattr(self, name, rb)
+        if checked:
+            rb.setChecked(True)
+        return rb
 
     # ══════════════════════════════════════════════
     # Step 1: AC/DC 电源设置 + 时序
@@ -331,6 +349,7 @@ class Ui_Dialog_thaitestPU(object):
         self.textEdit_S1_ACWaitTIME = QtWidgets.QTextEdit()
         self.textEdit_S1_ACWaitTIME.setObjectName("textEdit_S1_ACWaitTIME")
         self.textEdit_S1_ACWaitTIME.setFixedSize(100, 31)
+        self.textEdit_S1_ACWaitTIME.setText("5")
         g4.addWidget(self.textEdit_S1_ACWaitTIME, 0, 1)
         self.comboBox_S1_ACWaitTIME = QtWidgets.QComboBox()
         self.comboBox_S1_ACWaitTIME.setObjectName("comboBox_S1_ACWaitTIME")
@@ -344,6 +363,7 @@ class Ui_Dialog_thaitestPU(object):
         self.textEdit_S1_TIME = QtWidgets.QTextEdit()
         self.textEdit_S1_TIME.setObjectName("textEdit_S1_TIME")
         self.textEdit_S1_TIME.setFixedSize(100, 31)
+        self.textEdit_S1_TIME.setText("5")
         g4.addWidget(self.textEdit_S1_TIME, 0, 4)
         self.comboBox_S1_TIME = QtWidgets.QComboBox()
         self.comboBox_S1_TIME.setObjectName("comboBox_S1_TIME")
@@ -367,64 +387,117 @@ class Ui_Dialog_thaitestPU(object):
 
         self.groupBox_5 = QtWidgets.QGroupBox()
         self.groupBox_5.setObjectName("groupBox_5")
-        self.groupBox_5.setTitle("功率分析仪设置")
+        self.groupBox_5.setTitle("功率分析仪配置")
         self.groupBox_5.setStyleSheet(self._group_box_style())
         g5 = QtWidgets.QGridLayout(self.groupBox_5)
         g5.setSpacing(10)
         g5.setContentsMargins(16, 24, 16, 12)
 
+        # 步骤启用复选框
         self.checkBox_S2 = QtWidgets.QCheckBox("step2")
         self.checkBox_S2.setChecked(True)
         self.checkBox_S2.setObjectName("checkBox_S2")
-        g5.addWidget(self.checkBox_S2, 0, 0, 1, 2)
+        g5.addWidget(self.checkBox_S2, 0, 0)
 
-        self.checkBox_S2_WT3000 = QtWidgets.QCheckBox("WT3000")
-        self.checkBox_S2_WT3000.setChecked(True)
-        self.checkBox_S2_WT3000.setObjectName("checkBox_S2_WT3000")
-        g5.addWidget(self.checkBox_S2_WT3000, 0, 2)
-        self.pushButton_S2_WT_3000_CONFIG = QtWidgets.QPushButton("WT_3000_config")
-        self.pushButton_S2_WT_3000_CONFIG.setObjectName("pushButton_S2_WT_3000_CONFIG")
-        g5.addWidget(self.pushButton_S2_WT_3000_CONFIG, 0, 3)
+        # Radio buttons（单选，默认 WT3000）
+        self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
+        self.radioButton_S2_WT1800 = self._make_radio("radio_S2_WT1800", "WT1800", parent=self)
+        self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
+        self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
 
-        self.checkBox_S2_WT1800 = QtWidgets.QCheckBox("WT1800")
-        self.checkBox_S2_WT1800.setChecked(True)
-        self.checkBox_S2_WT1800.setObjectName("checkBox_S2_WT1800")
-        g5.addWidget(self.checkBox_S2_WT1800, 0, 4)
-        self.pushButton_S2_WT_1800_CONFIG = QtWidgets.QPushButton("WT_1800_config")
-        self.pushButton_S2_WT_1800_CONFIG.setObjectName("pushButton_S2_WT_1800_CONFIG")
-        g5.addWidget(self.pushButton_S2_WT_1800_CONFIG, 0, 5)
+        self._wt_radio_group = QtWidgets.QButtonGroup(None)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT5000, 3)
 
-        self.checkBox_S2_WT1806E = QtWidgets.QCheckBox("WT1806E")
-        self.checkBox_S2_WT1806E.setChecked(True)
-        self.checkBox_S2_WT1806E.setObjectName("checkBox_S2_WT1806E")
-        g5.addWidget(self.checkBox_S2_WT1806E, 1, 2)
-        self.pushButton_S2_WT_1806E_CONFIG = QtWidgets.QPushButton("WT_1806E_config")
-        self.pushButton_S2_WT_1806E_CONFIG.setObjectName("pushButton_S2_WT_1806E_CONFIG")
-        g5.addWidget(self.pushButton_S2_WT_1806E_CONFIG, 1, 3)
+        radio_layout = QtWidgets.QHBoxLayout()
+        radio_layout.setSpacing(24)
+        radio_layout.setContentsMargins(8, 0, 0, 0)
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        g5.addLayout(radio_layout, 0, 1, 1, 3)
 
-        self.checkBox_S2_WT5000 = QtWidgets.QCheckBox("WT5000")
-        self.checkBox_S2_WT5000.setChecked(True)
-        self.checkBox_S2_WT5000.setObjectName("checkBox_S2_WT5000")
-        g5.addWidget(self.checkBox_S2_WT5000, 1, 4)
-        self.pushButton_S2_WT_5000_CONFIG = QtWidgets.QPushButton("WT_5000_config")
-        self.pushButton_S2_WT_5000_CONFIG.setObjectName("pushButton_S2_WT_5000_CONFIG")
-        g5.addWidget(self.pushButton_S2_WT_5000_CONFIG, 1, 5)
+        # QStackedWidget 承载 4 个 WT 配置页面
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))   # index 0
+        self._wtStacked.addWidget(build_wt1800_content(self))   # index 1
+        self._wtStacked.addWidget(build_wt1806e_content(self))  # index 2
+        self._wtStacked.addWidget(build_wt5000_content(self))   # index 3
+        g5.addWidget(self._wtStacked, 1, 0, 1, 4)
+
+        # Radio 切换联动
+        def _on_wt_radio_toggled(btn, checked):
+            if checked:
+                btn_id = self._wt_radio_group.id(btn)
+                self._wtStacked.setCurrentIndex(btn_id)
+
+        self._wt_radio_group.buttonToggled.connect(_on_wt_radio_toggled)
+
+        # checkBox_S2 联动禁用 radio + stackedWidget 内容
+        def _on_s2_toggled(checked):
+            for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                       self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+                rb.setEnabled(checked)
+            self._wtStacked.setEnabled(checked)
+
+        self.checkBox_S2.toggled.connect(_on_s2_toggled)
+        _on_s2_toggled(self.checkBox_S2.isChecked())
 
         layout.addWidget(self.groupBox_5)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # PU 步骤（3-22）：固定交流电压 + 数据采集时间
+    # PU 步骤（合并）：滚动列表平铺展示
     # ══════════════════════════════════════════════
-    def _build_pu_step(self, n):
-        """
-        构建 PU n 的页面。n = 3..22 对应 step3..step22。
-        每页包含：checkBox_SN、交流电压输入、数据采集时间输入。
-        """
+    def _build_pu_steps(self):
+        """构建合并的 PU 测试页面，20 个 PU 卡片平铺在滚动区域中。"""
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # 步骤启用复选框
+        self.checkBox_S_PU = QtWidgets.QCheckBox("PU 测试")
+        self.checkBox_S_PU.setChecked(True)
+        self.checkBox_S_PU.setObjectName("checkBox_S_PU")
+        layout.addWidget(self.checkBox_S_PU)
+
+        # 滚动区域承载所有 PU 卡片
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_widget = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(8)
+
+        for n in range(3, 23):
+            card = self._build_pu_card(n)
+            scroll_layout.addWidget(card)
+
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
+
+        # checkBox_S_PU 联动禁用滚动区域
+        def _on_pu_toggled(checked):
+            scroll.setEnabled(checked)
+
+        self.checkBox_S_PU.toggled.connect(_on_pu_toggled)
+        _on_pu_toggled(self.checkBox_S_PU.isChecked())
+
+        self.stackedWidget.addWidget(page)
+
+    def _build_pu_card(self, n):
+        """构建单个 PU 卡片（n=3..22，对应 PU 1..20）。"""
+        card = QtWidgets.QWidget()
+        card.setStyleSheet("background-color: white;")
+        layout = QtWidgets.QVBoxLayout(card)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
@@ -450,6 +523,7 @@ class Ui_Dialog_thaitestPU(object):
         textEdit_ac_volt = QtWidgets.QTextEdit()
         textEdit_ac_volt.setObjectName(f"textEdit_S{n}_AC_VOLT")
         textEdit_ac_volt.setFixedSize(100, 31)
+        textEdit_ac_volt.setText("230")
         gLayout.addWidget(textEdit_ac_volt, 0, 2)
         setattr(self, f"textEdit_S{n}_AC_VOLT", textEdit_ac_volt)
         lbl_v = QtWidgets.QLabel("V")
@@ -463,6 +537,7 @@ class Ui_Dialog_thaitestPU(object):
         textEdit_time = QtWidgets.QTextEdit()
         textEdit_time.setObjectName(f"textEdit_S{n}_TIME")
         textEdit_time.setFixedSize(100, 31)
+        textEdit_time.setText("5")
         gLayout.addWidget(textEdit_time, 1, 2)
         setattr(self, f"textEdit_S{n}_TIME", textEdit_time)
         comboBox_time = QtWidgets.QComboBox()
@@ -471,6 +546,10 @@ class Ui_Dialog_thaitestPU(object):
         comboBox_time.setFixedWidth(120)
         gLayout.addWidget(comboBox_time, 1, 3)
         setattr(self, f"comboBox_S{n}_TIME", comboBox_time)
+
+        layout.addWidget(groupBox)
+        layout.addStretch()
+        return card
 
         layout.addWidget(groupBox)
         layout.addStretch()
@@ -532,6 +611,30 @@ class Ui_Dialog_thaitestPU(object):
         layout.addWidget(self.groupBox_11)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    def _connect_dc_linkage(self):
+        """连接 step1 DC 复选框与关机步骤 DC 复选框的联动。"""
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+        # 关机步骤 DC 联动
+        end_dcs = [self.checkBox_S_End_DC1, self.checkBox_S_End_DC2,
+                   self.checkBox_S_End_DC3, self.checkBox_S_End_DC4]
+        end_combos = [self.comboBox_S_End_DC1, self.comboBox_S_End_DC2,
+                      self.comboBox_S_End_DC3, self.comboBox_S_End_DC4]
+
+        def _update_end_dc(_checked=None):
+            step_on = self.checkBox_S_End.isChecked()
+            for i in range(4):
+                should_enable = step_on and step1_dcs[i].isChecked()
+                end_dcs[i].setEnabled(should_enable)
+                end_dcs[i].setChecked(should_enable)
+                end_combos[i].setEnabled(should_enable)
+
+        self.checkBox_S_End.toggled.connect(_update_end_dc)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_end_dc)
+        _update_end_dc()
 
     def retranslateUi(self, Dialog_thaitestPU):
         _translate = QtCore.QCoreApplication.translate

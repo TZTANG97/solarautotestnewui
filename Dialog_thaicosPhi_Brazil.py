@@ -2,6 +2,10 @@
 # 巴西CosPhi项目配置 - 现代化布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content
+)
 
 # ── 共享样式常量 ──
 _INPUT_STYLE = (
@@ -157,7 +161,7 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ cosPhi", "④ cosPhi", "⑤ cosPhi", "⑥ cosPhi", "⑦ cosPhi", "⑧ cosPhi", "⑨ cosPhi", "⑩ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ cosPhi 设置", "④ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -183,17 +187,14 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         # ── 构建各步骤页面 ──
         self._build_step1()
         self._build_step2()
-        self._build_step3()
-        self._build_step4()
-        self._build_step5()
-        self._build_step6()
-        self._build_step7()
-        self._build_step8()
-        self._build_step9()
+        self._build_cosPhi_steps()
         self._build_step_last()
 
         # 默认显示第一页
         self._switch_step(0)
+
+        # DC 联动
+        self._connect_dc_linkage()
 
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
         self.pushButton_Send = QtWidgets.QPushButton()
@@ -220,6 +221,16 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
                     "border-bottom: 3px solid transparent; border-radius: 0; background: transparent; }"
                     "QLabel:hover { background-color: #f1f5f9; }"
                 )
+
+    def _make_radio(self, name, text, parent=None, checked=False):
+        """创建 QRadioButton 并存储到 self。"""
+        rb = QtWidgets.QRadioButton(text)
+        rb.setObjectName(name)
+        if parent is not None:
+            setattr(self, name, rb)
+        if checked:
+            rb.setChecked(True)
+        return rb
 
     # ══════════════════════════════════════════════
     # Step 1: AC/DC 电源设置
@@ -312,35 +323,42 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
             cb.setChecked(True)
             cb.setStyleSheet(_CHECKBOX_STYLE)
             dcLayout.addWidget(cb, r, 0, 1, 2)
+            setattr(self, cb_name, cb)
 
             volt_te = _make_input("220")
             volt_te.setObjectName(volt)
             dcLayout.addWidget(volt_te, r, 2)
             dcLayout.addWidget(_make_label("V"), r, 3)
+            setattr(self, volt, volt_te)
 
             voc_te = _make_input("220")
             voc_te.setObjectName(voc)
             dcLayout.addWidget(voc_te, r, 4)
             dcLayout.addWidget(_make_label("V"), r, 5)
+            setattr(self, voc, voc_te)
 
             curr_te = _make_input("10")
             curr_te.setObjectName(curr)
             dcLayout.addWidget(curr_te, r, 6)
             dcLayout.addWidget(_make_label("A"), r, 7)
+            setattr(self, curr, curr_te)
 
             isc_te = _make_input("10")
             isc_te.setObjectName(isc)
             dcLayout.addWidget(isc_te, r, 8)
             dcLayout.addWidget(_make_label("A"), r, 9)
+            setattr(self, isc, isc_te)
 
             pf_te = _make_input("100")
             pf_te.setObjectName(pf)
             dcLayout.addWidget(pf_te, r, 10)
             dcLayout.addWidget(_make_label("%"), r, 11)
+            setattr(self, pf, pf_te)
 
             combo = _make_combo(["开启", "关闭"])
             combo.setObjectName(combo_name)
             dcLayout.addWidget(combo, r, 12)
+            setattr(self, combo_name, combo)
 
         layout.addWidget(dcGroup)
 
@@ -383,6 +401,7 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
+        # 步骤启用复选框
         self.checkBox_S2 = QtWidgets.QCheckBox("step2")
         self.checkBox_S2.setChecked(True)
         self.checkBox_S2.setStyleSheet(
@@ -393,58 +412,60 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         )
         layout.addWidget(self.checkBox_S2)
 
-        # 功率分析仪选择组
+        # 功率分析仪配置组
         wtGroup = QtWidgets.QGroupBox("功率分析仪配置")
         wtGroup.setStyleSheet(_GROUPBOX_STYLE)
         wtLayout = QtWidgets.QGridLayout(wtGroup)
         wtLayout.setSpacing(12)
         wtLayout.setContentsMargins(12, 20, 12, 12)
 
-        # Row 0: WT3000
-        self.checkBox_S2_WT3000 = QtWidgets.QCheckBox("WT3000")
-        self.checkBox_S2_WT3000.setChecked(True)
-        self.checkBox_S2_WT3000.setObjectName("checkBox_S2_WT3000")
-        self.checkBox_S2_WT3000.setStyleSheet(_CHECKBOX_STYLE)
-        wtLayout.addWidget(self.checkBox_S2_WT3000, 0, 0)
-        self.pushButton_S2_WT_3000_CONFIG = QtWidgets.QPushButton("WT_3000_config")
-        self.pushButton_S2_WT_3000_CONFIG.setObjectName("pushButton_S2_WT_3000_CONFIG")
-        self.pushButton_S2_WT_3000_CONFIG.setStyleSheet(_PUSHBTN_BLUE)
-        wtLayout.addWidget(self.pushButton_S2_WT_3000_CONFIG, 0, 1)
+        # Radio buttons（单选，默认 WT3000）
+        self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
+        self.radioButton_S2_WT1800 = self._make_radio("radio_S2_WT1800", "WT1800", parent=self)
+        self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
+        self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
 
-        # Row 1: WT1800
-        self.checkBox_S2_WT1800 = QtWidgets.QCheckBox("WT1800")
-        self.checkBox_S2_WT1800.setChecked(True)
-        self.checkBox_S2_WT1800.setObjectName("checkBox_S2_WT1800")
-        self.checkBox_S2_WT1800.setStyleSheet(_CHECKBOX_STYLE)
-        wtLayout.addWidget(self.checkBox_S2_WT1800, 1, 0)
-        self.pushButton_S2_WT_1800_CONFIG = QtWidgets.QPushButton("WT_1800_config")
-        self.pushButton_S2_WT_1800_CONFIG.setObjectName("pushButton_S2_WT_1800_CONFIG")
-        self.pushButton_S2_WT_1800_CONFIG.setStyleSheet(_PUSHBTN_BLUE)
-        wtLayout.addWidget(self.pushButton_S2_WT_1800_CONFIG, 1, 1)
+        self._wt_radio_group = QtWidgets.QButtonGroup(None)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT5000, 3)
 
-        # Row 2: WT1806E
-        self.checkBox_S2_WT1806E = QtWidgets.QCheckBox("WT1806E")
-        self.checkBox_S2_WT1806E.setChecked(True)
-        self.checkBox_S2_WT1806E.setObjectName("checkBox_S2_WT1806E")
-        self.checkBox_S2_WT1806E.setStyleSheet(_CHECKBOX_STYLE)
-        wtLayout.addWidget(self.checkBox_S2_WT1806E, 2, 0)
-        self.pushButton_S2_WT_1806E_CONFIG = QtWidgets.QPushButton("WT_1806E_config")
-        self.pushButton_S2_WT_1806E_CONFIG.setObjectName("pushButton_S2_WT_1806E_CONFIG")
-        self.pushButton_S2_WT_1806E_CONFIG.setStyleSheet(_PUSHBTN_BLUE)
-        wtLayout.addWidget(self.pushButton_S2_WT_1806E_CONFIG, 2, 1)
+        radio_layout = QtWidgets.QHBoxLayout()
+        radio_layout.setSpacing(24)
+        radio_layout.setContentsMargins(8, 0, 0, 0)
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        wtLayout.addLayout(radio_layout, 0, 0, 1, 3)
 
-        # Row 3: WT5000
-        self.checkBox_S2_WT5000 = QtWidgets.QCheckBox("WT5000")
-        self.checkBox_S2_WT5000.setChecked(True)
-        self.checkBox_S2_WT5000.setObjectName("checkBox_S2_WT5000")
-        self.checkBox_S2_WT5000.setStyleSheet(_CHECKBOX_STYLE)
-        wtLayout.addWidget(self.checkBox_S2_WT5000, 3, 0)
-        self.pushButton_S2_WT_5000_CONFIG = QtWidgets.QPushButton("WT_5000_config")
-        self.pushButton_S2_WT_5000_CONFIG.setObjectName("pushButton_S2_WT_5000_CONFIG")
-        self.pushButton_S2_WT_5000_CONFIG.setStyleSheet(_PUSHBTN_BLUE)
-        wtLayout.addWidget(self.pushButton_S2_WT_5000_CONFIG, 3, 1)
+        # QStackedWidget 承载 4 个 WT 配置页面
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))   # index 0
+        self._wtStacked.addWidget(build_wt1800_content(self))   # index 1
+        self._wtStacked.addWidget(build_wt1806e_content(self))  # index 2
+        self._wtStacked.addWidget(build_wt5000_content(self))   # index 3
+        wtLayout.addWidget(self._wtStacked, 1, 0, 1, 4)
 
-        wtLayout.setColumnStretch(2, 1)
+        # Radio 切换联动
+        def _on_wt_radio_toggled(btn, checked):
+            if checked:
+                btn_id = self._wt_radio_group.id(btn)
+                self._wtStacked.setCurrentIndex(btn_id)
+
+        self._wt_radio_group.buttonToggled.connect(_on_wt_radio_toggled)
+
+        # checkBox_S2 联动禁用 radio + stackedWidget 内容
+        def _on_s2_toggled(checked):
+            for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                       self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+                rb.setEnabled(checked)
+            self._wtStacked.setEnabled(checked)
+
+        self.checkBox_S2.toggled.connect(_on_s2_toggled)
+        _on_s2_toggled(self.checkBox_S2.isChecked())
+
         layout.addWidget(wtGroup)
 
         # 数据采集设置
@@ -518,11 +539,13 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
             cb.setChecked(True)
             cb.setStyleSheet(_CHECKBOX_STYLE)
             dcLayout.addWidget(cb, r, 0)
+            setattr(self, cb_obj_name, cb)
 
             pf_te = _make_input(str(dc_pf_default))
             pf_te.setObjectName(f"textEdit_S{step_num}_DC_PF")
             dcLayout.addWidget(pf_te, r, 1)
             dcLayout.addWidget(_make_label("%"), r, 2)
+            setattr(self, f"textEdit_S{step_num}_DC_PF", pf_te)
 
         dcLayout.setColumnStretch(3, 1)
         layout.addWidget(dcGroup)
@@ -553,33 +576,126 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 
-    def _build_step3(self):
-        """Step 3: DC 10%"""
-        self._build_dc_percent_step(3, "step3", 10, "DC 10%", has_dc4=True)
+    def _build_cosPhi_steps(self):
+        """构建合并的 cosPhi 设置页面，7 个 cosPhi 卡片平铺在滚动区域中。"""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("background-color: white;")
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
 
-    def _build_step4(self):
-        """Step 4: DC 20%"""
-        self._build_dc_percent_step(4, "step4", 20, "DC 20%", has_dc4=True)
+        # 滚动区域承载所有 cosPhi 卡片
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll_widget = QtWidgets.QWidget()
+        scroll_layout = QtWidgets.QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(8)
 
-    def _build_step5(self):
-        """Step 5: DC 30%"""
-        self._build_dc_percent_step(5, "step5", 30, "DC 30%", has_dc4=True)
+        cosPhi_configs = [
+            (3,  "step3", 10, "DC 10%",  True, False),
+            (4,  "step4", 20, "DC 20%",  True, False),
+            (5,  "step5", 30, "DC 30%",  True, False),
+            (6,  "step6", 50, "DC 50%",  True, False),
+            (7,  "step7", 75, "DC 75%",  True, False),
+            (8,  "step8", 100, "DC 100%", True, False),
+            (9,  "step9", 100, "AC 100%", True, True),
+        ]
 
-    def _build_step6(self):
-        """Step 6: DC 50%"""
-        self._build_dc_percent_step(6, "step6", 50, "DC 50%", has_dc4=True)
+        for step_num, step_label, dc_pf, title, has_dc4, has_ac in cosPhi_configs:
+            card = self._build_cosPhi_card(step_num, step_label, dc_pf, title, has_dc4, has_ac)
+            scroll_layout.addWidget(card)
 
-    def _build_step7(self):
-        """Step 7: DC 75%"""
-        self._build_dc_percent_step(7, "step7", 75, "DC 75%", has_dc4=True)
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
 
-    def _build_step8(self):
-        """Step 8: DC 100%"""
-        self._build_dc_percent_step(8, "step8", 100, "DC 100%", has_dc4=True)
+        self.stackedWidget.addWidget(page)
 
-    def _build_step9(self):
-        """Step 9: AC 100% (含交流电压变更)"""
-        self._build_dc_percent_step(9, "step9", 100, "AC 100%", has_dc4=True, has_ac_check=True)
+    def _build_cosPhi_card(self, step_num, step_label, dc_pf_default, title_suffix,
+                           has_dc4=False, has_ac_check=False):
+        """构建单个 cosPhi 卡片。"""
+        card = QtWidgets.QWidget()
+        card.setStyleSheet("background-color: white;")
+        layout = QtWidgets.QVBoxLayout(card)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # 步骤开关
+        cb_main = QtWidgets.QCheckBox(step_label)
+        cb_main.setChecked(True)
+        cb_main.setStyleSheet(
+            "QCheckBox { font-size: 13px; font-weight: bold; color: #7c3aed; spacing: 6px; }"
+            "QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; "
+            "border: 1px solid #cbd5e1; background: white; }"
+            "QCheckBox::indicator:checked { background-color: #8b5cf6; border-color: #8b5cf6; }"
+        )
+        setattr(self, f"checkBox_S{step_num}", cb_main)
+        layout.addWidget(cb_main)
+
+        # DC 组
+        dcGroup = QtWidgets.QGroupBox(f"DC {title_suffix} - 直流电源设置")
+        dcGroup.setStyleSheet(_GROUPBOX_STYLE)
+        dcLayout = QtWidgets.QGridLayout(dcGroup)
+        dcLayout.setSpacing(8)
+        dcLayout.setContentsMargins(12, 20, 12, 12)
+
+        # 表头
+        dcLayout.addWidget(_make_title_label("电源"), 0, 0)
+        dcLayout.addWidget(_make_title_label("功率"), 0, 1)
+        dcLayout.addWidget(_make_title_label("%"), 0, 2)
+
+        dc_rows = [
+            (f"checkBox_S{step_num}_DC1", "直流电源1"),
+            (f"checkBox_S{step_num}_DC2", "直流电源2"),
+            (f"checkBox_S{step_num}_DC3", "直流电源3"),
+        ]
+        if has_dc4:
+            dc_rows.append((f"checkBox_S{step_num}_DC4", "直流电源4"))
+
+        for r, (cb_obj_name, cb_text) in enumerate(dc_rows, start=1):
+            cb = QtWidgets.QCheckBox(cb_text)
+            cb.setObjectName(cb_obj_name)
+            cb.setChecked(True)
+            cb.setStyleSheet(_CHECKBOX_STYLE)
+            dcLayout.addWidget(cb, r, 0)
+            setattr(self, cb_obj_name, cb)
+
+            pf_te = _make_input(str(dc_pf_default))
+            pf_te.setObjectName(f"textEdit_S{step_num}_DC_PF")
+            dcLayout.addWidget(pf_te, r, 1)
+            dcLayout.addWidget(_make_label("%"), r, 2)
+            setattr(self, f"textEdit_S{step_num}_DC_PF", pf_te)
+
+        dcLayout.setColumnStretch(3, 1)
+        layout.addWidget(dcGroup)
+
+        # AC 电压变更（仅 step 9）
+        if has_ac_check:
+            acGroup = QtWidgets.QGroupBox("交流电压变更")
+            acGroup.setStyleSheet(_GROUPBOX_STYLE)
+            acLayout = QtWidgets.QGridLayout(acGroup)
+            acLayout.setSpacing(8)
+            acLayout.setContentsMargins(12, 20, 12, 12)
+
+            self.checkBox_S9_AC_Check = QtWidgets.QCheckBox("交流电压变更")
+            self.checkBox_S9_AC_Check.setChecked(True)
+            self.checkBox_S9_AC_Check.setObjectName("checkBox_S9_AC_Check")
+            self.checkBox_S9_AC_Check.setStyleSheet(_CHECKBOX_STYLE)
+            acLayout.addWidget(self.checkBox_S9_AC_Check, 0, 0)
+
+            acLayout.addWidget(_make_label("电压"), 0, 1)
+            self.textEdit_S9_AC_Volt = _make_input("217.8")
+            self.textEdit_S9_AC_Volt.setObjectName("textEdit_S9_AC_Volt")
+            acLayout.addWidget(self.textEdit_S9_AC_Volt, 0, 2)
+            acLayout.addWidget(_make_label("V"), 0, 3)
+
+            acLayout.setColumnStretch(4, 1)
+            layout.addWidget(acGroup)
+
+        layout.addStretch()
+        return card
 
     # ══════════════════════════════════════════════
     # Step 10: 关机设置
@@ -628,10 +744,12 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
             cb.setChecked(True)
             cb.setStyleSheet(_CHECKBOX_STYLE)
             endLayout.addWidget(cb, r, 0)
+            setattr(self, cb_name, cb)
 
             combo = _make_combo(["关闭", "开启"])
             combo.setObjectName(combo_name)
             endLayout.addWidget(combo, r, 1)
+            setattr(self, combo_name, combo)
 
         endLayout.setColumnStretch(2, 1)
         layout.addWidget(endGroup)
@@ -642,6 +760,58 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
     # ══════════════════════════════════════════════
     # 翻译
     # ══════════════════════════════════════════════
+    def _connect_dc_linkage(self):
+        """连接 step1 DC 复选框与 step4-9 及关机步骤 DC 复选框的联动。"""
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
+        # step4-9 DC 联动
+        for step_num in [4, 5, 6, 7, 8, 9]:
+            step_cb = getattr(self, f"checkBox_S{step_num}", None)
+            if step_cb is None:
+                continue
+            step_dcs = []
+            for dc_idx in range(1, 5):
+                cb = getattr(self, f"checkBox_S{step_num}_DC{dc_idx}", None)
+                if cb is not None:
+                    step_dcs.append(cb)
+            if not step_dcs:
+                continue
+
+            def _make_update_dcs(scb, sdcs, s1dcs):
+                def _update(_checked=None):
+                    step_on = scb.isChecked()
+                    for i in range(len(sdcs)):
+                        should_enable = step_on and s1dcs[i].isChecked()
+                        sdcs[i].setEnabled(should_enable)
+                        sdcs[i].setChecked(should_enable)
+                return _update
+
+            update_fn = _make_update_dcs(step_cb, step_dcs, step1_dcs)
+            step_cb.toggled.connect(update_fn)
+            for s1dc in step1_dcs:
+                s1dc.toggled.connect(update_fn)
+            update_fn()
+
+        # 关机步骤 DC 联动
+        end_dcs = [self.checkBox_S_END_DC1, self.checkBox_S_END_DC2,
+                   self.checkBox_S_END_DC3, self.checkBox_S_END_DC4]
+        end_combos = [self.comboBox_S_END_DC1, self.comboBox_S_END_DC2,
+                      self.comboBox_S_END_DC3, self.comboBox_S_END_DC4]
+
+        def _update_end_dc(_checked=None):
+            step_on = self.checkBox_S_END.isChecked()
+            for i in range(4):
+                should_enable = step_on and step1_dcs[i].isChecked()
+                end_dcs[i].setEnabled(should_enable)
+                end_dcs[i].setChecked(should_enable)
+                end_combos[i].setEnabled(should_enable)
+
+        self.checkBox_S_END.toggled.connect(_update_end_dc)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_end_dc)
+        _update_end_dc()
+
     def retranslateUi(self, Dialog_thaicosPhi_Brazil):
         _translate = QtCore.QCoreApplication.translate
         Dialog_thaicosPhi_Brazil.setWindowTitle(

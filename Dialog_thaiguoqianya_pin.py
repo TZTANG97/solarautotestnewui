@@ -2,6 +2,10 @@
 # 过欠压_过欠频项目配置 - 横向步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content
+)
 
 
 class Ui_Dialog_thaiguoqianya_pin(object):
@@ -115,6 +119,9 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self._build_step7()
         self._build_step8()
 
+        # ── DC 联动（step1 → 关机步骤） ──
+        self._connect_dc_linkage()
+
         # 默认显示第一页
         self._switch_step(0)
 
@@ -149,6 +156,16 @@ class Ui_Dialog_thaiguoqianya_pin(object):
                     }
                     QLabel:hover { background-color: #f1f5f9; }
                 """)
+
+    def _make_radio(self, name, text, parent=None, checked=False):
+        """创建 QRadioButton，不调用 setParent（Dialog 不是 QWidget）。"""
+        rb = QtWidgets.QRadioButton(text)
+        rb.setObjectName(name)
+        if parent is not None:
+            setattr(self, name, rb)
+        if checked:
+            rb.setChecked(True)
+        return rb
 
     # ══════════════════════════════════════
     # Step 1: AC/DC 电源
@@ -316,7 +333,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════
-    # Step 2: 功率分析仪
+    # Step 2: 功率分析仪（radio + stackedWidget 内嵌）
     # ══════════════════════════════════════
     def _build_step2(self):
         page = QtWidgets.QWidget()
@@ -330,41 +347,51 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.groupBox_5.setTitle("功率分析仪设置")
         self.groupBox_5.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
         g5Layout = QtWidgets.QGridLayout(self.groupBox_5)
-        g5Layout.setSpacing(8)
-        g5Layout.setContentsMargins(12, 20, 12, 12)
+        g5Layout.setSpacing(10)
+        g5Layout.setContentsMargins(16, 24, 16, 12)
 
         self.checkBox_S2 = QtWidgets.QCheckBox("step2")
         self.checkBox_S2.setChecked(True)
         self.checkBox_S2.setObjectName("checkBox_S2")
-        g5Layout.addWidget(self.checkBox_S2, 0, 0, 1, 2)
+        g5Layout.addWidget(self.checkBox_S2, 0, 0)
 
-        wt_items = [
-            ("checkBox_S2_WT3000", "WT3000", "pushButton_S2_WT_3000_CONFIG", "WT_3000_config"),
-            ("checkBox_S2_WT1800", "WT1800", "pushButton_S2_WT_1800_CONFIG", "WT_1800_config"),
-            ("checkBox_S2_WT1806E", "WT1806E", "pushButton_S2_WT_1806E_CONFIG", "WT_1806E_config"),
-            ("checkBox_S2_WT5000", "WT5000", "pushButton_S2_WT_5000_CONFIG", "WT_5000_config"),
-        ]
-        for c, (cb_name, cb_label, btn_name, btn_label) in enumerate(wt_items):
-            cb = QtWidgets.QCheckBox(cb_label)
-            cb.setChecked(True)
-            cb.setObjectName(cb_name)
-            setattr(self, cb_name, cb)
-            g5Layout.addWidget(cb, 1, c * 2)
+        # Radio buttons
+        self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
+        self.radioButton_S2_WT1800 = self._make_radio("radio_S2_WT1800", "WT1800", parent=self)
+        self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
+        self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
 
-            btn = QtWidgets.QPushButton(btn_label)
-            btn.setObjectName(btn_name)
-            btn.setStyleSheet("""
-                QPushButton { background-color: #3b82f6; color: white; border: none; border-radius: 4px;
-                              padding: 6px 12px; font-size: 11px; }
-                QPushButton:hover { background-color: #2563eb; }
-            """)
-            setattr(self, btn_name, btn)
-            g5Layout.addWidget(btn, 1, c * 2 + 1)
+        radio_group = QtWidgets.QButtonGroup(None)
+        radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        radio_group.addButton(self.radioButton_S2_WT5000, 3)
+        self._radio_group = radio_group  # 保持引用，防止垃圾回收
+
+        # Radio 行布局
+        radio_layout = QtWidgets.QHBoxLayout()
+        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
+                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
+            radio_layout.addWidget(rb)
+        radio_layout.addStretch()
+        g5Layout.addLayout(radio_layout, 0, 1, 1, 3)
+
+        # QStackedWidget
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))   # index 0
+        self._wtStacked.addWidget(build_wt1800_content(self))   # index 1
+        self._wtStacked.addWidget(build_wt1806e_content(self))  # index 2
+        self._wtStacked.addWidget(build_wt5000_content(self))   # index 3
+        g5Layout.addWidget(self._wtStacked, 1, 0, 1, 4)
+
+        # Radio 切换联动
+        def _on_radio_toggled(btn, checked):
+            if checked:
+                self._wtStacked.setCurrentIndex(radio_group.id(btn))
+        radio_group.buttonToggled.connect(_on_radio_toggled)
 
         layout.addWidget(self.groupBox_5)
-
         layout.addStretch()
-
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════
@@ -744,6 +771,25 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         layout.addStretch()
 
         self.stackedWidget.addWidget(page)
+
+    def _connect_dc_linkage(self):
+        """连接 step1 DC 复选框与关机步骤 DC 复选框的联动。"""
+        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
+                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+        end_dcs = [self.checkBox_S_End_DC1, self.checkBox_S_End_DC2,
+                   self.checkBox_S_End_DC3, self.checkBox_S_End_DC4]
+
+        def _update_end_dc(_checked=None):
+            step_end_on = self.checkBox_S_End.isChecked()
+            for i in range(4):
+                should_enable = step_end_on and step1_dcs[i].isChecked()
+                end_dcs[i].setEnabled(should_enable)
+                end_dcs[i].setChecked(should_enable)
+
+        self.checkBox_S_End.toggled.connect(_update_end_dc)
+        for s1dc in step1_dcs:
+            s1dc.toggled.connect(_update_end_dc)
+        _update_end_dc()  # 初始化状态
 
     # ══════════════════════════════════════
     # 辅助方法

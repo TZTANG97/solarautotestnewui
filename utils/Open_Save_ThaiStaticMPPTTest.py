@@ -38,7 +38,7 @@ arrayRow1 = ['Style',
 
 # 静态MPPT测试存设定
 def Save_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTest):
-    directory1 = QFileDialog.getSaveFileName(Nonestaticmppttest,"单个文件保存","./","Text Files(*.csv)")
+    directory1 = QFileDialog.getSaveFileName(None,"单个文件保存","./","Text Files(*.csv)")
     if directory1[0] == '':
         print('请选择一个文件')
     else:
@@ -455,12 +455,12 @@ def Save_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTe
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
         out.close()
-        QMessageBox.information(Nonestaticmppttest, "实验设定提示信息", "静态MPPT测试文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "静态MPPT测试文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 # 静态MPPT测试读取设定
 def Open_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTest):
     strFlag  = "0"
-    directory1 = QFileDialog.getOpenFileName(Nonestaticmppttest,"单个文件选择","./","Text Files(*.csv)")
+    directory1 = QFileDialog.getOpenFileName(None,"单个文件选择","./","Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
@@ -1254,7 +1254,7 @@ def Open_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTe
                 print("no")
                 strFlag = "1"
 
-        QMessageBox.information(Nonestaticmppttest, "实验设定提示信息", "静态MPPT测试文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "静态MPPT测试文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
 
 
