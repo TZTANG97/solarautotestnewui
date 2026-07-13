@@ -584,20 +584,20 @@ class Ui_Dialog_thaixiebodianliu(object):
 
         dew_layout.addWidget(file_group)
 
-        # ── Group 3: DMD文件保存 ──
+        # ── Group 3: 采集数据保存位置 ──
         path_group = QtWidgets.QGroupBox()
-        path_group.setTitle("DMD文件保存")
+        path_group.setTitle("采集数据保存位置")
         path_group.setStyleSheet(self._GRP_STYLE)
         pathFormLayout = QtWidgets.QFormLayout(path_group)
         pathFormLayout.setSpacing(10)
         pathFormLayout.setContentsMargins(16, 24, 16, 12)
 
-        # DMD文件保存路径（通过 SCPI :STORE:FILE:NAME 设置）
+        # 采集数据保存路径（PC 端 CSV 文件）
         self.lineEdit_DEW_StoreFileName = QtWidgets.QLineEdit()
         self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
-        self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/data/harmonic_test")
+        self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/data/harmonic_test.csv")
         self.lineEdit_DEW_StoreFileName.setFixedWidth(300)
-        pathFormLayout.addRow("DMD文件保存:", self.lineEdit_DEW_StoreFileName)
+        pathFormLayout.addRow("采集数据保存:", self.lineEdit_DEW_StoreFileName)
 
         dew_layout.addWidget(path_group)
 

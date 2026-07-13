@@ -29977,56 +29977,6 @@ if __name__ == "__main__":
                     QMessageBox.warning(None, "失败", f"配置发送失败\n错误队列: {err}")
             _safe_click(uiThaiDianYaShanBian, "pushButton_DEW_TestApply", dewetron_flicker_test_apply)
 
-            # DEWETRON 导出字段测试生效按钮
-            def dewetron_export_fields_test_apply():
-                """读取设备XML，应用导出字段选择，发送到设备。"""
-                if dewetron_controller is None or not dewetron_controller.connected:
-                    QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
-                    return
-                # 获取勾选的字段
-                checked_fields = uiThaiDianYaShanBian.get_checked_export_fields()
-                if not checked_fields:
-                    QMessageBox.warning(None, "参数不完整", "请至少选择一个导出字段")
-                    return
-                ui.textEdit_ReturnMessage.append(
-                    f"[DEWETRON 导出字段] 选中 {len(checked_fields)} 个字段"
-                )
-                import time
-                # 每次都从设备读取最新 XML（APPLY 后 ChannelID 会变）
-                # 带重试：APPLY 后设备可能需要时间重新加载
-                channel_id_map, xml_string = None, None
-                for attempt in range(3):
-                    channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
-                    if xml_string and channel_id_map:
-                        break
-                    if attempt < 2:
-                        ui.textEdit_ReturnMessage.append(
-                            f"[DEWETRON] 读取设备配置失败，2秒后重试... ({attempt+1}/3)")
-                        time.sleep(2)
-                if not xml_string or not channel_id_map:
-                    QMessageBox.warning(None, "读取失败", "无法从设备读取配置或通道映射为空")
-                    return
-                # 修改 XML 并发送
-                decimal_places = uiThaiDianYaShanBian.spinBox_DEW_DecimalPlaces.value()
-                realtime_waveform = uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.isChecked()
-                xml_string = dewetron_controller.modify_xml(
-                    xml_string, wiring_type=None, channel_map={},
-                    channel_id_map=channel_id_map,
-                    export_fields=checked_fields,
-                    decimal_places=decimal_places,
-                    realtime_waveform=realtime_waveform,
-                )
-                if dewetron_controller.send_apply_config(xml_string):
-                    time.sleep(1)
-                    err = dewetron_controller._query(":SYSTEM:ERROR:ALL?", timeout_ms=5000)
-                    ui.textEdit_ReturnMessage.append(f"[DEWETRON] 导出字段配置已应用，错误队列: {err}")
-                    QMessageBox.information(None, "测试生效", "DEWETRON 导出字段配置已应用")
-                else:
-                    err = dewetron_controller._query(":SYSTEM:ERROR:ALL?", timeout_ms=5000)
-                    ui.textEdit_ReturnMessage.append(f"[DEWETRON] APPLY 失败，错误队列: {err}")
-                    QMessageBox.warning(None, "失败", f"配置发送失败\n错误队列: {err}")
-            _safe_click(uiThaiDianYaShanBian, "pushButton_DEW_TestApply_Export", dewetron_export_fields_test_apply)
-
             # 切换德威创模式时，从设备读取 XML 并刷新字段选择树
             def _on_dewetron_mode_toggled(checked):
                 if not checked:

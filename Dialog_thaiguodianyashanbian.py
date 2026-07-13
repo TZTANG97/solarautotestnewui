@@ -356,7 +356,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         # Step 4: DEWETRON 导出设置
         s4_dew_children = [
             self.spinBox_DEW_DecimalPlaces, self.checkBox_DEW_RealtimeWaveform,
-            self.treeWidget_DEW_ExportFields, self.pushButton_DEW_TestApply_Export,
+            self.treeWidget_DEW_ExportFields,
         ]
 
         def _on_s4_dew_toggled(checked):
@@ -968,11 +968,11 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.checkBox_S4_DEW.setObjectName("checkBox_S4_DEW")
         dew_form.addRow(self.checkBox_S4_DEW)
 
-        # DMD文件保存路径（德威创 .dmd 文件路径）
+        # 采集数据保存位置（PC 端 CSV 文件路径）
         self.lineEdit_DEW_StoreFileName = QtWidgets.QLineEdit()
-        self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/dxl/flicker_test")
+        self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/data/flicker_test.csv")
         self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
-        dew_form.addRow("DMD文件保存:", self.lineEdit_DEW_StoreFileName)
+        dew_form.addRow("采集数据保存:", self.lineEdit_DEW_StoreFileName)
 
         # 保留小数位数
         self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()
@@ -1045,18 +1045,6 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.treeWidget_DEW_ExportFields.setAlternatingRowColors(True)
         self._build_export_field_tree(tree_data=None)
         dew_form.addRow("字段选择:", self.treeWidget_DEW_ExportFields)
-
-        # 测试生效按钮
-        self.pushButton_DEW_TestApply_Export = QtWidgets.QPushButton("测试生效")
-        self.pushButton_DEW_TestApply_Export.setMinimumSize(120, 36)
-        self.pushButton_DEW_TestApply_Export.setStyleSheet("""
-            QPushButton { background-color: #8b5cf6; color: white; border: none; border-radius: 4px;
-                          padding: 6px 14px; font-size: 12px; font-weight: bold; }
-            QPushButton:hover { background-color: #7c3aed; }
-            QPushButton:disabled { background-color: #c4b5fd; }
-        """)
-        self.pushButton_DEW_TestApply_Export.setObjectName("pushButton_DEW_TestApply_Export")
-        dew_form.addRow("", self.pushButton_DEW_TestApply_Export)
 
         dew_layout.addWidget(dew_group)
         dew_layout.addStretch()
