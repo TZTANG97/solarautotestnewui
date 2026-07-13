@@ -58,7 +58,15 @@ arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "te
                 "textEdit_S3_TIME_3", "comboBox_S3_TIME_3", "textEdit_S3_TIME_2", "comboBox_S3_TIME_2",
                 "checkBox_S5", "comboBox_S5_AC", "checkBox_S5_DC1", "comboBox_S5_DC1", "checkBox_S5_DC2",
                 "comboBox_S5_DC2", "checkBox_S5_DC3", "comboBox_S5_DC3", "checkBox_S5_DC4", "comboBox_S5_DC4",
-            "checkBox_S2_WT1806E", "checkBox_S1_Integral", "comboBox_S1_Integral", "checkBox_S2_WT5000"]
+            "checkBox_S2_WT1806E", "checkBox_S1_Integral", "comboBox_S1_Integral", "checkBox_S2_WT5000",
+            # DEWETRON 谐波配置
+            "checkBox_DEW_HarmonicEnabled", "spinBox_DEW_MaxHarmonicOrder",
+            "spinBox_DEW_THDOrder", "comboBox_DEW_GroupingType", "comboBox_DEW_MaxRefreshRate",
+            # DEWETRON 文件设置
+            "checkBox_DEW_MultiFileStorage", "checkBox_DEW_SplitByTime",
+            "spinBox_DEW_SplitTime", "checkBox_DEW_CreateSubfolder",
+            # DEWETRON 保存文件名
+            "lineEdit_DEW_StoreFileName"]
 
 #泰国电压闪变保存设定
 def Save_File_ThaiXieBoDianLiu(kwargs):
@@ -689,6 +697,20 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
+
+        # DEWETRON 谐波配置
+        arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_HarmonicEnabled.isChecked() else '0')
+        arrayRow2.append(str(uiThaiXieBoDianLiu.spinBox_DEW_MaxHarmonicOrder.value()))
+        arrayRow2.append(str(uiThaiXieBoDianLiu.spinBox_DEW_THDOrder.value()))
+        arrayRow2.append(str(uiThaiXieBoDianLiu.comboBox_DEW_GroupingType.currentIndex()))
+        arrayRow2.append(str(uiThaiXieBoDianLiu.comboBox_DEW_MaxRefreshRate.currentIndex()))
+        # DEWETRON 文件设置
+        arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_MultiFileStorage.isChecked() else '0')
+        arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_SplitByTime.isChecked() else '0')
+        arrayRow2.append(str(uiThaiXieBoDianLiu.spinBox_DEW_SplitTime.value()))
+        arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_CreateSubfolder.isChecked() else '0')
+        # DEWETRON 保存文件名
+        arrayRow2.append(uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.text())
 
         print(f"[DEBUG-SAVE] step2/3 数据收集完成，arrayRow2 总列数: {len(arrayRow2)}")
         print(f"[DEBUG-SAVE] step2: checkBox_S2={checkBox_S2}, WT3000={checkBox_S2_WT3000}, WT1800={checkBox_S2_WT1800}, WT1806E={checkBox_S2_WT1806E}, WT5000={checkBox_S2_WT5000}")
@@ -2080,6 +2102,40 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
         print(f"[DEBUG-FINAL] radioButton_S2_WT1806E checked: {uiThaiXieBoDianLiu.radioButton_S2_WT1806E.isChecked()}")
         print(f"[DEBUG-FINAL] radioButton_S2_WT5000 checked: {uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked()}")
         print("=" * 80)
+
+        # ── 加载 DEWETRON 谐波配置 ──
+        if strFlag == "0" and len(arrayRow1) > 127:
+            if arrayRow1[127] in config_dict:
+                uiThaiXieBoDianLiu.checkBox_DEW_HarmonicEnabled.setChecked(config_dict[arrayRow1[127]] == '1')
+        if strFlag == "0" and len(arrayRow1) > 128:
+            if arrayRow1[128] in config_dict:
+                uiThaiXieBoDianLiu.spinBox_DEW_MaxHarmonicOrder.setValue(int(config_dict[arrayRow1[128]]))
+        if strFlag == "0" and len(arrayRow1) > 129:
+            if arrayRow1[129] in config_dict:
+                uiThaiXieBoDianLiu.spinBox_DEW_THDOrder.setValue(int(config_dict[arrayRow1[129]]))
+        if strFlag == "0" and len(arrayRow1) > 130:
+            if arrayRow1[130] in config_dict:
+                uiThaiXieBoDianLiu.comboBox_DEW_GroupingType.setCurrentIndex(int(config_dict[arrayRow1[130]]))
+        if strFlag == "0" and len(arrayRow1) > 131:
+            if arrayRow1[131] in config_dict:
+                uiThaiXieBoDianLiu.comboBox_DEW_MaxRefreshRate.setCurrentIndex(int(config_dict[arrayRow1[131]]))
+        # DEWETRON 文件设置
+        if strFlag == "0" and len(arrayRow1) > 132:
+            if arrayRow1[132] in config_dict:
+                uiThaiXieBoDianLiu.checkBox_DEW_MultiFileStorage.setChecked(config_dict[arrayRow1[132]] == '1')
+        if strFlag == "0" and len(arrayRow1) > 133:
+            if arrayRow1[133] in config_dict:
+                uiThaiXieBoDianLiu.checkBox_DEW_SplitByTime.setChecked(config_dict[arrayRow1[133]] == '1')
+        if strFlag == "0" and len(arrayRow1) > 134:
+            if arrayRow1[134] in config_dict:
+                uiThaiXieBoDianLiu.spinBox_DEW_SplitTime.setValue(int(config_dict[arrayRow1[134]]))
+        if strFlag == "0" and len(arrayRow1) > 135:
+            if arrayRow1[135] in config_dict:
+                uiThaiXieBoDianLiu.checkBox_DEW_CreateSubfolder.setChecked(config_dict[arrayRow1[135]] == '1')
+        # DEWETRON 保存文件名
+        if strFlag == "0" and len(arrayRow1) > 136:
+            if arrayRow1[136] in config_dict:
+                uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.setText(config_dict[arrayRow1[136]])
 
         # 加载完成后切换到 step2 让用户看到 WT 配置回显
         if hasattr(uiThaiXieBoDianLiu, '_switch_step'):

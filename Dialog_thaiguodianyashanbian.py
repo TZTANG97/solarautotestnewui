@@ -968,11 +968,11 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.checkBox_S4_DEW.setObjectName("checkBox_S4_DEW")
         dew_form.addRow(self.checkBox_S4_DEW)
 
-        # 保存文件名（德威创 .dmd 文件路径）
+        # DMD文件保存路径（德威创 .dmd 文件路径）
         self.lineEdit_DEW_StoreFileName = QtWidgets.QLineEdit()
         self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/dxl/flicker_test")
         self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
-        dew_form.addRow("保存文件名:", self.lineEdit_DEW_StoreFileName)
+        dew_form.addRow("DMD文件保存:", self.lineEdit_DEW_StoreFileName)
 
         # 保留小数位数
         self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()

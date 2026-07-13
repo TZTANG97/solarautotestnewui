@@ -5192,6 +5192,10 @@ def thaixiebodianliuSend():
     global harmonic_append_count
     if 'harmonic_append_count' not in globals():
         harmonic_append_count = 0
+
+    # ── 德威创模式标记 ──
+    is_dewetron = hasattr(uiThaiXieBoDianLiu, '_mode') and uiThaiXieBoDianLiu._mode == 'dewetron'
+
     strShowErrorMessageBoxFlag = "0"
     # 收集所有 DC 错误信息
     dc_error_messages = []
@@ -5225,6 +5229,28 @@ def thaixiebodianliuSend():
         strArraySingle[3] = "config_dict"
         strArraySingle[4] = S1Command
         strArrayTest.append(strArraySingle)
+
+    # ── DEWETRON 模式 Step2：启动采集 + 设置保存位置 + 启动录制 ──
+    if is_dewetron and uiThaiXieBoDianLiu.checkBox_S2.isChecked():
+        dew_store_file_name = uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.text().strip() if hasattr(uiThaiXieBoDianLiu, 'lineEdit_DEW_StoreFileName') else ""
+        if not dew_store_file_name:
+            QMessageBox.warning(None, "提示", "请输入保存文件名")
+            return
+
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
+        strArrayTest.append(s)
+
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "DEWETRON", "write", f':STORE:FILE:NAME "{dew_store_file_name}"'
+        strArrayTest.append(s)
+
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:START"
+        strArrayTest.append(s)
+
+        ui.textEdit_ReturnMessage.append(
+            f"[谐波] 德威创模式：启动采集+录制，文件: {dew_store_file_name}")
 
     if strAddTestFlag == '1' and project_change == '1':
         strArraySingle = ["" for _ in range(10)]
@@ -6458,7 +6484,26 @@ def thaixiebodianliuSend():
         strArrayTestStepSingle.append(strArraySingle)
 
         strArrayTestStep.append(strArrayTestStepSingle)
-    
+
+    # ── 德威创模式 Step4 结束：停止录制 + 停止采集（在 step14 关机之前）──
+    if is_dewetron and uiThaiXieBoDianLiu.checkBox_S2.isChecked():
+        # 主采集等待（谐波测量时间）
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "AC", "query", "*IDN?"
+        s[8] = 3000  # 等待 300s
+        strArrayTest.append(s)
+
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:STOP"
+        strArrayTest.append(s)
+
+        s = ["" for _ in range(10)]
+        s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
+        strArrayTest.append(s)
+
+        ui.textEdit_ReturnMessage.append(
+            f"[谐波] 德威创模式：采集完成，停止录制")
+
     # step14
     if uiThaiXieBoDianLiu.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
@@ -30016,6 +30061,78 @@ if __name__ == "__main__":
             # ThaiXieBoDianLiu的的配置档读取写入
             _safe_click(uiThaiXieBoDianLiu, "pushButton_ReadSettingFile", OpenFileDialogThaiXieBoDianLiu)
             _safe_click(uiThaiXieBoDianLiu, "pushButton_SaveSettingFile", SaveFileDialogThaiXieBoDianLiu)
+
+            # DEWETRON 谐波设置应用按钮
+            def _apply_dewetron_harmonic_settings():
+                """将 DEWETRON 谐波设置应用到设备"""
+                try:
+                    if dewetron_controller is None or not dewetron_controller.connected:
+                        QMessageBox.warning(None, "提示", "DEWETRON 设备未连接")
+                        return
+
+                    # 读取 UI 设置 - 谐波参数
+                    harmonic_enabled = uiThaiXieBoDianLiu.checkBox_DEW_HarmonicEnabled.isChecked()
+                    max_harmonic_order = str(uiThaiXieBoDianLiu.spinBox_DEW_MaxHarmonicOrder.value())
+                    thd_order = str(uiThaiXieBoDianLiu.spinBox_DEW_THDOrder.value())
+                    grouping_type = uiThaiXieBoDianLiu.comboBox_DEW_GroupingType.currentText()
+                    acquisition_rate = uiThaiXieBoDianLiu.comboBox_DEW_MaxRefreshRate.currentText()
+
+                    # 读取 UI 设置 - 文件设置
+                    multi_file_storage = uiThaiXieBoDianLiu.checkBox_DEW_MultiFileStorage.isChecked()
+                    split_by_time = uiThaiXieBoDianLiu.checkBox_DEW_SplitByTime.isChecked()
+                    split_time = str(uiThaiXieBoDianLiu.spinBox_DEW_SplitTime.value())
+                    create_subfolder = uiThaiXieBoDianLiu.checkBox_DEW_CreateSubfolder.isChecked()
+
+                    # 读取 UI 设置 - 保存文件名
+                    store_file_name = uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.text().strip()
+
+                    ui.textEdit_ReturnMessage.append("[谐波] 正在读取设备配置...")
+
+                    # 从设备读取当前 XML
+                    channel_id_map, xml = dewetron_controller.read_channel_id_map()
+                    if not xml:
+                        QMessageBox.warning(None, "错误", "无法从设备读取配置")
+                        return
+
+                    # 修改 XML（谐波参数 + 文件设置）
+                    xml = dewetron_controller.modify_xml(
+                        xml,
+                        wiring_type=None,
+                        channel_map={},
+                        channel_id_map=channel_id_map,
+                        acquisition_rate=acquisition_rate,
+                        harmonic_enabled=harmonic_enabled,
+                        max_harmonic_order=max_harmonic_order,
+                        thd_order=thd_order,
+                        grouping_type=grouping_type,
+                        multi_file_storage=multi_file_storage,
+                        split_by_time=split_by_time,
+                        split_time=split_time,
+                        create_subfolder=create_subfolder,
+                    )
+
+                    # 发送 XML 配置到设备
+                    ui.textEdit_ReturnMessage.append("[谐波] 正在发送配置到设备...")
+                    if not dewetron_controller.send_apply_config(xml):
+                        ui.textEdit_ReturnMessage.append("[谐波] DEWETRON 谐波设置应用失败")
+                        QMessageBox.warning(None, "错误", "DEWETRON 谐波设置应用失败")
+                        return
+
+                    # 设置保存文件名（SCPI 命令）
+                    if store_file_name:
+                        dewetron_controller._send(
+                            f':STORE:FILE:NAME "{store_file_name}"',
+                            f"[谐波] 设置保存文件名: {store_file_name}",
+                            "DEWETRON STORE:FILE:NAME"
+                        )
+
+                    ui.textEdit_ReturnMessage.append("[谐波] DEWETRON 谐波设置应用成功")
+                    QMessageBox.information(None, "成功", "DEWETRON 谐波设置已应用")
+                except Exception as e:
+                    ui.textEdit_ReturnMessage.append(f"[谐波] DEWETRON 谐波设置应用异常: {e}")
+                    QMessageBox.warning(None, "错误", f"应用异常: {e}")
+
+            _safe_click(uiThaiXieBoDianLiu, "pushButton_DEW_Apply", _apply_dewetron_harmonic_settings)
             
             # 固定PF=1
             uiThaiFixedPF.pushButton_Send.clicked.connect(thaifixedpfSend)

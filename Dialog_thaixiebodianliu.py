@@ -97,6 +97,26 @@ class Ui_Dialog_thaixiebodianliu(object):
         """)
         topLayout.addWidget(self.pushButton_ResetCount)
 
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.VLine)
+        sep.setStyleSheet("color: #cbd5e1; border: none; max-width: 1px;")
+        topLayout.addWidget(sep)
+
+        # ── 模式切换（WT3000谐波 / 德威创模式） ──
+        self._radio_group = QtWidgets.QButtonGroup(None)
+        self._radio_group.setExclusive(True)
+
+        self.radio_wt3000 = QtWidgets.QRadioButton("WT3000谐波")
+        self.radio_wt3000.setChecked(True)
+        self.radio_wt3000.setStyleSheet("font-size: 12px; font-weight: bold; color: #1e293b; background: transparent;")
+        self._radio_group.addButton(self.radio_wt3000, 0)
+        topLayout.addWidget(self.radio_wt3000)
+
+        self.radio_dewetron = QtWidgets.QRadioButton("德威创模式")
+        self.radio_dewetron.setStyleSheet("font-size: 12px; font-weight: bold; color: #1e293b; background: transparent;")
+        self._radio_group.addButton(self.radio_dewetron, 1)
+        topLayout.addWidget(self.radio_dewetron)
+
         topLayout.addStretch()
 
         self._step_labels = []
@@ -380,7 +400,7 @@ class Ui_Dialog_thaixiebodianliu(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
-    # Step 2: 功率分析仪
+    # Step 2: 功率分析仪（WT3000 / DEWETRON 双模式）
     # ══════════════════════════════════════════════
     def _build_step2(self):
         page = QtWidgets.QWidget()
@@ -389,15 +409,25 @@ class Ui_Dialog_thaixiebodianliu(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        grp = QtWidgets.QGroupBox()
-        grp.setTitle("功率分析仪配置")
-        grp.setStyleSheet(self._GRP_STYLE)
-        gLayout = QtWidgets.QGridLayout(grp)
+        # ── 步骤2 启用复选框 ──
+        self.checkBox_S2 = self._make_checkbox("checkBox_S2", "step2", parent=self)
+        layout.addWidget(self.checkBox_S2)
+
+        # ── QStackedWidget：页面0=WT，页面1=DEWETRON ──
+        self._step2Stacked = QtWidgets.QStackedWidget()
+
+        # ── 页面 0: WT3000/WT1800/WT1806E/WT5000 ──
+        wt_page = QtWidgets.QWidget()
+        wt_page.setStyleSheet("background-color: white;")
+        wt_layout = QtWidgets.QVBoxLayout(wt_page)
+        wt_layout.setContentsMargins(0, 0, 0, 0)
+
+        wt_grp = QtWidgets.QGroupBox()
+        wt_grp.setTitle("功率分析仪配置")
+        wt_grp.setStyleSheet(self._GRP_STYLE)
+        gLayout = QtWidgets.QGridLayout(wt_grp)
         gLayout.setSpacing(10)
         gLayout.setContentsMargins(16, 24, 16, 12)
-
-        self.checkBox_S2 = self._make_checkbox("checkBox_S2", "step2", parent=self)
-        gLayout.addWidget(self.checkBox_S2, 0, 0)
 
         # Radio buttons（单选，默认 WT3000）
         self.radioButton_S2_WT3000 = self._make_radio("radio_S2_WT3000", "WT3000", parent=self, checked=True)
@@ -405,12 +435,11 @@ class Ui_Dialog_thaixiebodianliu(object):
         self.radioButton_S2_WT1806E = self._make_radio("radio_S2_WT1806E", "WT1806E", parent=self)
         self.radioButton_S2_WT5000 = self._make_radio("radio_S2_WT5000", "WT5000", parent=self)
 
-        radio_group = QtWidgets.QButtonGroup(None)
-        radio_group.addButton(self.radioButton_S2_WT3000, 0)
-        radio_group.addButton(self.radioButton_S2_WT1800, 1)
-        radio_group.addButton(self.radioButton_S2_WT1806E, 2)
-        radio_group.addButton(self.radioButton_S2_WT5000, 3)
-        self._radio_group = radio_group  # 防止被垃圾回收导致信号断裂
+        self._wt_radio_group = QtWidgets.QButtonGroup(None)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT3000, 0)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT1800, 1)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT1806E, 2)
+        self._wt_radio_group.addButton(self.radioButton_S2_WT5000, 3)
 
         radio_layout = QtWidgets.QHBoxLayout()
         radio_layout.setSpacing(24)
@@ -421,56 +450,189 @@ class Ui_Dialog_thaixiebodianliu(object):
         radio_layout.addStretch()
         gLayout.addLayout(radio_layout, 0, 1, 1, 3)
 
-        # QStackedWidget 承载 4 个配置页面
+        # QStackedWidget 承载 4 个 WT 配置页面
         self._wtStacked = QtWidgets.QStackedWidget()
-        print("[DEBUG-INIT] Building WT3000 content...")
         page0 = build_wt3000_content(self)
-        print(f"[DEBUG-INIT] WT3000 page built, type={type(page0)}, widget count={page0.widget().layout().count() if hasattr(page0, 'widget') else 'N/A'}")
         self._wtStacked.addWidget(page0)   # index 0
-
-        print("[DEBUG-INIT] Building WT1800 content...")
         page1 = build_wt1800_content(self)
-        print(f"[DEBUG-INIT] WT1800 page built, type={type(page1)}, widget count={page1.widget().layout().count() if hasattr(page1, 'widget') else 'N/A'}")
         self._wtStacked.addWidget(page1)   # index 1
-
-        print("[DEBUG-INIT] Building WT1806E content...")
         page2 = build_wt1806e_content(self)
-        print(f"[DEBUG-INIT] WT1806E page built, type={type(page2)}, widget count={page2.widget().layout().count() if hasattr(page2, 'widget') else 'N/A'}")
         self._wtStacked.addWidget(page2)   # index 2
-
-        print("[DEBUG-INIT] Building WT5000 content...")
         page3 = build_wt5000_content(self)
-        print(f"[DEBUG-INIT] WT5000 page built, type={type(page3)}, widget count={page3.widget().layout().count() if hasattr(page3, 'widget') else 'N/A'}")
         self._wtStacked.addWidget(page3)   # index 3
 
-        print(f"[DEBUG-INIT] Stacked widget total pages: {self._wtStacked.count()}, current index: {self._wtStacked.currentIndex()}")
         gLayout.addWidget(self._wtStacked, 1, 0, 1, 4)
 
-        # Radio 切换联动（使用 buttonToggled 信号，确保 setChecked 也能触发）
-        def _on_radio_toggled(btn, checked):
+        # WT Radio 切换联动
+        def _on_wt_radio_toggled(btn, checked):
             if checked:
-                btn_id = radio_group.id(btn)
-                print(f"[DEBUG-RADIO] buttonToggled: btn={btn.text()}, btn_id={btn_id}, checked={checked}")
+                btn_id = self._wt_radio_group.id(btn)
                 self._wtStacked.setCurrentIndex(btn_id)
-                self._wtStacked.repaint()
-                print(f"[DEBUG-RADIO] after setCurrentIndex: current={self._wtStacked.currentIndex()}, widget count={self._wtStacked.count()}")
 
-        radio_group.buttonToggled.connect(_on_radio_toggled)
+        self._wt_radio_group.buttonToggled.connect(_on_wt_radio_toggled)
 
-        # 步骤启用复选框联动
-        s2_children = [self._wtStacked]
-        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
-                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
-            s2_children.append(rb)
+        wt_layout.addWidget(wt_grp)
+        self._step2Stacked.addWidget(wt_page)   # index 0
 
+        # ── 页面 1: DEWETRON 谐波配置 ──
+        dew_page = QtWidgets.QWidget()
+        dew_page.setStyleSheet("background-color: white;")
+        dew_layout = QtWidgets.QVBoxLayout(dew_page)
+        dew_layout.setContentsMargins(16, 16, 16, 16)
+        dew_layout.setSpacing(12)
+
+        # ── Group 1: DEWETRON 谐波测量配置 ──
+        dew_group = QtWidgets.QGroupBox()
+        dew_group.setTitle("DEWETRON 谐波测量配置")
+        dew_group.setStyleSheet(self._GRP_STYLE)
+        formLayout = QtWidgets.QFormLayout(dew_group)
+        formLayout.setSpacing(10)
+        formLayout.setContentsMargins(16, 24, 16, 12)
+
+        # 谐波/简谐波 开关
+        self.checkBox_DEW_HarmonicEnabled = QtWidgets.QCheckBox("谐波/简谐波")
+        self.checkBox_DEW_HarmonicEnabled.setChecked(True)
+        self.checkBox_DEW_HarmonicEnabled.setObjectName("checkBox_DEW_HarmonicEnabled")
+        formLayout.addRow(self.checkBox_DEW_HarmonicEnabled)
+
+        # 最大谐波次数
+        self.spinBox_DEW_MaxHarmonicOrder = QtWidgets.QSpinBox()
+        self.spinBox_DEW_MaxHarmonicOrder.setObjectName("spinBox_DEW_MaxHarmonicOrder")
+        self.spinBox_DEW_MaxHarmonicOrder.setRange(1, 100)
+        self.spinBox_DEW_MaxHarmonicOrder.setValue(50)
+        self.spinBox_DEW_MaxHarmonicOrder.setFixedWidth(120)
+        formLayout.addRow("最大谐波次数:", self.spinBox_DEW_MaxHarmonicOrder)
+
+        # THD计算谐波次数
+        self.spinBox_DEW_THDOrder = QtWidgets.QSpinBox()
+        self.spinBox_DEW_THDOrder.setObjectName("spinBox_DEW_THDOrder")
+        self.spinBox_DEW_THDOrder.setRange(1, 100)
+        self.spinBox_DEW_THDOrder.setValue(40)
+        self.spinBox_DEW_THDOrder.setFixedWidth(120)
+        formLayout.addRow("THD计算谐波次数:", self.spinBox_DEW_THDOrder)
+
+        # Grouping type
+        self.comboBox_DEW_GroupingType = QtWidgets.QComboBox()
+        self.comboBox_DEW_GroupingType.setObjectName("comboBox_DEW_GroupingType")
+        self.comboBox_DEW_GroupingType.addItems(["无", "类型1-IEC61000-4-7-5.6(9)", "类型1-IEC61000-4-7-5.1(8)"])
+        self.comboBox_DEW_GroupingType.setFixedWidth(250)
+        formLayout.addRow("Grouping type:", self.comboBox_DEW_GroupingType)
+
+        # 最大刷新率
+        self.comboBox_DEW_MaxRefreshRate = QtWidgets.QComboBox()
+        self.comboBox_DEW_MaxRefreshRate.setObjectName("comboBox_DEW_MaxRefreshRate")
+        self.comboBox_DEW_MaxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1", "SYNC to HARMONIC"])
+        self.comboBox_DEW_MaxRefreshRate.setCurrentText("SYNC to HARMONIC")
+        self.comboBox_DEW_MaxRefreshRate.setFixedWidth(200)
+        formLayout.addRow("最大刷新率:", self.comboBox_DEW_MaxRefreshRate)
+
+        dew_layout.addWidget(dew_group)
+
+        # ── Group 2: 文件设置 ──
+        file_group = QtWidgets.QGroupBox()
+        file_group.setTitle("文件设置")
+        file_group.setStyleSheet(self._GRP_STYLE)
+        fileFormLayout = QtWidgets.QFormLayout(file_group)
+        fileFormLayout.setSpacing(10)
+        fileFormLayout.setContentsMargins(16, 24, 16, 12)
+
+        # 启用多文件存储
+        self.checkBox_DEW_MultiFileStorage = QtWidgets.QCheckBox("启用多文件存储")
+        self.checkBox_DEW_MultiFileStorage.setChecked(True)
+        self.checkBox_DEW_MultiFileStorage.setObjectName("checkBox_DEW_MultiFileStorage")
+        fileFormLayout.addRow(self.checkBox_DEW_MultiFileStorage)
+
+        # 按时间分割文件
+        self.checkBox_DEW_SplitByTime = QtWidgets.QCheckBox("按时间分割文件")
+        self.checkBox_DEW_SplitByTime.setChecked(True)
+        self.checkBox_DEW_SplitByTime.setObjectName("checkBox_DEW_SplitByTime")
+        fileFormLayout.addRow(self.checkBox_DEW_SplitByTime)
+
+        self.spinBox_DEW_SplitTime = QtWidgets.QSpinBox()
+        self.spinBox_DEW_SplitTime.setObjectName("spinBox_DEW_SplitTime")
+        self.spinBox_DEW_SplitTime.setRange(1, 3600)
+        self.spinBox_DEW_SplitTime.setValue(305)
+        self.spinBox_DEW_SplitTime.setFixedWidth(120)
+        _split_time_container = QtWidgets.QWidget()
+        _st_h = QtWidgets.QHBoxLayout(_split_time_container)
+        _st_h.setContentsMargins(0, 0, 0, 0)
+        _st_h.setSpacing(4)
+        _st_h.addWidget(self.spinBox_DEW_SplitTime)
+        _st_h.addWidget(QtWidgets.QLabel("秒"))
+        _st_h.addStretch()
+        fileFormLayout.addRow("文件分割时间:", _split_time_container)
+
+        # 创建子文件夹
+        self.checkBox_DEW_CreateSubfolder = QtWidgets.QCheckBox("创建子文件夹")
+        self.checkBox_DEW_CreateSubfolder.setChecked(False)
+        self.checkBox_DEW_CreateSubfolder.setObjectName("checkBox_DEW_CreateSubfolder")
+        fileFormLayout.addRow(self.checkBox_DEW_CreateSubfolder)
+
+        # 多文件存储联动：关闭时禁用子项
+        def _on_multi_file_toggled(checked):
+            self.checkBox_DEW_SplitByTime.setEnabled(checked)
+            self.spinBox_DEW_SplitTime.setEnabled(checked and self.checkBox_DEW_SplitByTime.isChecked())
+            self.checkBox_DEW_CreateSubfolder.setEnabled(checked)
+        self.checkBox_DEW_MultiFileStorage.toggled.connect(_on_multi_file_toggled)
+
+        # 按时间分割联动：启用时才允许设置时间
+        def _on_split_by_time_toggled(checked):
+            self.spinBox_DEW_SplitTime.setEnabled(checked)
+        self.checkBox_DEW_SplitByTime.toggled.connect(_on_split_by_time_toggled)
+
+        _on_multi_file_toggled(self.checkBox_DEW_MultiFileStorage.isChecked())
+
+        dew_layout.addWidget(file_group)
+
+        # ── Group 3: DMD文件保存 ──
+        path_group = QtWidgets.QGroupBox()
+        path_group.setTitle("DMD文件保存")
+        path_group.setStyleSheet(self._GRP_STYLE)
+        pathFormLayout = QtWidgets.QFormLayout(path_group)
+        pathFormLayout.setSpacing(10)
+        pathFormLayout.setContentsMargins(16, 24, 16, 12)
+
+        # DMD文件保存路径（通过 SCPI :STORE:FILE:NAME 设置）
+        self.lineEdit_DEW_StoreFileName = QtWidgets.QLineEdit()
+        self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
+        self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/data/harmonic_test")
+        self.lineEdit_DEW_StoreFileName.setFixedWidth(300)
+        pathFormLayout.addRow("DMD文件保存:", self.lineEdit_DEW_StoreFileName)
+
+        dew_layout.addWidget(path_group)
+
+        # ── 应用按钮 ──
+        self.pushButton_DEW_Apply = QtWidgets.QPushButton("应用")
+        self.pushButton_DEW_Apply.setObjectName("pushButton_DEW_Apply")
+        self.pushButton_DEW_Apply.setStyleSheet("""
+            QPushButton { background-color: #8b5cf6; color: white; border: none; border-radius: 4px;
+                          padding: 6px 14px; font-size: 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #7c3aed; }
+        """)
+        dew_layout.addWidget(self.pushButton_DEW_Apply)
+
+        dew_layout.addStretch()
+        self._step2Stacked.addWidget(dew_page)   # index 1
+
+        layout.addWidget(self._step2Stacked)
+
+        # ── 顶部模式切换联动 ──
+        def _on_mode_changed(btn, checked):
+            if checked:
+                idx = self._radio_group.id(btn)
+                self._step2Stacked.setCurrentIndex(idx)
+                self._mode = 'dewetron' if idx == 1 else 'wt3000'
+
+        self._radio_group.buttonToggled.connect(_on_mode_changed)
+
+        # ── 步骤启用复选框联动 ──
+        s2_children = [self._step2Stacked]
         def _on_s2_toggled(checked):
             for w in s2_children:
                 w.setEnabled(checked)
-
         self.checkBox_S2.toggled.connect(_on_s2_toggled)
         _on_s2_toggled(self.checkBox_S2.isChecked())
 
-        layout.addWidget(grp)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 

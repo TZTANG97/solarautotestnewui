@@ -1,5 +1,9 @@
 from devices.scpi_common import _configure_scpi_resource
 import re
+import socket
+import struct
+import threading
+import time
 
 # 未映射通道的 ChannelID
 UNUSED_CHANNEL_ID = 18446744073709551615  # 0xFFFFFFFFFFFFFFFF
@@ -17,6 +21,13 @@ class DewetronController:
         self.handle = None
         self.connected = False
         self.resource = ''
+        # DSTREAM 相关
+        self._stream_sock = None       # 数据流 socket
+        self._stream_thread = None     # 接收线程
+        self._stream_stop = threading.Event()  # 停止信号
+        self._stream_port = 10003      # 数据流端口
+        self._stream_group = 1         # 流组编号
+        self._stream_channels = []     # 当前流式传输的通道名列表
 
     def connect(self, tcp_addr):
         """连接 DEWETRON 设备。
@@ -69,6 +80,11 @@ class DewetronController:
 
     def disconnect(self, safe_close_handle):
         """断开 DEWETRON 设备。"""
+        # 先清理 DSTREAM
+        try:
+            self.dstream_cleanup()
+        except Exception:
+            pass
         safe_close_handle(self.handle)
         self.handle = None
         self.connected = False
@@ -241,7 +257,10 @@ class DewetronController:
                    acquisition_rate=None, downsampling=None, frequency_channel=None,
                    flicker_type=None, nominal_voltage=None, pst_time=None, plt_time=None,
                    short_circuit_power=None, flicker_enabled=None, rolling_enabled=None,
-                   export_fields=None, decimal_places=None, realtime_waveform=None):
+                   export_fields=None, decimal_places=None, realtime_waveform=None,
+                   harmonic_enabled=None, max_harmonic_order=None, thd_order=None, grouping_type=None,
+                   multi_file_storage=None, split_by_time=None, split_time=None,
+                   create_subfolder=None, input_before_store=None):
         """根据 UI 设置修改 XML 配置字符串。
 
         Args:
@@ -250,7 +269,7 @@ class DewetronController:
             channel_map: dict，键为 slot_name (如 'U1', 'I1')，值为通道名 (如 'AI 1/U1')
             channel_id_map: dict，ShortId -> ChannelID 映射（从设备读取）。为 None 时跳过 InputChannels 映射。
             input_channels: dict，设备原始 InputChannels 映射 {slot: channel_id}。为 None 时跳过。
-            acquisition_rate: 最大刷新率 (如 '100', 'Default')，为 None 时不修改。
+            acquisition_rate: 最大刷新率 (如 '100', 'Default', 'SYNC to HARMONIC')，为 None 时不修改。
             downsampling: 通道二次采样 (如 'Auto', '2', '关')，为 None 时不修改。
             frequency_channel: 输入通道 (如 'AI 1/U1')，为 None 时不修改。映射到 POWER/FrequencyChannel。
             flicker_type: 加权类型 (如 'AUTO', '230V50Hz')，为 None 时不修改。
@@ -570,6 +589,118 @@ class DewetronController:
         if not flicker_replacements:
             print("[DEWETRON] 闪变参数无需修改（已与 UI 一致）")
 
+        # ── 10. 谐波参数 ──
+        harmonic_replacements = []
+
+        # 10a. POWER/Features/Harmonics (BooleanValue) — 注意是 Harmonics 不是 Harmonic
+        if harmonic_enabled is not None:
+            bool_str = 'True' if harmonic_enabled else 'False'
+            for m in re.finditer(
+                r'(<Property name="POWER/Features/Harmonics">\s*<BooleanValue>)(True|False)(</BooleanValue>)',
+                xml
+            ):
+                if m.group(2) != bool_str:
+                    harmonic_replacements.append((m.start(2), m.end(2), bool_str, 'POWER/Features/Harmonics'))
+
+        # 10b. POWER/MaxHarmonicCount (SignedValue)
+        if max_harmonic_order is not None:
+            for m in re.finditer(
+                r'(<Property name="POWER/MaxHarmonicCount">\s*<SignedValue>)([^<]+)(</SignedValue>)',
+                xml
+            ):
+                if m.group(2) != max_harmonic_order:
+                    harmonic_replacements.append((m.start(2), m.end(2), max_harmonic_order, 'POWER/MaxHarmonicCount'))
+
+        # 10c. POWER/THDHarmonicCount (SignedValue)
+        if thd_order is not None:
+            for m in re.finditer(
+                r'(<Property name="POWER/THDHarmonicCount">\s*<SignedValue>)([^<]+)(</SignedValue>)',
+                xml
+            ):
+                if m.group(2) != thd_order:
+                    harmonic_replacements.append((m.start(2), m.end(2), thd_order, 'POWER/THDHarmonicCount'))
+
+        # 10d. POWER/HarmonicsType (EnumValue)
+        HARMONICS_TYPE_MAP = {
+            '无': 'OFF',
+            '类型1-IEC61000-4-7-5.6(9)': 'TYPE_1',
+            '类型1-IEC61000-4-7-5.1(8)': 'TYPE_2',
+        }
+        if grouping_type is not None:
+            xml_value = HARMONICS_TYPE_MAP.get(grouping_type, grouping_type)
+            for m in re.finditer(
+                r'(<Property name="POWER/HarmonicsType">\s*<EnumValue enum="HarmonicsType">)([^<]+)(</EnumValue>)',
+                xml
+            ):
+                if m.group(2) != xml_value:
+                    harmonic_replacements.append((m.start(2), m.end(2), xml_value, 'POWER/HarmonicsType'))
+
+        harmonic_replacements.sort(key=lambda x: x[0], reverse=True)
+        for start, end, val, label in harmonic_replacements:
+            xml = xml[:start] + val + xml[end:]
+            print(f"[DEWETRON] {label} -> {val}")
+        if not harmonic_replacements:
+            print("[DEWETRON] 谐波参数无需修改（已与 UI 一致）")
+
+        # ── 11. 文件设置（顶层属性，与 POWER/ 同级）──
+        file_replacements = []
+
+        # 11a. MultiFileRecording (BooleanValue)
+        if multi_file_storage is not None:
+            bool_str = 'True' if multi_file_storage else 'False'
+            for m in re.finditer(
+                r'(<Property name="MultiFileRecording">\s*<BooleanValue>)(True|False)(</BooleanValue>)',
+                xml
+            ):
+                if m.group(2) != bool_str:
+                    file_replacements.append((m.start(2), m.end(2), bool_str, 'MultiFileRecording'))
+
+        # 11b. FileSplitCriterion (EnumValue)
+        if split_by_time is not None:
+            enum_val = 'FileSplitMaxDuration' if split_by_time else 'None'
+            for m in re.finditer(
+                r'(<Property name="FileSplitCriterion">\s*<EnumValue[^>]*>)([^<]+)(</EnumValue>)',
+                xml
+            ):
+                if m.group(2) != enum_val:
+                    file_replacements.append((m.start(2), m.end(2), enum_val, 'FileSplitCriterion'))
+
+        # 11c. MaxFileDuration (ScalarValue, Unit: s)
+        if split_time is not None:
+            for m in re.finditer(
+                r'(<Property name="MaxFileDuration">\s*<ScalarValue>\s*<Value>)([^<]+)(</Value>\s*<Unit>)s(</Unit>)',
+                xml
+            ):
+                if m.group(2) != split_time:
+                    file_replacements.append((m.start(2), m.end(2), split_time, 'MaxFileDuration'))
+
+        # 11d. CreateMultiFileFolder (BooleanValue)
+        if create_subfolder is not None:
+            bool_str = 'True' if create_subfolder else 'False'
+            for m in re.finditer(
+                r'(<Property name="CreateMultiFileFolder">\s*<BooleanValue>)(True|False)(</BooleanValue>)',
+                xml
+            ):
+                if m.group(2) != bool_str:
+                    file_replacements.append((m.start(2), m.end(2), bool_str, 'CreateMultiFileFolder'))
+
+        # 11e. AskForFilenameBeforeRecording (BooleanValue)
+        if input_before_store is not None:
+            bool_str = 'True' if input_before_store else 'False'
+            for m in re.finditer(
+                r'(<Property name="AskForFilenameBeforeRecording">\s*<BooleanValue>)(True|False)(</BooleanValue>)',
+                xml
+            ):
+                if m.group(2) != bool_str:
+                    file_replacements.append((m.start(2), m.end(2), bool_str, 'AskForFilenameBeforeRecording'))
+
+        file_replacements.sort(key=lambda x: x[0], reverse=True)
+        for start, end, val, label in file_replacements:
+            xml = xml[:start] + val + xml[end:]
+            print(f"[DEWETRON] {label} -> {val}")
+        if not file_replacements:
+            print("[DEWETRON] 文件设置无需修改（已与 UI 一致）")
+
         return xml
 
     def send_configure(self, wiring_type, v_channel, i_channel, v_ratio, i_ratio, sampling_rate, test_channels):
@@ -582,6 +713,205 @@ class DewetronController:
         """发送 :SETUP:LOAD 命令，让设备重新加载配置文件。"""
         cmd = f':SETUP:LOAD "{config_path}"'
         return self._send(cmd, f"DEWETRON load config: {config_path}", "Send load config to DEWETRON")
+
+    # ── DSTREAM 高速数据流 ──
+
+    def dstream_get_ip(self):
+        """从资源字符串中提取设备 IP 地址。"""
+        if not self.resource:
+            return None
+        # 格式: TCPIP0::192.168.40.25::10001::SOCKET
+        parts = self.resource.split('::')
+        if len(parts) >= 2:
+            return parts[1]
+        return None
+
+    def dstream_configure(self, channel_names, port=10003, group=1):
+        """配置 DSTREAM 数据流。
+
+        Args:
+            channel_names: 通道名列表，如 ['AI 1/U1', 'AI 1/I1']
+            port: 数据流 TCP 端口，默认 10003
+            group: 流组编号，默认 1
+
+        Returns:
+            bool: 配置是否成功
+        """
+        if not self.handle:
+            print("[DEWETRON] dstream_configure: 未连接")
+            return False
+
+        self._stream_port = port
+        self._stream_group = group
+        self._stream_channels = list(channel_names)
+
+        # 清除旧配置
+        self._send(f":DST:DEL {group}", f"清除 DSTREAM 组 {group}", "DSTREAM DEL")
+        time.sleep(0.3)
+
+        # 设置通道列表
+        ch_str = ','.join(f'"{c}"' for c in channel_names)
+        if not self._send(f":DST:ITEMS{group} {ch_str}",
+                          f"DSTREAM 通道: {ch_str}", "DSTREAM ITEMS"):
+            return False
+
+        # 设置端口
+        if not self._send(f":DST:PORT{group} {port}",
+                          f"DSTREAM 端口: {port}", "DSTREAM PORT"):
+            return False
+
+        # 查询状态
+        state = self._query(f":DST:STATE{group}?")
+        print(f"[DEWETRON] DSTREAM 配置完成, 状态: {state}")
+        return True
+
+    def dstream_init(self, group=None):
+        """初始化 DSTREAM（打开端口监听）。
+
+        Args:
+            group: 流组编号，None 使用配置时的编号
+
+        Returns:
+            str: DSTREAM 状态
+        """
+        g = group or self._stream_group
+        self._send(f":DST:INIT {g}", "初始化 DSTREAM", "DSTREAM INIT")
+        time.sleep(0.5)
+        state = self._query(f":DST:STATE{g}?")
+        print(f"[DEWETRON] DSTREAM 初始化后状态: {state}")
+        return state
+
+    def dstream_start(self, group=None):
+        """启动 DSTREAM 数据流推送。
+
+        Args:
+            group: 流组编号，None 使用配置时的编号
+
+        Returns:
+            str: DSTREAM 状态
+        """
+        g = group or self._stream_group
+        self._send(f":DST:START {g}", "启动 DSTREAM", "DSTREAM START")
+        time.sleep(0.5)
+        state = self._query(f":DST:STATE{g}?")
+        print(f"[DEWETRON] DSTREAM 启动后状态: {state}")
+        return state
+
+    def dstream_stop(self, group=None):
+        """停止 DSTREAM 数据流。
+
+        Args:
+            group: 流组编号，None 使用配置时的编号
+        """
+        g = group or self._stream_group
+        self._stream_stop.set()
+        self._send(f":DST:STOP {g}", "停止 DSTREAM", "DSTREAM STOP")
+        # 关闭数据流 socket
+        if self._stream_sock:
+            try:
+                self._stream_sock.close()
+            except Exception:
+                pass
+            self._stream_sock = None
+        print("[DEWETRON] DSTREAM 已停止")
+
+    def dstream_cleanup(self, group=None):
+        """停止并删除 DSTREAM 配置。"""
+        g = group or self._stream_group
+        self.dstream_stop(g)
+        self._send(f":DST:DEL {g}", "删除 DSTREAM 组", "DSTREAM DEL")
+
+    def dstream_connect_data_port(self, timeout=5.0):
+        """连接 DSTREAM 数据流端口（独立 socket）。
+
+        Returns:
+            bool: 连接是否成功
+        """
+        ip = self.dstream_get_ip()
+        if not ip:
+            print("[DEWETRON] 无法从资源字符串提取 IP")
+            return False
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            sock.connect((ip, self._stream_port))
+            self._stream_sock = sock
+            print(f"[DEWETRON] 数据流端口连接成功: {ip}:{self._stream_port}")
+            return True
+        except Exception as e:
+            print(f"[DEWETRON] 数据流端口连接失败: {e}")
+            return False
+
+    def dstream_receive_once(self, buf_size=65536, timeout=3.0):
+        """从数据流端口接收一包数据。
+
+        Args:
+            buf_size: 接收缓冲区大小
+            timeout: 接收超时（秒）
+
+        Returns:
+            bytes or None: 接收到的数据，超时或错误返回 None
+        """
+        if not self._stream_sock:
+            return None
+        try:
+            self._stream_sock.settimeout(timeout)
+            return self._stream_sock.recv(buf_size)
+        except socket.timeout:
+            return None
+        except Exception as e:
+            print(f"[DEWETRON] dstream_receive_once 异常: {e}")
+            return None
+
+    def dstream_start_receiving(self, callback, buf_size=65536, interval=0.1):
+        """启动后台线程持续接收数据流。
+
+        Args:
+            callback: 回调函数，接收 (data_bytes, channel_names, parsed_floats)
+            buf_size: 接收缓冲区大小
+            interval: 接收间隔（秒）
+
+        Returns:
+            bool: 是否成功启动
+        """
+        if not self._stream_sock:
+            print("[DEWETRON] 未连接数据流端口")
+            return False
+
+        self._stream_stop.clear()
+
+        def _receiver():
+            print(f"[DEWETRON] 数据流接收线程启动 (通道: {self._stream_channels})")
+            while not self._stream_stop.is_set():
+                try:
+                    data = self.dstream_receive_once(buf_size)
+                    if data and len(data) > 0:
+                        # 解析 float32
+                        num_floats = len(data) // 4
+                        if num_floats > 0:
+                            floats = struct.unpack(f'<{num_floats}f', data[:num_floats * 4])
+                        else:
+                            floats = ()
+                        callback(data, self._stream_channels, floats)
+                    else:
+                        time.sleep(interval)
+                except Exception as e:
+                    if not self._stream_stop.is_set():
+                        print(f"[DEWETRON] 接收线程异常: {e}")
+                    break
+            print("[DEWETRON] 数据流接收线程结束")
+
+        self._stream_thread = threading.Thread(target=_receiver, daemon=True)
+        self._stream_thread.start()
+        return True
+
+    def dstream_stop_receiving(self):
+        """停止后台接收线程。"""
+        self._stream_stop.set()
+        if self._stream_thread:
+            self._stream_thread.join(timeout=3.0)
+            self._stream_thread = None
 
 
 def connect_dewetron(tcp_addr, rm, ui, logger, show_message):

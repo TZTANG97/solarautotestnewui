@@ -6559,3 +6559,1251 @@ PermissionError: [Errno 13] Permission denied: './command_save_files/command_dat
 2026-07-06 13:46:04,338 INFO logging_setup.py [75] MainThread :2026-07-06 13:46:04 DC1 factor is empty or unsupported: '', will send IVC commands only
 2026-07-06 13:46:04,339 INFO SCPITestWave.py [3929] MainThread : 设定实验内容完成
 2026-07-06 13:46:04,339 INFO logging_setup.py [75] MainThread :2026-07-06 13:46:04    设定实验内容完成
+2026-07-06 14:12:13,277 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 14:12:13,278 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 14:12:13,278 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 14:12:13,278 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 14:12:13,358 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 14:12:13,358 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 14:12:13,365 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 14:12:13,365 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 14:12:13,587 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 14:12:13,587 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 14:12:13,588 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 14:12:13,588 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 14:12:13,641 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 14:12:13,641 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 14:12:13,642 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 14:12:13,642 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 14:12:13,643 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 14:12:13,643 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 14:12:13,645 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 14:12:13,648 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 14:12:13,649 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 14:12:13,649 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 14:12:13,654 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 14:12:13,727 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 14:12:13,728 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 14:12:13,737 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 14:12:13,739 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 14:12:13,741 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 14:12:13,741 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 14:12:13,742 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 14:12:13,742 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 14:12:13,743 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 14:12:13,744 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 14:12:17,819 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-06 14:12:17,876 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-06 14:12:17,876 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-06 14:12:17,877 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-06 14:12:17,877 INFO SCPITestWave.py [30322] MainThread :2026-07-06 14:12:17    程式开启
+2026-07-06 14:12:17,878 INFO logging_setup.py [75] MainThread :2026-07-06 14:12:17    程式开启
+2026-07-06 14:12:17,878 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-06 14:12:18,100 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-06 14:14:57,577 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 14:14:57,578 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 14:14:57,579 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 14:14:57,579 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 14:14:57,659 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 14:14:57,659 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 14:14:57,665 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 14:14:57,665 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 14:14:57,858 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 14:14:57,858 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 14:14:57,858 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 14:14:57,858 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 14:14:57,920 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 14:14:57,920 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 14:14:57,921 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 14:14:57,921 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 14:14:57,922 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 14:14:57,922 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 14:14:57,922 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 14:14:57,923 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 14:14:57,924 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 14:14:57,924 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 14:14:57,927 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 14:14:57,993 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 14:14:57,995 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 14:14:58,005 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 14:14:58,006 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 14:14:58,008 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 14:14:58,008 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 14:14:58,009 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 14:14:58,009 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 14:14:58,009 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 14:14:58,009 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 14:14:58,010 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 14:14:58,011 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 14:15:02,214 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-06 14:15:02,270 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-06 14:15:02,271 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-06 14:15:02,271 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-06 14:15:02,271 INFO SCPITestWave.py [30372] MainThread :2026-07-06 14:15:02    程式开启
+2026-07-06 14:15:02,271 INFO logging_setup.py [75] MainThread :2026-07-06 14:15:02    程式开启
+2026-07-06 14:15:02,272 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-06 14:15:02,481 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-06 14:15:22,993 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-06 14:15:22,998 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 14:15:22,999 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 14:15:24,870 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] === 开始保存配置 ===
+2026-07-06 14:15:24,872 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 用户选择 - 输入通道: AI 1/U1, 最大刷新率: 100, 通道二次采样: Auto
+2026-07-06 14:15:25,074 ERROR logging_setup.py [75] MainThread :D:\workspace\codes\solarautotestdev\.venv\Lib\site-packages\pyvisa\resources\messagebased.py:702: UserWarning: read string doesn't end with termination characters
+2026-07-06 14:15:25,074 ERROR logging_setup.py [75] MainThread :  return self.read()
+2026-07-06 14:15:25,090 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:15:25,090 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:15:25,090 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:15:25,091 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:15:25,091 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:15:25,091 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:15:25,091 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:15:25,091 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:15:25,092 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:15:25,092 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:15:25,092 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:15:25,092 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:15:25,092 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:15:25,093 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 从设备读取配置: 1443634 字符, 369 个通道ID
+2026-07-06 14:15:25,094 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备当前刷新率: 100 (UI 使用用户选择: 100)
+2026-07-06 14:15:25,095 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备当前二次采样: Auto (UI 使用用户选择: Auto)
+2026-07-06 14:15:25,095 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 接线类型: 3P3W
+2026-07-06 14:15:25,096 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 <- AI 1/U1
+2026-07-06 14:15:25,096 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 <- AI 1/I1
+2026-07-06 14:15:25,096 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 <- AI 1/U2
+2026-07-06 14:15:25,096 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 <- AI 1/I2
+2026-07-06 14:15:25,097 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 <- AI 1/U3
+2026-07-06 14:15:25,097 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 <- AI 1/I3
+2026-07-06 14:15:25,098 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备 InputChannels 映射 ---
+2026-07-06 14:15:25,098 INFO logging_setup.py [75] MainThread :  I1 -> 2019864424285732884
+2026-07-06 14:15:25,098 INFO logging_setup.py [75] MainThread :  I2 -> 2019864424285732885
+2026-07-06 14:15:25,098 INFO logging_setup.py [75] MainThread :  I3 -> 2019864424285732886
+2026-07-06 14:15:25,099 INFO logging_setup.py [75] MainThread :  I4 -> 18446744073709551615
+2026-07-06 14:15:25,099 INFO logging_setup.py [75] MainThread :  I5 -> 18446744073709551615
+2026-07-06 14:15:25,099 INFO logging_setup.py [75] MainThread :  I6 -> 18446744073709551615
+2026-07-06 14:15:25,099 INFO logging_setup.py [75] MainThread :  I7 -> 18446744073709551615
+2026-07-06 14:15:25,099 INFO logging_setup.py [75] MainThread :  I8 -> 18446744073709551615
+2026-07-06 14:15:25,099 INFO logging_setup.py [75] MainThread :  I9 -> 18446744073709551615
+2026-07-06 14:15:25,100 INFO logging_setup.py [75] MainThread :  U1 -> 2019864424285732888
+2026-07-06 14:15:25,100 INFO logging_setup.py [75] MainThread :  U2 -> 2019864424285732889
+2026-07-06 14:15:25,100 INFO logging_setup.py [75] MainThread :  U3 -> 2019864424285732890
+2026-07-06 14:15:25,100 INFO logging_setup.py [75] MainThread :  U4 -> 18446744073709551615
+2026-07-06 14:15:25,100 INFO logging_setup.py [75] MainThread :  U5 -> 18446744073709551615
+2026-07-06 14:15:25,101 INFO logging_setup.py [75] MainThread :  U6 -> 18446744073709551615
+2026-07-06 14:15:25,101 INFO logging_setup.py [75] MainThread :  U7 -> 18446744073709551615
+2026-07-06 14:15:25,101 INFO logging_setup.py [75] MainThread :  U8 -> 18446744073709551615
+2026-07-06 14:15:25,101 INFO logging_setup.py [75] MainThread :  U9 -> 18446744073709551615
+2026-07-06 14:15:25,101 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备 InputChannels 映射: 18 个槽位
+2026-07-06 14:15:25,102 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 -> ID=2019864424285732884
+2026-07-06 14:15:25,102 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 -> ID=2019864424285732885
+2026-07-06 14:15:25,102 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 -> ID=2019864424285732886
+2026-07-06 14:15:25,103 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I4 -> ID=18446744073709551615
+2026-07-06 14:15:25,103 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I5 -> ID=18446744073709551615
+2026-07-06 14:15:25,103 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I6 -> ID=18446744073709551615
+2026-07-06 14:15:25,104 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I7 -> ID=18446744073709551615
+2026-07-06 14:15:25,104 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I8 -> ID=18446744073709551615
+2026-07-06 14:15:25,104 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I9 -> ID=18446744073709551615
+2026-07-06 14:15:25,104 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 -> ID=2019864424285732888
+2026-07-06 14:15:25,105 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 -> ID=2019864424285732889
+2026-07-06 14:15:25,105 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 -> ID=2019864424285732890
+2026-07-06 14:15:25,105 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U4 -> ID=18446744073709551615
+2026-07-06 14:15:25,105 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U5 -> ID=18446744073709551615
+2026-07-06 14:15:25,105 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U6 -> ID=18446744073709551615
+2026-07-06 14:15:25,106 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U7 -> ID=18446744073709551615
+2026-07-06 14:15:25,106 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U8 -> ID=18446744073709551615
+2026-07-06 14:15:25,106 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U9 -> ID=18446744073709551615
+2026-07-06 14:15:25,106 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] --- 通道配对 ---
+2026-07-06 14:15:25,106 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 <- AI 1/U1 -> ID=2019864424285732888
+2026-07-06 14:15:25,106 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 <- AI 1/I1 -> ID=2019864424285732884
+2026-07-06 14:15:25,107 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 <- AI 1/U2 -> ID=2019864424285732889
+2026-07-06 14:15:25,107 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 <- AI 1/I2 -> ID=2019864424285732885
+2026-07-06 14:15:25,107 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 <- AI 1/U3 -> ID=2019864424285732890
+2026-07-06 14:15:25,108 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 <- AI 1/I3 -> ID=2019864424285732886
+2026-07-06 14:15:25,109 INFO logging_setup.py [75] MainThread :[DEWETRON] WiringType -> AC_3P3W
+2026-07-06 14:15:25,109 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: {'AI 1/I1', 'AI 1/I2', 'AI 1/U3', 'AI 1/U1', 'AI 1/I3', 'AI 1/U2'}
+2026-07-06 14:15:25,114 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U3: Neon/Active -> True
+2026-07-06 14:15:25,116 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U3: Used -> True
+2026-07-06 14:15:25,117 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U2: Neon/Active -> True
+2026-07-06 14:15:25,118 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U2: Used -> True
+2026-07-06 14:15:25,120 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U1: Neon/Active -> True
+2026-07-06 14:15:25,121 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U1: Used -> True
+2026-07-06 14:15:25,122 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I3: Neon/Active -> True
+2026-07-06 14:15:25,123 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I3: Used -> True
+2026-07-06 14:15:25,125 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I2: Neon/Active -> True
+2026-07-06 14:15:25,126 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I2: Used -> True
+2026-07-06 14:15:25,127 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I1: Neon/Active -> True
+2026-07-06 14:15:25,129 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I1: Used -> True
+2026-07-06 14:15:25,129 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:15:25,130 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:15:25,139 INFO logging_setup.py [75] MainThread :[DEWETRON] InputChannels 映射无需修改（已与 UI 一致）
+2026-07-06 14:15:25,141 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 14:15:25,142 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/DataSubsampling 无需修改（已与 UI 一致）
+2026-07-06 14:15:25,143 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/FrequencyChannel 无需修改（已与 UI 一致）
+2026-07-06 14:15:25,143 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:15:25,143 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 14:15:25,143 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] XML已修改: 1443634 字符
+2026-07-06 14:15:25,145 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 已保存: dewetron_20260706_14.xml
+2026-07-06 14:15:25,147 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1443712 字节, header: #71443712)
+2026-07-06 14:15:25,148 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:15:25,148 INFO logging_setup.py [75] MainThread :2026-07-06 14:15:25[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:15:25,149 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 配置已应用
+2026-07-06 14:15:30,664 INFO logging_setup.py [75] MainThread :[BuildTestPage] === 开始构造测试界面 ===
+2026-07-06 14:15:33,395 INFO logging_setup.py [75] MainThread :[BuildTestPage] 读取 XML: 1443634 字符
+2026-07-06 14:15:33,397 INFO logging_setup.py [75] MainThread :[BuildTestPage] PowerGroup ChannelID: 2019588403917488128
+2026-07-06 14:15:33,404 INFO logging_setup.py [75] MainThread :[BuildTestPage] 启用了 0 个电力组通道（Used + Neon/Active）
+2026-07-06 14:15:33,410 INFO logging_setup.py [75] MainThread :[BuildTestPage] 已删除 1 个旧电力组页面
+2026-07-06 14:15:33,417 INFO logging_setup.py [75] MainThread :[BuildTestPage] 已注入电力组测试页面（channel_id=2019588403917488128）
+2026-07-06 14:15:33,418 INFO logging_setup.py [75] MainThread :[BuildTestPage] 发送修改后的 XML: 1443496 字符
+2026-07-06 14:15:33,421 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1443574 字节, header: #71443574)
+2026-07-06 14:15:33,424 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:15:33,424 INFO logging_setup.py [75] MainThread :2026-07-06 14:15:33[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:15:33,425 INFO logging_setup.py [75] MainThread :[BuildTestPage] 测试界面构造完成
+2026-07-06 14:15:52,427 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:15:52,428 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:15:52,428 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:15:52,428 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:15:52,428 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:15:52,428 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:15:52,429 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:15:52,429 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:15:52,429 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:15:52,429 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:15:52,429 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:15:52,430 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:15:52,430 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:15:52,430 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 14:15:52,430 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:15:52,431 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:15:52,432 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 14:15:52,434 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate -> SYNC to HARMONIC ms
+2026-07-06 14:15:52,434 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:15:52,437 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 14:15:52,439 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1443725 字节, header: #71443725)
+2026-07-06 14:15:52,441 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:15:52,441 INFO logging_setup.py [75] MainThread :2026-07-06 14:15:52[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:16:09,417 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:16:09,418 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:16:09,418 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:16:09,418 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:16:09,418 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:16:09,419 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:16:09,419 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:16:09,419 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:16:09,419 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:16:09,420 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:16:09,420 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:16:09,420 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:16:09,420 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:16:09,421 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 14:16:09,421 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:16:09,422 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:16:09,423 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 14:16:09,424 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 14:16:09,425 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:16:09,428 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 14:16:09,429 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1443725 字节, header: #71443725)
+2026-07-06 14:16:09,431 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:16:09,431 INFO logging_setup.py [75] MainThread :2026-07-06 14:16:09[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:20:18,214 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 14:20:18,214 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 14:20:18,216 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 14:20:18,217 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 14:20:18,296 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 14:20:18,296 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 14:20:18,301 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 14:20:18,302 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 14:20:18,491 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 14:20:18,491 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 14:20:18,491 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 14:20:18,492 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 14:20:18,540 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 14:20:18,540 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 14:20:18,541 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 14:20:18,542 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 14:20:18,543 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 14:20:18,543 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 14:20:18,544 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 14:20:18,547 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 14:20:18,549 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 14:20:18,549 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 14:20:18,558 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 14:20:18,639 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 14:20:18,640 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 14:20:18,652 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 14:20:18,653 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 14:20:18,654 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 14:20:18,655 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 14:20:18,655 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 14:20:18,656 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 14:20:18,656 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 14:20:18,656 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 14:20:18,656 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 14:20:18,656 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 14:20:18,656 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 14:20:18,656 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 14:20:18,657 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 14:20:22,549 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-06 14:20:22,650 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-06 14:20:22,650 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-06 14:20:22,651 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-06 14:20:22,651 INFO SCPITestWave.py [30372] MainThread :2026-07-06 14:20:22    程式开启
+2026-07-06 14:20:22,651 INFO logging_setup.py [75] MainThread :2026-07-06 14:20:22    程式开启
+2026-07-06 14:20:22,652 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-06 14:20:22,873 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-06 14:20:31,963 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-06 14:20:31,970 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 14:20:31,970 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 14:20:45,972 ERROR logging_setup.py [75] MainThread :D:\workspace\codes\solarautotestdev\.venv\Lib\site-packages\pyvisa\resources\messagebased.py:702: UserWarning: read string doesn't end with termination characters
+2026-07-06 14:20:45,972 ERROR logging_setup.py [75] MainThread :  return self.read()
+2026-07-06 14:20:45,992 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:20:45,993 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:20:45,993 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:20:45,993 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:20:45,993 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:20:45,994 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:20:45,994 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:20:45,994 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:20:45,994 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:20:45,995 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:20:45,995 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:20:45,995 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:20:45,995 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:20:45,996 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 14:20:45,996 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:20:45,997 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:20:45,997 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 14:20:45,998 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 14:20:45,998 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:20:46,003 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/THDHarmonicCount -> 40
+2026-07-06 14:20:46,005 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxHarmonicCount -> 50
+2026-07-06 14:20:46,006 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/HarmonicsType -> OFF
+2026-07-06 14:20:46,008 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1443933 字节, header: #71443933)
+2026-07-06 14:20:46,010 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:20:46,010 INFO logging_setup.py [75] MainThread :2026-07-06 14:20:46[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:21:21,470 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:21:21,471 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:21:21,471 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:21:21,471 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:21:21,471 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:21:21,472 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:21:21,472 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:21:21,472 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:21:21,472 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:21:21,472 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:21:21,473 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:21:21,473 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:21:21,473 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:21:21,473 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 14:21:21,473 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:21:21,474 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:21:21,474 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 14:21:21,475 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 14:21:21,476 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:21:21,480 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/THDHarmonicCount -> 20
+2026-07-06 14:21:21,481 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxHarmonicCount -> 35
+2026-07-06 14:21:21,483 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/HarmonicsType -> TYPE1_5_6_9
+2026-07-06 14:21:21,484 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1443941 字节, header: #71443941)
+2026-07-06 14:21:21,486 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:21:21,486 INFO logging_setup.py [75] MainThread :2026-07-06 14:21:21[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:25:20,891 INFO logging_setup.py [75] MainThread :关闭设备成功
+2026-07-06 14:31:17,127 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 14:31:17,128 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 14:31:17,129 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 14:31:17,129 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 14:31:17,212 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 14:31:17,212 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 14:31:17,217 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 14:31:17,217 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 14:31:17,435 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 14:31:17,435 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 14:31:17,435 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 14:31:17,436 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 14:31:17,490 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 14:31:17,490 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 14:31:17,490 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 14:31:17,491 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 14:31:17,491 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 14:31:17,492 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 14:31:17,492 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 14:31:17,493 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 14:31:17,494 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 14:31:17,494 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 14:31:17,497 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 14:31:17,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 14:31:17,556 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 14:31:17,566 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 14:31:17,568 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 14:31:17,569 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 14:31:17,570 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 14:31:17,570 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 14:31:17,571 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 14:31:17,571 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 14:31:17,571 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 14:31:17,571 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 14:31:17,571 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 14:31:17,572 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 14:31:17,572 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 14:31:17,572 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 14:31:17,572 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 14:31:17,572 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 14:31:17,572 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 14:31:17,573 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 14:31:17,573 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 14:31:17,573 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 14:31:17,573 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 14:31:17,573 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 14:31:17,573 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 14:31:17,574 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 14:31:17,574 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 14:31:21,217 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "d:\workspace\codes\solarautotestdev\SCPITestWave.py", line 29734, in <module>
+    _scroll.setWidget(_container)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+KeyboardInterrupt
+2026-07-06 14:31:25,126 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 14:31:25,127 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 14:31:25,128 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 14:31:25,128 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 14:31:25,208 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 14:31:25,209 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 14:31:25,214 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 14:31:25,214 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 14:31:25,417 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 14:31:25,417 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 14:31:25,417 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 14:31:25,417 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 14:31:25,469 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 14:31:25,469 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 14:31:25,469 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 14:31:25,470 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 14:31:25,470 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 14:31:25,470 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 14:31:25,471 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 14:31:25,472 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 14:31:25,473 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 14:31:25,473 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 14:31:25,477 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 14:31:25,536 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 14:31:25,537 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 14:31:25,548 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 14:31:25,549 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 14:31:25,550 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 14:31:25,551 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 14:31:25,552 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 14:31:25,553 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 14:31:25,553 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 14:31:25,553 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 14:31:25,553 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 14:31:25,554 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 14:31:25,554 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 14:31:25,554 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 14:31:25,554 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 14:31:25,555 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 14:31:25,556 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 14:31:25,556 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 14:31:25,556 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 14:31:29,604 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-06 14:31:29,656 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-06 14:31:29,656 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-06 14:31:29,657 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-06 14:31:29,657 INFO SCPITestWave.py [30372] MainThread :2026-07-06 14:31:29    程式开启
+2026-07-06 14:31:29,657 INFO logging_setup.py [75] MainThread :2026-07-06 14:31:29    程式开启
+2026-07-06 14:31:29,657 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-06 14:31:29,857 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-06 14:31:38,794 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-06 14:31:38,801 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 14:31:38,801 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 14:31:49,984 ERROR logging_setup.py [75] MainThread :D:\workspace\codes\solarautotestdev\.venv\Lib\site-packages\pyvisa\resources\messagebased.py:702: UserWarning: read string doesn't end with termination characters
+2026-07-06 14:31:49,984 ERROR logging_setup.py [75] MainThread :  return self.read()
+2026-07-06 14:31:49,994 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:31:49,995 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:31:49,995 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:31:49,995 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:31:49,996 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:31:49,996 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:31:49,996 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:31:49,997 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:31:49,997 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:31:49,997 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:31:49,997 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:31:49,998 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:31:49,998 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:31:49,999 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 14:31:49,999 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:31:50,000 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:31:50,001 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 14:31:50,003 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate -> SYNC to HARMONIC ms
+2026-07-06 14:31:50,004 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:31:50,009 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/THDHarmonicCount -> 40
+2026-07-06 14:31:50,011 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxHarmonicCount -> 50
+2026-07-06 14:31:50,012 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/HarmonicsType -> OFF
+2026-07-06 14:31:50,014 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/Features/Harmonics -> False
+2026-07-06 14:31:50,017 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1444215 字节, header: #71444215)
+2026-07-06 14:31:50,018 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:31:50,019 INFO logging_setup.py [75] MainThread :2026-07-06 14:31:50[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:32:24,098 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:32:24,098 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:32:24,098 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:32:24,099 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:32:24,099 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:32:24,099 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:32:24,099 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:32:24,099 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:32:24,100 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:32:24,100 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:32:24,100 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:32:24,100 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:32:24,100 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:32:24,101 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 14:32:24,101 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:32:24,102 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:32:24,102 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 14:32:24,103 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 14:32:24,103 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:32:24,108 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/THDHarmonicCount -> 35
+2026-07-06 14:32:24,109 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxHarmonicCount -> 45
+2026-07-06 14:32:24,111 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/HarmonicsType -> TYPE_1
+2026-07-06 14:32:24,113 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/Features/Harmonics -> True
+2026-07-06 14:32:24,114 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1444200 字节, header: #71444200)
+2026-07-06 14:32:24,116 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:32:24,116 INFO logging_setup.py [75] MainThread :2026-07-06 14:32:24[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:46:15,641 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 14:46:15,641 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 14:46:15,643 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 14:46:15,643 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 14:46:15,724 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 14:46:15,724 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 14:46:15,730 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 14:46:15,730 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 14:46:15,942 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 14:46:15,943 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 14:46:15,943 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 14:46:15,943 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 14:46:16,000 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 14:46:16,000 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 14:46:16,001 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 14:46:16,001 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 14:46:16,002 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 14:46:16,002 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 14:46:16,003 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 14:46:16,004 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 14:46:16,005 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 14:46:16,005 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 14:46:16,009 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 14:46:16,068 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 14:46:16,069 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 14:46:16,080 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 14:46:16,081 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 14:46:16,083 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 14:46:16,083 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 14:46:16,084 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 14:46:16,084 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 14:46:16,084 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 14:46:16,085 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 14:46:16,086 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 14:46:16,086 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 14:46:16,086 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 14:46:16,086 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 14:46:16,086 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 14:46:16,086 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 14:46:16,994 ERROR exception_handler.py [7] MainThread :Uncaught exception
+Traceback (most recent call last):
+  File "d:\workspace\codes\solarautotestdev\SCPITestWave.py", line 29721, in <module>
+    _dlg_layout = _dlg.layout()
+                  ^^^^^^^^^^^
+  File "d:\workspace\codes\solarautotestdev\setup\main_setup.py", line 77, in __getattr__
+    dialog, ui = self._ensure_created()
+                 ~~~~~~~~~~~~~~~~~~~~^^
+  File "d:\workspace\codes\solarautotestdev\setup\main_setup.py", line 63, in _ensure_created
+    self._real_ui.setupUi(self._real_dialog)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "d:\workspace\codes\solarautotestdev\Dialog_thaixiebodianliu.py", line 148, in setupUi
+    self._build_step2()           # 功率分析仪
+    ~~~~~~~~~~~~~~~~~^^
+  File "d:\workspace\codes\solarautotestdev\Dialog_thaixiebodianliu.py", line 556, in _build_step2
+    fileFormLayout.addRow("文件分割时间:", self._make_unit_row(self.spinBox_DEW_SplitTime, "秒"))
+                                           ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Ui_Dialog_thaixiebodianliu' object has no attribute '_make_unit_row'
+2026-07-06 14:47:02,067 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 14:47:02,068 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 14:47:02,069 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 14:47:02,069 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 14:47:02,150 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 14:47:02,150 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 14:47:02,156 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 14:47:02,156 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 14:47:02,352 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 14:47:02,352 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 14:47:02,352 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 14:47:02,352 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 14:47:02,416 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 14:47:02,416 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 14:47:02,416 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 14:47:02,417 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 14:47:02,417 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 14:47:02,417 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 14:47:02,417 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 14:47:02,419 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 14:47:02,420 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 14:47:02,420 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 14:47:02,424 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 14:47:02,512 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 14:47:02,513 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 14:47:02,523 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 14:47:02,524 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 14:47:02,526 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 14:47:02,526 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 14:47:02,527 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 14:47:02,527 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 14:47:02,527 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 14:47:02,527 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 14:47:02,527 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 14:47:02,527 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 14:47:02,527 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 14:47:02,528 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 14:47:02,529 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 14:47:06,514 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-06 14:47:06,574 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-06 14:47:06,575 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-06 14:47:06,576 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-06 14:47:06,576 INFO SCPITestWave.py [30372] MainThread :2026-07-06 14:47:06    程式开启
+2026-07-06 14:47:06,576 INFO logging_setup.py [75] MainThread :2026-07-06 14:47:06    程式开启
+2026-07-06 14:47:06,576 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-06 14:47:06,775 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-06 14:47:20,561 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-06 14:47:20,568 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 14:47:20,569 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 14:47:41,760 ERROR logging_setup.py [75] MainThread :D:\workspace\codes\solarautotestdev\.venv\Lib\site-packages\pyvisa\resources\messagebased.py:702: UserWarning: read string doesn't end with termination characters
+2026-07-06 14:47:41,760 ERROR logging_setup.py [75] MainThread :  return self.read()
+2026-07-06 14:47:41,782 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 14:47:41,782 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 14:47:41,783 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 14:47:41,783 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 14:47:41,783 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 14:47:41,784 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 14:47:41,784 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 14:47:41,784 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 14:47:41,784 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 14:47:41,785 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 14:47:41,785 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 14:47:41,785 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 14:47:41,786 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 14:47:41,786 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 14:47:41,786 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 14:47:41,788 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 14:47:41,788 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 14:47:41,790 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 14:47:41,790 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 14:47:41,796 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 14:47:41,799 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440924 字节, header: #71440924)
+2026-07-06 14:47:41,800 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:47:41,800 INFO logging_setup.py [75] MainThread :2026-07-06 14:47:41[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 14:50:19,486 INFO logging_setup.py [75] MainThread :关闭设备成功
+2026-07-06 15:02:43,570 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 15:02:43,571 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 15:02:43,571 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 15:02:43,571 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 15:02:43,655 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 15:02:43,655 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 15:02:43,660 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 15:02:43,661 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 15:02:43,862 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 15:02:43,863 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 15:02:43,863 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 15:02:43,863 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 15:02:43,937 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 15:02:43,937 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 15:02:43,938 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 15:02:43,938 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 15:02:43,939 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 15:02:43,939 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 15:02:43,939 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 15:02:43,940 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 15:02:43,941 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 15:02:43,941 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 15:02:43,945 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 15:02:44,006 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 15:02:44,007 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 15:02:44,019 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 15:02:44,021 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 15:02:44,022 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 15:02:44,023 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 15:02:44,023 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 15:02:44,024 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 15:02:44,024 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 15:02:44,024 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 15:02:44,024 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 15:02:44,025 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 15:02:44,026 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 15:02:44,026 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 15:02:44,026 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 15:02:47,988 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-06 15:02:48,037 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-06 15:02:48,037 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-06 15:02:48,038 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-06 15:02:48,038 INFO SCPITestWave.py [30384] MainThread :2026-07-06 15:02:48    程式开启
+2026-07-06 15:02:48,038 INFO logging_setup.py [75] MainThread :2026-07-06 15:02:48    程式开启
+2026-07-06 15:02:48,038 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-06 15:02:48,248 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-06 15:02:56,459 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-06 15:02:56,465 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 15:02:56,466 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 15:02:56,687 INFO logging_setup.py [75] MainThread :关闭设备成功
+2026-07-06 15:02:57,386 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-06 15:02:57,391 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 15:02:57,391 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 15:03:08,288 ERROR logging_setup.py [75] MainThread :D:\workspace\codes\solarautotestdev\.venv\Lib\site-packages\pyvisa\resources\messagebased.py:702: UserWarning: read string doesn't end with termination characters
+2026-07-06 15:03:08,288 ERROR logging_setup.py [75] MainThread :  return self.read()
+2026-07-06 15:03:08,299 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:03:08,300 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:03:08,300 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:03:08,300 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:03:08,300 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:03:08,300 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:03:08,301 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:03:08,301 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:03:08,301 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:03:08,301 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:03:08,302 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:03:08,302 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:03:08,302 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:03:08,303 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:03:08,303 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:03:08,304 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:03:08,304 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:03:08,306 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:03:08,306 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:03:08,311 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/THDHarmonicCount -> 40
+2026-07-06 15:03:08,312 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxHarmonicCount -> 50
+2026-07-06 15:03:08,314 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/HarmonicsType -> OFF
+2026-07-06 15:03:08,320 INFO logging_setup.py [75] MainThread :[DEWETRON] MaxFileDuration -> 305
+2026-07-06 15:03:08,321 INFO logging_setup.py [75] MainThread :[DEWETRON] CreateMultiFileFolder -> False
+2026-07-06 15:03:08,322 INFO logging_setup.py [75] MainThread :[DEWETRON] AskForFilenameBeforeRecording -> True
+2026-07-06 15:03:08,325 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440846 字节, header: #71440846)
+2026-07-06 15:03:08,326 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:03:08,326 INFO logging_setup.py [75] MainThread :2026-07-06 15:03:08[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:03:23,108 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:03:23,109 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:03:23,109 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:03:23,109 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:03:23,110 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:03:23,110 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:03:23,110 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:03:23,110 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:03:23,110 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:03:23,111 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:03:23,111 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:03:23,111 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:03:23,111 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:03:23,111 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:03:23,112 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:03:23,113 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:03:23,113 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:03:23,114 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:03:23,114 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:03:23,118 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:03:23,123 INFO logging_setup.py [75] MainThread :[DEWETRON] MultiFileRecording -> False
+2026-07-06 15:03:23,124 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440847 字节, header: #71440847)
+2026-07-06 15:03:23,126 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:03:23,126 INFO logging_setup.py [75] MainThread :2026-07-06 15:03:23[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:03:37,558 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:03:37,558 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:03:37,559 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:03:37,559 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:03:37,559 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:03:37,559 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:03:37,559 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:03:37,559 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:03:37,560 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:03:37,560 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:03:37,560 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:03:37,560 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:03:37,560 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:03:37,561 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:03:37,561 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:03:37,562 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:03:37,562 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:03:37,563 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:03:37,563 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:03:37,567 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:03:37,572 INFO logging_setup.py [75] MainThread :[DEWETRON] CreateMultiFileFolder -> True
+2026-07-06 15:03:37,574 INFO logging_setup.py [75] MainThread :[DEWETRON] MultiFileRecording -> True
+2026-07-06 15:03:37,576 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440845 字节, header: #71440845)
+2026-07-06 15:03:37,577 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:03:37,577 INFO logging_setup.py [75] MainThread :2026-07-06 15:03:37[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:03:57,716 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:03:57,716 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:03:57,717 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:03:57,717 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:03:57,717 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:03:57,718 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:03:57,718 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:03:57,718 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:03:57,718 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:03:57,719 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:03:57,719 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:03:57,719 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:03:57,719 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:03:57,720 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:03:57,720 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:03:57,722 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:03:57,722 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:03:57,723 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:03:57,723 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:03:57,727 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:03:57,733 INFO logging_setup.py [75] MainThread :[DEWETRON] CreateMultiFileFolder -> False
+2026-07-06 15:03:57,734 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440846 字节, header: #71440846)
+2026-07-06 15:03:57,736 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:03:57,736 INFO logging_setup.py [75] MainThread :2026-07-06 15:03:57[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:04:22,234 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:04:22,235 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:04:22,235 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:04:22,235 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:04:22,236 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:04:22,236 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:04:22,236 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:04:22,236 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:04:22,236 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:04:22,237 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:04:22,237 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:04:22,237 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:04:22,237 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:04:22,237 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:04:22,238 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:04:22,239 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:04:22,239 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:04:22,240 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:04:22,240 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:04:22,243 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:04:22,249 INFO logging_setup.py [75] MainThread :[DEWETRON] AskForFilenameBeforeRecording -> False
+2026-07-06 15:04:22,251 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440847 字节, header: #71440847)
+2026-07-06 15:04:22,253 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:04:22,253 INFO logging_setup.py [75] MainThread :2026-07-06 15:04:22[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:04:36,304 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:04:36,305 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:04:36,305 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:04:36,305 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:04:36,305 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:04:36,306 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:04:36,306 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:04:36,306 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:04:36,307 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:04:36,307 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:04:36,307 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:04:36,307 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:04:36,307 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:04:36,308 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:04:36,308 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:04:36,309 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:04:36,309 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:04:36,310 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:04:36,311 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:04:36,316 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:04:36,322 INFO logging_setup.py [75] MainThread :[DEWETRON] AskForFilenameBeforeRecording -> True
+2026-07-06 15:04:36,324 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440846 字节, header: #71440846)
+2026-07-06 15:04:36,326 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:04:36,326 INFO logging_setup.py [75] MainThread :2026-07-06 15:04:36[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:05:18,791 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:05:18,791 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:05:18,791 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:05:18,791 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:05:18,792 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:05:18,792 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:05:18,792 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:05:18,792 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:05:18,792 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:05:18,792 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:05:18,793 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:05:18,793 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:05:18,793 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:05:18,793 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:05:18,793 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:05:18,794 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:05:18,794 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:05:18,795 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:05:18,796 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:05:18,799 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:05:18,803 INFO logging_setup.py [75] MainThread :[DEWETRON] 文件设置无需修改（已与 UI 一致）
+2026-07-06 15:05:18,805 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440846 字节, header: #71440846)
+2026-07-06 15:05:18,806 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:05:18,807 INFO logging_setup.py [75] MainThread :2026-07-06 15:05:18[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:05:42,388 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:05:42,389 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 2019864424285732884
+2026-07-06 15:05:42,389 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 2019864424285732885
+2026-07-06 15:05:42,389 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 2019864424285732886
+2026-07-06 15:05:42,390 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 2019864424285732887
+2026-07-06 15:05:42,390 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 2019864424285732888
+2026-07-06 15:05:42,390 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 2019864424285732889
+2026-07-06 15:05:42,390 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 2019864424285732890
+2026-07-06 15:05:42,390 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 2019864424285732891
+2026-07-06 15:05:42,391 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 2019864424285732884
+2026-07-06 15:05:42,391 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 2019864424285732885
+2026-07-06 15:05:42,391 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 2019864424285732886
+2026-07-06 15:05:42,391 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 2019864424285732887
+2026-07-06 15:05:42,392 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:05:42,392 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:05:42,393 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:05:42,393 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:05:42,394 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate 无需修改（已与 UI 一致）
+2026-07-06 15:05:42,394 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:05:42,398 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:05:42,402 INFO logging_setup.py [75] MainThread :[DEWETRON] 文件设置无需修改（已与 UI 一致）
+2026-07-06 15:05:42,404 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1440846 字节, header: #71440846)
+2026-07-06 15:05:42,406 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:05:42,406 INFO logging_setup.py [75] MainThread :2026-07-06 15:05:42[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:38:34,911 INFO logging_setup.py [75] MainThread :[DEWETRON] query 连接丢失: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-07-06 15:38:34,911 INFO dewetron_controller.py [153] MainThread :DEWETRON query 连接丢失: VI_ERROR_CONN_LOST (-1073807194): The connection for the given session has been lost.
+2026-07-06 15:38:34,911 INFO logging_setup.py [75] MainThread :[DEWETRON] 尝试重连: TCPIP0::192.168.40.25::10001::SOCKET
+2026-07-06 15:38:34,911 INFO dewetron_controller.py [86] MainThread :DEWETRON 尝试重连: TCPIP0::192.168.40.25::10001::SOCKET
+2026-07-06 15:38:34,916 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 15:38:34,916 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 15:38:34,916 INFO logging_setup.py [75] MainThread :[DEWETRON] 重连成功
+2026-07-06 15:38:34,916 INFO dewetron_controller.py [90] MainThread :DEWETRON 重连成功
+2026-07-06 15:38:34,963 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (40 个) ---
+2026-07-06 15:38:34,963 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 3549962397684858900
+2026-07-06 15:38:34,963 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 3549962397684858901
+2026-07-06 15:38:34,964 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 3549962397684858902
+2026-07-06 15:38:34,964 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 3549962397684858903
+2026-07-06 15:38:34,964 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 3549962397684858904
+2026-07-06 15:38:34,964 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 3549962397684858905
+2026-07-06 15:38:34,964 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 3549962397684858906
+2026-07-06 15:38:34,964 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 3549962397684858907
+2026-07-06 15:38:34,965 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 3549962397684858900
+2026-07-06 15:38:34,965 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 3549962397684858901
+2026-07-06 15:38:34,965 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 3549962397684858902
+2026-07-06 15:38:34,965 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 3549962397684858903
+2026-07-06 15:42:12,370 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 3/9 get_enumwindows + 启动线程
+2026-07-06 15:42:12,372 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    get_enumwindows 完成
+2026-07-06 15:42:12,373 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    三个 daemon 线程已启动
+2026-07-06 15:42:12,373 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 4/9 VISA ResourceManager...
+2026-07-06 15:42:12,456 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    list_resources = ()
+2026-07-06 15:42:12,457 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 5/9 QApplication...
+2026-07-06 15:42:12,464 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    QApplication 创建完成
+2026-07-06 15:42:12,464 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi
+2026-07-06 15:42:12,675 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    setupUi 完成
+2026-07-06 15:42:12,675 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    bootstrap 完成
+2026-07-06 15:42:12,675 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 7/9 initialize_setup_windows (创建 ~25 个 QDialog)...
+2026-07-06 15:42:12,675 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 1/27 WT3000E...
+2026-07-06 15:42:12,732 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 2/27 WT1806E...
+2026-07-06 15:42:12,732 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi start
+2026-07-06 15:42:12,732 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] icon+resize done
+2026-07-06 15:42:12,733 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] scrollArea start
+2026-07-06 15:42:12,734 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_3 start
+2026-07-06 15:42:12,734 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_6 start
+2026-07-06 15:42:12,735 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] groupBox_7 start
+2026-07-06 15:42:12,736 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] retranslateUi start
+2026-07-06 15:42:12,737 INFO logging_setup.py [75] MainThread :[DEBUG_WT1806E] setupUi widget creation done, before retranslateUi
+2026-07-06 15:42:12,737 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 3/27 WT1800...
+2026-07-06 15:42:12,740 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 4/27 WT5000...
+2026-07-06 15:42:12,814 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 5/27 DL850...
+2026-07-06 15:42:12,815 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 6/27 DEWETRON...
+2026-07-06 15:42:12,829 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 7/27 AC_Setting...
+2026-07-06 15:42:12,830 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 8/27 DC1_Setting...
+2026-07-06 15:42:12,831 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 9/27 DC2_Setting...
+2026-07-06 15:42:12,832 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 10/27 DC3_Setting...
+2026-07-06 15:42:12,832 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 11/27 DC4_Setting...
+2026-07-06 15:42:12,833 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 12/27 thaichonglian (lazy)...
+2026-07-06 15:42:12,833 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 13/27 xiebodianliu (lazy)...
+2026-07-06 15:42:12,833 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 14/27 zhiliufenliang (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 15/27 staticQU (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 16/27 staticcosPhi (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 17/27 voltprotect10min (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 18/27 guopinjiangzai (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 19/27 testPU (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 20/27 guoqianya_pin (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 21/27 dianyashanbian (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 22/27 fixedPF (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 23/27 overloads (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 24/27 cosPhiBrazil (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 25/27 guoqianpin_immun (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 26/27 staticmppttest (lazy)...
+2026-07-06 15:42:12,834 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 27/27 frequencyadaptability (lazy)...
+2026-07-06 15:42:12,835 INFO logging_setup.py [75] MainThread :[DEBUG_SETUP] 全部 27 个对话框就绪（11 立即 + 16 延迟）
+2026-07-06 15:42:12,835 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    initialize_setup_windows 完成
+2026-07-06 15:42:12,835 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)
+2026-07-06 15:42:17,145 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 德国重连...
+2026-07-06 15:42:17,202 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段 AC...
+2026-07-06 15:42:17,202 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程
+2026-07-06 15:42:17,203 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    system_error_info 线程已启动
+2026-07-06 15:42:17,203 INFO SCPITestWave.py [30394] MainThread :2026-07-06 15:42:17    程式开启
+2026-07-06 15:42:17,203 INFO logging_setup.py [75] MainThread :2026-07-06 15:42:17    程式开启
+2026-07-06 15:42:17,204 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP] 9/9 main_window.show()
+2026-07-06 15:42:17,403 INFO logging_setup.py [75] MainThread :[DEBUG_STARTUP]    app.exec_() 进入事件循环
+2026-07-06 15:42:25,048 INFO SCPITestWave.py [1490] MainThread :DEWETRON 连接地址: 192.168.40.25
+2026-07-06 15:42:25,056 INFO dewetron_controller.py [63] MainThread :DEWETRON连接成功
+2026-07-06 15:42:25,056 INFO logging_setup.py [75] MainThread :DEWETRON连接成功
+2026-07-06 15:42:29,970 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] === 开始保存配置 ===
+2026-07-06 15:42:29,972 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 用户选择 - 输入通道: AI 1/U1, 最大刷新率: 100, 通道二次采样: Auto
+2026-07-06 15:42:30,023 ERROR logging_setup.py [75] MainThread :D:\workspace\codes\solarautotestdev\.venv\Lib\site-packages\pyvisa\resources\messagebased.py:702: UserWarning: read string doesn't end with termination characters
+2026-07-06 15:42:30,023 ERROR logging_setup.py [75] MainThread :  return self.read()
+2026-07-06 15:42:30,027 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (40 个) ---
+2026-07-06 15:42:30,027 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 3549962397684858900
+2026-07-06 15:42:30,027 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 3549962397684858901
+2026-07-06 15:42:30,028 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 3549962397684858902
+2026-07-06 15:42:30,028 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 3549962397684858903
+2026-07-06 15:42:30,028 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 3549962397684858904
+2026-07-06 15:42:30,028 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 3549962397684858905
+2026-07-06 15:42:30,029 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 3549962397684858906
+2026-07-06 15:42:30,029 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 3549962397684858907
+2026-07-06 15:42:30,029 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 3549962397684858900
+2026-07-06 15:42:30,029 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 3549962397684858901
+2026-07-06 15:42:30,030 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 3549962397684858902
+2026-07-06 15:42:30,030 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 3549962397684858903
+2026-07-06 15:42:30,030 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备 XML 不可用: 无接线方式，使用本地引导模板
+2026-07-06 15:42:30,065 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 已读取引导模板: 1444131 字符, 369 个通道ID
+2026-07-06 15:42:30,067 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备当前二次采样: Auto (UI 使用用户选择: Auto)
+2026-07-06 15:42:30,068 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 接线类型: 3P3W
+2026-07-06 15:42:30,068 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 <- AI 1/U1
+2026-07-06 15:42:30,068 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 <- AI 1/I1
+2026-07-06 15:42:30,069 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 <- AI 1/U2
+2026-07-06 15:42:30,069 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 <- AI 1/I2
+2026-07-06 15:42:30,069 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 <- AI 1/U3
+2026-07-06 15:42:30,070 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 <- AI 1/I3
+2026-07-06 15:42:30,072 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备 InputChannels 映射 ---
+2026-07-06 15:42:30,073 INFO logging_setup.py [75] MainThread :  I1 -> 2019864424285732884
+2026-07-06 15:42:30,073 INFO logging_setup.py [75] MainThread :  I2 -> 2019864424285732885
+2026-07-06 15:42:30,073 INFO logging_setup.py [75] MainThread :  I3 -> 2019864424285732886
+2026-07-06 15:42:30,073 INFO logging_setup.py [75] MainThread :  I4 -> 18446744073709551615
+2026-07-06 15:42:30,074 INFO logging_setup.py [75] MainThread :  I5 -> 18446744073709551615
+2026-07-06 15:42:30,074 INFO logging_setup.py [75] MainThread :  I6 -> 18446744073709551615
+2026-07-06 15:42:30,074 INFO logging_setup.py [75] MainThread :  I7 -> 18446744073709551615
+2026-07-06 15:42:30,074 INFO logging_setup.py [75] MainThread :  I8 -> 18446744073709551615
+2026-07-06 15:42:30,074 INFO logging_setup.py [75] MainThread :  I9 -> 18446744073709551615
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U1 -> 2019864424285732888
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U2 -> 2019864424285732889
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U3 -> 2019864424285732890
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U4 -> 18446744073709551615
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U5 -> 18446744073709551615
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U6 -> 18446744073709551615
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U7 -> 18446744073709551615
+2026-07-06 15:42:30,075 INFO logging_setup.py [75] MainThread :  U8 -> 18446744073709551615
+2026-07-06 15:42:30,076 INFO logging_setup.py [75] MainThread :  U9 -> 18446744073709551615
+2026-07-06 15:42:30,076 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 设备 InputChannels 映射: 18 个槽位
+2026-07-06 15:42:30,076 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 -> ID=2019864424285732884
+2026-07-06 15:42:30,076 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 -> ID=2019864424285732885
+2026-07-06 15:42:30,076 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 -> ID=2019864424285732886
+2026-07-06 15:42:30,077 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I4 -> ID=18446744073709551615
+2026-07-06 15:42:30,077 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I5 -> ID=18446744073709551615
+2026-07-06 15:42:30,077 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I6 -> ID=18446744073709551615
+2026-07-06 15:42:30,077 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I7 -> ID=18446744073709551615
+2026-07-06 15:42:30,077 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I8 -> ID=18446744073709551615
+2026-07-06 15:42:30,078 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I9 -> ID=18446744073709551615
+2026-07-06 15:42:30,078 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 -> ID=2019864424285732888
+2026-07-06 15:42:30,078 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 -> ID=2019864424285732889
+2026-07-06 15:42:30,078 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 -> ID=2019864424285732890
+2026-07-06 15:42:30,079 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U4 -> ID=18446744073709551615
+2026-07-06 15:42:30,079 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U5 -> ID=18446744073709551615
+2026-07-06 15:42:30,079 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U6 -> ID=18446744073709551615
+2026-07-06 15:42:30,079 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U7 -> ID=18446744073709551615
+2026-07-06 15:42:30,080 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U8 -> ID=18446744073709551615
+2026-07-06 15:42:30,080 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U9 -> ID=18446744073709551615
+2026-07-06 15:42:30,080 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] --- 通道配对 ---
+2026-07-06 15:42:30,080 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U1 <- AI 1/U1 -> ID=2019864424285732888
+2026-07-06 15:42:30,080 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I1 <- AI 1/I1 -> ID=2019864424285732884
+2026-07-06 15:42:30,081 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U2 <- AI 1/U2 -> ID=2019864424285732889
+2026-07-06 15:42:30,081 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I2 <- AI 1/I2 -> ID=2019864424285732885
+2026-07-06 15:42:30,081 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   U3 <- AI 1/U3 -> ID=2019864424285732890
+2026-07-06 15:42:30,081 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig]   I3 <- AI 1/I3 -> ID=2019864424285732886
+2026-07-06 15:42:30,083 INFO logging_setup.py [75] MainThread :[DEWETRON] WiringType -> AC_3P3W
+2026-07-06 15:42:30,083 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: {'AI 1/I2', 'AI 1/I1', 'AI 1/U2', 'AI 1/U1', 'AI 1/I3', 'AI 1/U3'}
+2026-07-06 15:42:30,088 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U3: Neon/Active -> True
+2026-07-06 15:42:30,089 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U3: Used -> True
+2026-07-06 15:42:30,090 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U2: Neon/Active -> True
+2026-07-06 15:42:30,091 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U2: Used -> True
+2026-07-06 15:42:30,092 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U1: Neon/Active -> True
+2026-07-06 15:42:30,094 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/U1: Used -> True
+2026-07-06 15:42:30,095 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I3: Neon/Active -> True
+2026-07-06 15:42:30,096 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I3: Used -> True
+2026-07-06 15:42:30,097 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I2: Neon/Active -> True
+2026-07-06 15:42:30,098 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I2: Used -> True
+2026-07-06 15:42:30,099 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I1: Neon/Active -> True
+2026-07-06 15:42:30,101 INFO logging_setup.py [75] MainThread :[DEWETRON] AI 1/I1: Used -> True
+2026-07-06 15:42:30,101 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 export_fields，跳过导出字段修改
+2026-07-06 15:42:30,102 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:42:30,109 INFO logging_setup.py [75] MainThread :[DEWETRON] InputChannels 映射无需修改（已与 UI 一致）
+2026-07-06 15:42:30,111 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/MaxUpdateRate -> 100 ms
+2026-07-06 15:42:30,113 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/DataSubsampling 无需修改（已与 UI 一致）
+2026-07-06 15:42:30,114 INFO logging_setup.py [75] MainThread :[DEWETRON] POWER/FrequencyChannel 无需修改（已与 UI 一致）
+2026-07-06 15:42:30,114 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:42:30,114 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:42:30,114 INFO logging_setup.py [75] MainThread :[DEWETRON] 文件设置无需修改（已与 UI 一致）
+2026-07-06 15:42:30,114 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] XML已修改: 1444127 字符
+2026-07-06 15:42:30,117 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 已保存: dewetron_20260706_15.xml
+2026-07-06 15:42:30,119 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1444205 字节, header: #71444205)
+2026-07-06 15:42:30,120 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:42:30,120 INFO logging_setup.py [75] MainThread :2026-07-06 15:42:30[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:42:30,121 INFO logging_setup.py [75] MainThread :[SaveDEWETRONConfig] 配置已应用
+2026-07-06 15:42:32,645 INFO logging_setup.py [75] MainThread :[BuildTestPage] === 开始构造测试界面 ===
+2026-07-06 15:42:37,591 INFO logging_setup.py [75] MainThread :[BuildTestPage] 读取 XML: 1444109 字符
+2026-07-06 15:42:37,593 INFO logging_setup.py [75] MainThread :[BuildTestPage] PowerGroup ChannelID: 3549686377316614144
+2026-07-06 15:42:37,599 INFO logging_setup.py [75] MainThread :[BuildTestPage] 启用了 0 个电力组通道（Used + Neon/Active）
+2026-07-06 15:42:37,605 INFO logging_setup.py [75] MainThread :[BuildTestPage] 已删除 1 个旧电力组页面
+2026-07-06 15:42:37,609 INFO logging_setup.py [75] MainThread :[BuildTestPage] 已注入电力组测试页面（channel_id=3549686377316614144）
+2026-07-06 15:42:37,609 INFO logging_setup.py [75] MainThread :[BuildTestPage] 发送修改后的 XML: 1443971 字符
+2026-07-06 15:42:37,612 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1444049 字节, header: #71444049)
+2026-07-06 15:42:37,614 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:42:37,615 INFO logging_setup.py [75] MainThread :2026-07-06 15:42:37[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:42:37,615 INFO logging_setup.py [75] MainThread :[BuildTestPage] 测试界面构造完成
+2026-07-06 15:42:46,289 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:42:46,289 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 3549962397684858900
+2026-07-06 15:42:46,290 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 3549962397684858901
+2026-07-06 15:42:46,290 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 3549962397684858902
+2026-07-06 15:42:46,290 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 3549962397684858903
+2026-07-06 15:42:46,290 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 3549962397684858904
+2026-07-06 15:42:46,290 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 3549962397684858905
+2026-07-06 15:42:46,290 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 3549962397684858906
+2026-07-06 15:42:46,291 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 3549962397684858907
+2026-07-06 15:42:46,291 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 3549962397684858900
+2026-07-06 15:42:46,291 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 3549962397684858901
+2026-07-06 15:42:46,291 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 3549962397684858902
+2026-07-06 15:42:46,291 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 3549962397684858903
+2026-07-06 15:42:52,532 INFO logging_setup.py [75] MainThread :{'Style': 'ThaiDianYaShanBian', 'checkBox_S1': '1', 'comboBox_S1_AC': '0', 'textEdit_S1_AC_VOLT': '230', 'textEdit_S1_AC_VOLT_2': '', 'textEdit_S1_AC_VOLT_3': '', 'textEdit_S1_AC_FR': '50', 'comboBox_S1_AC_2': '1', 'checkBox_S1_DC1': '1', 'comboBox_S1_DC1': '0', 'textEdit_S1_DC1_VOLT': '30', 'textEdit_S1_DC1_CURR': '9', 'textEdit_S1_DC1_Voc': '38', 'textEdit_S1_DC1_Isc': '10', 'textEdit_S1_DC1_PF': '100', 'checkBox_S1_DC2': '0', 'comboBox_S1_DC2': '0', 'textEdit_S1_DC2_VOLT': '', 'textEdit_S1_DC2_CURR': '', 'textEdit_S1_DC2_Voc': '', 'textEdit_S1_DC2_Isc': '', 'textEdit_S1_DC2_PF': '', 'checkBox_S1_DC3': '0', 'comboBox_S1_DC3': '0', 'textEdit_S1_DC3_VOLT': '', 'textEdit_S1_DC3_CURR': '', 'textEdit_S1_DC3_Voc': '', 'textEdit_S1_DC3_Isc': '', 'textEdit_S1_DC3_PF': '', 'checkBox_S1_DC4': '0', 'comboBox_S1_DC4': '0', 'textEdit_S1_DC4_VOLT': '', 'textEdit_S1_DC4_CURR': '', 'textEdit_S1_DC4_Voc': '', 'textEdit_S1_DC4_Isc': '', 'textEdit_S1_DC4_PF': '', 'textEdit_S1_ACWaitTIME': '5', 'comboBox_S1_ACWaitTIME': '0', 'textEdit_S1_TIME': '5', 'comboBox_S1_TIME': '0', 'checkBox_S2': '1', 'comboBox_S2_WT': '0', 'comboBox_S2_WT3000_Setting': '0', 'textEdit_S2_TIME': '4', 'comboBox_S2_TIME': '0', 'checkBox_S3': '1', 'checkBox_S3_DC1': '1', 'comboBox_S3_DC1': '0', 'checkBox_S3_DC2': '0', 'comboBox_S3_DC2': '0', 'checkBox_S3_DC3': '0', 'comboBox_S3_DC3': '0', 'checkBox_S3_DC4': '0', 'comboBox_S3_DC4': '0', 'checkBox_S3_DC1_2': '1', 'comboBox_S3_DC1_2': '0', 'checkBox_S3_DC2_2': '0', 'comboBox_S3_DC2_2': '0', 'checkBox_S3_DC3_2': '0', 'comboBox_S3_DC3_2': '0', 'checkBox_S3_DC4_2': '0', 'comboBox_S3_DC4_2': '0', 'textEdit_S3_TIME': '15', 'comboBox_S3_TIME': '0', 'textEdit_S3_TIME_2': '3', 'comboBox_S3_TIME_2': '0', 'textEdit_S3_CYCLE_TIME': '12', 'checkBox_S4': '1', 'comboBox_S4_WT3000_1': '0', 'comboBox_S4_WT3000_2': '0', 'comboBox_S4_WT3000_3': '0', 'checkBox_S5': '1', 'comboBox_S5_AC': '0', 'checkBox_S5_DC1': '1', 'comboBox_S5_DC1': '0', 'checkBox_S5_DC2': '0', 'comboBox_S5_DC2': '0', 'checkBox_S5_DC3': '0', 'comboBox_S5_DC3': '0', 'checkBox_S5_DC4': '0', 'comboBox_S5_DC4': '0', 'comboBox_S2_PER_FLICK_COUNT': '1', 'DEW_mode': 'dewetron', 'checkBox_DEW_FlickerStandard': '1', 'comboBox_DEW_WeightingType': '0', 'comboBox_DEW_MaxRefreshRate': '1', 'textEdit_DEW_NominalVoltage': '230', 'textEdit_DEW_ShortFlickerTime': '10', 'textEdit_DEW_LongFlickerTime': '120', 'textEdit_DEW_ShortCircuitPower': '50', 'checkBox_DEW_RollingCalc': '1', 'spinBox_DEW_DecimalPlaces': '6', 'checkBox_DEW_RealtimeWaveform': '1', 'treeWidget_DEW_ExportFields': 'U_tRMS|U23_tRMS_rc|U31_tRMS_rc|U12_tRMS|U31_tRMS|U1_tRMS_rc|U23_tRMS|U1_tRMS|U3_tRMS_rc|U2_tRMS|U12_tRMS_rc|U2_tRMS_rc|U3_tRMS|U2_fundPHI|U31_fundPHI|U3_fundRMS|U12_fundPHI|U3_fundPHI|U12_fundRMS|U23_fundPHI|U31_fundRMS|U_fundRMS|U2_fundRMS|U1_fundPHI|U1_fundRMS|U23_fundRMS|U23_tPP|U23_tAVG|U3_tPP|U3_tAVG|U1_tPP|U12_tAVG|U31_tPP|U2_tPP|U2_tAVG|U1_tAVG|U31_tAVG|U12_tPP|U1_fund_cos_rc|U2_fund_sin_rc|U_fundRMS_SYM-|U_fund_SYM0_rc|U3_fund_sin_rc|U_fund_SYM-_rc|U_fundRMS_SYM|U_fundRMS_SYM+|U2_fund_cos_rc|U_fundUNBAL0|U_fundUNBAL-|U_fundUNBAL+|U_fundRMS_SYM0|U_fund_SYM+_rc|U1_fund_sin_rc|U3_fund_cos_rc|U1_fluc_ready|U1_fluc_dc|U1_fluc_d_max|U3_fluc_ready|U2_fluc_d_max|U1_fluc_dc_overall|U2_fluc_ready|U3_fluc_Pinst|U3_fluc_dc_overall|U2_fluc_Pinst|U2_fluc_d_max_overall|U2_fluc_td|U3_fluc_Pst|U1_fluc_Plt|U1_fluc_Pinst|U2_fluc_Pst|U1_fluc_d_max_overall|U2_fluc_dc|U3_fluc_Plt|U3_fluc_dc|U2_fluc_Plt|U3_fluc_d_max_overall|U3_fluc_td|U2_fluc_dc_overall|U1_fluc_Pst|U1_fluc_td|U3_fluc_d_max|I1_tRMS_rc|I3_tRMS_rc|I1_tRMS|I2_tRMS|I2_tRMS_rc|I_tRMS|I3_tRMS|I2_fundRMS|I3_fundPHI|I1_fundRMS|I_fundRMS|I1_fundPHI|I2_fundPHI|I3_fundRMS|I3_tAVG|I1_tAVG|I1_tPP|I2_tAVG|I3_tPP|I2_tPP|I2_fund_sin_rc|I_fundUNBAL0|I_fundUNBAL-|I_fundRMS_SYM-|I_fund_Q_SYM0_rc|I2_fund_cos_rc|I_fundRMS_SYM|I_fund_Q_SYM-_rc|I_fund_Q_SYM+_rc|I_fundRMS_SYM0|I3_fund_cos_rc|I3_fund_sin_rc|I_fundRMS_SYM+|I_fundUNBAL+|I_fund_P_SYM+_rc|I_fund_P_SYM-_rc|I_fund_P_SYM0_rc|I1_fund_cos_rc|I1_fund_sin_rc|I3_fluc_Pst_50|I3_fluc_Pst_85|I1_fluc_Plt_30|I3_fluc_Pst_70|I1_fluc_Pst_50|I3_fluc_ready|I2_fluc_Pinst_50|I1_fluc_Pinst_70|I2_fluc_Pinst_85|I1_fluc_Pst_70|I2_fluc_Pinst_70|I3_fluc_Plt_70|I1_fluc_Pst_30|I3_fluc_Plt_30|I2_fluc_Plt_30|I2_fluc_Pinst_30|I3_fluc_Pinst_50|I2_fluc_Pst_50|I1_fluc_Pinst_30|I3_fluc_Pst_30|I1_fluc_Pst_85|I1_fluc_Plt_70|I1_fluc_Pinst_85|I3_fluc_Pinst_85|I1_fluc_ready|I2_fluc_Plt_50|I3_fluc_Plt_85|I2_fluc_Plt_70|I2_fluc_Pst_85|I1_fluc_Plt_50|I2_fluc_Pst_30|I2_fluc_Plt_85|I2_fluc_ready|I1_fluc_Plt_85|I1_fluc_Pinst_50|I2_fluc_Pst_70|I3_fluc_Plt_50|I3_fluc_Pinst_30|I3_fluc_Pinst_70|P2_t_rc|P3_t_rc|P1_t|P3_t|P1_t_rc|P_t_rc|P_t|P2_t|P3_fund_rc|P2_fundPHI|P2_fund_rc|P1_fundPHI|P3_fund|P_fund_rc|P_fund|P2_fund|P1_fund_rc|P3_fundPHI|P1_fund|P_fund_SYM+_rc|P_fund_SYM0_rc|P_fund_SYM-_rc|Q_t|Q3_t_rc|Q1_t|Q3_t|Q1_t_rc|Q2_t|Q2_t_rc|Q_t_rc|Q2_fund_rc|Q2_fund|Q_fund|Q3_fund_rc|Q1_fund_rc|Q_fund_rc|Q3_fund|Q1_fund|Q_fund_SYM0_rc|Q_fund_SYM+_rc|Q_fund_SYM-_rc|S1_t_rc|S_t_rc|S2_t|S1_t|S3_t_rc|S2_t_rc|S_t|S3_t|S3_fund|S_fund|S3_fund_rc|S_fund_rc|S2_fund_rc|S1_fund|S1_fund_rc|S2_fund|PF1_t|PF2_t|PF3_t|PF_t|PF1_fund|PF2_fund|PF3_fund|PF_fund|PF_fund_SYM0_rc|PF_fund_SYM+_rc|PF_fund_SYM-_rc|W2_fund-|W2_fund|W3_fund|W3_fund+|W_fund+|W2_fund+|W1_fund|W3_fund-|W1_fund-|W1_fund+|W_fund|W_fund-|W1_t-|W3_t-|W2_t+|W_t+|W1_t|W_t-|W2_t-|W3_t+|W2_t|W_t|W1_t+|W3_t|C3-|C+|C2+|C2_RMS|C1+|C3+|C-|C1_RMS|C3|C1|C3_RMS|C1-|C2|C|C_RMS|C2-', 'lineEdit_DEW_StoreFileName': 'D:/text', 'textEdit_DEW_S2_TIME': '5', 'comboBox_DEW_S2_TIME': '0', 'comboBox_DEW_S2_PER_FLICK_COUNT': '1'}
+2026-07-06 15:42:52,664 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:42:52,665 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 3549962397684858900
+2026-07-06 15:42:52,665 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 3549962397684858901
+2026-07-06 15:42:52,665 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 3549962397684858902
+2026-07-06 15:42:52,665 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 3549962397684858903
+2026-07-06 15:42:52,666 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 3549962397684858904
+2026-07-06 15:42:52,666 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 3549962397684858905
+2026-07-06 15:42:52,666 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 3549962397684858906
+2026-07-06 15:42:52,666 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 3549962397684858907
+2026-07-06 15:42:52,666 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 3549962397684858900
+2026-07-06 15:42:52,667 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 3549962397684858901
+2026-07-06 15:42:52,667 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 3549962397684858902
+2026-07-06 15:42:52,667 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 3549962397684858903
+2026-07-06 15:42:54,134 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:42:54,134 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 3549962397684858900
+2026-07-06 15:42:54,134 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 3549962397684858901
+2026-07-06 15:42:54,135 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 3549962397684858902
+2026-07-06 15:42:54,135 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 3549962397684858903
+2026-07-06 15:42:54,135 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 3549962397684858904
+2026-07-06 15:42:54,135 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 3549962397684858905
+2026-07-06 15:42:54,135 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 3549962397684858906
+2026-07-06 15:42:54,135 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 3549962397684858907
+2026-07-06 15:42:54,135 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 3549962397684858900
+2026-07-06 15:42:54,136 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 3549962397684858901
+2026-07-06 15:42:54,136 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 3549962397684858902
+2026-07-06 15:42:54,136 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 3549962397684858903
+2026-07-06 15:43:59,580 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:43:59,581 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 3549962397684858900
+2026-07-06 15:43:59,581 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 3549962397684858901
+2026-07-06 15:43:59,581 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 3549962397684858902
+2026-07-06 15:43:59,581 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 3549962397684858903
+2026-07-06 15:43:59,581 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 3549962397684858904
+2026-07-06 15:43:59,582 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 3549962397684858905
+2026-07-06 15:43:59,582 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 3549962397684858906
+2026-07-06 15:43:59,582 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 3549962397684858907
+2026-07-06 15:43:59,582 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 3549962397684858900
+2026-07-06 15:43:59,582 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 3549962397684858901
+2026-07-06 15:43:59,582 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 3549962397684858902
+2026-07-06 15:43:59,582 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 3549962397684858903
+2026-07-06 15:43:59,583 INFO logging_setup.py [75] MainThread :[DEWETRON] 使用用户 UI 选择: set()
+2026-07-06 15:43:59,583 INFO logging_setup.py [75] MainThread :[DEWETRON] 导出字段选择: 195 个字段
+2026-07-06 15:43:59,594 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportChannels 已替换: 195 个通道 (原 4002 字节 -> 新 9588 字节)
+2026-07-06 15:43:59,595 INFO logging_setup.py [75] MainThread :[DEWETRON] ExportProperties 无需修改（已与 UI 一致）
+2026-07-06 15:43:59,595 INFO logging_setup.py [75] MainThread :[DEWETRON] 无 channel_id_map，跳过 InputChannels 修改
+2026-07-06 15:43:59,596 INFO logging_setup.py [75] MainThread :[DEWETRON] 闪变参数无需修改（已与 UI 一致）
+2026-07-06 15:43:59,596 INFO logging_setup.py [75] MainThread :[DEWETRON] 谐波参数无需修改（已与 UI 一致）
+2026-07-06 15:43:59,596 INFO logging_setup.py [75] MainThread :[DEWETRON] 文件设置无需修改（已与 UI 一致）
+2026-07-06 15:43:59,597 INFO logging_setup.py [75] MainThread :[DEWETRON] 发送 :SETUP:APPLY (XML: 1449773 字节, header: #71449773)
+2026-07-06 15:43:59,599 INFO dewetron_controller.py [127] MainThread :[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:43:59,599 INFO logging_setup.py [75] MainThread :2026-07-06 15:43:59[DEWETRON] :SETUP:APPLY 发送完成
+2026-07-06 15:44:05,612 INFO logging_setup.py [75] MainThread :DEWETRON query error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-07-06 15:44:05,613 INFO dewetron_controller.py [165] MainThread :DEWETRON query error: VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.
+2026-07-06 15:44:45,834 INFO logging_setup.py [75] MainThread :{'Style': 'ThaiDianYaShanBian', 'checkBox_S1': '1', 'comboBox_S1_AC': '0', 'textEdit_S1_AC_VOLT': '230', 'textEdit_S1_AC_VOLT_2': '', 'textEdit_S1_AC_VOLT_3': '', 'textEdit_S1_AC_FR': '50', 'comboBox_S1_AC_2': '1', 'checkBox_S1_DC1': '1', 'comboBox_S1_DC1': '0', 'textEdit_S1_DC1_VOLT': '30', 'textEdit_S1_DC1_CURR': '9', 'textEdit_S1_DC1_Voc': '38', 'textEdit_S1_DC1_Isc': '10', 'textEdit_S1_DC1_PF': '100', 'checkBox_S1_DC2': '0', 'comboBox_S1_DC2': '0', 'textEdit_S1_DC2_VOLT': '', 'textEdit_S1_DC2_CURR': '', 'textEdit_S1_DC2_Voc': '', 'textEdit_S1_DC2_Isc': '', 'textEdit_S1_DC2_PF': '', 'checkBox_S1_DC3': '0', 'comboBox_S1_DC3': '0', 'textEdit_S1_DC3_VOLT': '', 'textEdit_S1_DC3_CURR': '', 'textEdit_S1_DC3_Voc': '', 'textEdit_S1_DC3_Isc': '', 'textEdit_S1_DC3_PF': '', 'checkBox_S1_DC4': '0', 'comboBox_S1_DC4': '0', 'textEdit_S1_DC4_VOLT': '', 'textEdit_S1_DC4_CURR': '', 'textEdit_S1_DC4_Voc': '', 'textEdit_S1_DC4_Isc': '', 'textEdit_S1_DC4_PF': '', 'textEdit_S1_ACWaitTIME': '5', 'comboBox_S1_ACWaitTIME': '0', 'textEdit_S1_TIME': '5', 'comboBox_S1_TIME': '0', 'checkBox_S2': '1', 'comboBox_S2_WT': '0', 'comboBox_S2_WT3000_Setting': '0', 'textEdit_S2_TIME': '4', 'comboBox_S2_TIME': '0', 'checkBox_S3': '1', 'checkBox_S3_DC1': '1', 'comboBox_S3_DC1': '0', 'checkBox_S3_DC2': '0', 'comboBox_S3_DC2': '0', 'checkBox_S3_DC3': '0', 'comboBox_S3_DC3': '0', 'checkBox_S3_DC4': '0', 'comboBox_S3_DC4': '0', 'checkBox_S3_DC1_2': '1', 'comboBox_S3_DC1_2': '0', 'checkBox_S3_DC2_2': '0', 'comboBox_S3_DC2_2': '0', 'checkBox_S3_DC3_2': '0', 'comboBox_S3_DC3_2': '0', 'checkBox_S3_DC4_2': '0', 'comboBox_S3_DC4_2': '0', 'textEdit_S3_TIME': '15', 'comboBox_S3_TIME': '0', 'textEdit_S3_TIME_2': '3', 'comboBox_S3_TIME_2': '0', 'textEdit_S3_CYCLE_TIME': '12', 'checkBox_S4': '1', 'comboBox_S4_WT3000_1': '0', 'comboBox_S4_WT3000_2': '0', 'comboBox_S4_WT3000_3': '0', 'checkBox_S5': '1', 'comboBox_S5_AC': '0', 'checkBox_S5_DC1': '1', 'comboBox_S5_DC1': '0', 'checkBox_S5_DC2': '0', 'comboBox_S5_DC2': '0', 'checkBox_S5_DC3': '0', 'comboBox_S5_DC3': '0', 'checkBox_S5_DC4': '0', 'comboBox_S5_DC4': '0', 'comboBox_S2_PER_FLICK_COUNT': '1', 'DEW_mode': 'dewetron', 'checkBox_DEW_FlickerStandard': '1', 'comboBox_DEW_WeightingType': '0', 'comboBox_DEW_MaxRefreshRate': '1', 'textEdit_DEW_NominalVoltage': '230', 'textEdit_DEW_ShortFlickerTime': '10', 'textEdit_DEW_LongFlickerTime': '120', 'textEdit_DEW_ShortCircuitPower': '50', 'checkBox_DEW_RollingCalc': '1', 'spinBox_DEW_DecimalPlaces': '6', 'checkBox_DEW_RealtimeWaveform': '1', 'treeWidget_DEW_ExportFields': 'U3_tRMS_rc|U31_tRMS_rc|U23_tRMS_rc|U2_tRMS_rc|U2_tRMS|U_tRMS|U23_tRMS|U12_tRMS|U31_tRMS|U1_tRMS|U3_tRMS|U12_tRMS_rc|U1_tRMS_rc|U23_fundPHI|U31_fundPHI|U31_fundRMS|U12_fundRMS|U3_fundPHI|U2_fundPHI|U3_fundRMS|U1_fundRMS|U12_fundPHI|U_fundRMS|U2_fundRMS|U23_fundRMS|U1_fundPHI|U1_tPP|U23_tPP|U23_tAVG|U3_tPP|U3_tAVG|U12_tPP|U1_tAVG|U31_tAVG|U12_tAVG|U31_tPP|U2_tPP|U2_tAVG|U2_fund_cos_rc|U1_fund_cos_rc|U_fund_SYM+_rc|U_fundRMS_SYM+|U2_fund_sin_rc|U_fundRMS_SYM-|U_fundRMS_SYM|U_fundRMS_SYM0|U_fundUNBAL0|U_fundUNBAL-|U_fund_SYM-_rc|U_fund_SYM0_rc|U1_fund_sin_rc|U3_fund_sin_rc|U3_fund_cos_rc|U_fundUNBAL+|U3_hRMS|U3_THV|U3_hPHI|U2_THD|U1_hRMS|U1_THD|U2_hPHI|U3_THD|U1_hPHI|U1_THV|U2_hRMS|U2_THV|U3_ihRMS|U1_ihRMS|U2_ihRMS|U2_hfRMS|U1_hfRMS|U3_hfRMS|U1_fluc_Pinst|U1_fluc_ready|U3_fluc_Plt|U1_fluc_Pst|U1_fluc_dc|U2_fluc_dc|U2_fluc_Plt|U3_fluc_dc_overall|U1_fluc_d_max_overall|U2_fluc_ready|U3_fluc_dc|U3_fluc_Pst|U1_fluc_d_max|U3_fluc_ready|U2_fluc_d_max|U1_fluc_dc_overall|U3_fluc_Pinst|U2_fluc_dc_overall|U1_fluc_Plt|U3_fluc_d_max_overall|U3_fluc_td|U1_fluc_td|U2_fluc_Pinst|U2_fluc_d_max_overall|U3_fluc_d_max|U2_fluc_td|U2_fluc_Pst|I3_tRMS|I2_tRMS_rc|I1_tRMS_rc|I_tRMS|I3_tRMS_rc|I2_tRMS|I1_tRMS|I1_fundRMS|I2_fundRMS|I_fundRMS|I3_fundPHI|I3_fundRMS|I2_fundPHI|I1_fundPHI|I1_tAVG|I2_tPP|I3_tAVG|I3_tPP|I2_tAVG|I1_tPP|I_fundUNBAL0|I_fundRMS_SYM0|I2_fund_sin_rc|I1_fund_cos_rc|I_fundUNBAL-|I_fundRMS_SYM-|I_fundRMS_SYM+|I_fund_P_SYM+_rc|I_fund_Q_SYM0_rc|I_fund_Q_SYM+_rc|I_fund_Q_SYM-_rc|I_fundUNBAL+|I2_fund_cos_rc|I_fund_P_SYM-_rc|I3_fund_sin_rc|I_fund_P_SYM0_rc|I1_fund_sin_rc|I_fundRMS_SYM|I3_fund_cos_rc|I2_hPHI|I2_hRMS|I3_THD|I3_hRMS|I1_THC|I1_hPHI|I2_THC|I3_hPHI|I1_hRMS|I1_THD|I2_THD|I3_THC|I2_ihRMS|I1_ihRMS|I3_ihRMS|I1_hfRMS|I3_hfRMS|I2_hfRMS|I3_fluc_Pst_50|I2_fluc_Pinst_85|I3_fluc_Pinst_30|I2_fluc_Pst_85|I1_fluc_Plt_30|I2_fluc_Pst_30|I3_fluc_Plt_70|I1_fluc_Pinst_70|I3_fluc_Pst_30|I2_fluc_Pinst_50|I1_fluc_ready|I1_fluc_Plt_85|I3_fluc_Plt_85|I1_fluc_Pinst_85|I3_fluc_Pinst_70|I2_fluc_Plt_70|I1_fluc_Plt_50|I3_fluc_Pst_85|I3_fluc_Pst_70|I1_fluc_Pst_50|I3_fluc_ready|I1_fluc_Pst_70|I2_fluc_Pinst_70|I2_fluc_Pst_50|I1_fluc_Pinst_30|I1_fluc_Pst_30|I2_fluc_Plt_85|I3_fluc_Plt_30|I2_fluc_Plt_30|I1_fluc_Pst_85|I2_fluc_Pst_70|I2_fluc_Pinst_30|I1_fluc_Plt_70|I2_fluc_ready|I2_fluc_Plt_50|I3_fluc_Pinst_85|I1_fluc_Pinst_50|I3_fluc_Pinst_50|I3_fluc_Plt_50', 'lineEdit_DEW_StoreFileName': 'D:/text', 'textEdit_DEW_S2_TIME': '5', 'comboBox_DEW_S2_TIME': '0', 'comboBox_DEW_S2_PER_FLICK_COUNT': '1'}
+2026-07-06 15:44:47,531 INFO logging_setup.py [75] MainThread :[DEWETRON] read_channel_id_map: 返回内容不是有效 XML (前100字节: :SYST:ERR:ALL 0, "No error")
+2026-07-06 15:44:58,814 INFO logging_setup.py [75] MainThread :{'Style': 'ThaiDianYaShanBian', 'checkBox_S1': '1', 'comboBox_S1_AC': '0', 'textEdit_S1_AC_VOLT': '230', 'textEdit_S1_AC_VOLT_2': '', 'textEdit_S1_AC_VOLT_3': '', 'textEdit_S1_AC_FR': '50', 'comboBox_S1_AC_2': '1', 'checkBox_S1_DC1': '1', 'comboBox_S1_DC1': '0', 'textEdit_S1_DC1_VOLT': '30', 'textEdit_S1_DC1_CURR': '9', 'textEdit_S1_DC1_Voc': '38', 'textEdit_S1_DC1_Isc': '10', 'textEdit_S1_DC1_PF': '100', 'checkBox_S1_DC2': '0', 'comboBox_S1_DC2': '0', 'textEdit_S1_DC2_VOLT': '', 'textEdit_S1_DC2_CURR': '', 'textEdit_S1_DC2_Voc': '', 'textEdit_S1_DC2_Isc': '', 'textEdit_S1_DC2_PF': '', 'checkBox_S1_DC3': '0', 'comboBox_S1_DC3': '0', 'textEdit_S1_DC3_VOLT': '', 'textEdit_S1_DC3_CURR': '', 'textEdit_S1_DC3_Voc': '', 'textEdit_S1_DC3_Isc': '', 'textEdit_S1_DC3_PF': '', 'checkBox_S1_DC4': '0', 'comboBox_S1_DC4': '0', 'textEdit_S1_DC4_VOLT': '', 'textEdit_S1_DC4_CURR': '', 'textEdit_S1_DC4_Voc': '', 'textEdit_S1_DC4_Isc': '', 'textEdit_S1_DC4_PF': '', 'textEdit_S1_ACWaitTIME': '5', 'comboBox_S1_ACWaitTIME': '0', 'textEdit_S1_TIME': '5', 'comboBox_S1_TIME': '0', 'checkBox_S2': '1', 'comboBox_S2_WT': '0', 'comboBox_S2_WT3000_Setting': '0', 'textEdit_S2_TIME': '4', 'comboBox_S2_TIME': '0', 'checkBox_S3': '1', 'checkBox_S3_DC1': '1', 'comboBox_S3_DC1': '0', 'checkBox_S3_DC2': '0', 'comboBox_S3_DC2': '0', 'checkBox_S3_DC3': '0', 'comboBox_S3_DC3': '0', 'checkBox_S3_DC4': '0', 'comboBox_S3_DC4': '0', 'checkBox_S3_DC1_2': '1', 'comboBox_S3_DC1_2': '0', 'checkBox_S3_DC2_2': '0', 'comboBox_S3_DC2_2': '0', 'checkBox_S3_DC3_2': '0', 'comboBox_S3_DC3_2': '0', 'checkBox_S3_DC4_2': '0', 'comboBox_S3_DC4_2': '0', 'textEdit_S3_TIME': '15', 'comboBox_S3_TIME': '0', 'textEdit_S3_TIME_2': '3', 'comboBox_S3_TIME_2': '0', 'textEdit_S3_CYCLE_TIME': '12', 'checkBox_S4': '1', 'comboBox_S4_WT3000_1': '0', 'comboBox_S4_WT3000_2': '0', 'comboBox_S4_WT3000_3': '0', 'checkBox_S5': '1', 'comboBox_S5_AC': '0', 'checkBox_S5_DC1': '1', 'comboBox_S5_DC1': '0', 'checkBox_S5_DC2': '0', 'comboBox_S5_DC2': '0', 'checkBox_S5_DC3': '0', 'comboBox_S5_DC3': '0', 'checkBox_S5_DC4': '0', 'comboBox_S5_DC4': '0', 'comboBox_S2_PER_FLICK_COUNT': '1', 'DEW_mode': 'dewetron', 'checkBox_DEW_FlickerStandard': '1', 'comboBox_DEW_WeightingType': '0', 'comboBox_DEW_MaxRefreshRate': '1', 'textEdit_DEW_NominalVoltage': '230', 'textEdit_DEW_ShortFlickerTime': '10', 'textEdit_DEW_LongFlickerTime': '120', 'textEdit_DEW_ShortCircuitPower': '50', 'checkBox_DEW_RollingCalc': '1', 'spinBox_DEW_DecimalPlaces': '6', 'checkBox_DEW_RealtimeWaveform': '1', 'treeWidget_DEW_ExportFields': 'U3_tRMS_rc|U31_tRMS_rc|U23_tRMS_rc|U2_tRMS_rc|U2_tRMS|U_tRMS|U23_tRMS|U12_tRMS|U31_tRMS|U1_tRMS|U3_tRMS|U12_tRMS_rc|U1_tRMS_rc|U23_fundPHI|U31_fundPHI|U31_fundRMS|U12_fundRMS|U3_fundPHI|U2_fundPHI|U3_fundRMS|U1_fundRMS|U12_fundPHI|U_fundRMS|U2_fundRMS|U23_fundRMS|U1_fundPHI|U1_tPP|U23_tPP|U23_tAVG|U3_tPP|U3_tAVG|U12_tPP|U1_tAVG|U31_tAVG|U12_tAVG|U31_tPP|U2_tPP|U2_tAVG|U2_fund_cos_rc|U1_fund_cos_rc|U_fund_SYM+_rc|U_fundRMS_SYM+|U2_fund_sin_rc|U_fundRMS_SYM-|U_fundRMS_SYM|U_fundRMS_SYM0|U_fundUNBAL0|U_fundUNBAL-|U_fund_SYM-_rc|U_fund_SYM0_rc|U1_fund_sin_rc|U3_fund_sin_rc|U3_fund_cos_rc|U_fundUNBAL+|U3_hRMS|U3_THV|U3_hPHI|U2_THD|U1_hRMS|U1_THD|U2_hPHI|U3_THD|U1_hPHI|U1_THV|U2_hRMS|U2_THV|U3_ihRMS|U1_ihRMS|U2_ihRMS|U2_hfRMS|U1_hfRMS|U3_hfRMS|U1_fluc_Pinst|U1_fluc_ready|U3_fluc_Plt|U1_fluc_Pst|U1_fluc_dc|U2_fluc_dc|U2_fluc_Plt|U3_fluc_dc_overall|U1_fluc_d_max_overall|U2_fluc_ready|U3_fluc_dc|U3_fluc_Pst|U1_fluc_d_max|U3_fluc_ready|U2_fluc_d_max|U1_fluc_dc_overall|U3_fluc_Pinst|U2_fluc_dc_overall|U1_fluc_Plt|U3_fluc_d_max_overall|U3_fluc_td|U1_fluc_td|U2_fluc_Pinst|U2_fluc_d_max_overall|U3_fluc_d_max|U2_fluc_td|U2_fluc_Pst|I3_tRMS|I2_tRMS_rc|I1_tRMS_rc|I_tRMS|I3_tRMS_rc|I2_tRMS|I1_tRMS|I1_fundRMS|I2_fundRMS|I_fundRMS|I3_fundPHI|I3_fundRMS|I2_fundPHI|I1_fundPHI|I1_tAVG|I2_tPP|I3_tAVG|I3_tPP|I2_tAVG|I1_tPP|I_fundUNBAL0|I_fundRMS_SYM0|I2_fund_sin_rc|I1_fund_cos_rc|I_fundUNBAL-|I_fundRMS_SYM-|I_fundRMS_SYM+|I_fund_P_SYM+_rc|I_fund_Q_SYM0_rc|I_fund_Q_SYM+_rc|I_fund_Q_SYM-_rc|I_fundUNBAL+|I2_fund_cos_rc|I_fund_P_SYM-_rc|I3_fund_sin_rc|I_fund_P_SYM0_rc|I1_fund_sin_rc|I_fundRMS_SYM|I3_fund_cos_rc|I2_hPHI|I2_hRMS|I3_THD|I3_hRMS|I1_THC|I1_hPHI|I2_THC|I3_hPHI|I1_hRMS|I1_THD|I2_THD|I3_THC|I2_ihRMS|I1_ihRMS|I3_ihRMS|I1_hfRMS|I3_hfRMS|I2_hfRMS|I3_fluc_Pst_50|I2_fluc_Pinst_85|I3_fluc_Pinst_30|I2_fluc_Pst_85|I1_fluc_Plt_30|I2_fluc_Pst_30|I3_fluc_Plt_70|I1_fluc_Pinst_70|I3_fluc_Pst_30|I2_fluc_Pinst_50|I1_fluc_ready|I1_fluc_Plt_85|I3_fluc_Plt_85|I1_fluc_Pinst_85|I3_fluc_Pinst_70|I2_fluc_Plt_70|I1_fluc_Plt_50|I3_fluc_Pst_85|I3_fluc_Pst_70|I1_fluc_Pst_50|I3_fluc_ready|I1_fluc_Pst_70|I2_fluc_Pinst_70|I2_fluc_Pst_50|I1_fluc_Pinst_30|I1_fluc_Pst_30|I2_fluc_Plt_85|I3_fluc_Plt_30|I2_fluc_Plt_30|I1_fluc_Pst_85|I2_fluc_Pst_70|I2_fluc_Pinst_30|I1_fluc_Plt_70|I2_fluc_ready|I2_fluc_Plt_50|I3_fluc_Pinst_85|I1_fluc_Pinst_50|I3_fluc_Pinst_50|I3_fluc_Plt_50', 'lineEdit_DEW_StoreFileName': 'D:/text', 'textEdit_DEW_S2_TIME': '5', 'comboBox_DEW_S2_TIME': '0', 'comboBox_DEW_S2_PER_FLICK_COUNT': '1'}
+2026-07-06 15:45:00,370 INFO logging_setup.py [75] MainThread :[DEWETRON] --- 设备通道 ID 映射 (369 个) ---
+2026-07-06 15:45:00,371 INFO logging_setup.py [75] MainThread :  AI 1/I1 -> 3549962397684858900
+2026-07-06 15:45:00,371 INFO logging_setup.py [75] MainThread :  AI 1/I2 -> 3549962397684858901
+2026-07-06 15:45:00,371 INFO logging_setup.py [75] MainThread :  AI 1/I3 -> 3549962397684858902
+2026-07-06 15:45:00,371 INFO logging_setup.py [75] MainThread :  AI 1/I4 -> 3549962397684858903
+2026-07-06 15:45:00,371 INFO logging_setup.py [75] MainThread :  AI 1/U1 -> 3549962397684858904
+2026-07-06 15:45:00,372 INFO logging_setup.py [75] MainThread :  AI 1/U2 -> 3549962397684858905
+2026-07-06 15:45:00,372 INFO logging_setup.py [75] MainThread :  AI 1/U3 -> 3549962397684858906
+2026-07-06 15:45:00,372 INFO logging_setup.py [75] MainThread :  AI 1/U4 -> 3549962397684858907
+2026-07-06 15:45:00,372 INFO logging_setup.py [75] MainThread :  AI 1/l1 -> 3549962397684858900
+2026-07-06 15:45:00,372 INFO logging_setup.py [75] MainThread :  AI 1/l2 -> 3549962397684858901
+2026-07-06 15:45:00,372 INFO logging_setup.py [75] MainThread :  AI 1/l3 -> 3549962397684858902
+2026-07-06 15:45:00,372 INFO logging_setup.py [75] MainThread :  AI 1/l4 -> 3549962397684858903
+2026-07-06 15:53:33,815 INFO logging_setup.py [75] MainThread :关闭设备成功
