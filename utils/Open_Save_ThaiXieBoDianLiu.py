@@ -64,9 +64,7 @@ arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "te
             "spinBox_DEW_THDOrder", "comboBox_DEW_GroupingType", "comboBox_DEW_MaxRefreshRate",
             # DEWETRON 文件设置
             "checkBox_DEW_MultiFileStorage", "checkBox_DEW_SplitByTime",
-            "spinBox_DEW_SplitTime", "checkBox_DEW_CreateSubfolder",
-            # DEWETRON 保存文件名
-            "lineEdit_DEW_StoreFileName"]
+            "spinBox_DEW_SplitTime", "checkBox_DEW_CreateSubfolder"]
 
 #泰国电压闪变保存设定
 def Save_File_ThaiXieBoDianLiu(kwargs):
@@ -709,8 +707,8 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
         arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_SplitByTime.isChecked() else '0')
         arrayRow2.append(str(uiThaiXieBoDianLiu.spinBox_DEW_SplitTime.value()))
         arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_CreateSubfolder.isChecked() else '0')
-        # DEWETRON 保存文件名
-        arrayRow2.append(uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.text())
+        # DEWETRON 保存文件名（已移除，保留占位）
+        arrayRow2.append('')
 
         print(f"[DEBUG-SAVE] step2/3 数据收集完成，arrayRow2 总列数: {len(arrayRow2)}")
         print(f"[DEBUG-SAVE] step2: checkBox_S2={checkBox_S2}, WT3000={checkBox_S2_WT3000}, WT1800={checkBox_S2_WT1800}, WT1806E={checkBox_S2_WT1806E}, WT5000={checkBox_S2_WT5000}")
@@ -2135,7 +2133,7 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
         # DEWETRON 保存文件名
         if strFlag == "0" and len(arrayRow1) > 136:
             if arrayRow1[136] in config_dict:
-                uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.setText(config_dict[arrayRow1[136]])
+                pass  # lineEdit_DEW_StoreFileName 已移除
 
         # 加载完成后切换到 step2 让用户看到 WT 配置回显
         if hasattr(uiThaiXieBoDianLiu, '_switch_step'):

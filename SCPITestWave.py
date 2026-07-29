@@ -79,6 +79,7 @@ from devices.ac_controller import ACController
 from devices.dc_controller import DCController, send_dc_test_message
 from devices.dl850_controller import DL850Controller
 from devices.dewetron_controller import DewetronController
+from devices.dewetron_data_collector import DewetronDataCollector, parse_rate_ms, init_database
 from devices.wt_controller import WT3000Controller
 from devices.handle_release import release_resource_handle
 from app.bootstrap import bootstrap
@@ -593,6 +594,7 @@ WT3000_baud_rate = "9600"
 DC_ASRL_DEFAULT_BAUD = 9600
 dl850_controller = None
 dewetron_controller = None
+dewetron_collector = None  # DEWETRON 数据采集器实例
 wt3000_controller = None
 ac_controller = None
 dc1_controller = None
@@ -1502,6 +1504,13 @@ def ConnectEQUDEWETRON():
         _toggle_connection_button("pushButton_ConnectEQUDEWETRON", True)
         ui.pushButton_ConnectEQUDEWETRON.setText("取消连接")
         _save_device_status("DEWETRON", True, tcp_addr)
+        # 创建采集器（数据库已在启动时初始化）
+        global dewetron_collector
+        if dewetron_collector is None:
+            dewetron_collector = DewetronDataCollector(dewetron_controller, logger)
+            dewetron_collector.start()
+            logger.info("DEWETRON 数据采集器已启动")
+            print("DEWETRON 数据采集器已启动")
     else:
         QMessageBox.warning(None, "连接失败", "DEWETRON连接失败，请检查IP地址和网络连接")
 
@@ -2325,7 +2334,10 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_2 = uiThaiDianYaShanBian.textEdit_S1_AC_VOLT_2.toPlainText()
+            S1ACVOLT_2 = uiThaiDianYaShanBian.textEdit_S1_AC_VOLT_2.toPlainText().strip()
+            # Phase 2 电压为空时，使用 Phase 1 的电压值
+            if not S1ACVOLT_2:
+                S1ACVOLT_2 = S1ACVOLT
             S1Command = "VOLT " + S1ACVOLT_2
             strArraySingle[0] = "AC"
             strArraySingle[1] = "write"
@@ -2351,7 +2363,10 @@ def thaidianyashanbianSend():
             strArrayTestStepSingle.append(strArraySingle)
 
             strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_3 = uiThaiDianYaShanBian.textEdit_S1_AC_VOLT_3.toPlainText()
+            S1ACVOLT_3 = uiThaiDianYaShanBian.textEdit_S1_AC_VOLT_3.toPlainText().strip()
+            # Phase 3 电压为空时，使用 Phase 1 的电压值
+            if not S1ACVOLT_3:
+                S1ACVOLT_3 = S1ACVOLT
             S1Command = "VOLT " + S1ACVOLT_3
             strArraySingle[0] = "AC"
             strArraySingle[1] = "write"
@@ -2389,13 +2404,19 @@ def thaidianyashanbianSend():
             S1DC1Voc = uiThaiDianYaShanBian.textEdit_S1_DC1_Voc.toPlainText()
             S1DC1Isc = uiThaiDianYaShanBian.textEdit_S1_DC1_Isc.toPlainText()
             S1DC1PF = uiThaiDianYaShanBian.textEdit_S1_DC1_PF.toPlainText()
-            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S1DC1PF,0)
-            if a == "1":
-                dc_error_messages.append("DC电源1赋值错误,请重新输入")
-            elif a == "2":
-                dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
+
+            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
+            dc1_is_bluesight = per_dc_factor.get("0") == "Bluesight"
+            if dc1_is_bluesight:
+                print(f"[闪变] DC1 蓝点直流源，跳过 IV 曲线验证")
             else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
+                a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S1DC1PF,0)
+                if a == "1":
+                    dc_error_messages.append("DC电源1赋值错误,请重新输入")
+                elif a == "2":
+                    dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
+                else:
+                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC1.currentText()
@@ -2418,14 +2439,18 @@ def thaidianyashanbianSend():
             S1DC2Isc = uiThaiDianYaShanBian.textEdit_S1_DC2_Isc.toPlainText()
             S1DC2PF = uiThaiDianYaShanBian.textEdit_S1_DC2_PF.toPlainText()
 
-            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S1DC2PF, 1)
-
-            if a == "1":
-                dc_error_messages.append("DC电源2赋值错误,请重新输入")
-            elif a == "2":
-                dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
+            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
+            dc2_is_bluesight = per_dc_factor.get("1") == "Bluesight"
+            if dc2_is_bluesight:
+                print(f"[闪变] DC2 蓝点直流源，跳过 IV 曲线验证")
             else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
+                a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S1DC2PF, 1)
+                if a == "1":
+                    dc_error_messages.append("DC电源2赋值错误,请重新输入")
+                elif a == "2":
+                    dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
+                else:
+                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC2.currentText()
@@ -2448,14 +2473,18 @@ def thaidianyashanbianSend():
             S1DC3Isc = uiThaiDianYaShanBian.textEdit_S1_DC3_Isc.toPlainText()
             S1DC3PF = uiThaiDianYaShanBian.textEdit_S1_DC3_PF.toPlainText()
 
-            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S1DC3PF, 2)
-
-            if a == "1":
-                dc_error_messages.append("DC电源3赋值错误,请重新输入")
-            elif a == "2":
-                dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
+            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
+            dc3_is_bluesight = per_dc_factor.get("2") == "Bluesight"
+            if dc3_is_bluesight:
+                print(f"[闪变] DC3 蓝点直流源，跳过 IV 曲线验证")
             else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
+                a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S1DC3PF, 2)
+                if a == "1":
+                    dc_error_messages.append("DC电源3赋值错误,请重新输入")
+                elif a == "2":
+                    dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
+                else:
+                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC3.currentText()
@@ -2478,14 +2507,18 @@ def thaidianyashanbianSend():
             S1DC4Isc = uiThaiDianYaShanBian.textEdit_S1_DC4_Isc.toPlainText()
             S1DC4PF = uiThaiDianYaShanBian.textEdit_S1_DC4_PF.toPlainText()
 
-            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S1DC4PF, 3)
-
-            if a == "1":
-                dc_error_messages.append("DC电源4赋值错误,请重新输入")
-            elif a == "2":
-                dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
+            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
+            dc4_is_bluesight = per_dc_factor.get("3") == "Bluesight"
+            if dc4_is_bluesight:
+                print(f"[闪变] DC4 蓝点直流源，跳过 IV 曲线验证")
             else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
+                a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S1DC4PF, 3)
+                if a == "1":
+                    dc_error_messages.append("DC电源4赋值错误,请重新输入")
+                elif a == "2":
+                    dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
+                else:
+                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC4.currentText()
@@ -2505,7 +2538,11 @@ def thaidianyashanbianSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = fS1SetTime
+        # 德威创模式下，step1 等待时间限制为最大 60 秒（1分钟）
+        if is_dewetron:
+            strArraySingle[9] = min(fS1SetTime, 600)  # 600 * 0.1s = 60s
+        else:
+            strArraySingle[9] = fS1SetTime
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -2665,30 +2702,16 @@ def thaidianyashanbianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        # ── DEWETRON 模式 Step2：启动采集 + 设置保存位置 + 启动录制 ──
+        # ── DEWETRON 模式 Step2：NUMERIC 配置 + 启动采集 ──
+        # CSV 导出通过 collector 的 NUMERIC query 实现，不需要 :STORE: 命令
         if is_dewetron:
-            dew_store_file_name = uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.text().strip()
-            if not dew_store_file_name:
-                QMessageBox.warning(None, "提示", "请输入保存文件名")
-                return
-
             s = ["" for _ in range(10)]
             s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
             strArrayTest.append(s)
             strArrayTestStepSingle.append(s)
 
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "DEWETRON", "write", f':STORE:FILE:NAME "{dew_store_file_name}"'
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
-            s = ["" for _ in range(10)]
-            s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:START"
-            strArrayTest.append(s)
-            strArrayTestStepSingle.append(s)
-
             ui.textEdit_ReturnMessage.append(
-                f"[闪变] 德威创模式：启动采集+录制，文件: {dew_store_file_name}")
+                f"[闪变] 德威创模式：启动采集（NUMERIC 配置由 collector 执行）")
 
         # strArraySingle = ["" for _ in range(10)]
         # strArraySingle[0] = "WT3000"
@@ -3990,10 +4013,6 @@ def thaidianyashanbianSend():
         strArrayTest.append(s)
 
         s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:STOP"
-        strArrayTest.append(s)
-
-        s = ["" for _ in range(10)]
         s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
         strArrayTest.append(s)
 
@@ -4126,20 +4145,32 @@ def thaidianyashanbianSend():
             print(strtimenow + "    累加设定实验内容完成")
         strSettingTestFlag = "1"
         reset_wt_automation_state()
-        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
-        commands_file_name = f'dianyashanbian_commands{now_time}.csv'
-        # directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
-        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
-        if directory1[0] == '':
-            print('请选择一个文件')
+
+        # 保存命令到 SQLite 数据库
+        if dewetron_collector is not None:
+            # 如果批次已结束或不存在，开始新批次
+            if not dewetron_collector._batch_id:
+                dewetron_collector.start_batch()
+            # 如果还没有 run_id，先创建一个
+            if not dewetron_collector._run_id:
+                dewetron_collector._insert_test_run()
+            dewetron_collector.save_commands(strArrayTest)
+            ui.textEdit_ReturnMessage.append(f"[闪变] 命令已保存到数据库，共{len(strArrayTest)}条，"
+                                           f"批次: {dewetron_collector.get_batch_uid()}, "
+                                           f"run_id={dewetron_collector._run_id}")
         else:
-            file_mode = 'a+' if strAddTestFlag == "1" else 'w+'
-            out = open(directory1[0], file_mode, newline='')
-            csv_write = csv.writer(out, dialect="excel")
-            for i in range(len(strArrayTest)):
-                csv_write.writerow(strArrayTest[i])
-            out.close()
-            ui.textEdit_ReturnMessage.append(f"[闪变] 命令生成完成，共{len(strArrayTest)}条，已写入 {commands_file_name}")
+            # 兼容旧模式：保存到 CSV 文件
+            now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+            commands_file_name = f'dianyashanbian_commands{now_time}.csv'
+            directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+            if directory1[0] != '':
+                file_mode = 'a+' if strAddTestFlag == "1" else 'w+'
+                out = open(directory1[0], file_mode, newline='')
+                csv_write = csv.writer(out, dialect="excel")
+                for i in range(len(strArrayTest)):
+                    csv_write.writerow(strArrayTest[i])
+                out.close()
+                ui.textEdit_ReturnMessage.append(f"[闪变] 命令生成完成，共{len(strArrayTest)}条，已写入 {commands_file_name}")
         # print(strArrayTest)
         if 'flicker_append_count' not in globals():
             flicker_append_count = 0
@@ -4171,6 +4202,9 @@ def OpenFileDialogThaiDianYaShanBian():
                     csv_saved_fields = [x.strip() for x in rows[1][93].split('|') if x.strip()]
         except Exception:
             pass
+
+    # 检查 CSV 中是否有 DEWETRON 导出字段
+    csv_has_dew_fields = bool(csv_saved_fields)
 
     # 德威创模式 — 始终从设备读取最新配置，对比 CSV 保存的字段
     if uiThaiDianYaShanBian._mode == 'dewetron' and dewetron_controller and dewetron_controller.connected:
@@ -5442,27 +5476,15 @@ def thaixiebodianliuSend():
         strArraySingle[4] = S1Command
         strArrayTest.append(strArraySingle)
 
-    # ── DEWETRON 模式 Step2：启动采集 + 设置保存位置 + 启动录制 ──
+    # ── DEWETRON 模式 Step2：NUMERIC 配置 + 启动采集 ──
+    # CSV 导出通过 collector 的 NUMERIC query 实现，不需要 :STORE: 命令
     if is_dewetron and uiThaiXieBoDianLiu.checkBox_S2.isChecked():
-        dew_store_file_name = uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.text().strip() if hasattr(uiThaiXieBoDianLiu, 'lineEdit_DEW_StoreFileName') else ""
-        if not dew_store_file_name:
-            QMessageBox.warning(None, "提示", "请输入保存文件名")
-            return
-
         s = ["" for _ in range(10)]
         s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
         strArrayTest.append(s)
 
-        s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "DEWETRON", "write", f':STORE:FILE:NAME "{dew_store_file_name}"'
-        strArrayTest.append(s)
-
-        s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:START"
-        strArrayTest.append(s)
-
         ui.textEdit_ReturnMessage.append(
-            f"[谐波] 德威创模式：启动采集+录制，文件: {dew_store_file_name}")
+            f"[谐波] 德威创模式：启动采集（NUMERIC 配置由 collector 执行）")
 
     if strAddTestFlag == '1' and project_change == '1':
         strArraySingle = ["" for _ in range(10)]
@@ -6703,10 +6725,6 @@ def thaixiebodianliuSend():
         s = ["" for _ in range(10)]
         s[0], s[1], s[2] = "AC", "query", "*IDN?"
         s[8] = 3000  # 等待 300s
-        strArrayTest.append(s)
-
-        s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "DEWETRON", "write", ":STORE:STOP"
         strArrayTest.append(s)
 
         s = ["" for _ in range(10)]
@@ -24101,6 +24119,75 @@ def _check_device_connections():
         return "、".join(disconnected)
     return ""
 
+
+def _prepare_dewetron_collector(project_name):
+    """预处理 DEWETRON 采集器：校验字段、映射 RATE、确定保存路径。
+
+    在 command.csv 开始执行前调用，避免采集启动时的延迟。
+    """
+    print(f"[_prepare_dewetron_collector] === 开始预处理 === project={project_name}")
+    global dewetron_collector
+    if dewetron_collector is None:
+        print("[_prepare_dewetron_collector] dewetron_collector 为 None，跳过")
+        return
+
+    # 1. 根据项目类型获取用户选择的字段
+    fields = []
+    rate_text = 'Default'
+    save_path = ''
+    test_type = ''  # SQLite 测试类型
+
+    if project_name == '电压闪变':
+        print("[_prepare_dewetron_collector] 项目: 电压闪变")
+        test_type = 'flicker'
+        # 从闪变对话框获取字段选择
+        if hasattr(uiThaiDianYaShanBian, 'get_checked_export_fields'):
+            fields = uiThaiDianYaShanBian.get_checked_export_fields()
+            print(f"[{_prepare_dewetron_collector.__name__}] get_checked_export_fields 返回: {fields}")
+        else:
+            print(f"[{_prepare_dewetron_collector.__name__}] uiThaiDianYaShanBian 没有 get_checked_export_fields 方法")
+        rate_text = uiThaiDianYaShanBian.comboBox_DEW_MaxRefreshRate.currentText()
+        # 数据直接入 db，导出时再选择路径，这里生成默认路径供参考
+        save_path = os.path.join('command_save_files', 'dewetron_data',
+                                 f'flicker_{time.strftime("%Y%m%d_%H%M%S")}.csv')
+        print(f"[{_prepare_dewetron_collector.__name__}] rate_text={rate_text}")
+
+    elif project_name == '谐波电流':
+        print("[_prepare_dewetron_collector] 项目: 谐波电流")
+        test_type = 'harmonic'
+        # 从谐波电流对话框获取字段选择
+        if hasattr(uiThaiXieBoDianLiu, 'get_checked_export_fields'):
+            fields = uiThaiXieBoDianLiu.get_checked_export_fields()
+        if hasattr(uiThaiXieBoDianLiu, 'comboBox_DEW_MaxRefreshRate'):
+            rate_text = uiThaiXieBoDianLiu.comboBox_DEW_MaxRefreshRate.currentText()
+        # 数据直接入 db，导出时再选择路径
+        save_path = os.path.join('command_save_files', 'dewetron_data',
+                                 f'harmonic_{time.strftime("%Y%m%d_%H%M%S")}.csv')
+
+    print(f"[_prepare_dewetron_collector] fields={fields}")
+
+    if not fields:
+        print("[_prepare_dewetron_collector] 警告：未选择任何采集字段，跳过 prepare")
+        ui.textEdit_ReturnMessage.append(f"[DEWETRON] 警告：未选择任何采集字段")
+        return
+
+    # 2. 调用采集器的 prepare 方法（校验字段、映射 RATE、初始化 SQLite）
+    print(f"[_prepare_dewetron_collector] 调用 prepare: fields={len(fields)} 个, rate={rate_text}, "
+          f"test_type={test_type}, path={save_path}")
+    valid_fields, warnings = dewetron_collector.prepare(fields, rate_text, test_type, save_path)
+
+    # 3. 开始新批次
+    dewetron_collector.start_batch()
+
+    # 4. 显示校验结果
+    for w in warnings:
+        ui.textEdit_ReturnMessage.append(f"[DEWETRON] {w}")
+    ui.textEdit_ReturnMessage.append(
+        f"[DEWETRON] 采集准备完成: {len(valid_fields)} 个有效字段, "
+        f"间隔 {dewetron_collector._rate_ms}ms, 批次: {dewetron_collector.get_batch_uid()}"
+    )
+
+
 def RunProjectPush():
     global strTestFlag,strSettingTestFlag, WT_is_checked, test_program, heading_handle, flicker_is_test
     global strArrayTest, flicker_append_count
@@ -24113,6 +24200,13 @@ def RunProjectPush():
 
     # 闪变测试：如果尚未追加配置，阻止启动
     currentSecond = ui.comboBox_PS.currentText()
+
+    # ── 判断是否为 DEWETRON 模式 ──
+    is_dewetron = False
+    if currentSecond == '电压闪变':
+        is_dewetron = hasattr(uiThaiDianYaShanBian, '_mode') and uiThaiDianYaShanBian._mode == 'dewetron'
+    elif currentSecond == '谐波电流':
+        is_dewetron = hasattr(uiThaiXieBoDianLiu, '_mode') and uiThaiXieBoDianLiu._mode == 'dewetron'
     if 'flicker_append_count' not in globals():
         flicker_append_count = 0
     if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
@@ -24133,6 +24227,12 @@ def RunProjectPush():
             return
         strTestFlag = "1"
         _update_project_status(currentSecond, "进行中")
+
+        # ── DEWETRON 模式：预处理采集器（提前校验字段，避免采集时延迟）──
+        print(f"[RunProject] is_dewetron={is_dewetron}, dewetron_collector={'存在' if dewetron_collector else 'None'}")
+        if is_dewetron and dewetron_collector is not None:
+            print(f"[RunProject] 调用 _prepare_dewetron_collector({currentSecond})")
+            _prepare_dewetron_collector(currentSecond)
     else:
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    请设定实验内容!")
@@ -24150,7 +24250,7 @@ def PauseProjectPush():
 
 #结束试验按下
 def EndProjectPush():
-    global strTestStatusFlag
+    global strTestStatusFlag, dewetron_collector
     try:
         if strTestStatusFlag == "运行":
             reply = QMessageBox.question(None, "确认结束", "确定要结束当前试验吗？",
@@ -24164,6 +24264,9 @@ def EndProjectPush():
                 _update_project_status(currentSecond, "已结束")
                 _reset_current_project_count()
                 _sync_start_end_buttons()
+                # 结束 DEWETRON 批次
+                if dewetron_collector is not None and dewetron_collector.get_batch_uid():
+                    dewetron_collector.end_batch()
         else:
             QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
     except NameError:
@@ -24261,17 +24364,25 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        print(f"[WT调试] 准备发送第{i+1}条命令: {strArrayTest[i][2]}")
-                        if ac_controller is not None and ac_controller.handle is not None:
-                            print("[WT调试] 使用 ac_controller.handle.write 发送")
-                            ac_controller.handle.write(strArrayTest[i][2])
-                        else:
+                        command = strArrayTest[i][2]
+                        print(f"[WT调试] 准备发送第{i+1}条命令: {command}")
+                        if ac_controller is None or not ac_controller.connected:
                             raise RuntimeError("AC未连接，无法发送命令")
+                        # 爱科 Modbus：用 _itech.translate()；其他：用 handle.write()
+                        if ac_controller._itech is not None:
+                            ok, _ = ac_controller._itech.translate(command)
+                            if not ok:
+                                raise RuntimeError(f"AC Modbus 命令发送失败: {command}")
+                        else:
+                            ac_controller.handle.write(command)
                     except Exception as e:
                         print(e)
                         logger.error(f"解析第{i+1}条命令失败: {e}")
                         _show_connect_message(f"自动化执行失败（第{i+1}条）：{e}", ui)
                     else:
+                        # 标记命令为已执行
+                        if dewetron_collector is not None and dewetron_collector._run_id:
+                            dewetron_collector.mark_command_executed(i + 1, "OK")
                         # [9]：命令后等待（单位 0.1s）
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
@@ -24407,11 +24518,16 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        result = ac_controller.handle.query(strArrayTest[i][2])
+                        command = strArrayTest[i][2]
+                        # 爱科 Modbus：用 _itech.translate()；其他：用 handle.query()
+                        if ac_controller._itech is not None:
+                            result = f"Modbus query: {command}"
+                        else:
+                            result = ac_controller.handle.query(command)
                         strtimenow = now_to_datenow()
-                        logger.info(strtimenow + "AC "+ strArrayTest[i][2])
+                        logger.info(strtimenow + "AC "+ command)
                         logger.info(f"AC query result: {result}")
-                        print(strtimenow + "AC "+strArrayTest[i][2])
+                        print(strtimenow + "AC "+ command)
                     except Exception as e:
                         print(e)
                         logger.error(f"AC query error: {e}")
@@ -24941,10 +25057,29 @@ def RunProject():
                             break
                         command = strArrayTest[i][2].strip()
                         if dewetron_controller is not None and dewetron_controller.connected:
+                            # ── 采集器钩子：:ACQUISITION:START 之前先做 NUMERIC 配置 ──
+                            if dewetron_collector is not None:
+                                cmd_upper = command.upper()
+                                if ':ACQUISITION:START' in cmd_upper:
+                                    print(f"[RunProject] 第{i+1}条命令: 检测到 :ACQUISITION:START，先执行 start_gathering()")
+                                    dewetron_collector.start_gathering()
+                                    print(f"[RunProject] 第{i+1}条命令: start_gathering() 完成，准备发送 :ACQUISITION:START")
+                                elif ':ACQUISITION:STOP' in cmd_upper or ':STORE:STOP' in cmd_upper:
+                                    print(f"[RunProject] 第{i+1}条命令: 检测到 {command}，执行 stop_gathering()")
+                                    dewetron_collector.stop_gathering()
+                                    # 导出 CSV
+                                    csv_path = dewetron_collector.export_to_csv()
+                                    if csv_path:
+                                        print(f"[RunProject] CSV 导出完成: {csv_path}")
+                                        ui.textEdit_ReturnMessage.append(f"[DEWETRON] 数据已导出: {csv_path}")
+
                             dewetron_controller._send(command, f"[DEWETRON] {command}", f"[DEWETRON] {command} 失败", timeout_ms=10000)
                             strtimenow = now_to_datenow()
                             logger.info(strtimenow + " DEWETRON " + command)
                             print(strtimenow + " DEWETRON " + command)
+                            # :ACQUISITION:START 发送后，启动采集器线程查询
+                            if ':ACQUISITION:START' in cmd_upper and dewetron_collector is not None:
+                                dewetron_collector.on_acquisition_started()
                         else:
                             raise RuntimeError("DEWETRON未连接，无法发送命令")
                     except Exception as e:
@@ -30338,16 +30473,34 @@ if __name__ == "__main__":
             _safe_click(uiThaiDianYaShanBian, "pushButton_TestAppend", thaidianyashanbianAppend)
 
             def reset_flicker_count():
-                global flicker_append_count
+                global flicker_append_count, dewetron_collector
                 flicker_append_count = 0
                 uiThaiDianYaShanBian.label_append_count.setText("0")
                 _sync_start_end_buttons()
-                ui.textEdit_ReturnMessage.append("[闪变] 计数器已重置为0")
+                # 结束当前批次和 run，下次追加时开始新批次
+                if dewetron_collector is not None:
+                    if dewetron_collector._batch_id:
+                        dewetron_collector.end_batch()
+                    dewetron_collector._run_id = None  # 清空 run_id
+                    ui.textEdit_ReturnMessage.append("[闪变] 计数器已重置为0，当前批次已结束，下次追加将创建新批次")
+                else:
+                    ui.textEdit_ReturnMessage.append("[闪变] 计数器已重置为0")
             _safe_click(uiThaiDianYaShanBian, "pushButton_ResetCount", reset_flicker_count)
 
             # ThaiDianYaShanBian的的配置档读取写入
             _safe_click(uiThaiDianYaShanBian, "pushButton_ReadSettingFile", OpenFileDialogThaiDianYaShanBian)
             _safe_click(uiThaiDianYaShanBian, "pushButton_SaveSettingFile", SaveFileDialogThaidianyashanbian)
+
+            # DEWETRON 数据查看按钮
+            def open_dewetron_data_viewer():
+                """打开 DEWETRON 数据查看对话框。"""
+                if dewetron_collector is None:
+                    QMessageBox.warning(None, "提示", "DEWETRON 采集器未初始化")
+                    return
+                from Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
+                dlg = DialogDEWETRONDataViewer(dewetron_collector, parent=None)
+                dlg.exec_()
+            _safe_click(uiThaiDianYaShanBian, "pushButton_DEW_DataViewer", open_dewetron_data_viewer)
 
             # DEWETRON 闪变测试生效按钮
             def dewetron_flicker_test_apply():
@@ -30451,6 +30604,17 @@ if __name__ == "__main__":
             _safe_click(uiThaiXieBoDianLiu, "pushButton_ReadSettingFile", OpenFileDialogThaiXieBoDianLiu)
             _safe_click(uiThaiXieBoDianLiu, "pushButton_SaveSettingFile", SaveFileDialogThaiXieBoDianLiu)
 
+            # DEWETRON 数据查看按钮（谐波电流）
+            def open_dewetron_harmonic_data_viewer():
+                """打开 DEWETRON 数据查看对话框（谐波电流）。"""
+                if dewetron_collector is None:
+                    QMessageBox.warning(None, "提示", "DEWETRON 采集器未初始化")
+                    return
+                from Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
+                dlg = DialogDEWETRONDataViewer(dewetron_collector, parent=None)
+                dlg.exec_()
+            _safe_click(uiThaiXieBoDianLiu, "pushButton_DEW_DataViewer", open_dewetron_harmonic_data_viewer)
+
             # DEWETRON 谐波设置应用按钮
             def _apply_dewetron_harmonic_settings():
                 """将 DEWETRON 谐波设置应用到设备"""
@@ -30471,9 +30635,6 @@ if __name__ == "__main__":
                     split_by_time = uiThaiXieBoDianLiu.checkBox_DEW_SplitByTime.isChecked()
                     split_time = str(uiThaiXieBoDianLiu.spinBox_DEW_SplitTime.value())
                     create_subfolder = uiThaiXieBoDianLiu.checkBox_DEW_CreateSubfolder.isChecked()
-
-                    # 读取 UI 设置 - 保存文件名
-                    store_file_name = uiThaiXieBoDianLiu.lineEdit_DEW_StoreFileName.text().strip()
 
                     ui.textEdit_ReturnMessage.append("[谐波] 正在读取设备配置...")
 
@@ -30506,14 +30667,6 @@ if __name__ == "__main__":
                         ui.textEdit_ReturnMessage.append("[谐波] DEWETRON 谐波设置应用失败")
                         QMessageBox.warning(None, "错误", "DEWETRON 谐波设置应用失败")
                         return
-
-                    # 设置保存文件名（SCPI 命令）
-                    if store_file_name:
-                        dewetron_controller._send(
-                            f':STORE:FILE:NAME "{store_file_name}"',
-                            f"[谐波] 设置保存文件名: {store_file_name}",
-                            "DEWETRON STORE:FILE:NAME"
-                        )
 
                     ui.textEdit_ReturnMessage.append("[谐波] DEWETRON 谐波设置应用成功")
                     QMessageBox.information(None, "成功", "DEWETRON 谐波设置已应用")
@@ -30870,6 +31023,10 @@ if __name__ == "__main__":
             thread_error_info = threading.Thread(target=system_error_info, daemon=True)
             thread_error_info.start()
             print("[DEBUG_STARTUP]    system_error_info 线程已启动", flush=True)
+
+            # 初始化 DEWETRON 数据库（启动时立即创建，不等连接）
+            print("[DEBUG_STARTUP]    初始化 DEWETRON 数据库...", flush=True)
+            init_database()
 
             strtimenow = now_to_datenow()
             logger.info(strtimenow + "    程式开启" )

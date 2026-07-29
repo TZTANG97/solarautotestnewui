@@ -26,11 +26,12 @@ CSV_HEADER = [
 ]
 
 # 目标通道（不带 _AVG）
+# 注意：电力组名称可能因设备配置而异，当前设备使用 @AC
 TARGET_CHANNELS = [
     'ABS-TIME',
-    'U1_tRMS@POWER/0', 'U2_tRMS@POWER/0', 'U3_tRMS@POWER/0',
-    'I1_tRMS@POWER/0', 'I2_tRMS@POWER/0', 'I3_tRMS@POWER/0',
-    'P1_t@POWER/0',    'P2_t@POWER/0',    'P3_t@POWER/0',
+    'U1_tRMS@AC', 'U2_tRMS@AC', 'U3_tRMS@AC',
+    'I1_tRMS@AC', 'I2_tRMS@AC', 'I3_tRMS@AC',
+    'P1_t@AC',    'P2_t@AC',    'P3_t@AC',
 ]
 
 

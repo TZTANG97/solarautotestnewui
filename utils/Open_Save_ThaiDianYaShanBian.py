@@ -38,7 +38,7 @@ arrayRow1 = ['Style',
     "textEdit_DEW_ShortFlickerTime", "textEdit_DEW_LongFlickerTime",
     "textEdit_DEW_ShortCircuitPower", "checkBox_DEW_RollingCalc",
     "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
-    "treeWidget_DEW_ExportFields", "lineEdit_DEW_StoreFileName",
+    "treeWidget_DEW_ExportFields",
     "textEdit_DEW_S2_TIME", "comboBox_DEW_S2_TIME",
     "comboBox_DEW_S2_PER_FLICK_COUNT",
     ]
@@ -387,7 +387,7 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
         arrayRow2.append('1' if uiThaiDianYaShanBian.checkBox_DEW_RealtimeWaveform.isChecked() else '0')
         checked_fields = uiThaiDianYaShanBian.get_checked_export_fields()
         arrayRow2.append('|'.join(checked_fields))
-        arrayRow2.append(uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.text())
+        arrayRow2.append('')  # lineEdit_DEW_StoreFileName 已移除，保留占位
         arrayRow2.append(uiThaiDianYaShanBian.textEdit_DEW_S2_TIME.toPlainText())
         arrayRow2.append(uiThaiDianYaShanBian.comboBox_DEW_S2_TIME.currentIndex())
         arrayRow2.append(uiThaiDianYaShanBian.comboBox_DEW_S2_PER_FLICK_COUNT.currentIndex())
@@ -1121,7 +1121,7 @@ def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
 
                 if strFlag == "0" and len(arrayRow1) > 94:
                     if arrayRow1[94] in i:
-                        uiThaiDianYaShanBian.lineEdit_DEW_StoreFileName.setText(i[arrayRow1[94]])
+                        pass  # lineEdit_DEW_StoreFileName 已移除
 
                 if strFlag == "0" and len(arrayRow1) > 95:
                     if arrayRow1[95] in i:

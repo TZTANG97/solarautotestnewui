@@ -6,3 +6,9 @@ command_save_files/command_data/
 command_save_files/dewetron_data/
 command_save_files/**/*.log
 command_save_files/**/*.rar
+
+# SQLite 数据库文件（不参与版本库，init.sql 保留）
+database/*.sqlite
+database/*.db
+
+.venv

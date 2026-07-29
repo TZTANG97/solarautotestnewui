@@ -2,17 +2,17 @@
   "devices": [
     {
       "name": "交流电源",
-      "resource": "USB0::0x0A69::0x0870::618300000298::INSTR",
+      "resource": "192.168.40.210:8080",
       "connected": true,
       "page": 1,
-      "last_connected": "2026-06-17 18:28:50"
+      "last_connected": "2026-07-24 16:51:13"
     },
     {
       "name": "直流电源1",
-      "resource": "USB0::0x0A69::0x084B::S50000002328::INSTR",
+      "resource": "192.168.40.68:502",
       "connected": true,
       "page": 2,
-      "last_connected": "2026-06-17 18:29:15"
+      "last_connected": "2026-07-24 16:51:40"
     },
     {
       "name": "直流电源2",
@@ -51,18 +51,18 @@
     },
     {
       "name": "DEWETRON",
-      "resource": "192.168.40.25",
+      "resource": "192.168.40.24",
       "connected": true,
       "page": 8,
-      "last_connected": "2026-07-13 11:21:58"
+      "last_connected": "2026-07-24 16:52:46"
     }
   ],
   "project": {
     "name": "电压闪变",
-    "status": "已结束",
+    "status": "进行中",
     "progress": 64,
-    "start_time": "2026-06-17 18:30:30",
+    "start_time": "2026-07-24 16:54:23",
     "estimated_end_time": "",
-    "end_time": "2026-06-18 08:35:29"
+    "end_time": "2026-07-24 16:28:48"
   }
 }

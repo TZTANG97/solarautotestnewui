@@ -72,6 +72,17 @@ class Ui_Dialog_thaixiebodianliu(object):
         """)
         topLayout.addWidget(self.pushButton_SaveSettingFile)
 
+        # 数据查看按钮（德威创模式专用，默认隐藏）
+        self.pushButton_DEW_DataViewer = QtWidgets.QPushButton("数据查看")
+        self.pushButton_DEW_DataViewer.setObjectName("pushButton_DEW_DataViewer")
+        self.pushButton_DEW_DataViewer.setStyleSheet("""
+            QPushButton { background-color: #f59e0b; color: white; border: none; border-radius: 4px;
+                          padding: 6px 14px; font-size: 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #d97706; }
+        """)
+        self.pushButton_DEW_DataViewer.hide()  # 默认隐藏，切换到德威创模式时显示
+        topLayout.addWidget(self.pushButton_DEW_DataViewer)
+
         sep = QtWidgets.QFrame()
         sep.setFrameShape(QtWidgets.QFrame.VLine)
         sep.setStyleSheet("color: #cbd5e1; border: none; max-width: 1px;")
@@ -584,23 +595,6 @@ class Ui_Dialog_thaixiebodianliu(object):
 
         dew_layout.addWidget(file_group)
 
-        # ── Group 3: 采集数据保存位置 ──
-        path_group = QtWidgets.QGroupBox()
-        path_group.setTitle("采集数据保存位置")
-        path_group.setStyleSheet(self._GRP_STYLE)
-        pathFormLayout = QtWidgets.QFormLayout(path_group)
-        pathFormLayout.setSpacing(10)
-        pathFormLayout.setContentsMargins(16, 24, 16, 12)
-
-        # 采集数据保存路径（PC 端 CSV 文件）
-        self.lineEdit_DEW_StoreFileName = QtWidgets.QLineEdit()
-        self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
-        self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/data/harmonic_test.csv")
-        self.lineEdit_DEW_StoreFileName.setFixedWidth(300)
-        pathFormLayout.addRow("采集数据保存:", self.lineEdit_DEW_StoreFileName)
-
-        dew_layout.addWidget(path_group)
-
         # ── 应用按钮 ──
         self.pushButton_DEW_Apply = QtWidgets.QPushButton("应用")
         self.pushButton_DEW_Apply.setObjectName("pushButton_DEW_Apply")
@@ -622,6 +616,9 @@ class Ui_Dialog_thaixiebodianliu(object):
                 idx = self._radio_group.id(btn)
                 self._step2Stacked.setCurrentIndex(idx)
                 self._mode = 'dewetron' if idx == 1 else 'wt3000'
+                # 根据模式显示/隐藏数据查看按钮
+                if hasattr(self, 'pushButton_DEW_DataViewer'):
+                    self.pushButton_DEW_DataViewer.setVisible(idx == 1)
 
         self._radio_group.buttonToggled.connect(_on_mode_changed)
 

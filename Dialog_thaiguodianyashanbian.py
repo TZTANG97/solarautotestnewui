@@ -128,6 +128,17 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         """)
         topLayout.addWidget(self.pushButton_SaveSettingFile)
 
+        # 数据查看按钮（德威创模式专用，默认隐藏）
+        self.pushButton_DEW_DataViewer = QtWidgets.QPushButton("数据查看")
+        self.pushButton_DEW_DataViewer.setObjectName("pushButton_DEW_DataViewer")
+        self.pushButton_DEW_DataViewer.setStyleSheet("""
+            QPushButton { background-color: #f59e0b; color: white; border: none; border-radius: 4px;
+                          padding: 6px 14px; font-size: 12px; font-weight: bold; }
+            QPushButton:hover { background-color: #d97706; }
+        """)
+        self.pushButton_DEW_DataViewer.hide()  # 默认隐藏，切换到德威创模式时显示
+        topLayout.addWidget(self.pushButton_DEW_DataViewer)
+
         # 分隔线
         sep = QtWidgets.QFrame()
         sep.setFrameShape(QtWidgets.QFrame.VLine)
@@ -968,12 +979,6 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.checkBox_S4_DEW.setObjectName("checkBox_S4_DEW")
         dew_form.addRow(self.checkBox_S4_DEW)
 
-        # 采集数据保存位置（PC 端 CSV 文件路径）
-        self.lineEdit_DEW_StoreFileName = QtWidgets.QLineEdit()
-        self.lineEdit_DEW_StoreFileName.setPlaceholderText("如: D:/data/flicker_test.csv")
-        self.lineEdit_DEW_StoreFileName.setObjectName("lineEdit_DEW_StoreFileName")
-        dew_form.addRow("采集数据保存:", self.lineEdit_DEW_StoreFileName)
-
         # 保留小数位数
         self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()
         self.spinBox_DEW_DecimalPlaces.setRange(0, 6)
@@ -1304,51 +1309,20 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             self._mode = 'wt3000'
             self._step2Stacked.setCurrentIndex(0)
             self._step4Stacked.setCurrentIndex(0)
+            # WT 模式隐藏数据查看按钮
+            if hasattr(self, 'pushButton_DEW_DataViewer'):
+                self.pushButton_DEW_DataViewer.hide()
         elif button == self.radio_dewetron:
             self._mode = 'dewetron'
             self._step2Stacked.setCurrentIndex(1)
             self._step4Stacked.setCurrentIndex(1)
+            # 德威创模式显示数据查看按钮
+            if hasattr(self, 'pushButton_DEW_DataViewer'):
+                self.pushButton_DEW_DataViewer.show()
 
     def _on_export_field_item_changed(self, item, column):
-        """字段树父子复选框联动（3 层：类别 → 通道 → 子字段）。"""
-        if self._block_tree_signals:
-            return
-        self._block_tree_signals = True
-        try:
-            state = item.checkState(column)
-            # 向下：父节点变化 → 所有子节点跟随
-            for i in range(item.childCount()):
-                child = item.child(i)
-                child.setCheckState(column, state)
-                # 递归处理孙子节点
-                for j in range(child.childCount()):
-                    child.child(j).setCheckState(column, state)
-            # 向上：子节点变化 → 更新父节点状态
-            parent = item.parent()
-            if parent is not None:
-                checked_count = sum(1 for i in range(parent.childCount())
-                                    if parent.child(i).checkState(column) == QtCore.Qt.Checked)
-                total = parent.childCount()
-                if checked_count == 0:
-                    parent.setCheckState(column, QtCore.Qt.Unchecked)
-                elif checked_count == total:
-                    parent.setCheckState(column, QtCore.Qt.Checked)
-                else:
-                    parent.setCheckState(column, QtCore.Qt.PartiallyChecked)
-                # 再往上更新根节点
-                grandparent = parent.parent()
-                if grandparent is not None:
-                    gp_checked = sum(1 for i in range(grandparent.childCount())
-                                     if grandparent.child(i).checkState(column) == QtCore.Qt.Checked)
-                    gp_total = grandparent.childCount()
-                    if gp_checked == 0:
-                        grandparent.setCheckState(column, QtCore.Qt.Unchecked)
-                    elif gp_checked == gp_total:
-                        grandparent.setCheckState(column, QtCore.Qt.Checked)
-                    else:
-                        grandparent.setCheckState(column, QtCore.Qt.PartiallyChecked)
-        finally:
-            self._block_tree_signals = False
+        """字段树复选框变化回调（不做任何联动，勾选啥就是啥）。"""
+        pass
 
     def retranslateUi(self, Dialog_thaiguodianyashanbian):
         _translate = QtCore.QCoreApplication.translate

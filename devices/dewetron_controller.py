@@ -8,6 +8,9 @@ import time
 # 未映射通道的 ChannelID
 UNUSED_CHANNEL_ID = 18446744073709551615  # 0xFFFFFFFFFFFFFFFF
 
+# DEWETRON 通信锁（确保同一时间只有一个线程在查询/发送）
+_dewetron_io_lock = threading.Lock()
+
 
 class DewetronController:
     """DEWETRON 功率分析仪控制器，统一管理连接、断开和命令发送。"""
@@ -113,36 +116,37 @@ class DewetronController:
         """发送 SCPI 命令。连接丢失时自动重连并重试一次。"""
         if self.handle is None:
             return False
-        try:
-            if timeout_ms is not None:
-                self.handle.timeout = timeout_ms
-            self.handle.write(command)
-        except Exception as e:
-            err_str = str(e)
-            if 'CONN_LOST' in err_str or '1073807194' in err_str:
-                print(f"[DEWETRON] 连接丢失: {e}")
-                self.logger.info(f"DEWETRON 连接丢失: {e}")
-                self.connected = False
-                if self._reconnect():
-                    try:
-                        if timeout_ms is not None:
-                            self.handle.timeout = timeout_ms
-                        self.handle.write(command)
-                    except Exception as e2:
-                        strtimenow = self.now_to_datenow()
-                        self.logger.info(f"{error_prefix} (重试) error :{e2}")
-                        print(f'{strtimenow} {error_prefix} (重试) error :{e2}')
+        with _dewetron_io_lock:
+            try:
+                if timeout_ms is not None:
+                    self.handle.timeout = timeout_ms
+                self.handle.write(command)
+            except Exception as e:
+                err_str = str(e)
+                if 'CONN_LOST' in err_str or '1073807194' in err_str:
+                    print(f"[DEWETRON] 连接丢失: {e}")
+                    self.logger.info(f"DEWETRON 连接丢失: {e}")
+                    self.connected = False
+                    if self._reconnect():
+                        try:
+                            if timeout_ms is not None:
+                                self.handle.timeout = timeout_ms
+                            self.handle.write(command)
+                        except Exception as e2:
+                            strtimenow = self.now_to_datenow()
+                            self.logger.info(f"{error_prefix} (重试) error :{e2}")
+                            print(f'{strtimenow} {error_prefix} (重试) error :{e2}')
+                            return False
+                    else:
                         return False
                 else:
+                    strtimenow = self.now_to_datenow()
+                    self.logger.info(f"{error_prefix} error :{e}")
+                    print(f'{strtimenow} {error_prefix} error :{e}')
                     return False
-            else:
-                strtimenow = self.now_to_datenow()
-                self.logger.info(f"{error_prefix} error :{e}")
-                print(f'{strtimenow} {error_prefix} error :{e}')
-                return False
-        self.logger.info(success_log)
-        print(self.now_to_datenow() + success_log)
-        return True
+            self.logger.info(success_log)
+            print(self.now_to_datenow() + success_log)
+            return True
 
     def send_start(self):
         """发送 START 命令（暂未实现具体 SCPI 命令）。"""
@@ -158,28 +162,32 @@ class DewetronController:
         """发送 SCPI 查询命令并返回响应。连接丢失时自动重连并重试一次。"""
         if self.handle is None:
             return None
-        try:
-            self.handle.timeout = timeout_ms
-            resp = self.handle.query(command)
-            return resp.strip()
-        except Exception as e:
-            err_str = str(e)
-            if 'CONN_LOST' in err_str or '1073807194' in err_str:
-                print(f"[DEWETRON] query 连接丢失: {e}")
-                self.logger.info(f"DEWETRON query 连接丢失: {e}")
-                self.connected = False
-                if self._reconnect():
-                    try:
-                        self.handle.timeout = timeout_ms
-                        resp = self.handle.query(command)
-                        return resp.strip()
-                    except Exception as e2:
-                        print(f"DEWETRON query error (重试): {e2}")
-                        return None
+        with _dewetron_io_lock:
+            try:
+                self.handle.timeout = timeout_ms
+                resp = self.handle.query(command)
+                # 调试：打印查询和响应的前50个字符
+                if 'ACQUISITION:STATE' in command or 'RATE' in command or 'NUM:NORM:ITEMs' in command:
+                    print(f"[DEWETRON] _query: {command} -> {resp[:50] if resp else 'None'}")
+                return resp.strip()
+            except Exception as e:
+                err_str = str(e)
+                if 'CONN_LOST' in err_str or '1073807194' in err_str:
+                    print(f"[DEWETRON] query 连接丢失: {e}")
+                    self.logger.info(f"DEWETRON query 连接丢失: {e}")
+                    self.connected = False
+                    if self._reconnect():
+                        try:
+                            self.handle.timeout = timeout_ms
+                            resp = self.handle.query(command)
+                            return resp.strip()
+                        except Exception as e2:
+                            print(f"DEWETRON query error (重试): {e2}")
+                            return None
+                    return None
+                print(f"DEWETRON query error: {e}")
+                self.logger.info(f"DEWETRON query error: {e}")
                 return None
-            print(f"DEWETRON query error: {e}")
-            self.logger.info(f"DEWETRON query error: {e}")
-            return None
 
     def read_channel_id_map(self):
         """从设备当前配置中读取 ShortId -> ChannelID 映射。
