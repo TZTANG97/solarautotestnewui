@@ -21,6 +21,8 @@ class _PageWidgetFinder:
             return w
         raise AttributeError(f"Widget '{name}' not found in stacked page")
 
+last_opened_csv_path = None
+
 arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "textEdit_S1_AC_VOLT_2",
                      "textEdit_S1_AC_VOLT_3","textEdit_S1_AC_FR","comboBox_S1_AC_2",
                 "checkBox_S1_DC1", "comboBox_S1_DC1", "textEdit_S1_DC1_VOLT", "textEdit_S1_DC1_CURR",
@@ -64,7 +66,10 @@ arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "te
             "spinBox_DEW_THDOrder", "comboBox_DEW_GroupingType", "comboBox_DEW_MaxRefreshRate",
             # DEWETRON 文件设置
             "checkBox_DEW_MultiFileStorage", "checkBox_DEW_SplitByTime",
-            "spinBox_DEW_SplitTime", "checkBox_DEW_CreateSubfolder"]
+            "spinBox_DEW_SplitTime", "checkBox_DEW_CreateSubfolder",
+            # DEWETRON 模式与导出设置
+            "dew_mode", "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
+            "DEW_ExportFields"]
 
 #泰国电压闪变保存设定
 def Save_File_ThaiXieBoDianLiu(kwargs):
@@ -707,8 +712,12 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
         arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_SplitByTime.isChecked() else '0')
         arrayRow2.append(str(uiThaiXieBoDianLiu.spinBox_DEW_SplitTime.value()))
         arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_CreateSubfolder.isChecked() else '0')
-        # DEWETRON 保存文件名（已移除，保留占位）
-        arrayRow2.append('')
+        # DEWETRON 模式与导出设置
+        arrayRow2.append(getattr(uiThaiXieBoDianLiu, '_mode', 'wt3000'))
+        arrayRow2.append(str(uiThaiXieBoDianLiu.spinBox_DEW_DecimalPlaces.value()))
+        arrayRow2.append('1' if uiThaiXieBoDianLiu.checkBox_DEW_RealtimeWaveform.isChecked() else '0')
+        checked_fields = uiThaiXieBoDianLiu.get_checked_export_fields() if hasattr(uiThaiXieBoDianLiu, 'get_checked_export_fields') else []
+        arrayRow2.append('|'.join(checked_fields))
 
         print(f"[DEBUG-SAVE] step2/3 数据收集完成，arrayRow2 总列数: {len(arrayRow2)}")
         print(f"[DEBUG-SAVE] step2: checkBox_S2={checkBox_S2}, WT3000={checkBox_S2_WT3000}, WT1800={checkBox_S2_WT1800}, WT1806E={checkBox_S2_WT1806E}, WT5000={checkBox_S2_WT5000}")
@@ -794,6 +803,7 @@ def Save_File_ThaiXieBoDianLiu(kwargs):
 
 #谐波电流读取设定
 def Open_File_ThaiXieBoDianLiu(kwargs):
+    global last_opened_csv_path
     print("=" * 80)
     print("[DEBUG-LOAD] ==================== 开始加载谐波电流配置 ====================")
     print(f"[DEBUG-LOAD] kwargs keys: {kwargs.keys()}")
@@ -825,6 +835,7 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
         print("[DEBUG-LOAD] 用户取消了文件选择")
         return
     else:
+        last_opened_csv_path = directory1[0]
         print(f"[DEBUG-LOAD] 读取文件: {directory1[0]}")
         try:
             f = open(directory1[0], 'r', encoding='utf-8-sig')
@@ -2130,10 +2141,35 @@ def Open_File_ThaiXieBoDianLiu(kwargs):
         if strFlag == "0" and len(arrayRow1) > 135:
             if arrayRow1[135] in config_dict:
                 uiThaiXieBoDianLiu.checkBox_DEW_CreateSubfolder.setChecked(config_dict[arrayRow1[135]] == '1')
-        # DEWETRON 保存文件名
+        # DEWETRON 模式与导出设置
         if strFlag == "0" and len(arrayRow1) > 136:
             if arrayRow1[136] in config_dict:
-                pass  # lineEdit_DEW_StoreFileName 已移除
+                dew_mode = config_dict[arrayRow1[136]].strip()
+                if dew_mode == 'dewetron':
+                    uiThaiXieBoDianLiu.radio_dewetron.setChecked(True)
+                    uiThaiXieBoDianLiu._mode = 'dewetron'
+                    if hasattr(uiThaiXieBoDianLiu, '_step2Stacked'):
+                        uiThaiXieBoDianLiu._step2Stacked.setCurrentIndex(1)
+                    if hasattr(uiThaiXieBoDianLiu, 'pushButton_DEW_DataViewer'):
+                        uiThaiXieBoDianLiu.pushButton_DEW_DataViewer.show()
+                else:
+                    uiThaiXieBoDianLiu.radio_wt3000.setChecked(True)
+                    uiThaiXieBoDianLiu._mode = 'wt3000'
+                    if hasattr(uiThaiXieBoDianLiu, '_step2Stacked'):
+                        uiThaiXieBoDianLiu._step2Stacked.setCurrentIndex(0)
+                    if hasattr(uiThaiXieBoDianLiu, 'pushButton_DEW_DataViewer'):
+                        uiThaiXieBoDianLiu.pushButton_DEW_DataViewer.hide()
+        if strFlag == "0" and len(arrayRow1) > 137:
+            if arrayRow1[137] in config_dict and config_dict[arrayRow1[137]] != '':
+                uiThaiXieBoDianLiu.spinBox_DEW_DecimalPlaces.setValue(int(config_dict[arrayRow1[137]]))
+        if strFlag == "0" and len(arrayRow1) > 138:
+            if arrayRow1[138] in config_dict:
+                uiThaiXieBoDianLiu.checkBox_DEW_RealtimeWaveform.setChecked(config_dict[arrayRow1[138]] == '1')
+        if strFlag == "0" and len(arrayRow1) > 139:
+            if arrayRow1[139] in config_dict and config_dict[arrayRow1[139]].strip():
+                fields = [x.strip() for x in config_dict[arrayRow1[139]].split('|') if x.strip()]
+                if hasattr(uiThaiXieBoDianLiu, 'set_checked_export_fields'):
+                    uiThaiXieBoDianLiu.set_checked_export_fields(fields)
 
         # 加载完成后切换到 step2 让用户看到 WT 配置回显
         if hasattr(uiThaiXieBoDianLiu, '_switch_step'):

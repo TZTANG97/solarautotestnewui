@@ -2,6 +2,7 @@
 # 静态CosPhi项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.dewetron_autotest_panel import AnalyzerModeSection
 from components.wt_config_content import (
     build_wt3000_content, build_wt1800_content,
     build_wt1806e_content, build_wt5000_content
@@ -127,16 +128,6 @@ class Ui_Dialog_thaistaticcosPhi(object):
         self.pushButton_Send.setObjectName("pushButton_Send")
         self.pushButton_Send.setVisible(False)
 
-        # ── 隐藏兼容字段（Send 函数无条件读取） ──
-        self.textEdit_S3_TIME_2 = QtWidgets.QTextEdit()
-        self.textEdit_S3_TIME_2.setObjectName("textEdit_S3_TIME_2")
-        self.textEdit_S3_TIME_2.setText("5")
-        self.textEdit_S3_TIME_2.setVisible(False)
-        self.comboBox_S3_TIME_2 = QtWidgets.QComboBox()
-        self.comboBox_S3_TIME_2.setObjectName("comboBox_S3_TIME_2")
-        self.comboBox_S3_TIME_2.addItems(["分钟", "秒", "毫秒"])
-        self.comboBox_S3_TIME_2.setVisible(False)
-
         self.retranslateUi(Dialog_thaistaticcosPhi)
         QtCore.QMetaObject.connectSlotsByName(Dialog_thaistaticcosPhi)
 
@@ -170,6 +161,32 @@ class Ui_Dialog_thaistaticcosPhi(object):
         if checked:
             rb.setChecked(True)
         return rb
+
+    def _integrate_analyzer_mode(self, layout, wt_group):
+        """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
+        self.analyzerModeSection = AnalyzerModeSection(wt_group, self.checkBox_S2)
+        self.dewetronPanel = self.analyzerModeSection.dewetron_panel
+        self.radio_wt3000 = self.analyzerModeSection.radio_wt
+        self.radio_dewetron = self.analyzerModeSection.radio_dewetron
+        self._mode = self.analyzerModeSection.current_mode()
+        self.analyzerModeSection.mode_changed.connect(
+            lambda mode: setattr(self, "_mode", mode)
+        )
+        for name in (
+            "pushButton_DEW_TestApply", "pushButton_DEW_RefreshFields",
+            "pushButton_DEW_DataViewer", "comboBox_DEW_MaxRefreshRate",
+            "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
+            "treeWidget_DEW_ExportFields",
+        ):
+            setattr(self, name, getattr(self.dewetronPanel, name))
+        self.get_checked_export_fields = self.dewetronPanel.get_checked_export_fields
+        self.refresh_export_field_tree = self.dewetronPanel.refresh_export_field_tree
+        self.set_checked_export_fields = self.dewetronPanel.set_checked_export_fields
+        self.get_checked_fields = self.get_checked_export_fields
+        self.refresh_checked_fields = self.refresh_export_field_tree
+        self.set_checked_fields = self.set_checked_export_fields
+        layout.addWidget(self.analyzerModeSection)
+
 
     # ══════════════════════════════════════════════
     # Step 1: AC/DC 电源设置
@@ -414,23 +431,14 @@ class Ui_Dialog_thaistaticcosPhi(object):
 
         self._wt_radio_group.buttonToggled.connect(_on_wt_radio_toggled)
 
-        # checkBox_S2 联动禁用 radio + stackedWidget 内容
-        def _on_s2_toggled(checked):
-            for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
-                       self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
-                rb.setEnabled(checked)
-            self._wtStacked.setEnabled(checked)
-
-        self.checkBox_S2.toggled.connect(_on_s2_toggled)
-        _on_s2_toggled(self.checkBox_S2.isChecked())
-
-        layout.addWidget(grpWT)
+        self._integrate_analyzer_mode(layout, grpWT)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
     # Steps 3-11: cosPhi 正/负 设置（合并平铺）
     # ══════════════════════════════════════════════
+
     def _build_cosPhi_steps(self):
         """构建合并的 cosPhi 设置页面，9 个 cosPhi 卡片平铺在滚动区域中。"""
         page = QtWidgets.QWidget()
@@ -438,6 +446,40 @@ class Ui_Dialog_thaistaticcosPhi(object):
         layout = QtWidgets.QVBoxLayout(page)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
+
+        # 功率阶梯（外循环）+ 每点驻留时间
+        ladder_grp = QtWidgets.QGroupBox("功率阶梯")
+        ladder_grp.setStyleSheet(
+            "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
+            "padding-top: 8px; font-weight: bold; }"
+        )
+        ladder_layout = QtWidgets.QGridLayout(ladder_grp)
+        ladder_layout.setSpacing(8)
+        ladder_layout.setContentsMargins(12, 20, 12, 12)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("功率档(%)："), 0, 0)
+        self.textEdit_PowerLadder = QtWidgets.QTextEdit()
+        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
+        self.textEdit_PowerLadder.setFixedHeight(28)
+        self.textEdit_PowerLadder.setText("100,90,80,70")
+        self.textEdit_PowerLadder.setPlaceholderText("逗号分隔，如 100,90,80,70；空则回退每卡功率%")
+        ladder_layout.addWidget(self.textEdit_PowerLadder, 0, 1, 1, 3)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 1, 0)
+        self.textEdit_S3_TIME_2 = QtWidgets.QTextEdit()
+        self.textEdit_S3_TIME_2.setObjectName("textEdit_S3_TIME_2")
+        self.textEdit_S3_TIME_2.setFixedSize(80, 28)
+        self.textEdit_S3_TIME_2.setText("5")
+        ladder_layout.addWidget(self.textEdit_S3_TIME_2, 1, 1)
+        self.comboBox_S3_TIME_2 = QtWidgets.QComboBox()
+        self.comboBox_S3_TIME_2.setObjectName("comboBox_S3_TIME_2")
+        self.comboBox_S3_TIME_2.addItems(["分钟", "秒", "毫秒"])
+        self.comboBox_S3_TIME_2.setFixedWidth(80)
+        ladder_layout.addWidget(self.comboBox_S3_TIME_2, 1, 2)
+        tip = QtWidgets.QLabel("流程：功率外循环 × 下方已勾选 cosφ 内循环，每点触发一次 WT 存盘")
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        ladder_layout.addWidget(tip, 2, 0, 1, 4)
+        layout.addWidget(ladder_grp)
 
         # 滚动区域承载所有 cosPhi 卡片
         scroll = QtWidgets.QScrollArea()

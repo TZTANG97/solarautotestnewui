@@ -36,6 +36,10 @@ class AppContext:
     dewetron_controller: Any = None
     wt3000_controller: Any = None
 
+    # DEWETRON AutoTest 共享服务（由启动装配按需注入）
+    dewetron_collector: Any = None
+    dewetron_coordinator: Any = None
+
     # 设置窗口 / 子窗口
     dialog_windowACSetting: Any = None
     dialog_windowDC1Setting: Any = None

@@ -796,8 +796,7 @@ def xxxSend():
 ### 自测1：启动测试
 
 ```bash
-conda activate SolarAutoTestEnv
-python SCPITestWave.py
+uv run python SCPITestWave.py
 ```
 
 - [ ] 程序正常启动，无 ImportError

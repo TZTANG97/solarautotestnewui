@@ -112,15 +112,53 @@ class DewetronController:
         self.logger.info("DEWETRON 重连失败")
         return False
 
-    def _send(self, command, success_log, error_prefix, timeout_ms=None):
-        """发送 SCPI 命令。连接丢失时自动重连并重试一次。"""
+    @staticmethod
+    def _write_with_timeout(handle, command, timeout_ms=None):
+        """Write once and restore the VISA timeout after a temporary override."""
+        timeout_changed = timeout_ms is not None
+        had_timeout = hasattr(handle, 'timeout')
+        old_timeout = getattr(handle, 'timeout', None)
+        try:
+            if timeout_changed:
+                handle.timeout = timeout_ms
+            handle.write(command)
+        finally:
+            if timeout_changed:
+                if had_timeout:
+                    handle.timeout = old_timeout
+                else:
+                    try:
+                        del handle.timeout
+                    except AttributeError:
+                        pass
+
+    @staticmethod
+    def _query_with_timeout(handle, command, timeout_ms):
+        """Query once and restore the VISA timeout after the operation."""
+        had_timeout = hasattr(handle, 'timeout')
+        old_timeout = getattr(handle, 'timeout', None)
+        try:
+            handle.timeout = timeout_ms
+            return handle.query(command)
+        finally:
+            if had_timeout:
+                handle.timeout = old_timeout
+            else:
+                try:
+                    del handle.timeout
+                except AttributeError:
+                    pass
+
+    def send_command(self, command, success_log=None, error_prefix=None, timeout_ms=None):
+        """发送 SCPI 命令，连接丢失时自动重连并重试一次。"""
         if self.handle is None:
             return False
+
+        success_log = success_log or f"DEWETRON command sent: {command}"
+        error_prefix = error_prefix or f"DEWETRON command failed: {command}"
         with _dewetron_io_lock:
             try:
-                if timeout_ms is not None:
-                    self.handle.timeout = timeout_ms
-                self.handle.write(command)
+                self._write_with_timeout(self.handle, command, timeout_ms)
             except Exception as e:
                 err_str = str(e)
                 if 'CONN_LOST' in err_str or '1073807194' in err_str:
@@ -129,9 +167,7 @@ class DewetronController:
                     self.connected = False
                     if self._reconnect():
                         try:
-                            if timeout_ms is not None:
-                                self.handle.timeout = timeout_ms
-                            self.handle.write(command)
+                            self._write_with_timeout(self.handle, command, timeout_ms)
                         except Exception as e2:
                             strtimenow = self.now_to_datenow()
                             self.logger.info(f"{error_prefix} (重试) error :{e2}")
@@ -148,27 +184,44 @@ class DewetronController:
             print(self.now_to_datenow() + success_log)
             return True
 
+    def _send(self, command, success_log, error_prefix, timeout_ms=None):
+        """兼容旧调用的命令发送别名。"""
+        return self.send_command(command, success_log, error_prefix, timeout_ms)
+
+    def start_acquisition(self):
+        """使用 DEWETRON acquisition API 启动采集。"""
+        return self.send_command(
+            ":ACQUISITION:START",
+            "SendMessageStartToDEWETRON::ACQUISITION:START",
+            "Send acquisition start message to DEWETRON",
+        )
+
+    def stop_acquisition(self):
+        """使用 DEWETRON acquisition API 停止采集。"""
+        return self.send_command(
+            ":ACQUISITION:STOP",
+            "SendMessageStopToDEWETRON::ACQUISITION:STOP",
+            "Send acquisition stop message to DEWETRON",
+        )
+
     def send_start(self):
-        """发送 START 命令（暂未实现具体 SCPI 命令）。"""
-        # TODO: 替换为 DEWETRON 实际 SCPI 命令
-        return self._send("START", "SendMessageStartToDEWETRON:START", "Send start message to DEWETRON")
+        """兼容旧接口，启动 DEWETRON 采集。"""
+        return self.start_acquisition()
 
     def send_stop(self):
-        """发送 STOP 命令（暂未实现具体 SCPI 命令）。"""
-        # TODO: 替换为 DEWETRON 实际 SCPI 命令
-        return self._send("STOP", "SendMessageStopToDEWETRON:STOP", "Send stop message to DEWETRON")
+        """兼容旧接口，停止 DEWETRON 采集。"""
+        return self.stop_acquisition()
 
-    def _query(self, command, timeout_ms=30000):
-        """发送 SCPI 查询命令并返回响应。连接丢失时自动重连并重试一次。"""
+    def query_command(self, command, timeout_ms=30000):
+        """发送 SCPI 查询并返回响应，连接丢失时自动重连并重试一次。"""
         if self.handle is None:
             return None
         with _dewetron_io_lock:
             try:
-                self.handle.timeout = timeout_ms
-                resp = self.handle.query(command)
+                resp = self._query_with_timeout(self.handle, command, timeout_ms)
                 # 调试：打印查询和响应的前50个字符
                 if 'ACQUISITION:STATE' in command or 'RATE' in command or 'NUM:NORM:ITEMs' in command:
-                    print(f"[DEWETRON] _query: {command} -> {resp[:50] if resp else 'None'}")
+                    print(f"[DEWETRON] query: {command} -> {resp[:50] if resp else 'None'}")
                 return resp.strip()
             except Exception as e:
                 err_str = str(e)
@@ -178,8 +231,7 @@ class DewetronController:
                     self.connected = False
                     if self._reconnect():
                         try:
-                            self.handle.timeout = timeout_ms
-                            resp = self.handle.query(command)
+                            resp = self._query_with_timeout(self.handle, command, timeout_ms)
                             return resp.strip()
                         except Exception as e2:
                             print(f"DEWETRON query error (重试): {e2}")
@@ -188,6 +240,14 @@ class DewetronController:
                 print(f"DEWETRON query error: {e}")
                 self.logger.info(f"DEWETRON query error: {e}")
                 return None
+
+    def query(self, command, timeout_ms=30000):
+        """公共查询别名。"""
+        return self.query_command(command, timeout_ms)
+
+    def _query(self, command, timeout_ms=30000):
+        """兼容旧调用的查询别名。"""
+        return self.query_command(command, timeout_ms)
 
     def read_channel_id_map(self):
         """从设备当前配置中读取 ShortId -> ChannelID 映射。

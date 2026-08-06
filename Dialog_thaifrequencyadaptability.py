@@ -6,6 +6,7 @@ from components.wt_config_content import (
     build_wt3000_content, build_wt1800_content,
     build_wt1806e_content, build_wt5000_content
 )
+from components.dewetron_autotest_panel import AnalyzerModeSection
 
 
 _STEP_TITLES = [
@@ -497,10 +498,35 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         self.comboBox_S2_update_rate.setFixedWidth(100)
         wG.addWidget(self.comboBox_S2_update_rate, 2, 3)
 
-        layout.addWidget(self.groupBox_wt)
+        self._integrate_analyzer_mode(layout, self.groupBox_wt)
         layout.addStretch()
 
         self.stackedWidget.addWidget(page)
+
+    def _integrate_analyzer_mode(self, layout, wt_group):
+        """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
+        self.analyzerModeSection = AnalyzerModeSection(wt_group, self.checkBox_S2)
+        self.dewetronPanel = self.analyzerModeSection.dewetron_panel
+        self.radio_wt3000 = self.analyzerModeSection.radio_wt
+        self.radio_dewetron = self.analyzerModeSection.radio_dewetron
+        self._mode = self.analyzerModeSection.current_mode()
+        self.analyzerModeSection.mode_changed.connect(
+            lambda mode: setattr(self, "_mode", mode)
+        )
+        for name in (
+            "pushButton_DEW_TestApply", "pushButton_DEW_RefreshFields",
+            "pushButton_DEW_DataViewer", "comboBox_DEW_MaxRefreshRate",
+            "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
+            "treeWidget_DEW_ExportFields",
+        ):
+            setattr(self, name, getattr(self.dewetronPanel, name))
+        self.get_checked_export_fields = self.dewetronPanel.get_checked_export_fields
+        self.refresh_export_field_tree = self.dewetronPanel.refresh_export_field_tree
+        self.set_checked_export_fields = self.dewetronPanel.set_checked_export_fields
+        self.get_checked_fields = self.get_checked_export_fields
+        self.refresh_checked_fields = self.refresh_export_field_tree
+        self.set_checked_fields = self.set_checked_export_fields
+        layout.addWidget(self.analyzerModeSection)
 
     # ================================================================ #
     #  过频步骤合并（9个卡片 → 1个滚动页面）
@@ -513,12 +539,12 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(0)
 
-        # 步骤启用复选框
-        self.checkBox_S3 = QtWidgets.QCheckBox("step3")
-        self.checkBox_S3.setChecked(True)
-        self.checkBox_S3.setObjectName("checkBox_S3")
-        self.checkBox_S3.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
-        layout.addWidget(self.checkBox_S3)
+        # 过频页总开关（勿与卡片 checkBox_S3 同名，避免 setattr 覆盖）
+        self.checkBox_guopin_page = QtWidgets.QCheckBox("启用过频设置")
+        self.checkBox_guopin_page.setChecked(True)
+        self.checkBox_guopin_page.setObjectName("checkBox_guopin_page")
+        self.checkBox_guopin_page.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
+        layout.addWidget(self.checkBox_guopin_page)
 
         # QScrollArea 承载所有卡片
         scroll = QtWidgets.QScrollArea()
@@ -529,10 +555,19 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         scroll_layout.setContentsMargins(0, 8, 0, 8)
         scroll_layout.setSpacing(8)
 
+        guopin_cards = []
         for i in range(9):
             step_num = 3 + i
             card = self._build_freq_card(step_num, "guopin", "过频 %d" % (i + 1))
             scroll_layout.addWidget(card)
+            guopin_cards.append(card)
+
+        def _on_guopin_page_toggled(checked, cards=guopin_cards):
+            for c in cards:
+                c.setEnabled(checked)
+
+        self.checkBox_guopin_page.toggled.connect(_on_guopin_page_toggled)
+        _on_guopin_page_toggled(self.checkBox_guopin_page.isChecked())
 
         scroll_layout.addStretch()
         scroll.setWidget(scroll_widget)
@@ -551,12 +586,12 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(0)
 
-        # 步骤启用复选框
-        self.checkBox_S12 = QtWidgets.QCheckBox("step12")
-        self.checkBox_S12.setChecked(True)
-        self.checkBox_S12.setObjectName("checkBox_S12")
-        self.checkBox_S12.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
-        layout.addWidget(self.checkBox_S12)
+        # 欠频页总开关（勿与卡片 checkBox_S12 同名）
+        self.checkBox_qianpin_page = QtWidgets.QCheckBox("启用欠频设置")
+        self.checkBox_qianpin_page.setChecked(True)
+        self.checkBox_qianpin_page.setObjectName("checkBox_qianpin_page")
+        self.checkBox_qianpin_page.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
+        layout.addWidget(self.checkBox_qianpin_page)
 
         # QScrollArea 承载所有卡片
         scroll = QtWidgets.QScrollArea()
@@ -567,10 +602,19 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         scroll_layout.setContentsMargins(0, 8, 0, 8)
         scroll_layout.setSpacing(8)
 
+        qianpin_cards = []
         for i in range(9):
             step_num = 12 + i
             card = self._build_freq_card(step_num, "qianpin", "欠频 %d" % (i + 1))
             scroll_layout.addWidget(card)
+            qianpin_cards.append(card)
+
+        def _on_qianpin_page_toggled(checked, cards=qianpin_cards):
+            for c in cards:
+                c.setEnabled(checked)
+
+        self.checkBox_qianpin_page.toggled.connect(_on_qianpin_page_toggled)
+        _on_qianpin_page_toggled(self.checkBox_qianpin_page.isChecked())
 
         scroll_layout.addStretch()
         scroll.setWidget(scroll_widget)

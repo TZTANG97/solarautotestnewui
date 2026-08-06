@@ -7,6 +7,49 @@ from utils.Open_Save_ThaiWT1800_Config import Save_File_ThaiWT1800_Config, Open_
 from utils.Open_Save_ThaiWT1806E_Config import Save_File_ThaiWT1806E_Config, Open_File_ThaiWT1806E_Config
 from utils.Open_Save_ThaiWT5000_Config import Save_File_ThaiWT5000_Config, Open_File_ThaiWT5000_Config
 from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
+from dewetron_autotest import (
+    PROJECT_SPECS,
+    append_dewetron_tail_columns,
+    extract_ui_config,
+    extract_ui_mode,
+    read_dewetron_tail_columns,
+)
+
+_DEWETRON_SPEC = PROJECT_SPECS["过欠压_过欠频"]
+
+
+def _append_dewetron_tail(values, ui):
+    """Append or update this project's named DEWETRON persistence tail."""
+    section = getattr(ui, "analyzerModeSection", None)
+    source = section if section is not None else ui
+    return append_dewetron_tail_columns(
+        arrayRow1,
+        values,
+        extract_ui_config(source),
+        mode=extract_ui_mode(source),
+        test_type=_DEWETRON_SPEC.test_type,
+        profile=_DEWETRON_SPEC.profile,
+    )
+
+
+def _restore_dewetron_tail(headers, values, ui):
+    """Restore named DEWETRON data without requiring a newer dialog build."""
+    try:
+        mode, config = read_dewetron_tail_columns(headers, values)
+    except (IndexError, TypeError, ValueError):
+        mode, config = read_dewetron_tail_columns([], [])
+    section = getattr(ui, "analyzerModeSection", None)
+    if section is not None:
+        set_config = getattr(section, "set_dewetron_config", None)
+        if not callable(set_config):
+            set_config = getattr(section, "set_config", None)
+        if callable(set_config):
+            set_config(config)
+        set_mode = getattr(section, "set_mode", None)
+        if callable(set_mode):
+            set_mode(mode)
+    return mode, config
+
 
 arrayRow1 = ['Style',
     'checkBox_S1',
@@ -454,6 +497,8 @@ def Save_File_ThaiGuoQianYa_Pin(kwargs):
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
 
+        _append_dewetron_tail(arrayRow2, uithaiGuoQianYa_Pin)
+
         if uithaiGuoQianYa_Pin.radioButton_S2_WT3000.isChecked():
             result = Save_File_ThaiWT3000_Config(_PageWidgetFinder(uithaiGuoQianYa_Pin._wtStacked.widget(0)))
 
@@ -508,7 +553,7 @@ def Open_File_ThaiGuoQianYa_Pin(kwargs):
             if delta_len > 0:
                 extend_list = ['' for k in range(delta_len)]
                 result_list[1].extend(extend_list)
-            config_dict = zip(result_list[0],result_list[1])
+            config_dict = dict(zip(result_list[0], result_list[1]))
         if len(result_list) == 4:
             delta_len1 = int(len(result_list[0]) - len(result_list[1]))
             if delta_len1 > 0:
@@ -1369,6 +1414,7 @@ def Open_File_ThaiGuoQianYa_Pin(kwargs):
                     else:
                         strFlag = 1
 
+                    _restore_dewetron_tail(result_list[0], result_list[1], uithaiGuoQianYa_Pin)
                 else:
                     print("no")
                     strFlag = "1"

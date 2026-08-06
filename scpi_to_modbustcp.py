@@ -143,8 +143,9 @@ class ItechTranslator:
 
             elif text == "INST:EDIT ALL":
                 if self.phase_mode == "SINGLE":
-                    logger.warning("爱科: 单相模式不支持多相同时编辑")
-                    return _out(False)
+                    # 单相下 INST:PHASE SINGLE 已写 0x0C48=独立编辑；测试脚本仍发 INST:EDIT ALL（致茂 SCPI 习惯），此处按空操作成功处理
+                    logger.info("爱科: 单相模式忽略 INST:EDIT ALL（已由 SINGLE 配置独立编辑）")
+                    return _out(True)
                 self.edit_mode = "ALL"
                 logger.info("爱科: 多相同步编辑模式")
                 return _out(True)

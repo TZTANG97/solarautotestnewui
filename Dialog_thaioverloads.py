@@ -2,6 +2,7 @@
 # 90min过载项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.dewetron_autotest_panel import AnalyzerModeSection
 from components.wt_config_content import (
     build_wt3000_content, build_wt1800_content,
     build_wt1806e_content, build_wt5000_content,
@@ -154,6 +155,32 @@ class Ui_Dialog_thaioverloads(object):
                     }
                     QLabel:hover { background-color: #f1f5f9; }
                 """)
+
+    def _integrate_analyzer_mode(self, layout, wt_group):
+        """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
+        self.analyzerModeSection = AnalyzerModeSection(wt_group, self.checkBox_S2)
+        self.dewetronPanel = self.analyzerModeSection.dewetron_panel
+        self.radio_wt3000 = self.analyzerModeSection.radio_wt
+        self.radio_dewetron = self.analyzerModeSection.radio_dewetron
+        self._mode = self.analyzerModeSection.current_mode()
+        self.analyzerModeSection.mode_changed.connect(
+            lambda mode: setattr(self, "_mode", mode)
+        )
+        for name in (
+            "pushButton_DEW_TestApply", "pushButton_DEW_RefreshFields",
+            "pushButton_DEW_DataViewer", "comboBox_DEW_MaxRefreshRate",
+            "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
+            "treeWidget_DEW_ExportFields",
+        ):
+            setattr(self, name, getattr(self.dewetronPanel, name))
+        self.get_checked_export_fields = self.dewetronPanel.get_checked_export_fields
+        self.refresh_export_field_tree = self.dewetronPanel.refresh_export_field_tree
+        self.set_checked_export_fields = self.dewetronPanel.set_checked_export_fields
+        self.get_checked_fields = self.get_checked_export_fields
+        self.refresh_checked_fields = self.refresh_export_field_tree
+        self.set_checked_fields = self.set_checked_export_fields
+        layout.addWidget(self.analyzerModeSection)
+
 
     # ══════════════════════════════════════════════
     # Step 1: AC + DC 电源设置 + 时序
@@ -462,26 +489,14 @@ class Ui_Dialog_thaioverloads(object):
 
         radio_group.buttonToggled.connect(_on_radio_toggled)
 
-        # 步骤启用复选框联动
-        s2_children = [self._wtStacked]
-        for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
-                   self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
-            s2_children.append(rb)
-
-        def _on_s2_toggled(checked):
-            for w in s2_children:
-                w.setEnabled(checked)
-
-        self.checkBox_S2.toggled.connect(_on_s2_toggled)
-        _on_s2_toggled(self.checkBox_S2.isChecked())
-
-        layout.addWidget(grp)
+        self._integrate_analyzer_mode(layout, grp)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
     # Step 3: 数据采集
     # ══════════════════════════════════════════════
+
     def _build_step3(self):
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")

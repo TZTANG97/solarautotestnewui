@@ -133,6 +133,13 @@ class Ui_Dialog(object):
             "border-left: 3px solid #3b82f6; color: #3b82f6;"))
         _scrollLayout.addWidget(_home_item)
 
+        # ── 测试进度（首页下方独立菜单，对应 stacked 页 11）──
+        _progress_item = _make_item("测试进度", 11)
+        _progress_icon = _progress_item.style().standardIcon(QtWidgets.QStyle.SP_MediaSeekForward)
+        _progress_item.setIcon(_progress_icon)
+        _progress_item.setIconSize(QtCore.QSize(16, 16))
+        _scrollLayout.addWidget(_progress_item)
+
         # ── 一级菜单: 设备管理 ──
         _sec_dev = _make_header("设备管理", "SP_ComputerIcon")
         _scrollLayout.addWidget(_sec_dev)
@@ -621,7 +628,7 @@ class Ui_Dialog(object):
             _make_device_page("德威创", "pushButton_ConnectEQUDEWETRON",
                               use_ip_input=True))
 
-        # ── 页面 8: 项目配置 ──
+        # ── 页面 9: 项目配置 ──
         projectPage = QtWidgets.QWidget()
         projectPage.setStyleSheet(_pageStyle)
         projectPageLayout = QtWidgets.QVBoxLayout(projectPage)
@@ -690,7 +697,7 @@ class Ui_Dialog(object):
         testLayout.addWidget(self.btn_test, 0, QtCore.Qt.AlignLeft)
         projectPageLayout.addWidget(testCard)
 
-        # 项目日志（降低高度，给设置区域腾出空间）
+        # 项目日志
         logLabel = QtWidgets.QLabel("操作日志:")
         logLabel.setStyleSheet("font-size: 12px; color: #6b7280; background: transparent;")
         projectPageLayout.addWidget(logLabel)
@@ -698,9 +705,9 @@ class Ui_Dialog(object):
         self.textEdit_ReturnMessage.setObjectName("textEdit_ReturnMessage")
         self.textEdit_ReturnMessage.setReadOnly(True)
         self.textEdit_ReturnMessage.setStyleSheet(_logStyle)
-        self.textEdit_ReturnMessage.setMinimumHeight(80)
-        self.textEdit_ReturnMessage.setMaximumHeight(150)
-        projectPageLayout.addWidget(self.textEdit_ReturnMessage, 0)  # 不拉伸
+        self.textEdit_ReturnMessage.setMinimumHeight(100)
+        self.textEdit_ReturnMessage.setMaximumHeight(160)
+        projectPageLayout.addWidget(self.textEdit_ReturnMessage, 0)
         self.pushButton_ClearMessage = QtWidgets.QPushButton("清空消息")
         self.pushButton_ClearMessage.setObjectName("pushButton_ClearMessage")
         self.pushButton_ClearMessage.setFixedWidth(90)
@@ -712,7 +719,7 @@ class Ui_Dialog(object):
 
         self.stackedWidget.addWidget(projectPage)
 
-        # ── 页面 9: 命令文件（嵌入 FileManagerDialog 内容） ──
+        # ── 页面 10: 命令文件（嵌入 FileManagerDialog 内容） ──
         import os as _os
         from DialogFileManager import FileListWidget
         cmdPage = QtWidgets.QWidget()
@@ -736,6 +743,75 @@ class Ui_Dialog(object):
                                         preview_type='xml'), "DEWETRON 配置")
         cmdPageLayout.addWidget(_cmdTabs)
         self.stackedWidget.addWidget(cmdPage)
+
+        # ── 页面 11: 测试进度（从项目配置拆出，独立全页展示）──
+        progressPage = QtWidgets.QWidget()
+        progressPage.setStyleSheet(_pageStyle)
+        progressPageLayout = QtWidgets.QVBoxLayout(progressPage)
+        progressPageLayout.setContentsMargins(24, 16, 24, 16)
+        progressPageLayout.setSpacing(12)
+
+        progressTitle = QtWidgets.QLabel("测试进度")
+        progressTitle.setStyleSheet(
+            "font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;"
+        )
+        progressPageLayout.addWidget(progressTitle)
+
+        progressCard = QtWidgets.QWidget()
+        progressCard.setObjectName("card")
+        progressCard.setStyleSheet(_cardStyle)
+        progressLayout = QtWidgets.QVBoxLayout(progressCard)
+        progressLayout.setContentsMargins(16, 14, 16, 14)
+        progressLayout.setSpacing(10)
+
+        self.label_run_progress = QtWidgets.QLabel("试验进度：未开始")
+        self.label_run_progress.setObjectName("label_run_progress")
+        self.label_run_progress.setStyleSheet(
+            "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
+        )
+        progressLayout.addWidget(self.label_run_progress)
+
+        self.progressBar_run = QtWidgets.QProgressBar()
+        self.progressBar_run.setObjectName("progressBar_run")
+        self.progressBar_run.setRange(0, 100)
+        self.progressBar_run.setValue(0)
+        self.progressBar_run.setFixedHeight(22)
+        self.progressBar_run.setFormat("%p%")
+        self.progressBar_run.setStyleSheet("""
+            QProgressBar { border: 1px solid #d1d5db; border-radius: 4px; background: #dde0e5;
+                           text-align: center; font-size: 12px; }
+            QProgressBar::chunk { background-color: #3b82f6; border-radius: 3px; }
+        """)
+        progressLayout.addWidget(self.progressBar_run)
+
+        self.tableWidget_run_progress = QtWidgets.QTableWidget(0, 4)
+        self.tableWidget_run_progress.setObjectName("tableWidget_run_progress")
+        self.tableWidget_run_progress.setHorizontalHeaderLabels(
+            ["轮次", "保存文件名", "状态", "备注"]
+        )
+        self.tableWidget_run_progress.horizontalHeader().setStretchLastSection(True)
+        self.tableWidget_run_progress.horizontalHeader().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.tableWidget_run_progress.horizontalHeader().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.Stretch
+        )
+        self.tableWidget_run_progress.horizontalHeader().setSectionResizeMode(
+            2, QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.tableWidget_run_progress.verticalHeader().setVisible(False)
+        self.tableWidget_run_progress.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.tableWidget_run_progress.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tableWidget_run_progress.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.tableWidget_run_progress.setAlternatingRowColors(True)
+        self.tableWidget_run_progress.setStyleSheet("""
+            QTableWidget { background: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; }
+            QHeaderView::section { background: #f1f5f9; padding: 6px; border: none;
+                                   border-bottom: 1px solid #e2e8f0; font-weight: bold; }
+        """)
+        progressLayout.addWidget(self.tableWidget_run_progress, 1)
+        progressPageLayout.addWidget(progressCard, 1)
+        self.stackedWidget.addWidget(progressPage)
 
         rightLayout.addWidget(self.stackedWidget, 1)
         mainLayout.addWidget(rightPanel, 1)

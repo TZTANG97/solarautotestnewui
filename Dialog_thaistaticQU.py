@@ -2,6 +2,7 @@
 # 静态QU项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.dewetron_autotest_panel import AnalyzerModeSection
 from components.wt_config_content import (
     build_wt3000_content, build_wt1800_content,
     build_wt1806e_content, build_wt5000_content
@@ -87,7 +88,7 @@ class Ui_Dialog_thaiStaticQU(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ QU测试1", "④ QU测试2", "⑤ QU测试3", "⑥ QU测试4", "⑦ 判定结果", "⑧ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 电压阶梯", "④ QU测试2", "⑤ QU测试3", "⑥ QU测试4", "⑦ 判定结果", "⑧ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -164,6 +165,32 @@ class Ui_Dialog_thaiStaticQU(object):
         if checked:
             rb.setChecked(True)
         return rb
+
+    def _integrate_analyzer_mode(self, layout, wt_group):
+        """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
+        self.analyzerModeSection = AnalyzerModeSection(wt_group, self.checkBox_S2)
+        self.dewetronPanel = self.analyzerModeSection.dewetron_panel
+        self.radio_wt3000 = self.analyzerModeSection.radio_wt
+        self.radio_dewetron = self.analyzerModeSection.radio_dewetron
+        self._mode = self.analyzerModeSection.current_mode()
+        self.analyzerModeSection.mode_changed.connect(
+            lambda mode: setattr(self, "_mode", mode)
+        )
+        for name in (
+            "pushButton_DEW_TestApply", "pushButton_DEW_RefreshFields",
+            "pushButton_DEW_DataViewer", "comboBox_DEW_MaxRefreshRate",
+            "spinBox_DEW_DecimalPlaces", "checkBox_DEW_RealtimeWaveform",
+            "treeWidget_DEW_ExportFields",
+        ):
+            setattr(self, name, getattr(self.dewetronPanel, name))
+        self.get_checked_export_fields = self.dewetronPanel.get_checked_export_fields
+        self.refresh_export_field_tree = self.dewetronPanel.refresh_export_field_tree
+        self.set_checked_export_fields = self.dewetronPanel.set_checked_export_fields
+        self.get_checked_fields = self.get_checked_export_fields
+        self.refresh_checked_fields = self.refresh_export_field_tree
+        self.set_checked_fields = self.set_checked_export_fields
+        layout.addWidget(self.analyzerModeSection)
+
 
     # ══════════════════════════════════════════════
     # Step 1: AC/DC 电源 + 时序设置
@@ -430,23 +457,14 @@ class Ui_Dialog_thaiStaticQU(object):
 
         self._wt_radio_group.buttonToggled.connect(_on_wt_radio_toggled)
 
-        # checkBox_S2 联动禁用 radio + stackedWidget 内容
-        def _on_s2_toggled(checked):
-            for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
-                       self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
-                rb.setEnabled(checked)
-            self._wtStacked.setEnabled(checked)
-
-        self.checkBox_S2.toggled.connect(_on_s2_toggled)
-        _on_s2_toggled(self.checkBox_S2.isChecked())
-
-        layout.addWidget(self.groupBox_5)
+        self._integrate_analyzer_mode(layout, self.groupBox_5)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
     # Step 3: QU 趋势1
     # ══════════════════════════════════════════════
+
     def _build_step3(self):
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
@@ -454,9 +472,71 @@ class Ui_Dialog_thaiStaticQU(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
+        # 电压 LIST：与 WT 文件名列表、Cos 功率阶梯同一写法（逗号分隔）
+        # 无功不填：机侧 Q(U) 随电压变化，由 WT 实测
+        _DEFAULT_U_LIST = (
+            "100,103,105,106,107,108,110,112,115,"
+            "112,110,108,107,106,105,103,100,"
+            "97,94,93,90,87,85,87,90,93,94,97"
+        )
+        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压 list（优先，写法同 WT）")
+        ladder_grp.setStyleSheet(
+            "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
+            "padding-top: 8px; font-weight: bold; }"
+        )
+        ladder_layout = QtWidgets.QGridLayout(ladder_grp)
+        ladder_layout.setSpacing(8)
+        ladder_layout.setContentsMargins(12, 20, 12, 12)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("Un基准(V)："), 0, 0)
+        self.textEdit_VoltageLadder_Un = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_Un.setObjectName("textEdit_VoltageLadder_Un")
+        self.textEdit_VoltageLadder_Un.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_Un.setText("230")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_Un, 0, 1)
+        ladder_layout.addWidget(QtWidgets.QLabel("频率(Hz)："), 0, 2)
+        self.textEdit_VoltageLadder_FR = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_FR.setObjectName("textEdit_VoltageLadder_FR")
+        self.textEdit_VoltageLadder_FR.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_FR.setText("50")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_FR, 0, 3)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("电压Un%(list)："), 1, 0)
+        self.textEdit_VoltageLadder = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
+        self.textEdit_VoltageLadder.setFixedHeight(28)
+        self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
+        self.textEdit_VoltageLadder.setPlaceholderText("逗号分隔，同 WT，如 100,103,105,...")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder, 1, 1, 1, 3)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
+        self.textEdit_VoltageLadder_TIME = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_TIME.setObjectName("textEdit_VoltageLadder_TIME")
+        self.textEdit_VoltageLadder_TIME.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_TIME.setText("10")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 2, 1)
+        self.comboBox_VoltageLadder_TIME = QtWidgets.QComboBox()
+        self.comboBox_VoltageLadder_TIME.setObjectName("comboBox_VoltageLadder_TIME")
+        self.comboBox_VoltageLadder_TIME.addItems(["分钟", "秒", "毫秒"])
+        self.comboBox_VoltageLadder_TIME.setCurrentText("秒")
+        self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
+        ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 2, 2)
+        tip = QtWidgets.QLabel(
+            "只填电压 list（同 WT）。逐点改网压，无功由机侧 Q(U) 自动产生，WT 每点测量存盘。"
+            "Pn=100% 由步骤① DC 保持。"
+        )
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tip.setWordWrap(True)
+        ladder_layout.addWidget(tip, 3, 0, 1, 4)
+        layout.addWidget(ladder_grp)
+
+        legacy_tip = QtWidgets.QLabel("下方为旧「等步长」模式：仅当上方电压 list 为空时才使用")
+        legacy_tip.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        layout.addWidget(legacy_tip)
+
         self._build_qu_trend_page(
-            layout, "groupBox_3", "QU 趋势1 设置",
-            "checkBox_S3", "step3", True,
+            layout, "groupBox_3", "QU 趋势1 设置（等步长备用）",
+            "checkBox_S3", "step3", False,
             "label_20", "交流电源",
             "label_133", "V", "textEdit_S3_AC_VOLT", "230",
             "label_22", "交流电压趋势",
@@ -491,7 +571,7 @@ class Ui_Dialog_thaiStaticQU(object):
 
         self._build_qu_trend_page(
             layout, "groupBox_6", "QU 趋势2 设置",
-            "checkBox_S4", "step4", True,
+            "checkBox_S4", "step4", False,
             "label_21", "交流电源",
             "label_134", "V", "textEdit_S4_AC_VOLT", "230",
             "label_24", "交流电压趋势",
@@ -526,7 +606,7 @@ class Ui_Dialog_thaiStaticQU(object):
 
         self._build_qu_trend_page(
             layout, "groupBox_7", "QU 趋势3 设置",
-            "checkBox_S5", "step5", True,
+            "checkBox_S5", "step5", False,
             "label_27", "交流电源",
             "label_135", "V", "textEdit_S5_AC_VOLT", "230",
             "label_26", "交流电压趋势",
@@ -561,7 +641,7 @@ class Ui_Dialog_thaiStaticQU(object):
 
         self._build_qu_trend_page(
             layout, "groupBox_8", "QU 趋势4 设置",
-            "checkBox_S6", "step6", True,
+            "checkBox_S6", "step6", False,
             "label_30", "交流电源",
             "label_136", "V", "textEdit_S6_AC_VOLT", "230",
             "label_29", "交流电压趋势",
@@ -596,7 +676,7 @@ class Ui_Dialog_thaiStaticQU(object):
 
         self._build_qu_trend_page(
             layout, "groupBox_9", "QU 趋势5 设置",
-            "checkBox_S7", "step7", True,
+            "checkBox_S7", "step7", False,
             "label_46", "交流电源",
             "label_137", "V", "textEdit_S7_AC_VOLT", "230",
             "label_47", "交流电压趋势",

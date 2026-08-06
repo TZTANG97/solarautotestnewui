@@ -6,6 +6,49 @@ from utils.Open_Save_ThaiWT1800_Config import Save_File_ThaiWT1800_Config, Open_
 from utils.Open_Save_ThaiWT1806E_Config import Save_File_ThaiWT1806E_Config, Open_File_ThaiWT1806E_Config
 from utils.Open_Save_ThaiWT5000_Config import Save_File_ThaiWT5000_Config, Open_File_ThaiWT5000_Config
 from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
+from dewetron_autotest import (
+    PROJECT_SPECS,
+    append_dewetron_tail_columns,
+    extract_ui_config,
+    extract_ui_mode,
+    read_dewetron_tail_columns,
+)
+
+_DEWETRON_SPEC = PROJECT_SPECS["静态QU"]
+
+
+def _append_dewetron_tail(values, ui):
+    """Append or update this project's named DEWETRON persistence tail."""
+    section = getattr(ui, "analyzerModeSection", None)
+    source = section if section is not None else ui
+    return append_dewetron_tail_columns(
+        arrayRow1,
+        values,
+        extract_ui_config(source),
+        mode=extract_ui_mode(source),
+        test_type=_DEWETRON_SPEC.test_type,
+        profile=_DEWETRON_SPEC.profile,
+    )
+
+
+def _restore_dewetron_tail(headers, values, ui):
+    """Restore named DEWETRON data without requiring a newer dialog build."""
+    try:
+        mode, config = read_dewetron_tail_columns(headers, values)
+    except (IndexError, TypeError, ValueError):
+        mode, config = read_dewetron_tail_columns([], [])
+    section = getattr(ui, "analyzerModeSection", None)
+    if section is not None:
+        set_config = getattr(section, "set_dewetron_config", None)
+        if not callable(set_config):
+            set_config = getattr(section, "set_config", None)
+        if callable(set_config):
+            set_config(config)
+        set_mode = getattr(section, "set_mode", None)
+        if callable(set_mode):
+            set_mode(mode)
+    return mode, config
+
 
 arrayRow1 = ['Style',
     'checkBox_S1',
@@ -31,7 +74,9 @@ arrayRow1 = ['Style',
         'textEdit_S6_AC_Step', 'textEdit_S6_AC_FR', 'textEdit_S6_TIME', 'comboBox_S6_TIME',
     'checkBox_S_End', "comboBox_S_End_AC", "checkBox_S_End_DC1", "comboBox_S_End_DC1","checkBox_S_End_DC2",
         "comboBox_S_End_DC2","checkBox_S_End_DC3", "comboBox_S_End_DC3","checkBox_S_End_DC4","comboBox_S_End_DC4",
-    "checkBox_S2_WT1806E", "checkBox_S2_WT5000"]
+    "checkBox_S2_WT1806E", "checkBox_S2_WT5000",
+    "textEdit_VoltageLadder", "textEdit_VoltageLadder_Un", "textEdit_VoltageLadder_FR",
+    "textEdit_VoltageLadder_TIME", "comboBox_VoltageLadder_TIME"]
 
 # 静态QU保存设定
 def Save_File_ThaiStaticQU(kwargs):
@@ -393,6 +438,19 @@ def Save_File_ThaiStaticQU(kwargs):
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
 
+        vl = getattr(uithaistaticQU, "textEdit_VoltageLadder", None)
+        arrayRow2.append(vl.toPlainText() if vl is not None else "")
+        vl_un = getattr(uithaistaticQU, "textEdit_VoltageLadder_Un", None)
+        arrayRow2.append(vl_un.toPlainText() if vl_un is not None else "230")
+        vl_fr = getattr(uithaistaticQU, "textEdit_VoltageLadder_FR", None)
+        arrayRow2.append(vl_fr.toPlainText() if vl_fr is not None else "50")
+        vl_t = getattr(uithaistaticQU, "textEdit_VoltageLadder_TIME", None)
+        arrayRow2.append(vl_t.toPlainText() if vl_t is not None else "10")
+        vl_tu = getattr(uithaistaticQU, "comboBox_VoltageLadder_TIME", None)
+        arrayRow2.append(vl_tu.currentIndex() if vl_tu is not None else 1)
+
+        _append_dewetron_tail(arrayRow2, uithaistaticQU)
+
         if uithaistaticQU.radioButton_S2_WT3000.isChecked():
             result = Save_File_ThaiWT3000_Config(_PageWidgetFinder(uithaistaticQU._wtStacked.widget(0)))
 
@@ -447,7 +505,7 @@ def Open_File_ThaiStaticQU(kwargs):
             if delta_len > 0:
                 extend_list = ['' for k in range(delta_len)]
                 result_list[1].extend(extend_list)
-            config_dict = zip(result_list[0],result_list[1])
+            config_dict = dict(zip(result_list[0], result_list[1]))
         if len(result_list) == 4:
             delta_len1 = int(len(result_list[0]) - len(result_list[1]))
             if delta_len1 > 0:
@@ -1202,6 +1260,32 @@ def Open_File_ThaiStaticQU(kwargs):
                     else:
                         strFlag = 1
 
+                    # 电压阶梯（新字段，旧 CSV 无此列时保持默认）
+                    if "textEdit_VoltageLadder" in config_dict and hasattr(uithaistaticQU, "textEdit_VoltageLadder"):
+                        uithaistaticQU.textEdit_VoltageLadder.setText(
+                            config_dict.get("textEdit_VoltageLadder") or ""
+                        )
+                    if "textEdit_VoltageLadder_Un" in config_dict and hasattr(uithaistaticQU, "textEdit_VoltageLadder_Un"):
+                        uithaistaticQU.textEdit_VoltageLadder_Un.setText(
+                            str(config_dict.get("textEdit_VoltageLadder_Un") or "230")
+                        )
+                    if "textEdit_VoltageLadder_FR" in config_dict and hasattr(uithaistaticQU, "textEdit_VoltageLadder_FR"):
+                        uithaistaticQU.textEdit_VoltageLadder_FR.setText(
+                            str(config_dict.get("textEdit_VoltageLadder_FR") or "50")
+                        )
+                    if "textEdit_VoltageLadder_TIME" in config_dict and hasattr(uithaistaticQU, "textEdit_VoltageLadder_TIME"):
+                        uithaistaticQU.textEdit_VoltageLadder_TIME.setText(
+                            str(config_dict.get("textEdit_VoltageLadder_TIME") or "10")
+                        )
+                    if "comboBox_VoltageLadder_TIME" in config_dict and hasattr(uithaistaticQU, "comboBox_VoltageLadder_TIME"):
+                        try:
+                            uithaistaticQU.comboBox_VoltageLadder_TIME.setCurrentIndex(
+                                int(config_dict.get("comboBox_VoltageLadder_TIME") or 1)
+                            )
+                        except (TypeError, ValueError):
+                            pass
+
+                    _restore_dewetron_tail(result_list[0], result_list[1], uithaistaticQU)
                 else:
                     print("no")
                     strFlag = "1"

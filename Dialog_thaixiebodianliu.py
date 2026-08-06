@@ -4,6 +4,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from components.timeline import TimelineWidget
 from components.wt_config_content import build_wt3000_content, build_wt1800_content, build_wt1806e_content, build_wt5000_content
+from Dialog_thaiguodianyashanbian import parse_power_group_tree
 
 # 12 个谐波步骤的 widget objectName 规格（保持原有命名不变）
 _HARMONIC_SPECS = [
@@ -159,6 +160,8 @@ class Ui_Dialog_thaixiebodianliu(object):
         self._build_step2()           # 功率分析仪
         self._build_step3_harmonics() # 谐波设置（timeline + card）
         self._build_step13()          # 关机设置
+
+        self._mode = 'wt3000'
 
         # 默认显示第一页
         self._switch_step(0)
@@ -595,6 +598,49 @@ class Ui_Dialog_thaixiebodianliu(object):
 
         dew_layout.addWidget(file_group)
 
+        # ── Group 3: DEWETRON 导出设置（采集字段） ──
+        export_group = QtWidgets.QGroupBox()
+        export_group.setTitle("DEWETRON 导出设置")
+        export_group.setStyleSheet(self._GRP_STYLE)
+        export_form = QtWidgets.QFormLayout(export_group)
+        export_form.setSpacing(10)
+        export_form.setContentsMargins(16, 24, 16, 12)
+
+        self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()
+        self.spinBox_DEW_DecimalPlaces.setRange(0, 6)
+        self.spinBox_DEW_DecimalPlaces.setValue(3)
+        self.spinBox_DEW_DecimalPlaces.setFixedWidth(80)
+        self.spinBox_DEW_DecimalPlaces.setObjectName("spinBox_DEW_DecimalPlaces")
+        export_form.addRow("保留小数位数:", self.spinBox_DEW_DecimalPlaces)
+
+        self.checkBox_DEW_RealtimeWaveform = QtWidgets.QCheckBox("启用实时波形显示")
+        self.checkBox_DEW_RealtimeWaveform.setChecked(False)
+        self.checkBox_DEW_RealtimeWaveform.setObjectName("checkBox_DEW_RealtimeWaveform")
+        export_form.addRow("实时波形:", self.checkBox_DEW_RealtimeWaveform)
+
+        self.treeWidget_DEW_ExportFields = QtWidgets.QTreeWidget()
+        self.treeWidget_DEW_ExportFields.setHeaderLabel("导出字段选择")
+        self.treeWidget_DEW_ExportFields.setMinimumHeight(260)
+        self.treeWidget_DEW_ExportFields.setObjectName("treeWidget_DEW_ExportFields")
+        self.treeWidget_DEW_ExportFields.setStyleSheet("""
+            QTreeWidget {
+                background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;
+                padding: 4px; font-size: 12px; color: #1e293b; outline: none;
+            }
+            QTreeWidget::item { padding: 3px 0px; margin: 1px 0px; border-radius: 3px; }
+            QTreeWidget::item:selected { background-color: #ede9fe; color: #5b21b6; }
+            QTreeWidget::item:hover:!selected { background-color: #f8fafc; }
+            QTreeWidget::item:has-children { font-weight: bold; color: #334155; }
+        """)
+        self.treeWidget_DEW_ExportFields.setHeaderHidden(True)
+        self.treeWidget_DEW_ExportFields.setRootIsDecorated(True)
+        self.treeWidget_DEW_ExportFields.setIndentation(20)
+        self.treeWidget_DEW_ExportFields.setAlternatingRowColors(True)
+        self._build_export_field_tree(tree_data=None)
+        export_form.addRow("字段选择:", self.treeWidget_DEW_ExportFields)
+
+        dew_layout.addWidget(export_group)
+
         # ── 应用按钮 ──
         self.pushButton_DEW_Apply = QtWidgets.QPushButton("应用")
         self.pushButton_DEW_Apply.setObjectName("pushButton_DEW_Apply")
@@ -822,6 +868,101 @@ class Ui_Dialog_thaixiebodianliu(object):
         layout.addStretch()
 
         self.stackedWidget.addWidget(page)
+
+    def _build_export_field_tree(self, tree_data=None, checked_fields=None):
+        """构建 DEWETRON 导出字段选择树。"""
+        tree = self.treeWidget_DEW_ExportFields
+        tree.clear()
+
+        if not tree_data:
+            item = QtWidgets.QTreeWidgetItem(tree, ["请先连接 DEWETRON 设备并切换到德威创模式"])
+            item.setFlags(item.flags() & ~QtCore.Qt.ItemIsSelectable)
+            item.setForeground(0, QtGui.QColor("#94a3b8"))
+            return
+
+        try:
+            tree.itemChanged.disconnect(self._on_export_field_item_changed)
+        except (TypeError, RuntimeError):
+            pass
+
+        check_set = set(checked_fields) if checked_fields is not None else None
+        cat_icons = {
+            'Voltage (U)': 'U', 'Current (I)': 'I', 'Active Power (P)': 'P',
+            'Reactive Power (Q)': 'Q', 'Apparent Power (S)': 'S',
+            'Power Factor (PF)': 'PF', 'Energy (W)': 'W', 'Frequency (F)': 'Hz',
+        }
+
+        for category, sub_cats in tree_data.items():
+            cat_item = QtWidgets.QTreeWidgetItem(tree, [f"  {category}"])
+            cat_item.setFlags(cat_item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsTristate)
+            cat_item.setCheckState(0, QtCore.Qt.Checked)
+            cat_item.setForeground(0, QtGui.QColor("#5b21b6"))
+            cat_item.setBackground(0, QtGui.QColor("#f5f3ff"))
+            font = cat_item.font(0)
+            font.setBold(True)
+            cat_item.setFont(0, font)
+
+            for sub_name, channels in sub_cats.items():
+                sub_item = QtWidgets.QTreeWidgetItem(cat_item, [f"    {sub_name}"])
+                sub_item.setFlags(sub_item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsTristate)
+                sub_item.setCheckState(0, QtCore.Qt.Checked)
+                sub_item.setForeground(0, QtGui.QColor("#1d4ed8"))
+                font = sub_item.font(0)
+                font.setBold(True)
+                sub_item.setFont(0, font)
+
+                for ch_name in channels:
+                    ch_item = QtWidgets.QTreeWidgetItem(sub_item, [f"      {ch_name}"])
+                    ch_item.setFlags(ch_item.flags() | QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsTristate)
+                    if check_set is not None:
+                        ch_item.setCheckState(0, QtCore.Qt.Checked if ch_name in check_set else QtCore.Qt.Unchecked)
+                    else:
+                        ch_item.setCheckState(0, QtCore.Qt.Checked)
+                    ch_item.setForeground(0, QtGui.QColor("#475569"))
+
+        tree.expandToDepth(1)
+        tree.itemChanged.connect(self._on_export_field_item_changed)
+
+    def refresh_export_field_tree(self, xml_string, checked_fields=None):
+        """从设备 XML 动态刷新导出字段树。"""
+        tree_data = parse_power_group_tree(xml_string)
+        self._build_export_field_tree(tree_data, checked_fields)
+
+    def get_checked_export_fields(self):
+        """获取当前勾选的导出字段列表。"""
+        tree = self.treeWidget_DEW_ExportFields
+        checked_fields = []
+
+        def _collect_checked(item):
+            if item.childCount() == 0:
+                if item.checkState(0) == QtCore.Qt.Checked:
+                    checked_fields.append(item.text(0).strip())
+            else:
+                for i in range(item.childCount()):
+                    _collect_checked(item.child(i))
+
+        for i in range(tree.topLevelItemCount()):
+            _collect_checked(tree.topLevelItem(i))
+        return checked_fields
+
+    def set_checked_export_fields(self, fields_list):
+        """根据字段名列表勾选树节点。"""
+        tree = self.treeWidget_DEW_ExportFields
+        field_set = set(fields_list)
+
+        def _walk(item):
+            if item.childCount() == 0:
+                item.setCheckState(0, QtCore.Qt.Checked if item.text(0).strip() in field_set else QtCore.Qt.Unchecked)
+            else:
+                for i in range(item.childCount()):
+                    _walk(item.child(i))
+
+        for i in range(tree.topLevelItemCount()):
+            _walk(tree.topLevelItem(i))
+
+    def _on_export_field_item_changed(self, item, column):
+        """字段树复选框变化回调（不做联动）。"""
+        pass
 
     def retranslateUi(self, Dialog_thaixiebodianliu):
         _translate = QtCore.QCoreApplication.translate

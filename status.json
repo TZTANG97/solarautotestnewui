@@ -1,68 +1,11 @@
 {
-  "devices": [
-    {
-      "name": "交流电源",
-      "resource": "192.168.40.210:8080",
-      "connected": true,
-      "page": 1,
-      "last_connected": "2026-07-24 16:51:13"
-    },
-    {
-      "name": "直流电源1",
-      "resource": "192.168.40.68:502",
-      "connected": true,
-      "page": 2,
-      "last_connected": "2026-07-24 16:51:40"
-    },
-    {
-      "name": "直流电源2",
-      "resource": "",
-      "connected": false,
-      "page": 3,
-      "last_connected": ""
-    },
-    {
-      "name": "直流电源3",
-      "resource": "",
-      "connected": false,
-      "page": 4,
-      "last_connected": ""
-    },
-    {
-      "name": "直流电源4",
-      "resource": "",
-      "connected": false,
-      "page": 5,
-      "last_connected": ""
-    },
-    {
-      "name": "DL850",
-      "resource": "",
-      "connected": false,
-      "page": 6,
-      "last_connected": ""
-    },
-    {
-      "name": "WT3000",
-      "resource": "192.168.40.100",
-      "connected": true,
-      "page": 7,
-      "last_connected": "2026-06-17 18:26:57"
-    },
-    {
-      "name": "DEWETRON",
-      "resource": "192.168.40.24",
-      "connected": true,
-      "page": 8,
-      "last_connected": "2026-07-24 16:52:46"
-    }
-  ],
+  "devices": [],
   "project": {
-    "name": "电压闪变",
-    "status": "进行中",
-    "progress": 64,
-    "start_time": "2026-07-24 16:54:23",
-    "estimated_end_time": "",
-    "end_time": "2026-07-24 16:28:48"
+    "name": "静态Cos(φ)",
+    "status": "已中止",
+    "progress": 0,
+    "current_round": 0,
+    "total_rounds": 0,
+    "end_time": "2026-08-05 17:06:04"
   }
 }

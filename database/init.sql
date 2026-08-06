@@ -1,6 +1,8 @@
 -- DEWETRON 数据采集器数据库初始化脚本
 -- 支持批次管理 + 命令执行追踪
 
+PRAGMA busy_timeout = 5000;
+
 -- 测试批次表（一次完整测试，可能包含多次追加）
 CREATE TABLE IF NOT EXISTS de_test_batch (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,7 +41,8 @@ CREATE TABLE IF NOT EXISTS de_commands (
     param5 TEXT,                     -- 参数5
     param6 TEXT,                     -- 参数6
     param7 TEXT,                     -- 参数7
-    wait_time INTEGER DEFAULT 0,     -- 等待时间（0.1秒单位）
+    raw_row TEXT,                    -- 原始10列命令JSON（无损回放）
+    wait_time INTEGER DEFAULT 0,     -- 等待时间（0.1秒单位，兼容旧记录）
     executed INTEGER DEFAULT 0,      -- 是否已执行: 0=未执行, 1=已执行
     execute_time TEXT,               -- 执行时间
     execute_result TEXT,             -- 执行结果
