@@ -10,5 +10,13 @@ command_save_files/**/*.rar
 # SQLite 数据库文件（不参与版本库，init.sql 保留）
 database/*.sqlite
 database/*.db
+database/*.sqlite-shm
+database/*.sqlite-wal
 
 .venv
+
+# 本地 IDE / AI 助手配置（不参与版本库）
+.claude/
+.cursor/
+.vscode/
+.idea/
