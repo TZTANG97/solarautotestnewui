@@ -16,13 +16,21 @@ UTILITY_CASES = (
     ("utils.Open_Save_ThaiOverLoads", "overload-capability"),
     ("utils.Open_Save_ThaiZhiLiuFenLiang", "dc-component"),
     ("utils.Open_Save_ThaiStaticQU", "static-qu"),
+    ("utils.Open_Save_ThaiFixedQ", "fixed-q"),
+    ("utils.Open_Save_ThaiReactiveQin", "reactive-qin"),
+    ("utils.Open_Save_ThaiReactiveQacc", "reactive-qacc"),
+    ("utils.Open_Save_ThaiActiveP", "active-p"),
     ("utils.Open_Save_ThaitestPU", "test-pu"),
     ("utils.Open_Save_ThaiStaticCosPhi", "static-cos-phi"),
     ("utils.Open_Save_ThaiCosPhiBrazil", "cos-phi-brazil"),
     ("utils.Open_Save_ThaiVoltProtect10min", "overvoltage-protection-10min"),
     ("utils.Open_Save_ThaiGuoPinJiangZai", "overfrequency-derating"),
+    ("utils.Open_Save_ThaiQianPinShengZai", "underfrequency-loading"),
     ("utils.Open_Save_ThaiGuoQianYa_Pin", "voltage-frequency-protection"),
     ("utils.Open_Save_ThaiGuoQianPin_Immun", "brazil-frequency-immunity"),
+    ("utils.Open_Save_ThaiVoltageAdaptability", "voltage-adaptability"),
+    ("utils.Open_Save_ThaiROCOF", "rocof-protection"),
+    ("utils.Open_Save_ThaiRapidVolt", "rapid-voltage-change"),
 )
 
 

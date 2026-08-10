@@ -17,9 +17,13 @@ from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
 from Dialog_thaicosPhi_Brazil import Ui_Dialog_thaicosPhi_Brazil
 from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
 from Dialog_thaiguopinjiangzai import Ui_Dialog_thaiguopinjiangzai
+from Dialog_thaiqianpinshengzai import Ui_Dialog_thaiqianpinshengzai
 from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
 from Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
 from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
+from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
+from Dialog_thairocof import Ui_Dialog_thairocof
+from Dialog_thairapidvolt import Ui_Dialog_thairapidvolt
 
 
 DIALOG_CLASSES = (
@@ -32,9 +36,13 @@ DIALOG_CLASSES = (
     Ui_Dialog_thaicosPhi_Brazil,
     Ui_Dialog_thaivoltprotect10min,
     Ui_Dialog_thaiguopinjiangzai,
+    Ui_Dialog_thaiqianpinshengzai,
     Ui_Dialog_thaiguoqianya_pin,
     Ui_Dialog_thaiguoqianpin_immun,
     Ui_Dialog_thaifrequencyadaptability,
+    Ui_Dialog_thaivoltageadaptability,
+    Ui_Dialog_thairocof,
+    Ui_Dialog_thairapidvolt,
 )
 
 PANEL_WIDGET_ALIASES = (

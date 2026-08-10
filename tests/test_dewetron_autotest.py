@@ -76,19 +76,33 @@ def test_project_specs_are_stable_and_exclude_ineligible_projects():
         "过载能力测试",
         "直流分量",
         "静态QU",
+        "无功能力范围",
+        "定无功",
+        "无功注入",
+        "无功精度",
+        "有功调度",
         "Test_PU",
         "静态Cos(φ)",
+        "动态Cos(φ)",
+        "动态QU",
         "Cos(φ)_Brazil",
         "10min过压保护",
         "过频降载",
+        "欠频升载",
         "过欠压_过欠频",
         "巴西过欠频稳定性",
         "频率适应性",
+        "电压适应性",
+        "ROCOF保护",
+        "快速电压变化",
     )
     assert "固定PF=1" not in PROJECT_SPECS
     assert "MPPT" not in PROJECT_SPECS
     assert "频率适应性" in PROJECT_SPECS
     assert PROJECT_SPECS["频率适应性"].test_type == "frequency-adaptability"
+    assert PROJECT_SPECS["电压适应性"].test_type == "voltage-adaptability"
+    assert PROJECT_SPECS["ROCOF保护"].test_type == "rocof-protection"
+    assert PROJECT_SPECS["快速电压变化"].test_type == "rapid-voltage-change"
     assert PROJECT_SPECS["谐波电流"].profile == PROFILE_HARMONIC
     assert PROJECT_SPECS["电压闪变"].test_type == "flicker"
     assert get_project_spec("overloads").project_name == "过载能力测试"

@@ -474,12 +474,13 @@ class Ui_Dialog_thaiStaticQU(object):
 
         # 电压 LIST：与 WT 文件名列表、Cos 功率阶梯同一写法（逗号分隔）
         # 无功不填：机侧 Q(U) 随电压变化，由 WT 实测
+        # 先升到 115% 再降到 85%（经 100%），适合 Q(U) 连续扫
         _DEFAULT_U_LIST = (
             "100,103,105,106,107,108,110,112,115,"
             "112,110,108,107,106,105,103,100,"
-            "97,94,93,90,87,85,87,90,93,94,97"
+            "97,94,93,90,87,85"
         )
-        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压 list（优先，写法同 WT）")
+        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压 list（静态设定精度 / 逐点存盘）")
         ladder_grp.setStyleSheet(
             "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
             "padding-top: 8px; font-weight: bold; }"
@@ -506,24 +507,25 @@ class Ui_Dialog_thaiStaticQU(object):
         self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
         self.textEdit_VoltageLadder.setFixedHeight(28)
         self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
-        self.textEdit_VoltageLadder.setPlaceholderText("逗号分隔，同 WT，如 100,103,105,...")
+        self.textEdit_VoltageLadder.setPlaceholderText("先升再降，如 100…115…85；逐点存盘 QU_100,…")
         ladder_layout.addWidget(self.textEdit_VoltageLadder, 1, 1, 1, 3)
 
         ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
         self.textEdit_VoltageLadder_TIME = QtWidgets.QTextEdit()
         self.textEdit_VoltageLadder_TIME.setObjectName("textEdit_VoltageLadder_TIME")
         self.textEdit_VoltageLadder_TIME.setFixedSize(80, 28)
-        self.textEdit_VoltageLadder_TIME.setText("10")
+        self.textEdit_VoltageLadder_TIME.setText("1")
+        self.textEdit_VoltageLadder_TIME.setToolTip("每个 Un% 保持时间；数字 col6 逐点触发 WT 存盘")
         ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 2, 1)
         self.comboBox_VoltageLadder_TIME = QtWidgets.QComboBox()
         self.comboBox_VoltageLadder_TIME.setObjectName("comboBox_VoltageLadder_TIME")
         self.comboBox_VoltageLadder_TIME.addItems(["分钟", "秒", "毫秒"])
-        self.comboBox_VoltageLadder_TIME.setCurrentText("秒")
+        self.comboBox_VoltageLadder_TIME.setCurrentText("分钟")
         self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
         ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 2, 2)
         tip = QtWidgets.QLabel(
-            "只填电压 list（同 WT）。逐点改网压，无功由机侧 Q(U) 自动产生，WT 每点测量存盘。"
-            "Pn=100% 由步骤① DC 保持。"
+            "静态设定精度：只填电压 list。逐点改网压并用数字 col6 逐点存盘（多文件 QU_xx）。"
+            "连续录曲线请用菜单「动态QU」。Pn=100% 由步骤① DC 保持。"
         )
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
         tip.setWordWrap(True)
@@ -729,6 +731,7 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_S_End_AC = QtWidgets.QComboBox()
         self.comboBox_S_End_AC.setObjectName("comboBox_S_End_AC")
         self.comboBox_S_End_AC.addItems(["关闭", "开启"])
+        self.comboBox_S_End_AC.setCurrentText("关闭")
         self.comboBox_S_End_AC.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_AC, 0, 2)
 
@@ -740,6 +743,7 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_S_End_DC1 = QtWidgets.QComboBox()
         self.comboBox_S_End_DC1.setObjectName("comboBox_S_End_DC1")
         self.comboBox_S_End_DC1.addItems(["关闭", "开启"])
+        self.comboBox_S_End_DC1.setCurrentText("关闭")
         self.comboBox_S_End_DC1.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_DC1, 1, 1)
 
@@ -751,6 +755,7 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_S_End_DC2 = QtWidgets.QComboBox()
         self.comboBox_S_End_DC2.setObjectName("comboBox_S_End_DC2")
         self.comboBox_S_End_DC2.addItems(["关闭", "开启"])
+        self.comboBox_S_End_DC2.setCurrentText("关闭")
         self.comboBox_S_End_DC2.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_DC2, 1, 3)
 
@@ -762,6 +767,7 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_S_End_DC3 = QtWidgets.QComboBox()
         self.comboBox_S_End_DC3.setObjectName("comboBox_S_End_DC3")
         self.comboBox_S_End_DC3.addItems(["关闭", "开启"])
+        self.comboBox_S_End_DC3.setCurrentText("关闭")
         self.comboBox_S_End_DC3.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_DC3, 2, 1)
 
@@ -773,6 +779,7 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_S_End_DC4 = QtWidgets.QComboBox()
         self.comboBox_S_End_DC4.setObjectName("comboBox_S_End_DC4")
         self.comboBox_S_End_DC4.addItems(["关闭", "开启"])
+        self.comboBox_S_End_DC4.setCurrentText("关闭")
         self.comboBox_S_End_DC4.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_DC4, 2, 3)
 

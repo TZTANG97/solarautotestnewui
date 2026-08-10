@@ -1,0 +1,4 @@
+﻿Round,Un_pct,Un_V,Pn_pct,Target_Qmax_pct,Q_expect_Var,Qmax_Var,Tolerance_note,WT_FileName
+1,100,230.0,100,0,0,1000,dU<=+-1%Un; dQ<=+-2%Sn or PF>=0.4,U100
+2,103,236.9,100,0,0,1000,dU<=+-1%Un; dQ<=+-2%Sn or PF>=0.4,U103
+3,105,241.5,100,0,0,1000,dU<=+-1%Un; dQ<=+-2%Sn or PF>=0.4,U105

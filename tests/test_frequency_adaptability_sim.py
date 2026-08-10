@@ -180,11 +180,27 @@ def test_full_single_phase_happy_path(freq_ui, tmp_path):
     assert ("AC", "write", "FREQ 47.5") in triples
     assert ("AC", "write", "OUTP OFF") in triples
     assert ("DC1", "write", "OUTP OFF") in triples
+    assert ("DC1", "write", "OUTP:MODE TABLE") in triples
+    assert ("DC1", "write", "IVCurve:SELect 1") in triples
 
-    # 分钟 → 0.1s 单位
-    dwells = [r[9] for r in plan["commands"] if r[2] == "*IDN?" and r[9] not in ("", None)]
-    assert SetTimeFunction(1, "分钟") in dwells
-    assert SetTimeFunction(10, "秒") in dwells
+    # 巴西更新率扫频：步间等待≈更新率；整段数据采集不再单次 dwell
+    assert plan["wt_rounds"] == 1
+    assert plan["wt_continuous"] is True
+    assert plan["file_names"] == ["FreqAdapt_BR_5420"]
+    freqs = [r[2] for r in plan["commands"] if str(r[2]).startswith("FREQ")]
+    assert "FREQ 50.2" in freqs or any("50.2" in str(x) for x in freqs)
+    assert "FREQ 51.5" in freqs or any("51.5" in str(x) for x in freqs)
+    assert "FREQ 49.5" in freqs or any("49.5" in str(x) for x in freqs)
+    assert "FREQ 47.5" in freqs or any("47.5" in str(x) for x in freqs)
+    # 连续录必须用 ASYNC_START/WAIT_END；禁止数字 col6（会阻塞扫频）
+    markers = [str(r[6]).strip().upper() for r in plan["commands"] if len(r) > 6 and r[6] not in ("", None)]
+    assert markers.count("ASYNC_START") == 1
+    assert markers.count("WAIT_END") == 1
+    numeric_col6 = [
+        r[6] for r in plan["commands"]
+        if len(r) > 6 and r[6] not in ("", None) and str(r[6]).strip().lstrip("-").isdigit()
+    ]
+    assert numeric_col6 == []
 
     # 写出命令 CSV（模拟 Send 落盘）
     out = tmp_path / "frequencyadaptability_commands_sim.csv"
@@ -203,6 +219,8 @@ def test_full_single_phase_happy_path(freq_ui, tmp_path):
 def test_three_phase_and_hour_unit(freq_ui):
     ui, _dialog = freq_ui
     _fill_step1_three(ui)
+    ui.checkBox_S2.setChecked(False)
+    ui.checkBox_S2_update_rate.setChecked(False)  # 关闭更新率，单点保持
     _disable_all_bands(ui)
     ui.checkBox_guopin_page.setChecked(True)
     _fill_one_band(ui, 5, "guopin", "52", "52", 1, "小时")
@@ -215,8 +233,10 @@ def test_three_phase_and_hour_unit(freq_ui):
     assert ("AC", "write", "INST:PHAS THREE") in triples
     assert ("AC", "write", "VOLT 231") in triples
     assert ("AC", "write", "VOLT 232") in triples
-    # 三相 FREQ 写三次
-    assert triples.count(("AC", "write", "FREQ 52")) == 3
+    # 三相：巴西同款 INST:EDIT ALL + 一次 FREQ（不按相 NSEL 写三次）
+    assert triples.count(("AC", "write", "FREQ 52")) >= 1
+    assert plan["wt_rounds"] == 0
+    # 未勾功率分析仪且未扫频：整段 dwell 在 col9
     assert SetTimeFunction(1, "小时") in [
         r[9] for r in plan["commands"] if r[2] == "*IDN?" and r[9] not in ("", None)
     ]

@@ -92,7 +92,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
 
         # 横向步骤指示器
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 过压保护", "④ DC开关循环", "⑤ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 过压保护", "④ 保护后恢复", "⑤ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -300,31 +300,28 @@ class Ui_Dialog_thaivoltprotect10min(object):
         g2Layout.setSpacing(6)
         g2Layout.setContentsMargins(12, 20, 12, 12)
 
-        # Header row
-        dc_headers = ["通道", "开关", "Vmp", "V", "Vmp", "A", "Voc", "V", "Isc", "A", "功率", "%"]
+        # Header：与静态 QU 一致，单位写在表头，每列一个输入框
+        # 旧版把单位拆成独立列（12 列）却只放了 5 个输入，导致 Isc/功率列空白无法填写
+        dc_headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(dc_headers):
             lbl = QtWidgets.QLabel(h)
             lbl.setStyleSheet("font-weight: bold; color: #475569;")
             lbl.setAlignment(QtCore.Qt.AlignCenter)
             g2Layout.addWidget(lbl, 0, c)
 
-        # DC channels data: (row, cb_name, cb_text, combo_name, volt_name, curr_name, voc_name, isc_name, pf_name)
+        # DC channels: (row, cb, text, combo, VOLT, CURR, Voc, Isc, PF)
         dc_channels = [
             (1, "checkBox_S1_DC1", "直流电源1", "comboBox_S1_DC1",
-             "textEdit_S1_DC1_VOLT", "textEdit_S1_DC1_CURR", "textEdit_S1_DC1_Voc", "textEdit_S1_DC1_Isc", "textEdit_S1_DC1_PF",
-             "label_13", "label_14", "label_15", "label_17", "label_118", "label_108", "label_109", "label_110", "label_106", "label_128", "label_104", "label_57"),
+             "textEdit_S1_DC1_VOLT", "textEdit_S1_DC1_CURR", "textEdit_S1_DC1_Voc", "textEdit_S1_DC1_Isc", "textEdit_S1_DC1_PF"),
             (2, "checkBox_S1_DC2", "直流电源2", "comboBox_S1_DC2",
-             "textEdit_S1_DC2_VOLT", "textEdit_S1_DC2_CURR", "textEdit_S1_DC2_Voc", "textEdit_S1_DC2_Isc", "textEdit_S1_DC2_PF",
-             "label_120", "label_54", "label_119", "label_122", "label_53", "label_51", "label_56", "label_59", "label_124", "label_129", "label_112", "label_55"),
+             "textEdit_S1_DC2_VOLT", "textEdit_S1_DC2_CURR", "textEdit_S1_DC2_Voc", "textEdit_S1_DC2_Isc", "textEdit_S1_DC2_PF"),
             (3, "checkBox_S1_DC3", "直流电源3", "comboBox_S1_DC3",
-             "textEdit_S1_DC3_VOLT", "textEdit_S1_DC3_CURR", "textEdit_S1_DC3_Voc", "textEdit_S1_DC3_Isc", "textEdit_S1_DC3_PF",
-             "label_125", "label_58", "label_127", "label_130", "label_126", "label_101", "label_105", "label_121", "label_124", "label_116", "label_117", "label_55"),
+             "textEdit_S1_DC3_VOLT", "textEdit_S1_DC3_CURR", "textEdit_S1_DC3_Voc", "textEdit_S1_DC3_Isc", "textEdit_S1_DC3_PF"),
             (4, "checkBox_S1_DC4", "直流电源4", "comboBox_S1_DC4",
-             "textEdit_S1_DC4_VOLT", "textEdit_S1_DC4_CURR", "textEdit_S1_DC4_Voc", "textEdit_S1_DC4_Isc", "textEdit_S1_DC4_PF",
-             "label_100", "label_103", "label_111", "label_121", "label_114", "label_105", "label_101", "label_127", "label_115", "label_100", "label_115", "label_55"),
+             "textEdit_S1_DC4_VOLT", "textEdit_S1_DC4_CURR", "textEdit_S1_DC4_Voc", "textEdit_S1_DC4_Isc", "textEdit_S1_DC4_PF"),
         ]
 
-        for row, cb_name, cb_text, combo_name, volt_n, curr_n, voc_n, isc_n, pf_n, *label_names in dc_channels:
+        for row, cb_name, cb_text, combo_name, volt_n, curr_n, voc_n, isc_n, pf_n in dc_channels:
             cb = QtWidgets.QCheckBox(cb_text)
             cb.setChecked(True)
             cb.setObjectName(cb_name)
@@ -341,19 +338,21 @@ class Ui_Dialog_thaivoltprotect10min(object):
             for c, name in enumerate([volt_n, curr_n, voc_n, isc_n, pf_n], start=2):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(name)
-                te.setFixedSize(80, 28)
+                te.setFixedSize(90, 28)
+                te.setTabChangesFocus(True)
                 g2Layout.addWidget(te, row, c)
                 setattr(self, name, te)
 
-        # Additional label objects (preserved for compatibility, placed in extra row)
-        extra_label_names = [
+        # 兼容旧 Open/Save 可能引用的 label objectName（不占布局）
+        for lbl_name in (
+            "label_13", "label_14", "label_15", "label_17", "label_118", "label_108",
+            "label_109", "label_110", "label_106", "label_128", "label_104", "label_57",
             "label_120", "label_54", "label_119", "label_122", "label_53", "label_51",
-            "label_56", "label_59", "label_129", "label_55", "label_125", "label_58",
-            "label_127", "label_130", "label_126", "label_101", "label_128", "label_116",
-            "label_117", "label_115", "label_100", "label_103", "label_111", "label_121",
-            "label_114", "label_105", "label_115",
-        ]
-        for lbl_name in extra_label_names:
+            "label_56", "label_59", "label_124", "label_129", "label_112", "label_55",
+            "label_125", "label_58", "label_127", "label_130", "label_126", "label_101",
+            "label_105", "label_121", "label_116", "label_117", "label_115", "label_100",
+            "label_103", "label_111", "label_114",
+        ):
             if not hasattr(self, lbl_name):
                 lbl = QtWidgets.QLabel("")
                 lbl.setObjectName(lbl_name)
@@ -504,7 +503,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S3_AC_VOLT.setText("230")
         g3Layout.addWidget(self.textEdit_S3_AC_VOLT, 1, 2)
 
-        self.label_21 = QtWidgets.QLabel("V")
+        self.label_21 = QtWidgets.QLabel("V/%")
         self.label_21.setObjectName("label_21")
         g3Layout.addWidget(self.label_21, 1, 3)
 
@@ -518,7 +517,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S3_AC_VOLT_2.setText("230")
         g3Layout.addWidget(self.textEdit_S3_AC_VOLT_2, 1, 5)
 
-        self.label_28 = QtWidgets.QLabel("V")
+        self.label_28 = QtWidgets.QLabel("V/%")
         self.label_28.setObjectName("label_28")
         g3Layout.addWidget(self.label_28, 1, 6)
 
@@ -532,26 +531,31 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S3_AC_VOLT_3.setText("230")
         g3Layout.addWidget(self.textEdit_S3_AC_VOLT_3, 1, 8)
 
-        self.label_30 = QtWidgets.QLabel("V")
+        self.label_30 = QtWidgets.QLabel("V/%")
         self.label_30.setObjectName("label_30")
         g3Layout.addWidget(self.label_30, 1, 9)
 
-        # Row 2: Data collection time
+        tip3 = QtWidgets.QLabel("可填绝对电压(如257.6)或百分比(如112%)；% 相对①交流电压作 Un")
+        tip3.setStyleSheet("color: #64748b; font-size: 11px;")
+        tip3.setWordWrap(True)
+        g3Layout.addWidget(tip3, 2, 0, 1, 10)
+
+        # Row 3: Data collection time
         self.label_23 = QtWidgets.QLabel("数据采集")
         self.label_23.setObjectName("label_23")
-        g3Layout.addWidget(self.label_23, 2, 0)
+        g3Layout.addWidget(self.label_23, 3, 0)
 
         self.textEdit_S3_TIME = QtWidgets.QTextEdit()
         self.textEdit_S3_TIME.setObjectName("textEdit_S3_TIME")
         self.textEdit_S3_TIME.setFixedSize(100, 31)
         self.textEdit_S3_TIME.setText("10")
-        g3Layout.addWidget(self.textEdit_S3_TIME, 2, 1)
+        g3Layout.addWidget(self.textEdit_S3_TIME, 3, 1)
 
         self.comboBox_S3_TIME = QtWidgets.QComboBox()
         self.comboBox_S3_TIME.setObjectName("comboBox_S3_TIME")
-        self.comboBox_S3_TIME.addItems(["秒", "毫秒", "分钟"])
+        self.comboBox_S3_TIME.addItems(["分钟", "秒", "毫秒"])
         self.comboBox_S3_TIME.setFixedWidth(120)
-        g3Layout.addWidget(self.comboBox_S3_TIME, 2, 2)
+        g3Layout.addWidget(self.comboBox_S3_TIME, 3, 2)
 
         layout.addWidget(self.groupBox_3)
         layout.addStretch()
@@ -595,7 +599,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S4_AC_VOLT.setText("230")
         gLayout.addWidget(self.textEdit_S4_AC_VOLT, 1, 2)
 
-        self.label_27 = QtWidgets.QLabel("V")
+        self.label_27 = QtWidgets.QLabel("V/%")
         self.label_27.setObjectName("label_27")
         gLayout.addWidget(self.label_27, 1, 3)
 
@@ -609,7 +613,7 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S4_AC_VOLT_2.setText("230")
         gLayout.addWidget(self.textEdit_S4_AC_VOLT_2, 1, 5)
 
-        self.label_32 = QtWidgets.QLabel("V")
+        self.label_32 = QtWidgets.QLabel("V/%")
         self.label_32.setObjectName("label_32")
         gLayout.addWidget(self.label_32, 1, 6)
 
@@ -623,26 +627,31 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.textEdit_S4_AC_VOLT_3.setText("230")
         gLayout.addWidget(self.textEdit_S4_AC_VOLT_3, 1, 8)
 
-        self.label_34 = QtWidgets.QLabel("V")
+        self.label_34 = QtWidgets.QLabel("V/%")
         self.label_34.setObjectName("label_34")
         gLayout.addWidget(self.label_34, 1, 9)
 
-        # Row 2: Data collection time
+        tip4 = QtWidgets.QLabel("可填绝对电压(如230)或百分比(如100%)；% 相对①交流电压作 Un")
+        tip4.setStyleSheet("color: #64748b; font-size: 11px;")
+        tip4.setWordWrap(True)
+        gLayout.addWidget(tip4, 2, 0, 1, 10)
+
+        # Row 3: Data collection time
         self.label_25 = QtWidgets.QLabel("数据采集")
         self.label_25.setObjectName("label_25")
-        gLayout.addWidget(self.label_25, 2, 0)
+        gLayout.addWidget(self.label_25, 3, 0)
 
         self.textEdit_S4_TIME = QtWidgets.QTextEdit()
         self.textEdit_S4_TIME.setObjectName("textEdit_S4_TIME")
         self.textEdit_S4_TIME.setFixedSize(100, 31)
-        self.textEdit_S4_TIME.setText("10")
-        gLayout.addWidget(self.textEdit_S4_TIME, 2, 1)
+        self.textEdit_S4_TIME.setText("3")
+        gLayout.addWidget(self.textEdit_S4_TIME, 3, 1)
 
         self.comboBox_S4_TIME = QtWidgets.QComboBox()
         self.comboBox_S4_TIME.setObjectName("comboBox_S4_TIME")
-        self.comboBox_S4_TIME.addItems(["秒", "毫秒", "分钟"])
+        self.comboBox_S4_TIME.addItems(["分钟", "秒", "毫秒"])
         self.comboBox_S4_TIME.setFixedWidth(120)
-        gLayout.addWidget(self.comboBox_S4_TIME, 2, 2)
+        gLayout.addWidget(self.comboBox_S4_TIME, 3, 2)
 
         layout.addWidget(self.groupBox)
         layout.addStretch()

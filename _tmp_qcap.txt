@@ -1,0 +1,17 @@
+r7: ch=5.4.2|en=Measurement of the active power and reactive power range|zh=无功能力范围|cap=Y|sop=有|k=None|soft=未做菜单|note=大表能力=Y，软件尚无对应 Auto_Test 菜单
+r42: ch=5.4.2|en=Overloads withstand on photovoltaic ports|zh=过载能力测试|cap=Y|sop=有|k=已开发|soft=WT已验|note=菜单:过载能力测试；共享DEWETRON已接
+r58: ch=5.4.20|en=Immunity to transient over/underfrequency and rate of change of frequency at the network connection port|zh=频率适应性|cap=Y|sop=有|k=已开发|soft=WT已验|note=巴西Ordinance 5.4.20；ASYNC连续录+更新率扫频+DC MODE/SELect；WT真机验证通过 2026-08-07（FreqAdapt_BR_5420，过频52/欠频48有功）
+r59: ch=5.4.21|en=Immunity to transient over/under voltages on the network connection port|zh=电压适应性|cap=Y|sop=有|k=None|soft=未做菜单|note=大表能力=Y，软件尚无对应 Auto_Test 菜单
+r60: ch=5.4.22|en=Connecting and reconnecting to the network connection port|zh=重连测试|cap=Y|sop=有|k=已开发|soft=WT已验|note=菜单:重连；建议德威创首通项目
+r61: ch=5.4.23|en=Active power limitation|zh=有功调度|cap=Y|sop=有|k=None|soft=未做菜单|note=大表能力=Y，软件尚无对应 Auto_Test 菜单
+r62: ch=5.4.24|en=Reactive power command |zh=定无功测试|cap=Y|sop=有|k=None|soft=未做菜单|note=大表能力=Y，软件尚无对应 Auto_Test 菜单
+r63: ch=5.4.25|en=Disconnection and reconnection of the photovoltaic system from the grid|zh=远程开机、关机|cap=使用上位机|sop=None|k=None|soft=不涉及|note=需工装/上位机等，不算软件菜单进度
+r64: ch=5.4.26|en=Conversion Efficiency|zh=转换和静态MPPT效率|cap=Y|sop=有|k=已开发|soft=WT已验|note=菜单:静态MPPT测试
+r66: ch=5.3.1|en=Rate of change of frequency (RoCoF)    |zh=频率适应性测试|cap=Y|sop=有|k=已开发|soft=界面已有|note=欧洲EN50549-10 5.3.1 RoCoF；与巴西5.4.20参数不同，勿混用；软件同菜单待分参
+r73: ch=5.5.1.6|en=Verification procedure for reactive power capability considering voltage range|zh=固定PF|cap=Y|sop=有|k=已开发|soft=WT已验|note=菜单:固定PF=1；无德威创切换
+r117: ch=2.6|en=Reactive power capability|zh=None|cap=None|sop=有|k=None|soft=None|note=None
+r167: ch=Bbis.6.1|en=Checking construction requirements: reactive power capability|zh=None|cap=None|sop=有|k=None|soft=None|note=None
+r274: ch=5.4.2|en=Frequency protection devices|zh=None|cap=None|sop=有|k=None|soft=None|note=None
+r346: ch=6.1|en=Verification of the reactive power capability|zh=None|cap=None|sop=有|k=None|soft=None|note=None
+r361: ch=6.1|en=Nbis.6.1 Verification of the reactive power capability.xlsx|zh=None|cap=None|sop=有|k=None|soft=None|note=None
+r371: ch=6.1|en=Bbis.6.1 Verification of the reactive power capability.xlsx|zh=None|cap=None|sop=有|k=None|soft=None|note=None

@@ -1,11 +1,13 @@
 {
   "devices": [],
   "project": {
-    "name": "静态Cos(φ)",
-    "status": "已中止",
-    "progress": 0,
-    "current_round": 0,
-    "total_rounds": 0,
-    "end_time": "2026-08-05 17:06:04"
+    "name": "频率适应性",
+    "status": "已结束",
+    "progress": 100,
+    "current_round": 1,
+    "total_rounds": 1,
+    "end_time": "2026-08-07 17:33:38",
+    "start_time": "2026-08-07 17:28:55",
+    "estimated_end_time": ""
   }
 }

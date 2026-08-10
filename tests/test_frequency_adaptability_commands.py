@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from utils.frequency_adaptability_commands import append_freq_band
+from utils.frequency_adaptability_commands import build_freq_step_list
 from utils.time_helpers import SetTimeFunction
 
 
@@ -8,16 +8,13 @@ def test_set_time_hours():
     assert SetTimeFunction(1, "分钟") == 600
 
 
-def test_append_freq_band_same_start_end():
-    rows = []
-    assert append_freq_band(rows, "单相", "50.2", "50.2", 100)
-    freqs = [r[2] for r in rows if str(r[2]).startswith("FREQ")]
-    assert freqs == ["FREQ 50.2"]
-    assert rows[-1][9] == 100
+def test_build_freq_step_list_rate_sweep():
+    # 50→52，1s，20步/秒 → 步长 0.1
+    steps = build_freq_step_list("50", "52", 1.0, 20.0, use_rate=True)
+    assert steps[0] == "50"
+    assert steps[-1] == "52"
+    assert len(steps) >= 20
 
 
-def test_append_freq_band_three_phase_ramp():
-    rows = []
-    assert append_freq_band(rows, "三相", "51", "52", 200)
-    freqs = [r[2] for r in rows if str(r[2]).startswith("FREQ")]
-    assert freqs == ["FREQ 51", "FREQ 51", "FREQ 51", "FREQ 52", "FREQ 52", "FREQ 52"]
+def test_build_freq_step_list_no_rate_single_point():
+    assert build_freq_step_list("50.2", "51.5", 10.0, 20.0, use_rate=False) == ["50.2"]

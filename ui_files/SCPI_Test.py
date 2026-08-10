@@ -34,7 +34,7 @@ class Ui_Dialog(object):
         # 左侧边栏 — 两级可折叠菜单
         # ══════════════════════════════════════
         sidebar = QtWidgets.QWidget()
-        sidebar.setFixedWidth(200)
+        sidebar.setFixedWidth(220)
         sidebar.setStyleSheet("""
             QWidget#sidebar {
                 background-color: #e2e5ea;
@@ -56,6 +56,15 @@ class Ui_Dialog(object):
             }
             QPushButton:hover { background-color: #d1d5db; color: #1f2937; }
         """
+        _SUBHEADER_STYLE = """
+            QPushButton {
+                background-color: #e8eaee; color: #4b5563; border: none;
+                border-bottom: 1px solid #d8dde5;
+                text-align: left; padding: 7px 8px 7px 16px;
+                font-size: 11px; font-weight: bold;
+            }
+            QPushButton:hover { background-color: #dbe0e8; color: #1f2937; }
+        """
         _ITEM_STYLE = """
             QPushButton {
                 background-color: #e2e5ea; color: #374151; border: none;
@@ -65,6 +74,59 @@ class Ui_Dialog(object):
             }
             QPushButton:hover { background-color: #e5e7eb; color: #1f2937; }
         """
+        _ITEM_ACTIVE_STYLE = """
+            QPushButton {
+                background-color: #dbeafe; color: #1d4ed8; border: none;
+                border-left: 3px solid #2563eb;
+                text-align: left; padding: 9px 12px 9px 20px;
+                font-size: 13px; font-weight: bold;
+            }
+            QPushButton:hover { background-color: #bfdbfe; color: #1e40af; }
+        """
+        _NESTED_ITEM_STYLE = """
+            QPushButton {
+                background-color: #e2e5ea; color: #374151; border: none;
+                border-left: 3px solid transparent;
+                text-align: left; padding: 8px 10px 8px 28px;
+                font-size: 12px;
+            }
+            QPushButton:hover { background-color: #e5e7eb; color: #1f2937; }
+        """
+        _NESTED_ITEM_ACTIVE_STYLE = """
+            QPushButton {
+                background-color: #dbeafe; color: #1d4ed8; border: none;
+                border-left: 3px solid #2563eb;
+                text-align: left; padding: 8px 10px 8px 28px;
+                font-size: 12px; font-weight: bold;
+            }
+            QPushButton:hover { background-color: #bfdbfe; color: #1e40af; }
+        """
+
+        # 侧栏选中态（首页/设备/Auto_Test/其他 共用）
+        self._nav_buttons = []
+        self._nav_by_key = {}
+        self._auto_test_categories = {}
+
+        def _set_nav_active(btn):
+            if btn is None:
+                return
+            for b in self._nav_buttons:
+                base = getattr(b, "_nav_base_style", _ITEM_STYLE)
+                if b is btn:
+                    b.setStyleSheet(getattr(b, "_nav_active_style", _ITEM_ACTIVE_STYLE))
+                else:
+                    b.setStyleSheet(base)
+
+        def _register_nav(btn, key=None, base_style=None, active_style=None):
+            btn._nav_base_style = base_style or _ITEM_STYLE
+            btn._nav_active_style = active_style or _ITEM_ACTIVE_STYLE
+            self._nav_buttons.append(btn)
+            if key:
+                self._nav_by_key[key] = btn
+            return btn
+
+        self.set_nav_active = _set_nav_active
+        self.set_nav_active_by_key = lambda key: _set_nav_active(self._nav_by_key.get(key))
 
         # ── 辅助函数 ──
         def _make_header(text, icon_name=None):
@@ -77,11 +139,17 @@ class Ui_Dialog(object):
                 btn.setIconSize(QtCore.QSize(16, 16))
             return btn
 
-        def _make_item(text, page_index):
+        def _make_item(text, page_index, *, key=None):
             btn = QtWidgets.QPushButton(f"      {text}")
             btn.setStyleSheet(_ITEM_STYLE)
             btn.setCursor(QtCore.Qt.PointingHandCursor)
-            btn.clicked.connect(lambda checked, idx=page_index: self.stackedWidget.setCurrentIndex(idx))
+            _register_nav(btn, key=key or text)
+
+            def _on_click(_checked=False, idx=page_index, b=btn):
+                self.stackedWidget.setCurrentIndex(idx)
+                _set_nav_active(b)
+
+            btn.clicked.connect(_on_click)
             return btn
 
         def _make_container():
@@ -92,13 +160,14 @@ class Ui_Dialog(object):
             lay.setSpacing(0)
             return w, lay
 
-        def _bind_toggle(header, container, default_text):
+        def _bind_toggle(header, container, default_text, *, style=_HEADER_STYLE, indent="  "):
             def toggle():
                 vis = container.isVisible()
                 container.setVisible(not vis)
                 arrow = "▾" if not vis else "▸"
-                header.setText(f"  {arrow}  {default_text}")
+                header.setText(f"{indent}{arrow}  {default_text}")
             header.clicked.connect(toggle)
+            header.setStyleSheet(style)
 
         # ══════════════════════════════════════
         # 可滚动菜单区
@@ -124,17 +193,15 @@ class Ui_Dialog(object):
         _scrollLayout.setSpacing(0)
 
         # ── 首页（无二级菜单，直接点击切换） ──
-        _home_item = _make_item("首页", 0)
+        _home_item = _make_item("首页", 0, key="首页")
         _home_icon = _home_item.style().standardIcon(QtWidgets.QStyle.SP_FileDialogInfoView)
         _home_item.setIcon(_home_icon)
         _home_item.setIconSize(QtCore.QSize(16, 16))
-        _home_item.setStyleSheet(_ITEM_STYLE.replace(
-            "border-left: 3px solid transparent;",
-            "border-left: 3px solid #3b82f6; color: #3b82f6;"))
         _scrollLayout.addWidget(_home_item)
+        _set_nav_active(_home_item)  # 启动默认选中首页
 
         # ── 测试进度（首页下方独立菜单，对应 stacked 页 11）──
-        _progress_item = _make_item("测试进度", 11)
+        _progress_item = _make_item("测试进度", 11, key="测试进度")
         _progress_icon = _progress_item.style().standardIcon(QtWidgets.QStyle.SP_MediaSeekForward)
         _progress_item.setIcon(_progress_icon)
         _progress_item.setIconSize(QtCore.QSize(16, 16))
@@ -147,11 +214,11 @@ class Ui_Dialog(object):
         _dev_container, _dev_layout = _make_container()
         for i, name in enumerate(["交流电源", "直流电源1", "直流电源2", "直流电源3",
                                     "直流电源4", "DL850", "WT3000", "DEWETRON"]):
-            _dev_layout.addWidget(_make_item(name, i + 1))
+            _dev_layout.addWidget(_make_item(name, i + 1, key=name))
         _scrollLayout.addWidget(_dev_container)
         _bind_toggle(_sec_dev, _dev_container, "设备管理")
 
-        # ── 一级菜单: Auto_Test ──
+        # ── 一级菜单: Auto_Test（其下再按试验现象分子类）──
         _sec_auto = _make_header("Auto_Test", "SP_MediaPlay")
         _scrollLayout.addWidget(_sec_auto)
 
@@ -159,30 +226,62 @@ class Ui_Dialog(object):
         _scrollLayout.addWidget(_auto_container)
         _bind_toggle(_sec_auto, _auto_container, "Auto_Test")
 
-        # 动态添加 Auto_Test 子项的方法（供 SCPITestWave.py 调用）
-        def _add_auto_test_item(text, page_index=9, setting_key=None):
-            def _on_click():
-                self.stackedWidget.setCurrentIndex(page_index)
-                # 自动选择 comboBox_P 为 "Auto_Test"
+        def _add_auto_test_category(category):
+            """在 Auto_Test 下添加可折叠子分类；重复调用返回已有 layout。"""
+            if category in self._auto_test_categories:
+                return self._auto_test_categories[category]["layout"]
+            header = QtWidgets.QPushButton(f"    ▾  {category}")
+            header.setStyleSheet(_SUBHEADER_STYLE)
+            header.setCursor(QtCore.Qt.PointingHandCursor)
+            cat_w, cat_lay = _make_container()
+            _auto_layout.addWidget(header)
+            _auto_layout.addWidget(cat_w)
+            _bind_toggle(header, cat_w, category, style=_SUBHEADER_STYLE, indent="    ")
+            self._auto_test_categories[category] = {
+                "header": header,
+                "container": cat_w,
+                "layout": cat_lay,
+            }
+            return cat_lay
+
+        def _add_auto_test_item(text, page_index=9, setting_key=None, category=None):
+            parent_layout = _auto_layout
+            base_style = _ITEM_STYLE
+            active_style = _ITEM_ACTIVE_STYLE
+            label = f"      {text}"
+            if category:
+                parent_layout = _add_auto_test_category(category)
+                base_style = _NESTED_ITEM_STYLE
+                active_style = _NESTED_ITEM_ACTIVE_STYLE
+                label = f"        {text}"
+
+            item = QtWidgets.QPushButton(label)
+            item.setStyleSheet(base_style)
+            item.setCursor(QtCore.Qt.PointingHandCursor)
+            tip = f"{category} / {text}" if category else text
+            item.setToolTip(tip)
+            _register_nav(item, key=text, base_style=base_style, active_style=active_style)
+
+            def _on_click(_checked=False, b=item, proj=text, sk=setting_key, idx=page_index):
+                self.stackedWidget.setCurrentIndex(idx)
                 idx_p = self.comboBox_P.findText("Auto_Test")
                 if idx_p >= 0:
                     self.comboBox_P.setCurrentIndex(idx_p)
-                # 自动选择 comboBox_PS 为对应的测试项目
-                idx_ps = self.comboBox_PS.findText(text)
+                idx_ps = self.comboBox_PS.findText(proj)
                 if idx_ps >= 0:
                     self.comboBox_PS.setCurrentIndex(idx_ps)
-                # 直接切换 settingStack 显示对应的设置页面
-                if setting_key and hasattr(self, 'settingStack'):
-                    pages = getattr(self.settingStack, '_pages', {})
-                    if setting_key in pages:
-                        self.settingStack.setCurrentWidget(pages[setting_key])
-                    elif hasattr(self.settingStack, '_blank_page'):
+                if sk and hasattr(self, "settingStack"):
+                    pages = getattr(self.settingStack, "_pages", {})
+                    if sk in pages:
+                        self.settingStack.setCurrentWidget(pages[sk])
+                    elif hasattr(self.settingStack, "_blank_page"):
                         self.settingStack.setCurrentWidget(self.settingStack._blank_page)
-            item = QtWidgets.QPushButton(f"      {text}")
-            item.setStyleSheet(_ITEM_STYLE)
-            item.setCursor(QtCore.Qt.PointingHandCursor)
+                _set_nav_active(b)
+
             item.clicked.connect(_on_click)
-            _auto_layout.addWidget(item)
+            parent_layout.addWidget(item)
+
+        self.add_auto_test_category = _add_auto_test_category
         self.add_auto_test_item = _add_auto_test_item
 
         # ── 一级菜单: 其他 ──
@@ -190,7 +289,7 @@ class Ui_Dialog(object):
         _scrollLayout.addWidget(_sec_other)
 
         _other_container, _other_layout = _make_container()
-        _other_layout.addWidget(_make_item("命令文件", 10))
+        _other_layout.addWidget(_make_item("命令文件", 10, key="命令文件"))
         _scrollLayout.addWidget(_other_container)
         _bind_toggle(_sec_other, _other_container, "其他")
 

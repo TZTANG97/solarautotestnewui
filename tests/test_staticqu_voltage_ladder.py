@@ -15,7 +15,7 @@ if ROOT not in sys.path:
 DEFAULT_U = (
     "100,103,105,106,107,108,110,112,115,"
     "112,110,108,107,106,105,103,100,"
-    "97,94,93,90,87,85,87,90,93,94,97"
+    "97,94,93,90,87,85"
 )
 
 
@@ -48,9 +48,12 @@ def test_dialog_voltage_list_only(qapp):
     assert not hasattr(ui, "textEdit_TargetLadder")
     assert not hasattr(ui, "textEdit_VoltageLadder_Qmax")
     u_list = _parse_list(ui.textEdit_VoltageLadder.toPlainText())
-    assert len(u_list) == 28
-    assert u_list[0] == 100 and u_list[4] == 107 and u_list[8] == 115
+    assert len(u_list) == 23
+    assert u_list[0] == 100 and u_list[8] == 115 and u_list[-1] == 85
+    assert max(u_list) == 115 and min(u_list) == 85
     assert ui.textEdit_VoltageLadder_Un.toPlainText() == "230"
+    assert ui.textEdit_VoltageLadder_TIME.toPlainText() == "1"
+    assert ui.comboBox_VoltageLadder_TIME.currentText() == "分钟"
 
 
 def _prep_send(ui, sw, monkeypatch, tmp_path, u_text):
@@ -142,7 +145,7 @@ def test_send_short_voltage_list(qapp, monkeypatch, tmp_path):
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
     ui.setupUi(dialog)
-    _prep_send(ui, sw, monkeypatch, tmp_path, "100,103,105")
+    logs = _prep_send(ui, sw, monkeypatch, tmp_path, "100,103,105")
     sw.thaistaticQUSend()
 
     volts = [r[2] for r in sw.strArrayTest if r and r[0] == "AC" and r[1] == "write" and str(r[2]).startswith("VOLT ")]
@@ -150,11 +153,17 @@ def test_send_short_voltage_list(qapp, monkeypatch, tmp_path):
     assert any(v.startswith("VOLT 236.9") for v in volts)
     assert any(v.startswith("VOLT 241.5") for v in volts)
     assert sw.total_save_file == 3
-    wt_rows = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"]
-    assert wt_rows[0][4].get("textEdit_FileNameList") == "U100,U103,U105"
+    wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
+    names = [p.strip() for p in str(wt_cfg.get("textEdit_FileNameList") or "").split(",") if p.strip()]
+    assert names == ["QU_100", "QU_103", "QU_105"]
+    col6 = [r[6] for r in sw.strArrayTest if r and r[0] == "AC" and r[6] != ""]
+    assert "ASYNC_START" not in col6
+    assert "WAIT_END" not in col6
+    assert sum(1 for c in col6 if str(c).lstrip("-").isdigit()) == 3
+    assert any("逐点存盘" in m for m in logs)
 
 
-def test_send_default_28_points(qapp, monkeypatch, tmp_path):
+def test_send_default_rise_fall_points(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
     from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
@@ -162,8 +171,205 @@ def test_send_default_28_points(qapp, monkeypatch, tmp_path):
     dialog = QDialog()
     ui.setupUi(dialog)
     logs = _prep_send(ui, sw, monkeypatch, tmp_path, DEFAULT_U)
+    ui.textEdit_VoltageLadder_TIME.setText("1")
+    ui.comboBox_VoltageLadder_TIME.setCurrentText("分钟")
     sw.thaistaticQUSend()
-    assert sw.total_save_file == 28
-    assert any("电压 list 28" in m for m in logs)
-    names = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]["textEdit_FileNameList"].split(",")
-    assert names[4] == "U107" and names[19] == "U93"
+    assert sw.total_save_file == 23
+    assert any("逐点存盘 23 文件" in m and "23 点" in m for m in logs)
+    names = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]["textEdit_FileNameList"]
+    assert names.startswith("QU_100,") and names.endswith("QU_85")
+    assert len(names.split(",")) == 23
+    col6 = [r[6] for r in sw.strArrayTest if r and r[0] == "AC" and r[6] != ""]
+    assert "ASYNC_START" not in col6 and "WAIT_END" not in col6
+    assert sum(1 for c in col6 if str(c).lstrip("-").isdigit()) == 23
+
+
+def test_send_three_phase_scales_all_phases(qapp, monkeypatch, tmp_path):
+    import SCPITestWave as sw
+    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+
+    ui = Ui_Dialog_thaiStaticQU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    _prep_send(ui, sw, monkeypatch, tmp_path, "100,110")
+    ui.comboBox_S1_AC_2.setCurrentText("三相")
+    ui.textEdit_S1_AC_VOLT.setText("230")
+    ui.textEdit_S1_AC_VOLT_2.setText("230")
+    ui.textEdit_S1_AC_VOLT_3.setText("230")
+    ui.textEdit_VoltageLadder_Un.setText("230")
+    sw.thaistaticQUSend()
+
+    nsel = [r[2] for r in sw.strArrayTest if r and r[0] == "AC" and str(r[2]).startswith("INST:NSEL")]
+    assert nsel.count("INST:NSEL 1") >= 2
+    assert nsel.count("INST:NSEL 2") >= 2
+    assert nsel.count("INST:NSEL 3") >= 2
+    volts = [r[2] for r in sw.strArrayTest if r and r[0] == "AC" and str(r[2]).startswith("VOLT ")]
+    assert volts.count("VOLT 230.0") + volts.count("VOLT 230") >= 3  # 100% 三相
+    assert any(v.startswith("VOLT 253") for v in volts)  # 110%
+    assert sw.total_save_file == 2
+
+
+def test_send_wt_smoke_list_three_points(qapp, monkeypatch, tmp_path):
+    """短 list：100,107,93 覆盖额定 / 高压 / 低压段，逐点三文件。"""
+    import SCPITestWave as sw
+    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+
+    ui = Ui_Dialog_thaiStaticQU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    _prep_send(ui, sw, monkeypatch, tmp_path, "100,107,93")
+    ui.textEdit_VoltageLadder_TIME.setText("5")
+    sw.thaistaticQUSend()
+    assert sw.total_save_file == 3
+    wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
+    assert wt_cfg["textEdit_FileNameList"] == "QU_100,QU_107,QU_93"
+    volts = [r[2] for r in sw.strArrayTest if r and str(r[2]).startswith("VOLT ")]
+    assert any("230" in v for v in volts)
+    assert any("246.1" in v for v in volts)  # 107%
+    assert any("213.9" in v for v in volts)  # 93%
+    col6 = [r[6] for r in sw.strArrayTest if r and r[0] == "AC" and r[6] != ""]
+    assert "ASYNC_START" not in col6
+    assert sum(1 for c in col6 if str(c).lstrip("-").isdigit()) == 3
+
+
+def test_voltage_math_matrix():
+    """关键 Un% → VOLT 换算，供真机对表。"""
+    un = 230.0
+    cases = [(100, 230.0), (103, 236.9), (107, 246.1), (115, 264.5), (93, 213.9), (85, 195.5)]
+    for pct, expect in cases:
+        assert round(un * pct / 100.0, 2) == expect
+
+
+def test_wt_async_col6_helpers():
+    import SCPITestWave as sw
+    assert sw._is_wt_async_start("ASYNC_START")
+    assert sw._is_wt_async_start("async_start")
+    assert sw._is_wt_wait_end("WAIT_END")
+    assert not sw._is_wt_async_start("100")
+    assert not sw._is_wt_wait_end(100)
+
+
+def test_send_chinese_comma_and_spaces(qapp, monkeypatch, tmp_path):
+    """中文逗号/空格分隔：文件数=点数=col6 数字次数。"""
+    import SCPITestWave as sw
+    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+
+    ui = Ui_Dialog_thaiStaticQU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    _prep_send(ui, sw, monkeypatch, tmp_path, "100， 103  105%")
+    ui.textEdit_VoltageLadder_TIME.setText("2")
+    ui.comboBox_VoltageLadder_TIME.setCurrentText("秒")
+    sw.thaistaticQUSend()
+
+    assert sw.total_save_file == 3
+    wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
+    assert wt_cfg["textEdit_FileNameList"] == "QU_100,QU_103,QU_105"
+    col6_nums = [
+        int(r[6])
+        for r in sw.strArrayTest
+        if r and r[0] == "AC" and r[6] not in ("", None) and str(r[6]).lstrip("-").isdigit()
+    ]
+    assert col6_nums == [20, 20, 20]  # 2s → 20 *0.1s
+
+
+def test_send_decimal_pct_filename(qapp, monkeypatch, tmp_path):
+    """小数 Un% → 文件名用 p 代替小数点。"""
+    import SCPITestWave as sw
+    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+
+    ui = Ui_Dialog_thaiStaticQU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    _prep_send(ui, sw, monkeypatch, tmp_path, "100,100.5,99.5")
+    sw.thaistaticQUSend()
+    assert sw.total_save_file == 3
+    wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
+    assert wt_cfg["textEdit_FileNameList"] == "QU_100,QU_100p5,QU_99p5"
+
+
+def test_send_empty_ladder_no_point_files(qapp, monkeypatch, tmp_path):
+    """电压 list 为空：不走逐点（无 QU_ 文件名）；旧逻辑仍记 1 轮。"""
+    import SCPITestWave as sw
+    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+
+    ui = Ui_Dialog_thaiStaticQU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    _prep_send(ui, sw, monkeypatch, tmp_path, "")
+    sw.thaistaticQUSend()
+    assert sw.total_save_file == 1  # 非阶梯时的旧 +1
+    wt_rows = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"]
+    assert wt_rows
+    names = str(wt_rows[0][4].get("textEdit_FileNameList") or "")
+    assert "QU_" not in names
+    col6_nums = [
+        r[6]
+        for r in sw.strArrayTest
+        if r and r[0] == "AC" and r[6] not in ("", None) and str(r[6]).lstrip("-").isdigit()
+    ]
+    assert col6_nums == []
+
+
+def test_voltage_ladder_settings_csv_roundtrip(qapp, tmp_path):
+    """Open/Save 字段：VoltageLadder / Un / 驻留可往返。"""
+    import csv
+    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from utils.Open_Save_ThaiStaticQU import arrayRow1
+
+    ui = Ui_Dialog_thaiStaticQU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    ui.textEdit_VoltageLadder.setText("100,107,93")
+    ui.textEdit_VoltageLadder_Un.setText("240")
+    ui.textEdit_VoltageLadder_FR.setText("60")
+    ui.textEdit_VoltageLadder_TIME.setText("5")
+    ui.comboBox_VoltageLadder_TIME.setCurrentText("秒")
+
+    # 按 Save 字段列表写一行（Style + 控件）
+    headers = list(arrayRow1) if arrayRow1 and arrayRow1[0] == "Style" else ["Style"] + list(arrayRow1)
+    # Open_Save 里 arrayRow1 可能不含 Style；兼容两种
+    if headers[0] != "Style":
+        headers = ["Style"] + headers
+
+    values = ["ThaiStaticQU"]
+    for name in headers[1:]:
+        w = getattr(ui, name, None)
+        if w is None:
+            values.append("")
+        elif hasattr(w, "isChecked"):
+            values.append("1" if w.isChecked() else "0")
+        elif hasattr(w, "currentIndex"):
+            values.append(str(w.currentIndex()))
+        elif hasattr(w, "toPlainText"):
+            values.append(w.toPlainText())
+        else:
+            values.append("")
+
+    path = tmp_path / "staticqu_ladder.csv"
+    with path.open("w", newline="", encoding="utf-8-sig") as fp:
+        csv.writer(fp).writerow(headers)
+        csv.writer(fp).writerow(values)
+
+    # 清空再按 Open 逻辑回填 VoltageLadder 相关字段
+    ui.textEdit_VoltageLadder.setText("")
+    ui.textEdit_VoltageLadder_Un.setText("230")
+    ui.textEdit_VoltageLadder_TIME.setText("1")
+    with path.open("r", encoding="utf-8-sig") as fp:
+        rows = list(csv.reader(fp))
+    h, v = rows[0], rows[1]
+    cfg = dict(zip(h, v))
+    ui.textEdit_VoltageLadder.setText(cfg.get("textEdit_VoltageLadder") or "")
+    ui.textEdit_VoltageLadder_Un.setText(cfg.get("textEdit_VoltageLadder_Un") or "")
+    ui.textEdit_VoltageLadder_FR.setText(cfg.get("textEdit_VoltageLadder_FR") or "")
+    ui.textEdit_VoltageLadder_TIME.setText(cfg.get("textEdit_VoltageLadder_TIME") or "")
+    try:
+        ui.comboBox_VoltageLadder_TIME.setCurrentIndex(int(cfg.get("comboBox_VoltageLadder_TIME") or 0))
+    except ValueError:
+        pass
+
+    assert ui.textEdit_VoltageLadder.toPlainText() == "100,107,93"
+    assert ui.textEdit_VoltageLadder_Un.toPlainText() == "240"
+    assert ui.textEdit_VoltageLadder_FR.toPlainText() == "60"
+    assert ui.textEdit_VoltageLadder_TIME.toPlainText() == "5"
+    assert ui.comboBox_VoltageLadder_TIME.currentText() == "秒"

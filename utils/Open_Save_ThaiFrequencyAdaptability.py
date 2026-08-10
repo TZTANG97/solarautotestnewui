@@ -104,11 +104,13 @@ def _build_headers():
         qp = 12 + i
         h += [
             "checkBox_S%d" % gp,
+            "checkBox_S%d_RATE" % gp,
             "textEdit_S%d_freq_start_guopin" % gp,
             "textEdit_S%d_freq_end_guopin" % gp,
             "textEdit_S%d_test_duration_guopin" % gp,
             "comboBox_S%d_test_time_unit_guopin" % gp,
             "checkBox_S%d" % qp,
+            "checkBox_S%d_RATE" % qp,
             "textEdit_S%d_freq_start_qianpin" % qp,
             "textEdit_S%d_freq_end_qianpin" % qp,
             "textEdit_S%d_test_duration_qianpin" % qp,

@@ -111,9 +111,44 @@ _PROJECT_SPECS: Tuple[DewetronProjectSpec, ...] = (
     ),
     DewetronProjectSpec("直流分量", "dc-component", aliases=("zhiliufenliang",)),
     DewetronProjectSpec("静态QU", "static-qu", aliases=("staticQU",)),
+    DewetronProjectSpec(
+        "无功能力范围",
+        "reactive-qcap",
+        aliases=("reactiveQcap", "reactiveqcap", "无功能力"),
+    ),
+    DewetronProjectSpec(
+        "定无功",
+        "fixed-q",
+        aliases=("fixedQ", "dingwugong", "固定无功"),
+    ),
+    DewetronProjectSpec(
+        "无功注入",
+        "reactive-qin",
+        aliases=("reactiveQin", "wugongzhuru", "无功需求"),
+    ),
+    DewetronProjectSpec(
+        "无功精度",
+        "reactive-qacc",
+        aliases=("reactiveQacc", "wugongjingdu", "无功设定精度"),
+    ),
+    DewetronProjectSpec(
+        "有功调度",
+        "active-p",
+        aliases=("activeP", "yougongdiaodu", "有功控制", "有功调度测试"),
+    ),
     DewetronProjectSpec("Test_PU", "test-pu", aliases=("testPU",)),
     DewetronProjectSpec(
         "静态Cos(φ)", "static-cos-phi", aliases=("staticcosphi", "静态CosPhi")
+    ),
+    DewetronProjectSpec(
+        "动态Cos(φ)",
+        "dynamic-cos-phi",
+        aliases=("dynamiccosphi", "动态CosPhi", "cosPhiP_dynamic"),
+    ),
+    DewetronProjectSpec(
+        "动态QU",
+        "dynamic-qu",
+        aliases=("dynamicqu", "dynamicQU", "Q(U)动态"),
     ),
     DewetronProjectSpec(
         "Cos(φ)_Brazil",
@@ -125,6 +160,9 @@ _PROJECT_SPECS: Tuple[DewetronProjectSpec, ...] = (
     ),
     DewetronProjectSpec(
         "过频降载", "overfrequency-derating", aliases=("guopinjiangzai",)
+    ),
+    DewetronProjectSpec(
+        "欠频升载", "underfrequency-loading", aliases=("qianpinshengzai",)
     ),
     DewetronProjectSpec(
         "过欠压_过欠频",
@@ -140,6 +178,21 @@ _PROJECT_SPECS: Tuple[DewetronProjectSpec, ...] = (
         "频率适应性",
         "frequency-adaptability",
         aliases=("frequencyadaptability", "电压、频率适应性"),
+    ),
+    DewetronProjectSpec(
+        "电压适应性",
+        "voltage-adaptability",
+        aliases=("voltageadaptability", "dianya shiyingxing"),
+    ),
+    DewetronProjectSpec(
+        "ROCOF保护",
+        "rocof-protection",
+        aliases=("rocof", "ROCOF保护测试", "频率变化率保护"),
+    ),
+    DewetronProjectSpec(
+        "快速电压变化",
+        "rapid-voltage-change",
+        aliases=("rapidvolt", "快速电压变化测试", "rvc"),
     ),
     DewetronProjectSpec(
         "谐波电流",

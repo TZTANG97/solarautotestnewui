@@ -472,7 +472,7 @@ class Ui_Dialog_thaitestPU(object):
     # ══════════════════════════════════════════════
 
     def _build_pu_steps(self):
-        """构建合并的 PU 测试页面，20 个 PU 卡片平铺在滚动区域中。"""
+        """构建合并的 PU 测试页面：优先电压 list 连续录；旧 20 卡为备用。"""
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
@@ -484,6 +484,65 @@ class Ui_Dialog_thaitestPU(object):
         self.checkBox_S_PU.setChecked(True)
         self.checkBox_S_PU.setObjectName("checkBox_S_PU")
         layout.addWidget(self.checkBox_S_PU)
+
+        # P(U) 电压 LIST：与静态 QU 同写法，连续录 1 条 PU_curve（测有功 P）
+        _DEFAULT_U_LIST = (
+            "100,103,105,106,107,108,110,112,115,"
+            "112,110,108,107,106,105,103,100,"
+            "97,94,93,90,87,85"
+        )
+        ladder_grp = QtWidgets.QGroupBox("P(U) 电压 list（连续录 1 条 PU_curve）")
+        ladder_grp.setStyleSheet(self._group_box_style())
+        ladder_layout = QtWidgets.QGridLayout(ladder_grp)
+        ladder_layout.setSpacing(8)
+        ladder_layout.setContentsMargins(12, 20, 12, 12)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("Un基准(V)："), 0, 0)
+        self.textEdit_VoltageLadder_Un = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_Un.setObjectName("textEdit_VoltageLadder_Un")
+        self.textEdit_VoltageLadder_Un.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_Un.setText("230")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_Un, 0, 1)
+        ladder_layout.addWidget(QtWidgets.QLabel("频率(Hz)："), 0, 2)
+        self.textEdit_VoltageLadder_FR = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_FR.setObjectName("textEdit_VoltageLadder_FR")
+        self.textEdit_VoltageLadder_FR.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_FR.setText("50")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_FR, 0, 3)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("电压Un%(list)："), 1, 0)
+        self.textEdit_VoltageLadder = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
+        self.textEdit_VoltageLadder.setFixedHeight(28)
+        self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
+        self.textEdit_VoltageLadder.setPlaceholderText("先升再降，如 100…115…85；连续录 PU_curve")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder, 1, 1, 1, 3)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
+        self.textEdit_VoltageLadder_TIME = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_TIME.setObjectName("textEdit_VoltageLadder_TIME")
+        self.textEdit_VoltageLadder_TIME.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_TIME.setText("1")
+        self.textEdit_VoltageLadder_TIME.setToolTip("每个 Un% 保持时间；WT 全程连续录，不停表")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 2, 1)
+        self.comboBox_VoltageLadder_TIME = QtWidgets.QComboBox()
+        self.comboBox_VoltageLadder_TIME.setObjectName("comboBox_VoltageLadder_TIME")
+        self.comboBox_VoltageLadder_TIME.addItems(["分钟", "秒", "毫秒"])
+        self.comboBox_VoltageLadder_TIME.setCurrentText("分钟")
+        self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
+        ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 2, 2)
+        tip = QtWidgets.QLabel(
+            "只填电压 list（同静态QU）。逐点改网压，有功由机侧 P(U)/降载特性产生，WT 连续录一条曲线。"
+            "Pn 工况由步骤① DC 保持。"
+        )
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tip.setWordWrap(True)
+        ladder_layout.addWidget(tip, 3, 0, 1, 4)
+        layout.addWidget(ladder_grp)
+
+        legacy_tip = QtWidgets.QLabel("下方为旧「逐点卡片」模式：仅当上方电压 list 为空时才使用")
+        legacy_tip.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        layout.addWidget(legacy_tip)
 
         # 滚动区域承载所有 PU 卡片
         scroll = QtWidgets.QScrollArea()
@@ -502,8 +561,9 @@ class Ui_Dialog_thaitestPU(object):
         scroll.setWidget(scroll_widget)
         layout.addWidget(scroll)
 
-        # checkBox_S_PU 联动禁用滚动区域
+        # checkBox_S_PU 联动禁用 list + 滚动区域
         def _on_pu_toggled(checked):
+            ladder_grp.setEnabled(checked)
             scroll.setEnabled(checked)
 
         self.checkBox_S_PU.toggled.connect(_on_pu_toggled)
@@ -602,6 +662,7 @@ class Ui_Dialog_thaitestPU(object):
         self.comboBox_S_End_AC = QtWidgets.QComboBox()
         self.comboBox_S_End_AC.setObjectName("comboBox_S_End_AC")
         self.comboBox_S_End_AC.addItems(["关闭", "开启"])
+        self.comboBox_S_End_AC.setCurrentText("关闭")
         self.comboBox_S_End_AC.setFixedWidth(120)
         g11.addWidget(self.comboBox_S_End_AC, 0, 3)
 
@@ -622,6 +683,7 @@ class Ui_Dialog_thaitestPU(object):
             combo = QtWidgets.QComboBox()
             combo.setObjectName(combo_name)
             combo.addItems(["关闭", "开启"])
+            combo.setCurrentText("关闭")
             combo.setFixedWidth(120)
             g11.addWidget(combo, 1, col + 1)
             setattr(self, combo_name, combo)

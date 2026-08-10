@@ -645,6 +645,13 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         gG.addWidget(_cb, 0, 0)
         setattr(self, "checkBox_S%d" % step_num, _cb)
 
+        # 更新率（对齐巴西过欠频稳定性：勾选则按全局更新率扫频）
+        _rate = QtWidgets.QCheckBox("更新率")
+        _rate.setChecked(True)
+        _rate.setObjectName("checkBox_S%d_RATE" % step_num)
+        gG.addWidget(_rate, 0, 1)
+        setattr(self, "checkBox_S%d_RATE" % step_num, _rate)
+
         # ── 频率区间 ──
         _lbl_range = QtWidgets.QLabel("频率区间")
         gG.addWidget(_lbl_range, 1, 0)
@@ -667,8 +674,8 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         _lbl_hz = QtWidgets.QLabel("Hz")
         gG.addWidget(_lbl_hz, 1, 4)
 
-        # ── 测试时间 ──
-        _lbl_tdur = QtWidgets.QLabel("测试时间：")
+        # ── 测试时间（数据采集）──
+        _lbl_tdur = QtWidgets.QLabel("数据采集：")
         gG.addWidget(_lbl_tdur, 2, 0)
 
         _te_dur = QtWidgets.QTextEdit()
@@ -685,7 +692,7 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         setattr(self, "comboBox_S%d_test_time_unit_%s" % (step_num, side_tag), _cmu)
 
         # 联动：步骤复选框禁用时，禁用内部控件
-        inner_widgets = [_te_start, _te_end, _te_dur, _cmu,
+        inner_widgets = [_rate, _te_start, _te_end, _te_dur, _cmu,
                          _lbl_range, _lbl_tilde, _lbl_hz, _lbl_tdur]
         step_cb = _cb
 

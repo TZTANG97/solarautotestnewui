@@ -87,7 +87,9 @@ arrayRow1 = ['Style',
     'checkBox_S22', 'textEdit_S22_AC_VOLT', 'textEdit_S22_TIME', 'comboBox_S22_TIME',
     'checkBox_S_End', "comboBox_S_End_AC", "checkBox_S_End_DC1", "comboBox_S_End_DC1","checkBox_S_End_DC2",
         "comboBox_S_End_DC2","checkBox_S_End_DC3", "comboBox_S_End_DC3","checkBox_S_End_DC4","comboBox_S_End_DC4",
-        "checkBox_S2_WT5000"]
+        "checkBox_S2_WT5000",
+    "textEdit_VoltageLadder", "textEdit_VoltageLadder_Un", "textEdit_VoltageLadder_FR",
+    "textEdit_VoltageLadder_TIME", "comboBox_VoltageLadder_TIME"]
 
 # PU保存设定
 def Save_File_ThaiTestPU(kwargs):
@@ -632,6 +634,17 @@ def Save_File_ThaiTestPU(kwargs):
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
+
+        vl = getattr(uiThaiTestPU, "textEdit_VoltageLadder", None)
+        arrayRow2.append(vl.toPlainText() if vl is not None else "")
+        vl_un = getattr(uiThaiTestPU, "textEdit_VoltageLadder_Un", None)
+        arrayRow2.append(vl_un.toPlainText() if vl_un is not None else "230")
+        vl_fr = getattr(uiThaiTestPU, "textEdit_VoltageLadder_FR", None)
+        arrayRow2.append(vl_fr.toPlainText() if vl_fr is not None else "50")
+        vl_t = getattr(uiThaiTestPU, "textEdit_VoltageLadder_TIME", None)
+        arrayRow2.append(vl_t.toPlainText() if vl_t is not None else "10")
+        vl_tu = getattr(uiThaiTestPU, "comboBox_VoltageLadder_TIME", None)
+        arrayRow2.append(vl_tu.currentIndex() if vl_tu is not None else 1)
 
         _append_dewetron_tail(arrayRow2, uiThaiTestPU)
 
@@ -1782,6 +1795,31 @@ def Open_File_ThaiTestPU(kwargs):
                             Open_File_ThaiWT5000_Config(_PageWidgetFinder(uiThaiTestPU._wtStacked.widget(3)), wt_config_dict)
                     else:
                         strFlag = 1
+
+                    # 电压阶梯（新字段，旧 CSV 无此列时保持默认）
+                    if "textEdit_VoltageLadder" in config_dict and hasattr(uiThaiTestPU, "textEdit_VoltageLadder"):
+                        uiThaiTestPU.textEdit_VoltageLadder.setText(
+                            config_dict.get("textEdit_VoltageLadder") or ""
+                        )
+                    if "textEdit_VoltageLadder_Un" in config_dict and hasattr(uiThaiTestPU, "textEdit_VoltageLadder_Un"):
+                        uiThaiTestPU.textEdit_VoltageLadder_Un.setText(
+                            str(config_dict.get("textEdit_VoltageLadder_Un") or "230")
+                        )
+                    if "textEdit_VoltageLadder_FR" in config_dict and hasattr(uiThaiTestPU, "textEdit_VoltageLadder_FR"):
+                        uiThaiTestPU.textEdit_VoltageLadder_FR.setText(
+                            str(config_dict.get("textEdit_VoltageLadder_FR") or "50")
+                        )
+                    if "textEdit_VoltageLadder_TIME" in config_dict and hasattr(uiThaiTestPU, "textEdit_VoltageLadder_TIME"):
+                        uiThaiTestPU.textEdit_VoltageLadder_TIME.setText(
+                            str(config_dict.get("textEdit_VoltageLadder_TIME") or "10")
+                        )
+                    if "comboBox_VoltageLadder_TIME" in config_dict and hasattr(uiThaiTestPU, "comboBox_VoltageLadder_TIME"):
+                        try:
+                            uiThaiTestPU.comboBox_VoltageLadder_TIME.setCurrentIndex(
+                                int(config_dict.get("comboBox_VoltageLadder_TIME") or 1)
+                            )
+                        except (TypeError, ValueError):
+                            pass
 
                     _restore_dewetron_tail(result_list[0], result_list[1], uiThaiTestPU)
                 else:

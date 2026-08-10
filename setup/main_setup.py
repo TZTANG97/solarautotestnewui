@@ -30,16 +30,27 @@ from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
 from Dialog_thaizhiliufenliang import Ui_Dialog_thaizhiliufenliang
 from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
 from Dialog_thaiguopinjiangzai import Ui_Dialog_thaiguopinjiangzai
+from Dialog_thaiqianpinshengzai import Ui_Dialog_thaiqianpinshengzai
 from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
 from Dialog_thaifixedPF import Ui_Dialog_thaifixedPF
 from Dialog_thaioverloads import Ui_Dialog_thaioverloads
 from Dialog_thaicosPhi_Brazil import Ui_Dialog_thaicosPhi_Brazil
 from Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
 from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+from Dialog_thaidynamicQU import Ui_Dialog_thaidynamicQU
+from Dialog_thaireactiveQcap import Ui_Dialog_thaireactiveQcap
+from Dialog_thaifixedQ import Ui_Dialog_thaifixedQ
+from Dialog_thaireactiveQin import Ui_Dialog_thaireactiveQin
+from Dialog_thaireactiveQacc import Ui_Dialog_thaireactiveQacc
+from Dialog_thaiactiveP import Ui_Dialog_thaiactiveP
 from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
+from Dialog_thaidynamiccosPhi import Ui_Dialog_thaidynamiccosPhi
 from Dialog_thaistaticmppttest import Ui_Dialog_thaistaticmppttest
 from Dialog_thaitestPU import Ui_Dialog_thaitestPU
 from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
+from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
+from Dialog_thairocof import Ui_Dialog_thairocof
+from Dialog_thairapidvolt import Ui_Dialog_thairapidvolt
 from Dialog_thaiWT3000E import Ui_Dialog_thai_WT3000E
 from Dialog_thaiWT1806E import Ui_Dialog_thai_WT1806E
 from Dialog_thaiWT1800 import Ui_Dialog_thai_WT1800
@@ -497,26 +508,37 @@ class MainSetup(BaseSetup):
             ("xiebodianliu", Ui_Dialog_thaixiebodianliu, "dialog_windowxiebodianliu", "uiThaiXieBoDianLiu"),
             ("zhiliufenliang", Ui_Dialog_thaizhiliufenliang, "dialog_windowzhiliufenliang", "uiThaiZhiLiuFenLiang"),
             ("staticQU", Ui_Dialog_thaiStaticQU, "dialog_windowstaticQU", "uiThaiStaticQU"),
+            ("dynamicQU", Ui_Dialog_thaidynamicQU, "dialog_windowdynamicQU", "uiThaiDynamicQU"),
             ("staticcosPhi", Ui_Dialog_thaistaticcosPhi, "dialog_windowstaticcosPhi", "uiThaiStaticCosPhi"),
+            ("dynamiccosPhi", Ui_Dialog_thaidynamiccosPhi, "dialog_windowdynamiccosPhi", "uiThaiDynamicCosPhi"),
             ("voltprotect10min", Ui_Dialog_thaivoltprotect10min, "dialog_windowvoltprotect10min", "uiThaiVoltProtect10min"),
             ("guopinjiangzai", Ui_Dialog_thaiguopinjiangzai, "dialog_windowguopinjiangzai", "uiThaiGuoPinJiangZai"),
+            ("qianpinshengzai", Ui_Dialog_thaiqianpinshengzai, "dialog_windowqianpinshengzai", "uiThaiQianPinShengZai"),
             ("testPU", Ui_Dialog_thaitestPU, "dialog_windowtestPU", "uiThaiTestPU"),
             ("guoqianya_pin", Ui_Dialog_thaiguoqianya_pin, "dialog_windowguoqianya_pin", "uiThaiGuoQianYa_Pin"),
             ("dianyashanbian", Ui_Dialog_thaiguodianyashanbian, "dialog_windowTdianyashanbian", "uiThaiDianYaShanBian"),
             ("fixedPF", Ui_Dialog_thaifixedPF, "dialog_windowfixedpf", "uiThaiFixedPF"),
+            ("reactiveQcap", Ui_Dialog_thaireactiveQcap, "dialog_windowreactiveQcap", "uiThaiReactiveQCap"),
+            ("fixedQ", Ui_Dialog_thaifixedQ, "dialog_windowfixedQ", "uiThaiFixedQ"),
+            ("reactiveQin", Ui_Dialog_thaireactiveQin, "dialog_windowreactiveQin", "uiThaiReactiveQin"),
+            ("reactiveQacc", Ui_Dialog_thaireactiveQacc, "dialog_windowreactiveQacc", "uiThaiReactiveQacc"),
+            ("activeP", Ui_Dialog_thaiactiveP, "dialog_windowactiveP", "uiThaiActiveP"),
             ("overloads", Ui_Dialog_thaioverloads, "dialog_windowoverloads", "uiThaiOverLoads"),
             ("cosPhiBrazil", Ui_Dialog_thaicosPhi_Brazil, "dialog_windowcosPhiBrazil", "uiThaiCosPhiBrazil"),
             ("guoqianpin_immun", Ui_Dialog_thaiguoqianpin_immun, "dialog_windowguoqianpin_immun", "uiThaiGuoQianPin_Immun"),
             ("staticmppttest", Ui_Dialog_thaistaticmppttest, "dialog_windowstaticmppttest", "uiThaiStaticMPPTTest"),
             ("frequencyadaptability", Ui_Dialog_thaifrequencyadaptability, "dialog_windowfrequencyadaptability", "uiThaiFrequencyAdaptability"),
+            ("voltageadaptability", Ui_Dialog_thaivoltageadaptability, "dialog_windowvoltageadaptability", "uiThaiVoltageAdaptability"),
+            ("rocof", Ui_Dialog_thairocof, "dialog_windowrocof", "uiThaiROCOF"),
+            ("rapidvolt", Ui_Dialog_thairapidvolt, "dialog_windowrapidvolt", "uiThaiRapidVolt"),
         ]
         for name, ui_cls, d_key, u_key in _lazy:
-            _seq += 1; print(f"[DEBUG_SETUP] {_seq}/27 {name} (lazy)...", flush=True)
+            _seq += 1; print(f"[DEBUG_SETUP] {_seq}/32 {name} (lazy)...", flush=True)
             lazy = LazyDialog(ui_cls, name)
             created[d_key] = lazy
             created[u_key] = lazy
 
-        print(f"[DEBUG_SETUP] 全部 {_seq} 个对话框就绪（11 立即 + 16 延迟）", flush=True)
+        print(f"[DEBUG_SETUP] 全部 {_seq} 个对话框就绪（11 立即 + 24 延迟）", flush=True)
         return created
 
 
