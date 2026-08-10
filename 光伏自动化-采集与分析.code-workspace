@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "name": "采集/Auto_Test (solarautotestnewui)",
+      "path": "E:/solarautotestnewui"
+    },
+    {
+      "name": "数据分析 (SolarTestDataAnalysisApp)",
+      "path": "E:/MyProject/SolarTestDataAnalysisApp"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.pytest_cache": true
+    }
+  }
+}
