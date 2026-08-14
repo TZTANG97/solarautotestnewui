@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""国产电源 P0×品牌 软件映射模拟（不连真机）。
+"""国产电源按品牌交叉模拟（不连真机）。
 
 覆盖：
 - AC Chroma：原生 SCPI 序列可解析
-- AC 爱科：ItechTranslator 映射寄存器成功（含单相忽略 INST:EDIT ALL）
+- AC 爱科：ItechTranslator 严格映射（拒绝 VOLT:OFFS 等误匹配）
 - DC Chroma/Itech：模式前缀与主程序 command_list_DC 一致
-- DC 蓝点：OUTP / SYST:MODE 基础映射
-- P0 六菜单 × AC×DC 矩阵冒烟
+- DC 蓝点：OUTP / SYST:MODE；拒绝致茂 IVC 命令
+- P0/P2/P3 菜单 × AC×DC 矩阵
 """
 
 from __future__ import annotations
@@ -19,16 +19,24 @@ import pytest
 from scpi_to_modbustcp import BluesightTranslator, ItechTranslator
 from utils.guochan_sim_matrix import (
     AC_BRANDS,
+    CHROMA_ONLY_AC_CMDS,
+    CHROMA_ONLY_DC_CMDS,
     DC_BRANDS,
     DC_MODE_PREAMBLE,
     P0_MENUS,
     P2_MENUS,
+    P3_MENUS,
+    ac_sequence_for_menu,
     ac_smoke_sequence,
-    ac_startup_single_phase,
     ac_startup_three_phase,
+    ac_three_phase_nsel_sequence,
     dc_bluesight_smoke_sequence,
+    dc_iv_shape_for_brand,
+    is_chroma_only_ac,
+    is_chroma_only_dc,
     p0_matrix_cases,
     p2_matrix_cases,
+    p3_matrix_cases,
 )
 
 
@@ -89,7 +97,7 @@ def _run_bluesight_sequence(cmds: list[str]) -> FakeModbusClient:
 def test_itech_single_phase_smoke():
     client = _run_itech_sequence(ac_smoke_sequence(single_phase=True))
     addrs = {w[1] for w in client.writes}
-    assert ItechTranslator.REG_PHASE_MODE in addrs  # 单相写独立模式
+    assert ItechTranslator.REG_PHASE_MODE in addrs
     assert ItechTranslator.REG_CONTROL in addrs
     assert ItechTranslator.REG_FREQ in addrs
 
@@ -101,7 +109,7 @@ def test_itech_single_phase_ignores_edit_all():
     n_before = len(client.writes)
     ok, _ = tr.translate("INST:EDIT ALL")
     assert ok
-    assert len(client.writes) == n_before  # 空操作，不写寄存器
+    assert len(client.writes) == n_before
 
 
 def test_itech_three_phase_volt_writes_abc():
@@ -131,7 +139,60 @@ def test_itech_freq_scale_x1000():
     assert tr.translate("FREQ 50.5")[0]
     freq_writes = [w for w in client.writes if w[0] == "regs" and w[1] == ItechTranslator.REG_FREQ]
     assert freq_writes
-    assert freq_writes[0][2][1] == 50500  # ×1000
+    assert freq_writes[0][2][1] == 50500
+
+
+def test_itech_rejects_chroma_volt_extensions():
+    """致茂 VOLT:* / LIST 等不得被误解析为设压（曾误把 VOLT:OFFS 0 写成 0V）。"""
+    client = FakeModbusClient()
+    tr = ItechTranslator(client)
+    tr.auto_save = False
+    for cmd in CHROMA_ONLY_AC_CMDS:
+        ok, _ = tr.translate(cmd)
+        assert not ok, f"爱科应拒绝: {cmd!r}"
+    volt_writes = [
+        w
+        for w in client.writes
+        if w[0] == "regs"
+        and w[1]
+        in (
+            ItechTranslator.REG_VOLT_A,
+            ItechTranslator.REG_VOLT_B,
+            ItechTranslator.REG_VOLT_C,
+        )
+    ]
+    assert volt_writes == []
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "VOLT:OFFS 0",
+        "VOLT:MODE LIST",
+        "VOLT",
+        "VOLT 230 1",
+        "FREQ:MODE LIST",
+        "FREQ",
+        "INST:NSEL",
+        "INST:NSEL 4",
+        "INST:NSEL ABC",
+    ],
+)
+def test_itech_strict_reject(cmd: str):
+    tr = ItechTranslator(FakeModbusClient())
+    ok, _ = tr.translate(cmd)
+    assert not ok
+
+
+@pytest.mark.parametrize("cmd", ["VOLT 230", "VOLTAGE 230.5", "FREQ 50", "FREQUENCY 50.2"])
+def test_itech_accepts_canonical_setpoints(cmd: str):
+    tr = ItechTranslator(FakeModbusClient())
+    ok, _ = tr.translate(cmd)
+    assert ok
+
+
+def test_itech_three_phase_nsel_path():
+    _run_itech_sequence(ac_three_phase_nsel_sequence())
 
 
 def test_bluesight_smoke():
@@ -141,21 +202,38 @@ def test_bluesight_smoke():
     assert BluesightTranslator.REG_OUTPUT_MODE in addrs
 
 
+@pytest.mark.parametrize("cmd", CHROMA_ONLY_DC_CMDS)
+def test_bluesight_rejects_chroma_iv(cmd: str):
+    tr = BluesightTranslator(FakeModbusClient(), device_id=1)
+    ok, msg = tr.translate(cmd)
+    assert not ok, f"蓝点应拒绝致茂命令: {cmd!r} msg={msg}"
+
+
 def test_dc_mode_preamble_matches_main():
-    # 与 SCPITestWave 初始化块约定一致（避免主程序巨大 import）
     assert DC_MODE_PREAMBLE["Chroma"] == ["OUTP:MODE TABLE", "IVCurve:SELect 1"]
     assert DC_MODE_PREAMBLE["Itech"] == ["SOL 0", "SOL 1"]
     assert DC_MODE_PREAMBLE["Bluesight"] == []
 
 
-# ----- P0 矩阵 -----
+def test_dc_iv_shape_brand_policy():
+    chroma = dc_iv_shape_for_brand("Chroma")
+    assert any(c.upper().startswith("IVC:") for c in chroma)
+    itech = dc_iv_shape_for_brand("Itech")
+    assert any(c.upper().startswith("SOL:USER") for c in itech)
+    assert not any(is_chroma_only_dc(c) for c in itech)
+    bs = dc_iv_shape_for_brand("Bluesight")
+    assert any(c.upper().startswith("BLUESIGHT:STC") for c in bs)
+    assert not any(is_chroma_only_dc(c) for c in bs)
+
+
+# ----- P0 / P2 / P3 矩阵 -----
 
 
 @pytest.mark.parametrize("menu", P0_MENUS)
 @pytest.mark.parametrize("ac_brand", AC_BRANDS)
 def test_p0_ac_brand_smoke(menu: str, ac_brand: str):
     cmds = ac_smoke_sequence(single_phase=True)
-    assert menu  # 绑定菜单名，便于失败报告
+    assert menu
     if ac_brand == "Chroma":
         _assert_chroma_ac(cmds)
     else:
@@ -176,24 +254,41 @@ def test_p0_dc_brand_smoke(menu: str, dc_brand: str):
         _run_bluesight_sequence(dc_bluesight_smoke_sequence())
 
 
-@pytest.mark.parametrize("case", p0_matrix_cases(), ids=lambda c: f"{c['menu']}|AC={c['ac_brand']}|DC={c['dc_brand']}")
-def test_p0_full_matrix(case: dict):
-    """6 菜单 × 2 AC × 3 DC = 36 组合：AC 映射 + DC 前缀/蓝点基础。"""
+def _assert_matrix_case(case: dict) -> None:
     if case["ac_brand"] == "Chroma":
         _assert_chroma_ac(case["ac_cmds"])
+        assert not any(is_chroma_only_ac(c) for c in case["ac_cmds"])
     else:
         _run_itech_sequence(case["ac_cmds"])
+        for c in case["ac_cmds"]:
+            assert not is_chroma_only_ac(c)
 
     if case["dc_brand"] == "Bluesight":
         assert case["dc_preamble"] == []
         _run_bluesight_sequence(case["dc_bluesight_cmds"])
+        for c in case["dc_iv_shape"]:
+            if c.upper().startswith("BLUESIGHT:STC"):
+                continue
+            if c.upper().startswith("SYST:MODE") or c.upper() in ("OUTP ON", "OUTP OFF"):
+                ok, msg = BluesightTranslator(FakeModbusClient(), device_id=1).translate(c)
+                assert ok, msg
     else:
         assert case["dc_preamble"] == DC_MODE_PREAMBLE[case["dc_brand"]]
+
+
+@pytest.mark.parametrize(
+    "case",
+    p0_matrix_cases(),
+    ids=lambda c: f"{c['menu']}|AC={c['ac_brand']}|DC={c['dc_brand']}",
+)
+def test_p0_full_matrix(case: dict):
+    _assert_matrix_case(case)
 
 
 def test_matrix_case_count():
     assert len(p0_matrix_cases()) == len(P0_MENUS) * len(AC_BRANDS) * len(DC_BRANDS)
     assert len(p2_matrix_cases()) == len(P2_MENUS) * len(AC_BRANDS) * len(DC_BRANDS)
+    assert len(p3_matrix_cases()) == len(P3_MENUS) * len(AC_BRANDS) * len(DC_BRANDS)
 
 
 @pytest.mark.parametrize(
@@ -202,14 +297,65 @@ def test_matrix_case_count():
     ids=lambda c: f"{c['menu']}|AC={c['ac_brand']}|DC={c['dc_brand']}",
 )
 def test_p2_rapid_volt_matrix(case: dict):
-    """快速电压变化 × AC×DC：阶跃 VOLT 映射 + DC 前缀。"""
     assert "VOLT 207" in case["ac_cmds"]
-    if case["ac_brand"] == "Chroma":
-        _assert_chroma_ac(case["ac_cmds"])
+    _assert_matrix_case(case)
+
+
+@pytest.mark.parametrize(
+    "case",
+    p3_matrix_cases(),
+    ids=lambda c: f"{c['menu']}|AC={c['ac_brand']}|DC={c['dc_brand']}",
+)
+def test_p3_extended_menu_matrix(case: dict):
+    assert case["ac_cmds"] == ac_sequence_for_menu(case["menu"])
+    _assert_matrix_case(case)
+
+
+@pytest.mark.parametrize("ac_brand", AC_BRANDS)
+@pytest.mark.parametrize("dc_brand", DC_BRANDS)
+def test_brand_cross_policy(ac_brand: str, dc_brand: str):
+    """6 种 AC×DC 组合的能力边界摘要（真机联调检查表）。"""
+    assert ac_brand in AC_BRANDS
+    assert dc_brand in DC_BRANDS
+    shape = dc_iv_shape_for_brand(dc_brand)
+    if dc_brand == "Bluesight":
+        assert DC_MODE_PREAMBLE[dc_brand] == []
+        assert any("BLUESIGHT:STC" in c.upper() for c in shape)
+    elif dc_brand == "Itech":
+        assert DC_MODE_PREAMBLE[dc_brand][0].startswith("SOL")
+        assert any(c.upper().startswith("SOL:USER") for c in shape)
     else:
-        _run_itech_sequence(case["ac_cmds"])
-    if case["dc_brand"] == "Bluesight":
-        assert case["dc_preamble"] == []
-        _run_bluesight_sequence(case["dc_bluesight_cmds"])
-    else:
-        assert case["dc_preamble"] == DC_MODE_PREAMBLE[case["dc_brand"]]
+        assert "OUTP:MODE TABLE" in DC_MODE_PREAMBLE[dc_brand]
+
+
+def test_bluesight_cv_860v_uint32_le():
+    """原载恒压 860V：须写 uint32 LE [0x4FF0, 0x0001]，禁止截成 204.64V。"""
+    from scpi_to_modbustcp import BluesightTranslator
+
+    tr = BluesightTranslator(FakeModbusClient(), device_id=1)
+    words = tr.build_original_load_param_words(0, voltage_v=860.0, r_internal_ohm=0.0)
+    assert words == [0x4FF0, 0x0001, 0x0000, 0x0000]
+    ok, msg = tr.write_original_load_params(0, voltage_v=860.0, r_internal_ohm=0.0)
+    assert ok, msg
+    regs = [w for w in tr.client.writes if w[0] == "regs" and w[1] == 0x0FAA]
+    assert regs and regs[0][2] == [0x4FF0, 0x0001, 0x0000, 0x0000]
+
+
+def test_bluesight_cv_650v_compat_high_word_zero():
+    """低电压时高字为 0，兼容旧抓包 [U×100, 0, …]。"""
+    from scpi_to_modbustcp import BluesightTranslator
+
+    tr = BluesightTranslator(FakeModbusClient(), device_id=1)
+    words = tr.build_original_load_param_words(0, voltage_v=650.0, r_internal_ohm=0.0)
+    assert words == [0xFDE8, 0x0000, 0x0000, 0x0000]
+
+
+def test_bluesight_curve_umpp_860_uint32_le():
+    from scpi_to_modbustcp import BluesightCurveSTC, BluesightTranslator
+
+    words = BluesightTranslator.build_curve_words(
+        BluesightCurveSTC(pmpp_stc_kw=8.0, umpp_stc_v=860.0, fill_factor=0.8)
+    )
+    # [0]=mode, [1][2]=Pmpp uint32, [3][4]=Umpp uint32
+    assert words[3:5] == [0x4FF0, 0x0001]
+    assert words[1:3] == [8000, 0]

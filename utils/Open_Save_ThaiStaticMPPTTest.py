@@ -3,6 +3,19 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QDialog, \
     QFileDialog, QMessageBox
 import csv
 
+from dewetron_autotest import (
+    PROJECT_SPECS,
+    append_dewetron_tail_columns,
+    extract_ui_config,
+    extract_ui_mode,
+    read_dewetron_tail_columns,
+)
+
+
+_DEWETRON_SPEC = PROJECT_SPECS["静态MPPT测试"]
+ANALYZER_ENABLED_COLUMN = "checkBox_Analyzer"
+
+
 arrayRow1 = ['Style',
     'checkBox_S1',
         'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "textEdit_S1_AC_VOLT_2", "textEdit_S1_AC_VOLT_3",
@@ -34,7 +47,65 @@ arrayRow1 = ['Style',
         'textEdit_S3_TOTAL_H', 'textEdit_S3_TOTAL_M',
         'textEdit_S3_PER_H', 'textEdit_S3_PER_M',
     
-    'checkBox_S_End', "comboBox_S_End_AC", "checkBox_S_End_DC", "comboBox_S_End_DC"]
+    'checkBox_S_End', "comboBox_S_End_AC", "checkBox_S_End_DC", "comboBox_S_End_DC",
+    ANALYZER_ENABLED_COLUMN]
+
+
+def _append_dewetron_tail(values, ui):
+    """追加独立分析仪启用状态和共享 DEWETRON 命名配置列。"""
+    analyzer_index = arrayRow1.index(ANALYZER_ENABLED_COLUMN)
+    while len(values) <= analyzer_index:
+        values.append("")
+    analyzer_checkbox = getattr(ui, "checkBox_Analyzer", None)
+    values[analyzer_index] = (
+        "1"
+        if analyzer_checkbox is None or analyzer_checkbox.isChecked()
+        else "0"
+    )
+
+    section = getattr(ui, "analyzerModeSection", None)
+    source = section if section is not None else ui
+    return append_dewetron_tail_columns(
+        arrayRow1,
+        values,
+        extract_ui_config(source),
+        mode=extract_ui_mode(source),
+        test_type=_DEWETRON_SPEC.test_type,
+        profile=_DEWETRON_SPEC.profile,
+    )
+
+
+def _restore_dewetron_tail(headers, values, ui):
+    """按列名恢复新字段；旧 CSV 缺少尾列时使用 WT 默认值。"""
+    try:
+        mode, config = read_dewetron_tail_columns(headers, values)
+    except (IndexError, TypeError, ValueError):
+        mode, config = read_dewetron_tail_columns([], [])
+
+    row = {
+        str(header): values[index] if index < len(values) else ""
+        for index, header in enumerate(headers)
+    }
+    analyzer_checkbox = getattr(ui, "checkBox_Analyzer", None)
+    if analyzer_checkbox is not None:
+        enabled = row.get(ANALYZER_ENABLED_COLUMN)
+        analyzer_checkbox.setChecked(
+            True if enabled in (None, "") else str(enabled).strip().lower() in {
+                "1", "true", "yes", "on"
+            }
+        )
+
+    section = getattr(ui, "analyzerModeSection", None)
+    if section is not None:
+        set_config = getattr(section, "set_dewetron_config", None)
+        if not callable(set_config):
+            set_config = getattr(section, "set_config", None)
+        if callable(set_config):
+            set_config(config)
+        set_mode = getattr(section, "set_mode", None)
+        if callable(set_mode):
+            set_mode(mode)
+    return mode, config
 
 # 静态MPPT测试存设定
 def Save_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTest):
@@ -450,6 +521,8 @@ def Save_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTe
         comboBox_S_End_DC = uithaiStaticMPPTTest.comboBox_S_End_DC.currentIndex()
         arrayRow2.append(comboBox_S_End_DC)
 
+        _append_dewetron_tail(arrayRow2, uithaiStaticMPPTTest)
+
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
         csv_write.writerow(arrayRow1)
@@ -471,6 +544,8 @@ def Open_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTe
         except UnicodeDecodeError:
             f1 = open(directory1[0], 'r', encoding='gbk')
         reader = csv.DictReader(f1)
+        headers = list(reader.fieldnames or [])
+        i = {}
         #print(reader)
         for i in reader:
             print(i)
@@ -1254,6 +1329,8 @@ def Open_File_ThaiStaticMPPTTest(dialog_windowstaticmppttest, uithaiStaticMPPTTe
                 print("no")
                 strFlag = "1"
 
+        values = [i.get(header, "") for header in headers]
+        _restore_dewetron_tail(headers, values, uithaiStaticMPPTTest)
         QMessageBox.information(None, "实验设定提示信息", "静态MPPT测试文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
 

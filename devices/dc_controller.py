@@ -211,6 +211,14 @@ class DCController:
                 return self._send_stc_curve(label)
             from scpi_to_modbustcp import BluesightTranslator
             tr = BluesightTranslator(self.client, device_id=1)
+            # 生成阶段已拦截；运行期再挡一层致茂 IVC，避免旧命令表误发
+            u = cmd.upper()
+            if u.startswith("IVC:") or u.startswith("IVCURVE:") or "OUTP:MODE TABLE" in u:
+                self.logger.warning(
+                    f"{label} Modbus(蓝点)拒绝致茂曲线命令: {command}"
+                )
+                print(f"{label} Modbus(蓝点)拒绝致茂曲线命令: {command}")
+                return False
             ok, msg = tr.translate(command)
             if not ok:
                 self.logger.warning(f"{label} Modbus 翻译失败: {msg}")

@@ -95,8 +95,17 @@ def test_project_specs_are_stable_and_exclude_ineligible_projects():
         "电压适应性",
         "ROCOF保护",
         "快速电压变化",
+        "低电压穿越",
+        "相角突变",
+        "动态MPPT",
+        "固定PF=1",
+        "静态MPPT测试",
     )
-    assert "固定PF=1" not in PROJECT_SPECS
+    assert PROJECT_SPECS["固定PF=1"].test_type == "fixed-pf"
+    assert PROJECT_SPECS["静态MPPT测试"].test_type == "static-mppt"
+    assert PROJECT_SPECS["低电压穿越"].test_type == "lvrt"
+    assert PROJECT_SPECS["相角突变"].test_type == "phase-jump"
+    assert PROJECT_SPECS["动态MPPT"].test_type == "dynamic-mppt"
     assert "MPPT" not in PROJECT_SPECS
     assert "频率适应性" in PROJECT_SPECS
     assert PROJECT_SPECS["频率适应性"].test_type == "frequency-adaptability"
@@ -107,6 +116,25 @@ def test_project_specs_are_stable_and_exclude_ineligible_projects():
     assert PROJECT_SPECS["电压闪变"].test_type == "flicker"
     assert get_project_spec("overloads").project_name == "过载能力测试"
     assert get_project_spec("cos-phi-brazil").project_name == "Cos(φ)_Brazil"
+    assert get_project_spec("fixedpf").project_name == "固定PF=1"
+    assert get_project_spec("MPPT").project_name == "静态MPPT测试"
+
+
+@pytest.mark.parametrize(
+    "project_name,test_type",
+    (("固定PF=1", "fixed-pf"), ("静态MPPT测试", "static-mppt")),
+)
+def test_fixed_pf_and_static_mppt_sections_register(qapp, project_name, test_type):
+    checkbox = QtWidgets.QCheckBox("分析仪")
+    checkbox.setChecked(True)
+    section = AnalyzerModeSection(QtWidgets.QWidget(), checkbox)
+    coordinator = DewetronAutoTestCoordinator()
+
+    coordinator.register_section(project_name, section)
+
+    assert coordinator.registered_projects() == (project_name,)
+    assert coordinator.current_test_type(project_name) == test_type
+    assert coordinator.current_mode(project_name) == MODE_WT
 
 
 def test_config_json_legacy_parsing_and_fingerprint():

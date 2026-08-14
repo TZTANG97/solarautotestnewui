@@ -61,7 +61,7 @@ def test_plan_brazil_rate_sweep_continuous(qapp):
     assert "FREQ 52" in freqs
     assert len(freqs) > 2  # 扫频多步
     col6 = [r[6] for r in plan["commands"] if r[2] == "*IDN?" and r[6] not in ("", None)]
-    assert len(col6) == 1  # 仅首步触发 WT
+    assert col6 == ["ASYNC_START", "WAIT_END"]  # 首步启动 + 扫频结束后等停表
 
 
 def test_send_keeps_custom_single_filename(qapp, monkeypatch):
@@ -105,6 +105,8 @@ def test_send_keeps_custom_single_filename(qapp, monkeypatch):
         "DCGetIVValueFunction",
         lambda *a, **k: ("", "", "", "", "", "", "", "", "", "", "", "", "", "", ""),
     )
+    sw.per_dc_factor = {"0": "Chroma", "1": "Chroma", "2": "Chroma", "3": "Chroma"}
+    sw.command_list_DC = {"Chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"]}
     sw.command_save_file_path = os.path.join(ROOT, "command_save_files")
     os.makedirs(os.path.join(ROOT, "command_save_files", "command_data"), exist_ok=True)
 

@@ -24,6 +24,8 @@ from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
 from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
 from Dialog_thairocof import Ui_Dialog_thairocof
 from Dialog_thairapidvolt import Ui_Dialog_thairapidvolt
+from Dialog_thaifixedPF import Ui_Dialog_thaifixedPF
+from Dialog_thaistaticmppttest import Ui_Dialog_thaistaticmppttest
 
 
 DIALOG_CLASSES = (
@@ -76,6 +78,12 @@ class AnalyzerModeDialogTests(unittest.TestCase):
         ui.setupUi(dialog)
         self.addCleanup(dialog.deleteLater)
         return dialog, ui
+
+    def _assert_panel_aliases(self, ui):
+        for name in PANEL_WIDGET_ALIASES:
+            self.assertIs(getattr(ui, name), getattr(ui.dewetronPanel, name))
+        for name in PANEL_METHOD_ALIASES:
+            self.assertTrue(callable(getattr(ui, name)))
 
     def test_all_approved_dialogs_share_analyzer_modes_and_preserve_wt_pages(self):
         for ui_class in DIALOG_CLASSES:
@@ -158,6 +166,67 @@ class AnalyzerModeDialogTests(unittest.TestCase):
                 self.app.processEvents()
                 self.assertEqual(ui._mode, "wt3000")
                 self.assertEqual(ui.analyzerModeSection.analyzer_stack.currentIndex(), 0)
+
+    def test_fixed_pf_wraps_existing_wt_macro_ui_without_fake_wt_pages(self):
+        _dialog, ui = self._build_ui(Ui_Dialog_thaifixedPF)
+        section = ui.analyzerModeSection
+        wt_group = section.primary_wt_widget
+
+        self.assertFalse(hasattr(ui, "_wtStacked"))
+        self.assertIs(section.step_checkbox, ui.checkBox_S2)
+        self.assertIs(ui.checkBox_S2.parentWidget(), section.mode_row)
+        self.assertTrue(wt_group.isAncestorOf(ui.cB_wt_json))
+        self.assertTrue(wt_group.isAncestorOf(ui.lE_wt_save_path))
+        for radio in (
+            ui.radioButton_S2_WT3000,
+            ui.radioButton_S2_WT1800,
+            ui.radioButton_S2_WT1806E,
+            ui.radioButton_S2_WT5000,
+        ):
+            self.assertTrue(wt_group.isAncestorOf(radio))
+        self.assertTrue(ui.radioButton_S2_WT3000.isChecked())
+        self.assertTrue(ui.radio_wt3000.isChecked())
+        self.assertEqual(ui._mode, "wt3000")
+        self._assert_panel_aliases(ui)
+
+        ui.radio_dewetron.setChecked(True)
+        self.app.processEvents()
+        self.assertEqual(ui._mode, "dewetron")
+        self.assertIs(section.analyzer_stack.currentWidget(), ui.dewetronPanel)
+
+        ui.checkBox_S2.setChecked(False)
+        self.app.processEvents()
+        self.assertFalse(section.analyzer_stack.isEnabled())
+        self.assertTrue(ui.checkBox_S2.isEnabled())
+
+    def test_static_mppt_uses_an_independent_analyzer_page_and_checkbox(self):
+        _dialog, ui = self._build_ui(Ui_Dialog_thaistaticmppttest)
+        section = ui.analyzerModeSection
+
+        self.assertEqual(ui.stackedWidget.count(), 5)
+        self.assertFalse(hasattr(ui, "_wtStacked"))
+        self.assertIsNot(ui.checkBox_Analyzer, ui.checkBox_S2)
+        self.assertEqual(ui.checkBox_Analyzer.objectName(), "checkBox_Analyzer")
+        self.assertEqual(ui.checkBox_S2.objectName(), "checkBox_S2")
+        self.assertIs(section.step_checkbox, ui.checkBox_Analyzer)
+        self.assertIs(section.primary_wt_widget, ui.groupBox_AnalyzerWT)
+        self.assertTrue(ui.groupBox_5.isAncestorOf(ui.checkBox_S2))
+        self.assertFalse(section.isAncestorOf(ui.checkBox_S2))
+        self.assertTrue(ui.radio_wt3000.isChecked())
+        self.assertEqual(ui._mode, "wt3000")
+        self._assert_panel_aliases(ui)
+
+        ui.checkBox_Analyzer.setChecked(False)
+        self.app.processEvents()
+        self.assertFalse(section.analyzer_stack.isEnabled())
+        self.assertTrue(ui.checkBox_S2.isEnabled())
+        self.assertTrue(ui.groupBox_5.isEnabled())
+
+        ui.checkBox_Analyzer.setChecked(True)
+        ui.radio_dewetron.setChecked(True)
+        self.app.processEvents()
+        self.assertEqual(ui._mode, "dewetron")
+        self.assertIs(section.analyzer_stack.currentWidget(), ui.dewetronPanel)
 
     def test_wt_device_radios_still_drive_original_wt_stack(self):
         for ui_class in DIALOG_CLASSES:

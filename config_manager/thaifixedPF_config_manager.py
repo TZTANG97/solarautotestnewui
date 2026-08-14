@@ -6,6 +6,22 @@ from PyQt5.QtCore import QSettings
 import os
 import sys
 
+from dewetron_autotest import (
+    DEWETRON_CONFIG_COLUMN,
+    MODE_WT,
+    PROJECT_SPECS,
+    extract_ui_config,
+    extract_ui_mode,
+    parse_dewetron_config,
+    parse_dewetron_mode,
+    serialize_dewetron_config,
+)
+
+
+_DEWETRON_SPEC = PROJECT_SPECS["固定PF=1"]
+_DEWETRON_SETTINGS_GROUP = "AnalyzerMode"
+
+
 class ThaiFixedPF_ConfigManager:
     """泰国固定PF配置管理器"""
     
@@ -188,6 +204,45 @@ class ThaiFixedPF_ConfigManager:
         if filename:
             return os.path.join(self.settings_dir, filename)
         return self.settings_dir
+
+    def _save_dewetron_settings(self, settings):
+        """将共享分析仪模式和 DEWETRON 配置写入独立 QSettings 分组。"""
+        section = getattr(self.ui, "analyzerModeSection", None)
+        source = section if section is not None else self.ui
+        payload = serialize_dewetron_config(
+            extract_ui_config(source),
+            mode=extract_ui_mode(source),
+            test_type=_DEWETRON_SPEC.test_type,
+            profile=_DEWETRON_SPEC.profile,
+        )
+        settings.beginGroup(_DEWETRON_SETTINGS_GROUP)
+        try:
+            settings.setValue(DEWETRON_CONFIG_COLUMN, payload)
+        finally:
+            settings.endGroup()
+        return payload
+
+    def _restore_dewetron_settings(self, settings):
+        """恢复共享分析仪配置；旧 INI 没有新分组时明确回退到 WT。"""
+        settings.beginGroup(_DEWETRON_SETTINGS_GROUP)
+        try:
+            payload = settings.value(DEWETRON_CONFIG_COLUMN, None)
+        finally:
+            settings.endGroup()
+
+        mode = parse_dewetron_mode(payload, MODE_WT)
+        config = parse_dewetron_config(payload)
+        section = getattr(self.ui, "analyzerModeSection", None)
+        if section is not None:
+            set_config = getattr(section, "set_dewetron_config", None)
+            if not callable(set_config):
+                set_config = getattr(section, "set_config", None)
+            if callable(set_config):
+                set_config(config)
+            set_mode = getattr(section, "set_mode", None)
+            if callable(set_mode):
+                set_mode(mode)
+        return mode, config
     
     def save_config(self):
         """保存配置（使用QFileDialog选择路径）"""
@@ -234,6 +289,9 @@ class ThaiFixedPF_ConfigManager:
                         settings.setValue(key, widget.text())
                 
                 settings.endGroup()
+
+            self._save_dewetron_settings(settings)
+            settings.sync()
             
             QMessageBox.information(None, "成功", f"配置已保存到:\n{file_path}")
             return True
@@ -292,6 +350,8 @@ class ThaiFixedPF_ConfigManager:
                         widget.setText(settings.value(key, type=str))
                 
                 settings.endGroup()
+
+            self._restore_dewetron_settings(settings)
             
             QMessageBox.information(None, "成功", f"配置加载完成！\n{os.path.basename(file_path)}")
             return True

@@ -5,6 +5,10 @@ from __future__ import annotations
 
 import re
 
+from utils.safe_shutdown import (
+    build_forced_shutdown_rows,
+    enabled_shutdown_dc_channels,
+)
 from utils.time_helpers import SetTimeFunction
 
 DEFAULT_FILE_NAME = "CosPhiP_curve"
@@ -96,6 +100,7 @@ def build_dynamic_cosphi_plan(
     project_change="0",
     existing_commands=None,
     dc_iv_resolver=None,
+    per_dc_factor=None,
 ):
     """根据 Dialog UI 生成动态 Cosφ(P) 命令计划。"""
     if wt_config_dict is None:
@@ -212,6 +217,8 @@ def build_dynamic_cosphi_plan(
                 dc_errors.append("%s赋值错误" % label)
             elif code == "err2":
                 dc_errors.append("%sIsc,Imp赋值超范围" % label)
+            elif code == "err_brand":
+                dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
             elif code == "ok" and iv_cmds:
                 wait = _row_ac_wait_idn(2, slot=8)
                 commands.append(wait)
@@ -320,6 +327,8 @@ def build_dynamic_cosphi_plan(
                     dc_errors.append("%s@P%.0f%%赋值错误" % (label, pct))
                 elif code == "err2":
                     dc_errors.append("%s@P%.0f%%Isc超范围" % (label, pct))
+                elif code == "err_brand":
+                    dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
                 elif code == "ok" and iv_cmds:
                     for cmd in iv_cmds:
                         # 阶梯中段只下 IVC，避免每点重复 MODE/SELECT；首档保留完整链
@@ -349,27 +358,14 @@ def build_dynamic_cosphi_plan(
 
     # 关机
     if ui.checkBox_S_END.isChecked():
-        step_rows = []
-        end_ac = ui.comboBox_S_END_AC.currentText()
-        row = _row_ac_write("OUTP ON" if end_ac == "开启" else "OUTP OFF")
-        commands.append(row)
-        step_rows.append(row)
-        wait = _row_ac_wait_idn(5, slot=8)
-        commands.append(wait)
-        step_rows.append(wait)
-
-        for ch, device in ((1, "DC1"), (2, "DC2"), (3, "DC3"), (4, "DC4")):
-            s1_cb = getattr(ui, "checkBox_S1_DC%d" % ch)
-            end_cb = getattr(ui, "checkBox_S_END_DC%d" % ch)
-            if not (s1_cb.isChecked() and end_cb.isChecked()):
-                continue
-            end_status = getattr(ui, "comboBox_S_END_DC%d" % ch).currentText()
-            row = _row_device_write(device, "OUTP ON" if end_status == "开启" else "OUTP OFF")
-            commands.append(row)
-            step_rows.append(row)
-            wait = _row_ac_wait_idn(5, slot=8)
-            commands.append(wait)
-            step_rows.append(wait)
+        dc_channels = enabled_shutdown_dc_channels(
+            ui, end_fmt="checkBox_S_END_DC%d"
+        )
+        step_rows = build_forced_shutdown_rows(
+            dc_channels=dc_channels,
+            per_dc_factor=per_dc_factor,
+        )
+        commands.extend(step_rows)
         steps.append(step_rows)
 
     band_duration_01s = int(dwell_01s) * len(power_levels) if power_levels else 0

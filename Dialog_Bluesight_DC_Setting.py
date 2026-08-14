@@ -1,5 +1,5 @@
-# -*- coding: ascii -*-
-"""Bluesight DC settings dialog (ASCII source + chr() for UI text; avoids GBK-mojibake on Windows)."""
+# -*- coding: utf-8 -*-
+"""Bluesight DC settings dialog (UI strings via chr()/UTF-8; avoids GBK-mojibake on Windows)."""
 
 from __future__ import annotations
 
@@ -194,7 +194,8 @@ class Ui_Dialog_Bluesight_DC_Setting:
         self.doubleSpin_pmpp = QtWidgets.QDoubleSpinBox(self.widget_sas_curve)
         self.doubleSpin_pmpp.setGeometry(QtCore.QRect(210, 2, 140, 30))
         self.doubleSpin_pmpp.setDecimals(3)
-        self.doubleSpin_pmpp.setRange(0.001, 65.535)
+        # 原 65.535 为单字寄存器上限；现 Pmpp 按 uint32 编码，UI 放宽（以机台额定为准）
+        self.doubleSpin_pmpp.setRange(0.001, 1000.0)
         self.doubleSpin_pmpp.setValue(8.0)
         self.doubleSpin_pmpp.setObjectName("doubleSpin_pmpp")
         _configure_spin_edit(self.doubleSpin_pmpp)

@@ -68,6 +68,7 @@ from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
                    Open_Save_ThaiVoltageAdaptability,
                    Open_Save_ThaiROCOF,
                    Open_Save_ThaiRapidVolt,
+                   Open_Save_ThaiLVRT, Open_Save_ThaiPhaseJump, Open_Save_ThaiDynamicMPPT,
                    Open_Save_ThaiFixedPF, Open_Save_ThaiReactiveQCap, Open_Save_ThaiFixedQ, Open_Save_ThaiReactiveQin, Open_Save_ThaiReactiveQacc, Open_Save_ThaiActiveP)
 from utils.Open_Save_ThaiWT3000_Config import WT3000E_params_config
 from utils.Open_Save_ThaiWT1800_Config import WT1800_params_config
@@ -86,6 +87,13 @@ from infra.logging_setup import setup_logging, install_stream_logging
 from infra.exception_handler import install_exception_hook
 from utils.ui_helpers import _show_connect_message, _toggle_connection_button
 from utils.time_helpers import SetTimeFunction
+from utils.safe_shutdown import (
+    BLUESIGHT_DC_OFF_SETTLE_01S as SAFE_BLUESIGHT_DC_OFF_SETTLE_01S,
+    build_forced_shutdown_rows,
+    enabled_shutdown_dc_channels,
+    force_end_combos_off,
+    s1_and_step_dc,
+)
 from utils.frequency_adaptability_commands import (
     build_frequency_adaptability_plan,
     resolve_freq_file_name_list,
@@ -102,6 +110,9 @@ from utils.rapid_volt_commands import (
     build_rapid_volt_plan,
     resolve_rapid_volt_file_name_list,
 )
+from utils.lvrt_commands import build_lvrt_plan
+from utils.phase_jump_commands import build_phase_jump_plan
+from utils.dynamic_mppt_commands import build_dynamic_mppt_plan
 from utils.dynamic_cosphi_commands import build_dynamic_cosphi_plan
 from utils.dynamic_qu_commands import build_dynamic_qu_plan
 from utils.reactive_qcap_commands import build_reactive_qcap_plan
@@ -654,9 +665,11 @@ dc2_controller = None
 dc3_controller = None
 dc4_controller = None
 
-# 蓝点 STC 参数缓存：用户点击"发送参数到设备"时写入，测试自动化读取
-# key = DC 编号 (1-4), value = {"pmpp": float, "umpp": float, "ff": float}
+# 蓝点 STC 参数缓存：用户点击「发送曲线」时写入，测试追加时 DCGetIVValueFunction 读取
+# key = DC 通道 0 基索引（0=DC1 … 3=DC4），value = {"pmpp","umpp","ff"}
 bluesight_stc_params = {}
+# 蓝点 OUTP OFF 后机台缓降电压；关 AC 前额外等待（0.1s 计数，50=5s）
+BLUESIGHT_DC_OFF_SETTLE_01S = SAFE_BLUESIGHT_DC_OFF_SETTLE_01S
 
 # 过渡期上下文对象：用于把主程序运行时对象同步到 app 层，
 # 方便后续模块化，但不改变现有业务逻辑。
@@ -2043,7 +2056,7 @@ def SecondProjectSet():
             '重连','电压闪变', '谐波电流', '固定PF=1', '无功能力范围', '定无功', '无功注入', '无功精度', '有功调度', '过载能力测试',
             '直流分量', '静态QU', '动态QU', 'Test_PU', '静态Cos(φ)', '动态Cos(φ)', 'Cos(φ)_Brazil',
             '10min过压保护', '过频降载', '欠频升载', '过欠压_过欠频', '巴西过欠频稳定性',
-            '静态MPPT测试', '频率适应性', '电压适应性', 'ROCOF保护', '快速电压变化']
+            '静态MPPT测试', '频率适应性', '电压适应性', 'ROCOF保护', '快速电压变化', '低电压穿越', '相角突变', '动态MPPT']
     ui.comboBox_PS.addItems(projectSecondList)
 
 def _mark_dewetron_config_dirty(project_name):
@@ -2079,6 +2092,11 @@ def _register_dewetron_project_sections():
         '电压适应性': uiThaiVoltageAdaptability,
         'ROCOF保护': uiThaiROCOF,
         '快速电压变化': uiThaiRapidVolt,
+        '固定PF=1': uiThaiFixedPF,
+        '静态MPPT测试': uiThaiStaticMPPTTest,
+        '低电压穿越': uiThaiLVRT,
+        '相角突变': uiThaiPhaseJump,
+        '动态MPPT': uiThaiDynamicMPPT,
     }
     for project_name, project_ui in project_uis.items():
         section = getattr(project_ui, 'analyzerModeSection', None)
@@ -2235,6 +2253,11 @@ def _dewetron_project_ui(project_name):
         '电压适应性': uiThaiVoltageAdaptability,
         'ROCOF保护': uiThaiROCOF,
         '快速电压变化': uiThaiRapidVolt,
+        '固定PF=1': uiThaiFixedPF,
+        '静态MPPT测试': uiThaiStaticMPPTTest,
+        '低电压穿越': uiThaiLVRT,
+        '相角突变': uiThaiPhaseJump,
+        '动态MPPT': uiThaiDynamicMPPT,
     }.get(project_name)
 
 
@@ -2316,6 +2339,15 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
     for row in generated:
         device = str(row[0]).strip().upper()
         if device in WT_ONLY_DEVICES:
+            trigger_waits = []
+            for column in COMMAND_WT_TRIGGER_COLUMNS:
+                if row[column] not in ('', None):
+                    try:
+                        trigger_waits.append(int(row[column]))
+                    except (TypeError, ValueError):
+                        pass
+            if trigger_waits:
+                normalized.append(make_wait_row(max(trigger_waits)))
             continue
         if device == 'AC' and str(row[1]).strip().lower() == 'wait' and row[9] == 3000:
             # This row exists only to switch WTViewer projects between appends.
@@ -2374,7 +2406,7 @@ def reset_wt_automation_state():
 
 def _sync_start_end_buttons():
     """根据当前项目的计数器决定启用/禁用开始/结束按钮。计数>=1启用，=0禁用。"""
-    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count, reactiveQcap_append_count, fixedQ_append_count, reactiveQin_append_count, reactiveQacc_append_count, activeP_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, dynamicQU_append_count, testPU_append_count, staticcosPhi_append_count, dynamiccosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, qianpinshengzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count, reactiveQcap_append_count, fixedQ_append_count, reactiveQin_append_count, reactiveQacc_append_count, activeP_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, dynamicQU_append_count, testPU_append_count, staticcosPhi_append_count, dynamiccosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, qianpinshengzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count, lvrt_append_count, phasejump_append_count, dynamicmppt_append_count
     current = ui.comboBox_PS.currentText()
     count = 0
     if current == '电压闪变':
@@ -2485,6 +2517,18 @@ def _sync_start_end_buttons():
         if 'rapidvolt_append_count' not in globals():
             rapidvolt_append_count = 0
         count = rapidvolt_append_count
+    elif current == '低电压穿越':
+        if 'lvrt_append_count' not in globals():
+            lvrt_append_count = 0
+        count = lvrt_append_count
+    elif current == '相角突变':
+        if 'phasejump_append_count' not in globals():
+            phasejump_append_count = 0
+        count = phasejump_append_count
+    elif current == '动态MPPT':
+        if 'dynamicmppt_append_count' not in globals():
+            dynamicmppt_append_count = 0
+        count = dynamicmppt_append_count
     ui.pushButton_StartTest.setEnabled(count >= 1)
     ui.pushButton_EndTest.setEnabled(count >= 1)
     # 追加完成后刷新进度表（运行中不重初始化，避免打断当前状态）
@@ -2509,7 +2553,7 @@ def _sync_start_end_buttons():
 
 def _reset_current_project_count():
     """试验完成后重置当前项目的计数器为0，并更新label显示。"""
-    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count, reactiveQcap_append_count, fixedQ_append_count, reactiveQin_append_count, reactiveQacc_append_count, activeP_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, dynamicQU_append_count, testPU_append_count, staticcosPhi_append_count, dynamiccosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, qianpinshengzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count
+    global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count, reactiveQcap_append_count, fixedQ_append_count, reactiveQin_append_count, reactiveQacc_append_count, activeP_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, dynamicQU_append_count, testPU_append_count, staticcosPhi_append_count, dynamiccosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, qianpinshengzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count, lvrt_append_count, phasejump_append_count, dynamicmppt_append_count
     current = ui.comboBox_PS.currentText()
     if current == '电压闪变':
         flicker_append_count = 0
@@ -2592,6 +2636,15 @@ def _reset_current_project_count():
     elif current == '快速电压变化':
         rapidvolt_append_count = 0
         uiThaiRapidVolt.label_append_count.setText("0")
+    elif current == '低电压穿越':
+        lvrt_append_count = 0
+        uiThaiLVRT.label_append_count.setText("0")
+    elif current == '相角突变':
+        phasejump_append_count = 0
+        uiThaiPhaseJump.label_append_count.setText("0")
+    elif current == '动态MPPT':
+        dynamicmppt_append_count = 0
+        uiThaiDynamicMPPT.label_append_count.setText("0")
     _reset_dewetron_append_fingerprint(current)
 
 #试验对话框选择函数
@@ -2804,6 +2857,24 @@ def chooseDetailDialog():
             uiThaiRapidVolt.label_append_count.setText(str(rapidvolt_append_count))
             _sync_start_end_buttons()
             dialog_windowrapidvolt.show()
+        elif currentSecond == '低电压穿越':
+            if 'lvrt_append_count' not in globals():
+                lvrt_append_count = 0
+            uiThaiLVRT.label_append_count.setText(str(lvrt_append_count))
+            _sync_start_end_buttons()
+            dialog_windowlvrt.show()
+        elif currentSecond == '相角突变':
+            if 'phasejump_append_count' not in globals():
+                phasejump_append_count = 0
+            uiThaiPhaseJump.label_append_count.setText(str(phasejump_append_count))
+            _sync_start_end_buttons()
+            dialog_windowphasejump.show()
+        elif currentSecond == '动态MPPT':
+            if 'dynamicmppt_append_count' not in globals():
+                dynamicmppt_append_count = 0
+            uiThaiDynamicMPPT.label_append_count.setText(str(dynamicmppt_append_count))
+            _sync_start_end_buttons()
+            dialog_windowdynamicmppt.show()
         logger.info(f'测试项目--{currentProject}--{currentSecond}')
         print(f'测试项目--{currentProject}--{currentSecond}')
 
@@ -3033,6 +3104,24 @@ def addtestDialog():
             uiThaiRapidVolt.label_append_count.setText(str(rapidvolt_append_count))
             _sync_start_end_buttons()
             dialog_windowrapidvolt.show()
+        elif currentSecond == '低电压穿越':
+            if 'lvrt_append_count' not in globals():
+                lvrt_append_count = 0
+            uiThaiLVRT.label_append_count.setText(str(lvrt_append_count))
+            _sync_start_end_buttons()
+            dialog_windowlvrt.show()
+        elif currentSecond == '相角突变':
+            if 'phasejump_append_count' not in globals():
+                phasejump_append_count = 0
+            uiThaiPhaseJump.label_append_count.setText(str(phasejump_append_count))
+            _sync_start_end_buttons()
+            dialog_windowphasejump.show()
+        elif currentSecond == '动态MPPT':
+            if 'dynamicmppt_append_count' not in globals():
+                dynamicmppt_append_count = 0
+            uiThaiDynamicMPPT.label_append_count.setText(str(dynamicmppt_append_count))
+            _sync_start_end_buttons()
+            dialog_windowdynamicmppt.show()
 
         logger.info(f'测试项目--{currentProject}--{currentSecond}')
         print(f'测试项目--{currentProject}--{currentSecond}')
@@ -3386,6 +3475,8 @@ def thaidianyashanbianSend():
                     dc_error_messages.append("DC电源1赋值错误,请重新输入")
                 elif a == "2":
                     dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
+                elif a == "3":
+                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -3420,6 +3511,8 @@ def thaidianyashanbianSend():
                     dc_error_messages.append("DC电源2赋值错误,请重新输入")
                 elif a == "2":
                     dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
+                elif a == "3":
+                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -3454,6 +3547,8 @@ def thaidianyashanbianSend():
                     dc_error_messages.append("DC电源3赋值错误,请重新输入")
                 elif a == "2":
                     dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
+                elif a == "3":
+                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -3488,6 +3583,8 @@ def thaidianyashanbianSend():
                     dc_error_messages.append("DC电源4赋值错误,请重新输入")
                 elif a == "2":
                     dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
+                elif a == "3":
+                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -5485,6 +5582,8 @@ def thaichonglianSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -5523,6 +5622,8 @@ def thaichonglianSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -5562,6 +5663,8 @@ def thaichonglianSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -5601,6 +5704,8 @@ def thaichonglianSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -6240,7 +6345,7 @@ def thaichonglianSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uithaichonglian.checkBox_S_End_DC1.isChecked():
+        if uithaichonglian.checkBox_S1_DC1.isChecked() and uithaichonglian.checkBox_S_End_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC1Status = uithaichonglian.comboBox_S_End_DC1.currentText()
             if S_end_DC1Status == "开启":
@@ -6263,7 +6368,7 @@ def thaichonglianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uithaichonglian.checkBox_S_End_DC2.isChecked():
+        if uithaichonglian.checkBox_S1_DC2.isChecked() and uithaichonglian.checkBox_S_End_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC2Status = uithaichonglian.comboBox_S_End_DC2.currentText()
             if S_end_DC2Status == "开启":
@@ -6286,7 +6391,7 @@ def thaichonglianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uithaichonglian.checkBox_S_End_DC3.isChecked():
+        if uithaichonglian.checkBox_S1_DC3.isChecked() and uithaichonglian.checkBox_S_End_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC3Status = uithaichonglian.comboBox_S_End_DC3.currentText()
             if S_end_DC3Status == "开启":
@@ -6309,7 +6414,7 @@ def thaichonglianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
         
-        if uithaichonglian.checkBox_S_End_DC4.isChecked():
+        if uithaichonglian.checkBox_S1_DC4.isChecked() and uithaichonglian.checkBox_S_End_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC4Status = uithaichonglian.comboBox_S_End_DC4.currentText()
             if S_end_DC4Status == "开启":
@@ -6341,6 +6446,8 @@ def thaichonglianSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -6711,6 +6818,8 @@ def thaixiebodianliuSend():
                 dc_error_messages.append("DC电源2赋值错误,请重新输入")
             elif a == "2":
                 dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -6750,6 +6859,8 @@ def thaixiebodianliuSend():
                 dc_error_messages.append("DC电源3赋值错误,请重新输入")
             elif a == "2":
                 dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -6780,6 +6891,8 @@ def thaixiebodianliuSend():
                 dc_error_messages.append("DC电源4赋值错误,请重新输入")
             elif a == "2":
                 dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -6874,6 +6987,8 @@ def thaixiebodianliuSend():
                     strShowErrorMessageBoxFlag = "1"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "2"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -6884,6 +6999,8 @@ def thaixiebodianliuSend():
                     strShowErrorMessageBoxFlag = "3"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "4"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -6894,6 +7011,8 @@ def thaixiebodianliuSend():
                     strShowErrorMessageBoxFlag = "5"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "6"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -6904,6 +7023,8 @@ def thaixiebodianliuSend():
                     strShowErrorMessageBoxFlag = "7"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "8"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -6952,6 +7073,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -6962,6 +7085,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -6972,6 +7097,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -6982,6 +7109,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7029,6 +7158,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -7039,6 +7170,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -7049,6 +7182,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7059,6 +7194,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7106,6 +7243,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -7116,6 +7255,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -7126,6 +7267,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7136,6 +7279,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7183,6 +7328,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -7193,6 +7340,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7203,6 +7352,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7213,6 +7364,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7260,6 +7413,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -7270,6 +7425,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7280,6 +7437,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7290,6 +7449,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7337,6 +7498,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -7347,6 +7510,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7357,6 +7522,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7367,6 +7534,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7414,6 +7583,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -7424,6 +7595,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7434,6 +7607,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7444,6 +7619,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7491,6 +7668,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -7501,6 +7680,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7511,6 +7692,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7521,6 +7704,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7568,6 +7753,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -7578,6 +7765,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7588,6 +7777,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7598,6 +7789,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7645,6 +7838,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -7655,6 +7850,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -7665,6 +7862,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -7675,6 +7874,8 @@ def thaixiebodianliuSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -7898,12 +8099,28 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
         return strArrayTestStepSingle
     dc_index = DC_num.get(DC, "")
     dc_factor = per_dc_factor.get(dc_index, "")
+    from utils.dc_brand_cmd_guard import validate_dc_cmds_for_brand
+
+    ok_brand, brand_msg = validate_dc_cmds_for_brand(dc_factor, a)
+    if not ok_brand:
+        strtimenow = now_to_datenow()
+        logger.error(f"{DC} {brand_msg}")
+        print(f"{strtimenow} {DC} {brand_msg}")
+        try:
+            QMessageBox.warning(None, "DC品牌命令拦截", f"{DC}: {brand_msg}")
+        except Exception:
+            pass
+        return strArrayTestStepSingle
+
     command_array = command_list_DC.get(dc_factor, [])
     if not command_array:
-        # 仍然继续下发 IVC 曲线命令（a 内通常是 IVC:IT / IVC:VT），否则会表现为"功率变化命令没生成"
         strtimenow = now_to_datenow()
-        logger.warning(f"{DC} factor is empty or unsupported: '{dc_factor}', will send IVC commands only")
-        print(f"{strtimenow} {DC} factor is empty or unsupported: '{dc_factor}', will send IVC commands only")
+        logger.warning(
+            f"{DC} factor='{dc_factor}' 无模式前缀；将仅下发曲线命令（已通过品牌校验）"
+        )
+        print(
+            f"{strtimenow} {DC} factor='{dc_factor}' 无模式前缀；将仅下发曲线命令（已通过品牌校验）"
+        )
     
     strArraySingle = ["" for _ in range(10)]
     S1Command = "*IDN?"
@@ -8086,7 +8303,13 @@ def thaifixedpfAppend():
     strAddTestFlag = "0" if fixedpf_append_count == 0 else "1"
     mode = "覆盖" if fixedpf_append_count == 0 else "追加"
     ui.textEdit_ReturnMessage.append(f"[固定PF=1] 第{fixedpf_append_count + 1}次{mode}模式，开始生成命令...")
+    snapshot = _snapshot_dewetron_append('固定PF=1')
+    before_count = fixedpf_append_count
     thaifixedpfSend()
+    if not _normalize_generated_dewetron_rows('固定PF=1', snapshot):
+        fixedpf_append_count = before_count
+        uiThaiFixedPF.label_append_count.setText(str(before_count))
+        _sync_start_end_buttons()
 
 # 固定PF=1
 def thaifixedpfSend():
@@ -8351,6 +8574,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -8389,6 +8614,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -8428,6 +8655,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -8458,6 +8687,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -8501,29 +8732,31 @@ def thaifixedpfSend():
     new_wt_save_path = uiThaiFixedPF.lE_wt_save_path.toPlainText()
 
 
-    manager.change_wt_type(wt_type)
+    _fixedpf_dew_mode = _is_dewetron_project_mode('固定PF=1')
+    if not _fixedpf_dew_mode:
+        manager.change_wt_type(wt_type)
 
-    # 固定PF：保存设定时会根据选择的 WT 宏(json)把"保存路径"字段写入
-    # 若宏文件不存在，直接提示并停止继续生成该项目，避免后续日志刷屏
-    _macro_path = PATH_RECORDINGS["WT3000"] + json_path
-    ok = modify_json_text_by_timestamp(
-        file_path=_macro_path,
-        new_text=new_wt_save_path,
-        target_timestamp=45.15636858940125,
-        timestamp_tolerance=0.1
-    )
-    if not ok:
-        QMessageBox.warning(
-            None,
-            "错误提示信息",
-            f"WT宏文件不存在或修改失败，请检查:\n{_macro_path}",
-            QMessageBox.Ok,
-            QMessageBox.Ok
+        # 固定PF：保存设定时会根据选择的 WT 宏(json)把"保存路径"字段写入
+        # 若宏文件不存在，直接提示并停止继续生成该项目，避免后续日志刷屏
+        _macro_path = PATH_RECORDINGS["WT3000"] + json_path
+        ok = modify_json_text_by_timestamp(
+            file_path=_macro_path,
+            new_text=new_wt_save_path,
+            target_timestamp=45.15636858940125,
+            timestamp_tolerance=0.1
         )
-        return
+        if not ok:
+            QMessageBox.warning(
+                None,
+                "错误提示信息",
+                f"WT宏文件不存在或修改失败，请检查:\n{_macro_path}",
+                QMessageBox.Ok,
+                QMessageBox.Ok
+            )
+            return
 
     # step2
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if (not _fixedpf_dew_mode) and (strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1')):
         #     if uiThaiFixedPF.checkBox_S2_WT3000.isChecked():
     #         wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
     #     elif uiThaiFixedPF.checkBox_S2_WT1800.isChecked():
@@ -8550,7 +8783,7 @@ def thaifixedpfSend():
         strArrayTest.append(strArraySingle)
         wt_config_nums = wt_config_nums + 1
 
-    if uiThaiFixedPF.checkBox_S2.isChecked():
+    if uiThaiFixedPF.checkBox_S2.isChecked() and (not _fixedpf_dew_mode):
         WT_is_checked = '1'
         if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
             test_project_now_index = '8'
@@ -8608,6 +8841,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -8622,6 +8857,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -8636,6 +8873,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
@@ -8650,6 +8889,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -8734,6 +8975,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -8748,6 +8991,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -8762,6 +9007,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
@@ -8776,6 +9023,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -8841,6 +9090,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -8851,6 +9102,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -8861,6 +9114,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -8871,6 +9126,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -8937,6 +9194,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -8947,6 +9206,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -8957,6 +9218,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -8967,6 +9230,8 @@ def thaifixedpfSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -9688,6 +9953,8 @@ def thaifixedpfSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -9839,28 +10106,13 @@ def thaireactiveQcapSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiReactiveQCap._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_reactive_qcap_plan(
@@ -10025,28 +10277,13 @@ def thaifixedQSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiFixedQ._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_fixed_q_plan(
@@ -10211,28 +10448,13 @@ def thaireactiveQaccSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiReactiveQacc._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_reactive_qacc_plan(
@@ -10397,28 +10619,13 @@ def thaireactiveQinSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiReactiveQin._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_reactive_qin_plan(
@@ -10583,28 +10790,13 @@ def thaiactivePSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiActiveP._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_active_p_plan(
@@ -10977,6 +11169,8 @@ def thaioverloadsSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -11015,6 +11209,8 @@ def thaioverloadsSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -11054,6 +11250,8 @@ def thaioverloadsSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -11084,6 +11282,8 @@ def thaioverloadsSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -11270,6 +11470,8 @@ def thaioverloadsSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -11583,6 +11785,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -11621,6 +11825,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -11660,6 +11866,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -11699,6 +11907,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -11786,6 +11996,8 @@ def thaizhiliufenliangSend():
                     strShowErrorMessageBoxFlag = "5"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "6"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
             
@@ -11796,6 +12008,8 @@ def thaizhiliufenliangSend():
                     strShowErrorMessageBoxFlag = "5"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "6"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
             
@@ -11806,6 +12020,8 @@ def thaizhiliufenliangSend():
                     strShowErrorMessageBoxFlag = "5"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "6"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
             
@@ -11816,6 +12032,8 @@ def thaizhiliufenliangSend():
                     strShowErrorMessageBoxFlag = "7"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "8"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -11857,43 +12075,51 @@ def thaizhiliufenliangSend():
         S4DCPF = uiThaiZhiLiuFenLiang.textEdit_S4_DC_PF.toPlainText()
         print(f'S4DCPF---{S4DCPF}')
         # DC1
-        if uiThaiZhiLiuFenLiang.checkBox_S4_DC1.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC1.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S4_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S4DCPF, 0)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiZhiLiuFenLiang.checkBox_S4_DC2.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC2.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S4_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S4DCPF, 1)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiZhiLiuFenLiang.checkBox_S4_DC3.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC3.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S4_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S4DCPF, 2)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiZhiLiuFenLiang.checkBox_S4_DC4.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC4.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S4_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S4DCPF, 3)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -11942,6 +12168,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -11952,6 +12180,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -11962,6 +12192,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -11972,6 +12204,8 @@ def thaizhiliufenliangSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -12012,43 +12246,51 @@ def thaizhiliufenliangSend():
         S6DCPF = uiThaiZhiLiuFenLiang.textEdit_S6_DC_PF.toPlainText()
         print(f'S6DCPF---{S6DCPF}')
         # DC1
-        if uiThaiZhiLiuFenLiang.checkBox_S6_DC1.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC1.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S6_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S6DCPF, 0)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiZhiLiuFenLiang.checkBox_S6_DC2.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC2.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S6_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S6DCPF, 1)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiZhiLiuFenLiang.checkBox_S6_DC3.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC3.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S6_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S6DCPF, 2)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiZhiLiuFenLiang.checkBox_S6_DC4.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC4.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S6_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S6DCPF, 3)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -12106,7 +12348,7 @@ def thaizhiliufenliangSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S7_DC1.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC1.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S7_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC1Status = uiThaiZhiLiuFenLiang.comboBox_S7_DC1.currentText()
             if S5DC1Status == "开启":
@@ -12129,7 +12371,7 @@ def thaizhiliufenliangSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S7_DC2.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC2.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S7_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC2Status = uiThaiZhiLiuFenLiang.comboBox_S7_DC2.currentText()
             if S5DC2Status == "开启":
@@ -12152,7 +12394,7 @@ def thaizhiliufenliangSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiZhiLiuFenLiang.checkBox_S7_DC3.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC3.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S7_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC3Status = uiThaiZhiLiuFenLiang.comboBox_S7_DC3.currentText()
             if S5DC3Status == "开启":
@@ -12176,7 +12418,7 @@ def thaizhiliufenliangSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
         
-        if uiThaiZhiLiuFenLiang.checkBox_S7_DC4.isChecked():
+        if uiThaiZhiLiuFenLiang.checkBox_S1_DC4.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S7_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S5DC3Status = uiThaiZhiLiuFenLiang.comboBox_S7_DC4.currentText()
             if S5DC3Status == "开启":
@@ -12207,6 +12449,8 @@ def thaizhiliufenliangSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -12295,7 +12539,7 @@ def thaistaticQUSend():
     global project_change, wt_config_nums
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
-    global staticQU_append_count
+    global staticQU_append_count, per_dc_factor
     if 'staticQU_append_count' not in globals():
         staticQU_append_count = 0
 
@@ -12508,6 +12752,8 @@ def thaistaticQUSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -12546,6 +12792,8 @@ def thaistaticQUSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -12585,6 +12833,8 @@ def thaistaticQUSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -12624,6 +12874,8 @@ def thaistaticQUSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -12666,7 +12918,7 @@ def thaistaticQUSend():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
-    # Q(U) 电压 list：逐点数字 col6 存盘（静态设定精度；连续录见「动态QU」）
+    # Q(U) 电压 list：连续录 1 条 QU_curve（与试验室一致；动态QU 为 QU_dyn_curve）
     use_voltage_ladder = False
     staticqu_file_names = []
     ladder_widget = getattr(uiThaiStaticQU, "textEdit_VoltageLadder", None)
@@ -12743,26 +12995,44 @@ def thaistaticQUSend():
                     step_cmds.append(row)
             return step_cmds
 
+        # 连续录：首点 ASYNC_START，中间只改压+驻留，末点 WAIT_END → 单文件 QU_curve
         for idx, pct in enumerate(u_pct_list):
             strArrayTestStepSingle = _append_ladder_volt(pct)
-            # 每点数字 col6：阻塞驻留并触发一轮 WT 存盘（对齐静态 Cos）
+            if idx == 0:
+                row = ["" for _ in range(10)]
+                row[0] = "AC"
+                row[1] = "query"
+                row[2] = "*IDN?"
+                row[6] = "ASYNC_START"
+                strArrayTest.append(row)
+                strArrayTestStepSingle.append(row)
+            row = ["" for _ in range(10)]
+            row[0] = "AC"
+            row[1] = "wait"
+            row[2] = ""
+            row[9] = f_ladder_dwell
+            strArrayTest.append(row)
+            strArrayTestStepSingle.append(row)
+            strArrayTestStep.append(strArrayTestStepSingle)
+
+        if u_pct_list:
             row = ["" for _ in range(10)]
             row[0] = "AC"
             row[1] = "query"
             row[2] = "*IDN?"
-            row[6] = f_ladder_dwell
+            row[6] = "WAIT_END"
             strArrayTest.append(row)
-            strArrayTestStepSingle.append(row)
-            strArrayTestStep.append(strArrayTestStepSingle)
             total_save_file = total_save_file + 1
-            pct_tag = ("%g" % pct).replace(".", "p")
-            staticqu_file_names.append(f"QU_{pct_tag}")
-
-        if staticqu_file_names:
-            file_list_text = ",".join(staticqu_file_names)
+            staticqu_file_names = ["QU_curve"]
+            stop_sec = int(round(len(u_pct_list) * (float(f_ladder_dwell) / 10.0) + 5))
+            if stop_sec < 10:
+                stop_sec = 10
+            stop_str = _seconds_to_stoptime_str(stop_sec)
+            file_list_text = "QU_curve"
             for cfg_row in strArrayTest:
                 if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
                     cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                    cfg_row[4]["textEdit_StopTime"] = stop_str
                     if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
                         cfg_row[4]["comboBox_AutoSave"] = 1
                     break
@@ -12772,14 +13042,17 @@ def thaistaticQUSend():
                     te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
                     if te is not None:
                         te.setPlainText(file_list_text)
+                    st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                    if st is not None:
+                        st.setPlainText(stop_str)
                     combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
                     if combo is not None and combo.currentIndex() == 0:
                         combo.setCurrentIndex(1)
             except Exception as e:
-                _append_debug_log(f"[staticQU] update WT point-save FileNameList failed: {e}")
+                _append_debug_log(f"[staticQU] update WT continuous FileNameList failed: {e}")
             ui.textEdit_ReturnMessage.append(
-                f"[静态QU] 逐点存盘 {len(staticqu_file_names)} 文件，电压 {len(u_pct_list)} 点，"
-                f"每点驻留 {dwell_raw}{dwell_unit}"
+                f"[静态QU] 连续录 1 文件 QU_curve，电压 {len(u_pct_list)} 点，"
+                f"每点驻留 {dwell_raw}{dwell_unit}，StopTime {stop_str}"
             )
 
     # step3
@@ -13351,63 +13624,37 @@ def thaistaticQUSend():
                     strArrayTestStepSingle.append(strArraySingle)
                     strArrayTestStep.append(strArrayTestStepSingle)
 
-    # step_end：关机一律关输出（安全强制；忽略 UI「开启」）
+    # step_end：关机一律关输出（安全强制；忽略 UI「开启」）。先 DC 后 AC（原载/通用直流源更稳）
+    # 蓝点：OUTP OFF 后机台缓降，再额外等待几秒再关 AC
     if uiThaiStaticQU.checkBox_S_End.isChecked():
         strArrayTestStepSingle = []
-        for combo_name, label in (
-            ("comboBox_S_End_AC", "交流"),
-            ("comboBox_S_End_DC1", "DC1"),
-            ("comboBox_S_End_DC2", "DC2"),
-            ("comboBox_S_End_DC3", "DC3"),
-            ("comboBox_S_End_DC4", "DC4"),
+        force_end_combos_off(
+            uiThaiStaticQU,
+            (
+                "comboBox_S_End_AC",
+                "comboBox_S_End_DC1",
+                "comboBox_S_End_DC2",
+                "comboBox_S_End_DC3",
+                "comboBox_S_End_DC4",
+            ),
+            log=ui.textEdit_ReturnMessage,
+            tag="静态QU",
+        )
+        dc_channels = enabled_shutdown_dc_channels(uiThaiStaticQU)
+        for row in build_forced_shutdown_rows(
+            dc_channels=dc_channels,
+            per_dc_factor=per_dc_factor,
+            settle_01s=BLUESIGHT_DC_OFF_SETTLE_01S,
         ):
-            w = getattr(uiThaiStaticQU, combo_name, None)
-            if w is not None and w.currentText() == "开启":
-                try:
-                    ui.textEdit_ReturnMessage.append(
-                        f"[静态QU][安全] 关机步骤{label}原为「开启」，已强制改为关闭输出"
-                    )
-                except Exception:
-                    pass
-                w.setCurrentText("关闭")
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "OUTP OFF"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = "*IDN?"
-        strArraySingle[8] = 5
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        for dc_i, cb_name in enumerate(
-            ("checkBox_S_End_DC1", "checkBox_S_End_DC2", "checkBox_S_End_DC3", "checkBox_S_End_DC4"),
-            start=1,
-        ):
-            cb = getattr(uiThaiStaticQU, cb_name, None)
-            if cb is None or not cb.isChecked():
-                continue
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = f"DC{dc_i}"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = "*IDN?"
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+            strArrayTest.append(row)
+            strArrayTestStepSingle.append(row)
+        if any(per_dc_factor.get(str(ch - 1)) == "Bluesight" for ch in dc_channels):
+            try:
+                ui.textEdit_ReturnMessage.append(
+                    f"[静态QU] 蓝点 DC 已 OUTP OFF，等待 {BLUESIGHT_DC_OFF_SETTLE_01S / 10.0:g}s 缓降后再关 AC"
+                )
+            except Exception:
+                pass
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
@@ -13426,6 +13673,8 @@ def thaistaticQUSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         # 电压阶梯模式已在每点 +1；等步长旧逻辑仍只记 1 轮
         if not use_voltage_ladder:
@@ -13532,28 +13781,13 @@ def thaidynamicQUSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiDynamicQU._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_dynamic_qu_plan(
@@ -13956,6 +14190,8 @@ def thaistaticcosPhiSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -13994,6 +14230,8 @@ def thaistaticcosPhiSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -14033,6 +14271,8 @@ def thaistaticcosPhiSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -14072,6 +14312,8 @@ def thaistaticcosPhiSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -14190,6 +14432,8 @@ def thaistaticcosPhiSend():
                     strShowErrorMessageBoxFlag = err1
                 elif a == "2":
                     strShowErrorMessageBoxFlag = err2
+                elif a == "3":
+                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, dc_name)
 
@@ -14274,7 +14518,7 @@ def thaistaticcosPhiSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiStaticCosPhi.checkBox_S_END_DC1.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC1.isChecked() and uiThaiStaticCosPhi.checkBox_S_END_DC1.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC1Status = uiThaiStaticCosPhi.comboBox_S_END_DC1.currentText()
             if S_end_DC1Status == "开启":
@@ -14297,7 +14541,7 @@ def thaistaticcosPhiSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiStaticCosPhi.checkBox_S_END_DC2.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC2.isChecked() and uiThaiStaticCosPhi.checkBox_S_END_DC2.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC2Status = uiThaiStaticCosPhi.comboBox_S_END_DC2.currentText()
             if S_end_DC2Status == "开启":
@@ -14320,7 +14564,7 @@ def thaistaticcosPhiSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        if uiThaiStaticCosPhi.checkBox_S_END_DC3.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC3.isChecked() and uiThaiStaticCosPhi.checkBox_S_END_DC3.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC3Status = uiThaiStaticCosPhi.comboBox_S_END_DC3.currentText()
             if S_end_DC3Status == "开启":
@@ -14343,7 +14587,7 @@ def thaistaticcosPhiSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
         
-        if uiThaiStaticCosPhi.checkBox_S_END_DC4.isChecked():
+        if uiThaiStaticCosPhi.checkBox_S1_DC4.isChecked() and uiThaiStaticCosPhi.checkBox_S_END_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
             S_end_DC4Status = uiThaiStaticCosPhi.comboBox_S_END_DC4.currentText()
             if S_end_DC4Status == "开启":
@@ -14375,6 +14619,8 @@ def thaistaticcosPhiSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         # total_save_file 已在功率×cosφ 矩阵中按点递增
         strtimenow = now_to_datenow()
@@ -14479,28 +14725,13 @@ def thaidynamiccosPhiSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiDynamicCosPhi._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_dynamic_cosphi_plan(
@@ -14902,6 +15133,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -14940,6 +15173,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -14979,6 +15214,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -15018,6 +15255,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -15090,6 +15329,8 @@ def thaicosPhiBrazilSend():
                     strShowErrorMessageBoxFlag = "1"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "2"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
             
@@ -15100,6 +15341,8 @@ def thaicosPhiBrazilSend():
                     strShowErrorMessageBoxFlag = "3"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "4"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
             
@@ -15110,6 +15353,8 @@ def thaicosPhiBrazilSend():
                     strShowErrorMessageBoxFlag = "5"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "6"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -15120,6 +15365,8 @@ def thaicosPhiBrazilSend():
                     strShowErrorMessageBoxFlag = "7"
                 elif a == "2":
                     strShowErrorMessageBoxFlag = "8"
+                elif a == "3":
+                    strShowErrorMessageBoxFlag = "brand"
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -15141,43 +15388,51 @@ def thaicosPhiBrazilSend():
         S4DCPF = uiThaiCosPhiBrazil.textEdit_S4_DC_PF.toPlainText()
         print(f'S4DCPF---{S4DCPF}')
         # DC1
-        if uiThaiCosPhiBrazil.checkBox_S4_DC1.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC1.isChecked() and uiThaiCosPhiBrazil.checkBox_S4_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S4DCPF, 0)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiCosPhiBrazil.checkBox_S4_DC2.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC2.isChecked() and uiThaiCosPhiBrazil.checkBox_S4_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S4DCPF, 1)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiCosPhiBrazil.checkBox_S4_DC3.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC3.isChecked() and uiThaiCosPhiBrazil.checkBox_S4_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S4DCPF, 2)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
-        if uiThaiCosPhiBrazil.checkBox_S4_DC4.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC4.isChecked() and uiThaiCosPhiBrazil.checkBox_S4_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S4DCPF, 3)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -15206,6 +15461,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
@@ -15216,6 +15473,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
@@ -15226,6 +15485,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
         
@@ -15236,6 +15497,8 @@ def thaicosPhiBrazilSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
         
@@ -15257,43 +15520,51 @@ def thaicosPhiBrazilSend():
         S6DCPF = uiThaiCosPhiBrazil.textEdit_S6_DC_PF.toPlainText()
         print(f'S6DCPF---{S6DCPF}')
         # DC1
-        if uiThaiCosPhiBrazil.checkBox_S6_DC1.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC1.isChecked() and uiThaiCosPhiBrazil.checkBox_S6_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S6DCPF, 0)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiCosPhiBrazil.checkBox_S6_DC2.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC2.isChecked() and uiThaiCosPhiBrazil.checkBox_S6_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S6DCPF, 1)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiCosPhiBrazil.checkBox_S6_DC3.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC3.isChecked() and uiThaiCosPhiBrazil.checkBox_S6_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S6DCPF, 2)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiCosPhiBrazil.checkBox_S6_DC4.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC4.isChecked() and uiThaiCosPhiBrazil.checkBox_S6_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S6DCPF, 3)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
         
@@ -15315,43 +15586,51 @@ def thaicosPhiBrazilSend():
         S7DCPF = uiThaiCosPhiBrazil.textEdit_S7_DC_PF.toPlainText()
         print(f'S7DCPF---{S7DCPF}')
         # DC1
-        if uiThaiCosPhiBrazil.checkBox_S7_DC1.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC1.isChecked() and uiThaiCosPhiBrazil.checkBox_S7_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S7DCPF, 0)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiCosPhiBrazil.checkBox_S7_DC2.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC2.isChecked() and uiThaiCosPhiBrazil.checkBox_S7_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S7DCPF, 1)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiCosPhiBrazil.checkBox_S7_DC3.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC3.isChecked() and uiThaiCosPhiBrazil.checkBox_S7_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S7DCPF, 2)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiCosPhiBrazil.checkBox_S7_DC4.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC4.isChecked() and uiThaiCosPhiBrazil.checkBox_S7_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S7DCPF, 3)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -15373,43 +15652,51 @@ def thaicosPhiBrazilSend():
         S8DCPF = uiThaiCosPhiBrazil.textEdit_S8_DC_PF.toPlainText()
         print(f'S8DCPF---{S8DCPF}')
         # DC1
-        if uiThaiCosPhiBrazil.checkBox_S8_DC1.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC1.isChecked() and uiThaiCosPhiBrazil.checkBox_S8_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S8DCPF, 0)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiCosPhiBrazil.checkBox_S8_DC2.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC2.isChecked() and uiThaiCosPhiBrazil.checkBox_S8_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S8DCPF, 1)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiCosPhiBrazil.checkBox_S8_DC3.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC3.isChecked() and uiThaiCosPhiBrazil.checkBox_S8_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S8DCPF, 2)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiCosPhiBrazil.checkBox_S8_DC4.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC4.isChecked() and uiThaiCosPhiBrazil.checkBox_S8_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S8DCPF, 3)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
         
@@ -15431,43 +15718,51 @@ def thaicosPhiBrazilSend():
         S9DCPF = uiThaiCosPhiBrazil.textEdit_S9_DC_PF.toPlainText()
         print(f'S9DCPF---{S9DCPF}')
         # DC1
-        if uiThaiCosPhiBrazil.checkBox_S9_DC1.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC1.isChecked() and uiThaiCosPhiBrazil.checkBox_S9_DC1.isChecked():
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S9DCPF, 0)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
         
-        if uiThaiCosPhiBrazil.checkBox_S9_DC2.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC2.isChecked() and uiThaiCosPhiBrazil.checkBox_S9_DC2.isChecked():
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S9DCPF, 1)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
         
-        if uiThaiCosPhiBrazil.checkBox_S9_DC3.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC3.isChecked() and uiThaiCosPhiBrazil.checkBox_S9_DC3.isChecked():
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S9DCPF, 2)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-        if uiThaiCosPhiBrazil.checkBox_S9_DC4.isChecked():
+        if uiThaiCosPhiBrazil.checkBox_S1_DC4.isChecked() and uiThaiCosPhiBrazil.checkBox_S9_DC4.isChecked():
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S9DCPF, 3)
 
             if a == "1":
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
        
@@ -15702,6 +15997,8 @@ def thaicosPhiBrazilSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -16017,6 +16314,8 @@ def thaivoltprotect10minSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -16055,6 +16354,8 @@ def thaivoltprotect10minSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -16094,6 +16395,8 @@ def thaivoltprotect10minSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -16133,6 +16436,8 @@ def thaivoltprotect10minSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -16523,6 +16828,8 @@ def thaivoltprotect10minSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         # 连续录已在 WAIT_END 处 +1，此处勿重复计数
         if not use_ov_continuous:
@@ -16837,6 +17144,8 @@ def thaiguopinjiangzaiSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -16875,6 +17184,8 @@ def thaiguopinjiangzaiSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -16914,6 +17225,8 @@ def thaiguopinjiangzaiSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -16953,6 +17266,8 @@ def thaiguopinjiangzaiSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -18823,6 +19138,8 @@ def thaiguopinjiangzaiSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -19135,6 +19452,8 @@ def thaiqianpinshengzaiSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -19173,6 +19492,8 @@ def thaiqianpinshengzaiSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -19212,6 +19533,8 @@ def thaiqianpinshengzaiSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -19251,6 +19574,8 @@ def thaiqianpinshengzaiSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -21121,6 +21446,8 @@ def thaiqianpinshengzaiSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
@@ -21432,6 +21759,8 @@ def thaitestPUSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -21470,6 +21799,8 @@ def thaitestPUSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -21509,6 +21840,8 @@ def thaitestPUSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -21548,6 +21881,8 @@ def thaitestPUSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -23295,63 +23630,29 @@ def thaitestPUSend():
         strArrayTestStepSingle.append(strArraySingle)
         strArrayTestStep.append(strArrayTestStepSingle)
 
-    # step_end：关机一律关输出（安全强制；忽略 UI「开启」）
+    # step_end：关机一律关输出（安全强制；忽略 UI「开启」）。先 DC 后 AC
     if uiThaiTestPU.checkBox_S_End.isChecked():
         strArrayTestStepSingle = []
-        for combo_name, label in (
-            ("comboBox_S_End_AC", "交流"),
-            ("comboBox_S_End_DC1", "DC1"),
-            ("comboBox_S_End_DC2", "DC2"),
-            ("comboBox_S_End_DC3", "DC3"),
-            ("comboBox_S_End_DC4", "DC4"),
+        force_end_combos_off(
+            uiThaiTestPU,
+            (
+                "comboBox_S_End_AC",
+                "comboBox_S_End_DC1",
+                "comboBox_S_End_DC2",
+                "comboBox_S_End_DC3",
+                "comboBox_S_End_DC4",
+            ),
+            log=ui.textEdit_ReturnMessage,
+            tag="Test_PU",
+        )
+        dc_channels = enabled_shutdown_dc_channels(uiThaiTestPU)
+        for row in build_forced_shutdown_rows(
+            dc_channels=dc_channels,
+            per_dc_factor=per_dc_factor,
+            settle_01s=BLUESIGHT_DC_OFF_SETTLE_01S,
         ):
-            w = getattr(uiThaiTestPU, combo_name, None)
-            if w is not None and w.currentText() == "开启":
-                try:
-                    ui.textEdit_ReturnMessage.append(
-                        f"[Test_PU][安全] 关机步骤{label}原为「开启」，已强制改为关闭输出"
-                    )
-                except Exception:
-                    pass
-                w.setCurrentText("关闭")
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "write"
-        strArraySingle[2] = "OUTP OFF"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = "*IDN?"
-        strArraySingle[8] = 5
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        for dc_i, cb_name in enumerate(
-            ("checkBox_S_End_DC1", "checkBox_S_End_DC2", "checkBox_S_End_DC3", "checkBox_S_End_DC4"),
-            start=1,
-        ):
-            cb = getattr(uiThaiTestPU, cb_name, None)
-            if cb is None or not cb.isChecked():
-                continue
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = f"DC{dc_i}"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = "*IDN?"
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+            strArrayTest.append(row)
+            strArrayTestStepSingle.append(row)
         strArrayTestStep.append(strArrayTestStepSingle)
 
     if strShowErrorMessageBoxFlag == "1":
@@ -23370,6 +23671,8 @@ def thaitestPUSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         # 电压阶梯模式已在阶梯结束 +1；旧逐点卡片仍只记 1 轮
         if not use_voltage_ladder:
@@ -23689,6 +23992,8 @@ def thaiguoqianya_pinSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -23727,6 +24032,8 @@ def thaiguoqianya_pinSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -23766,6 +24073,8 @@ def thaiguoqianya_pinSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -23805,6 +24114,8 @@ def thaiguoqianya_pinSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -26472,6 +26783,8 @@ def thaiguoqianya_pinSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         per_test_time_list.append(int(total_test_time) + 60)
@@ -26788,6 +27101,8 @@ def thaiguoqianpin_immunSend():
                 strShowErrorMessageBoxFlag = "1"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -26826,6 +27141,8 @@ def thaiguoqianpin_immunSend():
                 strShowErrorMessageBoxFlag = "3"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
@@ -26865,6 +27182,8 @@ def thaiguoqianpin_immunSend():
                 strShowErrorMessageBoxFlag = "5"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
@@ -26904,6 +27223,8 @@ def thaiguoqianpin_immunSend():
                 strShowErrorMessageBoxFlag = "7"
             elif a == "2":
                 strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
@@ -27988,6 +28309,8 @@ def thaiguoqianpin_immunSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         total_save_file = total_save_file + 1
         per_test_time_list.append(int(total_test_time) + 60)
@@ -28064,7 +28387,13 @@ def thaistaticMPPTtestAppend():
     strAddTestFlag = "0" if staticMPPTtest_append_count == 0 else "1"
     mode = "覆盖" if staticMPPTtest_append_count == 0 else "追加"
     ui.textEdit_ReturnMessage.append(f"[静态MPPT测试] 第{staticMPPTtest_append_count + 1}次{mode}模式，开始生成命令...")
+    snapshot = _snapshot_dewetron_append('静态MPPT测试')
+    before_count = staticMPPTtest_append_count
     thaistaticMPPTtestSend()
+    if not _normalize_generated_dewetron_rows('静态MPPT测试', snapshot):
+        staticMPPTtest_append_count = before_count
+        uiThaiStaticMPPTTest.label_append_count.setText(str(before_count))
+        _sync_start_end_buttons()
 
 
 def thaistaticMPPTtestSend():
@@ -28597,6 +28926,8 @@ def thaistaticMPPTtestSend():
         QMessageBox.information(None, "错误提示信息", "DC电源4赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "8":
         QMessageBox.information(None, "错误提示信息", "DC电源4Isc,Imp赋值超范围,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
+    elif strShowErrorMessageBoxFlag == "brand":
+        QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -28683,30 +29014,13 @@ def thaifrequencyadaptabilitySend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiFrequencyAdaptability._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        # 对齐闪变/10min：IVC 曲线前后必须夹厂家模式命令，否则 Chroma 只收点表却不出功率
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        # 已含 MODE/SELECT 时不重复包
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_frequency_adaptability_plan(
@@ -28919,30 +29233,13 @@ def thaivoltageadaptabilitySend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiVoltageAdaptability._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        # 对齐闪变/10min：IVC 曲线前后必须夹厂家模式命令，否则 Chroma 只收点表却不出功率
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        # 已含 MODE/SELECT 时不重复包
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_voltage_adaptability_plan(
@@ -29155,30 +29452,13 @@ def thairocofSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiROCOF._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        # 对齐闪变/10min：IVC 曲线前后必须夹厂家模式命令，否则 Chroma 只收点表却不出功率
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        # 已含 MODE/SELECT 时不重复包
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_rocof_plan(
@@ -29385,30 +29665,13 @@ def thairapidvoltSend():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiRapidVolt._wtStacked.widget(3)))
 
     def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
-        # 对齐闪变/10min：IVC 曲线前后必须夹厂家模式命令，否则 Chroma 只收点表却不出功率
-        a = DCGetIVValueFunction(vmp, imp, voc, isc, pf, dc_num)
-        if a == "1":
-            return "err1", None
-        if a == "2":
-            return "err2", None
-        if a is None:
-            return "err1", None
-        iv_cmds = list(a)
-        dc_factor = per_dc_factor.get(str(dc_num), "") or "Chroma"
-        mode_cmds = list(command_list_DC.get(dc_factor) or command_list_DC.get("Chroma") or [])
-        if not mode_cmds:
-            return "ok", iv_cmds
-        # 已含 MODE/SELECT 时不重复包
-        joined = " ".join(iv_cmds)
-        if any(k in joined for k in ("MODE", "SELect", "SAS:MODE", "SOL ")):
-            return "ok", iv_cmds
-        wrapped = []
-        if len(mode_cmds) >= 1:
-            wrapped.append(mode_cmds[0])
-        wrapped.extend(iv_cmds)
-        if len(mode_cmds) >= 2:
-            wrapped.append(mode_cmds[1])
-        return "ok", wrapped
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
 
     existing = [] if strAddTestFlag == "0" else list(strArrayTest)
     plan = build_rapid_volt_plan(
@@ -29572,6 +29835,331 @@ def SaveFileDialogThaiRapidVolt():
         "uiThiaWT5000": uiThiaWT5000,
     }
     Open_Save_ThaiRapidVolt.Save_File_ThaiRapidVolt(kwargs)
+
+
+def thailvrtAppend():
+    global strAddTestFlag, lvrt_append_count
+    if 'lvrt_append_count' not in globals():
+        lvrt_append_count = 0
+    strAddTestFlag = "0" if lvrt_append_count == 0 else "1"
+    mode = "覆盖" if lvrt_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[低电压穿越] 第{lvrt_append_count + 1}次{mode}模式，开始生成命令...")
+    snapshot = _snapshot_dewetron_append('低电压穿越')
+    before_count = lvrt_append_count
+    thailvrtSend()
+    if not _normalize_generated_dewetron_rows('低电压穿越', snapshot):
+        lvrt_append_count = before_count
+        uiThaiLVRT.label_append_count.setText(str(before_count))
+        _sync_start_end_buttons()
+
+
+def thailvrtSend():
+    global uiThaiLVRT, dialog_windowlvrt, strArrayTest
+    global strSettingTestFlag, strArrayTestStep
+    global strAddTestFlag, total_save_file, WT_is_checked, test_program
+    global project_change, wt_config_nums
+    global command_save_file_path, wt_type
+    global lvrt_append_count
+    if 'lvrt_append_count' not in globals():
+        lvrt_append_count = 0
+
+    wt_config_dict = {}
+    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+        if uiThaiLVRT.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiLVRT._wtStacked.widget(0)))
+        elif uiThaiLVRT.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiLVRT._wtStacked.widget(1)))
+        elif uiThaiLVRT.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiLVRT._wtStacked.widget(2)))
+        elif uiThaiLVRT.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiLVRT._wtStacked.widget(3)))
+
+    def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
+
+    existing = [] if strAddTestFlag == "0" else list(strArrayTest)
+    plan = build_lvrt_plan(
+        uiThaiLVRT,
+        wt_config_dict=wt_config_dict,
+        str_add_flag=strAddTestFlag,
+        project_change=project_change,
+        existing_commands=existing,
+        dc_iv_resolver=_dc_iv_bridge,
+    )
+    if not plan["ok"]:
+        QMessageBox.information(None, "错误提示信息", plan["error"], QMessageBox.Ok, QMessageBox.Ok)
+        return
+
+    strArrayTest = plan["commands"]
+    strArrayTestStep = plan["steps"]
+    if plan["wt_is_checked"] == "1":
+        WT_is_checked = "1"
+    if plan["wt_type"]:
+        wt_type = plan["wt_type"]
+    if strAddTestFlag == "0":
+        test_program = list(plan["test_program"])
+    else:
+        test_program.extend(plan["test_program"])
+    if strAddTestFlag == '1' and project_change == '1':
+        wt_config_nums = wt_config_nums + 1
+
+    if plan["dc_errors"]:
+        all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
+        QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
+    else:
+        strSettingTestFlag = "1"
+        reset_wt_automation_state()
+        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+        commands_file_name = f'lvrt_commands{now_time}.csv'
+        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+        if directory1[0]:
+            out = open(directory1[0], 'w+', newline='')
+            csv_write = csv.writer(out, dialect="excel")
+            for i in range(len(strArrayTest)):
+                csv_write.writerow(strArrayTest[i])
+            out.close()
+        dialog_windowlvrt.close()
+
+    lvrt_append_count += 1
+    uiThaiLVRT.label_append_count.setText(str(lvrt_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(
+        f"[低电压穿越] 追加完成，当前计数: {lvrt_append_count}，开始/结束试验按钮已启用"
+    )
+
+
+def OpenFileDialogThaiLVRT():
+    global dialog_windowlvrt, uiThaiLVRT
+    kwargs = {"dialog_window": dialog_windowlvrt, "uiThaiLVRT": uiThaiLVRT}
+    Open_Save_ThaiLVRT.Open_File_ThaiLVRT(kwargs)
+
+
+def SaveFileDialogThaiLVRT():
+    global dialog_windowlvrt, uiThaiLVRT
+    kwargs = {"dialog_window": dialog_windowlvrt, "uiThaiLVRT": uiThaiLVRT}
+    Open_Save_ThaiLVRT.Save_File_ThaiLVRT(kwargs)
+
+
+def thaiphasejumpAppend():
+    global strAddTestFlag, phasejump_append_count
+    if 'phasejump_append_count' not in globals():
+        phasejump_append_count = 0
+    strAddTestFlag = "0" if phasejump_append_count == 0 else "1"
+    mode = "覆盖" if phasejump_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[相角突变] 第{phasejump_append_count + 1}次{mode}模式，开始生成命令...")
+    snapshot = _snapshot_dewetron_append('相角突变')
+    before_count = phasejump_append_count
+    thaiphasejumpSend()
+    if not _normalize_generated_dewetron_rows('相角突变', snapshot):
+        phasejump_append_count = before_count
+        uiThaiPhaseJump.label_append_count.setText(str(before_count))
+        _sync_start_end_buttons()
+
+
+def thaiphasejumpSend():
+    global uiThaiPhaseJump, dialog_windowphasejump, strArrayTest
+    global strSettingTestFlag, strArrayTestStep
+    global strAddTestFlag, total_save_file, WT_is_checked, test_program
+    global project_change, wt_config_nums
+    global command_save_file_path, wt_type
+    global phasejump_append_count, _ac_current_brand
+    if 'phasejump_append_count' not in globals():
+        phasejump_append_count = 0
+    if '_ac_current_brand' not in globals():
+        _ac_current_brand = "chroma"
+
+    wt_config_dict = {}
+    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+        if uiThaiPhaseJump.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiPhaseJump._wtStacked.widget(0)))
+        elif uiThaiPhaseJump.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiPhaseJump._wtStacked.widget(1)))
+        elif uiThaiPhaseJump.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiPhaseJump._wtStacked.widget(2)))
+        elif uiThaiPhaseJump.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiPhaseJump._wtStacked.widget(3)))
+
+    def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
+        from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
+
+    existing = [] if strAddTestFlag == "0" else list(strArrayTest)
+    plan = build_phase_jump_plan(
+        uiThaiPhaseJump,
+        ac_brand=_ac_current_brand,
+        wt_config_dict=wt_config_dict,
+        str_add_flag=strAddTestFlag,
+        project_change=project_change,
+        existing_commands=existing,
+        dc_iv_resolver=_dc_iv_bridge,
+    )
+    if not plan["ok"]:
+        QMessageBox.information(None, "错误提示信息", plan["error"], QMessageBox.Ok, QMessageBox.Ok)
+        return
+
+    strArrayTest = plan["commands"]
+    strArrayTestStep = plan["steps"]
+    if plan["wt_is_checked"] == "1":
+        WT_is_checked = "1"
+    if plan["wt_type"]:
+        wt_type = plan["wt_type"]
+    if strAddTestFlag == "0":
+        test_program = list(plan["test_program"])
+    else:
+        test_program.extend(plan["test_program"])
+    if strAddTestFlag == '1' and project_change == '1':
+        wt_config_nums = wt_config_nums + 1
+
+    if plan["dc_errors"]:
+        all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
+        QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
+    else:
+        strSettingTestFlag = "1"
+        reset_wt_automation_state()
+        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+        commands_file_name = f'phase_jump_commands{now_time}.csv'
+        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+        if directory1[0]:
+            out = open(directory1[0], 'w+', newline='')
+            csv_write = csv.writer(out, dialect="excel")
+            for i in range(len(strArrayTest)):
+                csv_write.writerow(strArrayTest[i])
+            out.close()
+        dialog_windowphasejump.close()
+
+    phasejump_append_count += 1
+    uiThaiPhaseJump.label_append_count.setText(str(phasejump_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(
+        f"[相角突变] 追加完成，当前计数: {phasejump_append_count}，开始/结束试验按钮已启用"
+    )
+
+
+def OpenFileDialogThaiPhaseJump():
+    global dialog_windowphasejump, uiThaiPhaseJump
+    kwargs = {"dialog_window": dialog_windowphasejump, "uiThaiPhaseJump": uiThaiPhaseJump}
+    Open_Save_ThaiPhaseJump.Open_File_ThaiPhaseJump(kwargs)
+
+
+def SaveFileDialogThaiPhaseJump():
+    global dialog_windowphasejump, uiThaiPhaseJump
+    kwargs = {"dialog_window": dialog_windowphasejump, "uiThaiPhaseJump": uiThaiPhaseJump}
+    Open_Save_ThaiPhaseJump.Save_File_ThaiPhaseJump(kwargs)
+
+
+def thaidynamicmpptAppend():
+    global strAddTestFlag, dynamicmppt_append_count
+    if 'dynamicmppt_append_count' not in globals():
+        dynamicmppt_append_count = 0
+    strAddTestFlag = "0" if dynamicmppt_append_count == 0 else "1"
+    mode = "覆盖" if dynamicmppt_append_count == 0 else "追加"
+    ui.textEdit_ReturnMessage.append(f"[动态MPPT] 第{dynamicmppt_append_count + 1}次{mode}模式，开始生成命令...")
+    snapshot = _snapshot_dewetron_append('动态MPPT')
+    before_count = dynamicmppt_append_count
+    thaidynamicmpptSend()
+    if not _normalize_generated_dewetron_rows('动态MPPT', snapshot):
+        dynamicmppt_append_count = before_count
+        uiThaiDynamicMPPT.label_append_count.setText(str(before_count))
+        _sync_start_end_buttons()
+
+
+def thaidynamicmpptSend():
+    global uiThaiDynamicMPPT, dialog_windowdynamicmppt, strArrayTest
+    global strSettingTestFlag, strArrayTestStep
+    global strAddTestFlag, total_save_file, WT_is_checked, test_program
+    global project_change, wt_config_nums
+    global command_save_file_path, wt_type
+    global dynamicmppt_append_count
+    if 'dynamicmppt_append_count' not in globals():
+        dynamicmppt_append_count = 0
+
+    wt_config_dict = {}
+    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+        if uiThaiDynamicMPPT.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiDynamicMPPT._wtStacked.widget(0)))
+        elif uiThaiDynamicMPPT.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiDynamicMPPT._wtStacked.widget(1)))
+        elif uiThaiDynamicMPPT.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiDynamicMPPT._wtStacked.widget(2)))
+        elif uiThaiDynamicMPPT.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiDynamicMPPT._wtStacked.widget(3)))
+
+    existing = [] if strAddTestFlag == "0" else list(strArrayTest)
+    plan = build_dynamic_mppt_plan(
+        uiThaiDynamicMPPT,
+        get_iv_fn=DCGetIVValueFunction,
+        per_dc_factor=per_dc_factor,
+        command_list_dc=command_list_DC,
+        wt_config_dict=wt_config_dict,
+        str_add_flag=strAddTestFlag,
+        project_change=project_change,
+        existing_commands=existing,
+    )
+    if not plan["ok"]:
+        QMessageBox.information(None, "错误提示信息", plan["error"], QMessageBox.Ok, QMessageBox.Ok)
+        return
+
+    strArrayTest = plan["commands"]
+    strArrayTestStep = plan["steps"]
+    if plan["wt_is_checked"] == "1":
+        WT_is_checked = "1"
+    if plan["wt_type"]:
+        wt_type = plan["wt_type"]
+    if strAddTestFlag == "0":
+        test_program = list(plan["test_program"])
+    else:
+        test_program.extend(plan["test_program"])
+    if strAddTestFlag == '1' and project_change == '1':
+        wt_config_nums = wt_config_nums + 1
+
+    if plan["dc_errors"]:
+        all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
+        QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
+    else:
+        strSettingTestFlag = "1"
+        reset_wt_automation_state()
+        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+        commands_file_name = f'dynamic_mppt_commands{now_time}.csv'
+        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+        if directory1[0]:
+            out = open(directory1[0], 'w+', newline='')
+            csv_write = csv.writer(out, dialect="excel")
+            for i in range(len(strArrayTest)):
+                csv_write.writerow(strArrayTest[i])
+            out.close()
+        dialog_windowdynamicmppt.close()
+
+    dynamicmppt_append_count += 1
+    uiThaiDynamicMPPT.label_append_count.setText(str(dynamicmppt_append_count))
+    _sync_start_end_buttons()
+    ui.textEdit_ReturnMessage.append(
+        f"[动态MPPT] 追加完成，当前计数: {dynamicmppt_append_count}，开始/结束试验按钮已启用"
+    )
+
+
+def OpenFileDialogThaiDynamicMPPT():
+    global dialog_windowdynamicmppt, uiThaiDynamicMPPT
+    kwargs = {"dialog_window": dialog_windowdynamicmppt, "uiThaiDynamicMPPT": uiThaiDynamicMPPT}
+    Open_Save_ThaiDynamicMPPT.Open_File_ThaiDynamicMPPT(kwargs)
+
+
+def SaveFileDialogThaiDynamicMPPT():
+    global dialog_windowdynamicmppt, uiThaiDynamicMPPT
+    kwargs = {"dialog_window": dialog_windowdynamicmppt, "uiThaiDynamicMPPT": uiThaiDynamicMPPT}
+    Open_Save_ThaiDynamicMPPT.Save_File_ThaiDynamicMPPT(kwargs)
+
+
 
 
 
@@ -29910,6 +30498,40 @@ def _is_wt_async_start(col6_val):
 def _is_wt_wait_end(col6_val):
     """静态 QU 连续测：电压阶梯跑完后再等 WT 停表。"""
     return str(col6_val).strip().upper() in ("WAIT_END", "WT_WAIT_END")
+
+
+def _parse_stoptime_to_hms(stop_time_raw):
+    """Parse WT StopTime (hh:mm:ss, optionally with HTML) → (h, m, s) or None."""
+    raw = re.sub(r"<[^>]+>", "", str(stop_time_raw or "")).strip()
+    m = re.match(r"^(\d{1,2})\s*:\s*(\d{1,2})\s*:\s*(\d{1,2})$", raw)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
+def _stoptime_to_loop_01s(stop_time_raw, fallback_hms=None):
+    """
+    Convert StopTime to messure_testing loop_time (0.1s units).
+    Prefer live config_dict StopTime so UI/命令表改时立即生效，避免沿用首次配置的全局 test_time_list。
+    """
+    hms = _parse_stoptime_to_hms(stop_time_raw)
+    if hms is None and fallback_hms is not None and len(fallback_hms) >= 3:
+        try:
+            hms = (int(fallback_hms[0]), int(fallback_hms[1]), int(fallback_hms[2]))
+        except (TypeError, ValueError):
+            hms = None
+    if hms is None:
+        return None
+    h, mi, s = hms
+    return int(h * 3600 + mi * 60 + s) * 10
+
+
+def _seconds_to_stoptime_str(sec):
+    """Format seconds → hh:mm:ss for textEdit_StopTime."""
+    sec = max(0, int(round(sec)))
+    hh, rem = divmod(sec, 3600)
+    mm, ss = divmod(rem, 60)
+    return f"{hh:02d}:{mm:02d}:{ss:02d}"
 
 
 def _wt_async_start_measure(cmd_no):
@@ -31913,15 +32535,15 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
 
     dc_type = ""
     dc_type = per_dc_factor.get(str(DCNumber))
-    # 如果 DC 厂家类型未配置/未知，旧逻辑会直接走到函数末尾返回 None，
-    # 进而导致命令文件里完全没有 I-V/功率变化命令。
-    # 这里做一个保底：默认按 Chroma 的 IVC:IT / IVC:VT 方式生成曲线命令。
+    # 厂家未识别时不再静默按致茂 IVC 生成，避免误发到蓝点/爱科；返回 "3" 由调用方提示。
     if not dc_type or dc_type not in ("Chroma", "Keysight", "Itech", "Bluesight"):
         try:
-            _append_debug_log(f"[DCGetIVValueFunction][warn] unknown dc_type={dc_type!r} for DC{DCNumber}, fallback to 'Chroma'")
+            _append_debug_log(
+                f"[DCGetIVValueFunction][block] unknown dc_type={dc_type!r} for DC{DCNumber}, refuse Chroma IVC fallback"
+            )
         except Exception:
             pass
-        dc_type = "Chroma"
+        return "3"
 
     def _validate_iv_points(f_vmp, f_imp, f_voc, f_isc):
         """校验 SAS/IV 曲线四点。非法时返回错误码，合法返回 None。
@@ -32121,8 +32743,9 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
             strArrayIVValue.append(f"SOL:USER:ISC {fDCIsc}")
             return strArrayIVValue
     elif dc_type and dc_type == "Bluesight":
-        # 蓝点：从 UI 缓存读取 Pmpp/Umpp/FF，编码到命令字符串
-        params = bluesight_stc_params.get(int(DCNumber), {})
+        # 蓝点：从 UI 缓存读取 Pmpp/Umpp/FF（发送曲线时写入），编码到命令字符串
+        idx = int(DCNumber)
+        params = bluesight_stc_params.get(idx) or bluesight_stc_params.get(idx + 1) or {}
         pmpp = params.get("pmpp", 0)
         umpp = params.get("umpp", 0)
         ff = params.get("ff", 0.8)
@@ -33295,6 +33918,7 @@ def messure_testing():
             else:
                 # 计算 loop_time（单位：0.1 秒）
                 # 原因：后面用 for + sleep(0.1) 计时，因此秒数要乘以 10
+                stop_raw = ""
                 if test_program[0][0] == '7' or test_program[0][0] == '11':
                     # 项目 7/11：过欠压/过欠频，首轮和后续轮次时长规则不同
                     if volt_fz_first_status == 0:
@@ -33305,10 +33929,19 @@ def messure_testing():
                         # 非首轮按每轮配置表 per_test_time_list[now_save_file]
                         loop_time = int(per_test_time_list[now_save_file]) * 10
                 else:
-                    # 普通项目统一按 h/m/s 计算
-                    loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
+                    # 普通项目：优先读当前 config_dict 的 StopTime（追加改时立刻生效）
+                    try:
+                        if isinstance(config_dict, dict):
+                            stop_raw = config_dict.get("textEdit_StopTime") or ""
+                    except Exception:
+                        stop_raw = ""
+                    loop_time = _stoptime_to_loop_01s(stop_raw, fallback_hms=test_time_list)
+                    if loop_time is None:
+                        loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
 
-                _append_debug_log(f"[messure_testing] computed loop_time={loop_time} (0.1s unit)")
+                _append_debug_log(
+                    f"[messure_testing] computed loop_time={loop_time} (0.1s unit), StopTime={stop_raw!r}"
+                )
 
                 # 发起"开始测量"动作（点击 WT 的开始按钮）
                 # 与当前索引对齐文件名，避免首轮出现空文件名
@@ -35156,6 +35789,12 @@ if __name__ == "__main__":
             uiThaiROCOF = setup_windows["uiThaiROCOF"]
             dialog_windowrapidvolt = setup_windows["dialog_windowrapidvolt"]
             uiThaiRapidVolt = setup_windows["uiThaiRapidVolt"]
+            dialog_windowlvrt = setup_windows["dialog_windowlvrt"]
+            uiThaiLVRT = setup_windows["uiThaiLVRT"]
+            dialog_windowphasejump = setup_windows["dialog_windowphasejump"]
+            uiThaiPhaseJump = setup_windows["uiThaiPhaseJump"]
+            dialog_windowdynamicmppt = setup_windows["dialog_windowdynamicmppt"]
+            uiThaiDynamicMPPT = setup_windows["uiThaiDynamicMPPT"]
 
             print("[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)", flush=True)
             # ── 将设备设置对话框内容嵌入到对映的设备页面中（替代弹窗） ──
@@ -35673,7 +36312,8 @@ if __name__ == "__main__":
 
                 sp_pmpp = QDoubleSpinBox()
                 sp_pmpp.setDecimals(3)
-                sp_pmpp.setRange(0.001, 65.535)
+                # 原 65.535 对应旧单字 Pmpp×1000 上限；现为 uint32，可更大（机台额定另限）
+                sp_pmpp.setRange(0.001, 1000.0)
                 sp_pmpp.setValue(8.0)
                 sp_pmpp.setLocale(QLocale.c())
                 sp_pmpp.setStyleSheet(_INPUT_QSS)
@@ -36092,7 +36732,12 @@ if __name__ == "__main__":
                         tr = BluesightTranslator(client, device_id=1)
                         ok, msg = tr.write_curve_block(stc=stc)
                         if ok:
-                            bluesight_stc_params[1] = {"pmpp": pmpp_val, "umpp": umpp_val, "ff": ff_val}
+                            # 与 DCGetIVValueFunction(DCNumber=0→DC1) 一致，用 0 基索引
+                            bluesight_stc_params[0] = {
+                                "pmpp": pmpp_val,
+                                "umpp": umpp_val,
+                                "ff": ff_val,
+                            }
                         _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
                         ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
                         fn = QMessageBox.information if ok else QMessageBox.warning
@@ -36328,6 +36973,9 @@ if __name__ == "__main__":
                 '电压适应性': (dialog_windowvoltageadaptability, uiThaiVoltageAdaptability),
                 'ROCOF保护': (dialog_windowrocof, uiThaiROCOF),
                 '快速电压变化': (dialog_windowrapidvolt, uiThaiRapidVolt),
+                '低电压穿越': (dialog_windowlvrt, uiThaiLVRT),
+                '相角突变': (dialog_windowphasejump, uiThaiPhaseJump),
+                '动态MPPT': (dialog_windowdynamicmppt, uiThaiDynamicMPPT),
             }
 
             _register_dewetron_project_sections()
@@ -36451,6 +37099,8 @@ if __name__ == "__main__":
                 ('电网适应性', '电压适应性', '电压适应性'),
                 ('电网适应性', 'ROCOF保护', 'ROCOF保护'),
                 ('电网适应性', '快速电压变化', '快速电压变化'),
+                ('电网适应性', '低电压穿越', '低电压穿越'),
+                ('电网适应性', '相角突变', '相角突变'),
                 # 功率与无功
                 ('功率与无功', '固定PF=1', '固定PF=1'),
                 ('功率与无功', '无功能力范围', '无功能力范围'),
@@ -36471,6 +37121,7 @@ if __name__ == "__main__":
                 # 过载与效率
                 ('过载与效率', '过载能力测试', '过载能力测试'),
                 ('过载与效率', '静态MPPT测试', '静态MPPT测试'),
+                ('过载与效率', '动态MPPT', '动态MPPT'),
             ]
             for _cat, _item_text, _setting_key in _auto_sidebar_items:
                 ui.add_auto_test_item(
@@ -36814,6 +37465,7 @@ if __name__ == "__main__":
                 global fixedpf_append_count
                 fixedpf_append_count = 0
                 uiThaiFixedPF.label_append_count.setText("0")
+                _reset_dewetron_append_fingerprint('固定PF=1')
                 _sync_start_end_buttons()
                 ui.textEdit_ReturnMessage.append("[固定PF=1] 计数器已重置为0")
             _safe_click(uiThaiFixedPF, "pushButton_ResetCount", reset_fixedpf_count)
@@ -37151,6 +37803,7 @@ if __name__ == "__main__":
                 global staticMPPTtest_append_count
                 staticMPPTtest_append_count = 0
                 uiThaiStaticMPPTTest.label_append_count.setText("0")
+                _reset_dewetron_append_fingerprint('静态MPPT测试')
                 _sync_start_end_buttons()
                 ui.textEdit_ReturnMessage.append("[静态MPPT测试] 计数器已重置为0")
             _safe_click(uiThaiStaticMPPTTest, "pushButton_ResetCount", reset_staticMPPTtest_count)
@@ -37238,6 +37891,48 @@ if __name__ == "__main__":
             # 快速电压变化的配置档读取写入
             _safe_click(uiThaiRapidVolt, "pushButton_ReadSettingFile", OpenFileDialogThaiRapidVolt)
             _safe_click(uiThaiRapidVolt, "pushButton_SaveSettingFile", SaveFileDialogThaiRapidVolt)
+
+            # 低电压穿越
+            uiThaiLVRT.pushButton_Send.clicked.connect(thailvrtSend)
+            _safe_click(uiThaiLVRT, "pushButton_TestAppend", thailvrtAppend)
+            def reset_lvrt_count():
+                global lvrt_append_count
+                lvrt_append_count = 0
+                uiThaiLVRT.label_append_count.setText("0")
+                _reset_dewetron_append_fingerprint('低电压穿越')
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[低电压穿越] 计数器已重置为0")
+            _safe_click(uiThaiLVRT, "pushButton_ResetCount", reset_lvrt_count)
+            _safe_click(uiThaiLVRT, "pushButton_ReadSettingFile", OpenFileDialogThaiLVRT)
+            _safe_click(uiThaiLVRT, "pushButton_SaveSettingFile", SaveFileDialogThaiLVRT)
+
+            # 相角突变
+            uiThaiPhaseJump.pushButton_Send.clicked.connect(thaiphasejumpSend)
+            _safe_click(uiThaiPhaseJump, "pushButton_TestAppend", thaiphasejumpAppend)
+            def reset_phasejump_count():
+                global phasejump_append_count
+                phasejump_append_count = 0
+                uiThaiPhaseJump.label_append_count.setText("0")
+                _reset_dewetron_append_fingerprint('相角突变')
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[相角突变] 计数器已重置为0")
+            _safe_click(uiThaiPhaseJump, "pushButton_ResetCount", reset_phasejump_count)
+            _safe_click(uiThaiPhaseJump, "pushButton_ReadSettingFile", OpenFileDialogThaiPhaseJump)
+            _safe_click(uiThaiPhaseJump, "pushButton_SaveSettingFile", SaveFileDialogThaiPhaseJump)
+
+            # 动态MPPT
+            uiThaiDynamicMPPT.pushButton_Send.clicked.connect(thaidynamicmpptSend)
+            _safe_click(uiThaiDynamicMPPT, "pushButton_TestAppend", thaidynamicmpptAppend)
+            def reset_dynamicmppt_count():
+                global dynamicmppt_append_count
+                dynamicmppt_append_count = 0
+                uiThaiDynamicMPPT.label_append_count.setText("0")
+                _reset_dewetron_append_fingerprint('动态MPPT')
+                _sync_start_end_buttons()
+                ui.textEdit_ReturnMessage.append("[动态MPPT] 计数器已重置为0")
+            _safe_click(uiThaiDynamicMPPT, "pushButton_ResetCount", reset_dynamicmppt_count)
+            _safe_click(uiThaiDynamicMPPT, "pushButton_ReadSettingFile", OpenFileDialogThaiDynamicMPPT)
+            _safe_click(uiThaiDynamicMPPT, "pushButton_SaveSettingFile", SaveFileDialogThaiDynamicMPPT)
 
 
 

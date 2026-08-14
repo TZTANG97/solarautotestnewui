@@ -2,6 +2,7 @@
 # 固定PF=1项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.dewetron_autotest_panel import AnalyzerModeSection
 from components.timeline import TimelineWidget
 
 
@@ -134,6 +135,34 @@ class Ui_Dialog_thaifixedPF(object):
                   "QLabel:hover { background-color: #f1f5f9; }")
         for i, lbl in enumerate(self._step_labels):
             lbl.setStyleSheet(active if i == index else normal)
+
+    def _integrate_analyzer_mode(self, layout, wt_group):
+        """使用共享选择器包裹既有 WT 宏配置，不改造为四页 WT 配置。"""
+        self.analyzerModeSection = AnalyzerModeSection(wt_group, self.checkBox_S2)
+        self.dewetronPanel = self.analyzerModeSection.dewetron_panel
+        self.radio_wt3000 = self.analyzerModeSection.radio_wt
+        self.radio_dewetron = self.analyzerModeSection.radio_dewetron
+        self._mode = self.analyzerModeSection.current_mode()
+        self.analyzerModeSection.mode_changed.connect(
+            lambda mode: setattr(self, "_mode", mode)
+        )
+        for name in (
+            "pushButton_DEW_TestApply",
+            "pushButton_DEW_RefreshFields",
+            "pushButton_DEW_DataViewer",
+            "comboBox_DEW_MaxRefreshRate",
+            "spinBox_DEW_DecimalPlaces",
+            "checkBox_DEW_RealtimeWaveform",
+            "treeWidget_DEW_ExportFields",
+        ):
+            setattr(self, name, getattr(self.dewetronPanel, name))
+        self.get_checked_export_fields = self.dewetronPanel.get_checked_export_fields
+        self.refresh_export_field_tree = self.dewetronPanel.refresh_export_field_tree
+        self.set_checked_export_fields = self.dewetronPanel.set_checked_export_fields
+        self.get_checked_fields = self.get_checked_export_fields
+        self.refresh_checked_fields = self.refresh_export_field_tree
+        self.set_checked_fields = self.set_checked_export_fields
+        layout.addWidget(self.analyzerModeSection)
 
     # ════════════════════════════════════════════════
     # Step1: AC/DC 电源 + 时序
@@ -320,7 +349,7 @@ class Ui_Dialog_thaifixedPF(object):
         self.lE_wt_save_path = self._make_input("lE_wt_save_path", "", parent=self._dialog, width=400)
         gLayout.addWidget(self.lE_wt_save_path, 2, 1, 1, 3)
 
-        layout.addWidget(grp)
+        self._integrate_analyzer_mode(layout, grp)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 

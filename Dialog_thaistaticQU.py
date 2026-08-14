@@ -480,7 +480,7 @@ class Ui_Dialog_thaiStaticQU(object):
             "112,110,108,107,106,105,103,100,"
             "97,94,93,90,87,85"
         )
-        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压 list（静态设定精度 / 逐点存盘）")
+        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压 list（静态设定精度 / 连续录 1 条 QU_curve）")
         ladder_grp.setStyleSheet(
             "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
             "padding-top: 8px; font-weight: bold; }"
@@ -507,7 +507,9 @@ class Ui_Dialog_thaiStaticQU(object):
         self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
         self.textEdit_VoltageLadder.setFixedHeight(28)
         self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
-        self.textEdit_VoltageLadder.setPlaceholderText("先升再降，如 100…115…85；逐点存盘 QU_100,…")
+        self.textEdit_VoltageLadder.setPlaceholderText(
+            "先升再降取滞环，如 100…115…85；连续录 1 条 QU_curve"
+        )
         ladder_layout.addWidget(self.textEdit_VoltageLadder, 1, 1, 1, 3)
 
         ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
@@ -515,7 +517,7 @@ class Ui_Dialog_thaiStaticQU(object):
         self.textEdit_VoltageLadder_TIME.setObjectName("textEdit_VoltageLadder_TIME")
         self.textEdit_VoltageLadder_TIME.setFixedSize(80, 28)
         self.textEdit_VoltageLadder_TIME.setText("1")
-        self.textEdit_VoltageLadder_TIME.setToolTip("每个 Un% 保持时间；数字 col6 逐点触发 WT 存盘")
+        self.textEdit_VoltageLadder_TIME.setToolTip("每个 Un% 保持时间；WT 全程连续录，不停表")
         ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 2, 1)
         self.comboBox_VoltageLadder_TIME = QtWidgets.QComboBox()
         self.comboBox_VoltageLadder_TIME.setObjectName("comboBox_VoltageLadder_TIME")
@@ -524,8 +526,8 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
         ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 2, 2)
         tip = QtWidgets.QLabel(
-            "静态设定精度：只填电压 list。逐点改网压并用数字 col6 逐点存盘（多文件 QU_xx）。"
-            "连续录曲线请用菜单「动态QU」。Pn=100% 由步骤① DC 保持。"
+            "静态设定精度：先升后降取滞环，WT 连续录 1 条 QU_curve（分析时可按电压段取稳态）。"
+            "动态响应曲线用菜单「动态QU」→ QU_dyn_curve。Pn=100% 由步骤① DC 保持。"
         )
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
         tip.setWordWrap(True)
@@ -735,7 +737,7 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_S_End_AC.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_AC, 0, 2)
 
-        # DC1 shutdown
+        # DC1 shutdown（可与 step1 解耦：原载/通用直流源可只在关机关输出）
         self.checkBox_S_End_DC1 = QtWidgets.QCheckBox("直流电源1")
         self.checkBox_S_End_DC1.setChecked(True)
         self.checkBox_S_End_DC1.setObjectName("checkBox_S_End_DC1")
@@ -749,7 +751,7 @@ class Ui_Dialog_thaiStaticQU(object):
 
         # DC2 shutdown
         self.checkBox_S_End_DC2 = QtWidgets.QCheckBox("直流电源2")
-        self.checkBox_S_End_DC2.setChecked(True)
+        self.checkBox_S_End_DC2.setChecked(False)
         self.checkBox_S_End_DC2.setObjectName("checkBox_S_End_DC2")
         g11Layout.addWidget(self.checkBox_S_End_DC2, 1, 2)
         self.comboBox_S_End_DC2 = QtWidgets.QComboBox()
@@ -761,7 +763,7 @@ class Ui_Dialog_thaiStaticQU(object):
 
         # DC3 shutdown
         self.checkBox_S_End_DC3 = QtWidgets.QCheckBox("直流电源3")
-        self.checkBox_S_End_DC3.setChecked(True)
+        self.checkBox_S_End_DC3.setChecked(False)
         self.checkBox_S_End_DC3.setObjectName("checkBox_S_End_DC3")
         g11Layout.addWidget(self.checkBox_S_End_DC3, 2, 0)
         self.comboBox_S_End_DC3 = QtWidgets.QComboBox()
@@ -773,7 +775,7 @@ class Ui_Dialog_thaiStaticQU(object):
 
         # DC4 shutdown
         self.checkBox_S_End_DC4 = QtWidgets.QCheckBox("直流电源4")
-        self.checkBox_S_End_DC4.setChecked(True)
+        self.checkBox_S_End_DC4.setChecked(False)
         self.checkBox_S_End_DC4.setObjectName("checkBox_S_End_DC4")
         g11Layout.addWidget(self.checkBox_S_End_DC4, 2, 2)
         self.comboBox_S_End_DC4 = QtWidgets.QComboBox()
@@ -782,6 +784,14 @@ class Ui_Dialog_thaiStaticQU(object):
         self.comboBox_S_End_DC4.setCurrentText("关闭")
         self.comboBox_S_End_DC4.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_DC4, 2, 3)
+
+        tip_end = QtWidgets.QLabel(
+            "提示：① 可不勾 DC（原载/通用直流源手动供电）；此处仍可勾选通道，"
+            "结束时先关 DC 再关 AC。仅勾实际已连接的通道。"
+        )
+        tip_end.setWordWrap(True)
+        tip_end.setStyleSheet("color: #64748b; font-size: 11px; font-weight: normal;")
+        g11Layout.addWidget(tip_end, 3, 0, 1, 4)
 
         layout.addWidget(self.groupBox_11)
         layout.addStretch()
@@ -951,11 +961,10 @@ class Ui_Dialog_thaiStaticQU(object):
         layout.addStretch()
 
     def _connect_dc_linkage(self):
-        """连接 step1 DC 复选框与关机步骤 DC 复选框的联动。"""
-        step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
-                     self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+        """关机步骤 DC：仅随 step_last 启用，不再强制依赖 step1 勾选。
 
-        # 关机步骤 DC 联动
+        原载/通用直流源常在①不勾 DC（避免 STC），但仍需在⑧关输出。
+        """
         end_dcs = [self.checkBox_S_End_DC1, self.checkBox_S_End_DC2,
                    self.checkBox_S_End_DC3, self.checkBox_S_End_DC4]
         end_combos = [self.comboBox_S_End_DC1, self.comboBox_S_End_DC2,
@@ -964,14 +973,11 @@ class Ui_Dialog_thaiStaticQU(object):
         def _update_end_dc(_checked=None):
             step_on = self.checkBox_S_End.isChecked()
             for i in range(4):
-                should_enable = step_on and step1_dcs[i].isChecked()
-                end_dcs[i].setEnabled(should_enable)
-                end_dcs[i].setChecked(should_enable)
-                end_combos[i].setEnabled(should_enable)
+                end_dcs[i].setEnabled(step_on)
+                end_combos[i].setEnabled(step_on)
+                # 不因 step1 取消勾选而强制改 checked，保留用户关机意图
 
         self.checkBox_S_End.toggled.connect(_update_end_dc)
-        for s1dc in step1_dcs:
-            s1dc.toggled.connect(_update_end_dc)
         _update_end_dc()
 
     def retranslateUi(self, Dialog_thaiStaticQU):

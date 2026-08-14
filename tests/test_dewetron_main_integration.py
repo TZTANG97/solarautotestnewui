@@ -65,12 +65,15 @@ APPROVED_APPEND_WRAPPERS = (
     ("thaivoltageadaptabilityAppend", "thaivoltageadaptabilitySend", "电压适应性"),
     ("thairocofAppend", "thairocofSend", "ROCOF保护"),
     ("thairapidvoltAppend", "thairapidvoltSend", "快速电压变化"),
+    ("thailvrtAppend", "thailvrtSend", "低电压穿越"),
+    ("thaiphasejumpAppend", "thaiphasejumpSend", "相角突变"),
+    ("thaidynamicmpptAppend", "thaidynamicmpptSend", "动态MPPT"),
+    ("thaifixedpfAppend", "thaifixedpfSend", "固定PF=1"),
+    ("thaistaticMPPTtestAppend", "thaistaticMPPTtestSend", "静态MPPT测试"),
 )
 
 EXCLUDED_APPEND_WRAPPERS = (
     "thaidianyashanbianAppend",
-    "thaifixedpfAppend",
-    "thaistaticMPPTtestAppend",
 )
 
 
@@ -403,6 +406,9 @@ def test_shared_apply_passes_export_options_and_uses_live_xml_retry():
     )
     assert {
         "固定PF=1",
-        "MPPT",
         "静态MPPT测试",
-    }.isdisjoint(ELIGIBLE_PROJECT_NAMES)
+        "低电压穿越",
+        "相角突变",
+        "动态MPPT",
+    }.issubset(set(ELIGIBLE_PROJECT_NAMES))
+    assert "MPPT" not in ELIGIBLE_PROJECT_NAMES

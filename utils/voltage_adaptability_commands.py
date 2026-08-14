@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """电压适应性：巴西 Ordinance 5.4.21 流程（对齐频率适应性更新率扫压，改扫电压）。"""
 
+from utils.safe_shutdown import (
+    build_forced_shutdown_rows,
+    enabled_shutdown_dc_channels,
+)
 from utils.time_helpers import SetTimeFunction
 
 
@@ -326,6 +330,7 @@ def build_voltage_adaptability_plan(
     project_change="0",
     existing_commands=None,
     dc_iv_resolver=None,
+    per_dc_factor=None,
 ):
     """根据 Dialog UI 生成巴西 5.4.21 命令计划。"""
     if wt_config_dict is None:
@@ -422,6 +427,8 @@ def build_voltage_adaptability_plan(
                 dc_errors.append("%s赋值错误" % label)
             elif code == "err2":
                 dc_errors.append("%sIsc,Imp赋值超范围" % label)
+            elif code == "err_brand":
+                dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
             elif code == "ok" and iv_cmds:
                 wait = _row_ac_wait_idn(2, slot=8)
                 commands.append(wait)
@@ -534,27 +541,14 @@ def build_voltage_adaptability_plan(
 
     # shutdown
     if ui.checkBox_S_End.isChecked():
-        step_rows = []
-        end_ac = ui.comboBox_S_End_AC.currentText()
-        row = _row_ac_write("OUTP ON" if end_ac == "开启" else "OUTP OFF")
-        commands.append(row)
-        step_rows.append(row)
-        wait = _row_ac_wait_idn(5, slot=8)
-        commands.append(wait)
-        step_rows.append(wait)
-
-        for ch, device in ((1, "DC1"), (2, "DC2"), (3, "DC3"), (4, "DC4")):
-            s1_cb = getattr(ui, "checkBox_S1_DC%d" % ch)
-            end_cb = getattr(ui, "checkBox_S_End_DC%d" % ch)
-            if not (s1_cb.isChecked() and end_cb.isChecked()):
-                continue
-            end_status = getattr(ui, "comboBox_S_End_DC%d" % ch).currentText()
-            row = _row_device_write(device, "OUTP ON" if end_status == "开启" else "OUTP OFF")
-            commands.append(row)
-            step_rows.append(row)
-            wait = _row_ac_wait_idn(5, slot=8)
-            commands.append(wait)
-            step_rows.append(wait)
+        dc_channels = enabled_shutdown_dc_channels(
+            ui, end_fmt="checkBox_S_End_DC%d"
+        )
+        step_rows = build_forced_shutdown_rows(
+            dc_channels=dc_channels,
+            per_dc_factor=per_dc_factor,
+        )
+        commands.extend(step_rows)
         steps.append(step_rows)
 
     return {

@@ -2,6 +2,7 @@
 # 静态MPPT项目配置 - 竖式步骤条布局（手写，非 pyuic5 生成）
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+from components.dewetron_autotest_panel import AnalyzerModeSection
 
 
 class Ui_Dialog_thaistaticmppttest(object):
@@ -87,7 +88,13 @@ class Ui_Dialog_thaistaticmppttest(object):
 
         # 横向步骤指示器
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ MPPT测试", "④ 关机设置"]
+        step_titles = [
+            "① AC/DC 电源",
+            "② 功率分析仪",
+            "③ 测试功率段",
+            "④ MPPT测试",
+            "⑤ 关机设置",
+        ]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -115,6 +122,7 @@ class Ui_Dialog_thaistaticmppttest(object):
 
         # ── 构建各步骤页面 ──
         self._build_step1()
+        self._build_analyzer_step()
         self._build_step2()
         self._build_step3()
         self._build_step4()
@@ -153,6 +161,68 @@ class Ui_Dialog_thaistaticmppttest(object):
                     }
                     QLabel:hover { background-color: #f1f5f9; }
                 """)
+
+    def _integrate_analyzer_mode(self, layout, wt_widget):
+        """接入共享 WT/DEWETRON 选择器并暴露兼容控件别名。"""
+        self.analyzerModeSection = AnalyzerModeSection(
+            wt_widget, self.checkBox_Analyzer
+        )
+        self.dewetronPanel = self.analyzerModeSection.dewetron_panel
+        self.radio_wt3000 = self.analyzerModeSection.radio_wt
+        self.radio_dewetron = self.analyzerModeSection.radio_dewetron
+        self._mode = self.analyzerModeSection.current_mode()
+        self.analyzerModeSection.mode_changed.connect(
+            lambda mode: setattr(self, "_mode", mode)
+        )
+        for name in (
+            "pushButton_DEW_TestApply",
+            "pushButton_DEW_RefreshFields",
+            "pushButton_DEW_DataViewer",
+            "comboBox_DEW_MaxRefreshRate",
+            "spinBox_DEW_DecimalPlaces",
+            "checkBox_DEW_RealtimeWaveform",
+            "treeWidget_DEW_ExportFields",
+        ):
+            setattr(self, name, getattr(self.dewetronPanel, name))
+        self.get_checked_export_fields = self.dewetronPanel.get_checked_export_fields
+        self.refresh_export_field_tree = self.dewetronPanel.refresh_export_field_tree
+        self.set_checked_export_fields = self.dewetronPanel.set_checked_export_fields
+        self.get_checked_fields = self.get_checked_export_fields
+        self.refresh_checked_fields = self.refresh_export_field_tree
+        self.set_checked_fields = self.set_checked_export_fields
+        layout.addWidget(self.analyzerModeSection)
+
+    def _build_analyzer_step(self):
+        """构建独立分析仪页，不占用测试功率段的 checkBox_S2。"""
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("background-color: white;")
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        self.checkBox_Analyzer = QtWidgets.QCheckBox("启用分析仪步骤")
+        self.checkBox_Analyzer.setChecked(True)
+        self.checkBox_Analyzer.setObjectName("checkBox_Analyzer")
+
+        self.groupBox_AnalyzerWT = QtWidgets.QGroupBox("WT 功率分析仪")
+        self.groupBox_AnalyzerWT.setObjectName("groupBox_AnalyzerWT")
+        self.groupBox_AnalyzerWT.setStyleSheet(
+            "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
+            "padding-top: 8px; font-weight: bold; }"
+        )
+        wt_layout = QtWidgets.QVBoxLayout(self.groupBox_AnalyzerWT)
+        wt_hint = QtWidgets.QLabel(
+            "WT 模式沿用静态 MPPT 既有测量流程；切换到 DEWETRON "
+            "可配置采集刷新率与导出字段。"
+        )
+        wt_hint.setWordWrap(True)
+        wt_hint.setStyleSheet("color: #64748b; font-weight: normal;")
+        wt_layout.addWidget(wt_hint)
+        wt_layout.addStretch()
+
+        self._integrate_analyzer_mode(layout, self.groupBox_AnalyzerWT)
+        layout.addStretch()
+        self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════
     # Step 1: AC/DC电源设置 + 直流源 + 时序

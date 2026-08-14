@@ -73,9 +73,9 @@ def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
 
     # stub DC IV + 避免弹窗/写盘副作用
     monkeypatch.setattr(sw, "DCGetIVValueFunction", lambda *a, **k: ["IVC:IT 1", "IVC:VT 1"])
-    monkeypatch.setattr(sw, "command_list_DC", {"chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"]})
-    monkeypatch.setattr(sw, "DC_num", {"DC1": "0", "DC2": "1", "DC3": "2", "DC4": "3"})
-    monkeypatch.setattr(sw, "per_dc_factor", {"0": "chroma", "1": "chroma", "2": "chroma", "3": "chroma"})
+    sw.command_list_DC = {"chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"]}
+    sw.DC_num = {"DC1": "0", "DC2": "1", "DC3": "2", "DC4": "3"}
+    sw.per_dc_factor = {"0": "chroma", "1": "chroma", "2": "chroma", "3": "chroma"}
     monkeypatch.setattr(sw, "QMessageBox", type("QM", (), {
         "information": staticmethod(lambda *a, **k: None),
         "Ok": 1,

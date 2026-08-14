@@ -51,6 +51,9 @@ from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
 from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
 from Dialog_thairocof import Ui_Dialog_thairocof
 from Dialog_thairapidvolt import Ui_Dialog_thairapidvolt
+from Dialog_thailvrt import Ui_Dialog_thailvrt
+from Dialog_thaiphasejump import Ui_Dialog_thaiphasejump
+from Dialog_thaidynamicmppt import Ui_Dialog_thaidynamicmppt
 from Dialog_thaiWT3000E import Ui_Dialog_thai_WT3000E
 from Dialog_thaiWT1806E import Ui_Dialog_thai_WT1806E
 from Dialog_thaiWT1800 import Ui_Dialog_thai_WT1800
@@ -531,14 +534,17 @@ class MainSetup(BaseSetup):
             ("voltageadaptability", Ui_Dialog_thaivoltageadaptability, "dialog_windowvoltageadaptability", "uiThaiVoltageAdaptability"),
             ("rocof", Ui_Dialog_thairocof, "dialog_windowrocof", "uiThaiROCOF"),
             ("rapidvolt", Ui_Dialog_thairapidvolt, "dialog_windowrapidvolt", "uiThaiRapidVolt"),
+            ("lvrt", Ui_Dialog_thailvrt, "dialog_windowlvrt", "uiThaiLVRT"),
+            ("phasejump", Ui_Dialog_thaiphasejump, "dialog_windowphasejump", "uiThaiPhaseJump"),
+            ("dynamicmppt", Ui_Dialog_thaidynamicmppt, "dialog_windowdynamicmppt", "uiThaiDynamicMPPT"),
         ]
         for name, ui_cls, d_key, u_key in _lazy:
-            _seq += 1; print(f"[DEBUG_SETUP] {_seq}/32 {name} (lazy)...", flush=True)
+            _seq += 1; print(f"[DEBUG_SETUP] {_seq}/35 {name} (lazy)...", flush=True)
             lazy = LazyDialog(ui_cls, name)
             created[d_key] = lazy
             created[u_key] = lazy
 
-        print(f"[DEBUG_SETUP] 全部 {_seq} 个对话框就绪（11 立即 + 24 延迟）", flush=True)
+        print(f"[DEBUG_SETUP] 全部 {_seq} 个对话框就绪（11 立即 + 27 延迟）", flush=True)
         return created
 
 

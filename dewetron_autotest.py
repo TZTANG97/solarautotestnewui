@@ -102,8 +102,8 @@ class DewetronProjectSpec:
         return "SYNC to HARMONIC" if self.profile == PROFILE_HARMONIC else "Default"
 
 
-# The first eleven entries are the eligible migration target set requested by
-# Task #6.  Harmonic and flicker are compatibility/reference registrations.
+# Entries without ``compatibility=True`` are eligible migration targets.
+# Harmonic and flicker remain compatibility/reference registrations.
 _PROJECT_SPECS: Tuple[DewetronProjectSpec, ...] = (
     DewetronProjectSpec("重连", "reconnection", aliases=("chonglian",)),
     DewetronProjectSpec(
@@ -193,6 +193,31 @@ _PROJECT_SPECS: Tuple[DewetronProjectSpec, ...] = (
         "快速电压变化",
         "rapid-voltage-change",
         aliases=("rapidvolt", "快速电压变化测试", "rvc"),
+    ),
+    DewetronProjectSpec(
+        "低电压穿越",
+        "lvrt",
+        aliases=("LVRT", "lvrt", "thailvrt"),
+    ),
+    DewetronProjectSpec(
+        "相角突变",
+        "phase-jump",
+        aliases=("phasejump", "PhaseJump", "thaiphasejump"),
+    ),
+    DewetronProjectSpec(
+        "动态MPPT",
+        "dynamic-mppt",
+        aliases=("dynamicmppt", "DynamicMPPT", "thaidynamicmppt"),
+    ),
+    DewetronProjectSpec(
+        "固定PF=1",
+        "fixed-pf",
+        aliases=("fixedPF", "fixedpf", "固定PF", "固定PF_1"),
+    ),
+    DewetronProjectSpec(
+        "静态MPPT测试",
+        "static-mppt",
+        aliases=("staticMPPT", "staticmppttest", "MPPT", "静态MPPT"),
     ),
     DewetronProjectSpec(
         "谐波电流",

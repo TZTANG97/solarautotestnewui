@@ -10,6 +10,26 @@ from pymodbus.client import ModbusTcpClient
 logger = logging.getLogger(__name__)
 
 
+def _parse_itech_setpoint(text: str, heads: tuple[str, ...]) -> float | None:
+    """解析「HEAD <number>」设定值；拒绝 HEAD:XXX 等带冒号的致茂扩展。
+
+    text 须已 strip+upper。成功返回 float，否则 None。
+    """
+    parts = text.split()
+    if len(parts) != 2:
+        return None
+    head, raw = parts[0], parts[1]
+    if head not in heads:
+        return None
+    # VOLT:OFFS 一类会变成 head=VOLT:OFFS，已被 heads 拦住；双保险
+    if ":" in head:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
 class ItechTranslator:
     """爱科协议转换器（SCPI转Modbus）"""
 
@@ -151,8 +171,17 @@ class ItechTranslator:
                 return _out(True)
 
             # ==================== 相位选择 ====================
-            elif text.startswith("INST:NSEL"):
-                phase = int(text.split()[-1])
+            # 仅接受「INST:NSEL <1|2|3>」，避免 INST:NSELxxx 误匹配
+            elif text.startswith("INST:NSEL ") or text == "INST:NSEL":
+                parts = text.split()
+                if len(parts) != 2:
+                    logger.error(f"爱科: INST:NSEL 格式错误: {text}")
+                    return _out(False)
+                try:
+                    phase = int(parts[1])
+                except ValueError:
+                    logger.error(f"爱科: 无效相位 {parts[1]!r}")
+                    return _out(False)
                 if phase not in [1, 2, 3]:
                     logger.error(f"爱科: 无效相位 {phase}")
                     return _out(False)
@@ -166,9 +195,12 @@ class ItechTranslator:
                 return _out(True)
 
             # ==================== 电压设置 ====================
-            elif text.startswith("VOLT"):
-                parts = text.split()
-                volt_val = float(parts[1])
+            # 仅接受「VOLT|VOLTAGE <数值>」；拒绝 VOLT:OFFS / VOLT:MODE LIST 等致茂扩展
+            elif text.startswith("VOLT ") or text.startswith("VOLTAGE "):
+                volt_val = _parse_itech_setpoint(text, ("VOLT", "VOLTAGE"))
+                if volt_val is None:
+                    logger.warning(f"未支持的SCPI命令: {text}")
+                    return _out(False)
 
                 # 三相模式 + 多相编辑 = 同时设置三相
                 if self.phase_mode == "THREE" and self.edit_mode == "ALL":
@@ -180,9 +212,11 @@ class ItechTranslator:
                     return _out(self._set_voltage_single(self.current_phase, volt_val))
 
             # ==================== 频率设置 ====================
-            elif text.startswith("FREQ"):
-                parts = text.split()
-                freq_val = float(parts[1])
+            elif text.startswith("FREQ ") or text.startswith("FREQUENCY "):
+                freq_val = _parse_itech_setpoint(text, ("FREQ", "FREQUENCY"))
+                if freq_val is None:
+                    logger.warning(f"未支持的SCPI命令: {text}")
+                    return _out(False)
                 return _out(self._set_frequency(freq_val))
 
             # ==================== 爱科特有扩展命令 ====================
@@ -321,10 +355,13 @@ class BluesightCurveSTC:
     def validate(self) -> None:
         if not (0.25 <= self.fill_factor <= 0.95):
             raise ValueError(f"填充因子须在 0.25~0.95，当前 {self.fill_factor}")
-        if self.pmpp_stc_kw * 1000.0 > 65535:
-            raise ValueError(
-                "Pmpp(kW)×1000 超过单寄存器 65535，请按手册改为双字功率或减小功率"
-            )
+        # Pmpp/Umpp 按 uint32 LE 写入（与 translate Vmp/Pmp 一致），勿按单字 65535 截断
+        p_raw = int(round(self.pmpp_stc_kw * 1000.0))
+        u_raw = int(round(self.umpp_stc_v * 100.0))
+        if p_raw < 0 or p_raw > 0xFFFFFFFF:
+            raise ValueError(f"Pmpp(kW)×1000 越界: {p_raw}")
+        if u_raw < 0 or u_raw > 0xFFFFFFFF:
+            raise ValueError(f"Umpp(V)×100 越界: {u_raw}")
 
 
 class BluesightTranslator:
@@ -391,6 +428,20 @@ class BluesightTranslator:
             return self.client.write_registers(address, values, device_id=self._device_id)
         except TypeError:
             return self.client.write_registers(address, values, slave=self._device_id)
+
+    @staticmethod
+    def _u32_le_words(raw: int) -> list[int]:
+        """uint32 → Modbus 低字在前、高字在后（与 ``translate`` 中 Vmp/Pmp 一致）。"""
+        if raw < 0 or raw > 0xFFFFFFFF:
+            raise ValueError(f"uint32 越界: {raw}")
+        return [raw & 0xFFFF, (raw >> 16) & 0xFFFF]
+
+    @staticmethod
+    def _scaled_u32(value: float, scale: float, label: str) -> int:
+        raw = int(round(float(value) * scale))
+        if raw < 0 or raw > 0xFFFFFFFF:
+            raise ValueError(f"{label} 编码越界: value={value} scale={scale} raw={raw}")
+        return raw
 
     @staticmethod
     def _regs_high_low_ascii(regs: list[int]) -> bytes:
@@ -578,18 +629,20 @@ class BluesightTranslator:
 
     @staticmethod
     def build_curve_words(stc: BluesightCurveSTC) -> list[int]:
-        """0x1B61 起连续 9 字；量纲与已校验抓包一致（[2][4] 保留 0）。"""
+        """0x1B61 起连续 9 字；Pmpp/Umpp 为 uint32 LE（低字在前），与 ``Vmp``/``Pmp`` 一致。"""
         stc.validate()
         w0 = stc.custom_mode & 0xFFFF
-        w1 = int(round(stc.pmpp_stc_kw * 1000.0)) & 0xFFFF
-        w2 = 0
-        w3 = int(round(stc.umpp_stc_v * 100.0)) & 0xFFFF
-        w4 = 0
+        p_lo, p_hi = BluesightTranslator._u32_le_words(
+            BluesightTranslator._scaled_u32(stc.pmpp_stc_kw, 1000.0, "Pmpp(kW)×1000")
+        )
+        u_lo, u_hi = BluesightTranslator._u32_le_words(
+            BluesightTranslator._scaled_u32(stc.umpp_stc_v, 100.0, "Umpp(V)×100")
+        )
         w5 = int(round(stc.irradiance_wm2 * 10.0)) & 0xFFFF
         w6 = int(round(stc.temp_c * 10.0)) & 0xFFFF
         w7 = stc.flags_word & 0xFFFF
         w8 = int(round(stc.fill_factor * 1000.0)) & 0xFFFF
-        return [w0, w1, w2, w3, w4, w5, w6, w7, w8]
+        return [w0, p_lo, p_hi, u_lo, u_hi, w5, w6, w7, w8]
 
     def write_curve_block(
         self,
@@ -601,7 +654,10 @@ class BluesightTranslator:
         if words is None:
             if stc is None:
                 raise ValueError("须传入 stc=BluesightCurveSTC(...) 或 words=[9个uint16]")
-            words = self.build_curve_words(stc)
+            try:
+                words = self.build_curve_words(stc)
+            except ValueError as exc:
+                return False, f"曲线参数编码失败: {exc}"
         if len(words) != self.REG_CURVE_BLOCK_COUNT:
             return False, f"曲线块须 {self.REG_CURVE_BLOCK_COUNT} 字，当前 {len(words)}"
         for w in words:
@@ -630,33 +686,36 @@ class BluesightTranslator:
         power_kw: float | None = None,
         r_load_ohm: float | None = None,
     ) -> list[int]:
-        """原载保持寄存器内容。
-        恒压：4 字起 ``REG_ORIG_PARAM_BLOCK_START``：[字0]=电压×100，字1=0，[字2]=电源内阻×100，字3=0。
-        恒流：2 字 ``0x0FAE``：[字0]=电流×100，字1=0（07D0 0000 → 20.00A）。
-        恒功率：2 字 ``0x0FB0``：[字0]=功率(kW)×1000（上限 ``ORIG_CP_MAX_KW``），字1=0。
-        恒阻：2 字 ``0x0FB2``：[字0]=负载电阻×100，字1=0（00C8 0000 → 2.00Ω）。
+        """原载保持寄存器内容（量纲×系数后按 **uint32 低字在前** 拆成字，与 Vmp/Pmp 一致）。
+
+        恒压：4 字 ``0x0FAA``：``[U×100_lo, U×100_hi, R内×100_lo, R内×100_hi]``
+        （例：860V → ``0x4FF0, 0x0001``；低电压时高字为 0，与旧抓包 ``[U×100, 0, …]`` 兼容）。
+        恒流：2 字 ``0x0FAE``：``[I×100_lo, I×100_hi]``（20A → ``0x07D0, 0x0000``）。
+        恒功率：2 字 ``0x0FB0``：``[P_kW×1000_lo, hi]``（上限 ``ORIG_CP_MAX_KW``）。
+        恒阻：2 字 ``0x0FB2``：``[R负载×100_lo, hi]``（2Ω → ``0x00C8, 0x0000``）。
         """
-        z4 = [0, 0, 0, 0]
         if func_index == 0:
-            v = float(voltage_v or 0.0)
-            r = float(r_internal_ohm or 0.0)
-            z4[0] = int(round(v * 100.0)) & 0xFFFF
-            z4[1] = 0
-            z4[2] = int(round(r * 100.0)) & 0xFFFF
-            z4[3] = 0
-            return z4
+            v_lo, v_hi = self._u32_le_words(
+                self._scaled_u32(float(voltage_v or 0.0), 100.0, "恒压电压(V)×100")
+            )
+            r_lo, r_hi = self._u32_le_words(
+                self._scaled_u32(float(r_internal_ohm or 0.0), 100.0, "恒压内阻(Ω)×100")
+            )
+            return [v_lo, v_hi, r_lo, r_hi]
         if func_index == 1:
-            i0 = int(round(float(current_a or 0.0) * 100.0)) & 0xFFFF
-            return [i0, 0]
+            return self._u32_le_words(
+                self._scaled_u32(float(current_a or 0.0), 100.0, "恒流电流(A)×100")
+            )
         if func_index == 2:
             pk = min(max(0.0, float(power_kw or 0.0)), self.ORIG_CP_MAX_KW)
-            p0 = int(round(pk * 1000.0)) & 0xFFFF
-            return [p0, 0]
+            return self._u32_le_words(
+                self._scaled_u32(pk, 1000.0, "恒功率(kW)×1000")
+            )
         if func_index == 3:
-            rl = float(r_load_ohm or 0.0)
-            r0 = int(round(rl * 100.0)) & 0xFFFF
-            return [r0, 0]
-        return z4
+            return self._u32_le_words(
+                self._scaled_u32(float(r_load_ohm or 0.0), 100.0, "恒阻(Ω)×100")
+            )
+        return [0, 0, 0, 0]
 
     def write_original_load_params(
         self,
@@ -678,14 +737,17 @@ class BluesightTranslator:
             return False, f"原载输出模式须在 0~3（恒压/恒流/恒功率/恒阻），当前 {func_index}"
         names = ("CV/恒压", "CC/恒流", "CP/恒功率", "CR/恒阻")
         label = names[func_index]
-        words = self.build_original_load_param_words(
-            func_index,
-            voltage_v=voltage_v,
-            r_internal_ohm=r_internal_ohm,
-            current_a=current_a,
-            power_kw=power_kw,
-            r_load_ohm=r_load_ohm,
-        )
+        try:
+            words = self.build_original_load_param_words(
+                func_index,
+                voltage_v=voltage_v,
+                r_internal_ohm=r_internal_ohm,
+                current_a=current_a,
+                power_kw=power_kw,
+                r_load_ohm=r_load_ohm,
+            )
+        except ValueError as exc:
+            return False, f"原载 {label} 参数编码失败: {exc}"
         sub = func_index & 0xFFFF
 
         def _fc06_then_fc16(addr: int, wds: list[int], addr_label: str) -> tuple[bool, str]:

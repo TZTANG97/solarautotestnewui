@@ -7,8 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
+from PyQt5.QtCore import QSettings
+
 from components.dewetron_autotest_panel import DewetronUiConfig
 from dewetron_autotest import DEWETRON_CONFIG_COLUMN, MODE_DEWETRON, MODE_WT
+from config_manager.thaifixedPF_config_manager import ThaiFixedPF_ConfigManager
 
 
 UTILITY_CASES = (
@@ -31,6 +34,7 @@ UTILITY_CASES = (
     ("utils.Open_Save_ThaiVoltageAdaptability", "voltage-adaptability"),
     ("utils.Open_Save_ThaiROCOF", "rocof-protection"),
     ("utils.Open_Save_ThaiRapidVolt", "rapid-voltage-change"),
+    ("utils.Open_Save_ThaiStaticMPPTTest", "static-mppt"),
 )
 
 
@@ -52,6 +56,17 @@ class FakeAnalyzerSection:
     def set_mode(self, mode):
         self.restored_mode = mode
         self.mode = mode
+
+
+class FakeCheckBox:
+    def __init__(self, checked=True):
+        self.checked = checked
+
+    def isChecked(self):
+        return self.checked
+
+    def setChecked(self, checked):
+        self.checked = bool(checked)
 
 
 def _ui(section=True):
@@ -118,6 +133,85 @@ def test_named_tail_restores_mode_and_config_through_analyzer_section(
     assert config == source_ui.analyzerModeSection.config
     assert target.restored_mode == MODE_DEWETRON
     assert target.restored_config == source_ui.analyzerModeSection.config
+
+
+def test_static_mppt_named_tail_preserves_analyzer_checkbox_and_legacy_wt_default():
+    module = importlib.import_module("utils.Open_Save_ThaiStaticMPPTTest")
+    source_ui = _ui()
+    source_ui.checkBox_Analyzer = FakeCheckBox(False)
+    values = [""] * len(module.arrayRow1)
+
+    module._append_dewetron_tail(values, source_ui)
+
+    analyzer_index = module.arrayRow1.index(module.ANALYZER_ENABLED_COLUMN)
+    assert values[analyzer_index] == "0"
+    payload = json.loads(values[module.arrayRow1.index(DEWETRON_CONFIG_COLUMN)])
+    assert payload["mode"] == MODE_DEWETRON
+    assert payload["test_type"] == "static-mppt"
+
+    target = FakeAnalyzerSection(mode=MODE_WT, config=DewetronUiConfig())
+    target_ui = SimpleNamespace(
+        analyzerModeSection=target,
+        checkBox_Analyzer=FakeCheckBox(True),
+    )
+    mode, config = module._restore_dewetron_tail(
+        module.arrayRow1, values, target_ui
+    )
+    assert mode == MODE_DEWETRON
+    assert config == source_ui.analyzerModeSection.config
+    assert not target_ui.checkBox_Analyzer.isChecked()
+
+    legacy_target = FakeAnalyzerSection(mode=MODE_DEWETRON)
+    legacy_ui = SimpleNamespace(
+        analyzerModeSection=legacy_target,
+        checkBox_Analyzer=FakeCheckBox(False),
+    )
+    legacy_mode, legacy_config = module._restore_dewetron_tail(
+        ["Style"], ["ThaiStaticMPPTTest"], legacy_ui
+    )
+    assert legacy_mode == MODE_WT
+    assert legacy_config == DewetronUiConfig()
+    assert legacy_ui.checkBox_Analyzer.isChecked()
+    assert legacy_target.restored_mode == MODE_WT
+
+
+def test_fixed_pf_qsettings_round_trip_and_legacy_wt_default(tmp_path):
+    source_ui = _ui()
+    settings_path = str(tmp_path / "fixed-pf.ini")
+    settings = QSettings(settings_path, QSettings.IniFormat)
+    source_manager = ThaiFixedPF_ConfigManager(source_ui)
+
+    source_manager._save_dewetron_settings(settings)
+    settings.sync()
+
+    settings.beginGroup("AnalyzerMode")
+    payload = json.loads(settings.value(DEWETRON_CONFIG_COLUMN))
+    settings.endGroup()
+    assert payload["mode"] == MODE_DEWETRON
+    assert payload["test_type"] == "fixed-pf"
+
+    target = FakeAnalyzerSection(mode=MODE_WT, config=DewetronUiConfig())
+    target_manager = ThaiFixedPF_ConfigManager(
+        SimpleNamespace(analyzerModeSection=target)
+    )
+    mode, config = target_manager._restore_dewetron_settings(
+        QSettings(settings_path, QSettings.IniFormat)
+    )
+    assert mode == MODE_DEWETRON
+    assert config == source_ui.analyzerModeSection.config
+    assert target.restored_mode == MODE_DEWETRON
+    assert target.restored_config == source_ui.analyzerModeSection.config
+
+    legacy_target = FakeAnalyzerSection(mode=MODE_DEWETRON)
+    legacy_manager = ThaiFixedPF_ConfigManager(
+        SimpleNamespace(analyzerModeSection=legacy_target)
+    )
+    legacy_mode, legacy_config = legacy_manager._restore_dewetron_settings(
+        QSettings(str(tmp_path / "legacy-fixed-pf.ini"), QSettings.IniFormat)
+    )
+    assert legacy_mode == MODE_WT
+    assert legacy_config == DewetronUiConfig()
+    assert legacy_target.restored_mode == MODE_WT
 
 
 def test_immunity_current_malformed_legacy_row_is_aligned_non_destructively():

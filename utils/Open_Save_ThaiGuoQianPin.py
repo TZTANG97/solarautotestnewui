@@ -4,7 +4,7 @@ import csv
 
 # 泰国过欠频保存设定
 def Save_File_ThaiGuoqianpin(dialog_windowguoqianpin, uithaiguoqianpin):
-    directory1 = QFileDialog.getSaveFileName(Noneguoqianpin,"单个文件保存","./","Text Files(*.csv)")
+    directory1 = QFileDialog.getSaveFileName(None,"单个文件保存","./","Text Files(*.csv)")
     if directory1[0] == '':
         print('请选择一个文件')
     else:
@@ -216,12 +216,12 @@ def Save_File_ThaiGuoqianpin(dialog_windowguoqianpin, uithaiguoqianpin):
         csv_write.writerow(arrayRow1)
         csv_write.writerow(arrayRow2)
         out.close()
-        QMessageBox.information(Noneguoqianpin, "实验设定提示信息", "过欠频文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "过欠频文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 # 泰国过欠频读取设定
 def Open_File_ThaiGuoQianPin(dialog_windowguoqianpin, uithaiguoqianpin):
     strFlag  = "0"
-    directory1 = QFileDialog.getOpenFileName(Noneguoqianpin,"单个文件选择","./","Text Files(*.csv)")
+    directory1 = QFileDialog.getOpenFileName(None,"单个文件选择","./","Text Files(*.csv)")
     if directory1[0] == '':
         print("请选择一个文件")
     else:
@@ -685,5 +685,5 @@ def Open_File_ThaiGuoQianPin(dialog_windowguoqianpin, uithaiguoqianpin):
                 print("no")
                 strFlag = "1"
 
-        QMessageBox.information(Noneguoqianpin, "实验设定提示信息", "过欠频文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
+        QMessageBox.information(None, "实验设定提示信息", "过欠频文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 
