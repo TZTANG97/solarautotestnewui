@@ -14,6 +14,7 @@ from utils.safe_shutdown import (
     build_forced_shutdown_rows,
     enabled_shutdown_dc_channels,
 )
+from utils.ac_scpi_commands import append_ac_startup_from_ui
 from utils.voltage_adaptability_commands import append_volt_set, _fmt_volt
 
 
@@ -139,14 +140,56 @@ def append_enabled_rapid_bands(ui, out_rows, phase_mode, step_nums, *, wt_armed=
 
 
 def resolve_rapid_volt_file_name_list(band_metas, existing_names=None):
-    existing = [str(p).strip() for p in (existing_names or []) if str(p).strip()]
-    if len(existing) == 1:
-        return existing
-    auto = [str(m.get("name") or "").strip() for m in (band_metas or []) if m]
-    auto = [n for n in auto if n]
+    """
+    按已启用阶跃自动生成 WT 文件名；忽略 WT 模板残留（100%_ambient）及通用占位名。
+    连续录 1 条时返回一个合成名；多段时形如 RVC_BR_230-207_230-253_230-184_230-276。
+    """
+    from utils.voltage_adaptability_commands import is_stale_wt_filename
+
+    auto = [
+        str(m.get("name") or "").strip()
+        for m in (band_metas or [])
+        if m and str(m.get("name") or "").strip()
+    ]
+    raw_existing = [str(p).strip() for p in (existing_names or []) if str(p).strip()]
+    existing = [
+        p
+        for p in raw_existing
+        if p and not is_stale_wt_filename(p) and not _is_generic_rvc_filename(p)
+    ]
+
     if auto and len(existing) == len(auto):
         return existing
-    return ["RapidVolt_change"]
+
+    if not auto:
+        return ["RVC_BR"]
+
+    if len(auto) == 1:
+        return [auto[0]]
+
+    suffixes = []
+    for name in auto:
+        if name.upper().startswith("RVC_S"):
+            rest = name[5:]
+            if "_" in rest:
+                rest = rest.split("_", 1)[1]
+            suffixes.append(rest)
+        else:
+            suffixes.append(name)
+    composite = "RVC_BR_" + "_".join(suffixes)
+    if len(composite) > 72:
+        composite = "RVC_BR_%dstep" % len(auto)
+    return [composite]
+
+
+def _is_generic_rvc_filename(name):
+    raw = str(name or "").strip().lower()
+    return raw in (
+        "rapidvolt_change",
+        "rapid_volt_change",
+        "rapidvolt",
+        "rvc_br",
+    )
 
 
 def build_rapid_volt_plan(
@@ -201,33 +244,7 @@ def build_rapid_volt_plan(
         )
         ac_status = ui.comboBox_S1_AC.currentText()
 
-        if phase_mode == "单相":
-            for cmd in ("INST:PHAS SINGLE", "INST:EDIT ALL"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volt = ui.textEdit_S1_AC_VOLT.toPlainText()
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for cmd in ("VOLT " + volt, "FREQ " + fr):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-        elif phase_mode == "三相":
-            for cmd in ("INST:PHAS THREE", "INST:EDIT EACH"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volts = [
-                ui.textEdit_S1_AC_VOLT.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_2.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_3.toPlainText(),
-            ]
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for idx, volt in enumerate(volts, start=1):
-                for cmd in ("INST:NSEL %d" % idx, "VOLT " + volt, "FREQ " + fr):
-                    row = _row_ac_write(cmd)
-                    commands.append(row)
-                    step_rows.append(row)
+        append_ac_startup_from_ui(ui, commands, step_rows)
 
         row = _row_ac_write("OUTP ON" if ac_status == "开启" else "OUTP OFF")
         row[9] = f_ac_wait

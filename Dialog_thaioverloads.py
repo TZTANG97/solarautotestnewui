@@ -123,6 +123,7 @@ class Ui_Dialog_thaioverloads(object):
         self._build_step2()
         self._build_step3()
         self._build_step4()
+        self._wire_recording_mode()
 
         # 默认显示第一页
         self._switch_step(0)
@@ -282,7 +283,7 @@ class Ui_Dialog_thaioverloads(object):
         g6Layout.setContentsMargins(12, 20, 12, 12)
 
         # Header
-        headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(headers):
             lbl = QtWidgets.QLabel(h)
             lbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -533,6 +534,28 @@ class Ui_Dialog_thaioverloads(object):
         self.comboBox_S3_TIME_2.setFixedWidth(120)
         g4Layout.addWidget(self.comboBox_S3_TIME_2, 0, 3)
 
+        from utils.wt_recording_mode import MODE_LABELS, MODE_CONTINUOUS, MODE_SPLIT
+
+        rec_label = QtWidgets.QLabel("录波方式")
+        g4Layout.addWidget(rec_label, 1, 1)
+        self.comboBox_S3_record_mode = QtWidgets.QComboBox()
+        self.comboBox_S3_record_mode.setObjectName("comboBox_S3_record_mode")
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_CONTINUOUS], MODE_CONTINUOUS)
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_SPLIT], MODE_SPLIT)
+        self.comboBox_S3_record_mode.setMinimumWidth(220)
+        g4Layout.addWidget(self.comboBox_S3_record_mode, 1, 2, 1, 2)
+        self.pushButton_S3_fill_filenames = QtWidgets.QPushButton("填充推荐文件名")
+        self.pushButton_S3_fill_filenames.setObjectName("pushButton_S3_fill_filenames")
+        g4Layout.addWidget(self.pushButton_S3_fill_filenames, 1, 4)
+
+        tip = QtWidgets.QLabel(
+            "一条线连续录：90 分钟录成单个文件；分开录：按采集时间触发一轮存盘。"
+            "文件名填在功率分析仪页的「文件名列表」。"
+        )
+        tip.setWordWrap(True)
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        g4Layout.addWidget(tip, 2, 0, 1, 6)
+
         layout.addWidget(self.groupBox_4)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
@@ -615,6 +638,62 @@ class Ui_Dialog_thaioverloads(object):
         layout.addWidget(self.groupBox)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    def _wire_recording_mode(self):
+        from utils.wt_recording_mode import (
+            apply_filename_list_to_wt_pages,
+            combo_index_to_mode,
+            mode_to_combo_index,
+            overload_recommended_filenames,
+        )
+        from components.wt_recording_mode_row import WtRecordingModeRow, install_on_wt_filename_group
+
+        def _recommended_names():
+            return overload_recommended_filenames(
+                combo_index_to_mode(self.comboBox_S3_record_mode.currentIndex())
+            )
+
+        def _fill_wt_names(names=None):
+            if names is None:
+                names = _recommended_names()
+            apply_filename_list_to_wt_pages(self._wtStacked, names)
+
+        def _sync_wt_rows(mode):
+            for page_idx in range(self._wtStacked.count()):
+                page = self._wtStacked.widget(page_idx)
+                if page is None:
+                    continue
+                row = page.findChild(WtRecordingModeRow)
+                if row is None:
+                    continue
+                row.blockSignals(True)
+                row.set_mode(mode)
+                row.blockSignals(False)
+
+        def _on_s3_mode(_index=None):
+            mode = combo_index_to_mode(self.comboBox_S3_record_mode.currentIndex())
+            _sync_wt_rows(mode)
+            _fill_wt_names()
+
+        self.pushButton_S3_fill_filenames.clicked.connect(lambda: _fill_wt_names())
+        self.comboBox_S3_record_mode.currentIndexChanged.connect(_on_s3_mode)
+
+        for page_idx in range(self._wtStacked.count()):
+            page = self._wtStacked.widget(page_idx)
+            row = install_on_wt_filename_group(page, _recommended_names)
+            if row is not None:
+                row.names_filled.connect(_fill_wt_names)
+
+                def _on_wt_mode(mode, row_ref=row):
+                    self.comboBox_S3_record_mode.blockSignals(True)
+                    self.comboBox_S3_record_mode.setCurrentIndex(mode_to_combo_index(mode))
+                    self.comboBox_S3_record_mode.blockSignals(False)
+                    _sync_wt_rows(mode)
+                    _fill_wt_names()
+
+                row.mode_changed.connect(_on_wt_mode)
+
+        _on_s3_mode()
 
     def retranslateUi(self, Dialog_thaioverloads):
         _translate = QtCore.QCoreApplication.translate

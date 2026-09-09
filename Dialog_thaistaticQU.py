@@ -287,8 +287,8 @@ class Ui_Dialog_thaiStaticQU(object):
         g2Layout.setSpacing(6)
         g2Layout.setContentsMargins(12, 20, 12, 12)
 
-        # Header
-        headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        # Header：单位写在表头（避免 V/A/% 挤到右侧空白列）
+        headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         header_labels = ["label_13", "label_120", "label_108", "label_118", "label_109", "label_119", "label_129"]
         for c, (h, hname) in enumerate(zip(headers, header_labels)):
             lbl = QtWidgets.QLabel(h)
@@ -313,14 +313,6 @@ class Ui_Dialog_thaiStaticQU(object):
              "label_54", "label_125", "label_111", "label_114", "label_100"),
         ]
 
-        # Unit labels for DC section
-        unit_map = {
-            0: [("label_110", "V"), ("label_118", "A"), ("label_109", "V"), ("label_56", "A"), ("label_55", "%")],
-            1: [("label_15", "V"), ("label_53", "A"), ("label_51", "V"), ("label_128", "A"), ("label_112", "%")],
-            2: [("label_127", "V"), ("label_58", "A"), ("label_119", "V"), ("label_124", "A"), ("label_115", "%")],
-            3: [("label_126", "V"), ("label_125", "A"), ("label_111", "V"), ("label_114", "A"), ("label_117", "%")],
-        }
-
         for r, (ch, cb_name, cb_text, combo_name,
                 v_name, c_name, voc_name, isc_name, pf_name,
                 lbl_v, lbl_c, lbl_voc, lbl_isc, lbl_pf) in enumerate(dc_channels, start=1):
@@ -341,16 +333,23 @@ class Ui_Dialog_thaiStaticQU(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(name)
                 te.setFixedSize(80, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 g2Layout.addWidget(te, r, c)
                 setattr(self, name, te)
 
-        # Unit row labels (preserving original objectNames)
-        # Row 1 units
-        g2Layout.addWidget(QtWidgets.QLabel("V"), 1, 7)
-        g2Layout.addWidget(QtWidgets.QLabel("A"), 1, 8)
-        g2Layout.addWidget(QtWidgets.QLabel("V"), 1, 9)
-        g2Layout.addWidget(QtWidgets.QLabel("A"), 1, 10)
-        g2Layout.addWidget(QtWidgets.QLabel("%"), 1, 11)
+        # 兼容旧 Open/Save 可能引用的单位 label objectName（不占布局）
+        for lbl_name, unit in (
+            ("label_110", "V"), ("label_56", "A"), ("label_55", "%"),
+            ("label_15", "V"), ("label_112", "%"),
+            ("label_127", "V"), ("label_124", "A"), ("label_115", "%"),
+            ("label_126", "V"), ("label_117", "%"),
+        ):
+            if not hasattr(self, lbl_name):
+                _lbl = QtWidgets.QLabel(unit)
+                _lbl.setObjectName(lbl_name)
+                _lbl.hide()
+                setattr(self, lbl_name, _lbl)
 
         layout.addWidget(self.groupBox_2)
 

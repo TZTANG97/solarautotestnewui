@@ -323,6 +323,8 @@ class Ui_Dialog_thaidynamicQU(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(te_name)
                 te.setFixedSize(80, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 dcLayout.addWidget(te, r, c)
                 setattr(self, te_name, te)
 

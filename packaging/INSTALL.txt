@@ -1,0 +1,96 @@
+SolarAutoTest Install Guide
+===========================
+
+Why install?
+------------
+Do NOT run the app from a shared network folder on multiple PCs.
+Shared .venv / status.json / device locks will conflict.
+Install a local copy on each PC.
+
+Install steps (first time)
+--------------------------
+1. Unzip SolarAutoTest-Setup-YYYYMMDD.zip to a local folder.
+2. Double-click install.bat
+3. Wait for copy + uv sync + verify
+4. Edit %LOCALAPPDATA%\SolarAutoTest\config_files\config.ini  [update] section
+   (see Aliyun / LAN channel below)
+5. Use desktop shortcut "SolarAutoTest"
+
+============================================================
+Aliyun HTTP auto-update (EMKU OSS — recommended)
+============================================================
+
+Uses EMKU shared bucket (qgongye / Shanghai), separate folder:
+  https://qgongye.oss-cn-shanghai.aliyuncs.com/solarautotest/updates/
+
+A) Publish a new version (BUILD PC)
+-----------------------------------
+  packaging\build_release.bat -PublishEmkuOss
+
+  Or only upload an already-built zip:
+  packaging\Publish-To-EmkuOss.bat
+
+  Credentials: read from E:\EMKU\ENV_环境切换.env (OSS_ACCESS_KEY_*),
+  not committed into SolarAutoTest repo.
+
+B) User first install (download link)
+-------------------------------------
+  Open latest.json, copy zip_url, or use:
+  https://qgongye.oss-cn-shanghai.aliyuncs.com/solarautotest/updates/SolarAutoTest-Setup-YYYYMMDD.zip
+  Unzip → run install.bat → desktop shortcut SolarAutoTest.
+
+C) Bench PC auto-update (config.ini)
+------------------------------------
+[update]
+enabled = 1
+auto_install = 1
+channel = https://qgongye.oss-cn-shanghai.aliyuncs.com/solarautotest/updates
+
+Startup checks latest.json; if newer, downloads zip and reinstalls.
+
+============================================================
+LAN auto-update (still works, already E2E OK)
+============================================================
+
+  Channel: \\TANG\solarautotestnewui\updates
+
+Publish (your PC):
+  packaging\build_release.bat -PublishDir \\TANG\solarautotestnewui\updates
+
+Bench PC config.ini:
+  [update]
+  enabled = 1
+  auto_install = 1
+  channel = \\TANG\solarautotestnewui\updates
+
+============================================================
+GitLab Package (optional; needs Maintainer)
+============================================================
+
+Needs Maintainer to enable public Package pull. Prefer EMKU OSS / LAN above.
+
+On BUILD PC (Deploy Token write_package_registry):
+  packaging\build_release.bat -PublishGitLab
+
+channel =
+  http://gitlab.wisecom-tech.com/api/v4/projects/solarapp%2Fsolarautotest%2Fsolarautotestnewui/packages/generic/solarautotest/channel
+
+Manual upgrade
+--------------
+Unzip new package and run install.bat again.
+
+Folders
+-------
+- App:     %LOCALAPPDATA%\SolarAutoTest
+- Runtime: %LOCALAPPDATA%\SolarAutoTestRuntime
+- Version: %LOCALAPPDATA%\SolarAutoTest\VERSION
+
+Notes
+-----
+1. Only one PC should control instruments on the same bench at a time.
+2. Vendor drivers (e.g. NI-VISA) are NOT included.
+3. Do not run the app directly from an update share / package URL.
+4. First deploy after enabling auto-update: colleagues need one install.bat
+   so they get the new Check-And-Update.ps1 + Start-SolarAutoTest.bat.
+5. If HTTP download fails: check OSS public-read on solarautotest/updates/;
+   for private objects set [update] token= only if you add auth later.

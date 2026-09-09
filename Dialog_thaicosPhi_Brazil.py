@@ -197,6 +197,9 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         # DC 联动
         self._connect_dc_linkage()
 
+        # 录波方式：一条线连续录 / 分开录（切模式自动填文件名）
+        self._wire_recording_mode()
+
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
         self.pushButton_Send = QtWidgets.QPushButton()
         self.pushButton_Send.setObjectName("pushButton_Send")
@@ -204,6 +207,20 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
 
         self.retranslateUi(Dialog_thaicosPhi_Brazil)
         QtCore.QMetaObject.connectSlotsByName(Dialog_thaicosPhi_Brazil)
+
+    def _wire_recording_mode(self):
+        """绑定 WT 页录波方式：连续录 CosPhiBR_BR；分开录按勾选功率点生成多文件名。"""
+        from utils.wt_recording_mode import wire_recording_mode_autofill
+        from utils.cosphi_brazil_recording import split_filenames
+
+        wire_recording_mode_autofill(self, split_names_fn=lambda: split_filenames(self))
+        fill = getattr(self, "_recording_autofill_fill", None)
+        if fill is None:
+            return
+        for sn in range(3, 10):
+            cb = getattr(self, "checkBox_S%d" % sn, None)
+            if cb is not None:
+                cb.toggled.connect(lambda *_: fill())
 
     def _integrate_analyzer_mode(self, layout, wt_group):
         """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
@@ -405,10 +422,11 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         seqLayout.addWidget(self.comboBox_S1_ACWaitTIME, 0, 2)
 
         seqLayout.addWidget(_make_label("启机时间:"), 0, 3)
+        # 默认 5 秒（勿默认「5分钟」：台架上会空等很久才开测）
         self.textEdit_S1_TIME = _make_input("5")
         self.textEdit_S1_TIME.setObjectName("textEdit_S1_TIME")
         seqLayout.addWidget(self.textEdit_S1_TIME, 0, 4)
-        self.comboBox_S1_TIME = _make_combo(["分钟", "秒", "毫秒"])
+        self.comboBox_S1_TIME = _make_combo(["秒", "分钟", "毫秒"])
         self.comboBox_S1_TIME.setObjectName("comboBox_S1_TIME")
         seqLayout.addWidget(self.comboBox_S1_TIME, 0, 5)
 
@@ -494,7 +512,8 @@ class Ui_Dialog_thaicosPhi_Brazil(object):
         dataLayout.setContentsMargins(12, 20, 12, 12)
 
         dataLayout.addWidget(_make_label("数据采集"), 0, 0)
-        self.textEdit_S3_TIME_2 = _make_input("5")
+        # 默认 2 分钟：与常见 WT StopTime 同量级；追加时会把 StopTime 自动对齐到本值
+        self.textEdit_S3_TIME_2 = _make_input("2")
         self.textEdit_S3_TIME_2.setObjectName("textEdit_S3_TIME_2")
         dataLayout.addWidget(self.textEdit_S3_TIME_2, 0, 1)
         self.comboBox_S3_TIME_2 = _make_combo(["分钟", "秒", "毫秒"])

@@ -5,10 +5,19 @@ from __future__ import annotations
 
 import re
 
+from utils.matrix_recording_commands import (
+    append_matrix_dwell,
+    get_record_mode,
+    maybe_async_end,
+    maybe_async_start,
+    resolve_wt_rounds,
+)
+from utils.wt_recording_mode import MODE_CONTINUOUS
 from utils.safe_shutdown import (
     build_forced_shutdown_rows,
     enabled_shutdown_dc_channels,
 )
+from utils.ac_scpi_commands import append_ac_startup_from_ui
 from utils.time_helpers import SetTimeFunction
 
 
@@ -161,33 +170,7 @@ def build_reactive_qacc_plan(
             }
         ac_status = ui.comboBox_S1_AC.currentText()
 
-        if phase_mode == "单相":
-            for cmd in ("INST:PHAS SINGLE", "INST:EDIT ALL"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volt = ui.textEdit_S1_AC_VOLT.toPlainText()
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for cmd in ("VOLT " + volt, "FREQ " + fr):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-        elif phase_mode == "三相":
-            for cmd in ("INST:PHAS THREE", "INST:EDIT EACH"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volts = [
-                ui.textEdit_S1_AC_VOLT.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_2.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_3.toPlainText(),
-            ]
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for idx, volt in enumerate(volts, start=1):
-                for cmd in ("INST:NSEL %d" % idx, "VOLT " + volt, "FREQ " + fr):
-                    row = _row_ac_write(cmd)
-                    commands.append(row)
-                    step_rows.append(row)
+        append_ac_startup_from_ui(ui, commands, step_rows)
 
         row = _row_ac_write("OUTP ON" if ac_status == "开启" else "OUTP OFF")
         row[9] = f_ac_wait
@@ -306,9 +289,22 @@ def build_reactive_qacc_plan(
                 "wt_rounds": 0,
             }
 
+        record_mode = get_record_mode(ui)
+        wt_continuous = record_mode == MODE_CONTINUOUS
+        point_index = 0
+        total_points = len(power_levels) * len(q_setpoints)
+        split_names = []
+
         for pct in power_levels:
             for q_pct in q_setpoints:
                 point_rows = []
+                maybe_async_start(
+                    commands,
+                    point_rows,
+                    wt_continuous=wt_continuous,
+                    wt_is_checked=wt_is_checked,
+                    point_index=point_index,
+                )
                 for ch, device, dc_num, label in (
                     (1, "DC1", 0, "DC电源1"),
                     (2, "DC2", 1, "DC电源2"),
@@ -332,17 +328,33 @@ def build_reactive_qacc_plan(
                         dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
                     elif code == "ok" and iv_cmds:
                         for cmd in iv_cmds:
+                            if point_index > 0 and (
+                                "MODE" in cmd or "SELect" in cmd or "SAS:MODE" in cmd
+                            ):
+                                continue
                             row = _row_device_write(device, cmd)
                             commands.append(row)
                             point_rows.append(row)
 
-                row = _row_ac_wait_idn(int(dwell_01s), slot=6)
-                commands.append(row)
-                point_rows.append(row)
+                append_matrix_dwell(
+                    commands, point_rows, dwell_01s, wt_continuous=wt_continuous
+                )
                 steps.append(point_rows)
                 pct_tag = format_setpoint_tag(pct)
                 q_tag = format_setpoint_tag(q_pct)
-                file_names.append("Qacc_P%s_Q%s" % (pct_tag, q_tag))
+                split_names.append("Qacc_P%s_Q%s" % (pct_tag, q_tag))
+                point_index += 1
+
+        if wt_continuous and wt_is_checked == "1" and total_points > 0:
+            file_names = ["Qacc_BR"]
+        else:
+            file_names = split_names
+        maybe_async_end(
+            commands,
+            wt_continuous=wt_continuous,
+            wt_is_checked=wt_is_checked,
+            total_points=total_points,
+        )
 
     if ui.checkBox_S_END.isChecked():
         dc_channels = enabled_shutdown_dc_channels(
@@ -355,7 +367,10 @@ def build_reactive_qacc_plan(
         commands.extend(step_rows)
         steps.append(step_rows)
 
-    wt_rounds = len(file_names) if (wt_is_checked == "1" and file_names) else 0
+    wt_continuous_flag = (
+        get_record_mode(ui) == MODE_CONTINUOUS if ui.checkBox_S3.isChecked() else False
+    )
+    wt_rounds = resolve_wt_rounds(wt_is_checked, file_names, wt_continuous_flag)
     return {
         "ok": True,
         "error": "",
@@ -370,4 +385,6 @@ def build_reactive_qacc_plan(
         "file_names": file_names,
         "dwell_01s": dwell_01s,
         "wt_rounds": wt_rounds,
+        "wt_continuous": wt_continuous_flag,
+        "record_mode": get_record_mode(ui) if ui.checkBox_S3.isChecked() else "",
     }

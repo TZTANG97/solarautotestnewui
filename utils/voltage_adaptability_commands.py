@@ -1,11 +1,34 @@
 # -*- coding: utf-8 -*-
 """电压适应性：巴西 Ordinance 5.4.21 流程（对齐频率适应性更新率扫压，改扫电压）。"""
 
+import re
+
 from utils.safe_shutdown import (
     build_forced_shutdown_rows,
     enabled_shutdown_dc_channels,
 )
 from utils.time_helpers import SetTimeFunction
+from utils.ac_scpi_commands import (
+    append_ac_startup_from_ui,
+    append_chroma_three_phase_setpoints,
+    append_legacy_three_phase_setpoints,
+    append_volt_set,
+    fmt_ac_volt,
+    resolve_chroma_61800,
+)
+
+_fmt_volt = fmt_ac_volt
+
+# WT 通用模板 / 其它试验残留的文件名，电压适应性 Send 时勿保留
+_STALE_WT_NAME_RE = re.compile(
+    r"(ambient|freq[_-]?br|guopin|qianpin|overfreq|underfreq|rocof|"
+    r"pu_curve|qu_curve|cosphi|fixed.?pf|reactive)",
+    re.I,
+)
+_VOLT_LADDER_BAND_RE = re.compile(
+    r"^\s*([0-9]+(?:\.[0-9]+)?)\s*[-~～]\s*([0-9]+(?:\.[0-9]+)?)"
+    r"(?:\s*[@,，]\s*([0-9]+(?:\.[0-9]+)?)\s*(?:秒|s|S)?)?\s*$"
+)
 
 
 def _empty_row():
@@ -39,6 +62,175 @@ def _row_wt_async_marker(marker):
     return row
 
 
+def _sum_wait_01s(rows):
+    """统计命令行 col8/col9 驻留（0.1s 单位）。"""
+    total = 0
+    for r in rows or []:
+        for slot in (8, 9):
+            if len(r) <= slot:
+                continue
+            raw = r[slot]
+            if raw in ("", None):
+                continue
+            try:
+                total += int(float(raw))
+            except (TypeError, ValueError):
+                continue
+    return total
+
+
+def _count_sweep_dwell_steps(rows):
+    """
+    扫压循环次数：每条带 col8/col9 驻留的命令算一步。
+    0.1V 量化会跳过重复 VOLT，但驻留行仍保留 → 开销须按步数而非仅 VOLT 条数计。
+    """
+    n = 0
+    for r in rows or []:
+        for slot in (8, 9):
+            if len(r) <= slot:
+                continue
+            raw = r[slot]
+            if raw in ("", None):
+                continue
+            try:
+                if int(float(raw)) > 0:
+                    n += 1
+                    break
+            except (TypeError, ValueError):
+                continue
+    return n
+
+
+def estimate_continuous_record_01s(band_rows, *, scpi_overhead_01s_per_step=3):
+    """
+    连续录 StopTime 用墙钟：Σ驻留(col8/col9) + 每扫压步 SCPI 开销。
+
+    真机爱科 Modbus 下单步常见约 0.25~0.35s（VOLT 写 + *IDN? + 驻留），
+    默认开销按 0.3s/步（3 个 0.1s tick），避免 StopTime 早于扫压结束导致录波截断。
+    """
+    wait_01s = _sum_wait_01s(band_rows)
+    n_dwell = _count_sweep_dwell_steps(band_rows)
+    n_volt = sum(
+        1
+        for r in (band_rows or [])
+        if len(r) > 2 and str(r[2]).strip().upper().startswith("VOLT")
+    )
+    n_steps = max(n_dwell, n_volt)
+    overhead = max(0, int(scpi_overhead_01s_per_step)) * n_steps
+    return wait_01s + overhead, wait_01s, n_volt, n_dwell
+
+
+def suggested_stoptime_margin_sec(wall_01s, *, n_volt=0):
+    """按扫段长度选 StopTime 余量：短扫频小余量，长扫压大余量。
+
+    ROCOF 等短扫若固定 +60s，AC 早已扫完仍会空等录波；
+    电压适应性细步进则需要较大余量，避免回额定前停录。
+    """
+    wall_sec = max(0.0, float(wall_01s or 0) / 10.0)
+    if int(n_volt or 0) > 50 or wall_sec >= 180.0:
+        return 60
+    if wall_sec >= 90.0:
+        return 30
+    return 15
+
+
+def stoptime_str_from_wall_01s(wall_01s, *, margin_sec=None, min_sec=20, n_volt=0):
+    """墙钟(0.1s) + 余量 → hh:mm:ss（WT textEdit_StopTime）。"""
+    if margin_sec is None:
+        margin_sec = suggested_stoptime_margin_sec(wall_01s, n_volt=n_volt)
+    stop_sec = int(round(int(wall_01s or 0) / 10.0 + int(margin_sec)))
+    stop_sec = max(int(min_sec), stop_sec)
+    hh, rem = divmod(stop_sec, 3600)
+    mm, ss = divmod(rem, 60)
+    return f"{hh:02d}:{mm:02d}:{ss:02d}", stop_sec
+
+
+def extract_continuous_band_rows(commands, start_index=None):
+    """从 ASYNC_START 到 WAIT_END（含）截取连续录扫压段。"""
+    rows = list(commands or [])
+    async_i = None
+    if start_index is not None and 0 <= int(start_index) < len(rows):
+        if any(
+            len(r) > 6 and str(r[6]).strip().upper() == "ASYNC_START"
+            for r in rows[int(start_index) : int(start_index) + 1]
+        ):
+            async_i = int(start_index)
+    if async_i is None:
+        for i, r in enumerate(rows):
+            if len(r) > 6 and str(r[6]).strip().upper() == "ASYNC_START":
+                async_i = i
+                break
+    if async_i is None:
+        return []
+    wait_i = None
+    for j in range(async_i, len(rows)):
+        if len(rows[j]) > 6 and str(rows[j][6]).strip().upper() == "WAIT_END":
+            wait_i = j
+            break
+    if wait_i is None:
+        return rows[async_i:]
+    return rows[async_i : wait_i + 1]
+
+
+def recalculate_stoptime_from_band_rows(band_rows, *, margin_sec=None):
+    """按命令表扫压段重算 StopTime（ASYNC_START 前刷新 config_dict 用）。"""
+    wall_01s, wait_01s, n_volt, n_dwell = estimate_continuous_record_01s(band_rows)
+    stop_str, stop_sec = stoptime_str_from_wall_01s(
+        wall_01s, margin_sec=margin_sec, n_volt=n_volt
+    )
+    return stop_str, stop_sec, wall_01s, wait_01s, n_volt, n_dwell
+
+
+def is_stale_wt_filename(name):
+    """其它试验 / WT 模板残留名（如 100%_ambient、freq_br_*）。"""
+    raw = str(name or "").strip()
+    if not raw:
+        return True
+    if "," in raw or "，" in raw:
+        return True
+    if _STALE_WT_NAME_RE.search(raw):
+        return True
+    return False
+
+
+def parse_voltage_ladder_text(text, default_duration_s=30.0):
+    """
+    解析电压 list：`230-253@30` / `230~195@30s`，多段逗号或换行。
+    返回 [(start, end, duration_s), ...]
+    """
+    raw = str(text or "").strip()
+    if not raw:
+        return []
+    parts = []
+    for chunk in re.split(r"[\n,，;；]+", raw):
+        chunk = chunk.strip()
+        if not chunk or chunk.startswith("#"):
+            continue
+        m = _VOLT_LADDER_BAND_RE.match(chunk)
+        if not m:
+            continue
+        start, end, dur = m.group(1), m.group(2), m.group(3)
+        try:
+            dur_s = float(dur) if dur not in (None, "") else float(default_duration_s)
+        except (TypeError, ValueError):
+            dur_s = float(default_duration_s)
+        if dur_s <= 0:
+            continue
+        parts.append((start, end, dur_s))
+    return parts
+
+
+def collect_voltage_ladder_bands(ui, side_tag, default_duration_s=30.0):
+    te = getattr(ui, "textEdit_VoltageLadder_%s" % side_tag, None)
+    if te is None:
+        return []
+    try:
+        text = te.toPlainText()
+    except Exception:
+        text = ""
+    return parse_voltage_ladder_text(text, default_duration_s=default_duration_s)
+
+
 def _row_device_write(device, cmd):
     row = _empty_row()
     row[0] = device
@@ -47,31 +239,20 @@ def _row_device_write(device, cmd):
     return row
 
 
-def _fmt_volt(hz):
-    try:
-        v = float(hz)
-    except (TypeError, ValueError):
-        return str(hz).strip()
-    if abs(v - round(v)) < 1e-9:
-        return str(int(round(v)))
-    return ("%.4f" % v).rstrip("0").rstrip(".")
-
-
-def append_volt_set(out_rows, phase_mode, volt_v):
-    """按单相/三相写入 FREQ（三相用 INST:EDIT ALL + 一次 FREQ，同巴西过欠压适应性）。"""
-    volt_cmd = "VOLT " + str(volt_v).strip()
-    if phase_mode == "单相":
-        out_rows.append(_row_ac_write(volt_cmd))
-        return
-    out_rows.append(_row_ac_write("INST:EDIT ALL"))
-    out_rows.append(_row_ac_write(volt_cmd))
-
-
-def build_volt_step_list(volt_start, volt_end, real_test_time_s, per_second_range, use_rate):
+def build_volt_step_list(
+    volt_start,
+    volt_end,
+    real_test_time_s,
+    per_second_range,
+    use_rate,
+    *,
+    chroma_61800=False,
+):
     """
     巴西过欠压适应性同款：勾更新率时，在数据采集时间内均分扫压；
     不勾则只取起点。
     real_test_time_s / per_second_range 均为「秒」单位。
+    chroma_61800=True 时输出电压量化到 0.1 V；相邻重复点保留，以维持驻留时长。
     """
     start = str(volt_start).strip()
     end = str(volt_end).strip()
@@ -82,7 +263,7 @@ def build_volt_step_list(volt_start, volt_end, real_test_time_s, per_second_rang
     if not end:
         end = start
     if not use_rate or start == end:
-        return [start]
+        return [_fmt_volt(start, chroma_61800=chroma_61800)]
 
     f0 = float(start)
     f1 = float(end)
@@ -95,17 +276,17 @@ def build_volt_step_list(volt_start, volt_end, real_test_time_s, per_second_rang
     while True:
         if ascending:
             if cur < f1:
-                out.append(_fmt_volt(round(cur, 2)))
+                out.append(_fmt_volt(cur, chroma_61800=chroma_61800))
                 cur = cur + step
             else:
-                out.append(_fmt_volt(round(f1, 2)))
+                out.append(_fmt_volt(f1, chroma_61800=chroma_61800))
                 break
         else:
             if f1 < cur:
-                out.append(_fmt_volt(round(cur, 2)))
+                out.append(_fmt_volt(cur, chroma_61800=chroma_61800))
                 cur = cur - step
             else:
-                out.append(_fmt_volt(round(f1, 2)))
+                out.append(_fmt_volt(f1, chroma_61800=chroma_61800))
                 break
     return out
 
@@ -159,6 +340,7 @@ def append_volt_band_brazil(
     rate_interval_s,
     per_second_range,
     wt_first_trigger,
+    chroma_61800=False,
 ):
     """
     巴西 5.4.21 / 过欠压适应性：扫压步进 + 每步等待。
@@ -173,6 +355,7 @@ def append_volt_band_brazil(
         real_s,
         per_second_range or 1.0,
         use_rate=bool(use_rate and rate_interval_s and per_second_range),
+        chroma_61800=chroma_61800,
     )
     if not steps:
         return False, "电压区间未填写", None, False
@@ -181,11 +364,21 @@ def append_volt_band_brazil(
 
     triggered = False
     multi_step = use_rate and rate_interval_s and len(steps) > 1
+    prev_step = None
     for i, step in enumerate(steps):
         if wt_first_trigger and not triggered:
             out_rows.append(_row_wt_async_marker("ASYNC_START"))
             triggered = True
-        append_volt_set(out_rows, phase_mode, step)
+        # 0.1 V 量化后相邻步可能相同：跳过重复 VOLT，仍保留等待以维持总驻留
+        if step != prev_step:
+            append_volt_set(
+                out_rows,
+                phase_mode,
+                step,
+                edit_all=(i == 0 or prev_step is None),
+                chroma_61800=chroma_61800,
+            )
+            prev_step = step
         if multi_step:
             out_rows.append(_row_ac_wait_idn(wait_01s, slot=9))
         else:
@@ -207,9 +400,11 @@ def append_enabled_bands(
     per_second_range=None,
     global_rate_on=False,
     wt_armed=False,
+    chroma_61800=False,
 ):
     """
     遍历启用电压带。返回 (ok, error, band_metas, wt_armed)。
+    优先 textEdit_VoltageLadder_<side> list；空则回退勾选卡片。
     wt_armed：若仍为 True，表示尚未插入 ASYNC_START。
     """
     page_cb = getattr(ui, page_attr, None)
@@ -217,6 +412,42 @@ def append_enabled_bands(
         return True, "", [], wt_armed
 
     metas = []
+    ladder = collect_voltage_ladder_bands(ui, side_tag)
+    if ladder:
+        for bi, (volt_start, volt_end, dur_s) in enumerate(ladder):
+            try:
+                duration_01s = SetTimeFunction(float(dur_s), "秒")
+            except (TypeError, ValueError):
+                return False, "电压适应性 list 时长格式错误", [], wt_armed
+            use_rate = bool(global_rate_on)
+            ok, err, _end_v, triggered = append_volt_band_brazil(
+                out_rows,
+                phase_mode,
+                volt_start,
+                volt_end,
+                duration_01s,
+                use_rate=use_rate,
+                rate_interval_s=rate_interval_s,
+                per_second_range=per_second_range,
+                wt_first_trigger=wt_armed,
+                chroma_61800=chroma_61800,
+            )
+            if not ok:
+                return False, err or "电压适应性 list 无效", [], wt_armed
+            if triggered:
+                wt_armed = False
+            prefix = "OV" if side_tag == "guoya" else "UV"
+            safe_start = str(volt_start).replace(".", "p")
+            safe_end = str(volt_end).replace(".", "p")
+            metas.append({
+                "name": "%s_L%d_%s-%s" % (prefix, bi + 1, safe_start, safe_end),
+                "duration_01s": duration_01s,
+                "step": bi + 1,
+                "side": side_tag,
+                "source": "ladder",
+            })
+        return True, "", metas, wt_armed
+
     for sn in step_nums:
         cb = getattr(ui, "checkBox_S%d" % sn, None)
         if cb is None or not cb.isChecked():
@@ -254,6 +485,7 @@ def append_enabled_bands(
             rate_interval_s=rate_interval_s,
             per_second_range=per_second_range,
             wt_first_trigger=wt_armed,
+            chroma_61800=chroma_61800,
         )
         if not ok:
             return False, err, [], wt_armed
@@ -270,28 +502,63 @@ def append_enabled_bands(
             "duration_01s": duration_01s,
             "step": sn,
             "side": side_tag,
+            "source": "card",
         })
     return True, "", metas, wt_armed
 
 
-def resolve_volt_file_name_list(band_metas, existing_names=None):
+def volt_side_has_bands(ui, side_tag, page_attr, step_nums):
+    """过压/欠压页启用且存在 list 或勾选卡片。"""
+    page_cb = getattr(ui, page_attr, None)
+    if page_cb is None or not page_cb.isChecked():
+        return False
+    if collect_voltage_ladder_bands(ui, side_tag):
+        return True
+    for sn in step_nums:
+        cb = getattr(ui, "checkBox_S%d" % sn, None)
+        if cb is not None and cb.isChecked():
+            return True
+    return False
+
+
+def want_split_ov_uv_recording(ui):
+    """过压+欠压均启用且 UI 勾选分文件录制。"""
+    split_cb = getattr(ui, "checkBox_S2_split_ov_uv_files", None)
+    if split_cb is None or not split_cb.isChecked():
+        return False
+    return (
+        volt_side_has_bands(ui, "guoya", "checkBox_guoya_page", list(range(3, 12)))
+        and volt_side_has_bands(ui, "qianya", "checkBox_qianya_page", list(range(12, 21)))
+    )
+
+
+def resolve_volt_file_name_list(band_metas, existing_names=None, split_two_files=False):
     """
-    巴西流程默认整次连续录 1 条：
-    - 已有恰好 1 个名字 → 保留
-    - 已有名字数 = 电压带数 → 保留（便于手填 list 对照段）
-    - 否则默认 VoltAdapt_BR_5421；若有电压带则也可拼自动名供对照
+    巴西流程默认整次连续录 1 条，推荐 VoltAdapt_BR_5421。
+    split_two_files=True 时返回两条名（过压/欠压各一），对齐 5.4.21 分文件分析。
+    不保留 WT 模板 / 其它试验残留名（100%_ambient、freq_br_* 等）。
     """
+    defaults = (
+        ["VoltAdapt_OV_5421", "VoltAdapt_UV_5421"]
+        if split_two_files
+        else ["VoltAdapt_BR_5421"]
+    )
+    raw_existing = [str(p).strip() for p in (existing_names or []) if str(p).strip()]
+    if split_two_files:
+        existing = [p for p in raw_existing if p and not is_stale_wt_filename(p)]
+        if len(existing) >= 2:
+            return existing[:2]
+        if len(existing) == 1:
+            return [existing[0], defaults[1]]
+        return list(defaults)
     auto_names = [str(m.get("name") or "").strip() for m in (band_metas or []) if m]
     auto_names = [n for n in auto_names if n]
-    existing = [str(p).strip() for p in (existing_names or []) if str(p).strip()]
+    existing = [p for p in raw_existing if p and not is_stale_wt_filename(p)]
     if len(existing) == 1:
         return existing
     if auto_names and len(existing) == len(auto_names):
         return existing
-    if auto_names:
-        # 连续录仍用单文件名；list 仅作界面对照时可在 Send 里改
-        return ["VoltAdapt_BR_5421"]
-    return ["VoltAdapt_BR_5421"]
+    return list(defaults)
 
 
 def default_dc_iv_resolver(vmp, imp, voc, isc, pf, dc_num):
@@ -331,12 +598,18 @@ def build_voltage_adaptability_plan(
     existing_commands=None,
     dc_iv_resolver=None,
     per_dc_factor=None,
+    chroma_61800=None,
 ):
-    """根据 Dialog UI 生成巴西 5.4.21 命令计划。"""
+    """根据 Dialog UI 生成巴西 5.4.21 命令计划。
+
+    chroma_61800：None 时按当前已连接 AC 的 *IDN? 自动识别（Chroma 61800 / 通用）。
+    """
     if wt_config_dict is None:
         wt_config_dict = {}
     if dc_iv_resolver is None:
         dc_iv_resolver = default_dc_iv_resolver
+    if chroma_61800 is None:
+        chroma_61800 = resolve_chroma_61800()
 
     commands = list(existing_commands or [])
     if str_add_flag == "0":
@@ -376,33 +649,7 @@ def build_voltage_adaptability_plan(
         )
         ac_status = ui.comboBox_S1_AC.currentText()
 
-        if phase_mode == "单相":
-            for cmd in ("INST:PHAS SINGLE", "INST:EDIT ALL"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volt = ui.textEdit_S1_AC_VOLT.toPlainText()
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for cmd in ("VOLT " + volt, "FREQ " + fr):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-        elif phase_mode == "三相":
-            for cmd in ("INST:PHAS THREE", "INST:EDIT EACH"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volts = [
-                ui.textEdit_S1_AC_VOLT.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_2.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_3.toPlainText(),
-            ]
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for idx, volt in enumerate(volts, start=1):
-                for cmd in ("INST:NSEL %d" % idx, "VOLT " + volt, "FREQ " + fr):
-                    row = _row_ac_write(cmd)
-                    commands.append(row)
-                    step_rows.append(row)
+        append_ac_startup_from_ui(ui, commands, step_rows, chroma_61800=chroma_61800)
 
         row = _row_ac_write("OUTP ON" if ac_status == "开启" else "OUTP OFF")
         row[9] = f_ac_wait
@@ -488,24 +735,73 @@ def build_voltage_adaptability_plan(
     band_rows = []
     band_metas = []
     wt_armed = wt_is_checked == "1"
-    ok_bands, band_err, metas_of, wt_armed = append_enabled_bands(
-        ui, band_rows, phase_mode, list(range(3, 12)), "guoya", "checkBox_guoya_page",
-        rate_interval_s=rate_interval_s,
-        per_second_range=per_second,
-        global_rate_on=global_rate_on,
-        wt_armed=wt_armed,
-    )
-    if ok_bands:
-        band_metas.extend(metas_of)
-        ok_bands, band_err, metas_uf, wt_armed = append_enabled_bands(
-            ui, band_rows, phase_mode, list(range(12, 21)), "qianya", "checkBox_qianya_page",
-            rate_interval_s=rate_interval_s,
-            per_second_range=per_second,
-            global_rate_on=global_rate_on,
+    split_two_files = want_split_ov_uv_recording(ui)
+    band_kw = {
+        "rate_interval_s": rate_interval_s,
+        "per_second_range": per_second,
+        "global_rate_on": global_rate_on,
+        "chroma_61800": chroma_61800,
+    }
+    if split_two_files:
+        ok_bands, band_err, metas_of, wt_armed = append_enabled_bands(
+            ui,
+            band_rows,
+            phase_mode,
+            list(range(3, 12)),
+            "guoya",
+            "checkBox_guoya_page",
             wt_armed=wt_armed,
+            **band_kw,
+        )
+        if ok_bands and metas_of:
+            band_metas.extend(metas_of)
+            if wt_is_checked == "1":
+                band_rows.append(_row_wt_async_marker("WAIT_END"))
+                wt_armed = True
+        if ok_bands:
+            ok_bands, band_err, metas_uf, wt_armed = append_enabled_bands(
+                ui,
+                band_rows,
+                phase_mode,
+                list(range(12, 21)),
+                "qianya",
+                "checkBox_qianya_page",
+                wt_armed=wt_armed,
+                **band_kw,
+            )
+            if ok_bands and metas_uf:
+                band_metas.extend(metas_uf)
+                if wt_is_checked == "1":
+                    band_rows.append(_row_wt_async_marker("WAIT_END"))
+    else:
+        ok_bands, band_err, metas_of, wt_armed = append_enabled_bands(
+            ui,
+            band_rows,
+            phase_mode,
+            list(range(3, 12)),
+            "guoya",
+            "checkBox_guoya_page",
+            wt_armed=wt_armed,
+            **band_kw,
         )
         if ok_bands:
-            band_metas.extend(metas_uf)
+            band_metas.extend(metas_of)
+            ok_bands, band_err, metas_uf, wt_armed = append_enabled_bands(
+                ui,
+                band_rows,
+                phase_mode,
+                list(range(12, 21)),
+                "qianya",
+                "checkBox_qianya_page",
+                wt_armed=wt_armed,
+                **band_kw,
+            )
+            if ok_bands:
+                band_metas.extend(metas_uf)
+        if wt_is_checked == "1" and band_rows and any(
+            len(r) > 6 and str(r[6]).strip().upper() == "ASYNC_START" for r in band_rows
+        ):
+            band_rows.append(_row_wt_async_marker("WAIT_END"))
     if not ok_bands:
         return {
             "ok": False,
@@ -523,21 +819,20 @@ def build_voltage_adaptability_plan(
             "band_duration_01s": 0,
         }
 
-    # 巴西连续录：电压带跑完后再 WAIT_END，等 WT 停表（对齐静态QU/Test_PU）
-    if wt_is_checked == "1" and band_rows and any(
-        len(r) > 6 and str(r[6]).strip().upper() == "ASYNC_START" for r in band_rows
-    ):
-        band_rows.append(_row_wt_async_marker("WAIT_END"))
-
     commands.extend(band_rows)
     if band_rows:
         steps.append(list(band_rows))
 
-    # 巴西：整次连续录 1 条（与过欠压适应性一致）
-    file_names = resolve_volt_file_name_list(band_metas)
-    wt_rounds = 1 if (wt_is_checked == "1" and band_metas) else 0
-    band_duration_01s = sum(int(m.get("duration_01s") or 0) for m in band_metas)
-    max_band_duration_01s = band_duration_01s  # 连续录 StopTime 用总时长
+    file_names = resolve_volt_file_name_list(band_metas, split_two_files=split_two_files)
+    if wt_is_checked == "1" and band_metas:
+        wt_rounds = 2 if split_two_files else 1
+    else:
+        wt_rounds = 0
+    # StopTime 必须覆盖实际扫压墙钟，禁止只用 UI 数据采集合计（会早停表、命令还在跑）
+    ui_duration_01s = sum(int(m.get("duration_01s") or 0) for m in band_metas)
+    wall_01s, wait_01s, n_volt, n_dwell = estimate_continuous_record_01s(band_rows)
+    band_duration_01s = max(ui_duration_01s, wall_01s)
+    max_band_duration_01s = band_duration_01s
 
     # shutdown
     if ui.checkBox_S_End.isChecked():
@@ -564,6 +859,11 @@ def build_voltage_adaptability_plan(
         "file_names": file_names,
         "wt_rounds": wt_rounds,
         "wt_continuous": wt_rounds == 1,
+        "split_two_files": split_two_files,
         "band_duration_01s": band_duration_01s,
         "max_band_duration_01s": max_band_duration_01s,
+        "ui_duration_01s": ui_duration_01s,
+        "sweep_wait_01s": wait_01s,
+        "sweep_volt_steps": n_volt,
+        "sweep_dwell_steps": n_dwell,
     }

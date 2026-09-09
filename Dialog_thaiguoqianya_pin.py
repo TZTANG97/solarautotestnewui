@@ -123,6 +123,9 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         # ── DC 联动（step1 → 关机步骤） ──
         self._connect_dc_linkage()
 
+        # 录波方式切换 → 按工况自动填充 WT 文件名列表
+        self._wire_recording_mode()
+
         # 默认显示第一页
         self._switch_step(0)
 
@@ -818,6 +821,62 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         for s1dc in step1_dcs:
             s1dc.toggled.connect(_update_end_dc)
         _update_end_dc()  # 初始化状态
+
+    def _wire_recording_mode(self):
+        """切换录波方式 / 勾选步骤 / 测试项目时，自动生成文件名列表。"""
+        from utils.wt_recording_mode import apply_filename_list_to_wt_pages
+        from utils.matrix_recording_commands import get_record_mode
+        from utils.ovuf_recording import recommended_ovuf_names
+        from components.wt_recording_mode_row import WtRecordingModeRow, install_on_wt_filename_group
+
+        def _recommended_names():
+            return recommended_ovuf_names(self, get_record_mode(self))
+
+        def _fill_wt_names(names=None):
+            if names is None:
+                names = _recommended_names()
+            apply_filename_list_to_wt_pages(self._wtStacked, names)
+
+        def _sync_wt_rows(mode):
+            for page_idx in range(self._wtStacked.count()):
+                page = self._wtStacked.widget(page_idx)
+                if page is None:
+                    continue
+                row = page.findChild(WtRecordingModeRow)
+                if row is None:
+                    continue
+                row.blockSignals(True)
+                row.set_mode(mode)
+                row.blockSignals(False)
+
+        def _on_mode(mode):
+            _sync_wt_rows(mode)
+            _fill_wt_names()
+
+        for page_idx in range(self._wtStacked.count()):
+            page = self._wtStacked.widget(page_idx)
+            row = install_on_wt_filename_group(page, _recommended_names)
+            if row is not None:
+                row.names_filled.connect(_fill_wt_names)
+                row.mode_changed.connect(_on_mode)
+
+        self.comboBox_Test_Project.currentIndexChanged.connect(lambda *_: _fill_wt_names())
+        for step_no in (3, 4, 5, 6, 7, 8):
+            cb = getattr(self, "checkBox_S%d" % step_no, None)
+            if cb is not None:
+                cb.toggled.connect(lambda *_: _fill_wt_names())
+            for suffix in (
+                "AC_VOLT_Start",
+                "AC_VOLT_End",
+                "AC_FR_Start",
+                "AC_FR_End",
+                "Step_Size",
+            ):
+                te = getattr(self, "textEdit_S%d_%s" % (step_no, suffix), None)
+                if te is not None:
+                    te.textChanged.connect(lambda *_: _fill_wt_names())
+
+        _fill_wt_names()
 
     # ══════════════════════════════════════
     # 辅助方法

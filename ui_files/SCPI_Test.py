@@ -865,6 +865,9 @@ class Ui_Dialog(object):
 
         self.label_run_progress = QtWidgets.QLabel("试验进度：未开始")
         self.label_run_progress.setObjectName("label_run_progress")
+        self.label_run_progress.setWordWrap(True)
+        self.label_run_progress.setMinimumHeight(52)
+        self.label_run_progress.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.label_run_progress.setStyleSheet(
             "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
         )
@@ -876,6 +879,7 @@ class Ui_Dialog(object):
         self.progressBar_run.setValue(0)
         self.progressBar_run.setFixedHeight(22)
         self.progressBar_run.setFormat("%p%")
+        self.progressBar_run.setToolTip("进度百分比；运行中会显示估算剩余时间")
         self.progressBar_run.setStyleSheet("""
             QProgressBar { border: 1px solid #d1d5db; border-radius: 4px; background: #dde0e5;
                            text-align: center; font-size: 12px; }

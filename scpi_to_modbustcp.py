@@ -167,7 +167,14 @@ class ItechTranslator:
                     logger.info("爱科: 单相模式忽略 INST:EDIT ALL（已由 SINGLE 配置独立编辑）")
                     return _out(True)
                 self.edit_mode = "ALL"
-                logger.info("爱科: 多相同步编辑模式")
+                logger.info("爱科: 多相同步编辑模式（三相联动）")
+                # 0x0001=三相联动；若不写回，此前 EDIT EACH 留下的 0x0002 会使面板/输出像「只有一相在动」
+                self._modbus_trace.append(
+                    self._format_fc06_pdu(self.REG_PHASE_MODE, 0x0001, device_id=1)
+                )
+                if self.AC_client.write_register(self.REG_PHASE_MODE, 0x0001, device_id=1) is None:
+                    logger.error("爱科: 三相联动写 REG_PHASE_MODE(0x0C48) 失败")
+                    return _out(False)
                 return _out(True)
 
             # ==================== 相位选择 ====================
@@ -280,8 +287,8 @@ class ItechTranslator:
 
         logger.info(f"爱科: 设置三相电压 {volt_val}V")
 
-        if self.auto_save:
-            return self._save_parameters()
+        if self.auto_save and not self._save_parameters():
+            logger.warning("爱科: 三相电压已写入但保存参数失败，按成功继续")
         return True
 
     def _set_voltage_single(self, phase: int, volt_val: float) -> bool:
@@ -304,8 +311,9 @@ class ItechTranslator:
         phase_name = ['A', 'B', 'C'][phase - 1]
         print(f"爱科: 设置{phase_name}相电压 {volt_val}V")
 
-        if self.auto_save:
-            return self._save_parameters()
+        if self.auto_save and not self._save_parameters():
+            # 电压寄存器已写入；保存失败不阻断试验（链路抖动时常见）
+            logger.warning("爱科: 电压已写入但保存参数失败，按成功继续")
         return True
 
     def _set_frequency(self, freq_val: float) -> bool:
@@ -318,16 +326,26 @@ class ItechTranslator:
             return False
         logger.info(f"爱科: 设置频率 {freq_val}Hz")
 
-        if self.auto_save:
-            return self._save_parameters()
+        if self.auto_save and not self._save_parameters():
+            logger.warning("爱科: 频率已写入但保存参数失败，按成功继续")
         return True
 
     def _save_parameters(self) -> bool:
-        """保存参数到设备"""
+        """保存参数到设备（失败时静默恢复后再试一次）。"""
         self._modbus_trace.append(
             self._format_fc06_pdu(self.REG_SAVE_PARAM, 0x0001, device_id=1)
         )
         ret = self.AC_client.write_register(self.REG_SAVE_PARAM, 0x0001, device_id=1)
+        if ret is None:
+            recover = getattr(self.AC_client, "_silent_recover", None)
+            if callable(recover):
+                try:
+                    if recover():
+                        ret = self.AC_client.write_register(
+                            self.REG_SAVE_PARAM, 0x0001, device_id=1
+                        )
+                except Exception:
+                    ret = None
         if ret is None:
             logger.error("爱科: 保存参数 Modbus 失败")
             return False

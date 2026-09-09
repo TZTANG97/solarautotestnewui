@@ -55,12 +55,15 @@ def _fill_step1_single(ui):
     ui.textEdit_S1_DC1_PF.setPlainText("100")
 
 
-def _fill_ladder(ui, power="50,100", q="-50,0,50", dwell="3", unit="秒"):
+def _fill_ladder(ui, power="50,100", q="-50,0,50", dwell="3", unit="秒", record_mode="split"):
     ui.checkBox_S3.setChecked(True)
     ui.textEdit_PowerLadder.setPlainText(power)
     ui.textEdit_QLadder.setPlainText(q)
     ui.textEdit_S3_TIME_2.setPlainText(dwell)
     ui.comboBox_S3_TIME_2.setCurrentText(unit)
+    from utils.wt_recording_mode import mode_to_combo_index
+
+    ui.comboBox_S3_record_mode.setCurrentIndex(mode_to_combo_index(record_mode))
     ui.checkBox_S3_DC1.setChecked(True)
     for ch in range(2, 5):
         getattr(ui, "checkBox_S3_DC%d" % ch).setChecked(False)
@@ -72,6 +75,7 @@ def test_dialog_defaults(fixedq_ui):
     assert ui._wtStacked.count() == 4
     assert "50" in ui.textEdit_PowerLadder.toPlainText()
     assert "-100" in ui.textEdit_QLadder.toPlainText()
+    assert hasattr(ui, "comboBox_S3_record_mode")
     assert hasattr(ui, "analyzerModeSection")
 
 

@@ -69,7 +69,7 @@ def _build_headers():
         "checkBox_S2", "checkBox_S2_WT3000", "checkBox_S2_WT1800",
         "checkBox_S2_WT1806E", "checkBox_S2_WT5000",
         "checkBox_S3", "textEdit_PowerLadder", "textEdit_QLadder",
-        "textEdit_S3_TIME_2", "comboBox_S3_TIME_2",
+        "textEdit_S3_TIME_2", "comboBox_S3_TIME_2", "comboBox_S3_record_mode",
         "checkBox_S3_DC1", "checkBox_S3_DC2", "checkBox_S3_DC3", "checkBox_S3_DC4",
         "checkBox_S_END", "comboBox_S_END_AC",
         "checkBox_S_END_DC1", "comboBox_S_END_DC1",

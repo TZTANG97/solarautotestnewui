@@ -8,7 +8,7 @@ import pytest
 from PyQt5 import QtWidgets
 
 from Dialog_thairapidvolt import Ui_Dialog_thairapidvolt
-from utils.rapid_volt_commands import build_rapid_volt_plan
+from utils.rapid_volt_commands import build_rapid_volt_plan, resolve_rapid_volt_file_name_list
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +47,7 @@ def test_dialog_and_plan(qapp):
 
     plan = build_rapid_volt_plan(ui, wt_config_dict={"k": 1})
     assert plan["ok"] is True, plan.get("error")
-    assert plan["file_names"] == ["RapidVolt_change"]
+    assert plan["file_names"] == ["RVC_S3_230-207"]
     assert plan["wt_continuous"] is True
     volts = [r[2] for r in plan["commands"] if str(r[2]).startswith("VOLT")]
     assert "VOLT 230" in volts
@@ -62,3 +62,16 @@ def test_dialog_and_plan(qapp):
     assert markers.count("ASYNC_START") == 1
     assert markers.count("WAIT_END") == 1
     dialog.close()
+
+
+def test_auto_filename_four_bands_ignores_stale_ui_name(qapp):
+    metas = [
+        {"name": "RVC_S3_230-207"},
+        {"name": "RVC_S4_230-253"},
+        {"name": "RVC_S5_230-184"},
+        {"name": "RVC_S6_230-276"},
+    ]
+    names = resolve_rapid_volt_file_name_list(metas, ["rapidvolt_change"])
+    assert names == ["RVC_BR_230-207_230-253_230-184_230-276"]
+    names2 = resolve_rapid_volt_file_name_list(metas, ["100%_ambient"])
+    assert names2 == ["RVC_BR_230-207_230-253_230-184_230-276"]

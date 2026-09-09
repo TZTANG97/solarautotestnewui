@@ -15,11 +15,84 @@ class _PageWidgetFinder:
         self._page = page_widget
 
     def __getattr__(self, name):
-        # 先在 page 子树中按 objectName 查找
-        w = self._page.findChild(QtWidgets.QWidget, name)
+        from PyQt5.QtCore import QObject
+
+        w = self._page.findChild(QObject, name)
         if w is not None:
             return w
         raise AttributeError(f"Widget '{name}' not found in stacked page")
+
+
+# 内嵌 step2 用 radio 选机型，CSV 列名仍为 checkBox_S2_WT*（与旧版兼容）
+_WT_MODEL_CSV_TO_RADIO = (
+    ("checkBox_S2_WT3000", "radioButton_S2_WT3000"),
+    ("checkBox_S2_WT1800", "radioButton_S2_WT1800"),
+    ("checkBox_S2_WT1806E", "radioButton_S2_WT1806E"),
+    ("checkBox_S2_WT5000", "radioButton_S2_WT5000"),
+)
+
+
+def wt_model_csv_value(ui, csv_field_name):
+    """将 CSV 列 checkBox_S2_WT* 映射到 radioButton 当前选中状态。"""
+    for csv_key, radio_attr in _WT_MODEL_CSV_TO_RADIO:
+        if csv_key == csv_field_name:
+            rb = getattr(ui, radio_attr, None)
+            return "1" if rb and rb.isChecked() else "0"
+    return None
+
+
+def apply_wt_model_csv_value(ui, csv_field_name, val):
+    """读取 CSV 时恢复功率分析仪机型单选。"""
+    for csv_key, radio_attr in _WT_MODEL_CSV_TO_RADIO:
+        if csv_key == csv_field_name:
+            rb = getattr(ui, radio_attr, None)
+            if rb is None:
+                return True
+            rb.setChecked(str(val) == "1")
+            return True
+    return False
+
+
+def active_wt_stacked_index(ui):
+    """当前选中的 WT 机型对应 _wtStacked 页索引。"""
+    for idx, (_, radio_attr) in enumerate(_WT_MODEL_CSV_TO_RADIO):
+        rb = getattr(ui, radio_attr, None)
+        if rb and rb.isChecked():
+            return idx
+    return 0
+
+
+def save_embedded_wt_config(ui):
+    """保存内嵌 WT 配置区（第 3、4 行 CSV）。"""
+    if not hasattr(ui, "_wtStacked"):
+        return []
+    idx = active_wt_stacked_index(ui)
+    finder = _PageWidgetFinder(ui._wtStacked.widget(idx))
+    if idx == 0:
+        return Save_File_ThaiWT3000_Config(finder)
+    if idx == 1:
+        return Save_File_ThaiWT1800_Config(finder)
+    if idx == 2:
+        return Save_File_ThaiWT1806E_Config(finder)
+    if idx == 3:
+        return Save_File_ThaiWT5000_Config(finder)
+    return []
+
+
+def open_embedded_wt_config(ui, wt_config_dict):
+    """按当前机型将 WT 配置写回内嵌 UI。"""
+    if not wt_config_dict or not hasattr(ui, "_wtStacked"):
+        return
+    idx = active_wt_stacked_index(ui)
+    finder = _PageWidgetFinder(ui._wtStacked.widget(idx))
+    if idx == 0:
+        Open_File_ThaiWT3000_Config(finder, wt_config_dict)
+    elif idx == 1:
+        Open_File_ThaiWT1800_Config(finder, wt_config_dict)
+    elif idx == 2:
+        Open_File_ThaiWT1806E_Config(finder, wt_config_dict)
+    elif idx == 3:
+        Open_File_ThaiWT5000_Config(finder, wt_config_dict)
 
 last_opened_csv_path = None
 

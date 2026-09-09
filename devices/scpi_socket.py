@@ -47,15 +47,25 @@ class ScpiSocket:
         if self.port is not None:
             self._try_connect(self.port)
             return
-        # 自动探测
-        for p in _COMMON_SCPI_PORTS:
-            try:
-                self._try_connect(p)
-                print(f"[ScpiSocket] 自动探测到端口 {p}")
-                return
-            except (ConnectionRefusedError, OSError, socket.timeout):
-                continue
-        raise ConnectionError(f"无法连接 {self.host}：所有常见 SCPI 端口均被拒绝")
+        # 自动探测：用短超时快速失败，避免错 IP 时 6 口 × 10s 把 UI 卡住近一分钟
+        saved_timeout = self.timeout
+        self.timeout = min(float(saved_timeout or 10), 1.5)
+        try:
+            for p in _COMMON_SCPI_PORTS:
+                try:
+                    self._try_connect(p)
+                    print(f"[ScpiSocket] 自动探测到端口 {p}")
+                    return
+                except (ConnectionRefusedError, OSError, socket.timeout):
+                    continue
+            raise ConnectionError(f"无法连接 {self.host}：所有常见 SCPI 端口均被拒绝")
+        finally:
+            self.timeout = saved_timeout
+            if self._sock is not None:
+                try:
+                    self._sock.settimeout(saved_timeout)
+                except Exception:
+                    pass
 
     def _try_connect(self, port):
         """尝试连接指定端口。"""

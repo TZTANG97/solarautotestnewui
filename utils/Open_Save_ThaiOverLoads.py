@@ -64,7 +64,7 @@ arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "te
                 "checkBox_S3", "textEdit_S3_TIME_2", "comboBox_S3_TIME_2",
                 "checkBox_S5", "comboBox_S5_AC", "checkBox_S5_DC1", "comboBox_S5_DC1", "checkBox_S5_DC2",
                 "comboBox_S5_DC2", "checkBox_S5_DC3", "comboBox_S5_DC3", "checkBox_S5_DC4", "comboBox_S5_DC4",
-            "checkBox_S2_WT1806E", "checkBox_S2_WT5000"]
+            "checkBox_S2_WT1806E", "checkBox_S2_WT5000", "comboBox_S3_record_mode"]
 
 #德国overloads保存设定
 def Save_File_ThaiOverLoads(kwargs):
@@ -303,6 +303,9 @@ def Save_File_ThaiOverLoads(kwargs):
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
+
+        comboBox_S3_record_mode = uiThaiOverLoads.comboBox_S3_record_mode.currentIndex()
+        arrayRow2.append(comboBox_S3_record_mode)
 
         _append_dewetron_tail(arrayRow2, uiThaiOverLoads)
 
@@ -823,6 +826,14 @@ def Open_File_ThaiOverLoads(kwargs):
                                 uiThaiOverLoads.radioButton_S2_WT5000.setChecked(False)
                         else:
                             strFlag = 1
+
+                    if "comboBox_S3_record_mode" in config_dict:
+                        try:
+                            uiThaiOverLoads.comboBox_S3_record_mode.setCurrentIndex(
+                                int(config_dict["comboBox_S3_record_mode"])
+                            )
+                        except (TypeError, ValueError):
+                            pass
 
                     if arrayRow1[41] in config_dict:
                         checkBox_S2_WT3000 = config_dict[arrayRow1[41]]

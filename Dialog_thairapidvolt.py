@@ -316,7 +316,7 @@ class Ui_Dialog_thairapidvolt(object):
         dcG.setContentsMargins(12, 20, 12, 12)
 
         # 表头
-        _dc_headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        _dc_headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for _c, _h in enumerate(_dc_headers):
             _hlbl = QtWidgets.QLabel(_h)
             _hlbl.setStyleSheet("font-weight: bold; color: #475569;")

@@ -410,6 +410,24 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         form.addRow("实时波形:", self.checkBox_DEW_RealtimeWaveform)
         group_layout.addLayout(form)
 
+        # Action buttons sit above the tree so they stay visible even when the
+        # export list is tall / the dialog clips the bottom. AnalyzerModeSection
+        # may reparent them into the mode row next to the DEWETRON radio.
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addStretch()
+        self.pushButton_DEW_DataViewer = QtWidgets.QPushButton("数据查看")
+        self.pushButton_DEW_DataViewer.setObjectName("pushButton_DEW_DataViewer")
+        buttons.addWidget(self.pushButton_DEW_DataViewer)
+        self.pushButton_DEW_TestApply = QtWidgets.QPushButton("测试生效")
+        self.pushButton_DEW_TestApply.setObjectName("pushButton_DEW_TestApply")
+        self.pushButton_DEW_TestApply.setStyleSheet(
+            "QPushButton { background-color: #8b5cf6; color: white; border: none; "
+            "border-radius: 4px; padding: 6px 14px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #7c3aed; }"
+        )
+        buttons.addWidget(self.pushButton_DEW_TestApply)
+        group_layout.addLayout(buttons)
+
         tree_header = QtWidgets.QHBoxLayout()
         tree_header.addWidget(QtWidgets.QLabel("导出字段选择"))
         tree_header.addStretch()
@@ -427,18 +445,8 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.treeWidget_DEW_ExportFields.setHeaderHidden(True)
         self.treeWidget_DEW_ExportFields.setRootIsDecorated(True)
         self.treeWidget_DEW_ExportFields.setAlternatingRowColors(True)
-        self.treeWidget_DEW_ExportFields.setMinimumHeight(220)
+        self.treeWidget_DEW_ExportFields.setMinimumHeight(160)
         group_layout.addWidget(self.treeWidget_DEW_ExportFields, 1)
-
-        buttons = QtWidgets.QHBoxLayout()
-        buttons.addStretch()
-        self.pushButton_DEW_DataViewer = QtWidgets.QPushButton("数据查看")
-        self.pushButton_DEW_DataViewer.setObjectName("pushButton_DEW_DataViewer")
-        buttons.addWidget(self.pushButton_DEW_DataViewer)
-        self.pushButton_DEW_TestApply = QtWidgets.QPushButton("测试生效")
-        self.pushButton_DEW_TestApply.setObjectName("pushButton_DEW_TestApply")
-        buttons.addWidget(self.pushButton_DEW_TestApply)
-        group_layout.addLayout(buttons)
 
         layout.addWidget(settings_group, 1)
         self._build_export_field_tree(None)
@@ -768,7 +776,28 @@ class AnalyzerModeSection(QtWidgets.QWidget):
         mode_layout.addWidget(self.radio_wt)
         mode_layout.addWidget(self.radio_dewetron)
         mode_layout.addStretch()
+        # Keep Apply/Viewer on the mode row so they are never clipped under the
+        # export-field tree (common on the ②功率分析仪 step).
+        mode_layout.addWidget(self.dewetron_panel.pushButton_DEW_DataViewer)
+        mode_layout.addWidget(self.dewetron_panel.pushButton_DEW_TestApply)
         layout.addWidget(self.mode_row)
+
+        # Shared continuous/split selector — visible for WT and DEWETRON alike.
+        from components.wt_recording_mode_row import WtRecordingModeRow
+
+        self.recordingModeRow = WtRecordingModeRow(self)
+        self.recordingModeRow.setObjectName("analyzerRecordingModeRow")
+        # Distinct objectName so WT page combos stay unique; get_record_mode
+        # prefers this shared combo when present.
+        self.recordingModeRow.comboBox_recording_mode.setObjectName(
+            "comboBox_analyzer_recording_mode"
+        )
+        self.comboBox_analyzer_recording_mode = (
+            self.recordingModeRow.comboBox_recording_mode
+        )
+        self.recordingModeRow.mode_changed.connect(self._on_shared_record_mode)
+        self.recordingModeRow.pushButton_fill_recommended_names.setVisible(False)
+        layout.addWidget(self.recordingModeRow)
 
         self.analyzer_stack = QtWidgets.QStackedWidget()
         self.analyzer_stack.setObjectName("analyzerModeStack")
@@ -788,7 +817,9 @@ class AnalyzerModeSection(QtWidgets.QWidget):
         self.dewetron_panel.apply_requested.connect(self.apply_requested.emit)
         self.dewetron_panel.refresh_requested.connect(self.refresh_requested.emit)
         self.dewetron_panel.viewer_requested.connect(self.viewer_requested.emit)
+        self._sync_dew_action_visibility(False)
         self._sync_step_enabled(self.step_checkbox.isChecked())
+        QtCore.QTimer.singleShot(0, self._sync_record_mode_from_wt_pages)
 
     def _on_mode_toggled(
         self, button: QtWidgets.QAbstractButton, checked: bool
@@ -798,10 +829,48 @@ class AnalyzerModeSection(QtWidgets.QWidget):
         if button is self.radio_dewetron:
             self._mode = self.DEWETRON_MODE
             self.analyzer_stack.setCurrentIndex(1)
+            self._sync_dew_action_visibility(True)
         else:
             self._mode = self.WT_MODE
             self.analyzer_stack.setCurrentIndex(0)
+            self._sync_dew_action_visibility(False)
         self.mode_changed.emit(self._mode)
+
+    def _sync_dew_action_visibility(self, visible: bool) -> None:
+        """Show Apply/Viewer only while DEWETRON mode is selected."""
+        self.dewetron_panel.pushButton_DEW_DataViewer.setVisible(visible)
+        self.dewetron_panel.pushButton_DEW_TestApply.setVisible(visible)
+
+    def _on_shared_record_mode(self, mode: str) -> None:
+        """Mirror shared continuous/split choice onto WT page combos."""
+        from utils.wt_recording_mode import mode_to_combo_index
+
+        idx = mode_to_combo_index(mode)
+        for combo in self._iter_wt_recording_combos():
+            if combo.currentIndex() != idx:
+                combo.blockSignals(True)
+                combo.setCurrentIndex(idx)
+                combo.blockSignals(False)
+
+    def _iter_wt_recording_combos(self):
+        try:
+            for combo in self.primary_wt_widget.findChildren(
+                QtWidgets.QComboBox, "comboBox_recording_mode"
+            ):
+                yield combo
+        except Exception:
+            return
+
+    def _sync_record_mode_from_wt_pages(self) -> None:
+        """Initialize shared combo from the first WT page recording mode."""
+        from utils.wt_recording_mode import combo_index_to_mode
+
+        for combo in self._iter_wt_recording_combos():
+            mode = combo_index_to_mode(combo.currentIndex())
+            self.recordingModeRow.blockSignals(True)
+            self.recordingModeRow.set_mode(mode)
+            self.recordingModeRow.blockSignals(False)
+            return
 
     def _sync_step_enabled(self, checked: bool) -> None:
         """Keep the common checkbox active while disabling both mode pages."""
@@ -809,6 +878,12 @@ class AnalyzerModeSection(QtWidgets.QWidget):
         self.radio_wt.setEnabled(enabled)
         self.radio_dewetron.setEnabled(enabled)
         self.analyzer_stack.setEnabled(enabled)
+        self.recordingModeRow.setEnabled(enabled)
+        self.dewetron_panel.pushButton_DEW_DataViewer.setEnabled(enabled)
+        self.dewetron_panel.pushButton_DEW_TestApply.setEnabled(enabled)
+        self._sync_dew_action_visibility(
+            enabled and self._mode == self.DEWETRON_MODE
+        )
 
     @property
     def mode(self) -> str:

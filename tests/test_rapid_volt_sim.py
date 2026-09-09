@@ -99,7 +99,7 @@ def test_full_plan_happy_path(rvc_ui):
         dc_iv_resolver=default_dc_iv_resolver,
     )
     assert plan["ok"] is True, plan.get("error")
-    assert plan["file_names"] == ["RapidVolt_change"]
+    assert plan["file_names"] == ["RVC_S3_230-207"]
     assert plan["wt_continuous"] is True
     keys = {r[0] for r in plan["commands"] if r and r[0]}
     assert "AC" in keys

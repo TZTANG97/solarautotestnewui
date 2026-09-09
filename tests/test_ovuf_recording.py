@@ -1,0 +1,131 @@
+# -*- coding: utf-8 -*-
+"""过欠压_过欠频：录波方式切换自动生成文件名 + 连续录/分开录触发。"""
+
+from __future__ import annotations
+
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+import pytest
+from PyQt5 import QtWidgets
+
+from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
+from components.wt_recording_mode_row import WtRecordingModeRow
+from utils.matrix_recording_commands import get_record_mode
+from utils.ovuf_recording import (
+    apply_ovuf_recording_mode,
+    build_ovuf_sweep_points,
+    enabled_ovuf_segments,
+    recommended_ovuf_names,
+)
+from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+
+@pytest.fixture
+def ovuf_ui(qapp):
+    dialog = QtWidgets.QDialog()
+    ui = Ui_Dialog_thaiguoqianya_pin()
+    ui.setupUi(dialog)
+    ui._dialog = dialog
+    return ui
+
+
+def test_ovuf_has_recording_mode_on_filename_list(ovuf_ui):
+    page = ovuf_ui._wtStacked.widget(0)
+    gb = page.findChild(QtWidgets.QGroupBox, "groupBox_7")
+    rows = gb.findChildren(WtRecordingModeRow)
+    assert len(rows) == 1
+    combo = page.findChild(QtWidgets.QComboBox, "comboBox_recording_mode")
+    assert combo is not None
+    assert combo.count() == 2
+
+
+def test_ovuf_recommended_filenames_continuous_and_split(ovuf_ui):
+    # 默认全勾选 + 过欠压 + 起止同为 230 → 每段 1 点
+    assert recommended_ovuf_names(ovuf_ui, MODE_CONTINUOUS) == ["OVUF_Volt_BR"]
+    split = recommended_ovuf_names(ovuf_ui, MODE_SPLIT)
+    assert split == [
+        "OVUF_S3_V230_230",
+        "OVUF_S4_V230_230",
+        "OVUF_S5_V230_230",
+        "OVUF_S6_V230_230",
+        "OVUF_S7_V230_230",
+        "OVUF_S8_V230_230",
+    ]
+
+    ovuf_ui.comboBox_Test_Project.setCurrentText("过欠频")
+    assert recommended_ovuf_names(ovuf_ui, MODE_CONTINUOUS) == ["OVUF_Freq_BR"]
+    assert recommended_ovuf_names(ovuf_ui, MODE_SPLIT)[0].startswith("OVUF_S3_F")
+
+
+def test_ovuf_mode_change_auto_fills_filename_list(ovuf_ui):
+    page = ovuf_ui._wtStacked.widget(0)
+    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+    combo = page.findChild(QtWidgets.QComboBox, "comboBox_recording_mode")
+    assert te is not None and combo is not None
+
+    combo.setCurrentIndex(0)  # continuous
+    assert "OVUF_Volt_BR" in te.toPlainText().replace(" ", "")
+
+    combo.setCurrentIndex(1)  # split
+    text = te.toPlainText().replace(" ", "")
+    assert "OVUF_S3_V230_230" in text
+    assert text.count(",") >= 5
+
+
+def test_ovuf_sweep_points_and_segments(ovuf_ui):
+    assert build_ovuf_sweep_points(230, 253, 5) == [230.0, 235.0, 240.0, 245.0, 250.0, 253.0]
+    ovuf_ui.checkBox_S4.setChecked(False)
+    ovuf_ui.checkBox_S5.setChecked(False)
+    ovuf_ui.checkBox_S6.setChecked(False)
+    ovuf_ui.checkBox_S7.setChecked(False)
+    ovuf_ui.checkBox_S8.setChecked(False)
+    ovuf_ui.textEdit_S3_AC_VOLT_End.setPlainText("240")
+    ovuf_ui.textEdit_S3_Step_Size.setPlainText("10")
+    segs = enabled_ovuf_segments(ovuf_ui)
+    assert len(segs) == 1
+    assert segs[0]["step"] == 3
+    assert segs[0]["points"] == [230.0, 240.0]
+    assert recommended_ovuf_names(ovuf_ui, MODE_SPLIT) == ["OVUF_S3_V230_240"]
+
+
+def test_ovuf_apply_recording_continuous_vs_split(ovuf_ui):
+    cmds = []
+    for i, volt in enumerate(("230", "240", "230", "220")):
+        cmds.append(["AC", "write", "VOLT " + volt, "", "", "", "", "", "", ""])
+        row = ["AC", "query", "*IDN?", "", "", "", "", "", "", ""]
+        if i == 0:
+            row[6] = 30
+        else:
+            row[9] = 30
+        cmds.append(row)
+
+    for s in (5, 6, 7, 8):
+        getattr(ovuf_ui, "checkBox_S%d" % s).setChecked(False)
+    ovuf_ui.textEdit_S3_AC_VOLT_End.setPlainText("240")
+    ovuf_ui.textEdit_S3_Step_Size.setPlainText("10")
+    ovuf_ui.textEdit_S4_AC_VOLT_Start.setPlainText("230")
+    ovuf_ui.textEdit_S4_AC_VOLT_End.setPlainText("220")
+    ovuf_ui.textEdit_S4_Step_Size.setPlainText("10")
+
+    cont = [list(r) for r in cmds]
+    n = apply_ovuf_recording_mode(cont, ovuf_ui, continuous=True, wt_on=True)
+    assert n == 1
+    assert any(r[6] == "ASYNC_START" for r in cont)
+    assert any(r[6] == "WAIT_END" for r in cont)
+
+    split = [list(r) for r in cmds]
+    n2 = apply_ovuf_recording_mode(split, ovuf_ui, continuous=False, wt_on=True)
+    assert n2 == 2
+    col6_nums = [
+        r[6]
+        for r in split
+        if r[6] not in ("", None, "ASYNC_START", "WAIT_END")
+    ]
+    assert len(col6_nums) == 2

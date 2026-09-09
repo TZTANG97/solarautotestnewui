@@ -329,7 +329,7 @@ class Ui_Dialog_thaixiebodianliu(object):
         dcGrid.setContentsMargins(12, 20, 12, 12)
 
         # 表头
-        dc_headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        dc_headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(dc_headers):
             lbl = self._make_label(h, self._HEADER_STYLE)
             lbl.setAlignment(QtCore.Qt.AlignCenter)

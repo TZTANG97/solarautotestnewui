@@ -15,7 +15,13 @@ from utils.Open_Save_ThaiWT3000_Config import Open_File_ThaiWT3000_Config, Save_
 from utils.Open_Save_ThaiWT1800_Config import Open_File_ThaiWT1800_Config, Save_File_ThaiWT1800_Config
 from utils.Open_Save_ThaiWT1806E_Config import Open_File_ThaiWT1806E_Config, Save_File_ThaiWT1806E_Config
 from utils.Open_Save_ThaiWT5000_Config import Open_File_ThaiWT5000_Config, Save_File_ThaiWT5000_Config
-from utils.Open_Save_ThaiXieBoDianLiu import _PageWidgetFinder
+from utils.Open_Save_ThaiXieBoDianLiu import (
+    _PageWidgetFinder,
+    apply_wt_model_csv_value,
+    open_embedded_wt_config,
+    save_embedded_wt_config,
+    wt_model_csv_value,
+)
 from dewetron_autotest import (
     PROJECT_SPECS,
     append_dewetron_tail_columns,
@@ -154,6 +160,9 @@ def _resolve_widget(ui, name):
 
 
 def _widget_to_csv(ui, name):
+    wt_val = wt_model_csv_value(ui, name)
+    if wt_val is not None:
+        return wt_val
     w = _resolve_widget(ui, name)
     if w is None:
         return ""
@@ -167,6 +176,8 @@ def _widget_to_csv(ui, name):
 
 
 def _apply_csv_value(ui, name, val):
+    if apply_wt_model_csv_value(ui, name, val):
+        return
     if val is None:
         val = ""
     w = _resolve_widget(ui, name)
@@ -208,15 +219,7 @@ def Save_File_ThaiVoltageAdaptability(kwargs):
     _append_dewetron_tail(row, ui)
     headers = list(arrayRow1)
 
-    result = []
-    if ui.radioButton_S2_WT3000.isChecked():
-        result = Save_File_ThaiWT3000_Config(_PageWidgetFinder(ui._wtStacked.widget(0)))
-    if ui.radioButton_S2_WT1800.isChecked():
-        result = Save_File_ThaiWT1800_Config(_PageWidgetFinder(ui._wtStacked.widget(1)))
-    if ui.radioButton_S2_WT1806E.isChecked():
-        result = Save_File_ThaiWT1806E_Config(_PageWidgetFinder(ui._wtStacked.widget(2)))
-    if ui.radioButton_S2_WT5000.isChecked():
-        result = Save_File_ThaiWT5000_Config(_PageWidgetFinder(ui._wtStacked.widget(3)))
+    result = save_embedded_wt_config(ui)
 
     with open(directory[0], "w", newline="", encoding="utf-8-sig") as fp:
         writer = csv.writer(fp)
@@ -290,14 +293,7 @@ def Open_File_ThaiVoltageAdaptability(kwargs):
         if col in config:
             _apply_csv_value(ui, col, config[col])
 
-    if ui.radioButton_S2_WT3000.isChecked():
-        Open_File_ThaiWT3000_Config(_PageWidgetFinder(ui._wtStacked.widget(0)), wt_config_dict)
-    if ui.radioButton_S2_WT1800.isChecked():
-        Open_File_ThaiWT1800_Config(_PageWidgetFinder(ui._wtStacked.widget(1)), wt_config_dict)
-    if ui.radioButton_S2_WT1806E.isChecked():
-        Open_File_ThaiWT1806E_Config(_PageWidgetFinder(ui._wtStacked.widget(2)), wt_config_dict)
-    if ui.radioButton_S2_WT5000.isChecked():
-        Open_File_ThaiWT5000_Config(_PageWidgetFinder(ui._wtStacked.widget(3)), wt_config_dict)
+    open_embedded_wt_config(ui, wt_config_dict)
 
     _restore_dewetron_tail(header_row, data_row, ui)
 

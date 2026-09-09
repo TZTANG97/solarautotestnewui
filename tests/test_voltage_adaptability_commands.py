@@ -15,6 +15,15 @@ def test_build_volt_step_list_rate_sweep():
     assert steps[0] == "230"
     assert steps[-1] == "253"
     assert len(steps) >= 20
+    # Chroma 0.1 V：不应出现两位以上小数
+    for s in steps:
+        assert "." not in s or len(s.split(".")[1]) <= 1
+
+
+def test_build_volt_step_list_quantized_0_1v():
+    steps = build_volt_step_list("230", "230.5", 1.0, 50.0, use_rate=True)
+    assert all(s in ("230", "230.1", "230.2", "230.3", "230.4", "230.5") or float(s) == round(float(s), 1) for s in steps)
+    assert not any(len(s.split(".")[1]) > 1 for s in steps if "." in s)
 
 
 def test_build_volt_step_list_no_rate_single_point():

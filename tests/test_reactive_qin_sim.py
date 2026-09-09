@@ -58,6 +58,9 @@ def _fill(ui):
     ui.textEdit_QLadder.setPlainText("-100,100")
     ui.textEdit_S3_TIME_2.setPlainText("3")
     ui.comboBox_S3_TIME_2.setCurrentText("秒")
+    from utils.wt_recording_mode import mode_to_combo_index
+
+    ui.comboBox_S3_record_mode.setCurrentIndex(mode_to_combo_index("split"))
     ui.checkBox_S3_DC1.setChecked(True)
     for ch in range(2, 5):
         getattr(ui, "checkBox_S3_DC%d" % ch).setChecked(False)
@@ -70,6 +73,7 @@ def test_dialog_defaults(qin_ui):
     assert ui.stackedWidget.count() == 4
     assert "20" in ui.textEdit_PowerLadder.toPlainText()
     assert ui.textEdit_QLadder.toPlainText().replace(" ", "") == "-100,-50,50,100"
+    assert hasattr(ui, "comboBox_S3_record_mode")
     assert hasattr(ui, "analyzerModeSection")
 
 

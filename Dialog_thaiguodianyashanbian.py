@@ -447,6 +447,14 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         g6Layout.addWidget(QtWidgets.QLabel("V"), 0, 8)
 
+        # 单相/三相：必须独占格子，不能与交流电压3同占 (1,3)
+        g6Layout.addWidget(QtWidgets.QLabel("接线:"), 1, 0)
+        self.comboBox_S1_AC_2 = QtWidgets.QComboBox()
+        self.comboBox_S1_AC_2.setObjectName("comboBox_S1_AC_2")
+        self.comboBox_S1_AC_2.addItems(["单相", "三相"])
+        self.comboBox_S1_AC_2.setFixedWidth(120)
+        g6Layout.addWidget(self.comboBox_S1_AC_2, 1, 1)
+
         g6Layout.addWidget(QtWidgets.QLabel("交流电压3:"), 1, 2)
         self.textEdit_S1_AC_VOLT_3 = QtWidgets.QTextEdit()
         self.textEdit_S1_AC_VOLT_3.setObjectName("textEdit_S1_AC_VOLT_3")
@@ -462,12 +470,6 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         g6Layout.addWidget(self.textEdit_S1_AC_FR, 1, 7)
         g6Layout.addWidget(QtWidgets.QLabel("Hz"), 1, 8)
 
-        self.comboBox_S1_AC_2 = QtWidgets.QComboBox()
-        self.comboBox_S1_AC_2.setObjectName("comboBox_S1_AC_2")
-        self.comboBox_S1_AC_2.addItems(["单相", "三相"])
-        self.comboBox_S1_AC_2.setFixedWidth(120)
-        g6Layout.addWidget(self.comboBox_S1_AC_2, 1, 3)
-
         layout.addWidget(self.groupBox_6)
 
         # ── DC 电源组 (4 channels) ──
@@ -480,7 +482,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         g7Layout.setContentsMargins(12, 20, 12, 12)
 
         # Header
-        headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(headers):
             lbl = QtWidgets.QLabel(h)
             lbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -502,6 +504,8 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g7Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -520,6 +524,8 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g7Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -538,6 +544,8 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g7Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -556,6 +564,8 @@ class Ui_Dialog_thaiguodianyashanbian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g7Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -889,7 +899,9 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.textEdit_S3_TIME_2 = QtWidgets.QTextEdit()
         self.textEdit_S3_TIME_2.setObjectName("textEdit_S3_TIME_2")
         self.textEdit_S3_TIME_2.setFixedSize(100, 31)
-        self.textEdit_S3_TIME_2.setText("3")
+        # 默认须满足：首次间隔+次数×持续+(次数-1)×间隔 ≤ 600s
+        # 旧默认 4min+3×15s+2×3min=645s 会触发超限；改为 2min → 525s
+        self.textEdit_S3_TIME_2.setText("2")
         g2Layout.addWidget(self.textEdit_S3_TIME_2, 3, 4)
         self.comboBox_S3_TIME_2 = QtWidgets.QComboBox()
         self.comboBox_S3_TIME_2.setObjectName("comboBox_S3_TIME_2")

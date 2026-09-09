@@ -45,6 +45,7 @@ DIALOG_CLASSES = (
     Ui_Dialog_thaivoltageadaptability,
     Ui_Dialog_thairocof,
     Ui_Dialog_thairapidvolt,
+    Ui_Dialog_thaifixedPF,
 )
 
 PANEL_WIDGET_ALIASES = (
@@ -166,38 +167,6 @@ class AnalyzerModeDialogTests(unittest.TestCase):
                 self.app.processEvents()
                 self.assertEqual(ui._mode, "wt3000")
                 self.assertEqual(ui.analyzerModeSection.analyzer_stack.currentIndex(), 0)
-
-    def test_fixed_pf_wraps_existing_wt_macro_ui_without_fake_wt_pages(self):
-        _dialog, ui = self._build_ui(Ui_Dialog_thaifixedPF)
-        section = ui.analyzerModeSection
-        wt_group = section.primary_wt_widget
-
-        self.assertFalse(hasattr(ui, "_wtStacked"))
-        self.assertIs(section.step_checkbox, ui.checkBox_S2)
-        self.assertIs(ui.checkBox_S2.parentWidget(), section.mode_row)
-        self.assertTrue(wt_group.isAncestorOf(ui.cB_wt_json))
-        self.assertTrue(wt_group.isAncestorOf(ui.lE_wt_save_path))
-        for radio in (
-            ui.radioButton_S2_WT3000,
-            ui.radioButton_S2_WT1800,
-            ui.radioButton_S2_WT1806E,
-            ui.radioButton_S2_WT5000,
-        ):
-            self.assertTrue(wt_group.isAncestorOf(radio))
-        self.assertTrue(ui.radioButton_S2_WT3000.isChecked())
-        self.assertTrue(ui.radio_wt3000.isChecked())
-        self.assertEqual(ui._mode, "wt3000")
-        self._assert_panel_aliases(ui)
-
-        ui.radio_dewetron.setChecked(True)
-        self.app.processEvents()
-        self.assertEqual(ui._mode, "dewetron")
-        self.assertIs(section.analyzer_stack.currentWidget(), ui.dewetronPanel)
-
-        ui.checkBox_S2.setChecked(False)
-        self.app.processEvents()
-        self.assertFalse(section.analyzer_stack.isEnabled())
-        self.assertTrue(ui.checkBox_S2.isEnabled())
 
     def test_static_mppt_uses_an_independent_analyzer_page_and_checkbox(self):
         _dialog, ui = self._build_ui(Ui_Dialog_thaistaticmppttest)

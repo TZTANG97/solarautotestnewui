@@ -74,6 +74,83 @@ def _make_lbl(text):
     return lbl
 
 
+def _default_continuous_filename_text(parent) -> str:
+    """按试验 Ui 类名解析连续录单文件名，缺省 Record_BR。"""
+    from utils.wt_recording_mode import resolve_continuous_filename
+
+    return resolve_continuous_filename(parent) or "Record_BR"
+
+
+def _add_filename_list_box(parent, sg, col=2):
+    """文件名列表 + 录波方式（一条线连续录 / 分开录），所有嵌入 WT 的试验共用。
+
+    选「一条线连续录」时文件名列表自动填该试验单文件名（见 UI_CONTINUOUS_FILENAME）。
+    """
+    from components.wt_recording_mode_row import WtRecordingModeRow
+    from utils.wt_recording_mode import (
+        apply_filename_list_to_wt_pages,
+        default_names_for_mode,
+        format_filename_list,
+    )
+
+    single = _default_continuous_filename_text(parent)
+
+    g7 = QtWidgets.QGroupBox("")
+    g7.setObjectName("groupBox_7")
+    g7l = QtWidgets.QVBoxLayout(g7)
+    g7l.setSpacing(4)
+    g7l.setContentsMargins(8, 8, 8, 8)
+
+    def _recommended():
+        return default_names_for_mode(parent, rec.current_mode())
+
+    def _apply_names(names=None):
+        if names is None:
+            names = _recommended()
+        stacked = getattr(parent, "_wtStacked", None)
+        if stacked is not None:
+            apply_filename_list_to_wt_pages(stacked, names)
+        else:
+            te = getattr(parent, "textEdit_FileNameList", None)
+            if te is not None:
+                te.setPlainText(format_filename_list(names))
+
+    rec = WtRecordingModeRow(g7, fill_callback=_recommended)
+    rec.setObjectName("wtRecordingModeRow")
+    if not getattr(rec, "_shared_names_connected", False):
+        rec.names_filled.connect(_apply_names)
+        rec._shared_names_connected = True
+    g7l.addWidget(rec)
+    g7l.addWidget(_make_lbl("文件名列表:"))
+    _make_te(parent, "textEdit_FileNameList", "", max_h=120)
+    parent.textEdit_FileNameList.setPlainText(single)
+    g7l.addWidget(parent.textEdit_FileNameList)
+    sg.addWidget(g7, 0, col)
+    return g7
+
+
+def _maybe_wire_recording_autofill(parent) -> None:
+    """WT 四页建完后：无专用 _wire_recording_mode 的试验自动绑定切模式填名。"""
+    from PyQt5.QtCore import QTimer
+
+    def _go():
+        if getattr(parent, "_recording_autofill_wired", False):
+            return
+        # 已有专用接线的 Dialog（如固定PF/过欠压）自行管理，避免覆盖 split 文件名
+        if hasattr(type(parent), "_wire_recording_mode"):
+            parent._recording_autofill_wired = True
+            return
+        stacked = getattr(parent, "_wtStacked", None)
+        if stacked is None or stacked.count() < 1:
+            return
+        from utils.wt_recording_mode import wire_recording_mode_autofill
+
+        wire_recording_mode_autofill(parent)
+        parent._recording_autofill_wired = True
+
+    QTimer.singleShot(0, _go)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # WT3000E 配置内容
 # ═══════════════════════════════════════════════════════════════════════════
@@ -216,17 +293,7 @@ def build_wt3000_content(parent):
     sg.addWidget(g15, 0, 1)
 
     # 文件名列表
-    g7 = QtWidgets.QGroupBox("")
-    g7.setObjectName("groupBox_7")
-    g7l = QtWidgets.QVBoxLayout(g7)
-    g7l.setSpacing(4)
-    g7l.setContentsMargins(8, 8, 8, 8)
-    g7l.addWidget(_make_lbl("文件名列表:"))
-    _make_te(parent, "textEdit_FileNameList",
-             '<p><span style="font-size:9pt;">100%_ambient,100%_+55,100%_-10,66%_ambient,66%_+55,66%_-10,33%_ambient,33%_+55,33%_-10,100%_ambient</span></p>',
-             max_h=120)
-    g7l.addWidget(parent.textEdit_FileNameList)
-    sg.addWidget(g7, 0, 2)
+    _add_filename_list_box(parent, sg)
 
     cl.addWidget(saveGrp)
 
@@ -512,17 +579,7 @@ def build_wt1800_content(parent):
     g15l.addWidget(cb_auto)
     sg.addWidget(g15, 0, 1)
 
-    g7 = QtWidgets.QGroupBox("")
-    g7.setObjectName("groupBox_7")
-    g7l = QtWidgets.QVBoxLayout(g7)
-    g7l.setSpacing(4)
-    g7l.setContentsMargins(8, 8, 8, 8)
-    g7l.addWidget(_make_lbl("文件名列表:"))
-    _make_te(parent, "textEdit_FileNameList",
-             '<p><span style="font-size:9pt;">100%_ambient,100%_+55,100%_-10,66%_ambient,66%_+55,66%_-10,33%_ambient,33%_+55,33%_-10,100%_ambient</span></p>',
-             max_h=120)
-    g7l.addWidget(parent.textEdit_FileNameList)
-    sg.addWidget(g7, 0, 2)
+    _add_filename_list_box(parent, sg)
 
     cl.addWidget(saveGrp)
 
@@ -814,17 +871,7 @@ def build_wt1806e_content(parent):
     g15l.addWidget(cb_auto)
     sg.addWidget(g15, 0, 1)
 
-    g7 = QtWidgets.QGroupBox("")
-    g7.setObjectName("groupBox_7")
-    g7l = QtWidgets.QVBoxLayout(g7)
-    g7l.setSpacing(4)
-    g7l.setContentsMargins(8, 8, 8, 8)
-    g7l.addWidget(_make_lbl("文件名列表:"))
-    _make_te(parent, "textEdit_FileNameList",
-             '<p><span style="font-size:9pt;">100%_ambient,100%_+55,100%_-10,66%_ambient,66%_+55,66%_-10,33%_ambient,33%_+55,33%_-10,100%_ambient</span></p>',
-             max_h=120)
-    g7l.addWidget(parent.textEdit_FileNameList)
-    sg.addWidget(g7, 0, 2)
+    _add_filename_list_box(parent, sg)
 
     cl.addWidget(saveGrp)
 
@@ -1105,17 +1152,7 @@ def build_wt5000_content(parent):
     g15l.addWidget(cb_auto)
     sg.addWidget(g15, 0, 1)
 
-    g7 = QtWidgets.QGroupBox("")
-    g7.setObjectName("groupBox_7")
-    g7l = QtWidgets.QVBoxLayout(g7)
-    g7l.setSpacing(4)
-    g7l.setContentsMargins(8, 8, 8, 8)
-    g7l.addWidget(_make_lbl("文件名列表:"))
-    _make_te(parent, "textEdit_FileNameList",
-             '<p><span style="font-size:9pt;">100%_ambient,100%_+55,100%_-10,66%_ambient,66%_+55,66%_-10,33%_ambient,33%_+55,33%_-10,100%_ambient</span></p>',
-             max_h=120)
-    g7l.addWidget(parent.textEdit_FileNameList)
-    sg.addWidget(g7, 0, 2)
+    _add_filename_list_box(parent, sg)
 
     cl.addWidget(saveGrp)
 
@@ -1285,4 +1322,6 @@ def build_wt5000_content(parent):
     cl.addStretch()
 
     scroll.setWidget(cw)
+    # 最后一页建完后：无专用接线的试验自动绑定「连续录→试验单文件名」
+    _maybe_wire_recording_autofill(parent)
     return scroll

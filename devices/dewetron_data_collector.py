@@ -125,18 +125,54 @@ RATE_MAP = {
 
 
 def parse_rate_ms(rate_text):
-    """将 MaxUpdateRate 文本转换为毫秒数。"""
+    """将 MaxUpdateRate 文本转换为毫秒数。
+
+    UI 侧多为 ``Default`` / ``100`` / ``100ms``（毫秒）。
+    设备 ``:RATE?`` 常回 ``1.0E-1`` / ``0.1``（秒）。勿对科学计数法只取首段数字，
+    否则 ``1.0E-1`` 会被误判成 1ms。
+    """
     rate_text = str(rate_text or '').strip()
+    rate_text = re.sub(r'^:RATE\s*', '', rate_text, flags=re.IGNORECASE).strip().strip('"')
     if rate_text in RATE_MAP:
         result = RATE_MAP[rate_text]
         print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (from RATE_MAP)")
         return result
-    try:
-        result = int(rate_text)
-        print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (parsed as int)")
+
+    ms_match = re.match(
+        r'^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*ms$',
+        rate_text,
+        re.IGNORECASE,
+    )
+    if ms_match:
+        result = int(round(float(ms_match.group(1))))
+        print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (explicit ms)")
         return result
+
+    sec_match = re.match(
+        r'^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*s(?:ec(?:onds?)?)?$',
+        rate_text,
+        re.IGNORECASE,
+    )
+    if sec_match:
+        result = int(round(float(sec_match.group(1)) * 1000.0))
+        print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (explicit seconds)")
+        return result
+
+    try:
+        value = float(rate_text)
     except ValueError:
-        pass
+        value = None
+    if value is not None:
+        # Device replies are seconds (0.1, 1.0E-1). Plain UI integers like 100
+        # stay in milliseconds. Threshold: values below 10 are treated as seconds.
+        if abs(value) < 10:
+            result = int(round(value * 1000.0))
+            print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (seconds→ms)")
+        else:
+            result = int(round(value))
+            print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (parsed as ms)")
+        return result
+
     m = re.search(r'(\d+)', rate_text)
     if m:
         result = int(m.group(1))
@@ -144,6 +180,14 @@ def parse_rate_ms(rate_text):
         return result
     print(f"[parse_rate_ms] '{rate_text}' -> 100ms (default)")
     return 100
+
+
+def rates_match_ms(expected_ms, actual_ms, tolerance_ms=1):
+    """Compare configured vs device-reported rates with a small tolerance."""
+    try:
+        return abs(int(actual_ms) - int(expected_ms)) <= int(tolerance_ms)
+    except (TypeError, ValueError):
+        return False
 
 
 @dataclass
@@ -417,9 +461,11 @@ class DewetronDataCollector:
         if not rate_val:
             return False
         actual_ms = parse_rate_ms(str(rate_val).replace(':RATE', '').strip())
-        print(f"[Collector][start_gathering] RATE 验证: 设置={self._rate_ms}ms, 实际={rate_val}")
-        return actual_ms == self._rate_ms
-
+        print(
+            f"[Collector][start_gathering] RATE 验证: "
+            f"设置={self._rate_ms}ms, 实际={rate_val} (解析={actual_ms}ms)"
+        )
+        return rates_match_ms(self._rate_ms, actual_ms)
     def start_gathering(self):
         """配置采集并创建当前 run；成功返回 True。"""
         print("[Collector][start_gathering] === 开始采集准备 ===")
@@ -544,6 +590,11 @@ class DewetronDataCollector:
 
     def get_save_path(self):
         """获取当前保存路径。"""
+        return self._save_path
+
+    def set_save_path(self, csv_path):
+        """Update the CSV path used by the next export / begin_run cycle."""
+        self._save_path = str(csv_path or "")
         return self._save_path
 
     def get_total_rows(self):

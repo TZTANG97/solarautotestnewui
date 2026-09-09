@@ -1,0 +1,30 @@
+[INFO] Overfreq cross smoke (no instruments) ...
+Traceback (most recent call last):
+  File "C:\Users\Administrator\AppData\Local\SolarAutoTest\code_example\test_overfreq_cross_smoke.py", line 209, in <module>
+    test_cross_sweep_command_pipeline()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Administrator\AppData\Local\SolarAutoTest\code_example\test_overfreq_cross_smoke.py", line 139, in test_cross_sweep_command_pipeline
+    import SCPITestWave as M
+  File "C:\Users\Administrator\AppData\Local\SolarAutoTest\SCPITestWave.py", line 151, in <module>
+    from setup.main_setup import initialize_setup_windows
+  File "C:\Users\Administrator\AppData\Local\SolarAutoTest\setup\__init__.py", line 4, in <module>
+    from .main_setup import MainSetup, initialize_setup_windows
+  File "C:\Users\Administrator\AppData\Local\SolarAutoTest\setup\main_setup.py", line 27, in <module>
+    from Dialog_thaichonglian import Ui_Dialog_thaichonglian
+  File "C:\Users\Administrator\AppData\Local\SolarAutoTest\Dialog_thaichonglian.py", line 385
+    if hasattr(te, \"setTabChangesFocus\"):
+                    ^
+SyntaxError: unexpected character after line continuation character
+[FAIL] Overfreq cross smoke failed
+
+Verify failed: 1 item(s)
+Verify failed, exit code 1
+At D:\桌面\SolarAutoTest-Setup-20260821\Install-SolarAutoTest.ps1:305 char:9
++         throw ("Verify failed, exit code " + $p.ExitCode)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Verify failed, exit code 1:String) [], RuntimeException
+    + FullyQualifiedErrorId : Verify failed, exit code 1
+
+
+[FAIL] Install failed, exit code 1
+Press any key to continue . . .

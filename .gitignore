@@ -20,3 +20,11 @@ database/*.sqlite-wal
 .cursor/
 .vscode/
 .idea/
+
+# 构建产物 / 运行日志 / 安装包
+dist/
+data_logs/
+*.zip
+code_example/update_e2e/**/*.zip
+code_example/media/**/*.zip
+__pycache__/

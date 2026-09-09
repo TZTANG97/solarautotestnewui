@@ -1,14 +1,21 @@
 # -*- coding: utf-8 -*-
-"""无功能力范围：功率阶梯 × 极限 cosφ，逐点数字 col6 存盘。"""
+"""无功能力范围：功率阶梯 × 极限 cosφ；支持连续录（单文件）或分开录（逐点 col6）。"""
 
 from __future__ import annotations
 
 import re
 
+from utils.wt_recording_mode import (
+    MODE_CONTINUOUS,
+    MODE_SPLIT,
+    dedupe_errors,
+    combo_index_to_mode,
+)
 from utils.safe_shutdown import (
     build_forced_shutdown_rows,
     enabled_shutdown_dc_channels,
 )
+from utils.ac_scpi_commands import append_ac_startup_from_ui
 from utils.time_helpers import SetTimeFunction
 
 # (checkbox attr, file/label tag)
@@ -37,6 +44,15 @@ def _row_ac_wait_idn(wait_01s, slot=9):
     row[1] = "query"
     row[2] = "*IDN?"
     row[slot] = wait_01s
+    return row
+
+
+def _row_wt_async_marker(marker):
+    row = _empty_row()
+    row[0] = "AC"
+    row[1] = "query"
+    row[2] = "*IDN?"
+    row[6] = marker
     return row
 
 
@@ -93,6 +109,13 @@ def selected_cos_labels(ui):
         if cb is not None and cb.isChecked():
             labels.append(label)
     return labels
+
+
+def get_record_mode(ui) -> str:
+    combo = getattr(ui, "comboBox_S3_record_mode", None)
+    if combo is None:
+        return MODE_SPLIT
+    return combo_index_to_mode(combo.currentIndex())
 
 
 def build_reactive_qcap_plan(
@@ -168,33 +191,7 @@ def build_reactive_qcap_plan(
             }
         ac_status = ui.comboBox_S1_AC.currentText()
 
-        if phase_mode == "单相":
-            for cmd in ("INST:PHAS SINGLE", "INST:EDIT ALL"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volt = ui.textEdit_S1_AC_VOLT.toPlainText()
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for cmd in ("VOLT " + volt, "FREQ " + fr):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-        elif phase_mode == "三相":
-            for cmd in ("INST:PHAS THREE", "INST:EDIT EACH"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volts = [
-                ui.textEdit_S1_AC_VOLT.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_2.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_3.toPlainText(),
-            ]
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for idx, volt in enumerate(volts, start=1):
-                for cmd in ("INST:NSEL %d" % idx, "VOLT " + volt, "FREQ " + fr):
-                    row = _row_ac_write(cmd)
-                    commands.append(row)
-                    step_rows.append(row)
+        append_ac_startup_from_ui(ui, commands, step_rows)
 
         row = _row_ac_write("OUTP ON" if ac_status == "开启" else "OUTP OFF")
         row[9] = f_ac_wait
@@ -313,9 +310,19 @@ def build_reactive_qcap_plan(
                 "wt_rounds": 0,
             }
 
+        record_mode = get_record_mode(ui)
+        wt_continuous = record_mode == MODE_CONTINUOUS
+        point_index = 0
+        total_points = len(power_levels) * len(cos_labels)
+
         for pct in power_levels:
             for cos_label in cos_labels:
                 point_rows = []
+                if wt_continuous and wt_is_checked == "1" and point_index == 0:
+                    row = _row_wt_async_marker("ASYNC_START")
+                    commands.append(row)
+                    point_rows.append(row)
+
                 for ch, device, dc_num, label in (
                     (1, "DC1", 0, "DC电源1"),
                     (2, "DC2", 1, "DC电源2"),
@@ -339,17 +346,29 @@ def build_reactive_qcap_plan(
                         dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
                     elif code == "ok" and iv_cmds:
                         for cmd in iv_cmds:
+                            if point_index > 0 and (
+                                "MODE" in cmd or "SELect" in cmd or "SAS:MODE" in cmd
+                            ):
+                                continue
                             row = _row_device_write(device, cmd)
                             commands.append(row)
                             point_rows.append(row)
 
-                # 数字 col6：逐点驻留并触发 WT 存盘
-                row = _row_ac_wait_idn(int(dwell_01s), slot=6)
+                dwell_slot = 9 if wt_continuous else 6
+                row = _row_ac_wait_idn(int(dwell_01s), slot=dwell_slot)
                 commands.append(row)
                 point_rows.append(row)
                 steps.append(point_rows)
-                pct_tag = ("%g" % pct).replace(".", "p")
-                file_names.append("QCap_P%s_%s" % (pct_tag, cos_label))
+
+                if not wt_continuous:
+                    pct_tag = ("%g" % pct).replace(".", "p")
+                    file_names.append("QCap_P%s_%s" % (pct_tag, cos_label))
+                point_index += 1
+
+        if wt_continuous and wt_is_checked == "1" and total_points > 0:
+            row = _row_wt_async_marker("WAIT_END")
+            commands.append(row)
+            file_names = ["QCap_BR"]
 
     if ui.checkBox_S_END.isChecked():
         dc_channels = enabled_shutdown_dc_channels(
@@ -362,11 +381,15 @@ def build_reactive_qcap_plan(
         commands.extend(step_rows)
         steps.append(step_rows)
 
-    wt_rounds = len(file_names) if (wt_is_checked == "1" and file_names) else 0
+    wt_continuous_flag = get_record_mode(ui) == MODE_CONTINUOUS if ui.checkBox_S3.isChecked() else False
+    if wt_is_checked == "1" and file_names:
+        wt_rounds = 1 if wt_continuous_flag else len(file_names)
+    else:
+        wt_rounds = 0
     return {
         "ok": True,
         "error": "",
-        "dc_errors": dc_errors,
+        "dc_errors": dedupe_errors(dc_errors),
         "commands": commands,
         "steps": steps,
         "wt_type": wt_type,
@@ -377,5 +400,6 @@ def build_reactive_qcap_plan(
         "file_names": file_names,
         "dwell_01s": int(dwell_01s),
         "wt_rounds": wt_rounds,
-        "wt_continuous": False,
+        "wt_continuous": wt_continuous_flag,
+        "record_mode": get_record_mode(ui) if ui.checkBox_S3.isChecked() else "",
     }

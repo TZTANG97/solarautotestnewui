@@ -61,30 +61,75 @@ from Dialog_thaiWT5000 import Ui_Dialog_thai_WT5000
 
 
 class LazyDialog:
-    """延迟加载对话框 —— 第一次访问时才真正创建。"""
+    """延迟加载对话框 —— 第一次访问时才真正创建。
+
+    可通过 on_create() 注册回调：仅在首次实体化后执行（用于信号绑定等），
+    避免启动阶段访问控件属性时把全部试验页提前创建出来。
+    """
 
     def __init__(self, ui_cls, name=""):
         self._ui_cls = ui_cls
         self._name = name
         self._real_dialog = None
         self._real_ui = None
+        self._on_create_hooks = []
+        self._hooks_ran = False
+
+    @property
+    def is_created(self) -> bool:
+        return self._real_dialog is not None
+
+    def on_create(self, callback):
+        """注册首次创建后的回调；若已创建则立即执行。"""
+        self._on_create_hooks.append(callback)
+        if self._hooks_ran:
+            callback()
+        return self
+
+    def ensure(self):
+        """显式创建真实对话框（并执行 on_create 钩子）。"""
+        return self._ensure_created()
+
+    def _run_create_hooks(self):
+        if self._hooks_ran:
+            return
+        self._hooks_ran = True
+        for fn in list(self._on_create_hooks):
+            try:
+                fn()
+            except Exception as exc:
+                print(
+                    f"[WARN] LazyDialog({self._name}) on_create failed: {exc}",
+                    flush=True,
+                )
 
     def _ensure_created(self):
         if self._real_dialog is None:
             from PyQt5.QtWidgets import QDialog
+
+            print(f"[DEBUG_SETUP] lazy-create {self._name}...", flush=True)
             self._real_dialog = QDialog()
             self._real_ui = self._ui_cls()
             self._real_ui.setupUi(self._real_dialog)
+            try:
+                from utils.ui_field_helpers import polish_input_widgets
+
+                polish_input_widgets(self._real_dialog)
+            except Exception as exc:
+                print(f"[WARN] polish_input_widgets({self._name}): {exc}", flush=True)
+            self._run_create_hooks()
+        elif not self._hooks_ran:
+            self._run_create_hooks()
         return self._real_dialog, self._real_ui
 
     @property
     def dialog(self):
-        _, ui = self._ensure_created()
+        self._ensure_created()
         return self._real_dialog
 
     @property
     def ui(self):
-        _, ui = self._ensure_created()
+        self._ensure_created()
         return self._real_ui
 
     def __getattr__(self, name):
@@ -498,11 +543,6 @@ class MainSetup(BaseSetup):
             ("DC3_Setting", Ui_Dialog_DC3_Setting, "dialog_windowDC3Setting", "uiDC3Setting", None, None),
             ("DC4_Setting", Ui_Dialog_DC4_Setting, "dialog_windowDC4Setting", "uiDC4Setting", None, None),
         ]
-        for name, ui_cls, d_key, u_key, sync_d, sync_u in _immediate:
-            _seq += 1; print(f"[DEBUG_SETUP] {_seq}/27 {name}...", flush=True)
-            dialog, ui = MainSetup._build_dialog(ui_cls)
-            MainSetup._register_window(created, app_ctx, d_key, u_key, dialog, ui, sync_dialog_attr=sync_d, sync_ui_attr=sync_u)
-
         # ══════════════════════════════════════
         # 延迟加载：测试项目对话框（首次访问时创建）
         # ══════════════════════════════════════
@@ -538,13 +578,28 @@ class MainSetup(BaseSetup):
             ("phasejump", Ui_Dialog_thaiphasejump, "dialog_windowphasejump", "uiThaiPhaseJump"),
             ("dynamicmppt", Ui_Dialog_thaidynamicmppt, "dialog_windowdynamicmppt", "uiThaiDynamicMPPT"),
         ]
+        _n_immediate = len(_immediate)
+        _n_lazy = len(_lazy)
+        _total = _n_immediate + _n_lazy
+
+        for name, ui_cls, d_key, u_key, sync_d, sync_u in _immediate:
+            _seq += 1
+            print(f"[DEBUG_SETUP] {_seq}/{_total} {name}...", flush=True)
+            dialog, ui = MainSetup._build_dialog(ui_cls)
+            MainSetup._register_window(created, app_ctx, d_key, u_key, dialog, ui, sync_dialog_attr=sync_d, sync_ui_attr=sync_u)
+
         for name, ui_cls, d_key, u_key in _lazy:
-            _seq += 1; print(f"[DEBUG_SETUP] {_seq}/35 {name} (lazy)...", flush=True)
+            _seq += 1
+            print(f"[DEBUG_SETUP] {_seq}/{_total} {name} (lazy)...", flush=True)
             lazy = LazyDialog(ui_cls, name)
             created[d_key] = lazy
             created[u_key] = lazy
 
-        print(f"[DEBUG_SETUP] 全部 {_seq} 个对话框就绪（11 立即 + 27 延迟）", flush=True)
+        print(
+            f"[DEBUG_SETUP] 全部 {_seq} 个对话框就绪"
+            f"（{_n_immediate} 立即 + {_n_lazy} 延迟）",
+            flush=True,
+        )
         return created
 
 

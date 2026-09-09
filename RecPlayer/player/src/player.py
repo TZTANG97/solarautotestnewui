@@ -462,7 +462,12 @@ class MacroPlayer:
                     
                     wait_time = action.timestamp - last_timestamp
                     if wait_time > 0:
-                        time.sleep(wait_time)
+                        # 分段 sleep，结束试验时可在 ~0.1s 内打断，而不是卡满整个 wait_time
+                        deadline = time.time() + wait_time
+                        while self.is_playing and time.time() < deadline:
+                            time.sleep(min(0.1, max(0.0, deadline - time.time())))
+                        if not self.is_playing:
+                            break
                     
                     last_timestamp = action.timestamp
                     

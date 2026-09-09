@@ -279,6 +279,12 @@ class Ui_Dialog_thaivoltageadaptability(object):
         self.textEdit_S1_AC_VOLT_3.setObjectName("textEdit_S1_AC_VOLT_3")
         self.textEdit_S1_AC_VOLT_3.setFixedSize(80, 28)
         acG.addWidget(self.textEdit_S1_AC_VOLT_3, 2, 1)
+        for _te_ac_v, _ph in (
+            (self.textEdit_S1_AC_VOLT, "1"),
+            (self.textEdit_S1_AC_VOLT_2, "2"),
+            (self.textEdit_S1_AC_VOLT_3, "3"),
+        ):
+            _te_ac_v.setPlaceholderText("与设备页相同，如 220")
 
         self.label_102 = QtWidgets.QLabel("V")
         self.label_102.setObjectName("label_102")
@@ -317,7 +323,7 @@ class Ui_Dialog_thaivoltageadaptability(object):
         dcG.setContentsMargins(12, 20, 12, 12)
 
         # 表头
-        _dc_headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        _dc_headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for _c, _h in enumerate(_dc_headers):
             _hlbl = QtWidgets.QLabel(_h)
             _hlbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -498,10 +504,38 @@ class Ui_Dialog_thaivoltageadaptability(object):
         self.comboBox_S2_update_rate.setFixedWidth(100)
         wG.addWidget(self.comboBox_S2_update_rate, 2, 3)
 
+        self.checkBox_S2_split_ov_uv_files = QtWidgets.QCheckBox(
+            "过压/欠压分两个文件录制（与 5.4.21 分文件分析对齐）"
+        )
+        self.checkBox_S2_split_ov_uv_files.setObjectName("checkBox_S2_split_ov_uv_files")
+        self.checkBox_S2_split_ov_uv_files.setChecked(False)
+        wG.addWidget(self.checkBox_S2_split_ov_uv_files, 3, 0, 1, 4)
+
         self._integrate_analyzer_mode(layout, self.groupBox_wt)
         layout.addStretch()
 
         self.stackedWidget.addWidget(page)
+        self._apply_recommended_wt_filename("VoltAdapt_BR_5421")
+        self.checkBox_S2_split_ov_uv_files.toggled.connect(self._on_split_ov_uv_files_toggled)
+
+    def _on_split_ov_uv_files_toggled(self, checked):
+        if checked:
+            self._apply_recommended_wt_filename("VoltAdapt_OV_5421,VoltAdapt_UV_5421")
+        else:
+            self._apply_recommended_wt_filename("VoltAdapt_BR_5421")
+
+    def _apply_recommended_wt_filename(self, name):
+        """覆盖 WT 模板默认的 ambient list，写入本试验推荐名。"""
+        stacked = getattr(self, "_wtStacked", None)
+        if stacked is None:
+            return
+        for page_idx in range(stacked.count()):
+            page = stacked.widget(page_idx)
+            if page is None:
+                continue
+            te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+            if te is not None:
+                te.setPlainText(name)
 
     def _integrate_analyzer_mode(self, layout, wt_group):
         """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
@@ -539,12 +573,27 @@ class Ui_Dialog_thaivoltageadaptability(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(0)
 
-        # 过频页总开关（勿与卡片 checkBox_S3 同名，避免 setattr 覆盖）
+        # 过压页总开关（勿与卡片 checkBox_S3 同名，避免 setattr 覆盖）
         self.checkBox_guoya_page = QtWidgets.QCheckBox("启用过压设置")
         self.checkBox_guoya_page.setChecked(True)
         self.checkBox_guoya_page.setObjectName("checkBox_guoya_page")
         self.checkBox_guoya_page.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
         layout.addWidget(self.checkBox_guoya_page)
+
+        # 电压 list（优先于下方卡片，同过频降载 FrequencyLadder）
+        ladder_row = QtWidgets.QHBoxLayout()
+        ladder_lbl = QtWidgets.QLabel("过压 list")
+        ladder_lbl.setStyleSheet("font-weight: bold;")
+        self.textEdit_VoltageLadder_guoya = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_guoya.setObjectName("textEdit_VoltageLadder_guoya")
+        self.textEdit_VoltageLadder_guoya.setFixedHeight(48)
+        self.textEdit_VoltageLadder_guoya.setPlainText("230-253@30\n253-230@30")
+        self.textEdit_VoltageLadder_guoya.setPlaceholderText(
+            "优先：230-253@30, 253-230@30  多段逗号/换行；清空则用下方勾选卡片"
+        )
+        ladder_row.addWidget(ladder_lbl)
+        ladder_row.addWidget(self.textEdit_VoltageLadder_guoya, 1)
+        layout.addLayout(ladder_row)
 
         # QScrollArea 承载所有卡片
         scroll = QtWidgets.QScrollArea()
@@ -558,7 +607,14 @@ class Ui_Dialog_thaivoltageadaptability(object):
         guopin_cards = []
         for i in range(9):
             step_num = 3 + i
-            card = self._build_volt_card(step_num, "guoya", "过压 %d" % (i + 1))
+            # 默认只勾过压1，避免 18 张全开导致命令极长
+            card = self._build_volt_card(
+                step_num, "guoya", "过压 %d" % (i + 1),
+                default_checked=(i == 0),
+                default_start="230" if i == 0 else "",
+                default_end="253" if i == 0 else "",
+                default_duration="30" if i == 0 else "",
+            )
             scroll_layout.addWidget(card)
             guopin_cards.append(card)
 
@@ -586,12 +642,26 @@ class Ui_Dialog_thaivoltageadaptability(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(0)
 
-        # 欠频页总开关（勿与卡片 checkBox_S12 同名）
+        # 欠压页总开关（勿与卡片 checkBox_S12 同名）
         self.checkBox_qianya_page = QtWidgets.QCheckBox("启用欠压设置")
-        self.checkBox_qianya_page.setChecked(True)
+        self.checkBox_qianya_page.setChecked(False)
         self.checkBox_qianya_page.setObjectName("checkBox_qianya_page")
         self.checkBox_qianya_page.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
         layout.addWidget(self.checkBox_qianya_page)
+
+        ladder_row = QtWidgets.QHBoxLayout()
+        ladder_lbl = QtWidgets.QLabel("欠压 list")
+        ladder_lbl.setStyleSheet("font-weight: bold;")
+        self.textEdit_VoltageLadder_qianya = QtWidgets.QTextEdit()
+        self.textEdit_VoltageLadder_qianya.setObjectName("textEdit_VoltageLadder_qianya")
+        self.textEdit_VoltageLadder_qianya.setFixedHeight(48)
+        self.textEdit_VoltageLadder_qianya.setPlainText("")
+        self.textEdit_VoltageLadder_qianya.setPlaceholderText(
+            "例如 230-195@30；启用欠压后填写，多段逗号/换行；空则用下方卡片"
+        )
+        ladder_row.addWidget(ladder_lbl)
+        ladder_row.addWidget(self.textEdit_VoltageLadder_qianya, 1)
+        layout.addLayout(ladder_row)
 
         # QScrollArea 承载所有卡片
         scroll = QtWidgets.QScrollArea()
@@ -605,7 +675,13 @@ class Ui_Dialog_thaivoltageadaptability(object):
         qianpin_cards = []
         for i in range(9):
             step_num = 12 + i
-            card = self._build_volt_card(step_num, "qianya", "欠压 %d" % (i + 1))
+            card = self._build_volt_card(
+                step_num, "qianya", "欠压 %d" % (i + 1),
+                default_checked=False,
+                default_start="230" if i == 0 else "",
+                default_end="195" if i == 0 else "",
+                default_duration="30" if i == 0 else "",
+            )
             scroll_layout.addWidget(card)
             qianpin_cards.append(card)
 
@@ -622,7 +698,17 @@ class Ui_Dialog_thaivoltageadaptability(object):
 
         self.stackedWidget.addWidget(page)
 
-    def _build_volt_card(self, step_num, side_tag, title):
+    def _build_volt_card(
+        self,
+        step_num,
+        side_tag,
+        title,
+        *,
+        default_checked=False,
+        default_start="",
+        default_end="",
+        default_duration="",
+    ):
         """构建单个电压扫描配置卡片。"""
         card = QtWidgets.QWidget()
         card.setStyleSheet("background-color: white;")
@@ -640,7 +726,7 @@ class Ui_Dialog_thaivoltageadaptability(object):
 
         # step checkbox
         _cb = QtWidgets.QCheckBox("step%d" % step_num)
-        _cb.setChecked(True)
+        _cb.setChecked(bool(default_checked))
         _cb.setObjectName("checkBox_S%d" % step_num)
         gG.addWidget(_cb, 0, 0)
         setattr(self, "checkBox_S%d" % step_num, _cb)
@@ -659,6 +745,8 @@ class Ui_Dialog_thaivoltageadaptability(object):
         _te_start = QtWidgets.QTextEdit()
         _te_start.setObjectName("textEdit_S%d_volt_start_%s" % (step_num, side_tag))
         _te_start.setFixedSize(80, 28)
+        if default_start:
+            _te_start.setPlainText(str(default_start))
         gG.addWidget(_te_start, 1, 1)
         setattr(self, "textEdit_S%d_volt_start_%s" % (step_num, side_tag), _te_start)
 
@@ -668,6 +756,8 @@ class Ui_Dialog_thaivoltageadaptability(object):
         _te_end = QtWidgets.QTextEdit()
         _te_end.setObjectName("textEdit_S%d_volt_end_%s" % (step_num, side_tag))
         _te_end.setFixedSize(80, 28)
+        if default_end:
+            _te_end.setPlainText(str(default_end))
         gG.addWidget(_te_end, 1, 3)
         setattr(self, "textEdit_S%d_volt_end_%s" % (step_num, side_tag), _te_end)
 
@@ -681,6 +771,8 @@ class Ui_Dialog_thaivoltageadaptability(object):
         _te_dur = QtWidgets.QTextEdit()
         _te_dur.setObjectName("textEdit_S%d_test_duration_%s" % (step_num, side_tag))
         _te_dur.setFixedSize(80, 28)
+        if default_duration:
+            _te_dur.setPlainText(str(default_duration))
         gG.addWidget(_te_dur, 2, 1)
         setattr(self, "textEdit_S%d_test_duration_%s" % (step_num, side_tag), _te_dur)
 
@@ -701,6 +793,7 @@ class Ui_Dialog_thaivoltageadaptability(object):
                 w.setEnabled(checked)
 
         _cb.toggled.connect(_on_step_toggled)
+        _on_step_toggled(_cb.isChecked())
 
         cardLayout.addWidget(grp)
         return card

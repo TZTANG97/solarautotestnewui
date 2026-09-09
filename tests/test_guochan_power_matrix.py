@@ -30,6 +30,7 @@ from utils.guochan_sim_matrix import (
     ac_smoke_sequence,
     ac_startup_three_phase,
     ac_three_phase_nsel_sequence,
+    bluesight_stc_from_iv,
     dc_bluesight_smoke_sequence,
     dc_iv_shape_for_brand,
     is_chroma_only_ac,
@@ -110,6 +111,25 @@ def test_itech_single_phase_ignores_edit_all():
     ok, _ = tr.translate("INST:EDIT ALL")
     assert ok
     assert len(client.writes) == n_before
+
+
+def test_itech_three_phase_edit_all_writes_linked_mode():
+    """三相 EDIT ALL 须写 0x0C48=0x0001（联动），否则残留 EACH 的 0x0002 会像只有一相动。"""
+    client = FakeModbusClient()
+    tr = ItechTranslator(client)
+    assert tr.translate("INST:PHASE THREE")[0]
+    assert tr.translate("INST:EDIT EACH")[0]
+    assert any(
+        w[0] == "reg" and w[1] == ItechTranslator.REG_PHASE_MODE and w[2] == 0x0002
+        for w in client.writes
+    )
+    ok, _ = tr.translate("INST:EDIT ALL")
+    assert ok
+    assert tr.edit_mode == "ALL"
+    assert any(
+        w[0] == "reg" and w[1] == ItechTranslator.REG_PHASE_MODE and w[2] == 0x0001
+        for w in client.writes
+    )
 
 
 def test_itech_three_phase_volt_writes_abc():
@@ -212,7 +232,7 @@ def test_bluesight_rejects_chroma_iv(cmd: str):
 def test_dc_mode_preamble_matches_main():
     assert DC_MODE_PREAMBLE["Chroma"] == ["OUTP:MODE TABLE", "IVCurve:SELect 1"]
     assert DC_MODE_PREAMBLE["Itech"] == ["SOL 0", "SOL 1"]
-    assert DC_MODE_PREAMBLE["Bluesight"] == []
+    assert DC_MODE_PREAMBLE["Bluesight"] == ["SYST:MODE SAS"]
 
 
 def test_dc_iv_shape_brand_policy():
@@ -224,6 +244,47 @@ def test_dc_iv_shape_brand_policy():
     bs = dc_iv_shape_for_brand("Bluesight")
     assert any(c.upper().startswith("BLUESIGHT:STC") for c in bs)
     assert not any(is_chroma_only_dc(c) for c in bs)
+
+
+def test_bluesight_stc_from_iv_dialog_points():
+    triple = bluesight_stc_from_iv("650", "12.3", "800", "13.5", "100")
+    assert triple is not None
+    pmpp_kw, umpp, ff = triple
+    assert abs(pmpp_kw - 650 * 12.3 / 1000.0) < 1e-9
+    assert umpp == 650.0
+    assert 0.50 <= ff <= 0.95
+    half = bluesight_stc_from_iv("650", "12.3", "800", "13.5", "50")
+    assert half is not None
+    assert abs(half[0] - pmpp_kw * 0.5) < 1e-9
+    assert bluesight_stc_from_iv("0", "10") is None
+
+
+def test_bluesight_dcgetiv_scales_device_page_cache():
+    """设备页缓存为 100% 基准时，工况点功率%必须改写 Pmpp（固定PF/无功阶梯）。"""
+    pytest.importorskip("PyQt5.QtWidgets")
+    import SCPITestWave as sw
+
+    prev_stc = dict(sw.bluesight_stc_params)
+    prev_factor = getattr(sw, "per_dc_factor", None)
+    sw.per_dc_factor = {"0": "Bluesight", "1": "", "2": "", "3": ""}
+    try:
+        sw.bluesight_stc_params[0] = {"pmpp": 7.99955, "umpp": 650.0, "ff": 0.8006539292462277}
+        full = sw.DCGetIVValueFunction("650", "12.3", "800", "13.5", "100", 0)
+        mid = sw.DCGetIVValueFunction("650", "12.3", "800", "13.5", "75", 0)
+        low = sw.DCGetIVValueFunction("650", "12.3", "800", "13.5", "20", 0)
+        assert full == ["BLUESIGHT:STC 7.99955 650.0 0.8006539292462277"]
+        p_mid = float(mid[0].split()[1])
+        p_low = float(low[0].split()[1])
+        assert abs(p_mid - 7.99955 * 0.75) < 1e-9
+        assert abs(p_low - 7.99955 * 0.20) < 1e-9
+        assert sw.bluesight_stc_params[0]["pmpp"] == 7.99955
+    finally:
+        sw.bluesight_stc_params.clear()
+        sw.bluesight_stc_params.update(prev_stc)
+        if prev_factor is None:
+            delattr(sw, "per_dc_factor")
+        else:
+            sw.per_dc_factor = prev_factor
 
 
 # ----- P0 / P2 / P3 矩阵 -----
@@ -250,7 +311,7 @@ def test_p0_dc_brand_smoke(menu: str, dc_brand: str):
     elif dc_brand == "Itech":
         assert preamble == ["SOL 0", "SOL 1"]
     else:
-        assert preamble == []
+        assert preamble == ["SYST:MODE SAS"]
         _run_bluesight_sequence(dc_bluesight_smoke_sequence())
 
 
@@ -264,7 +325,7 @@ def _assert_matrix_case(case: dict) -> None:
             assert not is_chroma_only_ac(c)
 
     if case["dc_brand"] == "Bluesight":
-        assert case["dc_preamble"] == []
+        assert case["dc_preamble"] == ["SYST:MODE SAS"]
         _run_bluesight_sequence(case["dc_bluesight_cmds"])
         for c in case["dc_iv_shape"]:
             if c.upper().startswith("BLUESIGHT:STC"):
@@ -319,7 +380,7 @@ def test_brand_cross_policy(ac_brand: str, dc_brand: str):
     assert dc_brand in DC_BRANDS
     shape = dc_iv_shape_for_brand(dc_brand)
     if dc_brand == "Bluesight":
-        assert DC_MODE_PREAMBLE[dc_brand] == []
+        assert DC_MODE_PREAMBLE[dc_brand] == ["SYST:MODE SAS"]
         assert any("BLUESIGHT:STC" in c.upper() for c in shape)
     elif dc_brand == "Itech":
         assert DC_MODE_PREAMBLE[dc_brand][0].startswith("SOL")

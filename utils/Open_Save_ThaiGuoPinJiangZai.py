@@ -82,7 +82,9 @@ arrayRow1 = ['Style',
     'checkBox_S17', 'textEdit_S17_AC_VOLT', 'textEdit_S17_AC_FR', 'textEdit_S17_TIME', 'comboBox_S17_TIME',
     'checkBox_S_End', "comboBox_S_End_AC", "checkBox_S_End_DC1", "comboBox_S_End_DC1","checkBox_S_End_DC2",
         "comboBox_S_End_DC2","checkBox_S_End_DC3", "comboBox_S_End_DC3","checkBox_S_End_DC4","comboBox_S_End_DC4",
-        "checkBox_S2_WT5000"]
+        "checkBox_S2_WT5000",
+        "textEdit_FrequencyLadder", "textEdit_FrequencyLadder_VOLT",
+        "textEdit_FrequencyLadder_TIME", "comboBox_FrequencyLadder_TIME"]
 
 # 泰国过频降载保存设定
 def Save_File_ThaiGuoPinJiangZai(kwargs):
@@ -592,6 +594,21 @@ def Save_File_ThaiGuoPinJiangZai(kwargs):
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
+
+        # 频率 list（点数不限；同时展开到 S3~S17 供旧字段兼容）
+        try:
+            from utils.overfreq_ladder_commands import sync_freq_list_to_legacy_cards
+            sync_freq_list_to_legacy_cards(uithaiGuoPinJiangZai)
+        except Exception:
+            pass
+        _fl = getattr(uithaiGuoPinJiangZai, "textEdit_FrequencyLadder", None)
+        _flv = getattr(uithaiGuoPinJiangZai, "textEdit_FrequencyLadder_VOLT", None)
+        _flt = getattr(uithaiGuoPinJiangZai, "textEdit_FrequencyLadder_TIME", None)
+        _flu = getattr(uithaiGuoPinJiangZai, "comboBox_FrequencyLadder_TIME", None)
+        arrayRow2.append(_fl.toPlainText() if _fl is not None else "")
+        arrayRow2.append(_flv.toPlainText() if _flv is not None else "230")
+        arrayRow2.append(_flt.toPlainText() if _flt is not None else "60")
+        arrayRow2.append(_flu.currentIndex() if _flu is not None else 0)
 
         _append_dewetron_tail(arrayRow2, uithaiGuoPinJiangZai)
 
@@ -1657,6 +1674,35 @@ def Open_File_ThaiGuoPinJiangZai(kwargs):
                                 uithaiGuoPinJiangZai.radioButton_S2_WT5000.setChecked(False)
                         else:
                             strFlag = 1
+
+                    # 频率 list（新字段；旧文件没有则从 S3~S17 回拼）
+                    try:
+                        from utils.overfreq_ladder_commands import sync_legacy_cards_to_freq_list
+                        _has_ladder = False
+                        if len(arrayRow1) > 130 and arrayRow1[130] in config_dict:
+                            _has_ladder = True
+                            _fl = getattr(uithaiGuoPinJiangZai, "textEdit_FrequencyLadder", None)
+                            if _fl is not None:
+                                _fl.setPlainText(str(config_dict[arrayRow1[130]] or ""))
+                        if len(arrayRow1) > 131 and arrayRow1[131] in config_dict:
+                            _flv = getattr(uithaiGuoPinJiangZai, "textEdit_FrequencyLadder_VOLT", None)
+                            if _flv is not None:
+                                _flv.setPlainText(str(config_dict[arrayRow1[131]] or "230"))
+                        if len(arrayRow1) > 132 and arrayRow1[132] in config_dict:
+                            _flt = getattr(uithaiGuoPinJiangZai, "textEdit_FrequencyLadder_TIME", None)
+                            if _flt is not None:
+                                _flt.setPlainText(str(config_dict[arrayRow1[132]] or "60"))
+                        if len(arrayRow1) > 133 and arrayRow1[133] in config_dict:
+                            _flu = getattr(uithaiGuoPinJiangZai, "comboBox_FrequencyLadder_TIME", None)
+                            if _flu is not None:
+                                try:
+                                    _flu.setCurrentIndex(int(config_dict[arrayRow1[133]]))
+                                except Exception:
+                                    pass
+                        if not _has_ladder:
+                            sync_legacy_cards_to_freq_list(uithaiGuoPinJiangZai)
+                    except Exception:
+                        pass
 
                     if arrayRow1[41] in config_dict:
                         checkBox_S2_WT3000 = config_dict[arrayRow1[41]]

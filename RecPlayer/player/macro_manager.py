@@ -24,6 +24,8 @@ class MacroManager:
         self.player = None
         self.config = None
         self.RECORDING_PATH = path or PATH_RECORDINGS["WT3000"]
+        # Optional callable() -> bool; when True, stop playback cooperatively.
+        self.abort_check = None
 
     def change_wt_type(self, type: str):
         """根据 WT 机型切换到项目内对应 recordings 子目录。"""
@@ -129,6 +131,10 @@ class MacroManager:
         """等待播放完成或用户中断"""
         try:
             while self.player.is_playback_active():
+                if callable(self.abort_check) and self.abort_check():
+                    print("\n检测到试验结束，停止 WT 宏复刻...")
+                    self.stop()
+                    return False
                 time.sleep(0.1)
             return True
         except KeyboardInterrupt:
@@ -137,9 +143,13 @@ class MacroManager:
             return False
     
     def stop(self):
-        """停止当前播放"""
-        if self.player and self.player.is_playback_active():
-            self.player.stop_playback()
+        """停止当前播放（可从结束试验按钮线程安全调用）"""
+        if self.player is not None:
+            # 即使 is_playback_active 瞬态判假，也强制置停，打断 sleep/动作
+            try:
+                self.player.stop_playback()
+            except Exception as e:
+                print(f"停止宏失败: {e}")
     
     def is_active(self) -> bool:
         """检查是否正在播放"""

@@ -35,6 +35,14 @@ if not defined UV_EXE (
 )
 
 if not defined UV_EXE (
+    echo [INFO] uv not found, trying to bootstrap portable uv ...
+    if not exist "%~dp0tools" mkdir "%~dp0tools" >nul 2>&1
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
+      "$ProgressPreference='SilentlyContinue'; $z=Join-Path $env:TEMP ('uv-'+[guid]::NewGuid()+'.zip'); $d=Join-Path $env:TEMP ('uvx-'+[guid]::NewGuid()); try { Invoke-WebRequest -Uri 'https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip' -OutFile $z -UseBasicParsing; Expand-Archive $z $d -Force; $f=Get-ChildItem $d -Filter uv.exe -Recurse | Select-Object -First 1; if(-not $f){exit 2}; Copy-Item -Force $f.FullName '%~dp0tools\uv.exe'; exit 0 } catch { Write-Host $_; exit 1 }"
+    if exist "%~dp0tools\uv.exe" set "UV_EXE=%~dp0tools\uv.exe"
+)
+
+if not defined UV_EXE (
     echo [ERROR] uv was not found.
     echo.
     echo Install uv once and add it to PATH, or copy uv.exe to:

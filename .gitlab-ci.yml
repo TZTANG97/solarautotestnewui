@@ -1,0 +1,26 @@
+# Publish SolarAutoTest update packages to GitLab Generic Package Registry.
+# Bench PCs pull without token if "Allow anyone to pull from Package Registry" is enabled.
+# Upload auth: CI_JOB_TOKEN — no personal token on developer PCs.
+
+stages:
+  - publish
+
+variables:
+  GIT_DEPTH: "1"
+
+# Manual or tag: build zip + upload latest.json / setup zip
+# Requires a Windows runner (robocopy / PowerShell 5.1). Adjust `tags` to match your runner.
+publish_update_package:
+  stage: publish
+  tags:
+    - windows
+  rules:
+    - if: $CI_COMMIT_TAG
+    - when: manual
+  script:
+    - powershell.exe -NoProfile -ExecutionPolicy Bypass -File packaging/Build-ReleasePackage.ps1
+    - powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$zip = Get-ChildItem dist\\SolarAutoTest-Setup-*.zip | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if (-not $zip) { throw 'release zip not found' }; & packaging\\Publish-GitLabPackage.ps1 -ZipPath $zip.FullName -GitLabUrl $env:CI_SERVER_URL -ProjectPath $env:CI_PROJECT_PATH"
+  artifacts:
+    paths:
+      - dist/SolarAutoTest-Setup-*.zip
+    expire_in: 14 days

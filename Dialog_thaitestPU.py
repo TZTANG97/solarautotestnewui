@@ -319,7 +319,7 @@ class Ui_Dialog_thaitestPU(object):
         g2.setContentsMargins(12, 20, 12, 12)
 
         # Header
-        headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(headers):
             lbl = QtWidgets.QLabel(h)
             lbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -356,6 +356,8 @@ class Ui_Dialog_thaitestPU(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(te_name)
                 te.setFixedSize(80, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 g2.addWidget(te, r, c)
                 setattr(self, te_name, te)
 

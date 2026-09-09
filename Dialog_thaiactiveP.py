@@ -122,6 +122,7 @@ class Ui_Dialog_thaiactiveP(object):
 
         # DC 联动
         self._connect_dc_linkage()
+        self._wire_recording_mode()
 
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
         self.pushButton_Send = QtWidgets.QPushButton()
@@ -323,6 +324,8 @@ class Ui_Dialog_thaiactiveP(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(te_name)
                 te.setFixedSize(80, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 dcLayout.addWidget(te, r, c)
                 setattr(self, te_name, te)
 
@@ -495,14 +498,18 @@ class Ui_Dialog_thaiactiveP(object):
         self.comboBox_S3_TIME_2.setFixedWidth(80)
         ladder_layout.addWidget(self.comboBox_S3_TIME_2, 2, 2)
 
+        from components.matrix_recording_ui import add_record_mode_row
+
+        add_record_mode_row(ladder_layout, 3, self)
+
         tip = QtWidgets.QLabel(
             "巴西 Ordinance 5.4.23 / EN Active power reduction / 泰 PEA 有功控制："
-            "按 P 指令阶梯逐点数字 col6 存盘。"
+            "连续录为单文件 ASYNC；分开录为每点 col6 存盘。"
             "请在驻留前将逆变器有功限制/调度设定到对应 %Pn（软件不改机侧 P 指令）。"
         )
         tip.setWordWrap(True)
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
-        ladder_layout.addWidget(tip, 3, 0, 1, 4)
+        ladder_layout.addWidget(tip, 4, 0, 1, 4)
         layout.addWidget(ladder_grp)
 
         dc_grp = QtWidgets.QGroupBox("工况时更新的直流通道（需同时勾选 step1）")
@@ -617,6 +624,19 @@ class Ui_Dialog_thaiactiveP(object):
         for s1dc in step1_dcs:
             s1dc.toggled.connect(_update_end_dc)
         _update_end_dc()
+
+    def _wire_recording_mode(self):
+        from utils.active_p_commands import parse_ladder
+        from utils.wt_recording_mode import active_p_recommended_filenames
+        from components.matrix_recording_ui import make_recommended_fn, wire_matrix_recording
+
+        def _builder(mode):
+            return active_p_recommended_filenames(
+                parse_ladder(self.textEdit_PowerLadder.toPlainText()),
+                mode,
+            )
+
+        wire_matrix_recording(self, make_recommended_fn(self, _builder))
 
     def retranslateUi(self, Dialog_thaiactiveP):
         _translate = QtCore.QCoreApplication.translate

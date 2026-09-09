@@ -46,7 +46,7 @@ class DCController:
             logger.info(f'{label} MODBUS output register write failed: {e}')
             print(strtimenow + f'{label} MODBUS output register write failed: {e}')
 
-    def _output_dc(self, label, ui_setting, logger, is_on):
+    def _output_dc(self, label, ui_setting, logger, is_on, *, silent_if_disconnected=False):
         command = 'OUTP ON' if is_on else 'OUTP OFF'
         self._write_modbus_output_register(label, logger, is_on)
         # Modbus 路径（ModbusVISA 无 SCPI write）：仅寄存器控制，禁止走 handle.write
@@ -69,13 +69,17 @@ class DCController:
             strtimenow = self.now_to_datenow()
             logger.info(f'{label} Not Connect')
             print(strtimenow + f'{label} Not Connect')
-            self.show_message(f'{label}未连接，请先连接{label}设备', ui_setting)
+            # 结束试验强制关断：未连接的 DC2/3/4 静默跳过，避免弹窗打断
+            if not silent_if_disconnected:
+                self.show_message(f'{label}未连接，请先连接{label}设备', ui_setting)
 
     def open_output(self, label, ui_setting, logger):
         self._output_dc(label, ui_setting, logger, True)
 
-    def close_output(self, label, ui_setting, logger):
-        self._output_dc(label, ui_setting, logger, False)
+    def close_output(self, label, ui_setting, logger, *, silent_if_disconnected=False):
+        self._output_dc(
+            label, ui_setting, logger, False, silent_if_disconnected=silent_if_disconnected
+        )
 
     def send_message(self, ui_setting, label, logger):
         if self.handle is None:
@@ -308,28 +312,43 @@ def send_dc_test_message(
     now_to_datenow,
     dc_index=0,
     dc_label='DC1',
+    silent=False,
 ):
     global_result = []
-    DCVmp = uiDC1Setting.textEdit_Vmp.toPlainText()
-    DCImp = uiDC1Setting.textEdit_Imp.toPlainText()
-    DCVoc = uiDC1Setting.textEdit_Voc.toPlainText()
-    DCIsc = uiDC1Setting.textEdit_Isc.toPlainText()
-    DCPF = uiDC1Setting.textEdit_PF.toPlainText()
+    DCVmp = uiDC1Setting.textEdit_Vmp.toPlainText().strip()
+    DCImp = uiDC1Setting.textEdit_Imp.toPlainText().strip()
+    DCVoc = uiDC1Setting.textEdit_Voc.toPlainText().strip()
+    DCIsc = uiDC1Setting.textEdit_Isc.toPlainText().strip()
+    DCPF = uiDC1Setting.textEdit_PF.toPlainText().strip()
+
+    if not all([DCVmp, DCImp, DCVoc, DCIsc]):
+        uiDC1Setting.textEdit_ReturnMessage.append(
+            f'{dc_label} IV 参数未填写，已跳过曲线下发（填写后点击「发送曲线」）'
+        )
+        return []
 
     a = DCGetIVValueFunction(DCVmp, DCImp, DCVoc, DCIsc, DCPF, dc_index)
     if a == '1':
-        QMessageBox.information(None, '错误提示信息', f'{dc_label}赋值错误,请重新输入', QMessageBox.Ok, QMessageBox.Ok)
         uiDC1Setting.textEdit_ReturnMessage.append(f'{dc_label}赋值错误,请重新输入')
-    elif a == '2':
-        QMessageBox.information(None, '错误提示信息', f'{dc_label}Isc,Imp赋值超范围,请重新输入', QMessageBox.Ok, QMessageBox.Ok)
+        if not silent:
+            QMessageBox.information(None, '错误提示信息', f'{dc_label}赋值错误,请重新输入', QMessageBox.Ok, QMessageBox.Ok)
+        return []
+    if a == '2':
         uiDC1Setting.textEdit_ReturnMessage.append(f'{dc_label}Isc,Imp赋值超范围,请重新输入')
-    else:
-        if a is None:
-            uiDC1Setting.textEdit_ReturnMessage.append(f'{dc_label}赋值结果为空，请检查输入')
-            return []
-        if isinstance(a, str):
-            global_result.append(a)
-            return global_result
-        for item in a:
-            global_result.append(item)
+        if not silent:
+            QMessageBox.information(None, '错误提示信息', f'{dc_label}Isc,Imp赋值超范围,请重新输入', QMessageBox.Ok, QMessageBox.Ok)
+        return []
+    if a == '3':
+        uiDC1Setting.textEdit_ReturnMessage.append(
+            f'{dc_label}厂家未识别或参数未就绪，已跳过IV下发'
+        )
+        return []
+    if a is None:
+        uiDC1Setting.textEdit_ReturnMessage.append(f'{dc_label}赋值结果为空，请检查输入')
+        return []
+    if isinstance(a, str):
+        global_result.append(a)
+        return global_result
+    for item in a:
+        global_result.append(item)
     return global_result

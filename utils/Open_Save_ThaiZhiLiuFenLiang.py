@@ -64,7 +64,7 @@ arrayRow1 = ['Style', 'checkBox_S1', 'comboBox_S1_AC',"textEdit_S1_AC_VOLT", "te
     "textEdit_S3_TIME_3", "comboBox_S3_TIME_3", "textEdit_S3_TIME_2", "comboBox_S3_TIME_2",
     "checkBox_S7", "comboBox_S7_AC", "checkBox_S7_DC1", "comboBox_S7_DC1", "checkBox_S7_DC2",
     "comboBox_S7_DC2", "checkBox_S7_DC3", "comboBox_S7_DC3", "checkBox_S7_DC4", "comboBox_S7_DC4",
-    "checkBox_S2_WT1806E", "checkBox_S2_WT5000"]
+    "checkBox_S2_WT1806E", "checkBox_S2_WT5000", "comboBox_S3_record_mode"]
 
 #泰国电压闪变保存设定
 def Save_File_ThaiZhiLiuFenLiang(kwargs):
@@ -438,6 +438,9 @@ def Save_File_ThaiZhiLiuFenLiang(kwargs):
         else:
             checkBox_S2_WT5000 = '0'
         arrayRow2.append(checkBox_S2_WT5000)
+
+        comboBox_S3_record_mode = uiThaiZhiLiuFenLiang.comboBox_S3_record_mode.currentIndex()
+        arrayRow2.append(comboBox_S3_record_mode)
 
         _append_dewetron_tail(arrayRow2, uiThaiZhiLiuFenLiang)
 
@@ -1195,6 +1198,14 @@ def Open_File_ThaiZhiLiuFenLiang(kwargs):
                                 uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.setChecked(False)
                         else:
                             strFlag = 1
+                    
+                    if "comboBox_S3_record_mode" in config_dict:
+                        try:
+                            uiThaiZhiLiuFenLiang.comboBox_S3_record_mode.setCurrentIndex(
+                                int(config_dict["comboBox_S3_record_mode"])
+                            )
+                        except (TypeError, ValueError):
+                            pass
                     
                     if arrayRow1[41] in config_dict:
                         checkBox_S2_WT3000 = config_dict[arrayRow1[41]]

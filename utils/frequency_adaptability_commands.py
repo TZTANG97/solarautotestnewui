@@ -6,6 +6,11 @@ from utils.safe_shutdown import (
     enabled_shutdown_dc_channels,
 )
 from utils.time_helpers import SetTimeFunction
+from utils.ac_scpi_commands import (
+    append_ac_startup_from_ui,
+    append_freq_set,
+    resolve_chroma_61800,
+)
 
 
 def _empty_row():
@@ -39,6 +44,37 @@ def _row_wt_async_marker(marker):
     return row
 
 
+def _sum_wait_01s(rows):
+    total = 0
+    for r in rows or []:
+        for slot in (8, 9):
+            if len(r) <= slot:
+                continue
+            raw = r[slot]
+            if raw in ("", None):
+                continue
+            try:
+                total += int(float(raw))
+            except (TypeError, ValueError):
+                continue
+    return total
+
+
+def estimate_continuous_record_01s(band_rows, *, scpi_overhead_01s_per_step=2):
+    """连续录 StopTime 墙钟（与电压适应性共用：按扫频驻留步数 + SCPI 开销）。"""
+    from utils.voltage_adaptability_commands import estimate_continuous_record_01s as _volt_est
+
+    wall_01s, wait_01s, _n_volt, n_dwell = _volt_est(
+        band_rows, scpi_overhead_01s_per_step=scpi_overhead_01s_per_step
+    )
+    n_freq = sum(
+        1
+        for r in (band_rows or [])
+        if len(r) > 2 and str(r[2]).strip().upper().startswith("FREQ")
+    )
+    return wall_01s, wait_01s, n_freq, n_dwell
+
+
 def _row_device_write(device, cmd):
     row = _empty_row()
     row[0] = device
@@ -55,16 +91,6 @@ def _fmt_freq(hz):
     if abs(v - round(v)) < 1e-9:
         return str(int(round(v)))
     return ("%.4f" % v).rstrip("0").rstrip(".")
-
-
-def append_freq_set(out_rows, phase_mode, freq_hz):
-    """按单相/三相写入 FREQ（三相用 INST:EDIT ALL + 一次 FREQ，同巴西过欠频稳定性）。"""
-    freq_cmd = "FREQ " + str(freq_hz).strip()
-    if phase_mode == "单相":
-        out_rows.append(_row_ac_write(freq_cmd))
-        return
-    out_rows.append(_row_ac_write("INST:EDIT ALL"))
-    out_rows.append(_row_ac_write(freq_cmd))
 
 
 def build_freq_step_list(freq_start, freq_end, real_test_time_s, per_second_range, use_rate):
@@ -185,7 +211,7 @@ def append_freq_band_brazil(
         if wt_first_trigger and not triggered:
             out_rows.append(_row_wt_async_marker("ASYNC_START"))
             triggered = True
-        append_freq_set(out_rows, phase_mode, step)
+        append_freq_set(out_rows, phase_mode, step, edit_all=(i == 0))
         if multi_step:
             out_rows.append(_row_ac_wait_idn(wait_01s, slot=9))
         else:
@@ -276,21 +302,26 @@ def append_enabled_bands(
 
 def resolve_freq_file_name_list(band_metas, existing_names=None):
     """
-    巴西流程默认整次连续录 1 条：
-    - 已有恰好 1 个名字 → 保留
-    - 已有名字数 = 频带数 → 保留（便于手填 list 对照段）
-    - 否则默认 FreqAdapt_BR_5420；若有频带则也可拼自动名供对照
+    巴西流程默认整次连续录 1 条，推荐 FreqAdapt_BR_5420。
+    不保留 WT 模板 / 其它试验残留名。
     """
+    import re
+    stale = re.compile(
+        r"(ambient|voltadapt|guoya|qianya|rocof|pu_curve|qu_curve|cosphi|fixed.?pf)",
+        re.I,
+    )
     auto_names = [str(m.get("name") or "").strip() for m in (band_metas or []) if m]
     auto_names = [n for n in auto_names if n]
-    existing = [str(p).strip() for p in (existing_names or []) if str(p).strip()]
+    existing = []
+    for p in (existing_names or []):
+        s = str(p).strip()
+        if not s or "," in s or "，" in s or stale.search(s):
+            continue
+        existing.append(s)
     if len(existing) == 1:
         return existing
     if auto_names and len(existing) == len(auto_names):
         return existing
-    if auto_names:
-        # 连续录仍用单文件名；list 仅作界面对照时可在 Send 里改
-        return ["FreqAdapt_BR_5420"]
     return ["FreqAdapt_BR_5420"]
 
 
@@ -337,6 +368,7 @@ def build_frequency_adaptability_plan(
         wt_config_dict = {}
     if dc_iv_resolver is None:
         dc_iv_resolver = default_dc_iv_resolver
+    chroma_61800 = resolve_chroma_61800()
 
     commands = list(existing_commands or [])
     if str_add_flag == "0":
@@ -376,33 +408,7 @@ def build_frequency_adaptability_plan(
         )
         ac_status = ui.comboBox_S1_AC.currentText()
 
-        if phase_mode == "单相":
-            for cmd in ("INST:PHAS SINGLE", "INST:EDIT ALL"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volt = ui.textEdit_S1_AC_VOLT.toPlainText()
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for cmd in ("VOLT " + volt, "FREQ " + fr):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-        elif phase_mode == "三相":
-            for cmd in ("INST:PHAS THREE", "INST:EDIT EACH"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volts = [
-                ui.textEdit_S1_AC_VOLT.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_2.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_3.toPlainText(),
-            ]
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for idx, volt in enumerate(volts, start=1):
-                for cmd in ("INST:NSEL %d" % idx, "VOLT " + volt, "FREQ " + fr):
-                    row = _row_ac_write(cmd)
-                    commands.append(row)
-                    step_rows.append(row)
+        append_ac_startup_from_ui(ui, commands, step_rows, chroma_61800=chroma_61800)
 
         row = _row_ac_write("OUTP ON" if ac_status == "开启" else "OUTP OFF")
         row[9] = f_ac_wait
@@ -536,8 +542,10 @@ def build_frequency_adaptability_plan(
     # 巴西：整次连续录 1 条（与过欠频稳定性一致）
     file_names = resolve_freq_file_name_list(band_metas)
     wt_rounds = 1 if (wt_is_checked == "1" and band_metas) else 0
-    band_duration_01s = sum(int(m.get("duration_01s") or 0) for m in band_metas)
-    max_band_duration_01s = band_duration_01s  # 连续录 StopTime 用总时长
+    ui_duration_01s = sum(int(m.get("duration_01s") or 0) for m in band_metas)
+    wall_01s, wait_01s, n_freq, n_dwell = estimate_continuous_record_01s(band_rows)
+    band_duration_01s = max(ui_duration_01s, wall_01s)
+    max_band_duration_01s = band_duration_01s
 
     # shutdown
     if ui.checkBox_S_End.isChecked():
@@ -566,4 +574,8 @@ def build_frequency_adaptability_plan(
         "wt_continuous": wt_rounds == 1,
         "band_duration_01s": band_duration_01s,
         "max_band_duration_01s": max_band_duration_01s,
+        "ui_duration_01s": ui_duration_01s,
+        "sweep_wait_01s": wait_01s,
+        "sweep_freq_steps": n_freq,
+        "sweep_dwell_steps": n_dwell,
     }

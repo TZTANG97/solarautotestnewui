@@ -92,7 +92,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
 
         # 横向步骤指示器
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 直流分量1", "④ 直流分量2", "⑤ 直流分量3", "⑥ 判定结果", "⑦ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 100%Pn", "④ 66%Pn", "⑤ 33%Pn", "⑥ 可选功率点", "⑦ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -132,6 +132,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
 
         # DC 联动
         self._connect_dc_linkage()
+        self._wire_recording_mode()
 
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
         self.pushButton_Send = QtWidgets.QPushButton()
@@ -409,6 +410,8 @@ class Ui_Dialog_thaizhiliufenliang(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(te_name)
                 te.setFixedSize(70, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 g7Layout.addWidget(te, r, edit_col)
                 setattr(self, te_name, te)
 
@@ -544,7 +547,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
 
         self.groupBox_2 = QtWidgets.QGroupBox()
         self.groupBox_2.setObjectName("groupBox_2")
-        self.groupBox_2.setTitle("直流功率设置")
+        self.groupBox_2.setTitle("直流功率设置（100% Pn）")
         self.groupBox_2.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
         g2Layout = QtWidgets.QGridLayout(self.groupBox_2)
         g2Layout.setSpacing(8)
@@ -611,6 +614,28 @@ class Ui_Dialog_thaizhiliufenliang(object):
         self.comboBox_S3_TIME_3.setFixedWidth(120)
         g2Layout.addWidget(self.comboBox_S3_TIME_3, 3, 5)
 
+        from utils.wt_recording_mode import MODE_LABELS, MODE_CONTINUOUS, MODE_SPLIT
+
+        rec_label = QtWidgets.QLabel("录波方式")
+        g2Layout.addWidget(rec_label, 4, 0)
+        self.comboBox_S3_record_mode = QtWidgets.QComboBox()
+        self.comboBox_S3_record_mode.setObjectName("comboBox_S3_record_mode")
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_CONTINUOUS], MODE_CONTINUOUS)
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_SPLIT], MODE_SPLIT)
+        self.comboBox_S3_record_mode.setMinimumWidth(220)
+        g2Layout.addWidget(self.comboBox_S3_record_mode, 4, 1, 1, 3)
+        self.pushButton_S3_fill_filenames = QtWidgets.QPushButton("填充推荐文件名")
+        self.pushButton_S3_fill_filenames.setObjectName("pushButton_S3_fill_filenames")
+        g2Layout.addWidget(self.pushButton_S3_fill_filenames, 4, 4)
+
+        tip = QtWidgets.QLabel(
+            "一条线连续录：③～⑥ 功率点录成单个文件；分开录：每个功率点单独存盘。"
+            "文件名填在功率分析仪页的「文件名列表」。"
+        )
+        tip.setWordWrap(True)
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        g2Layout.addWidget(tip, 5, 0, 1, 6)
+
         layout.addWidget(self.groupBox_2)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
@@ -627,7 +652,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
 
         self.groupBox_4 = QtWidgets.QGroupBox()
         self.groupBox_4.setObjectName("groupBox_4")
-        self.groupBox_4.setTitle("直流功率设置")
+        self.groupBox_4.setTitle("直流功率设置（66% Pn）")
         self.groupBox_4.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
         g4Layout = QtWidgets.QGridLayout(self.groupBox_4)
         g4Layout.setSpacing(10)
@@ -657,7 +682,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
         self.textEdit_S4_DC_PF = QtWidgets.QTextEdit()
         self.textEdit_S4_DC_PF.setObjectName("textEdit_S4_DC_PF")
         self.textEdit_S4_DC_PF.setFixedSize(100, 31)
-        self.textEdit_S4_DC_PF.setText("100")
+        self.textEdit_S4_DC_PF.setText("66")
         g4Layout.addWidget(self.textEdit_S4_DC_PF, 2, 1)
         self.label_49 = QtWidgets.QLabel("%")
         self.label_49.setObjectName("label_49")
@@ -679,7 +704,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
 
         self.groupBox_8 = QtWidgets.QGroupBox()
         self.groupBox_8.setObjectName("groupBox_8")
-        self.groupBox_8.setTitle("直流功率设置")
+        self.groupBox_8.setTitle("直流功率设置（33% Pn）")
         self.groupBox_8.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
         g8Layout = QtWidgets.QGridLayout(self.groupBox_8)
         g8Layout.setSpacing(10)
@@ -709,7 +734,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
         self.textEdit_S5_DC_PF = QtWidgets.QTextEdit()
         self.textEdit_S5_DC_PF.setObjectName("textEdit_S5_DC_PF")
         self.textEdit_S5_DC_PF.setFixedSize(100, 31)
-        self.textEdit_S5_DC_PF.setText("100")
+        self.textEdit_S5_DC_PF.setText("33")
         g8Layout.addWidget(self.textEdit_S5_DC_PF, 2, 1)
         self.label_50 = QtWidgets.QLabel("%")
         self.label_50.setObjectName("label_50")
@@ -731,14 +756,14 @@ class Ui_Dialog_thaizhiliufenliang(object):
 
         self.groupBox_9 = QtWidgets.QGroupBox()
         self.groupBox_9.setObjectName("groupBox_9")
-        self.groupBox_9.setTitle("直流功率设置")
+        self.groupBox_9.setTitle("直流功率设置（可选，默认关闭）")
         self.groupBox_9.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
         g9Layout = QtWidgets.QGridLayout(self.groupBox_9)
         g9Layout.setSpacing(10)
         g9Layout.setContentsMargins(16, 24, 16, 12)
 
         self.checkBox_S6 = QtWidgets.QCheckBox("step6")
-        self.checkBox_S6.setChecked(True)
+        self.checkBox_S6.setChecked(False)
         self.checkBox_S6.setObjectName("checkBox_S6")
         g9Layout.addWidget(self.checkBox_S6, 0, 0, 1, 2)
 
@@ -761,7 +786,7 @@ class Ui_Dialog_thaizhiliufenliang(object):
         self.textEdit_S6_DC_PF = QtWidgets.QTextEdit()
         self.textEdit_S6_DC_PF.setObjectName("textEdit_S6_DC_PF")
         self.textEdit_S6_DC_PF.setFixedSize(100, 31)
-        self.textEdit_S6_DC_PF.setText("100")
+        self.textEdit_S6_DC_PF.setText("20")
         g9Layout.addWidget(self.textEdit_S6_DC_PF, 2, 1)
         self.label_51 = QtWidgets.QLabel("%")
         self.label_51.setObjectName("label_51")
@@ -905,6 +930,64 @@ class Ui_Dialog_thaizhiliufenliang(object):
         for s1dc in step1_dcs:
             s1dc.toggled.connect(_update_s7_dc)
         _update_s7_dc()
+
+    def _wire_recording_mode(self):
+        from utils.wt_recording_mode import (
+            apply_filename_list_to_wt_pages,
+            combo_index_to_mode,
+            dc_injection_recommended_filenames,
+            mode_to_combo_index,
+        )
+        from components.wt_recording_mode_row import WtRecordingModeRow, install_on_wt_filename_group
+        from utils.dc_injection_commands import enabled_dc_injection_steps
+
+        def _recommended_names():
+            mode = combo_index_to_mode(self.comboBox_S3_record_mode.currentIndex())
+            return dc_injection_recommended_filenames(enabled_dc_injection_steps(self), mode)
+
+        def _fill_wt_names(names=None):
+            if names is None:
+                names = _recommended_names()
+            apply_filename_list_to_wt_pages(self._wtStacked, names)
+
+        def _sync_wt_rows(mode):
+            for page_idx in range(self._wtStacked.count()):
+                page = self._wtStacked.widget(page_idx)
+                if page is None:
+                    continue
+                row = page.findChild(WtRecordingModeRow)
+                if row is None:
+                    continue
+                row.blockSignals(True)
+                row.set_mode(mode)
+                row.blockSignals(False)
+
+        def _on_s3_mode(_index=None):
+            mode = combo_index_to_mode(self.comboBox_S3_record_mode.currentIndex())
+            _sync_wt_rows(mode)
+            _fill_wt_names()
+
+        self.pushButton_S3_fill_filenames.clicked.connect(lambda: _fill_wt_names())
+        self.comboBox_S3_record_mode.currentIndexChanged.connect(_on_s3_mode)
+        for s in (3, 4, 5, 6):
+            getattr(self, "checkBox_S%d" % s).toggled.connect(lambda _c: _fill_wt_names())
+
+        for page_idx in range(self._wtStacked.count()):
+            page = self._wtStacked.widget(page_idx)
+            row = install_on_wt_filename_group(page, _recommended_names)
+            if row is not None:
+                row.names_filled.connect(_fill_wt_names)
+
+                def _on_wt_mode(mode, row_ref=row):
+                    self.comboBox_S3_record_mode.blockSignals(True)
+                    self.comboBox_S3_record_mode.setCurrentIndex(mode_to_combo_index(mode))
+                    self.comboBox_S3_record_mode.blockSignals(False)
+                    _sync_wt_rows(mode)
+                    _fill_wt_names()
+
+                row.mode_changed.connect(_on_wt_mode)
+
+        _on_s3_mode()
 
     def retranslateUi(self, Dialog_thaizhiliufenliang):
         _translate = QtCore.QCoreApplication.translate

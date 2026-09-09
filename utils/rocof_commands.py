@@ -9,9 +9,13 @@ from utils.frequency_adaptability_commands import (
     _row_wt_async_marker,
     _row_device_write,
     _fmt_freq,
-    append_freq_set,
     default_dc_iv_resolver,
     read_update_rate,
+)
+from utils.ac_scpi_commands import (
+    append_ac_startup_from_ui,
+    append_freq_set,
+    resolve_chroma_61800,
 )
 from utils.safe_shutdown import (
     build_forced_shutdown_rows,
@@ -38,7 +42,6 @@ def build_rocof_step_list(freq_start, freq_end, rate_hz_s, dt_s=0.05):
     out = []
     cur = f0
     ascending = f1 > f0
-    # 安全上限，避免异常参数炸命令
     for _ in range(20000):
         out.append(_fmt_freq(round(cur, 4)))
         if ascending:
@@ -65,7 +68,10 @@ def append_rocof_band(
     *,
     dt_s,
     wt_first_trigger,
+    chroma_61800=None,
 ):
+    if chroma_61800 is None:
+        chroma_61800 = resolve_chroma_61800()
     steps, sweep_s = build_rocof_step_list(freq_start, freq_end, rate_hz_s, dt_s=dt_s)
     if not steps:
         return False, "ROCOF 频率区间未填写", None, False, 0.0
@@ -76,10 +82,16 @@ def append_rocof_band(
         if wt_first_trigger and not triggered:
             out_rows.append(_row_wt_async_marker("ASYNC_START"))
             triggered = True
-        append_freq_set(out_rows, phase_mode, step)
+        edit_all = (i == 0) if chroma_61800 and phase_mode == "三相" else True
+        append_freq_set(
+            out_rows,
+            phase_mode,
+            step,
+            edit_all=edit_all,
+            chroma_61800=chroma_61800,
+        )
         if multi and i < len(steps) - 1:
             out_rows.append(_row_ac_wait_idn(wait_01s, slot=9))
-    # 终点保持
     hold = int(hold_01s) if hold_01s else 0
     if hold > 0:
         out_rows.append(_row_ac_wait_idn(hold, slot=9))
@@ -94,7 +106,10 @@ def append_enabled_rocof_bands(
     *,
     dt_s,
     wt_armed=False,
+    chroma_61800=None,
 ):
+    if chroma_61800 is None:
+        chroma_61800 = resolve_chroma_61800()
     page_cb = getattr(ui, "checkBox_rocof_page", None)
     if page_cb is not None and not page_cb.isChecked():
         return True, "", [], wt_armed, 0.0
@@ -141,6 +156,7 @@ def append_enabled_rocof_bands(
             hold_01s,
             dt_s=dt_s,
             wt_first_trigger=wt_armed,
+            chroma_61800=chroma_61800,
         )
         if not ok:
             return False, err, [], wt_armed, 0.0
@@ -177,11 +193,14 @@ def build_rocof_plan(
     existing_commands=None,
     dc_iv_resolver=None,
     per_dc_factor=None,
+    chroma_61800=None,
 ):
     if wt_config_dict is None:
         wt_config_dict = {}
     if dc_iv_resolver is None:
         dc_iv_resolver = default_dc_iv_resolver
+    if chroma_61800 is None:
+        chroma_61800 = resolve_chroma_61800()
 
     commands = list(existing_commands or [])
     if str_add_flag == "0":
@@ -220,33 +239,7 @@ def build_rocof_plan(
         )
         ac_status = ui.comboBox_S1_AC.currentText()
 
-        if phase_mode == "单相":
-            for cmd in ("INST:PHAS SINGLE", "INST:EDIT ALL"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volt = ui.textEdit_S1_AC_VOLT.toPlainText()
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for cmd in ("VOLT " + volt, "FREQ " + fr):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-        elif phase_mode == "三相":
-            for cmd in ("INST:PHAS THREE", "INST:EDIT EACH"):
-                row = _row_ac_write(cmd)
-                commands.append(row)
-                step_rows.append(row)
-            volts = [
-                ui.textEdit_S1_AC_VOLT.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_2.toPlainText(),
-                ui.textEdit_S1_AC_VOLT_3.toPlainText(),
-            ]
-            fr = ui.textEdit_S1_AC_FR.toPlainText()
-            for idx, volt in enumerate(volts, start=1):
-                for cmd in ("INST:NSEL %d" % idx, "VOLT " + volt, "FREQ " + fr):
-                    row = _row_ac_write(cmd)
-                    commands.append(row)
-                    step_rows.append(row)
+        append_ac_startup_from_ui(ui, commands, step_rows, chroma_61800=chroma_61800)
 
         row = _row_ac_write("OUTP ON" if ac_status == "开启" else "OUTP OFF")
         row[9] = f_ac_wait
@@ -308,18 +301,21 @@ def build_rocof_plan(
             if wt_type:
                 test_program.append(["12", wt_type])
 
-    # 步间隔：有全局更新率则用，否则默认 50ms
     ok_rate, rate_err, rate_interval_s, _per = read_update_rate(ui)
     if not ok_rate and rate_err:
-        # 控件缺失时退回默认
         rate_interval_s = 0.05
     dt_s = float(rate_interval_s) if rate_interval_s else 0.05
 
     band_rows = []
     wt_armed = wt_is_checked == "1"
     ok_bands, band_err, band_metas, wt_armed, total_sweep = append_enabled_rocof_bands(
-        ui, band_rows, phase_mode, list(range(3, 9)),
-        dt_s=dt_s, wt_armed=wt_armed,
+        ui,
+        band_rows,
+        phase_mode,
+        list(range(3, 9)),
+        dt_s=dt_s,
+        wt_armed=wt_armed,
+        chroma_61800=chroma_61800,
     )
     if not ok_bands:
         return {

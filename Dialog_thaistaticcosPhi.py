@@ -123,6 +123,9 @@ class Ui_Dialog_thaistaticcosPhi(object):
         # DC 联动
         self._connect_dc_linkage()
 
+        # 录波方式：一条线连续录 / 分开录（切模式自动填文件名）
+        self._wire_recording_mode()
+
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
         self.pushButton_Send = QtWidgets.QPushButton()
         self.pushButton_Send.setObjectName("pushButton_Send")
@@ -130,6 +133,23 @@ class Ui_Dialog_thaistaticcosPhi(object):
 
         self.retranslateUi(Dialog_thaistaticcosPhi)
         QtCore.QMetaObject.connectSlotsByName(Dialog_thaistaticcosPhi)
+
+    def _wire_recording_mode(self):
+        """绑定 WT 页录波方式：连续录 CosPhi_BR；分开录按功率×cosφ 生成多文件名。"""
+        from utils.wt_recording_mode import wire_recording_mode_autofill
+        from utils.static_cosphi_recording import split_filenames
+
+        wire_recording_mode_autofill(self, split_names_fn=lambda: split_filenames(self))
+        fill = getattr(self, "_recording_autofill_fill", None)
+        if fill is None:
+            return
+        ladder = getattr(self, "textEdit_PowerLadder", None)
+        if ladder is not None:
+            ladder.textChanged.connect(lambda: fill())
+        for sn in range(3, 12):
+            cb = getattr(self, "checkBox_S%d" % sn, None)
+            if cb is not None:
+                cb.toggled.connect(lambda *_: fill())
 
     def _switch_step(self, index):
         self.stackedWidget.setCurrentIndex(index)
@@ -323,6 +343,8 @@ class Ui_Dialog_thaistaticcosPhi(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(te_name)
                 te.setFixedSize(80, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 dcLayout.addWidget(te, r, c)
                 setattr(self, te_name, te)
 
@@ -361,7 +383,7 @@ class Ui_Dialog_thaistaticcosPhi(object):
         timeLayout.addWidget(self.textEdit_S1_TIME, 0, 4)
         self.comboBox_S1_TIME = QtWidgets.QComboBox()
         self.comboBox_S1_TIME.setObjectName("comboBox_S1_TIME")
-        self.comboBox_S1_TIME.addItems(["分钟", "秒", "毫秒"])
+        self.comboBox_S1_TIME.addItems(["秒", "分钟", "毫秒"])
         self.comboBox_S1_TIME.setFixedWidth(100)
         timeLayout.addWidget(self.comboBox_S1_TIME, 0, 5)
 
@@ -469,15 +491,21 @@ class Ui_Dialog_thaistaticcosPhi(object):
         self.textEdit_S3_TIME_2 = QtWidgets.QTextEdit()
         self.textEdit_S3_TIME_2.setObjectName("textEdit_S3_TIME_2")
         self.textEdit_S3_TIME_2.setFixedSize(80, 28)
-        self.textEdit_S3_TIME_2.setText("5")
+        # 默认 30 秒：连续录 StopTime≈点数×驻留；勿默认「5分钟」导致数小时空录
+        self.textEdit_S3_TIME_2.setText("30")
         ladder_layout.addWidget(self.textEdit_S3_TIME_2, 1, 1)
         self.comboBox_S3_TIME_2 = QtWidgets.QComboBox()
         self.comboBox_S3_TIME_2.setObjectName("comboBox_S3_TIME_2")
-        self.comboBox_S3_TIME_2.addItems(["分钟", "秒", "毫秒"])
+        self.comboBox_S3_TIME_2.addItems(["秒", "分钟", "毫秒"])
         self.comboBox_S3_TIME_2.setFixedWidth(80)
         ladder_layout.addWidget(self.comboBox_S3_TIME_2, 1, 2)
-        tip = QtWidgets.QLabel("流程：功率外循环 × 下方已勾选 cosφ 内循环，每点触发一次 WT 存盘")
+        tip = QtWidgets.QLabel(
+            "流程：功率外循环 × 勾选 cosφ；"
+            "连续录单文件 CosPhi_BR（StopTime≈点数×每点驻留）；"
+            "分开录每点一文件。冒烟请用「秒」，勿用「分钟」拉长总时长。"
+        )
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tip.setWordWrap(True)
         ladder_layout.addWidget(tip, 2, 0, 1, 4)
         layout.addWidget(ladder_grp)
 

@@ -243,8 +243,24 @@ class ModbusVISA:
 
     @staticmethod
     def _should_retry_send(err_s: str) -> bool:
-        """仅对真实断线重试；无应答不走重连（部分网关/爱科写后不回 Modbus 帧）。"""
-        return '1073807194' in err_s or 'CONN_LOST' in err_s
+        """真实断线才重试；无应答不重连（部分网关/爱科写后不回 Modbus 帧）。"""
+        s = str(err_s or "")
+        s_up = s.upper()
+        needles = (
+            "1073807194",
+            "CONN_LOST",
+            "CONNECTIONABORTED",
+            "CONNECTION RESET",
+            "CONNECTIONRESET",
+            "BROKENPIPE",
+            "10053",
+            "10054",
+            "10058",
+            "已建立的连接",
+            "强制关闭",
+            "被中止",
+        )
+        return any(n in s or n in s_up for n in needles)
 
     @staticmethod
     def _tcp_adu_pdu_fc(cmd_hex: str) -> int | None:
@@ -344,6 +360,10 @@ class ModbusVISA:
                 return None
 
             print(f"[ERROR] 发送失败: {err}")
+            # 本帧失败后尽量恢复 TCP，避免后续命令全部报「AC未连接」
+            if self._silent_recover():
+                print("[WARN] Modbus 本帧失败，已恢复 TCP 供后续命令使用")
+                return None
             try:
                 with self._io_lock:
                     self.disconnect(quiet=True)

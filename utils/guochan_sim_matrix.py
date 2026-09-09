@@ -12,7 +12,7 @@ from __future__ import annotations
 DC_MODE_PREAMBLE = {
     "Chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"],
     "Itech": ["SOL 0", "SOL 1"],
-    "Bluesight": [],  # 蓝点恒压/SAS 不走 IVCurve 前缀
+    "Bluesight": ["SYST:MODE SAS"],  # 先切 SAS 再写 STC 曲线块
     "Keysight": [],
 }
 
@@ -143,14 +143,8 @@ def ac_volt_ladder_sequence(
 def ac_three_phase_nsel_sequence(
     volt: float = 230.0, freq: float = 50.0
 ) -> list[str]:
-    """三相分相设压（与 ac_controller 爱科三相路径一致）。"""
-    cmds = [
-        "INST:PHASE THREE",
-        "INST:EDIT EACH",
-    ]
-    for nsel in (1, 2, 3):
-        cmds.extend([f"INST:NSEL {nsel}", f"VOLT {volt:g}", f"FREQ {freq:g}"])
-    return cmds + ac_output_on_sequence() + ac_output_off_sequence()
+    """同压三相启机（EDIT ALL）；保留旧名供矩阵测试导入。"""
+    return ac_startup_three_phase(volt, freq) + ac_output_on_sequence() + ac_output_off_sequence()
 
 
 def ac_sequence_for_menu(menu: str) -> list[str]:
@@ -164,6 +158,50 @@ def ac_sequence_for_menu(menu: str) -> list[str]:
     if menu in ("电压适应性", "静态QU", "10min过压保护"):
         return ac_volt_ladder_sequence()
     return ac_smoke_sequence(single_phase=True)
+
+
+def bluesight_stc_from_iv(vmp, imp, voc=None, isc=None, pf="100"):
+    """由试验对话框 Vmp/Imp（及可选 Voc/Isc、功率百分比）得到蓝点 STC 三元组。
+
+    Returns:
+        (pmpp_kw, umpp_v, ff) 或 None（参数非法）。
+    """
+    try:
+        f_vmp = float(str(vmp).strip())
+        f_imp = float(str(imp).strip())
+    except (TypeError, ValueError, AttributeError):
+        return None
+    if f_vmp <= 0 or f_imp <= 0:
+        return None
+    pf_pct = 100.0
+    if pf is not None and str(pf).strip() != "":
+        vs = str(pf).strip()
+        if vs.endswith("%"):
+            vs = vs[:-1].strip()
+        try:
+            pf_pct = float(vs)
+        except ValueError:
+            pf_pct = 100.0
+        if 0 < pf_pct <= 1.0:
+            pf_pct *= 100.0
+    scale = pf_pct / 100.0
+    f_imp_s = f_imp * scale
+    pmpp_kw = f_vmp * f_imp_s / 1000.0
+    ff = 0.8
+    try:
+        voc_s = "" if voc is None else str(voc).strip()
+        isc_s = "" if isc is None else str(isc).strip()
+        if voc_s and isc_s:
+            f_voc = float(voc_s)
+            f_isc_s = float(isc_s) * scale
+            if f_voc > 0 and f_isc_s > 0:
+                ff = (f_vmp * f_imp_s) / (f_voc * f_isc_s)
+                ff = max(0.50, min(0.95, ff))
+    except (TypeError, ValueError):
+        pass
+    if pmpp_kw <= 0:
+        return None
+    return (pmpp_kw, f_vmp, ff)
 
 
 def dc_bluesight_smoke_sequence() -> list[str]:

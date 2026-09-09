@@ -171,3 +171,42 @@ def build_forced_shutdown_rows(
     if inter_wait:
         rows.append(_wait_row(inter_wait, wait_slot))
     return rows
+
+
+def append_ui_forced_shutdown_step(
+    commands: list[list[Any]],
+    steps: list[list[list[Any]]],
+    ui: Any,
+    *,
+    per_dc_factor: Mapping[Any, Any] | None = None,
+    settle_01s: int = BLUESIGHT_DC_OFF_SETTLE_01S,
+    inter_wait_01s: int = DEFAULT_INTER_COMMAND_WAIT_01S,
+    log: Any = None,
+    tag: str = "",
+) -> list[int]:
+    """UI 关机步：强制关输出，并按 DC→缓降等待→AC 追加命令。
+
+    返回启用的 1 基 DC 通道列表（可能为空，仍会关 AC）。
+    """
+    force_end_combos_off(
+        ui,
+        (
+            "comboBox_S_End_AC",
+            "comboBox_S_End_DC1",
+            "comboBox_S_End_DC2",
+            "comboBox_S_End_DC3",
+            "comboBox_S_End_DC4",
+        ),
+        log=log,
+        tag=tag,
+    )
+    dc_channels = enabled_shutdown_dc_channels(ui)
+    step_rows = build_forced_shutdown_rows(
+        dc_channels=dc_channels,
+        per_dc_factor=per_dc_factor,
+        settle_01s=settle_01s,
+        inter_wait_01s=inter_wait_01s,
+    )
+    commands.extend(step_rows)
+    steps.append(list(step_rows))
+    return dc_channels

@@ -66,11 +66,15 @@ def _fill_step1_single(ui, *, dc1=True):
         ui.textEdit_S1_DC1_PF.setPlainText("100")
 
 
-def _fill_ladder(ui, ladder="10,50,100", dwell="5", unit="秒"):
+def _fill_ladder(ui, ladder="10,50,100", dwell="5", unit="秒", record_mode="split"):
     ui.checkBox_S3.setChecked(True)
     ui.textEdit_PowerLadder.setPlainText(ladder)
     ui.textEdit_S3_TIME_2.setPlainText(dwell)
     ui.comboBox_S3_TIME_2.setCurrentText(unit)
+    if hasattr(ui, "comboBox_S3_record_mode"):
+        from utils.wt_recording_mode import mode_to_combo_index
+
+        ui.comboBox_S3_record_mode.setCurrentIndex(mode_to_combo_index(record_mode))
     ui.checkBox_cos_pos09.setChecked(True)
     ui.checkBox_cos_neg09.setChecked(True)
     ui.checkBox_cos_1.setChecked(False)
@@ -87,7 +91,8 @@ def test_dialog_has_four_steps_and_cos_points(qcap_ui):
     assert ui.checkBox_cos_pos09.isChecked()
     assert ui.checkBox_cos_neg09.isChecked()
     assert hasattr(ui, "analyzerModeSection")
-    assert ui.pushButton_TestAppend is not None
+    assert hasattr(ui, "comboBox_S3_record_mode")
+    assert ui.pushButton_S3_fill_filenames is not None
 
 
 def test_power_times_cos_numeric_col6(qcap_ui):
@@ -95,7 +100,7 @@ def test_power_times_cos_numeric_col6(qcap_ui):
     _fill_step1_single(ui, dc1=True)
     ui.checkBox_S2.setChecked(True)
     ui.radioButton_S2_WT3000.setChecked(True)
-    _fill_ladder(ui, "20,40", dwell="3", unit="秒")
+    _fill_ladder(ui, "20,40", dwell="3", unit="秒", record_mode="split")
     ui.checkBox_S_END.setChecked(True)
     ui.comboBox_S_END_AC.setCurrentText("关闭")
     ui.checkBox_S_END_DC1.setChecked(True)
@@ -139,6 +144,42 @@ def test_power_times_cos_numeric_col6(qcap_ui):
     triples = [(r[0], r[1], r[2]) for r in plan["commands"]]
     assert ("DC1", "write", "OUTP:MODE TABLE") in triples
     assert ("AC", "write", "OUTP OFF") in triples
+
+
+def test_continuous_async_single_file(qcap_ui):
+    ui, _dialog = qcap_ui
+    _fill_step1_single(ui, dc1=True)
+    ui.checkBox_S2.setChecked(True)
+    ui.radioButton_S2_WT3000.setChecked(True)
+    _fill_ladder(ui, "20,40", dwell="3", unit="秒", record_mode="continuous")
+    ui.checkBox_S_END.setChecked(False)
+
+    plan = build_reactive_qcap_plan(
+        ui,
+        wt_config_dict={"mock": 1},
+        str_add_flag="0",
+        dc_iv_resolver=default_dc_iv_resolver,
+    )
+    assert plan["ok"] is True
+    assert plan["wt_continuous"] is True
+    assert plan["wt_rounds"] == 1
+    assert plan["file_names"] == ["QCap_BR"]
+
+    markers = [
+        str(r[6]).strip().upper()
+        for r in plan["commands"]
+        if len(r) > 6 and r[6] not in ("", None)
+    ]
+    assert "ASYNC_START" in markers
+    assert "WAIT_END" in markers
+    assert sum(1 for m in markers if m.isdigit()) == 0
+
+    slot9_waits = [
+        r[9]
+        for r in plan["commands"]
+        if len(r) > 9 and r[9] not in ("", None) and str(r[9]).strip().lstrip("-").isdigit()
+    ]
+    assert len(slot9_waits) >= 4  # 2 power × 2 cos
 
 
 def test_requires_cos_selection(qcap_ui):

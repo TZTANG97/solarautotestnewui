@@ -189,131 +189,133 @@ class Ui_Dialog_thaiqianpinshengzai(object):
 
 
     # ══════════════════════════════════════════════
-    # 欠频步骤合并（15个卡片 → 1个滚动页面）
+    # 欠频台阶：频率 list（不限点数，对齐过频降载）
     # ══════════════════════════════════════════════
     def _build_underfreq_steps(self):
-        """构建合并的欠频设置页面，15个卡片垂直排列，可滚动。"""
+        """频率 list + 每点驻留；后台仍建 S3~S17 隐藏控件供旧设定兼容。"""
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(0)
+        layout.setSpacing(12)
 
-        # 步骤启用复选框
-        self.checkBox_S3 = QtWidgets.QCheckBox("step3")
+        self.checkBox_S3 = QtWidgets.QCheckBox("启用频率台阶")
         self.checkBox_S3.setChecked(True)
         self.checkBox_S3.setObjectName("checkBox_S3")
         self.checkBox_S3.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
         layout.addWidget(self.checkBox_S3)
 
-        # QScrollArea 承载所有卡片
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-        scroll_widget = QtWidgets.QWidget()
-        scroll_layout = QtWidgets.QVBoxLayout(scroll_widget)
-        scroll_layout.setContentsMargins(0, 8, 0, 8)
-        scroll_layout.setSpacing(8)
+        _DEFAULT_F_LIST = "50,49.75,49.5,49.25,49.0,49.25,49.5,49.75,50"
+        ladder_grp = QtWidgets.QGroupBox("欠频频率 list（连续录 1 条；点数不限，可交叉往返）")
+        ladder_grp.setStyleSheet(
+            "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
+            "padding-top: 8px; font-weight: bold; }"
+        )
+        g = QtWidgets.QGridLayout(ladder_grp)
+        g.setSpacing(8)
+        g.setContentsMargins(12, 20, 12, 12)
 
-        # 构建15个欠频卡片
+        g.addWidget(QtWidgets.QLabel("交流电压(V)："), 0, 0)
+        self.textEdit_FrequencyLadder_VOLT = QtWidgets.QTextEdit()
+        self.textEdit_FrequencyLadder_VOLT.setObjectName("textEdit_FrequencyLadder_VOLT")
+        self.textEdit_FrequencyLadder_VOLT.setFixedSize(80, 28)
+        self.textEdit_FrequencyLadder_VOLT.setText("230")
+        g.addWidget(self.textEdit_FrequencyLadder_VOLT, 0, 1)
+
+        g.addWidget(QtWidgets.QLabel("频率Hz(list)："), 1, 0)
+        self.textEdit_FrequencyLadder = QtWidgets.QTextEdit()
+        self.textEdit_FrequencyLadder.setObjectName("textEdit_FrequencyLadder")
+        self.textEdit_FrequencyLadder.setFixedHeight(56)
+        self.textEdit_FrequencyLadder.setText(_DEFAULT_F_LIST)
+        self.textEdit_FrequencyLadder.setPlaceholderText(
+            "逗号分隔，如 50,49.5,49.0,49.5,50；可任意多点交叉扫频"
+        )
+        g.addWidget(self.textEdit_FrequencyLadder, 1, 1, 1, 3)
+
+        g.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
+        self.textEdit_FrequencyLadder_TIME = QtWidgets.QTextEdit()
+        self.textEdit_FrequencyLadder_TIME.setObjectName("textEdit_FrequencyLadder_TIME")
+        self.textEdit_FrequencyLadder_TIME.setFixedSize(80, 28)
+        self.textEdit_FrequencyLadder_TIME.setText("60")
+        g.addWidget(self.textEdit_FrequencyLadder_TIME, 2, 1)
+        self.comboBox_FrequencyLadder_TIME = QtWidgets.QComboBox()
+        self.comboBox_FrequencyLadder_TIME.setObjectName("comboBox_FrequencyLadder_TIME")
+        self.comboBox_FrequencyLadder_TIME.addItems(["秒", "毫秒", "分钟"])
+        self.comboBox_FrequencyLadder_TIME.setCurrentText("秒")
+        self.comboBox_FrequencyLadder_TIME.setFixedWidth(80)
+        g.addWidget(self.comboBox_FrequencyLadder_TIME, 2, 2)
+
+        tip = QtWidgets.QLabel(
+            "与过频降载 / 静态 QU 相同：填 list 即可，不再受 15 个固定步骤限制。"
+            "提交后 WT 连续录 1 条曲线，整段变频都会进同一文件。"
+        )
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tip.setWordWrap(True)
+        g.addWidget(tip, 3, 0, 1, 4)
+        layout.addWidget(ladder_grp)
+
+        legacy = QtWidgets.QWidget()
+        legacy.setVisible(False)
+        legacy_layout = QtWidgets.QVBoxLayout(legacy)
+        legacy_layout.setContentsMargins(0, 0, 0, 0)
         for i in range(15):
-            step_index = i + 3  # S3 ~ S17
+            step_index = i + 3
             suffix = f"S{step_index}"
             title = f"欠频 {i + 1}"
             card = self._build_underfreq_card(step_index, suffix, title)
-            scroll_layout.addWidget(card)
+            legacy_layout.addWidget(card)
+        main_s3 = self.checkBox_S3
+        layout.addWidget(legacy)
+        self.checkBox_S3 = main_s3
 
-        scroll_layout.addStretch()
-        scroll.setWidget(scroll_widget)
-        layout.addWidget(scroll)
-
+        layout.addStretch()
         self.stackedWidget.addWidget(page)
 
+        def _toggle_ladder(checked):
+            ladder_grp.setEnabled(checked)
+
+        self.checkBox_S3.toggled.connect(_toggle_ladder)
+
     def _build_underfreq_card(self, step_index, suffix, title):
-        """构建单个欠频配置卡片。"""
+        """构建单个欠频配置卡片（隐藏兼容用）。"""
         card = QtWidgets.QWidget()
-        card.setStyleSheet("background-color: white;")
         cardLayout = QtWidgets.QVBoxLayout(card)
         cardLayout.setContentsMargins(0, 0, 0, 0)
-        cardLayout.setSpacing(0)
 
-        grp = QtWidgets.QGroupBox()
+        grp = QtWidgets.QGroupBox(title)
         grp.setObjectName(f"groupBox_{suffix}")
-        grp.setTitle(title)
-        grp.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
         gLayout = QtWidgets.QGridLayout(grp)
-        gLayout.setSpacing(10)
-        gLayout.setContentsMargins(16, 24, 16, 12)
 
-        # Row 0: checkBox + 交流电压
         cb = QtWidgets.QCheckBox(f"step{step_index}")
         cb.setChecked(True)
         cb.setObjectName(f"checkBox_{suffix}")
         setattr(self, f"checkBox_{suffix}", cb)
         gLayout.addWidget(cb, 0, 0)
 
-        lbl_ac = QtWidgets.QLabel("交流电压")
-        lbl_ac.setObjectName(f"label_{suffix}_ac_title")
-        gLayout.addWidget(lbl_ac, 0, 1)
-
         te_volt = QtWidgets.QTextEdit()
         te_volt.setObjectName(f"textEdit_{suffix}_AC_VOLT")
-        te_volt.setFixedSize(100, 31)
         te_volt.setText("230")
         setattr(self, f"textEdit_{suffix}_AC_VOLT", te_volt)
         gLayout.addWidget(te_volt, 0, 2)
 
-        lbl_v = QtWidgets.QLabel("V")
-        lbl_v.setObjectName(f"label_{suffix}_V")
-        gLayout.addWidget(lbl_v, 0, 3)
-
-        # Row 0 右侧: 频率
-        lbl_fr_title = QtWidgets.QLabel("频率")
-        lbl_fr_title.setObjectName(f"label_{suffix}_fr_title")
-        gLayout.addWidget(lbl_fr_title, 0, 4)
-
         te_fr = QtWidgets.QTextEdit()
         te_fr.setObjectName(f"textEdit_{suffix}_AC_FR")
-        te_fr.setFixedSize(100, 31)
-        # 欠频默认阶梯：第1卡(S3) 49.5Hz，每卡 -0.25Hz
         _uf_hz = round(49.5 - (step_index - 3) * 0.25, 2)
         te_fr.setText(("%g" % _uf_hz))
         setattr(self, f"textEdit_{suffix}_AC_FR", te_fr)
         gLayout.addWidget(te_fr, 0, 5)
 
-        lbl_hz = QtWidgets.QLabel("Hz")
-        lbl_hz.setObjectName(f"label_{suffix}_Hz")
-        gLayout.addWidget(lbl_hz, 0, 6)
-
-        # Row 1: 数据采集
-        lbl_time_title = QtWidgets.QLabel("数据采集")
-        lbl_time_title.setObjectName(f"label_{suffix}_time_title")
-        gLayout.addWidget(lbl_time_title, 1, 1)
-
         te_time = QtWidgets.QTextEdit()
         te_time.setObjectName(f"textEdit_{suffix}_TIME")
-        te_time.setFixedSize(100, 31)
-        te_time.setText("2.5")
+        te_time.setText("60")
         setattr(self, f"textEdit_{suffix}_TIME", te_time)
         gLayout.addWidget(te_time, 1, 2)
 
         combo_time = QtWidgets.QComboBox()
         combo_time.setObjectName(f"comboBox_{suffix}_TIME")
         combo_time.addItems(["秒", "毫秒", "分钟"])
-        combo_time.setFixedWidth(120)
         setattr(self, f"comboBox_{suffix}_TIME", combo_time)
         gLayout.addWidget(combo_time, 1, 3)
-
-        # 联动：步骤复选框禁用时，禁用内部控件
-        inner_widgets = [te_volt, te_fr, te_time, combo_time,
-                         lbl_ac, lbl_v, lbl_fr_title, lbl_hz, lbl_time_title]
-        step_cb = cb  # 局部引用
-
-        def _on_step_toggled(checked, widgets=inner_widgets, scb=step_cb):
-            for w in widgets:
-                w.setEnabled(checked)
-
-        cb.toggled.connect(_on_step_toggled)
 
         cardLayout.addWidget(grp)
         return card
@@ -414,8 +416,8 @@ class Ui_Dialog_thaiqianpinshengzai(object):
         g2Layout.setSpacing(6)
         g2Layout.setContentsMargins(12, 20, 12, 12)
 
-        # Header
-        headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        # Header：单位写在表头，避免单位标签落到表格最下方四行
+        headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(headers):
             lbl = QtWidgets.QLabel(h)
             lbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -450,16 +452,10 @@ class Ui_Dialog_thaiqianpinshengzai(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(name)
                 te.setFixedSize(80, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 setattr(self, name, te)
                 g2Layout.addWidget(te, r, c)
-
-        # DC row labels for units
-        for r in range(1, 5):
-            for c, unit in [(2, "V"), (3, "A"), (4, "V"), (5, "A"), (6, "%")]:
-                lbl = QtWidgets.QLabel(unit)
-                lbl.setAlignment(QtCore.Qt.AlignCenter)
-                lbl.setStyleSheet("color: #94a3b8; font-size: 10px;")
-                g2Layout.addWidget(lbl, r + 4, c)
 
         layout.addWidget(self.groupBox_2)
 

@@ -4,6 +4,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from components.dewetron_autotest_panel import AnalyzerModeSection
 from components.timeline import TimelineWidget
+from components.wt_config_content import (
+    build_wt3000_content, build_wt1800_content,
+    build_wt1806e_content, build_wt5000_content,
+)
 
 
 class Ui_Dialog_thaifixedPF(object):
@@ -91,7 +95,7 @@ class Ui_Dialog_thaifixedPF(object):
         self._step_labels = []
         step_titles = [
             "① AC/DC电源", "② 功率分析仪",
-            "③ 测量步骤", "④ 测量设置", "⑤ 结束关机"
+            "③ 测量步骤", "④ 关机设置",
         ]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
@@ -114,13 +118,13 @@ class Ui_Dialog_thaifixedPF(object):
         self._build_step1()
         self._build_step2()
         self._build_measure_steps()
-        self._build_step3_measure_settings()
         self._build_step_end()
 
         self.pushButton_Send = QtWidgets.QPushButton()
         self.pushButton_Send.setObjectName("pushButton_Send")
         self.pushButton_Send.setVisible(False)
 
+        self._wire_recording_mode()
         self._switch_step(0)
         self.retranslateUi(Dialog_thaifixedPF)
 
@@ -137,7 +141,7 @@ class Ui_Dialog_thaifixedPF(object):
             lbl.setStyleSheet(active if i == index else normal)
 
     def _integrate_analyzer_mode(self, layout, wt_group):
-        """使用共享选择器包裹既有 WT 宏配置，不改造为四页 WT 配置。"""
+        """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
         self.analyzerModeSection = AnalyzerModeSection(wt_group, self.checkBox_S2)
         self.dewetronPanel = self.analyzerModeSection.dewetron_panel
         self.radio_wt3000 = self.analyzerModeSection.radio_wt
@@ -225,7 +229,7 @@ class Ui_Dialog_thaifixedPF(object):
         dcGrid.setContentsMargins(12, 20, 12, 12)
 
         # 表头
-        dc_headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        dc_headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(dc_headers):
             lbl = self._make_label(h, self._HEADER_STYLE)
             lbl.setAlignment(QtCore.Qt.AlignCenter)
@@ -310,13 +314,17 @@ class Ui_Dialog_thaifixedPF(object):
     # ════════════════════════════════════════════════
     def _build_step2(self):
         page = QtWidgets.QWidget()
+        page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        grp = QtWidgets.QGroupBox("功率分析仪配置")
+        grp = QtWidgets.QGroupBox()
+        grp.setTitle("功率分析仪配置")
         grp.setStyleSheet(self._GRP_STYLE)
         gLayout = QtWidgets.QGridLayout(grp)
+        gLayout.setSpacing(10)
+        gLayout.setContentsMargins(16, 24, 16, 12)
 
         self.checkBox_S2 = self._make_checkbox("checkBox_S2", "启用步骤", parent=self._dialog)
         gLayout.addWidget(self.checkBox_S2, 0, 0)
@@ -333,65 +341,80 @@ class Ui_Dialog_thaifixedPF(object):
         self._radio_group = radio_group
 
         radio_layout = QtWidgets.QHBoxLayout()
+        radio_layout.setSpacing(24)
+        radio_layout.setContentsMargins(8, 0, 0, 0)
         for rb in [self.radioButton_S2_WT3000, self.radioButton_S2_WT1800,
                    self.radioButton_S2_WT1806E, self.radioButton_S2_WT5000]:
             radio_layout.addWidget(rb)
         radio_layout.addStretch()
         gLayout.addLayout(radio_layout, 0, 1, 1, 3)
 
-        # 执行json文件
-        gLayout.addWidget(self._make_label("执行json文件:"), 1, 0)
-        self.cB_wt_json = self._make_combo("cB_wt_json", [], parent=self._dialog, width=400)
-        gLayout.addWidget(self.cB_wt_json, 1, 1, 1, 3)
+        self._wtStacked = QtWidgets.QStackedWidget()
+        self._wtStacked.addWidget(build_wt3000_content(self))
+        self._wtStacked.addWidget(build_wt1800_content(self))
+        self._wtStacked.addWidget(build_wt1806e_content(self))
+        self._wtStacked.addWidget(build_wt5000_content(self))
+        gLayout.addWidget(self._wtStacked, 1, 0, 1, 4)
 
-        # WT数据保存路径
-        gLayout.addWidget(self._make_label("WT数据保存路径:"), 2, 0)
-        self.lE_wt_save_path = self._make_input("lE_wt_save_path", "", parent=self._dialog, width=400)
-        gLayout.addWidget(self.lE_wt_save_path, 2, 1, 1, 3)
+        def _on_radio_toggled(btn, checked):
+            if checked:
+                self._wtStacked.setCurrentIndex(radio_group.id(btn))
+
+        radio_group.buttonToggled.connect(_on_radio_toggled)
 
         self._integrate_analyzer_mode(layout, grp)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
 
-    # ════════════════════════════════════════════════
-    # Step3: 测量设置（共享时间参数）
-    # ════════════════════════════════════════════════
-    def _build_step3_measure_settings(self):
-        page = QtWidgets.QWidget()
-        page.setStyleSheet("background-color: white;")
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+    def _build_timing_card(self):
+        """数据采集 + 录波方式（与谐波/无功族一致）。"""
+        from utils.wt_recording_mode import MODE_LABELS, MODE_CONTINUOUS, MODE_SPLIT
 
         grp = QtWidgets.QGroupBox()
-        grp.setTitle("测量设置（共享时间参数）")
+        grp.setTitle("数据采集设置")
         grp.setStyleSheet(self._GRP_STYLE)
-        gLayout = QtWidgets.QGridLayout(grp)
-        gLayout.setSpacing(8)
-        gLayout.setContentsMargins(12, 20, 12, 12)
+        tg = QtWidgets.QGridLayout(grp)
+        tg.setSpacing(8)
+        tg.setContentsMargins(12, 20, 12, 12)
 
-        TIME_LABELS = ["等待时间", "保存改名延时", "开始测量延时", "结束测量延时"]
-        for idx, label in enumerate(TIME_LABELS):
-            row = idx
-            gLayout.addWidget(self._make_label(f"{label}:"), row, 0)
-            gLayout.addWidget(self._make_input(f"lE_S3_{idx+1}", "5", parent=self._dialog, width=400), row, 1)
-            gLayout.addWidget(self._make_combo(f"cB_S3_unit_{idx+1}", ["秒", "分钟", "毫秒"], parent=self._dialog, width=400), row, 2)
+        tg.addWidget(self._make_label("数据采集:"), 0, 0)
+        self.textEdit_S3_TIME_2 = self._make_input("textEdit_S3_TIME_2", parent=self._dialog, default="10")
+        tg.addWidget(self.textEdit_S3_TIME_2, 0, 1)
+        self.comboBox_S3_TIME_2 = self._make_combo(
+            "comboBox_S3_TIME_2", ["分钟", "秒", "毫秒"], parent=self._dialog
+        )
+        tg.addWidget(self.comboBox_S3_TIME_2, 0, 2)
 
-        # 批量设置按钮
-        self.btn_set_batch_time = QtWidgets.QPushButton("批量应用到所有测量步骤")
-        self.btn_set_batch_time.setObjectName("btn_set_batch_time")
-        self.btn_set_batch_time.setFixedHeight(36)
-        self.btn_set_batch_time.setStyleSheet(
-            "QPushButton { background-color: #f59e0b; color: white; border: none; border-radius: 6px; padding: 0 20px; font-size: 12px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #d97706; }")
-        gLayout.addWidget(self.btn_set_batch_time, len(TIME_LABELS), 0, 1, 3)
+        tg.addWidget(self._make_label("等待时间:"), 0, 3)
+        self.textEdit_S3_TIME_3 = self._make_input("textEdit_S3_TIME_3", parent=self._dialog, default="1")
+        tg.addWidget(self.textEdit_S3_TIME_3, 0, 4)
+        self.comboBox_S3_TIME_3 = self._make_combo(
+            "comboBox_S3_TIME_3", ["秒", "分钟", "毫秒"], parent=self._dialog
+        )
+        tg.addWidget(self.comboBox_S3_TIME_3, 0, 5)
 
-        layout.addWidget(grp)
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
+        tg.addWidget(self._make_label("录波方式:"), 1, 0)
+        self.comboBox_S3_record_mode = QtWidgets.QComboBox()
+        self.comboBox_S3_record_mode.setObjectName("comboBox_S3_record_mode")
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_CONTINUOUS], MODE_CONTINUOUS)
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_SPLIT], MODE_SPLIT)
+        self.comboBox_S3_record_mode.setMinimumWidth(220)
+        tg.addWidget(self.comboBox_S3_record_mode, 1, 1, 1, 2)
+        self.pushButton_S3_fill_filenames = QtWidgets.QPushButton("填充推荐文件名")
+        self.pushButton_S3_fill_filenames.setObjectName("pushButton_S3_fill_filenames")
+        tg.addWidget(self.pushButton_S3_fill_filenames, 1, 3, 1, 2)
+
+        tip = QtWidgets.QLabel(
+            "一条线连续录：五个功率点录成单个文件；分开录：每个功率点单独存盘。"
+            "文件名填在功率分析仪页的「文件名列表」。"
+        )
+        tip.setWordWrap(True)
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tg.addWidget(tip, 2, 0, 1, 6)
+        return grp
 
     # ════════════════════════════════════════════════
-    # 测量步骤（Step4-8 合并为 timeline + 卡片布局）
+    # 测量步骤（数据采集 + Step4-8 合并为 timeline）
     # ════════════════════════════════════════════════
     def _build_measure_steps(self):
         page = QtWidgets.QWidget()
@@ -405,9 +428,11 @@ class Ui_Dialog_thaifixedPF(object):
         scroll.setStyleSheet("QScrollArea { border: none; background: white; }")
 
         timeline = TimelineWidget()
+        timeline.addStep("数据采集设置", self._build_timing_card())
 
+        _pf_defaults = {4: "100", 5: "75", 6: "50", 7: "30", 8: "20"}
         for step_num in range(4, 9):
-            card = self._build_single_measure_step(step_num)
+            card = self._build_single_measure_step(step_num, _pf_defaults[step_num])
             timeline.addStep(f"测量步骤{step_num - 3}", card)
 
         timeline.finalize()
@@ -416,8 +441,8 @@ class Ui_Dialog_thaifixedPF(object):
 
         self.stackedWidget.addWidget(page)
 
-    def _build_single_measure_step(self, step_num):
-        """构建单个测量步骤的 QGroupBox 卡片"""
+    def _build_single_measure_step(self, step_num, pf_default="100"):
+        """单个功率点卡片：DC 通道 + 功率%，无 json 宏。"""
         grp = QtWidgets.QGroupBox()
         grp.setTitle(f"测量步骤{step_num - 3}")
         grp.setStyleSheet(self._GRP_STYLE)
@@ -425,57 +450,44 @@ class Ui_Dialog_thaifixedPF(object):
         gLayout.setSpacing(8)
         gLayout.setContentsMargins(12, 20, 12, 12)
 
-        # 步骤启用复选框
-        cb = self._make_checkbox(f"checkBox_S{step_num}", f"启用步骤{step_num - 3}", parent=self._dialog)
+        cb = self._make_checkbox(
+            f"checkBox_S{step_num}", f"启用步骤{step_num - 3}", parent=self._dialog
+        )
         cb.setChecked(True)
-        gLayout.addWidget(cb, 0, 0, 1, 4)
+        gLayout.addWidget(cb, 0, 0)
 
-        # DC 通道
-        gLayout.addWidget(self._make_label("DC通道:"), 1, 0)
         dc_cbs = []
         for j in range(4):
-            dc_cb = self._make_checkbox(f"checkBox_S1_DC{j+1}_{step_num}", f"DC{j+1}", parent=self._dialog)
-            dc_cb.setChecked(True)
-            gLayout.addWidget(dc_cb, 1, j + 1)
+            dc_cb = self._make_checkbox(
+                f"checkBox_S1_DC{j+1}_{step_num}", f"直流电源{j+1}", parent=self._dialog
+            )
             dc_cbs.append(dc_cb)
+            gLayout.addWidget(dc_cb, 1, j * 2)
+            gLayout.addWidget(self._make_label("功率"), 1, j * 2 + 1)
+
+        pf_widget = self._make_input(
+            f"textEdit_S1_DC1_PF_{step_num}", pf_default, parent=self._dialog
+        )
+        gLayout.addWidget(pf_widget, 2, 0)
+        pct = self._make_label("%")
+        gLayout.addWidget(pct, 2, 1)
 
         step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
                      self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
         def _update_dc(_checked=None):
             step_on = cb.isChecked()
             for i in range(4):
                 should_enable = step_on and step1_dcs[i].isChecked()
                 dc_cbs[i].setEnabled(should_enable)
                 dc_cbs[i].setChecked(should_enable)
-        cb.toggled.connect(lambda checked: _update_dc(checked))
+            pf_widget.setEnabled(step_on)
+            pct.setEnabled(step_on)
+
+        cb.toggled.connect(_update_dc)
         for s1dc in step1_dcs:
             s1dc.toggled.connect(_update_dc)
         _update_dc()
-
-        # 功率
-        gLayout.addWidget(self._make_label("功率:"), 2, 0)
-        pf_row = QtWidgets.QHBoxLayout()
-        pf_row.addWidget(self._make_input(f"textEdit_S1_DC1_PF_{step_num}", "100", parent=self._dialog))
-        pf_row.addWidget(self._make_label("%"))
-        pf_row.addStretch()
-        gLayout.addLayout(pf_row, 2, 1, 1, 3)
-
-        # 保存文件名 + 录制动作 json
-        gLayout.addWidget(self._make_label("保存文件名:"), 3, 0)
-        name_row = QtWidgets.QHBoxLayout()
-        name_row.addWidget(self._make_input(f"lE_S{step_num}_filename", "", parent=self._dialog, width=400))
-        name_row.addWidget(self._make_combo(f"cB_S{step_num}_json_1", [], parent=self._dialog, width=400))
-        name_row.addStretch()
-        gLayout.addLayout(name_row, 3, 1, 1, 3)
-
-        # 开始测量 json
-        gLayout.addWidget(self._make_label("开始测量:"), 4, 0)
-        gLayout.addWidget(self._make_combo(f"cB_S{step_num}_json_2", [], parent=self._dialog, width=400), 4, 1, 1, 3)
-
-        # 结束测量 json
-        gLayout.addWidget(self._make_label("结束测量:"), 5, 0)
-        gLayout.addWidget(self._make_combo(f"cB_S{step_num}_json_3", [], parent=self._dialog, width=400), 5, 1, 1, 3)
-
         return grp
 
     # ════════════════════════════════════════════════
@@ -496,70 +508,87 @@ class Ui_Dialog_thaifixedPF(object):
         sg.setSpacing(10)
         sg.setContentsMargins(16, 24, 16, 12)
 
-        # 启用复选框
-        self.checkBox_S14 = self._make_checkbox("checkBox_S14", "启用结束步骤", parent=self._dialog)
+        self.checkBox_S14 = self._make_checkbox("checkBox_S14", "step14", parent=self._dialog)
         self.checkBox_S14.setChecked(True)
         sg.addWidget(self.checkBox_S14, 0, 0)
-        self.checkBox_S14_2 = self._make_checkbox("checkBox_S14_2", "", parent=self._dialog)
-        self.checkBox_S14_2.setChecked(True)
-        sg.addWidget(self.checkBox_S14_2, 0, 1)
 
-        # 交流电源
-        sg.addWidget(self._make_label("交流电源:", self._HEADER_STYLE), 1, 0)
+        sg.addWidget(self._make_label("交流电源"), 0, 1)
         self.comboBox_S5_AC = self._make_combo("comboBox_S5_AC", ["关闭", "开启"], parent=self._dialog)
-        sg.addWidget(self.comboBox_S5_AC, 1, 1)
+        sg.addWidget(self.comboBox_S5_AC, 0, 2)
 
-        # DC 电源 (4 channels)
-        sg.addWidget(self._make_label("直流电源:", self._HEADER_STYLE), 2, 0)
         self._s5_dc_cbs = []
-        dc_row = QtWidgets.QHBoxLayout()
-        for j in range(4):
-            cb = self._make_checkbox(f"checkBox_S5_DC{j+1}", f"DC{j+1}", parent=self._dialog)
-            cb.setChecked(True)
-            dc_row.addWidget(cb)
+        dc_shutdown = [
+            ("checkBox_S5_DC1", "直流电源1", "comboBox_S5_DC1"),
+            ("checkBox_S5_DC2", "直流电源2", "comboBox_S5_DC2"),
+            ("checkBox_S5_DC3", "直流电源3", "comboBox_S5_DC3"),
+            ("checkBox_S5_DC4", "直流电源4", "comboBox_S5_DC4"),
+        ]
+        for c, (cb_name, cb_text, combo_name) in enumerate(dc_shutdown):
+            col = 1 + c * 2
+            cb = self._make_checkbox(cb_name, cb_text, parent=self._dialog)
             self._s5_dc_cbs.append(cb)
-        dc_row.addStretch()
-        sg.addLayout(dc_row, 2, 1)
+            sg.addWidget(cb, 1, col)
+            combo = self._make_combo(combo_name, ["关闭", "开启"], parent=self._dialog)
+            sg.addWidget(combo, 1, col + 1)
 
-        # DC 开关
-        sg.addWidget(self._make_label("DC开关:", self._HEADER_STYLE), 3, 0)
-        dc_combo_row = QtWidgets.QHBoxLayout()
-        for j in range(4):
-            combo = self._make_combo(f"comboBox_S5_DC{j+1}", ["关闭", "开启"], parent=self._dialog)
-            dc_combo_row.addWidget(combo)
-        dc_combo_row.addStretch()
-        sg.addLayout(dc_combo_row, 3, 1)
-
-        # DC 联动 step1
         step1_dcs = [self.checkBox_S1_DC1, self.checkBox_S1_DC2,
                      self.checkBox_S1_DC3, self.checkBox_S1_DC4]
+
         def _update_s5_dc():
             step_on = self.checkBox_S14.isChecked()
             for i in range(4):
                 should_enable = step_on and step1_dcs[i].isChecked()
                 self._s5_dc_cbs[i].setEnabled(should_enable)
                 self._s5_dc_cbs[i].setChecked(should_enable)
+            self.comboBox_S5_AC.setEnabled(step_on)
+
         self.checkBox_S14.toggled.connect(_update_s5_dc)
         for s1dc in step1_dcs:
             s1dc.toggled.connect(_update_s5_dc)
         _update_s5_dc()
 
-        # JSON 文件
-        sg.addWidget(self._make_label("执行json文件:"), 4, 0)
-        self.cB_S14_json_14 = self._make_combo("cB_S14_json_14", [], parent=self._dialog, width=400)
-        sg.addWidget(self.cB_S14_json_14, 4, 1)
-
-        # 等待时间
-        sg.addWidget(self._make_label("等待时间:"), 5, 0)
-        time_row = QtWidgets.QHBoxLayout()
-        time_row.addWidget(self._make_input("lE_S14_1", "5", parent=self._dialog, width=400))
-        time_row.addWidget(self._make_combo("cB_S14_unit_1", ["秒", "分钟", "毫秒"], parent=self._dialog, width=400))
-        time_row.addStretch()
-        sg.addLayout(time_row, 5, 1)
-
         layout.addWidget(grp_s)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    def _wire_recording_mode(self):
+        from utils.wt_recording_mode import (
+            apply_filename_list_to_wt_pages,
+            combo_index_to_mode,
+        )
+        from components.wt_recording_mode_row import install_on_wt_filename_group
+
+        def _recommended_names():
+            from utils.wt_recording_mode import fixed_pf_recommended_filenames
+
+            mode = combo_index_to_mode(self.comboBox_S3_record_mode.currentIndex())
+            percents = []
+            for s in range(4, 9):
+                if getattr(self, f"checkBox_S{s}").isChecked():
+                    raw = getattr(self, f"textEdit_S1_DC1_PF_{s}").toPlainText().strip()
+                    try:
+                        percents.append(float(raw))
+                    except ValueError:
+                        percents.append(s)
+            return fixed_pf_recommended_filenames(percents, mode)
+
+        def _fill_wt_names(names=None):
+            if names is None:
+                names = _recommended_names()
+            apply_filename_list_to_wt_pages(self._wtStacked, names)
+
+        self.pushButton_S3_fill_filenames.clicked.connect(lambda: _fill_wt_names())
+        self.comboBox_S3_record_mode.currentIndexChanged.connect(lambda _i: _fill_wt_names())
+        for s in range(4, 9):
+            getattr(self, f"checkBox_S{s}").toggled.connect(lambda _c: _fill_wt_names())
+
+        for page_idx in range(self._wtStacked.count()):
+            page = self._wtStacked.widget(page_idx)
+            row = install_on_wt_filename_group(page, _recommended_names)
+            if row is not None:
+                row.names_filled.connect(_fill_wt_names)
+
+        _fill_wt_names()
 
     # ════════════════════════════════════════════════
     # 辅助方法

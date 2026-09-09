@@ -16,6 +16,7 @@ import psutil
 import threading
 import time
 import traceback
+from contextlib import contextmanager
 from logging.handlers import TimedRotatingFileHandler
 import numpy as np
 import pyautogui
@@ -85,10 +86,15 @@ from config.app_config import config
 from config.path_config import PATH_RECORDINGS, PATH_MPPT_EXE
 from infra.logging_setup import setup_logging, install_stream_logging
 from infra.exception_handler import install_exception_hook
-from utils.ui_helpers import _show_connect_message, _toggle_connection_button
+from utils.ui_helpers import (
+    _show_connect_message as _show_connect_message_ui,
+    _toggle_connection_button,
+)
 from utils.time_helpers import SetTimeFunction
 from utils.safe_shutdown import (
     BLUESIGHT_DC_OFF_SETTLE_01S as SAFE_BLUESIGHT_DC_OFF_SETTLE_01S,
+    DEFAULT_INTER_COMMAND_WAIT_01S as SAFE_DEFAULT_INTER_COMMAND_WAIT_01S,
+    append_ui_forced_shutdown_step,
     build_forced_shutdown_rows,
     enabled_shutdown_dc_channels,
     force_end_combos_off,
@@ -112,7 +118,7 @@ from utils.rapid_volt_commands import (
 )
 from utils.lvrt_commands import build_lvrt_plan
 from utils.phase_jump_commands import build_phase_jump_plan
-from utils.dynamic_mppt_commands import build_dynamic_mppt_plan
+from utils.dynamic_mppt_plan import build_dynamic_mppt_plan
 from utils.dynamic_cosphi_commands import build_dynamic_cosphi_plan
 from utils.dynamic_qu_commands import build_dynamic_qu_plan
 from utils.reactive_qcap_commands import build_reactive_qcap_plan
@@ -120,8 +126,13 @@ from utils.fixed_q_commands import build_fixed_q_plan
 from utils.reactive_qin_commands import build_reactive_qin_plan
 from utils.reactive_qacc_commands import build_reactive_qacc_plan
 from utils.active_p_commands import build_active_p_plan
+from utils.static_mppt_commands import (
+    build_static_mppt_bluesight_plan,
+    is_bluesight_mode,
+)
+from utils.ac_scpi_commands import append_ac_startup_from_ui, append_volt_set, append_freq_set
 from devices.scpi_common import _configure_scpi_resource
-from devices.ac_controller import ACController
+from devices.ac_controller import ACController, _normalize_chroma_ac_write
 from devices.dc_controller import DCController, send_dc_test_message
 from devices.dl850_controller import DL850Controller
 from devices.dewetron_controller import DewetronController
@@ -147,6 +158,193 @@ from dewetron_autotest import (
 from setup.main_setup import initialize_setup_windows
 
 
+# UI 线程上的设备 I/O（连接/设定）会阻塞事件循环；期间让 system_error_info 让出句柄，
+# 避免与 SYST:ERR?/自动重连抢 VISA 导致 RSRC_LOCKED 或更长时间假死。
+_device_ui_busy_depth = 0
+_device_ui_busy_lock = threading.Lock()
+_device_ui_busy_reason = ""
+_device_io_active = set()
+_device_io_bridge = None
+
+
+class _DeviceIoBridge(QtCore.QObject):
+    """后台设备 I/O → 主线程完成信号；连接提示也可从工作线程投递。"""
+
+    finished = QtCore.pyqtSignal(str, object)  # job_id, {"result"|"error"}
+    ui_message = QtCore.pyqtSignal(str)
+
+
+def _ensure_device_io_bridge():
+    global _device_io_bridge
+    if _device_io_bridge is None:
+        _device_io_bridge = _DeviceIoBridge()
+        _device_io_bridge.ui_message.connect(
+            lambda msg: _show_connect_message_ui(msg, None)
+        )
+    return _device_io_bridge
+
+
+def _show_connect_message(msg, parent=None):
+    """主线程弹窗；工作线程只投递信号，避免跨线程 QMessageBox。"""
+    app = QApplication.instance()
+    try:
+        on_ui = app is None or QThread.currentThread() == app.thread()
+    except Exception:
+        on_ui = True
+    if on_ui:
+        _show_connect_message_ui(msg, parent)
+        return
+    # 禁止在工作线程创建 QObject；桥未就绪时降级为 print
+    if _device_io_bridge is None:
+        print(f"[连接提示] {msg}")
+        return
+    _device_io_bridge.ui_message.emit(str(msg))
+
+
+def _is_device_ui_busy():
+    return _device_ui_busy_depth > 0
+
+
+@contextmanager
+def _device_ui_busy(reason="device_io"):
+    """标记主线程正在做设备 I/O，并显示等待光标。"""
+    global _device_ui_busy_depth, _device_ui_busy_reason
+    with _device_ui_busy_lock:
+        _device_ui_busy_depth += 1
+        _device_ui_busy_reason = str(reason or "device_io")
+    app = QApplication.instance()
+    if app is not None:
+        app.setOverrideCursor(Qt.WaitCursor)
+    try:
+        try:
+            QApplication.processEvents()
+        except Exception:
+            pass
+        yield
+    finally:
+        if app is not None:
+            try:
+                app.restoreOverrideCursor()
+            except Exception:
+                pass
+        with _device_ui_busy_lock:
+            _device_ui_busy_depth = max(0, _device_ui_busy_depth - 1)
+            if _device_ui_busy_depth == 0:
+                _device_ui_busy_reason = ""
+
+
+def _run_device_io(job_id, work_fn):
+    """在后台线程执行 work_fn，主线程用 QEventLoop 等待（界面可刷新）。
+
+    调用方语义仍同步：返回后 work 已结束，便于 Itech/Bluesight 连接后立刻读 connected。
+    work_fn 内勿直接操作 Qt 控件（日志/弹窗请走 _show_connect_message 或返回后由主线程更新）。
+    """
+    app = QApplication.instance()
+    if app is None:
+        return work_fn()
+    try:
+        on_ui = QThread.currentThread() == app.thread()
+    except Exception:
+        on_ui = True
+    if not on_ui:
+        return work_fn()
+
+    if job_id in _device_io_active:
+        try:
+            ui.textEdit_ReturnMessage.append(f"[设备] {job_id} 进行中，请稍候")
+        except Exception:
+            pass
+        return None
+
+    bridge = _ensure_device_io_bridge()
+    box = {"result": None, "error": None}
+    loop = QEventLoop()
+
+    def _on_finished(jid, payload):
+        if jid != job_id:
+            return
+        if not isinstance(payload, dict):
+            payload = {"result": payload, "error": None}
+        box["result"] = payload.get("result")
+        box["error"] = payload.get("error")
+        loop.quit()
+
+    bridge.finished.connect(_on_finished)
+    _device_io_active.add(job_id)
+
+    def _runner():
+        try:
+            result = work_fn()
+            bridge.finished.emit(job_id, {"result": result, "error": None})
+        except Exception as exc:
+            try:
+                logger.exception("device_io %s failed", job_id)
+            except Exception:
+                pass
+            bridge.finished.emit(job_id, {"result": None, "error": exc})
+
+    try:
+        with _device_ui_busy(job_id):
+            threading.Thread(
+                target=_runner, daemon=True, name=f"device_io:{job_id}"
+            ).start()
+            loop.exec_()
+    finally:
+        try:
+            bridge.finished.disconnect(_on_finished)
+        except Exception:
+            pass
+        _device_io_active.discard(job_id)
+
+    if box["error"] is not None:
+        raise box["error"]
+    return box["result"]
+
+
+def _with_device_ui_busy(reason):
+    """装饰连接等 UI 入口：显示等待光标。
+
+    QPushButton.clicked 会多传一个 bool；无参 Connect* 需忽略它。
+    带真实参数的函数（如 _apply_shared_dewetron_config(name)）必须原样转发。
+    """
+
+    def _decorator(fn):
+        try:
+            _param_count = len(
+                [
+                    p
+                    for p in __import__("inspect").signature(fn).parameters.values()
+                    if p.kind
+                    in (
+                        __import__("inspect").Parameter.POSITIONAL_ONLY,
+                        __import__("inspect").Parameter.POSITIONAL_OR_KEYWORD,
+                    )
+                ]
+            )
+        except Exception:
+            _param_count = None
+
+        def _wrapped(*args, **kwargs):
+            call_args = args
+            call_kwargs = kwargs
+            # 仅当目标函数不接受位置参数，且唯一实参是 clicked 的 bool 时丢弃
+            if (
+                _param_count == 0
+                and len(args) == 1
+                and type(args[0]) is bool
+                and not kwargs
+            ):
+                call_args = ()
+            with _device_ui_busy(reason):
+                return fn(*call_args, **call_kwargs)
+
+        _wrapped.__name__ = getattr(fn, "__name__", "wrapped")
+        _wrapped.__doc__ = getattr(fn, "__doc__", None)
+        return _wrapped
+
+    return _decorator
+
+
 #AC &DC 设定相关内容
 def ShowDL850Setting():
     pass  # 设置已嵌入设备页面，无需弹窗
@@ -158,17 +356,97 @@ def ShowACSetting():
     pass  # 设置已嵌入设备页面，无需弹窗
 
 
+@_with_device_ui_busy("OpenACOUTPUTON")
 def OpenACOUTPUTON():
     global ac_controller
-    return ac_controller.open_output()
+    setpoints = _get_active_ac_setpoints()
+    if setpoints[0] and setpoints[1]:
+        try:
+            ui.textEdit_ReturnMessage.append(
+                f"[AC] 开输出前恢复设定: {setpoints[0]}V / {setpoints[1]}Hz / {setpoints[2]}"
+            )
+        except Exception:
+            pass
+    sp = setpoints if setpoints[0] and setpoints[1] else None
+
+    def _work():
+        return ac_controller.open_output(setpoints=sp)
+
+    try:
+        return _run_device_io("OpenACOUTPUTON", _work)
+    except Exception as exc:
+        try:
+            ui.textEdit_ReturnMessage.append(f"[AC] 开输出异常: {exc}")
+        except Exception:
+            pass
+        return False
+
+
+def _get_active_ac_setpoints():
+    """从当前 AC 品牌页面读取 (volt, freq, phase)。"""
+    global _ac_current_brand, _ac_itch_ref, uiACSetting
+    try:
+        if _ac_current_brand == "itech" and _ac_itch_ref is not None:
+            return (
+                _ac_itch_ref["textEdit_VOLT"].toPlainText().strip(),
+                _ac_itch_ref["textEdit_FR"].toPlainText().strip(),
+                _ac_itch_ref["combo_phase"].currentText(),
+            )
+    except Exception:
+        pass
+    try:
+        return (
+            uiACSetting.textEdit_AC_VOLT.toPlainText().strip(),
+            uiACSetting.textEdit_AC_FR.toPlainText().strip(),
+            uiACSetting.comboBox_Phase.currentText(),
+        )
+    except Exception:
+        return ("", "", "")
+
+
+def _reapply_ac_setpoints_to_device(reason="恢复设定"):
+    """把界面上的电压/频率/相位重新下发到已连接的交流源（设备重启后必须）。"""
+    global ac_controller
+    if ac_controller is None or not getattr(ac_controller, "connected", False):
+        return False
+    volt, freq, phase = _get_active_ac_setpoints()
+    if not volt or not freq:
+        return False
+    try:
+        ui.textEdit_ReturnMessage.append(
+            f"[AC] {reason}: {volt}V / {freq}Hz / {phase}"
+        )
+    except Exception:
+        pass
+    return bool(ac_controller.apply_setpoints(volt, freq, phase))
 
 
 def SendACMessage():
     global ac_controller
+    # 爱科页面有独立输入框：发送时优先用当前品牌页，并同步到 Chroma 控件以免两边不一致
+    if _ac_current_brand == "itech" and _ac_itch_ref is not None and ac_controller is not None:
+        volt, freq, phase = _get_active_ac_setpoints()
+        if volt and freq:
+            try:
+                uiACSetting.textEdit_AC_VOLT.setPlainText(volt)
+                uiACSetting.textEdit_AC_FR.setPlainText(freq)
+                idx = uiACSetting.comboBox_Phase.findText(phase)
+                if idx >= 0:
+                    uiACSetting.comboBox_Phase.setCurrentIndex(idx)
+            except Exception:
+                pass
+            ok = ac_controller.apply_setpoints(volt, freq, phase)
+            try:
+                (_ac_itch_ref["log_edit"].append(
+                    f"{'OK' if ok else 'SKIP'}: VOLT {volt} FREQ {freq} {phase}"
+                ))
+            except Exception:
+                pass
+            return
     return ac_controller.send_message(uiACSetting)
 
 
-def SendDCTestMessage():
+def SendDCTestMessage(silent=False):
     global dc1_controller, dc2_controller, dc3_controller, dc4_controller, uiDC1Setting
 
     selected_dc = uiDC1Setting.comboBox_DC_Select.currentText().strip()
@@ -217,6 +495,7 @@ def SendDCTestMessage():
         now_to_datenow,
         dc_index=dc_index,
         dc_label=selected_dc,
+        silent=silent,
     )
     if not order_list:
         return []
@@ -560,13 +839,24 @@ def OpenDC1OUTPUTON():
     global dc1_controller, uiDC1Setting
     if dc1_controller is None:
         dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
+    # 开输出前先按界面恢复参数（设备关机重启后设定会丢失）
+    try:
+        _reapply_dc1_setpoints_to_device(reason="开输出前恢复设定", show_errors=False)
+    except Exception as e:
+        try:
+            ui.textEdit_ReturnMessage.append(f"[DC1] 开输出前恢复设定异常: {e}")
+        except Exception:
+            pass
     return dc1_controller.open_output("DC1", uiDC1Setting, logger)
 
-def CloseDC1OUTPUTON():
+
+def CloseDC1OUTPUTON(silent_if_disconnected=False):
     global dc1_controller, uiDC1Setting
     if dc1_controller is None:
         dc1_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC1Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc1_controller.close_output("DC1", uiDC1Setting, logger)
+    return dc1_controller.close_output(
+        "DC1", uiDC1Setting, logger, silent_if_disconnected=silent_if_disconnected
+    )
 
 def ShowDC2Setting():
     pass  # 设置已嵌入设备页面，无需弹窗
@@ -579,11 +869,13 @@ def OpenDC2OUTPUTON():
     return dc2_controller.open_output("DC2", uiDC2Setting, logger)
 
 
-def CloseDC2OUTPUTON():
+def CloseDC2OUTPUTON(silent_if_disconnected=False):
     global dc2_controller
     if dc2_controller is None:
         dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc2_controller.close_output("DC2", uiDC2Setting, logger)
+    return dc2_controller.close_output(
+        "DC2", uiDC2Setting, logger, silent_if_disconnected=silent_if_disconnected
+    )
 
 
 def ShowDC3Setting():
@@ -597,11 +889,13 @@ def OpenDC3OUTPUTON():
     return dc3_controller.open_output("DC3", uiDC3Setting, logger)
 
 
-def CloseDC3OUTPUTON():
+def CloseDC3OUTPUTON(silent_if_disconnected=False):
     global dc3_controller
     if dc3_controller is None:
         dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc3_controller.close_output("DC3", uiDC3Setting, logger)
+    return dc3_controller.close_output(
+        "DC3", uiDC3Setting, logger, silent_if_disconnected=silent_if_disconnected
+    )
 
 
 def ShowDC4Setting():
@@ -615,11 +909,13 @@ def OpenDC4OUTPUTON():
     return dc4_controller.open_output("DC4", uiDC4Setting, logger)
 
 
-def CloseDC4OUTPUTON():
+def CloseDC4OUTPUTON(silent_if_disconnected=False):
     global dc4_controller
     if dc4_controller is None:
         dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc4_controller.close_output("DC4", uiDC4Setting, logger)
+    return dc4_controller.close_output(
+        "DC4", uiDC4Setting, logger, silent_if_disconnected=silent_if_disconnected
+    )
 
 # def SendRMessage():
 #     if ui.textEdit_SendRCommand.toPlainText() != '':
@@ -670,6 +966,7 @@ dc4_controller = None
 bluesight_stc_params = {}
 # 蓝点 OUTP OFF 后机台缓降电压；关 AC 前额外等待（0.1s 计数，50=5s）
 BLUESIGHT_DC_OFF_SETTLE_01S = SAFE_BLUESIGHT_DC_OFF_SETTLE_01S
+DEFAULT_INTER_COMMAND_WAIT_01S = SAFE_DEFAULT_INTER_COMMAND_WAIT_01S
 
 # 过渡期上下文对象：用于把主程序运行时对象同步到 app 层，
 # 方便后续模块化，但不改变现有业务逻辑。
@@ -817,6 +1114,9 @@ _run_progress_state = {
     "cmd_index": 0,
     "cmd_total": 0,
     "progress": 0,
+    "started_at": 0.0,  # time.time()；0=未开始
+    "planned_seconds": 0.0,
+    "current_detail": "",
 }
 
 
@@ -867,6 +1167,12 @@ def _persist_run_progress(state):
     data["project"]["progress"] = int(state.get("progress") or 0)
     data["project"]["current_round"] = int(state.get("current_round") or 0)
     data["project"]["total_rounds"] = int(state.get("total_rounds") or 0)
+    if state.get("remain_text"):
+        data["project"]["remain_text"] = state.get("remain_text")
+    if state.get("eta_total_text"):
+        data["project"]["eta_total_text"] = state.get("eta_total_text")
+    if state.get("elapsed_text"):
+        data["project"]["elapsed_text"] = state.get("elapsed_text")
     try:
         with open(_status_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -884,27 +1190,41 @@ def _apply_run_progress_ui(state):
         return
     project = state.get("project") or ""
     status = state.get("status") or "未开始"
-    current_round = int(state.get("current_round") or 0)
-    total_rounds = int(state.get("total_rounds") or 0)
-    cmd_index = int(state.get("cmd_index") or 0)
-    cmd_total = int(state.get("cmd_total") or 0)
     progress = int(state.get("progress") or 0)
-    rounds = state.get("rounds") or []
 
-    summary = f"试验进度：{project or '-'} | {status}"
-    if total_rounds > 0:
-        summary += f" | 第 {current_round}/{total_rounds} 轮"
-    if cmd_total > 0:
-        summary += f" | 命令 {cmd_index}/{cmd_total}"
+    try:
+        from utils.run_progress_eta import build_progress_summary
+
+        summary = build_progress_summary(state, eta=state)
+    except Exception:
+        current_round = int(state.get("current_round") or 0)
+        total_rounds = int(state.get("total_rounds") or 0)
+        cmd_index = int(state.get("cmd_index") or 0)
+        cmd_total = int(state.get("cmd_total") or 0)
+        summary = f"试验进度：{project or '-'} | {status} | {progress}%"
+        if total_rounds > 0:
+            summary += f" | 第 {current_round}/{total_rounds} 轮"
+        if cmd_total > 0:
+            summary += f" | 命令 {cmd_index}/{cmd_total}"
+
     if hasattr(ui, "label_run_progress"):
+        ui.label_run_progress.setWordWrap(True)
         ui.label_run_progress.setText(summary)
     if hasattr(ui, "progressBar_run"):
         ui.progressBar_run.setValue(progress)
+        remain = state.get("remain_text") or ""
+        if status == "进行中" and remain:
+            ui.progressBar_run.setFormat(f"%p%  剩余{remain.replace('约 ', '')}")
+        elif status in ("已结束", "已中止") and state.get("elapsed_text"):
+            ui.progressBar_run.setFormat(f"%p%  用时{str(state.get('elapsed_text')).replace('约 ', '')}")
+        else:
+            ui.progressBar_run.setFormat("%p%")
 
     table = getattr(ui, "tableWidget_run_progress", None)
     if table is not None:
         from PyQt5.QtWidgets import QTableWidgetItem
         from PyQt5.QtGui import QColor, QBrush
+        rounds = state.get("rounds") or []
         table.setRowCount(len(rounds))
         color_map = {
             "等待": QColor("#6b7280"),
@@ -937,7 +1257,11 @@ def _apply_run_progress_ui(state):
         ui.home_project_name.setText(project)
     if hasattr(ui, "home_status"):
         color_map2 = {"未开始": "#9ca3af", "进行中": "#3b82f6", "已结束": "#22c55e", "已中止": "#ef4444"}
-        ui.home_status.setText(status)
+        remain = state.get("remain_text") or ""
+        home_txt = status
+        if status == "进行中" and remain:
+            home_txt = f"{status} · 剩{str(remain).replace('约 ', '')}"
+        ui.home_status.setText(home_txt)
         ui.home_status.setStyleSheet(
             f"font-size: 12px; font-weight: bold; color: {color_map2.get(status, '#9ca3af')}; background: transparent;"
         )
@@ -951,6 +1275,38 @@ def _emit_run_progress(persist=True, **kwargs):
             state[key] = value
     if "progress" not in kwargs or kwargs.get("progress") is None:
         state["progress"] = _compute_run_progress_percent(state)
+
+    # 时长估算
+    now_ts = time.time()
+    started = float(state.get("started_at") or 0.0)
+    if state.get("status") == "进行中" and started <= 0:
+        state["started_at"] = now_ts
+        started = now_ts
+    elapsed = (now_ts - started) if started > 0 else 0.0
+    if state.get("status") in ("未开始", "待开始"):
+        elapsed = 0.0
+    try:
+        from utils.run_progress_eta import compute_eta
+
+        eta = compute_eta(
+            elapsed_s=elapsed,
+            progress_pct=int(state.get("progress") or 0),
+            planned_total_s=float(state.get("planned_seconds") or 0.0),
+            cmd_index=int(state.get("cmd_index") or 0),
+            cmd_total=int(state.get("cmd_total") or 0),
+        )
+    except Exception:
+        eta = {
+            "planned_total_s": float(state.get("planned_seconds") or 0.0),
+            "elapsed_s": elapsed,
+            "remain_s": 0.0,
+            "eta_total_s": 0.0,
+            "planned_text": "约 —",
+            "elapsed_text": "约 —",
+            "remain_text": "约 —",
+            "eta_total_text": "约 —",
+        }
+
     snapshot = {
         "project": state.get("project", ""),
         "status": state.get("status", "未开始"),
@@ -960,6 +1316,10 @@ def _emit_run_progress(persist=True, **kwargs):
         "cmd_index": int(state.get("cmd_index") or 0),
         "cmd_total": int(state.get("cmd_total") or 0),
         "progress": int(state.get("progress") or 0),
+        "started_at": float(state.get("started_at") or 0.0),
+        "planned_seconds": float(state.get("planned_seconds") or 0.0),
+        "current_detail": str(state.get("current_detail") or ""),
+        **eta,
     }
     try:
         _ensure_progress_bridge().snapshot.emit(snapshot)
@@ -998,11 +1358,36 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
     except Exception:
         project = project_name or ""
     names = _parse_progress_file_names()
+    # DEWETRON append stores the planned file list on the section.
+    try:
+        if project and _is_dewetron_project_mode(project):
+            section = _get_dewetron_section(project)
+            dew_names = getattr(section, "_dew_file_names", None) if section else None
+            if dew_names:
+                names = list(dew_names)
+            dew_paths = getattr(section, "_dew_save_paths", None) if section else None
+            if dew_paths and (
+                getattr(section, "_dew_record_continuous", True)
+                or len(dew_paths) == 1
+            ):
+                # Continuous / single-file: one progress round even if filename
+                # list still has multiple legacy names.
+                total_override = 1
+            elif dew_paths:
+                total_override = len(dew_paths)
+            else:
+                total_override = None
+        else:
+            total_override = None
+    except Exception:
+        total_override = None
     total = 0
     try:
         total = int(globals().get("total_save_file") or 0)
     except Exception:
         total = 0
+    if total_override is not None:
+        total = int(total_override)
     if total <= 0:
         total = len(names)
     rounds = []
@@ -1010,10 +1395,17 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
         fn = names[i] if i < len(names) else f"轮次{i + 1}"
         rounds.append({"index": i + 1, "filename": fn, "status": "等待", "note": ""})
     cmd_total = 0
+    planned = 0.0
     try:
-        cmd_total = len(globals().get("strArrayTest") or [])
+        cmds = globals().get("strArrayTest") or []
+        cmd_total = len(cmds)
+        from utils.run_progress_eta import estimate_planned_seconds
+
+        planned = float(estimate_planned_seconds(cmds))
     except Exception:
         cmd_total = 0
+        planned = 0.0
+    started_at = time.time() if status == "进行中" else 0.0
     _emit_run_progress(
         project=project,
         status=status,
@@ -1023,6 +1415,9 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
         cmd_index=0,
         cmd_total=cmd_total,
         progress=0,
+        started_at=started_at,
+        planned_seconds=planned,
+        current_detail="",
         persist=True,
     )
 
@@ -1425,7 +1820,113 @@ _ac_itch_ref = None           # Itech AC 页面控件引用
 
 # ── DC1 设备类型选择状态 ──
 _dc1_device_type = "chroma"   # "chroma", "bluesight", or "itech"
+_dc1_breadcrumb_ref = None
+_dc1_bs_ref = None
+_dc1_itech_ref = None
 
+
+def _reapply_dc1_setpoints_to_device(reason="恢复设定", show_errors=False):
+    """按当前 DC1 品牌页，把界面参数重新下发到设备（断电重启后必须）。"""
+    global dc1_controller, _dc1_device_type, _dc1_bs_ref, _dc1_itech_ref, uiDC1Setting
+    if dc1_controller is None or not getattr(dc1_controller, "connected", False):
+        return False
+    try:
+        ui.textEdit_ReturnMessage.append(f"[DC1] {reason} ({_dc1_device_type})")
+    except Exception:
+        pass
+
+    if _dc1_device_type == "itech" and _dc1_itech_ref is not None:
+        vmp = _dc1_itech_ref["textEdit_Vmp"].toPlainText().strip()
+        voc = _dc1_itech_ref["textEdit_Voc"].toPlainText().strip()
+        imp = _dc1_itech_ref["textEdit_Imp"].toPlainText().strip()
+        isc = _dc1_itech_ref["textEdit_Isc"].toPlainText().strip()
+        if not all([vmp, voc, imp, isc]):
+            if show_errors:
+                QMessageBox.warning(None, "提示", "Vmp/Voc/Imp/Isc 四个参数不能为空")
+            return False
+        try:
+            for cmd in (
+                f"SOL:USER:VOC {voc}",
+                f"SOL:USER:IMP {imp}",
+                f"SOL:USER:VMP {vmp}",
+                f"SOL:USER:ISC {isc}",
+            ):
+                dc1_controller.handle.write(cmd)
+                time.sleep(0.2)
+            msg = f"[DC1 Itech] 参数已恢复: Vmp={vmp}, Voc={voc}, Imp={imp}, Isc={isc}"
+            _dc1_itech_ref["log_edit"].append(msg)
+            ui.textEdit_ReturnMessage.append(msg)
+            return True
+        except Exception as e:
+            ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 参数恢复失败: {e}")
+            if show_errors:
+                QMessageBox.critical(None, "错误", f"发送失败: {e}")
+            return False
+
+    if _dc1_device_type == "bluesight" and _dc1_bs_ref is not None:
+        # 重新应用当前模式参数（曲线 / 原始负载），不弹成功框以免打扰开输出流程
+        try:
+            from scpi_to_modbustcp import BluesightTranslator, BluesightCurveSTC
+            from PyQt5.QtWidgets import QDoubleSpinBox
+            client = getattr(dc1_controller, "client", None)
+            if client is None:
+                return False
+            tr = BluesightTranslator(client, device_id=1)
+            idx = _dc1_bs_ref["combo_mode"].currentIndex()
+            if idx == 1:  # SAS
+                stc = BluesightCurveSTC(
+                    pmpp_stc_kw=_dc1_bs_ref["sp_pmpp"].value(),
+                    umpp_stc_v=_dc1_bs_ref["sp_umpp"].value(),
+                    fill_factor=_dc1_bs_ref["sp_ff"].value(),
+                )
+                ok, msg = tr.write_curve_block(stc=stc)
+            elif idx == 0:  # 原始负载
+                idx_o = _dc1_bs_ref["combo_outmode"].currentIndex()
+                spins = _dc1_bs_ref["params_stack"].widget(idx_o).findChildren(QDoubleSpinBox)
+                if idx_o == 0:
+                    ok, msg = tr.write_original_load_params(
+                        0, voltage_v=spins[0].value(), r_internal_ohm=spins[1].value()
+                    )
+                elif idx_o == 1:
+                    ok, msg = tr.write_original_load_params(1, current_a=spins[0].value())
+                elif idx_o == 2:
+                    ok, msg = tr.write_original_load_params(2, power_kw=spins[0].value())
+                else:
+                    ok, msg = tr.write_original_load_params(3, r_load_ohm=spins[0].value())
+            else:
+                # 电池模拟等：只确保模式寄存器，开输出即可
+                ok, msg = True, "skip battery mode reapply"
+            _dc1_bs_ref["log_edit"].append(f"[DC1 Bluesight] {reason}: {'OK' if ok else 'FAIL'} {msg or ''}")
+            ui.textEdit_ReturnMessage.append(
+                f"[DC1 Bluesight] {reason}: {'OK' if ok else 'FAIL'}"
+            )
+            return bool(ok)
+        except Exception as e:
+            ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 参数恢复失败: {e}")
+            return False
+
+    # Chroma / 默认：走既有 IV 曲线下发
+    if uiDC1Setting is not None:
+        iv_fields = [
+            uiDC1Setting.textEdit_Vmp.toPlainText().strip(),
+            uiDC1Setting.textEdit_Imp.toPlainText().strip(),
+            uiDC1Setting.textEdit_Voc.toPlainText().strip(),
+            uiDC1Setting.textEdit_Isc.toPlainText().strip(),
+        ]
+        if not all(iv_fields):
+            ui.textEdit_ReturnMessage.append(
+                "[DC1] 连接成功，IV 参数未填写，已跳过自动曲线下发（填写后点击「发送曲线」）"
+            )
+            return True
+    try:
+        order_list = SendDCTestMessage(silent=True)
+        return bool(order_list)
+    except Exception as e:
+        ui.textEdit_ReturnMessage.append(f"[DC1] 参数恢复失败: {e}")
+        return False
+
+
+@_with_device_ui_busy("ConnectEQUAC")
 def ConnectEQUAC():
     """连接交流电源。"""
     global ac_controller, _ac_current_brand, _itech_ip_edit, _itech_port_edit
@@ -1464,28 +1965,55 @@ def ConnectEQUAC():
     print(tcp_addr)
     if ac_controller is None:
         ac_controller = ACController(logger, _show_connect_message, now_to_datenow, ui_setting=uiACSetting, rm=rm, modbus_client_cls=ModbusVISA, configure_scpi_resource=_configure_scpi_resource)
+
+    brand = _ac_current_brand
+    host, port = None, None
     if conn_type == "modbus":
         endpoint = _split_ipv4_tcp_endpoint(tcp_addr)
-        if endpoint is not None:
-            host, port = endpoint
-            print(f"通过 Modbus 连接交流电源({ac_device_key})")
-            ac_controller.connect_modbus(host, port, ui)
-        else:
+        if endpoint is None:
             print(f"Modbus 模式需要 IP 地址，当前地址: {tcp_addr}")
             return
-    else:
-        # chroma_ip：用原生 TCP Socket 绕过 NI-VISA
-        if _ac_current_brand == "chroma_ip":
-            ip_text = _itech_ip_edit.text().strip() if _itech_ip_edit else ""
-            port_text = _itech_port_edit.text().strip() if _itech_port_edit else ""
-            port = int(port_text) if port_text and port_text.isdigit() else None
-            print(f"通过 TCP Socket 连接交流电源({ac_device_key}): {ip_text}:{'自动探测' if port is None else port}")
-            ac_controller.connect_scpi_tcp(ip_text, port, ui)
+        host, port = endpoint
+    elif brand == "chroma_ip":
+        ip_text = _itech_ip_edit.text().strip() if _itech_ip_edit else ""
+        port_text = _itech_port_edit.text().strip() if _itech_port_edit else ""
+        host = ip_text
+        port = int(port_text) if port_text and port_text.isdigit() else None
+
+    volt, freq, phase = _get_active_ac_setpoints()
+
+    def _work():
+        if conn_type == "modbus":
+            print(f"通过 Modbus 连接交流电源({ac_device_key})")
+            ac_controller.connect_modbus(host, port, ui)
+        elif brand == "chroma_ip":
+            print(f"通过 TCP Socket 连接交流电源({ac_device_key}): {host}:{'自动探测' if port is None else port}")
+            ac_controller.connect_scpi_tcp(host, port, ui)
         else:
             print(f"通过 SCPI 连接交流电源({ac_device_key}): {tcp_addr}")
             ac_controller.connect_scpi(tcp_addr, ui)
-    if ac_controller.connected:
+        if ac_controller.connected and volt and freq:
+            try:
+                ac_controller.apply_setpoints(volt, freq, phase)
+            except Exception as exc:
+                print(f"[AC] 连接后恢复设定失败: {exc}")
+        return bool(ac_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUAC", _work)
+    except Exception as exc:
+        ui.textEdit_ReturnMessage.append(f"[AC] 连接异常 ({ac_device_key}) {tcp_addr}: {exc}")
+        return
+
+    if ok:
         ui.textEdit_ReturnMessage.append(f"[AC] 连接成功 ({ac_device_key}) {tcp_addr}")
+        if volt and freq:
+            try:
+                ui.textEdit_ReturnMessage.append(
+                    f"[AC] 连接后恢复设定: {volt}V / {freq}Hz / {phase}"
+                )
+            except Exception:
+                pass
         _remove_equ_from_combo_boxes(tcp_addr)
         _set_equ_combo_locked("comboBox_AC", True)
         _sync_ac_connect_buttons()
@@ -1633,6 +2161,7 @@ def _set_dc_factor_from_idn(dc_index, handle, fallback=None, modbus_client=None)
     print(f"DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), '')}")
 
 
+@_with_device_ui_busy("ConnectEQUDC1")
 def ConnectEQUDC1():
     """连接 DC1。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation
@@ -1645,52 +2174,57 @@ def ConnectEQUDC1():
     tcp_addr = _normalize_equ_resource_text(ui.comboBox_DC1.currentText())
     logger.info(tcp_addr)
     _ep = _split_ipv4_tcp_endpoint(tcp_addr)
-    if _ep is not None or is_ipv4_stdlib(tcp_addr):
-        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc1_device_type, "SCPI")
-        if conn_type == "modbus":
-            print(f"通过IP访问直流电源1({_dc1_device_type}/Modbus)")
-            dc1_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源1")
+    use_ip = _ep is not None or is_ipv4_stdlib(tcp_addr)
+    device_type = _dc1_device_type
+    conn_type = DC_DEVICE_CONNECT_TYPE.get(device_type, "SCPI") if use_ip else "SCPI"
+
+    def _work():
+        if use_ip:
+            if conn_type == "modbus":
+                print(f"通过IP访问直流电源1({device_type}/Modbus)")
+                dc1_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源1")
+            else:
+                visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+                print(f"通过IP访问直流电源1({device_type}/SCPI): {visa_addr}")
+                dc1_controller.connect_scpi(visa_addr, ui)
+            if dc1_controller.connected:
+                _set_dc_factor_from_idn(
+                    0, dc1_controller.handle, fallback="Chroma",
+                    modbus_client=dc1_controller.client if conn_type == "modbus" else None
+                )
         else:
-            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
-            print(f"通过IP访问直流电源1({_dc1_device_type}/SCPI): {visa_addr}")
-            dc1_controller.connect_scpi(visa_addr, ui)
-        if dc1_controller.connected:
-            print("直流源连接成功")
-            ui.textEdit_ReturnMessage.append(f"[DC1] 连接成功 ({_dc1_device_type}) {tcp_addr}")
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC1", True)
-            _set_dc_factor_from_idn(
-                0, dc1_controller.handle, fallback="Chroma",
-                modbus_client=dc1_controller.client if conn_type == "modbus" else None
-            )
-            _auto_switch_dc1_breadcrumb()
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "1"
-            print("直流电源1连接成功")
-            _sync_dc1_connect_buttons()
-            _save_device_status("直流电源1", True, tcp_addr)
-        else:
-            ui.textEdit_ReturnMessage.append(f"[DC1] 连接失败 ({_dc1_device_type}) {tcp_addr}")
+            dc1_controller.connect_scpi(tcp_addr, ui)
+            if dc1_controller.connected and dc1_controller.handle is not None:
+                _set_dc_factor_from_idn(0, dc1_controller.handle)
+        return bool(dc1_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUDC1", _work)
+    except Exception as exc:
+        ui.textEdit_ReturnMessage.append(f"[DC1] 连接异常 ({device_type}) {tcp_addr}: {exc}")
+        return
+
+    if ok:
+        print("直流源连接成功")
+        ui.textEdit_ReturnMessage.append(f"[DC1] 连接成功 ({device_type}) {tcp_addr}")
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DC1", True)
+        _auto_switch_dc1_breadcrumb()
+        strFlagSendDCCommandInfomation = "1"
+        strFlagOfSendDCCommandTestLog = "1"
+        print("直流电源1连接成功")
+        _sync_dc1_connect_buttons()
+        _save_device_status("直流电源1", True, tcp_addr)
+        _reapply_dc1_setpoints_to_device(reason="连接后恢复设定", show_errors=False)
     else:
-        dc1_controller.connect_scpi(tcp_addr, ui)
-        if dc1_controller.connected and dc1_controller.handle is not None:
-            ui.textEdit_ReturnMessage.append(f"[DC1] 连接成功 ({_dc1_device_type}) {tcp_addr}")
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC1", True)
-            _set_dc_factor_from_idn(0, dc1_controller.handle)
-            _auto_switch_dc1_breadcrumb()
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "1"
-            _sync_dc1_connect_buttons()
-            _save_device_status("直流电源1", True, tcp_addr)
-        else:
-            ui.textEdit_ReturnMessage.append(f"[DC1] 连接失败 ({_dc1_device_type}) {tcp_addr}")
+        ui.textEdit_ReturnMessage.append(f"[DC1] 连接失败 ({device_type}) {tcp_addr}")
 
 _dc2_device_type = "chroma"  # DC2 默认 Chroma，后续加面包屑后可切换
 _dc3_device_type = "chroma"  # DC3 默认 Chroma
 _dc4_device_type = "chroma"  # DC4 默认 Chroma
 
 
+@_with_device_ui_busy("ConnectEQUDC2")
 def ConnectEQUDC2():
     """连接 DC2（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc2_controller
@@ -1704,40 +2238,49 @@ def ConnectEQUDC2():
     if dc2_controller is None:
         dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     _ep = _split_ipv4_tcp_endpoint(tcp_addr)
-    if _ep is not None or is_ipv4_stdlib(tcp_addr):
-        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc2_device_type, "SCPI")
-        if conn_type == "modbus":
-            print(f"通过IP访问直流电源2({_dc2_device_type}/Modbus)")
-            dc2_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源2")
-        else:
-            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
-            print(f"通过IP访问直流电源2({_dc2_device_type}/SCPI): {visa_addr}")
-            dc2_controller.connect_scpi(visa_addr, ui)
-        if dc2_controller.connected:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC2", True)
-            _set_dc_factor_from_idn(
-                1,
-                dc2_controller.handle,
-                fallback="Chroma",
-                modbus_client=dc2_controller.client if conn_type == "modbus" else None,
-            )
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "2"
-            print("直流电源2连接成功")
-            ui.pushButton_ConnectEQUDC2.setText("取消连接")
-            _save_device_status("直流电源2", True, tcp_addr)
-    else:
-        dc2_controller.connect_scpi(tcp_addr, ui)
-        if dc2_controller.connected and dc2_controller.handle is not None:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC2", True)
-            _set_dc_factor_from_idn(1, dc2_controller.handle)
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "2"
-            ui.pushButton_ConnectEQUDC2.setText("取消连接")
-            _save_device_status("直流电源2", True, tcp_addr)
+    use_ip = _ep is not None or is_ipv4_stdlib(tcp_addr)
+    device_type = _dc2_device_type
+    conn_type = DC_DEVICE_CONNECT_TYPE.get(device_type, "SCPI") if use_ip else "SCPI"
 
+    def _work():
+        if use_ip:
+            if conn_type == "modbus":
+                print(f"通过IP访问直流电源2({device_type}/Modbus)")
+                dc2_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源2")
+            else:
+                visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+                print(f"通过IP访问直流电源2({device_type}/SCPI): {visa_addr}")
+                dc2_controller.connect_scpi(visa_addr, ui)
+            if dc2_controller.connected:
+                _set_dc_factor_from_idn(
+                    1,
+                    dc2_controller.handle,
+                    fallback="Chroma",
+                    modbus_client=dc2_controller.client if conn_type == "modbus" else None,
+                )
+        else:
+            dc2_controller.connect_scpi(tcp_addr, ui)
+            if dc2_controller.connected and dc2_controller.handle is not None:
+                _set_dc_factor_from_idn(1, dc2_controller.handle)
+        return bool(dc2_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUDC2", _work)
+    except Exception as exc:
+        print(f"[DC2] 连接异常: {exc}")
+        return
+
+    if ok:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DC2", True)
+        strFlagSendDCCommandInfomation = "1"
+        strFlagOfSendDCCommandTestLog = "2"
+        print("直流电源2连接成功")
+        ui.pushButton_ConnectEQUDC2.setText("取消连接")
+        _save_device_status("直流电源2", True, tcp_addr)
+
+
+@_with_device_ui_busy("ConnectEQUDC3")
 def ConnectEQUDC3():
     """连接 DC3（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc3_controller
@@ -1751,40 +2294,49 @@ def ConnectEQUDC3():
     if dc3_controller is None:
         dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     _ep = _split_ipv4_tcp_endpoint(tcp_addr)
-    if _ep is not None or is_ipv4_stdlib(tcp_addr):
-        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc3_device_type, "SCPI")
-        if conn_type == "modbus":
-            print(f"通过IP访问直流电源3({_dc3_device_type}/Modbus)")
-            dc3_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源3")
-        else:
-            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
-            print(f"通过IP访问直流电源3({_dc3_device_type}/SCPI): {visa_addr}")
-            dc3_controller.connect_scpi(visa_addr, ui)
-        if dc3_controller.connected:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC3", True)
-            _set_dc_factor_from_idn(
-                2,
-                dc3_controller.handle,
-                fallback="Chroma",
-                modbus_client=dc3_controller.client if conn_type == "modbus" else None,
-            )
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "3"
-            print("直流电源3连接成功")
-            ui.pushButton_ConnectEQUDC3.setText("取消连接")
-            _save_device_status("直流电源3", True, tcp_addr)
-    else:
-        dc3_controller.connect_scpi(tcp_addr, ui)
-        if dc3_controller.connected and dc3_controller.handle is not None:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC3", True)
-            _set_dc_factor_from_idn(2, dc3_controller.handle)
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "3"
-            ui.pushButton_ConnectEQUDC3.setText("取消连接")
-            _save_device_status("直流电源3", True, tcp_addr)
+    use_ip = _ep is not None or is_ipv4_stdlib(tcp_addr)
+    device_type = _dc3_device_type
+    conn_type = DC_DEVICE_CONNECT_TYPE.get(device_type, "SCPI") if use_ip else "SCPI"
 
+    def _work():
+        if use_ip:
+            if conn_type == "modbus":
+                print(f"通过IP访问直流电源3({device_type}/Modbus)")
+                dc3_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源3")
+            else:
+                visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+                print(f"通过IP访问直流电源3({device_type}/SCPI): {visa_addr}")
+                dc3_controller.connect_scpi(visa_addr, ui)
+            if dc3_controller.connected:
+                _set_dc_factor_from_idn(
+                    2,
+                    dc3_controller.handle,
+                    fallback="Chroma",
+                    modbus_client=dc3_controller.client if conn_type == "modbus" else None,
+                )
+        else:
+            dc3_controller.connect_scpi(tcp_addr, ui)
+            if dc3_controller.connected and dc3_controller.handle is not None:
+                _set_dc_factor_from_idn(2, dc3_controller.handle)
+        return bool(dc3_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUDC3", _work)
+    except Exception as exc:
+        print(f"[DC3] 连接异常: {exc}")
+        return
+
+    if ok:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DC3", True)
+        strFlagSendDCCommandInfomation = "1"
+        strFlagOfSendDCCommandTestLog = "3"
+        print("直流电源3连接成功")
+        ui.pushButton_ConnectEQUDC3.setText("取消连接")
+        _save_device_status("直流电源3", True, tcp_addr)
+
+
+@_with_device_ui_busy("ConnectEQUDC4")
 def ConnectEQUDC4():
     """连接 DC4（与 DC1 一致：纯 IPv4 → ModbusVISA，否则 VISA/SCPI）。"""
     global strFlagOfSendDCCommandTestLog, strFlagSendDCCommandInfomation, dc4_controller
@@ -1798,40 +2350,48 @@ def ConnectEQUDC4():
     if dc4_controller is None:
         dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
     _ep = _split_ipv4_tcp_endpoint(tcp_addr)
-    if _ep is not None or is_ipv4_stdlib(tcp_addr):
-        conn_type = DC_DEVICE_CONNECT_TYPE.get(_dc4_device_type, "SCPI")
-        if conn_type == "modbus":
-            print(f"通过IP访问直流电源4({_dc4_device_type}/Modbus)")
-            dc4_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源4")
-        else:
-            visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
-            print(f"通过IP访问直流电源4({_dc4_device_type}/SCPI): {visa_addr}")
-            dc4_controller.connect_scpi(visa_addr, ui)
-        if dc4_controller.connected:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC4", True)
-            _set_dc_factor_from_idn(
-                3,
-                dc4_controller.handle,
-                fallback="Chroma",
-                modbus_client=dc4_controller.client if conn_type == "modbus" else None,
-            )
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "4"
-            print("直流电源4连接成功")
-            ui.pushButton_ConnectEQUDC4.setText("取消连接")
-            _save_device_status("直流电源4", True, tcp_addr)
-    else:
-        dc4_controller.connect_scpi(tcp_addr, ui)
-        if dc4_controller.connected and dc4_controller.handle is not None:
-            _remove_equ_from_combo_boxes(tcp_addr)
-            _set_equ_combo_locked("comboBox_DC4", True)
-            _set_dc_factor_from_idn(3, dc4_controller.handle)
-            strFlagSendDCCommandInfomation = "1"
-            strFlagOfSendDCCommandTestLog = "4"
-            ui.pushButton_ConnectEQUDC4.setText("取消连接")
-            _save_device_status("直流电源4", True, tcp_addr)
+    use_ip = _ep is not None or is_ipv4_stdlib(tcp_addr)
+    device_type = _dc4_device_type
+    conn_type = DC_DEVICE_CONNECT_TYPE.get(device_type, "SCPI") if use_ip else "SCPI"
 
+    def _work():
+        if use_ip:
+            if conn_type == "modbus":
+                print(f"通过IP访问直流电源4({device_type}/Modbus)")
+                dc4_controller.connect_modbus(tcp_addr, ui, ModbusVISA, "直流电源4")
+            else:
+                visa_addr = f"TCPIP0::{tcp_addr}::INSTR"
+                print(f"通过IP访问直流电源4({device_type}/SCPI): {visa_addr}")
+                dc4_controller.connect_scpi(visa_addr, ui)
+            if dc4_controller.connected:
+                _set_dc_factor_from_idn(
+                    3,
+                    dc4_controller.handle,
+                    fallback="Chroma",
+                    modbus_client=dc4_controller.client if conn_type == "modbus" else None,
+                )
+        else:
+            dc4_controller.connect_scpi(tcp_addr, ui)
+            if dc4_controller.connected and dc4_controller.handle is not None:
+                _set_dc_factor_from_idn(3, dc4_controller.handle)
+        return bool(dc4_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUDC4", _work)
+    except Exception as exc:
+        print(f"[DC4] 连接异常: {exc}")
+        return
+
+    if ok:
+        _remove_equ_from_combo_boxes(tcp_addr)
+        _set_equ_combo_locked("comboBox_DC4", True)
+        strFlagSendDCCommandInfomation = "1"
+        strFlagOfSendDCCommandTestLog = "4"
+        print("直流电源4连接成功")
+        ui.pushButton_ConnectEQUDC4.setText("取消连接")
+        _save_device_status("直流电源4", True, tcp_addr)
+
+@_with_device_ui_busy("ConnectEQUDL850")
 def ConnectEQUDL850():
     """连接 DL850。"""
     global dl850_controller
@@ -1842,14 +2402,25 @@ def ConnectEQUDL850():
     logger.info(tcp_addr)
     if dl850_controller is None:
         dl850_controller = DL850Controller(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDL850Setting)
-    dl850_controller.connect(tcp_addr)
-    if dl850_controller.connected:
+
+    def _work():
+        dl850_controller.connect(tcp_addr)
+        return bool(dl850_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUDL850", _work)
+    except Exception as exc:
+        print(f"[DL850] 连接异常: {exc}")
+        return
+
+    if ok:
         _remove_equ_from_combo_boxes(tcp_addr)
         _set_equ_combo_locked("comboBox_DL850", True)
         _toggle_connection_button("pushButton_ConnectEQUDL850", True)
         ui.pushButton_ConnectEQUDL850.setText("取消连接")
         _save_device_status("DL850", True, tcp_addr)
 
+@_with_device_ui_busy("ConnectEQUDEWETRON")
 def ConnectEQUDEWETRON():
     """连接 DEWETRON。"""
     from PyQt5.QtWidgets import QMessageBox
@@ -1881,8 +2452,18 @@ def ConnectEQUDEWETRON():
 
     if dewetron_controller is None:
         dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
-    dewetron_controller.connect(tcp_addr)
-    if dewetron_controller.connected:
+
+    def _work():
+        dewetron_controller.connect(tcp_addr)
+        return bool(dewetron_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUDEWETRON", _work)
+    except Exception as exc:
+        print(f"[DEWETRON] 连接异常: {exc}")
+        ok = False
+
+    if ok:
         _remove_equ_from_combo_boxes(tcp_addr)
         _toggle_connection_button("pushButton_ConnectEQUDEWETRON", True)
         ui.pushButton_ConnectEQUDEWETRON.setText("取消连接")
@@ -1909,6 +2490,7 @@ def is_ip_address_format(addr):
     ip_port_pattern = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}(?::\d{1,5})?$")
     return bool(ip_port_pattern.match(addr.strip()))
 
+@_with_device_ui_busy("ConnectEQUWT3000")
 def ConnectEQUWT3000():
     """连接 WT3000。"""
     global wt3000_controller
@@ -1947,14 +2529,25 @@ def ConnectEQUWT3000():
 
     if wt3000_controller is None:
         wt3000_controller = WT3000Controller(logger, _show_connect_message, rm, WT3000_baud_rate)
-    wt3000_controller.connect(tcp_addr)
-    if wt3000_controller.connected:
+
+    def _work():
+        wt3000_controller.connect(tcp_addr)
+        if wt3000_controller.connected:
+            time.sleep(0.1)
+        return bool(wt3000_controller.connected)
+
+    try:
+        ok = _run_device_io("ConnectEQUWT3000", _work)
+    except Exception as exc:
+        print(f"[WT3000] 连接异常: {exc}")
+        return
+
+    if ok:
         _remove_equ_from_combo_boxes(tcp_addr)
         _set_equ_combo_locked("comboBox_WT3000", True)
         _toggle_connection_button("pushButton_ConnectEQUWT3000", True)
         ui.pushButton_ConnectEQUWT3000.setText("取消连接")
         _save_device_status("WT3000", True, tcp_addr)
-        time.sleep(0.1)
  
 def _create_visa_resource_manager(local_file_path):
     """创建 VISA ResourceManager。
@@ -1983,14 +2576,29 @@ def _create_visa_resource_manager(local_file_path):
 
 
 #重新刷新接口函数
+@_with_device_ui_busy("ReConnectEQU")
 def ReConnectEQU():
     global EQUList
     global rm
     global local_file_path
     global _connected_equ_resources
     # rm = visa.ResourceManager(local_file_path + '/visa32.dll')
-    rm = _create_visa_resource_manager(local_file_path)
-    str1 = rm.list_resources()
+
+    def _work():
+        new_rm = _create_visa_resource_manager(local_file_path)
+        resources = new_rm.list_resources()
+        return new_rm, list(resources) if resources else []
+
+    try:
+        result = _run_device_io("ReConnectEQU", _work)
+    except Exception as exc:
+        print(f"[EQU] 刷新接口失败: {exc}")
+        return
+    if not result:
+        return
+    new_rm, resources = result
+    rm = new_rm
+    str1 = resources
     if len(str1) > 0:
         iNumber = len(str1)
         print(iNumber)
@@ -2015,14 +2623,23 @@ def ReConnectEQU():
         ui.pushButton_ConnectEQUDEWETRON.setEnabled(False)
     _refresh_all_equ_combo_boxes(EQUList, _connected_equ_resources)
     ui.comboBox_WT3000.setEditable(False)
-    uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.clear()
-    uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.addItems(EQUList)
-    uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.clear()
-    uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.addItems(EQUList)
-    uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT.clear()
-    uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT.addItems(EQUList)
-    uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT.clear()
-    uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT.addItems(EQUList)
+    try:
+        from setup.main_setup import LazyDialog
+        _mppt_ready = (
+            not isinstance(uiThaiStaticMPPTTest, LazyDialog)
+            or uiThaiStaticMPPTTest.is_created
+        )
+    except Exception:
+        _mppt_ready = True
+    if _mppt_ready:
+        uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.clear()
+        uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT.addItems(EQUList)
+        uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.clear()
+        uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT.addItems(EQUList)
+        uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT.clear()
+        uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT.addItems(EQUList)
+        uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT.clear()
+        uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT.addItems(EQUList)
 
 #ramp解析函数
 def RampCommand(strCommand,strRampFirstValue,strRampEndValue,strRampTimes):
@@ -2066,47 +2683,42 @@ def _mark_dewetron_config_dirty(project_name):
         section._dew_config_dirty = True
 
 
+def _register_dewetron_section_for_project(project_name):
+    """Register one project's analyzer-mode section (call after that UI is created)."""
+    project_ui = _dewetron_project_ui(project_name)
+    if project_ui is None:
+        return
+    try:
+        from setup.main_setup import LazyDialog
+        if isinstance(project_ui, LazyDialog):
+            if not project_ui.is_created:
+                return
+            if project_ui.__dict__.get('_dew_section_registered'):
+                return
+        elif getattr(project_ui, '_dew_section_registered', False):
+            return
+    except Exception:
+        pass
+    section = getattr(project_ui, 'analyzerModeSection', None)
+    if section is None:
+        return
+    dewetron_coordinator.register_section(project_name, section)
+    section._dew_config_dirty = True
+    section._dew_applied_fingerprint = None
+    section.dewetron_panel.config_changed.connect(
+        lambda _config, name=project_name: _mark_dewetron_config_dirty(name)
+    )
+    try:
+        project_ui._dew_section_registered = True
+    except Exception:
+        pass
+    get_app_context().dewetron_coordinator = dewetron_coordinator
+
+
 def _register_dewetron_project_sections():
-    """Register analyzer-mode sections created by the eligible project dialogs."""
-    project_uis = {
-        '重连': uithaichonglian,
-        '无功能力范围': uiThaiReactiveQCap,
-        '定无功': uiThaiFixedQ,
-        '无功注入': uiThaiReactiveQin,
-        '无功精度': uiThaiReactiveQacc,
-        '有功调度': uiThaiActiveP,
-        '过载能力测试': uiThaiOverLoads,
-        '直流分量': uiThaiZhiLiuFenLiang,
-        '静态QU': uiThaiStaticQU,
-        '动态QU': uiThaiDynamicQU,
-        'Test_PU': uiThaiTestPU,
-        '静态Cos(φ)': uiThaiStaticCosPhi,
-        '动态Cos(φ)': uiThaiDynamicCosPhi,
-        'Cos(φ)_Brazil': uiThaiCosPhiBrazil,
-        '10min过压保护': uiThaiVoltProtect10min,
-        '过频降载': uiThaiGuoPinJiangZai,
-        '欠频升载': uiThaiQianPinShengZai,
-        '过欠压_过欠频': uiThaiGuoQianYa_Pin,
-        '巴西过欠频稳定性': uiThaiGuoQianPin_Immun,
-        '频率适应性': uiThaiFrequencyAdaptability,
-        '电压适应性': uiThaiVoltageAdaptability,
-        'ROCOF保护': uiThaiROCOF,
-        '快速电压变化': uiThaiRapidVolt,
-        '固定PF=1': uiThaiFixedPF,
-        '静态MPPT测试': uiThaiStaticMPPTTest,
-        '低电压穿越': uiThaiLVRT,
-        '相角突变': uiThaiPhaseJump,
-        '动态MPPT': uiThaiDynamicMPPT,
-    }
-    for project_name, project_ui in project_uis.items():
-        section = getattr(project_ui, 'analyzerModeSection', None)
-        if section is not None:
-            dewetron_coordinator.register_section(project_name, section)
-            section._dew_config_dirty = True
-            section._dew_applied_fingerprint = None
-            section.dewetron_panel.config_changed.connect(
-                lambda _config, name=project_name: _mark_dewetron_config_dirty(name)
-            )
+    """Register analyzer-mode sections for already-created eligible project dialogs."""
+    for project_name in ELIGIBLE_PROJECT_NAMES:
+        _register_dewetron_section_for_project(project_name)
     get_app_context().dewetron_coordinator = dewetron_coordinator
 
 
@@ -2121,6 +2733,7 @@ def _read_dewetron_xml_with_retry(attempts=3, delay_seconds=2):
     return {}, None
 
 
+@_with_device_ui_busy("ApplyDEWETRONConfig")
 def _apply_shared_dewetron_config(project_name):
     """Apply generic AutoTest collection/export settings to DEWETRON."""
     if dewetron_controller is None or not dewetron_controller.connected:
@@ -2138,31 +2751,44 @@ def _apply_shared_dewetron_config(project_name):
         QMessageBox.warning(None, "参数不完整", "\n".join(errors))
         return False
 
-    channel_id_map, xml_string = _read_dewetron_xml_with_retry()
-    if not xml_string:
-        QMessageBox.warning(None, "读取失败", "无法从设备读取当前配置")
+    def _work():
+        channel_id_map, xml_string = _read_dewetron_xml_with_retry()
+        if not xml_string:
+            return {"ok": False, "stage": "read"}
+        xml_string = dewetron_controller.modify_xml(
+            xml_string,
+            wiring_type=None,
+            channel_map={},
+            channel_id_map=channel_id_map,
+            acquisition_rate=config.rate_text if config.rate_text != 'Default' else None,
+            export_fields=config.export_fields,
+            decimal_places=config.decimal_places,
+            realtime_waveform=config.realtime_waveform,
+        )
+        if not dewetron_controller.send_apply_config(xml_string):
+            return {"ok": False, "stage": "apply"}
+        # Do NOT query :SYSTEM:ERROR:ALL? right after a large :SETUP:APPLY.
+        # OXYGEN can stay busy; the VISA SOCKET read has been observed to hang
+        # past the nominal timeout and freeze「测试生效」(holding the DEW IO
+        # lock). APPLY write success is enough to treat the config as applied.
+        return {"ok": True, "error_queue": None}
+
+    try:
+        result = _run_device_io("ApplyDEWETRONConfig", _work)
+    except Exception as exc:
+        QMessageBox.warning(None, "应用失败", f"DEWETRON配置异常: {exc}")
+        return False
+    if not result:
+        return False
+    if not result.get("ok"):
+        stage = result.get("stage")
+        if stage == "read":
+            QMessageBox.warning(None, "读取失败", "无法从设备读取当前配置")
+        else:
+            QMessageBox.warning(None, "应用失败", "DEWETRON配置发送失败")
         return False
 
-    xml_string = dewetron_controller.modify_xml(
-        xml_string,
-        wiring_type=None,
-        channel_map={},
-        channel_id_map=channel_id_map,
-        acquisition_rate=config.rate_text if config.rate_text != 'Default' else None,
-        export_fields=config.export_fields,
-        decimal_places=config.decimal_places,
-        realtime_waveform=config.realtime_waveform,
-    )
-    if not dewetron_controller.send_apply_config(xml_string):
-        QMessageBox.warning(None, "应用失败", "DEWETRON配置发送失败")
-        return False
-
-    error_queue = dewetron_controller.query_command(":SYSTEM:ERROR:ALL?", timeout_ms=5000)
-    if not error_queue or '0,' not in error_queue or 'No error' not in error_queue:
-        ui.textEdit_ReturnMessage.append(f"[DEWETRON] APPLY错误队列: {error_queue}")
-        QMessageBox.warning(None, "应用失败", f"设备错误队列: {error_queue}")
-        return False
-
+    # APPLY already succeeded — skip post-APPLY error-queue hard-fail.
     fingerprint = config_fingerprint(
         config, test_type=spec.test_type, profile=spec.profile
     )
@@ -2187,7 +2813,26 @@ def _refresh_shared_dewetron_fields(project_name):
     if not xml_string:
         QMessageBox.warning(None, "读取失败", "无法从设备读取当前配置")
         return False
-    section.dewetron_panel.refresh_export_field_tree(xml_string)
+    tree = section.dewetron_panel.refresh_export_field_tree(xml_string)
+    if not tree:
+        # 已连接且能读 XML，但 OXYGEN 工程里没有 Power Groups —— 勿再显示「请先连接」
+        try:
+            section.dewetron_panel._placeholder(
+                "已连接，但未找到电力组 Power Groups；请在 OXYGEN 中先创建电力组后再刷新"
+            )
+        except Exception:
+            pass
+        QMessageBox.warning(
+            None,
+            "未找到电力组",
+            "DEWETRON 已连接，配置也能读到，但当前工程里没有「Power Groups / 电力组」。\n\n"
+            "请在 OXYGEN（德威创上位机）里先添加电力组（Power Group），"
+            "保存/应用工程后再点「刷新电力组字段」。",
+        )
+        ui.textEdit_ReturnMessage.append(
+            f"[{project_name}] DEWETRON 已连接但无 Power Groups，请在 OXYGEN 创建电力组"
+        )
+        return False
     ui.textEdit_ReturnMessage.append(f"[{project_name}] DEWETRON字段树已刷新")
     return True
 
@@ -2366,15 +3011,71 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             # Preserve the configured dwell without invoking WTViewer automation.
             normalized.append(make_wait_row(max(trigger_waits)))
 
-    normalized.insert(0, ["DEWETRON", "write", DEWETRON_START_COMMAND, "", "", "", "", "", "", ""])
-    normalized.append(["DEWETRON", "write", DEWETRON_STOP_COMMAND, "", "", "", "", "", "", ""])
+    project_ui = _dewetron_project_ui(project_name)
+    from utils.matrix_recording_commands import get_record_mode
+    from utils.wt_recording_mode import MODE_CONTINUOUS
+    from utils.dewetron_recording import (
+        apply_dewetron_recording_boundaries,
+        resolve_dewetron_save_paths,
+    )
+
+    continuous = True
+    file_names = []
+    try:
+        continuous = get_record_mode(project_ui) == MODE_CONTINUOUS
+    except Exception:
+        continuous = True
+    try:
+        file_names = _parse_progress_file_names()
+    except Exception:
+        file_names = []
+    if project_name == "重连" and project_ui is not None:
+        try:
+            from utils.reconnect_commands import recommended_reconnect_names
+            from utils.wt_recording_mode import MODE_SPLIT as _MODE_SPLIT
+
+            mode = MODE_CONTINUOUS if continuous else _MODE_SPLIT
+            recommended = recommended_reconnect_names(project_ui, mode)
+            if recommended:
+                file_names = list(recommended)
+        except Exception:
+            pass
+    if not file_names and continuous:
+        try:
+            from utils.wt_recording_mode import resolve_continuous_filename
+
+            single = resolve_continuous_filename(project_ui)
+            if single:
+                file_names = [single]
+        except Exception:
+            pass
+
+    normalized = apply_dewetron_recording_boundaries(
+        normalized, continuous=continuous
+    )
+    spec = get_project_spec(project_name)
+    test_type = spec.test_type if spec else project_name
+    save_paths = resolve_dewetron_save_paths(
+        test_type=str(test_type or "dewetron"),
+        continuous=continuous,
+        file_names=file_names,
+    )
+    section._dew_record_continuous = continuous
+    section._dew_save_paths = list(save_paths)
+    section._dew_save_index = 0
+    section._dew_file_names = list(file_names) if file_names else [
+        f"轮次{i + 1}" for i in range(len(save_paths))
+    ]
+
     strArrayTest[snapshot['segment_start']:] = normalized
     del test_program[snapshot['program_start']:]
     WT_is_checked = ''
     project_change = ''
     section._dew_append_fingerprint = fingerprint
+    mode_label = "一条线连续录" if continuous else "分开录/分文件"
     ui.textEdit_ReturnMessage.append(
-        f"[{project_name}] DEWETRON模式已生成 {len(normalized)} 条命令（含START/STOP）"
+        f"[{project_name}] DEWETRON模式已生成 {len(normalized)} 条命令"
+        f"（{mode_label}，{len(save_paths)} 个文件，含 START/STOP）"
     )
     return True
 
@@ -2391,12 +3092,17 @@ def reset_wt_automation_state():
     """提交设定后重置WT自动化状态，确保下次开始会重新走自动化配置。"""
     global first_test, setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig, WT_auto_messure_status
     global strTestStatusFlag
-    # 运行中不允许重置自动化状态，避免中途把门闩清空导致后续命令无法触发测量。
-    if 'strTestStatusFlag' in globals() and strTestStatusFlag == "运行":
-        _append_debug_log(
-            "[state_guard][skip] reset_wt_automation_state ignored because test is running"
-        )
-        return
+    # 仅在实际执行中（已触发启动或仍有待执行命令）时拒绝重置。
+    # 自然结束后 strTestStatusFlag 可能仍短暂为「运行」但 strArrayTest 已空，
+    # 此时必须允许重置，否则换项追加会跳过 wt_is_check / WT 宏脚本。
+    if globals().get("strTestStatusFlag") == "运行":
+        pending_start = globals().get("strTestFlag") == "1"
+        has_commands = bool(globals().get("strArrayTest"))
+        if pending_start or has_commands:
+            _append_debug_log(
+                "[state_guard][skip] reset_wt_automation_state ignored because test is running"
+            )
+            return
     first_test = ''
     setting_status = ''
     messure_status = ''
@@ -2713,6 +3419,9 @@ def chooseDetailDialog():
     Mppt_step1, Mppt_step2, Mppt_step_end = {}, {}, {}
 
     if currentProject == 'Auto_Test':
+        _ensure_page = getattr(ui, '_ensure_auto_test_page', None)
+        if callable(_ensure_page) and currentSecond:
+            _ensure_page(currentSecond)
         if currentSecond == '重连':
             if 'chonglian_append_count' not in globals():
                 chonglian_append_count = 0
@@ -2960,6 +3669,9 @@ def addtestDialog():
 
 
     if currentProject == 'Auto_Test':
+        _ensure_page = getattr(ui, '_ensure_auto_test_page', None)
+        if callable(_ensure_page) and currentSecond:
+            _ensure_page(currentSecond)
         if currentSecond == '重连':
             if 'chonglian_append_count' not in globals():
                 chonglian_append_count = 0
@@ -3465,20 +4177,15 @@ def thaidianyashanbianSend():
             S1DC1Isc = uiThaiDianYaShanBian.textEdit_S1_DC1_Isc.toPlainText()
             S1DC1PF = uiThaiDianYaShanBian.textEdit_S1_DC1_PF.toPlainText()
 
-            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
-            dc1_is_bluesight = per_dc_factor.get("0") == "Bluesight"
-            if dc1_is_bluesight:
-                print(f"[闪变] DC1 蓝点直流源，跳过 IV 曲线验证")
+            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S1DC1PF,0)
+            if a == "1":
+                dc_error_messages.append("DC电源1赋值错误,请重新输入")
+            elif a == "2":
+                dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
-                a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S1DC1PF,0)
-                if a == "1":
-                    dc_error_messages.append("DC电源1赋值错误,请重新输入")
-                elif a == "2":
-                    dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
-                elif a == "3":
-                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC1.currentText()
@@ -3501,20 +4208,15 @@ def thaidianyashanbianSend():
             S1DC2Isc = uiThaiDianYaShanBian.textEdit_S1_DC2_Isc.toPlainText()
             S1DC2PF = uiThaiDianYaShanBian.textEdit_S1_DC2_PF.toPlainText()
 
-            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
-            dc2_is_bluesight = per_dc_factor.get("1") == "Bluesight"
-            if dc2_is_bluesight:
-                print(f"[闪变] DC2 蓝点直流源，跳过 IV 曲线验证")
+            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S1DC2PF, 1)
+            if a == "1":
+                dc_error_messages.append("DC电源2赋值错误,请重新输入")
+            elif a == "2":
+                dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
-                a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S1DC2PF, 1)
-                if a == "1":
-                    dc_error_messages.append("DC电源2赋值错误,请重新输入")
-                elif a == "2":
-                    dc_error_messages.append("DC电源2Isc,Imp赋值超范围,请重新输入")
-                elif a == "3":
-                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC2.currentText()
@@ -3537,20 +4239,15 @@ def thaidianyashanbianSend():
             S1DC3Isc = uiThaiDianYaShanBian.textEdit_S1_DC3_Isc.toPlainText()
             S1DC3PF = uiThaiDianYaShanBian.textEdit_S1_DC3_PF.toPlainText()
 
-            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
-            dc3_is_bluesight = per_dc_factor.get("2") == "Bluesight"
-            if dc3_is_bluesight:
-                print(f"[闪变] DC3 蓝点直流源，跳过 IV 曲线验证")
+            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S1DC3PF, 2)
+            if a == "1":
+                dc_error_messages.append("DC电源3赋值错误,请重新输入")
+            elif a == "2":
+                dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
-                a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S1DC3PF, 2)
-                if a == "1":
-                    dc_error_messages.append("DC电源3赋值错误,请重新输入")
-                elif a == "2":
-                    dc_error_messages.append("DC电源3Isc,Imp赋值超范围,请重新输入")
-                elif a == "3":
-                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC3.currentText()
@@ -3573,20 +4270,15 @@ def thaidianyashanbianSend():
             S1DC4Isc = uiThaiDianYaShanBian.textEdit_S1_DC4_Isc.toPlainText()
             S1DC4PF = uiThaiDianYaShanBian.textEdit_S1_DC4_PF.toPlainText()
 
-            # 蓝点直流源（恒压模式）不需要 IV 曲线参数
-            dc4_is_bluesight = per_dc_factor.get("3") == "Bluesight"
-            if dc4_is_bluesight:
-                print(f"[闪变] DC4 蓝点直流源，跳过 IV 曲线验证")
+            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S1DC4PF, 3)
+            if a == "1":
+                dc_error_messages.append("DC电源4赋值错误,请重新输入")
+            elif a == "2":
+                dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
-                a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S1DC4PF, 3)
-                if a == "1":
-                    dc_error_messages.append("DC电源4赋值错误,请重新输入")
-                elif a == "2":
-                    dc_error_messages.append("DC电源4Isc,Imp赋值超范围,请重新输入")
-                elif a == "3":
-                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
             strArraySingle = ["" for _ in range(10)]
             S1DC1Status = uiThaiDianYaShanBian.comboBox_S1_DC4.currentText()
@@ -3646,52 +4338,35 @@ def thaidianyashanbianSend():
 
             S2_WT3000_Single = uiThaiDianYaShanBian.comboBox_S2_WT.currentText()
             if S2_WT3000_Single == "单相":
+                # 单相应只测一个 Element；必须显式关掉其余 Element。
+                # 否则仪表若曾做过三相/残留 ELEMENT2/3 ON，屏上仍会继续测/显示 2/3。
                 if S2_WT3000_Setting == "ELEMENT1":
-
-                    strArraySingle = ["" for _ in range(10)]
-                    strArraySingle[0] = "WT3000"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 1"
-                    strArraySingle[8] = 1
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    strArraySingle[0] = "WT3000"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "FLICKER:ELEMENT1 ON"
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    on_el, off_els = 1, (2, 3)
                 elif S2_WT3000_Setting == "ELEMENT2":
+                    on_el, off_els = 2, (1, 3)
+                else:
+                    on_el, off_els = 3, (1, 2)
 
+                strArraySingle = ["" for _ in range(10)]
+                strArraySingle[0] = "WT3000"
+                strArraySingle[1] = "write"
+                strArraySingle[2] = f"FLICKER:DISPLAY:ELEMENT {on_el}"
+                strArraySingle[8] = 1
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                strArraySingle = ["" for _ in range(10)]
+                strArraySingle[0] = "WT3000"
+                strArraySingle[1] = "write"
+                strArraySingle[2] = f"FLICKER:ELEMENT{on_el} ON"
+                strArrayTest.append(strArraySingle)
+                strArrayTestStepSingle.append(strArraySingle)
+
+                for off_el in off_els:
                     strArraySingle = ["" for _ in range(10)]
                     strArraySingle[0] = "WT3000"
                     strArraySingle[1] = "write"
-                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 2"
-                    strArraySingle[8] = 1
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    strArraySingle[0] = "WT3000"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "FLICKER:ELEMENT2 ON"
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                elif S2_WT3000_Setting == "ELEMENT3":
-
-                    strArraySingle = ["" for _ in range(10)]
-                    strArraySingle[0] = "WT3000"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "FLICKER:DISPLAY:ELEMENT 3"
-                    strArraySingle[8] = 1
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    strArraySingle[0] = "WT3000"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = "FLICKER:ELEMENT3 ON"
+                    strArraySingle[2] = f"FLICKER:ELEMENT{off_el} OFF"
                     strArrayTest.append(strArraySingle)
                     strArrayTestStepSingle.append(strArraySingle)
             elif S2_WT3000_Single == "三相":
@@ -5381,6 +6056,30 @@ def thaichonglianSend():
         elif uithaichonglian.radioButton_S2_WT5000.isChecked():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uithaichonglian._wtStacked.widget(3)))
 
+        from utils.wt_recording_mode import apply_filename_list_to_wt_pages
+        from utils.matrix_recording_commands import get_record_mode
+        from utils.reconnect_commands import recommended_reconnect_names
+
+        _rec_mode = get_record_mode(uithaichonglian)
+        file_names = recommended_reconnect_names(uithaichonglian, _rec_mode)
+        apply_filename_list_to_wt_pages(uithaichonglian._wtStacked, file_names)
+        if file_names:
+            file_list_text = ",".join(file_names)
+            wt_config_dict["textEdit_FileNameList"] = file_list_text
+            if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
+                wt_config_dict["comboBox_AutoSave"] = 1
+            try:
+                for page_idx in range(uithaichonglian._wtStacked.count()):
+                    page = uithaichonglian._wtStacked.widget(page_idx)
+                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                    if te is not None:
+                        te.setPlainText(file_list_text)
+                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                    if combo is not None and combo.currentIndex() == 0:
+                        combo.setCurrentIndex(1)
+            except Exception as e:
+                _append_debug_log(f"[重连] update WT FileNameList failed: {e}")
+
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
         strArraySingle[0] = "Upper_WT_Config"
@@ -5425,137 +6124,8 @@ def thaichonglianSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uithaichonglian.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uithaichonglian.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uithaichonglian.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uithaichonglian.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uithaichonglian.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uithaichonglian.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uithaichonglian.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uithaichonglian.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uithaichonglian.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uithaichonglian, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -5748,6 +6318,41 @@ def thaichonglianSend():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
+    from utils.wt_recording_mode import MODE_CONTINUOUS
+    from utils.matrix_recording_commands import get_record_mode
+    from utils.reconnect_commands import append_reconnect_measure, enabled_reconnect_steps
+
+    _dew = _is_dewetron_project_mode("重连")
+    wt_on = bool(uithaichonglian.checkBox_S2.isChecked() and (not _dew))
+    record_continuous = get_record_mode(uithaichonglian) == MODE_CONTINUOUS
+    wt_continuous = record_continuous
+    enabled_reconn_steps = enabled_reconnect_steps(uithaichonglian)
+    if enabled_reconn_steps:
+        analyzer = "DEWETRON" if _dew else "WT"
+        if record_continuous:
+            ui.textEdit_ReturnMessage.append(
+                "[重连] %s 一条线连续录，单文件 Reconn_BR，共 %d 点"
+                % (analyzer, len(enabled_reconn_steps))
+            )
+        else:
+            ui.textEdit_ReturnMessage.append(
+                "[重连] %s 分开录/分文件，共 %d 点逐点存盘"
+                % (analyzer, len(enabled_reconn_steps))
+            )
+
+    def _reconn_measure(step_rows, step_no, dwell_01s):
+        first = bool(enabled_reconn_steps and step_no == enabled_reconn_steps[0])
+        last = bool(enabled_reconn_steps and step_no == enabled_reconn_steps[-1])
+        append_reconnect_measure(
+            strArrayTest,
+            step_rows,
+            dwell_01s=dwell_01s,
+            wt_continuous=wt_continuous,
+            wt_on=wt_on,
+            first_point=first,
+            last_point=last,
+        )
+
     # step3
     if uithaichonglian.checkBox_S3.isChecked():
         strArrayTestStepSingle = []
@@ -5759,111 +6364,15 @@ def thaichonglianSend():
         S3ACVOLT = uithaichonglian.textEdit_S3_AC_VOLT.toPlainText()
         S3ACFR = uithaichonglian.textEdit_S3_AC_FR.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-
-            print("单相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            print("三相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S3Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S3Command
-        strArraySingle[6] = fS3SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        print("单相电" if S1ACEACHStatus == "单相" else "三相电")
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S3ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        _bs = len(strArrayTest)
+        append_freq_set(strArrayTest, S1ACEACHStatus, S3ACFR)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        strArrayTestStep.append(strArrayTestStepSingle)
+        _reconn_measure(strArrayTestStepSingle, 3, fS3SetTime)
         strArrayTestStep.append(strArrayTestStepSingle)
 
     # step4
@@ -5877,107 +6386,14 @@ def thaichonglianSend():
         S4ACVOLT = uithaichonglian.textEdit_S4_AC_VOLT.toPlainText()
         S4ACFR = uithaichonglian.textEdit_S4_AC_FR.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(
-                strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S4Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S4Command
-        strArraySingle[9] = fS4SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S4ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        _bs = len(strArrayTest)
+        append_freq_set(strArrayTest, S1ACEACHStatus, S4ACFR)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        strArrayTestStep.append(strArrayTestStepSingle)
+        _reconn_measure(strArrayTestStepSingle, 4, fS4SetTime)
         strArrayTestStep.append(strArrayTestStepSingle)
 
     # step5
@@ -5991,106 +6407,14 @@ def thaichonglianSend():
         S5ACVOLT = uithaichonglian.textEdit_S5_AC_VOLT.toPlainText()
         S5ACFR = uithaichonglian.textEdit_S5_AC_FR.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S5Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S5Command
-        strArraySingle[9] = fS5SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S5ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        _bs = len(strArrayTest)
+        append_freq_set(strArrayTest, S1ACEACHStatus, S5ACFR)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        strArrayTestStep.append(strArrayTestStepSingle)
+        _reconn_measure(strArrayTestStepSingle, 5, fS5SetTime)
         strArrayTestStep.append(strArrayTestStepSingle)
 
     # step6
@@ -6104,106 +6428,14 @@ def thaichonglianSend():
         S6ACVOLT = uithaichonglian.textEdit_S6_AC_VOLT.toPlainText()
         S6ACFR = uithaichonglian.textEdit_S6_AC_FR.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S6Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S6Command
-        strArraySingle[9] = fS6SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S6ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        _bs = len(strArrayTest)
+        append_freq_set(strArrayTest, S1ACEACHStatus, S6ACFR)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        strArrayTestStep.append(strArrayTestStepSingle)
+        _reconn_measure(strArrayTestStepSingle, 6, fS6SetTime)
         strArrayTestStep.append(strArrayTestStepSingle)
 
     # step7
@@ -6217,106 +6449,14 @@ def thaichonglianSend():
         S7ACVOLT = uithaichonglian.textEdit_S7_AC_VOLT.toPlainText()
         S7ACFR = uithaichonglian.textEdit_S7_AC_FR.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S7Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S7Command
-        strArraySingle[6] = fS7SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S7ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        _bs = len(strArrayTest)
+        append_freq_set(strArrayTest, S1ACEACHStatus, S7ACFR)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+        strArrayTestStep.append(strArrayTestStepSingle)
+        _reconn_measure(strArrayTestStepSingle, 7, fS7SetTime)
         strArrayTestStep.append(strArrayTestStepSingle)
 
     # step_end
@@ -6449,7 +6589,16 @@ def thaichonglianSend():
     elif strShowErrorMessageBoxFlag == "brand":
         QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
-        total_save_file = total_save_file + 1
+        if enabled_reconn_steps:
+            if _dew or (wt_on and wt_continuous):
+                if record_continuous:
+                    total_save_file = total_save_file + 1
+                else:
+                    total_save_file = total_save_file + len(enabled_reconn_steps)
+            else:
+                total_save_file = total_save_file + len(enabled_reconn_steps)
+        else:
+            total_save_file = total_save_file + 1
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
             logger.info(strtimenow + "    设定实验内容完成")
@@ -6583,7 +6732,6 @@ def thaixiebodianliuSend():
         
     strArrayTestStep = []
     # 交流源相数
-    S1ACEACHStatus = uiThaiXieBoDianLiu.comboBox_S1_AC_2.currentText()
     strArraySingle = ["" for _ in range(10)]
 
     # step1
@@ -6602,138 +6750,8 @@ def thaixiebodianliuSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
 
         # 1or3
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiXieBoDianLiu.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiXieBoDianLiu.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_2 = uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_2
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiXieBoDianLiu.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_3 = uiThaiXieBoDianLiu.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_3
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiXieBoDianLiu.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiXieBoDianLiu, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -6780,6 +6798,8 @@ def thaixiebodianliuSend():
                     )
                 except Exception:
                     dc_error_messages.append("DC电源1Isc,Imp赋值超范围,请重新输入")
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
@@ -8148,23 +8168,9 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
         strArraySingle[2] = S1Command
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
-    # strArraySingle = ["" for _ in range(10)]
-    # S1Command = a[0]
-    # strArraySingle[0] = DC
-    # strArraySingle[1] = "write"
-    # strArraySingle[2] = S1Command
-    # strArrayTest.append(strArraySingle)
-    # strArrayTestStepSingle.append(strArraySingle)
 
-    # strArraySingle = ["" for _ in range(10)]
-    # S1Command = a[1]
-    # strArraySingle[0] = DC
-    # strArraySingle[1] = "write"
-    # strArraySingle[2] = S1Command
-    # strArrayTest.append(strArraySingle)
-    # strArrayTestStepSingle.append(strArraySingle)
-
-    if command_array:
+    # Chroma/Itech 前缀是「模式 → 曲线 → 激活」两段；蓝电只有 SYST:MODE SAS 一段。
+    if len(command_array) > 1:
         strArraySingle = ["" for _ in range(10)]
         S1Command = command_array[1]
         strArraySingle[0] = DC
@@ -8387,8 +8393,88 @@ def thaifixedpfSend():
 
 
 
+    # step2 WT 必须在启机等待之前下发（与谐波一致：点开始立刻配 WTViewer）
+    if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
+        wt_type = "WT3000"
+    elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
+        wt_type = "WT1800"
+    elif uiThaiFixedPF.radioButton_S2_WT1806E.isChecked():
+        wt_type = "WT1806E"
+    elif uiThaiFixedPF.radioButton_S2_WT5000.isChecked():
+        wt_type = "WT5000"
+    else:
+        wt_type = "WT3000"
+
+    _fixedpf_dew_mode = _is_dewetron_project_mode('固定PF=1')
+    if not _fixedpf_dew_mode:
+        manager.change_wt_type(wt_type)
+
+    if (not _fixedpf_dew_mode) and (strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1')):
+        if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiFixedPF._wtStacked.widget(0)))
+        elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
+            wt_config_dict = WT1800_params_config(_PageWidgetFinder(uiThaiFixedPF._wtStacked.widget(1)))
+        elif uiThaiFixedPF.radioButton_S2_WT1806E.isChecked():
+            wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiFixedPF._wtStacked.widget(2)))
+        elif uiThaiFixedPF.radioButton_S2_WT5000.isChecked():
+            wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiFixedPF._wtStacked.widget(3)))
+        else:
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiFixedPF._wtStacked.widget(0)))
+
+        from utils.wt_recording_mode import (
+            combo_index_to_mode, fixed_pf_recommended_filenames, apply_filename_list_to_wt_pages,
+        )
+        _pf_percents = []
+        for s in range(4, 9):
+            if getattr(uiThaiFixedPF, f"checkBox_S{s}").isChecked():
+                raw = getattr(uiThaiFixedPF, f"textEdit_S1_DC1_PF_{s}").toPlainText().strip()
+                try:
+                    _pf_percents.append(float(raw))
+                except ValueError:
+                    _pf_percents.append(float(s))
+        _rec_mode = combo_index_to_mode(uiThaiFixedPF.comboBox_S3_record_mode.currentIndex())
+        file_names = fixed_pf_recommended_filenames(_pf_percents, _rec_mode)
+        apply_filename_list_to_wt_pages(uiThaiFixedPF._wtStacked, file_names)
+        if file_names:
+            file_list_text = ",".join(file_names)
+            wt_config_dict["textEdit_FileNameList"] = file_list_text
+            if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
+                wt_config_dict["comboBox_AutoSave"] = 1
+            try:
+                for page_idx in range(uiThaiFixedPF._wtStacked.count()):
+                    page = uiThaiFixedPF._wtStacked.widget(page_idx)
+                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                    if te is not None:
+                        te.setPlainText(file_list_text)
+                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                    if combo is not None and combo.currentIndex() == 0:
+                        combo.setCurrentIndex(1)
+            except Exception as e:
+                _append_debug_log(f"[fixedPF] update WT FileNameList failed: {e}")
+
+        strArraySingle = ["" for _ in range(10)]
+        strArraySingle[0] = "Upper_WT_Config"
+        strArraySingle[3] = "config_dict"
+        strArraySingle[4] = wt_config_dict
+        strArrayTest.append(strArraySingle)
+
+    if strAddTestFlag == '1' and project_change == '1':
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = ""
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "wait"
+        strArraySingle[2] = S1Command
+        strArraySingle[9] = 20
+        strArrayTest.append(strArraySingle)
+        wt_config_nums = wt_config_nums + 1
+
+    if uiThaiFixedPF.checkBox_S2.isChecked() and (not _fixedpf_dew_mode):
+        WT_is_checked = '1'
+        if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
+            test_project_now_index = '8'
+            test_program.append([test_project_now_index, wt_type])
+
     # 交流源相数
-    S1ACEACHStatus = uiThaiFixedPF.comboBox_S1_AC_2.currentText()
     strArraySingle = ["" for _ in range(10)]
     strArrayTestStepSingle = []
 
@@ -8407,138 +8493,8 @@ def thaifixedpfSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit) # AC等待时间
 
         # 1or3
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiFixedPF.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiFixedPF.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiFixedPF.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiFixedPF.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_2 = uiThaiFixedPF.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_2
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiFixedPF.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_3 = uiThaiFixedPF.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_3
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiFixedPF.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiFixedPF, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -8716,1112 +8672,91 @@ def thaifixedpfSend():
 
         strArrayTestStep.append(strArrayTestStepSingle)
 
-    # step2 WT
-    S2_time = get_time_dynamic("S3","1")
-    if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
-        wt_type = "WT3000"
-    elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
-        wt_type = "WT1800"
-    elif uiThaiFixedPF.radioButton_S2_WT1806E.isChecked():
-        wt_type = "WT1806E"
-    elif uiThaiFixedPF.radioButton_S2_WT5000.isChecked():
-        wt_type = "WT5000"
-    else:
-        wt_type = "WT3000"
-    json_path = uiThaiFixedPF.cB_wt_json.currentText()
-    new_wt_save_path = uiThaiFixedPF.lE_wt_save_path.toPlainText()
+    from utils.wt_recording_mode import MODE_CONTINUOUS
+    from utils.matrix_recording_commands import get_record_mode
 
+    f_collect = get_time("textEdit_S3_TIME_2", "comboBox_S3_TIME_2")
+    f_wait = get_time("textEdit_S3_TIME_3", "comboBox_S3_TIME_3")
+    record_mode = get_record_mode(uiThaiFixedPF)
+    wt_continuous = record_mode == MODE_CONTINUOUS
+    enabled_steps = [s for s in range(4, 9) if getattr(uiThaiFixedPF, f"checkBox_S{s}").isChecked()]
+    wt_on = bool(uiThaiFixedPF.checkBox_S2.isChecked() and (not _fixedpf_dew_mode))
+    if wt_on and enabled_steps:
+        if wt_continuous:
+            total_save_file = total_save_file + 1
+        else:
+            total_save_file = total_save_file + len(enabled_steps)
 
-    _fixedpf_dew_mode = _is_dewetron_project_mode('固定PF=1')
-    if not _fixedpf_dew_mode:
-        manager.change_wt_type(wt_type)
+    dc_params = {}
+    try:
+        if uiThaiFixedPF.checkBox_S1_DC1.isChecked():
+            dc_params[1] = (S1DC1Vmp, S1DC1Imp, S1DC1Voc, S1DC1Isc)
+        if uiThaiFixedPF.checkBox_S1_DC2.isChecked():
+            dc_params[2] = (S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc)
+        if uiThaiFixedPF.checkBox_S1_DC3.isChecked():
+            dc_params[3] = (S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc)
+        if uiThaiFixedPF.checkBox_S1_DC4.isChecked():
+            dc_params[4] = (S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc)
+    except NameError:
+        dc_params = {}
 
-        # 固定PF：保存设定时会根据选择的 WT 宏(json)把"保存路径"字段写入
-        # 若宏文件不存在，直接提示并停止继续生成该项目，避免后续日志刷屏
-        _macro_path = PATH_RECORDINGS["WT3000"] + json_path
-        ok = modify_json_text_by_timestamp(
-            file_path=_macro_path,
-            new_text=new_wt_save_path,
-            target_timestamp=45.15636858940125,
-            timestamp_tolerance=0.1
-        )
-        if not ok:
-            QMessageBox.warning(
-                None,
-                "错误提示信息",
-                f"WT宏文件不存在或修改失败，请检查:\n{_macro_path}",
-                QMessageBox.Ok,
-                QMessageBox.Ok
-            )
-            return
-
-    # step2
-    if (not _fixedpf_dew_mode) and (strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1')):
-        #     if uiThaiFixedPF.checkBox_S2_WT3000.isChecked():
-    #         wt_config_dict = WT3000E_params_config(uiThiaWT3000E)
-    #     elif uiThaiFixedPF.checkBox_S2_WT1800.isChecked():
-    #         wt_config_dict = WT1800_params_config(uiThiaWT1800)
-    #     elif uiThaiFixedPF.checkBox_S2_WT1806E.isChecked():
-    #         wt_config_dict = WT1806E_params_config(uiThiaWT1806E)
-    #     elif uiThaiFixedPF.checkBox_S2_WT5000.isChecked():
-    #         wt_config_dict = WT5000_params_config(uiThiaWT5000)
-
-        strArraySingle = ["" for _ in range(10)]
-        # S1Command = wt_config_dict
-        strArraySingle[0] = "Upper_WT_Config"
-        strArraySingle[3] = "config_dict"
-        # strArraySingle[4] = S1Command
-        strArrayTest.append(strArraySingle)
-
-    if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 20
-        strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
-
-    if uiThaiFixedPF.checkBox_S2.isChecked() and (not _fixedpf_dew_mode):
-        WT_is_checked = '1'
-        if strAddTestFlag == '0' or (strAddTestFlag == '1' and project_change == '1'):
-            test_project_now_index = '8'
-    #         if uiThaiFixedPF.checkBox_S2_WT3000.isChecked():
-    #             wt_type = 'WT3000'
-    #         elif uiThaiFixedPF.checkBox_S2_WT1800.isChecked():
-    #             wt_type = 'WT1800'
-    #         elif uiThaiFixedPF.checkBox_S2_WT1806E.isChecked():
-    #             wt_type = 'WT1806E'
-    #         elif uiThaiFixedPF.checkBox_S2_WT5000.isChecked():
-    #             wt_type = 'WT5000'
-            test_program.append([test_project_now_index, wt_type])
-
-    if uiThaiFixedPF.checkBox_S2.isChecked():
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_path
-        strArraySingle[7] = S2_time
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-
-    # 共享时间参数（来自 Step3 测量设置）
-    S3_times = {}
-    for i in range(1, 5):
-        S3_times[i] = get_time_dynamic("S3", str(i), uiThaiFixedPF)
-
-    # step4 (测量步骤1)
-    if uiThaiFixedPF.checkBox_S4.isChecked():
+    err_map = {1: ("1", "2"), 2: ("3", "4"), 3: ("5", "6"), 4: ("7", "8")}
+    point_index = 0
+    for s in enabled_steps:
         strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
-
-        S4DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_4.toPlainText()
-        print(f'S4DCPF---{S4DCPF}')
-        try:
-            _append_debug_log(
-                "[fixedPF][S4] pf_input="
-                f"{S4DCPF!r}, "
-                f"DC1_4={uiThaiFixedPF.checkBox_S1_DC1_4.isChecked()}, "
-                f"DC2_4={uiThaiFixedPF.checkBox_S1_DC2_4.isChecked()}, "
-                f"DC3_4={uiThaiFixedPF.checkBox_S1_DC3_4.isChecked()}, "
-                f"DC4_4={uiThaiFixedPF.checkBox_S1_DC4_4.isChecked()}"
-            )
-        except Exception:
-            pass
-        # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_4.isChecked():
-            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S4DCPF, 0)
-            try:
-                _append_debug_log(f"[fixedPF][S4][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
+        pf_text = getattr(uiThaiFixedPF, f"textEdit_S1_DC1_PF_{s}").toPlainText()
+        for dc_n, params in dc_params.items():
+            step_dc = getattr(uiThaiFixedPF, f"checkBox_S1_DC{dc_n}_{s}")
+            if not step_dc.isChecked():
+                continue
+            a = DCGetIVValueFunction(params[0], params[1], params[2], params[3], pf_text, dc_n - 1)
             if a == "1":
-                strShowErrorMessageBoxFlag = "1"
+                strShowErrorMessageBoxFlag = err_map[dc_n][0]
             elif a == "2":
-                strShowErrorMessageBoxFlag = "2"
+                strShowErrorMessageBoxFlag = err_map[dc_n][1]
             elif a == "3":
                 strShowErrorMessageBoxFlag = "brand"
             else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, f"DC{dc_n}")
 
-        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_4.isChecked():
-            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S4DCPF, 1)
-            try:
-                _append_debug_log(f"[fixedPF][S4][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
+        if wt_on and wt_continuous and point_index == 0:
+            row = ["" for _ in range(10)]
+            row[0], row[1], row[2], row[6] = "AC", "query", "*IDN?", "ASYNC_START"
+            strArrayTest.append(row)
+            strArrayTestStepSingle.append(row)
 
-            if a == "1":
-                strShowErrorMessageBoxFlag = "3"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "4"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_4.isChecked():
-            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S4DCPF, 2)
-            try:
-                _append_debug_log(f"[fixedPF][S4][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
+        row = ["" for _ in range(10)]
+        row[0], row[1], row[2] = "AC", "query", "*IDN?"
+        row[9] = f_wait
+        strArrayTest.append(row)
+        strArrayTestStepSingle.append(row)
 
-            if a == "1":
-                strShowErrorMessageBoxFlag = "5"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-        
-        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_4.isChecked():
-            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S4DCPF, 3)
-            try:
-                _append_debug_log(f"[fixedPF][S4][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
+        row = ["" for _ in range(10)]
+        row[0], row[1], row[2] = "AC", "query", "*IDN?"
+        if wt_continuous:
+            row[9] = f_collect
+        else:
+            row[7] = f_collect
+        strArrayTest.append(row)
+        strArrayTestStepSingle.append(row)
 
-            if a == "1":
-                strShowErrorMessageBoxFlag = "7"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "8"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = S3_times[1]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-
-
-        new_S4_file_name = uiThaiFixedPF.lE_S4_filename.toPlainText()
-        json_1 = uiThaiFixedPF.cB_S4_json_1.currentText()
-        json_2 = uiThaiFixedPF.cB_S4_json_2.currentText()
-        json_3 = uiThaiFixedPF.cB_S4_json_3.currentText()
-
-        # 更改文件保存名
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_1
-        strArraySingle[2] = new_S4_file_name
-        strArraySingle[7] = S3_times[2]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_2
-        strArraySingle[7] = S3_times[3]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_3
-        strArraySingle[7] = S3_times[4]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        if not wt_continuous:
+            row = ["" for _ in range(10)]
+            row[0], row[1], row[2] = "AC", "query", "*IDN?"
+            row[8] = 10
+            strArrayTest.append(row)
+            strArrayTestStepSingle.append(row)
 
         strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # step5
-    if uiThaiFixedPF.checkBox_S5.isChecked():
-        strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
-        S5DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_5.toPlainText()
-        print(f'S5DCPF---{S5DCPF}')
-        try:
-            _append_debug_log(
-                "[fixedPF][S5] pf_input="
-                f"{S5DCPF!r}, "
-                f"DC1_5={uiThaiFixedPF.checkBox_S1_DC1_5.isChecked()}, "
-                f"DC2_5={uiThaiFixedPF.checkBox_S1_DC2_5.isChecked()}, "
-                f"DC3_5={uiThaiFixedPF.checkBox_S1_DC3_5.isChecked()}, "
-                f"DC4_5={uiThaiFixedPF.checkBox_S1_DC4_5.isChecked()}"
-            )
-        except Exception:
-            pass
-        # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_5.isChecked():
-            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S5DCPF, 0)
-            try:
-                _append_debug_log(f"[fixedPF][S5][DC1] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
+        point_index += 1
 
-            if a == "1":
-                strShowErrorMessageBoxFlag = "1"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "2"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
+    if wt_on and wt_continuous and enabled_steps:
+        row = ["" for _ in range(10)]
+        row[0], row[1], row[2], row[6] = "AC", "query", "*IDN?", "WAIT_END"
+        strArrayTest.append(row)
 
-        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_5.isChecked():
-            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S5DCPF, 1)
-            try:
-                _append_debug_log(f"[fixedPF][S5][DC2] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "3"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "4"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_5.isChecked():
-            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S5DCPF, 2)
-            try:
-                _append_debug_log(f"[fixedPF][S5][DC3] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "5"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-        
-        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_5.isChecked():
-            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S5DCPF, 3)
-            try:
-                _append_debug_log(f"[fixedPF][S5][DC4] result_type={type(a).__name__}, result_head={str(a)[:80]}")
-            except Exception:
-                pass
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "7"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "8"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = S3_times[1]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        
-        new_S5_file_name = uiThaiFixedPF.lE_S5_filename.toPlainText()
-        json_1 = uiThaiFixedPF.cB_S5_json_1.currentText()
-        json_2 = uiThaiFixedPF.cB_S5_json_2.currentText()
-        json_3 = uiThaiFixedPF.cB_S5_json_3.currentText()
-
-        # 更改文件保存名
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_1
-        strArraySingle[2] = new_S5_file_name
-        strArraySingle[7] = S3_times[2]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_2
-        strArraySingle[7] = S3_times[3]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_3
-        strArraySingle[7] = S3_times[4]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # step6
-    if uiThaiFixedPF.checkBox_S6.isChecked():
-        strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
-        S6DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_6.toPlainText()
-        print(f'S6DCPF---{S6DCPF}')
-        # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_6.isChecked():
-            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S6DCPF,0)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "1"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "2"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-
-        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_6.isChecked():
-            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S6DCPF, 1)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "3"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "4"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_6.isChecked():
-            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S6DCPF, 2)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "5"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_6.isChecked():
-            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S6DCPF, 3)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "7"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "8"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = S3_times[1]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        new_S6_file_name = uiThaiFixedPF.lE_S6_filename.toPlainText()
-        json_1 = uiThaiFixedPF.cB_S6_json_1.currentText()
-        json_2 = uiThaiFixedPF.cB_S6_json_2.currentText()
-        json_3 = uiThaiFixedPF.cB_S6_json_3.currentText()
-
-        # 更改文件保存名
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_1
-        strArraySingle[2] = new_S6_file_name
-        strArraySingle[7] = S3_times[2]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_2
-        strArraySingle[7] = S3_times[3]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_3
-        strArraySingle[7] = S3_times[4]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # step7
-    if uiThaiFixedPF.checkBox_S7.isChecked():
-        strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
-        S7DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_7.toPlainText()
-        print(f'S7DCPF---{S7DCPF}')
-        # DC1
-        if uiThaiFixedPF.checkBox_S1_DC1.isChecked() and uiThaiFixedPF.checkBox_S1_DC1_7.isChecked():
-            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S7DCPF,0)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "1"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "2"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-
-        if uiThaiFixedPF.checkBox_S1_DC2.isChecked() and uiThaiFixedPF.checkBox_S1_DC2_7.isChecked():
-            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S7DCPF, 1)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "3"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "4"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-        if uiThaiFixedPF.checkBox_S1_DC3.isChecked() and uiThaiFixedPF.checkBox_S1_DC3_7.isChecked():
-            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S7DCPF, 2)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "5"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "6"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-        if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S1_DC4_7.isChecked():
-            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S7DCPF, 3)
-
-            if a == "1":
-                strShowErrorMessageBoxFlag = "7"
-            elif a == "2":
-                strShowErrorMessageBoxFlag = "8"
-            elif a == "3":
-                strShowErrorMessageBoxFlag = "brand"
-            else:
-                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = S3_times[1]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        new_S7_file_name = uiThaiFixedPF.lE_S7_filename.toPlainText()
-        json_1 = uiThaiFixedPF.cB_S7_json_1.currentText()
-        json_2 = uiThaiFixedPF.cB_S7_json_2.currentText()
-        json_3 = uiThaiFixedPF.cB_S7_json_3.currentText()
-
-        # 更改文件保存名
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_1
-        strArraySingle[2] = new_S7_file_name
-        strArraySingle[7] = S3_times[2]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_2
-        strArraySingle[7] = S3_times[3]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = 'WT'
-        strArraySingle[1] = json_3
-        strArraySingle[7] = S3_times[4]
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # # step8
-    # if uiThaiFixedPF.checkBox_S8.isChecked():
-    #     strArrayTestStepSingle = []
-    #     total_save_file = total_save_file + 1
-
-    #     S8DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_8.toPlainText()
-    #     print(f'S8DCPF---{S8DCPF}')
-    #     # DC1
-    #     if uiThaiFixedPF.checkBox_S1_DC1_8.isChecked():
-    #         a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S8DCPF,0)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC2_8.isChecked():
-    #         a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S8DCPF, 1)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC3_8.isChecked():
-    #         a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S8DCPF, 2)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-    #     if uiThaiFixedPF.checkBox_S1_DC4_8.isChecked():
-    #         a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S8DCPF, 3)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "7"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "8"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[9] = fS1ACWaitTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-        
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-开始测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-        
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[7] = fS3SetTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[8] = 10
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-结束测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArrayTestStep.append(strArrayTestStepSingle)
-
-
-    
-    # # step9
-    # if uiThaiFixedPF.checkBox_S9.isChecked():
-    #     strArrayTestStepSingle = []
-    #     total_save_file = total_save_file + 1
-
-    #     S9DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_9.toPlainText()
-    #     print(f'S9DCPF---{S9DCPF}')
-    #     # DC1
-    #     if uiThaiFixedPF.checkBox_S1_DC1_9.isChecked():
-    #         a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S9DCPF,0)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC2_9.isChecked():
-    #         a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S9DCPF, 1)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC3_9.isChecked():
-    #         a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S9DCPF, 2)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-    #     if uiThaiFixedPF.checkBox_S1_DC3_9.isChecked():
-    #         a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S9DCPF, 3)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "7"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "8"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[9] = fS1ACWaitTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-        
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-开始测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[7] = fS3SetTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[8] = 10
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-结束测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)        
-
-    #     strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # # step10
-    # if uiThaiFixedPF.checkBox_S10.isChecked():
-    #     strArrayTestStepSingle = []
-    #     total_save_file = total_save_file + 1
-        
-    #     S10DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_10.toPlainText()
-    #     print(f'S10DCPF---{S10DCPF}')
-    #     # DC1
-    #     if uiThaiFixedPF.checkBox_S1_DC1_10.isChecked():
-    #         a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S10DCPF, 0)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC2_10.isChecked():
-    #         a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S10DCPF, 1)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC3_10.isChecked():
-    #         a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S10DCPF, 2)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-    #     if uiThaiFixedPF.checkBox_S1_DC3_10.isChecked():
-    #         a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S10DCPF, 3)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "7"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "8"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[9] = fS1ACWaitTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-开始测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-        
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[7] = fS3SetTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[8] = 10
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-结束测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # # step11
-    # if uiThaiFixedPF.checkBox_S11.isChecked():
-    #     strArrayTestStepSingle = []
-    #     total_save_file = total_save_file + 1
-
-    #     S11DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_11.toPlainText()
-    #     print(f'S11DCPF---{S11DCPF}')
-    #     # DC1
-    #     if uiThaiFixedPF.checkBox_S1_DC1_11.isChecked():
-    #         a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S11DCPF, 0)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC2_11.isChecked():
-    #         a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S11DCPF, 1)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC3_11.isChecked():
-    #         a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S11DCPF, 2)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-    #     if uiThaiFixedPF.checkBox_S1_DC3_11.isChecked():
-    #         a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S11DCPF, 3)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "7"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "8"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[9] = fS1ACWaitTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-开始测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-        
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[7] = fS3SetTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[8] = 10
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-结束测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # # step12
-    # if uiThaiFixedPF.checkBox_S12.isChecked():
-    #     strArrayTestStepSingle = []
-    #     total_save_file = total_save_file + 1
-
-    #     S12DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_12.toPlainText()
-    #     print(f'S12DCPF---{S12DCPF}')
-    #     # DC1
-    #     if uiThaiFixedPF.checkBox_S1_DC1_12.isChecked():
-    #         a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S12DCPF, 0)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC2_12.isChecked():
-    #         a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S12DCPF, 1)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC3_12.isChecked():
-    #         a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S12DCPF, 2)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-    #     if uiThaiFixedPF.checkBox_S1_DC4_12.isChecked():
-    #         a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S12DCPF, 3)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[9] = fS1ACWaitTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-开始测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-        
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[7] = fS3SetTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[8] = 10
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-结束测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # # step13
-    # if uiThaiFixedPF.checkBox_S13.isChecked():
-    #     strArrayTestStepSingle = []
-    #     total_save_file = total_save_file + 1
-
-    #     S13DCPF = uiThaiFixedPF.textEdit_S1_DC1_PF_13.toPlainText()
-    #     print(f'S13DCPF---{S13DCPF}')
-    #     # DC1
-    #     if uiThaiFixedPF.checkBox_S1_DC1_13.isChecked():
-    #         a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S13DCPF, 0)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC2_13.isChecked():
-    #         a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S13DCPF, 1)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
-        
-    #     if uiThaiFixedPF.checkBox_S1_DC3_13.isChecked():
-    #         a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S13DCPF, 2)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "5"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "6"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
-
-    #     if uiThaiFixedPF.checkBox_S1_DC4_13.isChecked():
-    #         a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S13DCPF, 3)
-
-    #         if a == "1":
-    #             strShowErrorMessageBoxFlag = "7"
-    #         elif a == "2":
-    #             strShowErrorMessageBoxFlag = "8"
-    #         else:
-    #             strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[9] = fS1ACWaitTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-开始测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-        
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[7] = fS3SetTime
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     S1Command = "*IDN?"
-    #     strArraySingle[0] = "AC"
-    #     strArraySingle[1] = "query"
-    #     strArraySingle[2] = S1Command
-    #     strArraySingle[8] = 10
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArraySingle = ["" for _ in range(10)]
-    #     strArraySingle[0] = 'WT'
-    #     strArraySingle[1] = '数值详细设置-结束测量.json'
-    #     strArrayTest.append(strArraySingle)
-    #     strArrayTestStepSingle.append(strArraySingle)
-
-    #     strArrayTestStep.append(strArrayTestStepSingle)
-    
     # step14
-    S14_time = get_time_dynamic("S14",1)
+
 
     if uiThaiFixedPF.checkBox_S14.isChecked():
         strArrayTestStepSingle = []
@@ -9908,7 +8843,6 @@ def thaifixedpfSend():
                 strArraySingle[2] = "OUTP OFF"
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
 
         if uiThaiFixedPF.checkBox_S1_DC4.isChecked() and uiThaiFixedPF.checkBox_S5_DC4.isChecked():
             strArraySingle = ["" for _ in range(10)]
@@ -9923,19 +8857,9 @@ def thaifixedpfSend():
                 strArraySingle[2] = "OUTP OFF"
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
 
-        # json
-        
-        if uiThaiFixedPF.checkBox_S14_2.isChecked():
-            json_1 = uiThaiFixedPF.cB_S14_json_14.currentText()
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "WT"
-            strArraySingle[1] = json_1
-            strArraySingle[7] = S14_time
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
+        strArrayTestStep.append(strArrayTestStepSingle)
+
 
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
@@ -9996,40 +8920,22 @@ def thaifixedpfSend():
 
 def thai_fixedpf_wt_change():
     global uiThaiFixedPF
-    if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
-        wt_type = "WT3000"
-    elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
-        wt_type = "WT1800"
-    elif uiThaiFixedPF.radioButton_S2_WT1806E.isChecked():
-        wt_type = "WT1806E"
-    elif uiThaiFixedPF.radioButton_S2_WT5000.isChecked():
-        wt_type = "WT5000"
-    else:
-        wt_type = "WT3000"
-    # 清空所有控件
-    uiThaiFixedPF.cB_wt_json.clear()
-    uiThaiFixedPF.cB_S14_json_14.clear()
-    for s in range(4, 9):  # S4到S8
-        for i in range(1, 4):  # json_1到json_3
-            getattr(uiThaiFixedPF, f'cB_S{s}_json_{i}').clear()
-
-    # 添加items到所有控件
-    uiThaiFixedPF.cB_wt_json.addItems(list_json_files(wt_type))
-    uiThaiFixedPF.cB_wt_json.setCurrentIndex(0)
-    uiThaiFixedPF.cB_S14_json_14.addItems(list_json_files(wt_type))
-    uiThaiFixedPF.cB_S14_json_14.setCurrentIndex(0)
-    for s in range(4, 9):  # S4到S8
-        for i in range(1, 4):
-            combo = getattr(uiThaiFixedPF, f'cB_S{s}_json_{i}')
-            combo.addItems(list_json_files(wt_type))
-            combo.setCurrentIndex(0)
+    if not hasattr(uiThaiFixedPF, "_wtStacked") or uiThaiFixedPF._radio_group is None:
+        return
+    btn = uiThaiFixedPF._radio_group.checkedButton()
+    if btn is not None:
+        uiThaiFixedPF._wtStacked.setCurrentIndex(uiThaiFixedPF._radio_group.id(btn))
 
 def thaifixedpf_ui_init():
     global uiThaiFixedPF
     global config
-    thai_fixedpf_wt_change()
     wt_file_save_path = config['PATH']['wt_file_save_path']
-    uiThaiFixedPF.lE_wt_save_path.setText(wt_file_save_path)
+    if hasattr(uiThaiFixedPF, "_wtStacked"):
+        for i in range(uiThaiFixedPF._wtStacked.count()):
+            page = uiThaiFixedPF._wtStacked.widget(i)
+            te = page.findChild(QtWidgets.QTextEdit, "textEdit_SavePath")
+            if te is not None:
+                te.setPlainText(wt_file_save_path)
 
 def thai_fixedpf_batch_time_change():
     pass
@@ -10142,63 +9048,96 @@ def thaireactiveQcapSend():
         wt_config_nums = wt_config_nums + 1
 
     if plan["dc_errors"]:
-        all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
+        from utils.wt_recording_mode import dedupe_errors
+
+        errors = dedupe_errors(plan["dc_errors"])
+        all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(errors)])
         QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
-    else:
-        file_names = plan.get("file_names") or []
-        if plan.get("wt_is_checked") == "1" and file_names:
-            file_list_text = ",".join(file_names)
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
-            try:
-                for page_idx in range(uiThaiReactiveQCap._wtStacked.count()):
-                    page = uiThaiReactiveQCap._wtStacked.widget(page_idx)
-                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
-                    if te is not None:
-                        te.setPlainText(file_list_text)
-                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
-                    if combo is not None and combo.currentIndex() == 0:
-                        combo.setCurrentIndex(1)
-            except Exception as e:
-                _append_debug_log(f"[reactiveQcap] update WT FileNameList failed: {e}")
-            total_save_file = total_save_file + len(file_names)
+        return
+    if strAddTestFlag == "0":
+        total_save_file = 0
+
+    file_names = plan.get("file_names") or []
+    if plan.get("wt_is_checked") == "1" and file_names:
+        file_list_text = ",".join(file_names)
+        # 连续录必须在追加时就把 StopTime 写入 WT 配置，否则 Upper_WT_Config
+        # 仍用界面旧短时，面板会先停录，软件却按 ASYNC 重算的长时长继续空等。
+        stop_str = ""
+        if plan.get("wt_continuous"):
+            n_pts = max(
+                1,
+                len(plan.get("power_levels") or []) * len(plan.get("cos_labels") or []),
+            )
+            dwell_01s = int(plan.get("dwell_01s") or 0)
+            # 余量要盖住启机抖动 + 关机；并避免 Viewer StopTime 比软件短导致「面板先停、命令还在跑」
+            stop_sec = int(round(n_pts * dwell_01s / 10.0 + 90))
+            if stop_sec < 20:
+                stop_sec = 20
+            stop_str = _seconds_to_stoptime_str(stop_sec)
+        for cfg_row in strArrayTest:
+            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
+                cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                if stop_str:
+                    cfg_row[4]["textEdit_StopTime"] = stop_str
+                if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
+                    cfg_row[4]["comboBox_AutoSave"] = 1
+                break
+        try:
+            for page_idx in range(uiThaiReactiveQCap._wtStacked.count()):
+                page = uiThaiReactiveQCap._wtStacked.widget(page_idx)
+                te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                if te is not None:
+                    te.setPlainText(file_list_text)
+                if stop_str:
+                    st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                    if st is not None:
+                        st.setPlainText(stop_str)
+                combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                if combo is not None and combo.currentIndex() == 0:
+                    combo.setCurrentIndex(1)
+        except Exception as e:
+            _append_debug_log(f"[reactiveQcap] update WT FileNameList failed: {e}")
+        wt_rounds = int(plan.get("wt_rounds") or len(file_names) or 0)
+        total_save_file = total_save_file + wt_rounds
+        if plan.get("wt_continuous"):
             ui.textEdit_ReturnMessage.append(
-                f"[无功能力范围] P×cosφ 共 {len(file_names)} 点逐点存盘"
+                "[无功能力范围] 一条线连续录，单文件 %s，StopTime %s"
+                % (file_names[0], stop_str or "-")
+            )
+        else:
+            ui.textEdit_ReturnMessage.append(
+                "[无功能力范围] P×cosφ 分开录，共 %d 点逐点存盘" % len(file_names)
             )
 
-        strtimenow = now_to_datenow()
-        if strAddTestFlag == "0":
-            try:
-                logger.info(strtimenow + "    设定实验内容完成")
-            except NameError:
-                pass
-            print(strtimenow + "    设定实验内容完成")
-        else:
-            try:
-                logger.info(strtimenow + "    累加设定实验内容完成")
-            except NameError:
-                pass
-            print(strtimenow + "    累加设定实验内容完成")
-            project_change = '0'
-        strSettingTestFlag = "1"
-        reset_wt_automation_state()
-        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
-        commands_file_name = f'reactiveQcap_commands{now_time}.csv'
-        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
-        if directory1[0] == '':
-            print('请选择一个文件')
-        else:
-            out = open(directory1[0], 'w+', newline='')
-            csv_write = csv.writer(out, dialect="excel")
-            for i in range(len(strArrayTest)):
-                csv_write.writerow(strArrayTest[i])
-            out.close()
+    strtimenow = now_to_datenow()
+    if strAddTestFlag == "0":
+        try:
+            logger.info(strtimenow + "    设定实验内容完成")
+        except NameError:
+            pass
+        print(strtimenow + "    设定实验内容完成")
+    else:
+        try:
+            logger.info(strtimenow + "    累加设定实验内容完成")
+        except NameError:
+            pass
+        print(strtimenow + "    累加设定实验内容完成")
+        project_change = '0'
+    strSettingTestFlag = "1"
+    reset_wt_automation_state()
+    now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+    commands_file_name = f'reactiveQcap_commands{now_time}.csv'
+    directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+    if directory1[0] == '':
+        print('请选择一个文件')
+    else:
+        out = open(directory1[0], 'w+', newline='')
+        csv_write = csv.writer(out, dialect="excel")
+        for i in range(len(strArrayTest)):
+            csv_write.writerow(strArrayTest[i])
+        out.close()
 
-        dialog_windowreactiveQcap.close()
+    dialog_windowreactiveQcap.close()
 
     if 'reactiveQcap_append_count' not in globals():
         reactiveQcap_append_count = 0
@@ -10316,12 +9255,28 @@ def thaifixedQSend():
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
         QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
     else:
+        if strAddTestFlag == "0":
+            total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
             file_list_text = ",".join(file_names)
+            stop_str = ""
+            if plan.get("wt_continuous"):
+                n_pts = max(
+                    1,
+                    len(plan.get("power_levels") or []) * len(plan.get("q_setpoints") or []),
+                )
+                dwell_01s = int(plan.get("dwell_01s") or 0)
+                # 余量要盖住启机抖动 + 关机；并避免 Viewer StopTime 比软件短导致「面板先停、命令还在跑」
+                stop_sec = int(round(n_pts * dwell_01s / 10.0 + 90))
+                if stop_sec < 20:
+                    stop_sec = 20
+                stop_str = _seconds_to_stoptime_str(stop_sec)
             for cfg_row in strArrayTest:
                 if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
                     cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                    if stop_str:
+                        cfg_row[4]["textEdit_StopTime"] = stop_str
                     if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
                         cfg_row[4]["comboBox_AutoSave"] = 1
                     break
@@ -10331,15 +9286,26 @@ def thaifixedQSend():
                     te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
                     if te is not None:
                         te.setPlainText(file_list_text)
+                    if stop_str:
+                        st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                        if st is not None:
+                            st.setPlainText(stop_str)
                     combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
                     if combo is not None and combo.currentIndex() == 0:
                         combo.setCurrentIndex(1)
             except Exception as e:
                 _append_debug_log(f"[fixedQ] update WT FileNameList failed: {e}")
-            total_save_file = total_save_file + len(file_names)
-            ui.textEdit_ReturnMessage.append(
-                f"[定无功] P×Q 共 {len(file_names)} 点逐点存盘"
-            )
+            wt_rounds = int(plan.get("wt_rounds") or len(file_names) or 0)
+            total_save_file = total_save_file + wt_rounds
+            if plan.get("wt_continuous"):
+                ui.textEdit_ReturnMessage.append(
+                    "[定无功] 一条线连续录，单文件 %s，StopTime %s"
+                    % (file_names[0], stop_str or "-")
+                )
+            else:
+                ui.textEdit_ReturnMessage.append(
+                    f"[定无功] P×Q 共 {len(file_names)} 点逐点存盘"
+                )
 
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -10487,12 +9453,28 @@ def thaireactiveQaccSend():
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
         QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
     else:
+        if strAddTestFlag == "0":
+            total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
             file_list_text = ",".join(file_names)
+            stop_str = ""
+            if plan.get("wt_continuous"):
+                n_pts = max(
+                    1,
+                    len(plan.get("power_levels") or []) * len(plan.get("q_setpoints") or []),
+                )
+                dwell_01s = int(plan.get("dwell_01s") or 0)
+                # 余量要盖住启机抖动 + 关机；并避免 Viewer StopTime 比软件短导致「面板先停、命令还在跑」
+                stop_sec = int(round(n_pts * dwell_01s / 10.0 + 90))
+                if stop_sec < 20:
+                    stop_sec = 20
+                stop_str = _seconds_to_stoptime_str(stop_sec)
             for cfg_row in strArrayTest:
                 if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
                     cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                    if stop_str:
+                        cfg_row[4]["textEdit_StopTime"] = stop_str
                     if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
                         cfg_row[4]["comboBox_AutoSave"] = 1
                     break
@@ -10502,15 +9484,26 @@ def thaireactiveQaccSend():
                     te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
                     if te is not None:
                         te.setPlainText(file_list_text)
+                    if stop_str:
+                        st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                        if st is not None:
+                            st.setPlainText(stop_str)
                     combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
                     if combo is not None and combo.currentIndex() == 0:
                         combo.setCurrentIndex(1)
             except Exception as e:
                 _append_debug_log(f"[reactiveQacc] update WT FileNameList failed: {e}")
-            total_save_file = total_save_file + len(file_names)
-            ui.textEdit_ReturnMessage.append(
-                f"[无功精度] P×Q 共 {len(file_names)} 点逐点存盘"
-            )
+            wt_rounds = int(plan.get("wt_rounds") or len(file_names) or 0)
+            total_save_file = total_save_file + wt_rounds
+            if plan.get("wt_continuous"):
+                ui.textEdit_ReturnMessage.append(
+                    "[无功精度] 一条线连续录，单文件 %s，StopTime %s"
+                    % (file_names[0], stop_str or "-")
+                )
+            else:
+                ui.textEdit_ReturnMessage.append(
+                    f"[无功精度] P×Q 共 {len(file_names)} 点逐点存盘"
+                )
 
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -10658,12 +9651,28 @@ def thaireactiveQinSend():
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
         QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
     else:
+        if strAddTestFlag == "0":
+            total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
             file_list_text = ",".join(file_names)
+            stop_str = ""
+            if plan.get("wt_continuous"):
+                n_pts = max(
+                    1,
+                    len(plan.get("power_levels") or []) * len(plan.get("q_setpoints") or []),
+                )
+                dwell_01s = int(plan.get("dwell_01s") or 0)
+                # 余量要盖住启机抖动 + 关机；并避免 Viewer StopTime 比软件短导致「面板先停、命令还在跑」
+                stop_sec = int(round(n_pts * dwell_01s / 10.0 + 90))
+                if stop_sec < 20:
+                    stop_sec = 20
+                stop_str = _seconds_to_stoptime_str(stop_sec)
             for cfg_row in strArrayTest:
                 if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
                     cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                    if stop_str:
+                        cfg_row[4]["textEdit_StopTime"] = stop_str
                     if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
                         cfg_row[4]["comboBox_AutoSave"] = 1
                     break
@@ -10673,15 +9682,26 @@ def thaireactiveQinSend():
                     te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
                     if te is not None:
                         te.setPlainText(file_list_text)
+                    if stop_str:
+                        st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                        if st is not None:
+                            st.setPlainText(stop_str)
                     combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
                     if combo is not None and combo.currentIndex() == 0:
                         combo.setCurrentIndex(1)
             except Exception as e:
                 _append_debug_log(f"[reactiveQin] update WT FileNameList failed: {e}")
-            total_save_file = total_save_file + len(file_names)
-            ui.textEdit_ReturnMessage.append(
-                f"[无功注入] P×Q 共 {len(file_names)} 点逐点存盘"
-            )
+            wt_rounds = int(plan.get("wt_rounds") or len(file_names) or 0)
+            total_save_file = total_save_file + wt_rounds
+            if plan.get("wt_continuous"):
+                ui.textEdit_ReturnMessage.append(
+                    "[无功注入] 一条线连续录，单文件 %s，StopTime %s"
+                    % (file_names[0], stop_str or "-")
+                )
+            else:
+                ui.textEdit_ReturnMessage.append(
+                    f"[无功注入] P×Q 共 {len(file_names)} 点逐点存盘"
+                )
 
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -10829,12 +9849,25 @@ def thaiactivePSend():
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
         QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
     else:
+        if strAddTestFlag == "0":
+            total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
             file_list_text = ",".join(file_names)
+            stop_str = ""
+            if plan.get("wt_continuous"):
+                n_pts = max(1, len(plan.get("power_levels") or []))
+                dwell_01s = int(plan.get("dwell_01s") or 0)
+                # 余量要盖住启机抖动 + 关机；并避免 Viewer StopTime 比软件短导致「面板先停、命令还在跑」
+                stop_sec = int(round(n_pts * dwell_01s / 10.0 + 90))
+                if stop_sec < 20:
+                    stop_sec = 20
+                stop_str = _seconds_to_stoptime_str(stop_sec)
             for cfg_row in strArrayTest:
                 if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
                     cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                    if stop_str:
+                        cfg_row[4]["textEdit_StopTime"] = stop_str
                     if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
                         cfg_row[4]["comboBox_AutoSave"] = 1
                     break
@@ -10844,15 +9877,26 @@ def thaiactivePSend():
                     te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
                     if te is not None:
                         te.setPlainText(file_list_text)
+                    if stop_str:
+                        st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                        if st is not None:
+                            st.setPlainText(stop_str)
                     combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
                     if combo is not None and combo.currentIndex() == 0:
                         combo.setCurrentIndex(1)
             except Exception as e:
                 _append_debug_log(f"[activeP] update WT FileNameList failed: {e}")
-            total_save_file = total_save_file + len(file_names)
-            ui.textEdit_ReturnMessage.append(
-                f"[有功调度] P指令 共 {len(file_names)} 点逐点存盘"
-            )
+            wt_rounds = int(plan.get("wt_rounds") or len(file_names) or 0)
+            total_save_file = total_save_file + wt_rounds
+            if plan.get("wt_continuous"):
+                ui.textEdit_ReturnMessage.append(
+                    "[有功调度] 一条线连续录，单文件 %s，StopTime %s"
+                    % (file_names[0], stop_str or "-")
+                )
+            else:
+                ui.textEdit_ReturnMessage.append(
+                    f"[有功调度] P指令 共 {len(file_names)} 点逐点存盘"
+                )
 
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -10964,6 +10008,32 @@ def thaioverloadsSend():
         elif uiThaiOverLoads.radioButton_S2_WT5000.isChecked():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(3)))
 
+        from utils.wt_recording_mode import (
+            apply_filename_list_to_wt_pages,
+            overload_recommended_filenames,
+        )
+        from utils.matrix_recording_commands import get_record_mode
+
+        _rec_mode = get_record_mode(uiThaiOverLoads)
+        file_names = overload_recommended_filenames(_rec_mode)
+        apply_filename_list_to_wt_pages(uiThaiOverLoads._wtStacked, file_names)
+        if file_names:
+            file_list_text = ",".join(file_names)
+            wt_config_dict["textEdit_FileNameList"] = file_list_text
+            if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
+                wt_config_dict["comboBox_AutoSave"] = 1
+            try:
+                for page_idx in range(uiThaiOverLoads._wtStacked.count()):
+                    page = uiThaiOverLoads._wtStacked.widget(page_idx)
+                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                    if te is not None:
+                        te.setPlainText(file_list_text)
+                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                    if combo is not None and combo.currentIndex() == 0:
+                        combo.setCurrentIndex(1)
+            except Exception as e:
+                _append_debug_log(f"[overloads] update WT FileNameList failed: {e}")
+
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
         strArraySingle[0] = "Upper_WT_Config"
@@ -10983,7 +10053,6 @@ def thaioverloadsSend():
         
     strArrayTestStep = []
     # 交流源相数
-    S1ACEACHStatus = uiThaiOverLoads.comboBox_S1_AC_2.currentText()
     strArraySingle = ["" for _ in range(10)]
 
     # step1
@@ -11002,138 +10071,8 @@ def thaioverloadsSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
 
         # 1or3
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiOverLoads.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiOverLoads.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiOverLoads.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiOverLoads.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_2 = uiThaiOverLoads.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_2
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiOverLoads.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_3 = uiThaiOverLoads.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_3
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiOverLoads.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiOverLoads, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -11339,17 +10278,28 @@ def thaioverloadsSend():
 
     # step3
     if uiThaiOverLoads.checkBox_S3.isChecked():
+        from utils.wt_recording_mode import MODE_CONTINUOUS
+        from utils.matrix_recording_commands import get_record_mode
+        from utils.overload_commands import build_overload_measure_rows
+
         strArrayTestStepSingle = []
         total_save_file = total_save_file + 1
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[7] = fS3SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _dew = _is_dewetron_project_mode("过载能力测试")
+        wt_on = bool(uiThaiOverLoads.checkBox_S2.isChecked() and (not _dew))
+        wt_continuous = get_record_mode(uiThaiOverLoads) == MODE_CONTINUOUS
+        for row in build_overload_measure_rows(
+            fS3SetTime, wt_continuous=wt_continuous, wt_on=wt_on
+        ):
+            strArrayTest.append(row)
+            strArrayTestStepSingle.append(row)
+        if wt_continuous:
+            ui.textEdit_ReturnMessage.append(
+                "[过载能力测试] 一条线连续录，单文件 Overload_BR"
+            )
+        else:
+            ui.textEdit_ReturnMessage.append(
+                "[过载能力测试] 分开录，单文件 Overload_90min"
+            )
 
         strArrayTestStep.append(strArrayTestStepSingle)
     
@@ -11579,6 +10529,35 @@ def thaizhiliufenliangSend():
             wt_config_dict = WT1806E_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(2)))
         elif uiThaiZhiLiuFenLiang.radioButton_S2_WT5000.isChecked():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(3)))
+        else:
+            wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(0)))
+
+        from utils.wt_recording_mode import dc_injection_recommended_filenames
+        from utils.matrix_recording_commands import get_record_mode
+        from utils.dc_injection_commands import enabled_dc_injection_steps
+        from utils.wt_recording_mode import apply_filename_list_to_wt_pages
+
+        _rec_mode = get_record_mode(uiThaiZhiLiuFenLiang)
+        file_names = dc_injection_recommended_filenames(
+            enabled_dc_injection_steps(uiThaiZhiLiuFenLiang), _rec_mode
+        )
+        apply_filename_list_to_wt_pages(uiThaiZhiLiuFenLiang._wtStacked, file_names)
+        if file_names:
+            file_list_text = ",".join(file_names)
+            wt_config_dict["textEdit_FileNameList"] = file_list_text
+            if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
+                wt_config_dict["comboBox_AutoSave"] = 1
+            try:
+                for page_idx in range(uiThaiZhiLiuFenLiang._wtStacked.count()):
+                    page = uiThaiZhiLiuFenLiang._wtStacked.widget(page_idx)
+                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                    if te is not None:
+                        te.setPlainText(file_list_text)
+                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                    if combo is not None and combo.currentIndex() == 0:
+                        combo.setCurrentIndex(1)
+            except Exception as e:
+                _append_debug_log(f"[直流分量] update WT FileNameList failed: {e}")
 
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
@@ -11598,8 +10577,8 @@ def thaizhiliufenliangSend():
         wt_config_nums = wt_config_nums + 1
 
     strArrayTestStep = []
+    DCPF_VALUE_LIST = []
     # 交流源相数
-    S1ACEACHStatus = uiThaiZhiLiuFenLiang.comboBox_S1_AC_2.currentText()
     strArraySingle = ["" for _ in range(10)]
 
     # step1
@@ -11618,138 +10597,8 @@ def thaizhiliufenliangSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
 
         # 1or3
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiZhiLiuFenLiang.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiZhiLiuFenLiang.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiZhiLiuFenLiang.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiZhiLiuFenLiang.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_2 = uiThaiZhiLiuFenLiang.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_2
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiZhiLiuFenLiang.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT_3 = uiThaiZhiLiuFenLiang.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT_3
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiZhiLiuFenLiang.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiZhiLiuFenLiang, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -11962,31 +10811,54 @@ def thaizhiliufenliangSend():
     fS1ACWaitTime = float(S1_ACWaitTimeValue)
     fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
 
+    from utils.wt_recording_mode import MODE_CONTINUOUS
+    from utils.matrix_recording_commands import get_record_mode
+    from utils.dc_injection_commands import append_dc_injection_measure
+
+    _dew = _is_dewetron_project_mode("直流分量")
+    wt_on = bool(uiThaiZhiLiuFenLiang.checkBox_S2.isChecked() and (not _dew))
+    wt_continuous = get_record_mode(uiThaiZhiLiuFenLiang) == MODE_CONTINUOUS
+    enabled_dc_steps = [
+        s for s in (3, 4, 5, 6)
+        if getattr(uiThaiZhiLiuFenLiang, "checkBox_S%d" % s).isChecked()
+    ]
+    if enabled_dc_steps:
+        if wt_on and wt_continuous:
+            total_save_file = total_save_file + 1
+        else:
+            total_save_file = total_save_file + len(enabled_dc_steps)
+        if wt_continuous:
+            ui.textEdit_ReturnMessage.append(
+                "[直流分量] 一条线连续录，单文件 DCInj_BR，共 %d 点" % len(enabled_dc_steps)
+            )
+        else:
+            ui.textEdit_ReturnMessage.append(
+                "[直流分量] 分开录，共 %d 点逐点存盘" % len(enabled_dc_steps)
+            )
+
+    def _dc_inj_measure(step_rows, step_no, include_wait=True):
+        first = bool(enabled_dc_steps and step_no == enabled_dc_steps[0])
+        last = bool(enabled_dc_steps and step_no == enabled_dc_steps[-1])
+        append_dc_injection_measure(
+            strArrayTest,
+            step_rows,
+            wait_01s=fS1ACWaitTime,
+            collect_01s=fS3SetTime,
+            wt_continuous=wt_continuous,
+            wt_on=wt_on,
+            include_wait=include_wait,
+            first_point=first,
+            last_point=last,
+        )
+
     # step3
     if uiThaiZhiLiuFenLiang.checkBox_S3.isChecked():
         strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
 
         S3DCPF = uiThaiZhiLiuFenLiang.textEdit_S3_DC_PF.toPlainText()
         print(f'S3DCPF---{S3DCPF}')
         if S3DCPF in DCPF_VALUE_LIST:
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[7] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 10
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+            _dc_inj_measure(strArrayTestStepSingle, 3, include_wait=False)
         else:
             # DC1
             if uiThaiZhiLiuFenLiang.checkBox_S1_DC1.isChecked() and uiThaiZhiLiuFenLiang.checkBox_S3_DC1.isChecked():
@@ -12037,40 +10909,13 @@ def thaizhiliufenliangSend():
                 else:
                     strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
-            strArrayTestStepSingle = []
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+            _dc_inj_measure(strArrayTestStepSingle, 3, include_wait=True)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[7] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 10
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArrayTestStep.append(strArrayTestStepSingle)
+        strArrayTestStep.append(strArrayTestStepSingle)
 
     # step4
     if uiThaiZhiLiuFenLiang.checkBox_S4.isChecked():
         strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
 
         S4DCPF = uiThaiZhiLiuFenLiang.textEdit_S4_DC_PF.toPlainText()
         print(f'S4DCPF---{S4DCPF}')
@@ -12123,40 +10968,13 @@ def thaizhiliufenliangSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = fS1ACWaitTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[7] = fS3SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _dc_inj_measure(strArrayTestStepSingle, 4, include_wait=True)
 
         strArrayTestStep.append(strArrayTestStepSingle)
     
     # step5
     if uiThaiZhiLiuFenLiang.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
 
         S5DCPF = uiThaiZhiLiuFenLiang.textEdit_S5_DC_PF.toPlainText()
         print(f'S5DCPF---{S5DCPF}')
@@ -12209,39 +11027,13 @@ def thaizhiliufenliangSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = fS1ACWaitTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[7] = fS3SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _dc_inj_measure(strArrayTestStepSingle, 5, include_wait=True)
 
         strArrayTestStep.append(strArrayTestStepSingle)
     
     # step6
     if uiThaiZhiLiuFenLiang.checkBox_S6.isChecked():
         strArrayTestStepSingle = []
-        total_save_file = total_save_file + 1
 
         S6DCPF = uiThaiZhiLiuFenLiang.textEdit_S6_DC_PF.toPlainText()
         print(f'S6DCPF---{S6DCPF}')
@@ -12294,32 +11086,7 @@ def thaizhiliufenliangSend():
             else:
                 strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = fS1ACWaitTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[7] = fS3SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 10
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
+        _dc_inj_measure(strArrayTestStepSingle, 6, include_wait=True)
 
         strArrayTestStep.append(strArrayTestStepSingle)
     
@@ -12595,137 +11362,8 @@ def thaistaticQUSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiStaticQU.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticQU.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticQU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticQU.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticQU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticQU.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticQU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticQU.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticQU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiStaticQU, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -13088,102 +11726,14 @@ def thaistaticQUSend():
                 AC_CHANGE_LIST.append(str(ACVOLOT))
         if len(AC_CHANGE_LIST) > 0:
             for k in range(len(AC_CHANGE_LIST)):
-                if S1ACEACHStatus == "单相":
-                    print("单相电")
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "FREQ " + S3ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif S1ACEACHStatus == "三相":
-                    print("三相电")
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "INST:NSEL 1"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "FREQ " + S3ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "INST:NSEL 2"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "FREQ " + S3ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "INST:NSEL 3"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "FREQ " + S3ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
+                print("单相电" if S1ACEACHStatus == "单相" else "三相电")
+                _bs = len(strArrayTest)
+                append_volt_set(strArrayTest, S1ACEACHStatus, AC_CHANGE_LIST[k])
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                _bs = len(strArrayTest)
+                append_freq_set(strArrayTest, S1ACEACHStatus, S3ACFR)
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                strArrayTestStep.append(strArrayTestStepSingle)
                 if k == 0:
                     strArraySingle = ["" for _ in range(10)]
                     S3Command = "*IDN?"
@@ -13239,99 +11789,13 @@ def thaistaticQUSend():
         if len(AC_CHANGE_LIST) > 0:
             for k in range(len(AC_CHANGE_LIST)):
 
-                if S1ACEACHStatus == "单相":
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "FREQ " + S4ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif S1ACEACHStatus == "三相":
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "INST:NSEL 1"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "FREQ " + S4ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "INST:NSEL 2"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "FREQ " + S4ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(
-                        strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "INST:NSEL 3"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "FREQ " + S4ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-                
+                _bs = len(strArrayTest)
+                append_volt_set(strArrayTest, S1ACEACHStatus, AC_CHANGE_LIST[k])
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                _bs = len(strArrayTest)
+                append_freq_set(strArrayTest, S1ACEACHStatus, S4ACFR)
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                strArrayTestStep.append(strArrayTestStepSingle)
                 strArraySingle = ["" for _ in range(10)]
                 S4Command = "*IDN?"
                 strArraySingle[0] = "AC"
@@ -13376,98 +11840,13 @@ def thaistaticQUSend():
         if len(AC_CHANGE_LIST) > 0:
             for k in range(len(AC_CHANGE_LIST)):
 
-                if S1ACEACHStatus == "单相":
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "FREQ " + S5ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif S1ACEACHStatus == "三相":
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "INST:NSEL 1"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "FREQ " + S5ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "INST:NSEL 2"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "FREQ " + S5ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "INST:NSEL 3"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "FREQ " + S5ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
+                _bs = len(strArrayTest)
+                append_volt_set(strArrayTest, S1ACEACHStatus, AC_CHANGE_LIST[k])
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                _bs = len(strArrayTest)
+                append_freq_set(strArrayTest, S1ACEACHStatus, S5ACFR)
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                strArrayTestStep.append(strArrayTestStepSingle)
                 strArraySingle = ["" for _ in range(10)]
                 S5Command = "*IDN?"
                 strArraySingle[0] = "AC"
@@ -13511,98 +11890,13 @@ def thaistaticQUSend():
                 AC_CHANGE_LIST.append(str(ACVOLOT))
         if len(AC_CHANGE_LIST) > 0:
             for k in range(len(AC_CHANGE_LIST)):
-                if S1ACEACHStatus == "单相":
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "FREQ " + S6ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif S1ACEACHStatus == "三相":
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "INST:NSEL 1"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "FREQ " + S6ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "INST:NSEL 2"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "FREQ " + S6ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "INST:NSEL 3"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "VOLT " + AC_CHANGE_LIST[k]
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "FREQ " + S6ACFR
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-                
+                _bs = len(strArrayTest)
+                append_volt_set(strArrayTest, S1ACEACHStatus, AC_CHANGE_LIST[k])
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                _bs = len(strArrayTest)
+                append_freq_set(strArrayTest, S1ACEACHStatus, S6ACFR)
+                strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                strArrayTestStep.append(strArrayTestStepSingle)
                 if k == len(AC_CHANGE_LIST) - 1:
                     strArraySingle = ["" for _ in range(10)]
                     S6Command = "*IDN?"
@@ -14017,7 +12311,6 @@ def thaistaticcosPhiSend():
 
     strArrayTestStep = []
     strArraySingle = ["" for _ in range(10)]
-    S1ACEACHStatus = uiThaiStaticCosPhi.comboBox_S1_AC_2.currentText()
     # step1
     if uiThaiStaticCosPhi.checkBox_S1.isChecked():
         strArrayTestStepSingle = []
@@ -14033,136 +12326,8 @@ def thaistaticcosPhiSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiStaticCosPhi.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticCosPhi.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticCosPhi.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticCosPhi.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticCosPhi.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticCosPhi.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticCosPhi.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticCosPhi.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticCosPhi.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        # 爱科三相：EDIT ALL + 一次 VOLT/FREQ（勿再用 EDIT EACH+NSEL，否则 0x0C48=独立，面板像只有一相动）
+        append_ac_startup_from_ui(uiThaiStaticCosPhi, strArrayTest, strArrayTestStepSingle)
 
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
@@ -14361,7 +12526,15 @@ def thaistaticcosPhiSend():
     fS3SetTime = float(S3_TIME_VALUE)
     fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
 
-    # 功率阶梯外循环 × 已勾选 cosφ 内循环；每点改 IV + col6 触发 WT
+    # 功率阶梯外循环 × 已勾选 cosφ 内循环；按 WT「连续录/分开录」分支
+    from utils.wt_recording_mode import MODE_CONTINUOUS
+    from utils.matrix_recording_commands import get_record_mode, row_wt_async_marker
+    from utils.static_cosphi_recording import plan_stop_and_names, stoptime_hhmmss
+
+    _dew = getattr(uiThaiStaticCosPhi, "_mode", "wt") == "dewetron"
+    wt_on = bool(uiThaiStaticCosPhi.checkBox_S2.isChecked() and not _dew)
+    wt_continuous = get_record_mode(uiThaiStaticCosPhi) == MODE_CONTINUOUS
+
     cos_step_defs = [
         (3, "checkBox_S3", "cos0.0", "textEdit_S3_DC_PF",
          ["checkBox_S3_DC1", "checkBox_S3_DC2", "checkBox_S3_DC3", "checkBox_S3_DC4"]),
@@ -14410,7 +12583,7 @@ def thaistaticcosPhiSend():
         if step_cb is not None and step_cb.isChecked():
             enabled_cos_steps.append((step_num, cos_label, pf_name, dc_names))
 
-    staticcos_file_names = []
+    point_plan = []
     for power_pct in power_levels:
         for step_num, cos_label, pf_name, dc_names in enabled_cos_steps:
             if use_ladder:
@@ -14420,55 +12593,91 @@ def thaistaticcosPhiSend():
                 point_power = pf_widget.toPlainText().strip() if pf_widget is not None else "100"
                 if not point_power:
                     point_power = "100"
-            print(f'S{step_num}DCPF---{point_power} ({cos_label})')
-            strArrayTestStepSingle = []
-            for dc_i, dc_cb_name in enumerate(dc_names):
-                step_dc_cb = getattr(uiThaiStaticCosPhi, dc_cb_name, None)
-                if not (s1_dc_cbs[dc_i].isChecked() and step_dc_cb is not None and step_dc_cb.isChecked()):
-                    continue
-                vmp, imp, voc, isc, err1, err2, dc_name, dc_idx = dc_iv_params[dc_i]
-                a = DCGetIVValueFunction(vmp, imp, voc, isc, point_power, dc_idx)
-                if a == "1":
-                    strShowErrorMessageBoxFlag = err1
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = err2
-                elif a == "3":
-                    dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, dc_name)
+            point_plan.append((step_num, cos_label, pf_name, dc_names, point_power))
 
-            strArraySingle = ["" for _ in range(10)]
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = "*IDN?"
+    n_points = len(point_plan)
+    staticcos_file_names = []
+    for idx, (step_num, cos_label, pf_name, dc_names, point_power) in enumerate(point_plan):
+        print(f'S{step_num}DCPF---{point_power} ({cos_label})')
+        strArrayTestStepSingle = []
+        for dc_i, dc_cb_name in enumerate(dc_names):
+            step_dc_cb = getattr(uiThaiStaticCosPhi, dc_cb_name, None)
+            if not (s1_dc_cbs[dc_i].isChecked() and step_dc_cb is not None and step_dc_cb.isChecked()):
+                continue
+            vmp, imp, voc, isc, err1, err2, dc_name, dc_idx = dc_iv_params[dc_i]
+            a = DCGetIVValueFunction(vmp, imp, voc, isc, point_power, dc_idx)
+            if a == "1":
+                strShowErrorMessageBoxFlag = err1
+            elif a == "2":
+                strShowErrorMessageBoxFlag = err2
+            elif a == "3":
+                dc_error_messages.append("DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家")
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, dc_name)
+
+        if wt_on and wt_continuous and idx == 0:
+            async_row = row_wt_async_marker("ASYNC_START")
+            strArrayTest.append(async_row)
+            strArrayTestStepSingle.append(async_row)
+
+        strArraySingle = ["" for _ in range(10)]
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = "*IDN?"
+        if wt_on and wt_continuous:
+            strArraySingle[9] = fS3SetTime
+        else:
             strArraySingle[6] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
+        if wt_on and wt_continuous and idx == n_points - 1:
+            wait_row = row_wt_async_marker("WAIT_END")
+            strArrayTest.append(wait_row)
+            strArrayTestStepSingle.append(wait_row)
+
+        strArrayTestStep.append(strArrayTestStepSingle)
+
+        if not (wt_on and wt_continuous):
             total_save_file = total_save_file + 1
             safe_power = str(point_power).replace('%', '')
             staticcos_file_names.append(f"P{safe_power}_{cos_label}")
 
+    measure_names, stop_sec, n_rounds, mode_label = plan_stop_and_names(
+        uiThaiStaticCosPhi,
+        fS3SetTime,
+        n_points=n_points,
+        wt_on=wt_on,
+        wt_continuous=wt_continuous,
+    )
+    if wt_on and wt_continuous and n_rounds > 0:
+        total_save_file = total_save_file + n_rounds
+        staticcos_file_names = list(measure_names)
+
     if staticcos_file_names:
         file_list_text = ",".join(staticcos_file_names)
+        stop_str = stoptime_hhmmss(stop_sec)
         merge_path = ""
         for row in strArrayTest:
             if row and row[0] == "Upper_WT_Config" and isinstance(row[4], dict):
                 row[4]["textEdit_FileNameList"] = file_list_text
-                # 0=OFF；矩阵测量需要自动保存
+                row[4]["textEdit_StopTime"] = stop_str
                 if row[4].get("comboBox_AutoSave", 0) == 0:
                     row[4]["comboBox_AutoSave"] = 1
-                # 整次试验合并为一个 CSV（分轮临时文件测完即并入后删除）
-                save_path = str(row[4].get("textEdit_SavePath") or "").strip()
-                if not save_path or not os.path.isdir(save_path):
-                    save_path = os.path.abspath(".")
-                    row[4]["textEdit_SavePath"] = save_path
-                from datetime import datetime as _dt
-                merge_name = f"staticcosPhi_{_dt.now().strftime('%Y%m%d_%H%M%S')}.CSV"
-                merge_path = os.path.join(save_path, merge_name)
-                row[4]["wt_merge_single_file"] = "1"
-                row[4]["wt_merge_output_path"] = merge_path
+                # 分开录：多轮临时文件测完合并；连续录单文件无需 merge
+                if not wt_continuous:
+                    save_path = str(row[4].get("textEdit_SavePath") or "").strip()
+                    if not save_path or not os.path.isdir(save_path):
+                        save_path = os.path.abspath(".")
+                        row[4]["textEdit_SavePath"] = save_path
+                    from datetime import datetime as _dt
+                    merge_name = f"staticcosPhi_{_dt.now().strftime('%Y%m%d_%H%M%S')}.CSV"
+                    merge_path = os.path.join(save_path, merge_name)
+                    row[4]["wt_merge_single_file"] = "1"
+                    row[4]["wt_merge_output_path"] = merge_path
+                else:
+                    row[4].pop("wt_merge_single_file", None)
+                    row[4].pop("wt_merge_output_path", None)
                 break
         try:
             for page_idx in range(uiThaiStaticCosPhi._wtStacked.count()):
@@ -14476,6 +12685,9 @@ def thaistaticcosPhiSend():
                 te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
                 if te is not None:
                     te.setPlainText(file_list_text)
+                st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                if st is not None:
+                    st.setPlainText(stop_str)
                 combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
                 if combo is not None and combo.currentIndex() == 0:
                     combo.setCurrentIndex(1)
@@ -14484,10 +12696,19 @@ def thaistaticcosPhiSend():
                     sp.setPlainText(os.path.dirname(merge_path))
         except Exception as e:
             _append_debug_log(f"[staticcosPhi] update WT FileNameList failed: {e}")
-        msg = (
-            f"[静态Cos(φ)] 功率×cosφ 共 {len(staticcos_file_names)} 轮，"
-            f"已对齐 WT 文件名列表"
-        )
+        dwell_sec = max(1, int(round(float(fS3SetTime) / 10.0)))
+        if wt_continuous:
+            msg = (
+                f"[静态Cos(φ)] {mode_label}：{n_points} 点 × 每点 {dwell_sec}s"
+                f" → StopTime={stop_str}，文件: {file_list_text}"
+            )
+            if stop_sec >= 1800:
+                msg += "（总时长偏长：请把「每点驻留」改成秒并减小）"
+        else:
+            msg = (
+                f"[静态Cos(φ)] {mode_label} {n_rounds} 轮 / {n_points} 点，"
+                f"每点 {dwell_sec}s，StopTime={stop_str}，文件: {file_list_text}"
+            )
         if merge_path:
             msg += f"；合并输出 → {merge_path}"
         ui.textEdit_ReturnMessage.append(msg)
@@ -14960,7 +13181,6 @@ def thaicosPhiBrazilSend():
 
     strArrayTestStep = []
     strArraySingle = ["" for _ in range(10)]
-    S1ACEACHStatus = uiThaiCosPhiBrazil.comboBox_S1_AC_2.currentText()
     # step1
     if uiThaiCosPhiBrazil.checkBox_S1.isChecked():
         strArrayTestStepSingle = []
@@ -14976,137 +13196,8 @@ def thaicosPhiBrazilSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiCosPhiBrazil.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiCosPhiBrazil.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiCosPhiBrazil.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiCosPhiBrazil.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiCosPhiBrazil.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiCosPhiBrazil.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiCosPhiBrazil.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiCosPhiBrazil.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiCosPhiBrazil.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiCosPhiBrazil, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -15441,7 +13532,7 @@ def thaicosPhiBrazilSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = fS3SetTime
+        strArraySingle[6] = fS3SetTime
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -15507,7 +13598,7 @@ def thaicosPhiBrazilSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = fS3SetTime
+        strArraySingle[6] = fS3SetTime
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -15573,7 +13664,7 @@ def thaicosPhiBrazilSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = fS3SetTime
+        strArraySingle[6] = fS3SetTime
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -15639,7 +13730,7 @@ def thaicosPhiBrazilSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = fS3SetTime
+        strArraySingle[6] = fS3SetTime
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -15705,7 +13796,7 @@ def thaicosPhiBrazilSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "query"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = fS3SetTime
+        strArraySingle[6] = fS3SetTime
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
@@ -15768,97 +13859,14 @@ def thaicosPhiBrazilSend():
        
         if uiThaiCosPhiBrazil.checkBox_S9_AC_Check.isChecked():
             S9ACVOLT = uiThaiCosPhiBrazil.textEdit_S9_AC_Volt.toPlainText()
-            if S1ACEACHStatus == "单相":
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "INST:PHAS SINGLE"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "INST:EDIT ALL"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "VOLT " + S9ACVOLT
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-            elif S1ACEACHStatus == "三相":
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "INST:PHAS THREE"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "INST:EDIT EACH"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "INST:NSEL 1"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "VOLT " + S9ACVOLT
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "INST:NSEL 2"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "VOLT " + S9ACVOLT
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "INST:NSEL 3"
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
-                strArraySingle = ["" for _ in range(10)]
-                S1Command = "VOLT " + S9ACVOLT
-                strArraySingle[0] = "AC"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = S1Command
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
-
+            # 中途改压：用共用 VOLT 接口（三相 EDIT ALL + 一次 VOLT），勿误用启机读 step1
+            _bs = len(strArrayTest)
+            append_volt_set(
+                strArrayTest,
+                uiThaiCosPhiBrazil.comboBox_S1_AC_2.currentText(),
+                S9ACVOLT,
+            )
+            strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S1Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -15981,6 +13989,22 @@ def thaicosPhiBrazilSend():
 
         strArrayTestStep.append(strArrayTestStepSingle)
 
+    # 按 WT 页「一条线连续录 / 分开录」改写功率点驻留（col6 触发 vs ASYNC 连续录）
+    from utils.wt_recording_mode import MODE_CONTINUOUS
+    from utils.matrix_recording_commands import get_record_mode
+    from utils.cosphi_brazil_recording import (
+        plan_stop_and_names,
+        rewrite_power_point_dwells,
+        stoptime_hhmmss,
+    )
+
+    _dew = getattr(uiThaiCosPhiBrazil, "_mode", "wt") == "dewetron"
+    wt_on = bool(uiThaiCosPhiBrazil.checkBox_S2.isChecked() and not _dew)
+    wt_continuous = get_record_mode(uiThaiCosPhiBrazil) == MODE_CONTINUOUS
+    rewrite_power_point_dwells(
+        strArrayTest, fS3SetTime, wt_on=wt_on, wt_continuous=wt_continuous
+    )
+
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
@@ -16000,7 +14024,46 @@ def thaicosPhiBrazilSend():
     elif strShowErrorMessageBoxFlag == "brand":
         QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
-        total_save_file = total_save_file + 1
+        measure_names, stop_sec, n_rounds, mode_label = plan_stop_and_names(
+            uiThaiCosPhiBrazil,
+            fS3SetTime,
+            wt_on=wt_on,
+            wt_continuous=wt_continuous,
+        )
+        stop_str = stoptime_hhmmss(stop_sec)
+        file_list_text = ",".join(measure_names)
+
+        for cfg_row in strArrayTest:
+            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
+                cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                cfg_row[4]["textEdit_StopTime"] = stop_str
+                if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
+                    cfg_row[4]["comboBox_AutoSave"] = 1
+                break
+        try:
+            for page_idx in range(uiThaiCosPhiBrazil._wtStacked.count()):
+                page = uiThaiCosPhiBrazil._wtStacked.widget(page_idx)
+                te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                if te is not None:
+                    te.setPlainText(file_list_text)
+                st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                if st is not None:
+                    st.setPlainText(stop_str)
+                combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                if combo is not None and combo.currentIndex() == 0:
+                    combo.setCurrentIndex(1)
+        except Exception as e:
+            _append_debug_log(f"[cosPhiBrazil] update WT FileNameList/StopTime failed: {e}")
+
+        if n_rounds > 0:
+            total_save_file = (
+                n_rounds if strAddTestFlag == "0" else total_save_file + n_rounds
+            )
+        ui.textEdit_ReturnMessage.append(
+            f"[巴西Cos(φ)] {mode_label} {n_rounds} 轮，StopTime={stop_str}"
+            f"（{stop_sec}s），文件: {file_list_text}"
+        )
+
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
             logger.info(strtimenow + "    设定实验内容完成")
@@ -16157,137 +14220,8 @@ def thaivoltprotect10minSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiVoltProtect10min.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiVoltProtect10min.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiVoltProtect10min.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiVoltProtect10min.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiVoltProtect10min.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiVoltProtect10min.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiVoltProtect10min.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiVoltProtect10min.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiVoltProtect10min.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiVoltProtect10min, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -16528,15 +14462,18 @@ def thaivoltprotect10minSend():
     def _append_ov_ac_volt(v1, v2=None, v3=None):
         """按 step1 相数写 AC 电压。"""
         step_cmds = []
+        v2 = v2 if v2 is not None else v1
+        v3 = v3 if v3 is not None else v1
         if S1ACEACHStatus == "单相":
-            row = ["" for _ in range(10)]
-            row[0] = "AC"
-            row[1] = "write"
-            row[2] = "VOLT " + str(v1)
-            strArrayTest.append(row)
-            step_cmds.append(row)
+            _bs = len(strArrayTest)
+            append_volt_set(strArrayTest, S1ACEACHStatus, v1)
+            step_cmds.extend(strArrayTest[_bs:])
+        elif v1 == v2 == v3:
+            _bs = len(strArrayTest)
+            append_volt_set(strArrayTest, S1ACEACHStatus, v1)
+            step_cmds.extend(strArrayTest[_bs:])
         else:
-            for nsel, vv in ((1, v1), (2, v2 if v2 is not None else v1), (3, v3 if v3 is not None else v1)):
+            for nsel, vv in ((1, v1), (2, v2), (3, v3)):
                 row = ["" for _ in range(10)]
                 row[0] = "AC"
                 row[1] = "write"
@@ -16701,116 +14638,24 @@ def thaivoltprotect10minSend():
             f"含①额定保持+过压+恢复，WT停机 {stop_str}"
         )
 
-    # step_end
+    # step_end：先 DC 后 AC，蓝点缓降后再关 AC（禁止 AC/DC 贴着关）
     if uiThaiVoltProtect10min.checkBox_S_End.isChecked():
-        strArrayTestStepSingle = []
-        strArraySingle = ["" for _ in range(10)]
-        S_AC_EndStatus = uiThaiVoltProtect10min.comboBox_S_End_AC.currentText()
-        if S_AC_EndStatus == "开启":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP ON"
-        elif S_AC_EndStatus == "关闭":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP OFF"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 5
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiVoltProtect10min.checkBox_S1_DC1.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC1.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC1Status = uiThaiVoltProtect10min.comboBox_S_End_DC1.currentText()
-            if S_end_DC1Status == "开启":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC1Status == "关闭":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiVoltProtect10min.checkBox_S1_DC2.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC2.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC2Status = uiThaiVoltProtect10min.comboBox_S_End_DC2.currentText()
-            if S_end_DC2Status == "开启":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC2Status == "关闭":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiVoltProtect10min.checkBox_S1_DC3.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC3.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC3Status = uiThaiVoltProtect10min.comboBox_S_End_DC3.currentText()
-            if S_end_DC3Status == "开启":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC3Status == "关闭":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
-        if uiThaiVoltProtect10min.checkBox_S1_DC4.isChecked() and uiThaiVoltProtect10min.checkBox_S_End_DC4.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC4Status = uiThaiVoltProtect10min.comboBox_S_End_DC4.currentText()
-            if S_end_DC4Status == "开启":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC4Status == "关闭":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
+        dc_channels = append_ui_forced_shutdown_step(
+            strArrayTest,
+            strArrayTestStep,
+            uiThaiVoltProtect10min,
+            per_dc_factor=per_dc_factor,
+            settle_01s=BLUESIGHT_DC_OFF_SETTLE_01S,
+            log=ui.textEdit_ReturnMessage,
+            tag="10min过压保护",
+        )
+        if any(per_dc_factor.get(str(ch - 1)) == "Bluesight" for ch in dc_channels):
+            try:
+                ui.textEdit_ReturnMessage.append(
+                    f"[10min过压保护] 蓝点 DC 已 OUTP OFF，等待 {BLUESIGHT_DC_OFF_SETTLE_01S / 10.0:g}s 缓降后再关 AC"
+                )
+            except Exception:
+                pass
 
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
@@ -16987,137 +14832,8 @@ def thaiguopinjiangzaiSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiGuoPinJiangZai.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoPinJiangZai.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoPinJiangZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoPinJiangZai.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoPinJiangZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoPinJiangZai.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoPinJiangZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoPinJiangZai.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoPinJiangZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiGuoPinJiangZai, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -17310,1817 +15026,69 @@ def thaiguopinjiangzaiSend():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
-    # step3
+
+    # 频率台阶：优先 FrequencyLadder list（点数不限）；否则回退 S3~S17 卡片
+    ladder_start = None
     if uiThaiGuoPinJiangZai.checkBox_S3.isChecked():
-        strArrayTestStepSingle = []
-        S3_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S3_TIME.toPlainText()
-        S3_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S3_TIME.currentText()
-        fS3SetTime = float(S3_TIME_VALUE)
-        fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
-
-        S3ACVOLT = uiThaiGuoPinJiangZai.textEdit_S3_AC_VOLT.toPlainText()
-        S3ACFR = uiThaiGuoPinJiangZai.textEdit_S3_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-
-            print("单相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            print("三相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S3Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S3Command
-        strArraySingle[6] = fS3SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step4
-    if uiThaiGuoPinJiangZai.checkBox_S4.isChecked():
-        strArrayTestStepSingle = []
-        S4_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S4_TIME.toPlainText()
-        S4_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S4_TIME.currentText()
-        fS4SetTime = float(S4_TIME_VALUE)
-        fS4SetTime = SetTimeFunction(fS4SetTime, S4_TIME_UNIT)
-
-        S4ACVOLT = uiThaiGuoPinJiangZai.textEdit_S4_AC_VOLT.toPlainText()
-        S4ACFR = uiThaiGuoPinJiangZai.textEdit_S4_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(
-                strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S4Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S4Command
-        strArraySingle[9] = fS4SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step5
-    if uiThaiGuoPinJiangZai.checkBox_S5.isChecked():
-        strArrayTestStepSingle = []
-        S5_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S5_TIME.toPlainText()
-        S5_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S5_TIME.currentText()
-        fS5SetTime = float(S5_TIME_VALUE)
-        fS5SetTime = SetTimeFunction(fS5SetTime, S5_TIME_UNIT)
-
-        S5ACVOLT = uiThaiGuoPinJiangZai.textEdit_S5_AC_VOLT.toPlainText()
-        S5ACFR = uiThaiGuoPinJiangZai.textEdit_S5_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S5Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S5Command
-        strArraySingle[9] = fS5SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step6
-    if uiThaiGuoPinJiangZai.checkBox_S6.isChecked():
-        strArrayTestStepSingle = []
-        S6_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S6_TIME.toPlainText()
-        S6_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S6_TIME.currentText()
-        fS6SetTime = float(S6_TIME_VALUE)
-        fS6SetTime = SetTimeFunction(fS6SetTime, S6_TIME_UNIT)
-
-        S6ACVOLT = uiThaiGuoPinJiangZai.textEdit_S6_AC_VOLT.toPlainText()
-        S6ACFR = uiThaiGuoPinJiangZai.textEdit_S6_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S6Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S6Command
-        strArraySingle[9] = fS6SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step7
-    if uiThaiGuoPinJiangZai.checkBox_S7.isChecked():
-        strArrayTestStepSingle = []
-        S7_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S7_TIME.toPlainText()
-        S7_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S7_TIME.currentText()
-        fS7SetTime = float(S7_TIME_VALUE)
-        fS7SetTime = SetTimeFunction(fS7SetTime, S7_TIME_UNIT)
-
-        S7ACVOLT = uiThaiGuoPinJiangZai.textEdit_S7_AC_VOLT.toPlainText()
-        S7ACFR = uiThaiGuoPinJiangZai.textEdit_S7_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S7Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S7Command
-        strArraySingle[9] = fS7SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step8
-    if uiThaiGuoPinJiangZai.checkBox_S8.isChecked():
-        strArrayTestStepSingle = []
-        S8_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S8_TIME.toPlainText()
-        S8_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S8_TIME.currentText()
-        fS8SetTime = float(S8_TIME_VALUE)
-        fS8SetTime = SetTimeFunction(fS8SetTime, S8_TIME_UNIT)
-
-        S8ACVOLT = uiThaiGuoPinJiangZai.textEdit_S8_AC_VOLT.toPlainText()
-        S8ACFR = uiThaiGuoPinJiangZai.textEdit_S8_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S8Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S8Command
-        strArraySingle[9] = fS8SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step9
-    if uiThaiGuoPinJiangZai.checkBox_S9.isChecked():
-        strArrayTestStepSingle = []
-        S9_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S9_TIME.toPlainText()
-        S9_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S9_TIME.currentText()
-        fS9SetTime = float(S9_TIME_VALUE)
-        fS9SetTime = SetTimeFunction(fS9SetTime, S9_TIME_UNIT)
-
-        S9ACVOLT = uiThaiGuoPinJiangZai.textEdit_S9_AC_VOLT.toPlainText()
-        S9ACFR = uiThaiGuoPinJiangZai.textEdit_S9_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S9Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S9Command
-        strArraySingle[9] = fS9SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # step10
-    if uiThaiGuoPinJiangZai.checkBox_S10.isChecked():
-        strArrayTestStepSingle = []
-        S10_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S10_TIME.toPlainText()
-        S10_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S10_TIME.currentText()
-        fS10SetTime = float(S10_TIME_VALUE)
-        fS10SetTime = SetTimeFunction(fS10SetTime, S10_TIME_UNIT)
-
-        S10ACVOLT = uiThaiGuoPinJiangZai.textEdit_S10_AC_VOLT.toPlainText()
-        S10ACFR = uiThaiGuoPinJiangZai.textEdit_S10_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S10Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S10Command
-        strArraySingle[9] = fS10SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step11
-    if uiThaiGuoPinJiangZai.checkBox_S11.isChecked():
-        strArrayTestStepSingle = []
-        S11_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S11_TIME.toPlainText()
-        S11_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S11_TIME.currentText()
-        fS11SetTime = float(S11_TIME_VALUE)
-        fS11SetTime = SetTimeFunction(fS11SetTime, S11_TIME_UNIT)
-
-        S11ACVOLT = uiThaiGuoPinJiangZai.textEdit_S11_AC_VOLT.toPlainText()
-        S11ACFR = uiThaiGuoPinJiangZai.textEdit_S11_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S11Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S11Command
-        strArraySingle[9] = fS11SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step12
-    if uiThaiGuoPinJiangZai.checkBox_S12.isChecked():
-        strArrayTestStepSingle = []
-        S12_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S12_TIME.toPlainText()
-        S12_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S12_TIME.currentText()
-        fS12SetTime = float(S12_TIME_VALUE)
-        fS12SetTime = SetTimeFunction(fS12SetTime, S12_TIME_UNIT)
-
-        S12ACVOLT = uiThaiGuoPinJiangZai.textEdit_S12_AC_VOLT.toPlainText()
-        S12ACFR = uiThaiGuoPinJiangZai.textEdit_S12_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S12Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S12Command
-        strArraySingle[9] = fS12SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step13
-    if uiThaiGuoPinJiangZai.checkBox_S13.isChecked():
-        strArrayTestStepSingle = []
-        S13_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S13_TIME.toPlainText()
-        S13_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S13_TIME.currentText()
-        fS13SetTime = float(S13_TIME_VALUE)
-        fS13SetTime = SetTimeFunction(fS13SetTime, S13_TIME_UNIT)
-
-        S13ACVOLT = uiThaiGuoPinJiangZai.textEdit_S13_AC_VOLT.toPlainText()
-        S13ACFR = uiThaiGuoPinJiangZai.textEdit_S13_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S13Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S13Command
-        strArraySingle[9] = fS13SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step14
-    if uiThaiGuoPinJiangZai.checkBox_S14.isChecked():
-        strArrayTestStepSingle = []
-        S14_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S14_TIME.toPlainText()
-        S14_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S14_TIME.currentText()
-        fS14SetTime = float(S14_TIME_VALUE)
-        fS14SetTime = SetTimeFunction(fS14SetTime, S14_TIME_UNIT)
-
-        S14ACVOLT = uiThaiGuoPinJiangZai.textEdit_S14_AC_VOLT.toPlainText()
-        S14ACFR = uiThaiGuoPinJiangZai.textEdit_S14_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S14Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S14Command
-        strArraySingle[9] = fS14SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step15
-    if uiThaiGuoPinJiangZai.checkBox_S15.isChecked():
-        strArrayTestStepSingle = []
-        S15_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S15_TIME.toPlainText()
-        S15_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S15_TIME.currentText()
-        fS15SetTime = float(S15_TIME_VALUE)
-        fS15SetTime = SetTimeFunction(fS15SetTime, S15_TIME_UNIT)
-
-        S15ACVOLT = uiThaiGuoPinJiangZai.textEdit_S15_AC_VOLT.toPlainText()
-        S15ACFR = uiThaiGuoPinJiangZai.textEdit_S15_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S15Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S15Command
-        strArraySingle[9] = fS15SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step16
-    if uiThaiGuoPinJiangZai.checkBox_S16.isChecked():
-        strArrayTestStepSingle = []
-        S16_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S16_TIME.toPlainText()
-        S16_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S16_TIME.currentText()
-        fS16SetTime = float(S16_TIME_VALUE)
-        fS16SetTime = SetTimeFunction(fS16SetTime, S16_TIME_UNIT)
-
-        S16ACVOLT = uiThaiGuoPinJiangZai.textEdit_S16_AC_VOLT.toPlainText()
-        S16ACFR = uiThaiGuoPinJiangZai.textEdit_S16_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S16Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S16Command
-        strArraySingle[9] = fS16SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step17
-    if uiThaiGuoPinJiangZai.checkBox_S17.isChecked():
-        strArrayTestStepSingle = []
-        S17_TIME_VALUE = uiThaiGuoPinJiangZai.textEdit_S17_TIME.toPlainText()
-        S17_TIME_UNIT = uiThaiGuoPinJiangZai.comboBox_S17_TIME.currentText()
-        fS17SetTime = float(S17_TIME_VALUE)
-        fS17SetTime = SetTimeFunction(fS17SetTime, S17_TIME_UNIT)
-
-        S17ACVOLT = uiThaiGuoPinJiangZai.textEdit_S17_AC_VOLT.toPlainText()
-        S17ACFR = uiThaiGuoPinJiangZai.textEdit_S17_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S17Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S17Command
-        strArraySingle[6] = fS17SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step_end
+        from utils.overfreq_ladder_commands import (
+            append_freq_ladder_commands,
+            collect_freq_points_with_per_step_dwell,
+            sync_freq_list_to_legacy_cards,
+        )
+        try:
+            sync_freq_list_to_legacy_cards(uiThaiGuoPinJiangZai)
+        except Exception as _e:
+            _append_debug_log(f"[过频降载] sync list->cards failed: {_e}")
+        _pts, _src = collect_freq_points_with_per_step_dwell(uiThaiGuoPinJiangZai)
+        if not _pts:
+            QMessageBox.information(
+                None,
+                "错误提示信息",
+                "过频频率 list 为空或无效，请填写如 50,50.25,50.7,...",
+                QMessageBox.Ok,
+                QMessageBox.Ok,
+            )
+            return
+        n_pts, ladder_start = append_freq_ladder_commands(
+            strArrayTest,
+            strArrayTestStep,
+            S1ACEACHStatus,
+            _pts,
+            initial_freq=uiThaiGuoPinJiangZai.textEdit_S1_AC_FR.toPlainText(),
+        )
+        _src_label = "list" if _src == "list" else "旧卡片"
+        ui.textEdit_ReturnMessage.append(
+            f"[过频降载] 频率台阶 {n_pts} 点（来源={_src_label}）"
+        )
+
+    # 频率台阶连续录 1 条（ASYNC_START / WAIT_END）
+    _enable_freq_step_continuous_record(
+        strArrayTest,
+        uiThaiGuoPinJiangZai,
+        file_default="OF_curve",
+        log_label="过频降载",
+        ladder_start_index=ladder_start,
+    )
+
+
+    # step_end：先 DC 后 AC，蓝点缓降后再关 AC（禁止 AC/DC 贴着关）
     if uiThaiGuoPinJiangZai.checkBox_S_End.isChecked():
-        strArrayTestStepSingle = []
-        strArraySingle = ["" for _ in range(10)]
-        S_AC_EndStatus = uiThaiGuoPinJiangZai.comboBox_S_End_AC.currentText()
-        if S_AC_EndStatus == "开启":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP ON"
-        elif S_AC_EndStatus == "关闭":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP OFF"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 5
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiGuoPinJiangZai.checkBox_S1_DC1.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC1.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC1Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC1.currentText()
-            if S_end_DC1Status == "开启":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC1Status == "关闭":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiGuoPinJiangZai.checkBox_S1_DC2.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC2.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC2Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC2.currentText()
-            if S_end_DC2Status == "开启":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC2Status == "关闭":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiGuoPinJiangZai.checkBox_S1_DC3.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC3.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC3Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC3.currentText()
-            if S_end_DC3Status == "开启":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC3Status == "关闭":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
-        if uiThaiGuoPinJiangZai.checkBox_S1_DC4.isChecked() and uiThaiGuoPinJiangZai.checkBox_S_End_DC4.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC4Status = uiThaiGuoPinJiangZai.comboBox_S_End_DC4.currentText()
-            if S_end_DC4Status == "开启":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC4Status == "关闭":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
+        dc_channels = append_ui_forced_shutdown_step(
+            strArrayTest,
+            strArrayTestStep,
+            uiThaiGuoPinJiangZai,
+            per_dc_factor=per_dc_factor,
+            settle_01s=BLUESIGHT_DC_OFF_SETTLE_01S,
+            log=ui.textEdit_ReturnMessage,
+            tag="过频降载",
+        )
+        if any(per_dc_factor.get(str(ch - 1)) == "Bluesight" for ch in dc_channels):
+            try:
+                ui.textEdit_ReturnMessage.append(
+                    f"[过频降载] 蓝点 DC 已 OUTP OFF，等待 {BLUESIGHT_DC_OFF_SETTLE_01S / 10.0:g}s 缓降后再关 AC"
+                )
+            except Exception:
+                pass
 
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
@@ -19295,137 +15263,8 @@ def thaiqianpinshengzaiSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiQianPinShengZai.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiQianPinShengZai.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiQianPinShengZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiQianPinShengZai.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiQianPinShengZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiQianPinShengZai.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiQianPinShengZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiQianPinShengZai.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiQianPinShengZai.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiQianPinShengZai, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -19618,1817 +15457,69 @@ def thaiqianpinshengzaiSend():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
-    # step3
+
+    # 频率台阶：优先 FrequencyLadder list（点数不限）；否则回退 S3~S17 卡片
+    ladder_start = None
     if uiThaiQianPinShengZai.checkBox_S3.isChecked():
-        strArrayTestStepSingle = []
-        S3_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S3_TIME.toPlainText()
-        S3_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S3_TIME.currentText()
-        fS3SetTime = float(S3_TIME_VALUE)
-        fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
-
-        S3ACVOLT = uiThaiQianPinShengZai.textEdit_S3_AC_VOLT.toPlainText()
-        S3ACFR = uiThaiQianPinShengZai.textEdit_S3_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-
-            print("单相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            print("三相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "FREQ " + S3ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S3Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S3Command
-        strArraySingle[6] = fS3SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step4
-    if uiThaiQianPinShengZai.checkBox_S4.isChecked():
-        strArrayTestStepSingle = []
-        S4_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S4_TIME.toPlainText()
-        S4_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S4_TIME.currentText()
-        fS4SetTime = float(S4_TIME_VALUE)
-        fS4SetTime = SetTimeFunction(fS4SetTime, S4_TIME_UNIT)
-
-        S4ACVOLT = uiThaiQianPinShengZai.textEdit_S4_AC_VOLT.toPlainText()
-        S4ACFR = uiThaiQianPinShengZai.textEdit_S4_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(
-                strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "FREQ " + S4ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S4Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S4Command
-        strArraySingle[9] = fS4SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step5
-    if uiThaiQianPinShengZai.checkBox_S5.isChecked():
-        strArrayTestStepSingle = []
-        S5_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S5_TIME.toPlainText()
-        S5_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S5_TIME.currentText()
-        fS5SetTime = float(S5_TIME_VALUE)
-        fS5SetTime = SetTimeFunction(fS5SetTime, S5_TIME_UNIT)
-
-        S5ACVOLT = uiThaiQianPinShengZai.textEdit_S5_AC_VOLT.toPlainText()
-        S5ACFR = uiThaiQianPinShengZai.textEdit_S5_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "FREQ " + S5ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S5Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S5Command
-        strArraySingle[9] = fS5SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step6
-    if uiThaiQianPinShengZai.checkBox_S6.isChecked():
-        strArrayTestStepSingle = []
-        S6_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S6_TIME.toPlainText()
-        S6_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S6_TIME.currentText()
-        fS6SetTime = float(S6_TIME_VALUE)
-        fS6SetTime = SetTimeFunction(fS6SetTime, S6_TIME_UNIT)
-
-        S6ACVOLT = uiThaiQianPinShengZai.textEdit_S6_AC_VOLT.toPlainText()
-        S6ACFR = uiThaiQianPinShengZai.textEdit_S6_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "FREQ " + S6ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-        
-        strArraySingle = ["" for _ in range(10)]
-        S6Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S6Command
-        strArraySingle[9] = fS6SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step7
-    if uiThaiQianPinShengZai.checkBox_S7.isChecked():
-        strArrayTestStepSingle = []
-        S7_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S7_TIME.toPlainText()
-        S7_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S7_TIME.currentText()
-        fS7SetTime = float(S7_TIME_VALUE)
-        fS7SetTime = SetTimeFunction(fS7SetTime, S7_TIME_UNIT)
-
-        S7ACVOLT = uiThaiQianPinShengZai.textEdit_S7_AC_VOLT.toPlainText()
-        S7ACFR = uiThaiQianPinShengZai.textEdit_S7_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "FREQ " + S7ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S7Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S7Command
-        strArraySingle[9] = fS7SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step8
-    if uiThaiQianPinShengZai.checkBox_S8.isChecked():
-        strArrayTestStepSingle = []
-        S8_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S8_TIME.toPlainText()
-        S8_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S8_TIME.currentText()
-        fS8SetTime = float(S8_TIME_VALUE)
-        fS8SetTime = SetTimeFunction(fS8SetTime, S8_TIME_UNIT)
-
-        S8ACVOLT = uiThaiQianPinShengZai.textEdit_S8_AC_VOLT.toPlainText()
-        S8ACFR = uiThaiQianPinShengZai.textEdit_S8_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "FREQ " + S8ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S8Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S8Command
-        strArraySingle[9] = fS8SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step9
-    if uiThaiQianPinShengZai.checkBox_S9.isChecked():
-        strArrayTestStepSingle = []
-        S9_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S9_TIME.toPlainText()
-        S9_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S9_TIME.currentText()
-        fS9SetTime = float(S9_TIME_VALUE)
-        fS9SetTime = SetTimeFunction(fS9SetTime, S9_TIME_UNIT)
-
-        S9ACVOLT = uiThaiQianPinShengZai.textEdit_S9_AC_VOLT.toPlainText()
-        S9ACFR = uiThaiQianPinShengZai.textEdit_S9_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "FREQ " + S9ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S9Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S9Command
-        strArraySingle[9] = fS9SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-    
-    # step10
-    if uiThaiQianPinShengZai.checkBox_S10.isChecked():
-        strArrayTestStepSingle = []
-        S10_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S10_TIME.toPlainText()
-        S10_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S10_TIME.currentText()
-        fS10SetTime = float(S10_TIME_VALUE)
-        fS10SetTime = SetTimeFunction(fS10SetTime, S10_TIME_UNIT)
-
-        S10ACVOLT = uiThaiQianPinShengZai.textEdit_S10_AC_VOLT.toPlainText()
-        S10ACFR = uiThaiQianPinShengZai.textEdit_S10_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "FREQ " + S10ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S10Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S10Command
-        strArraySingle[9] = fS10SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step11
-    if uiThaiQianPinShengZai.checkBox_S11.isChecked():
-        strArrayTestStepSingle = []
-        S11_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S11_TIME.toPlainText()
-        S11_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S11_TIME.currentText()
-        fS11SetTime = float(S11_TIME_VALUE)
-        fS11SetTime = SetTimeFunction(fS11SetTime, S11_TIME_UNIT)
-
-        S11ACVOLT = uiThaiQianPinShengZai.textEdit_S11_AC_VOLT.toPlainText()
-        S11ACFR = uiThaiQianPinShengZai.textEdit_S11_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "FREQ " + S11ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S11Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S11Command
-        strArraySingle[9] = fS11SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step12
-    if uiThaiQianPinShengZai.checkBox_S12.isChecked():
-        strArrayTestStepSingle = []
-        S12_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S12_TIME.toPlainText()
-        S12_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S12_TIME.currentText()
-        fS12SetTime = float(S12_TIME_VALUE)
-        fS12SetTime = SetTimeFunction(fS12SetTime, S12_TIME_UNIT)
-
-        S12ACVOLT = uiThaiQianPinShengZai.textEdit_S12_AC_VOLT.toPlainText()
-        S12ACFR = uiThaiQianPinShengZai.textEdit_S12_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "FREQ " + S12ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S12Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S12Command
-        strArraySingle[9] = fS12SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step13
-    if uiThaiQianPinShengZai.checkBox_S13.isChecked():
-        strArrayTestStepSingle = []
-        S13_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S13_TIME.toPlainText()
-        S13_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S13_TIME.currentText()
-        fS13SetTime = float(S13_TIME_VALUE)
-        fS13SetTime = SetTimeFunction(fS13SetTime, S13_TIME_UNIT)
-
-        S13ACVOLT = uiThaiQianPinShengZai.textEdit_S13_AC_VOLT.toPlainText()
-        S13ACFR = uiThaiQianPinShengZai.textEdit_S13_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "FREQ " + S13ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S13Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S13Command
-        strArraySingle[9] = fS13SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step14
-    if uiThaiQianPinShengZai.checkBox_S14.isChecked():
-        strArrayTestStepSingle = []
-        S14_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S14_TIME.toPlainText()
-        S14_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S14_TIME.currentText()
-        fS14SetTime = float(S14_TIME_VALUE)
-        fS14SetTime = SetTimeFunction(fS14SetTime, S14_TIME_UNIT)
-
-        S14ACVOLT = uiThaiQianPinShengZai.textEdit_S14_AC_VOLT.toPlainText()
-        S14ACFR = uiThaiQianPinShengZai.textEdit_S14_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "FREQ " + S14ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S14Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S14Command
-        strArraySingle[9] = fS14SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step15
-    if uiThaiQianPinShengZai.checkBox_S15.isChecked():
-        strArrayTestStepSingle = []
-        S15_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S15_TIME.toPlainText()
-        S15_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S15_TIME.currentText()
-        fS15SetTime = float(S15_TIME_VALUE)
-        fS15SetTime = SetTimeFunction(fS15SetTime, S15_TIME_UNIT)
-
-        S15ACVOLT = uiThaiQianPinShengZai.textEdit_S15_AC_VOLT.toPlainText()
-        S15ACFR = uiThaiQianPinShengZai.textEdit_S15_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "FREQ " + S15ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S15Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S15Command
-        strArraySingle[9] = fS15SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step16
-    if uiThaiQianPinShengZai.checkBox_S16.isChecked():
-        strArrayTestStepSingle = []
-        S16_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S16_TIME.toPlainText()
-        S16_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S16_TIME.currentText()
-        fS16SetTime = float(S16_TIME_VALUE)
-        fS16SetTime = SetTimeFunction(fS16SetTime, S16_TIME_UNIT)
-
-        S16ACVOLT = uiThaiQianPinShengZai.textEdit_S16_AC_VOLT.toPlainText()
-        S16ACFR = uiThaiQianPinShengZai.textEdit_S16_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "FREQ " + S16ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S16Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S16Command
-        strArraySingle[9] = fS16SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step17
-    if uiThaiQianPinShengZai.checkBox_S17.isChecked():
-        strArrayTestStepSingle = []
-        S17_TIME_VALUE = uiThaiQianPinShengZai.textEdit_S17_TIME.toPlainText()
-        S17_TIME_UNIT = uiThaiQianPinShengZai.comboBox_S17_TIME.currentText()
-        fS17SetTime = float(S17_TIME_VALUE)
-        fS17SetTime = SetTimeFunction(fS17SetTime, S17_TIME_UNIT)
-
-        S17ACVOLT = uiThaiQianPinShengZai.textEdit_S17_AC_VOLT.toPlainText()
-        S17ACFR = uiThaiQianPinShengZai.textEdit_S17_AC_FR.toPlainText()
-
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "FREQ " + S17ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S17Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S17Command
-        strArraySingle[6] = fS17SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-    # step_end
+        from utils.overfreq_ladder_commands import (
+            append_freq_ladder_commands,
+            collect_freq_points_with_per_step_dwell,
+            sync_freq_list_to_legacy_cards,
+        )
+        try:
+            sync_freq_list_to_legacy_cards(uiThaiQianPinShengZai)
+        except Exception as _e:
+            _append_debug_log(f"[欠频升载] sync list->cards failed: {_e}")
+        _pts, _src = collect_freq_points_with_per_step_dwell(uiThaiQianPinShengZai)
+        if not _pts:
+            QMessageBox.information(
+                None,
+                "错误提示信息",
+                "欠频频率 list 为空或无效，请填写如 50,49.5,49.0,...",
+                QMessageBox.Ok,
+                QMessageBox.Ok,
+            )
+            return
+        n_pts, ladder_start = append_freq_ladder_commands(
+            strArrayTest,
+            strArrayTestStep,
+            S1ACEACHStatus,
+            _pts,
+            initial_freq=uiThaiQianPinShengZai.textEdit_S1_AC_FR.toPlainText(),
+        )
+        _src_label = "list" if _src == "list" else "旧卡片"
+        ui.textEdit_ReturnMessage.append(
+            f"[欠频升载] 频率台阶 {n_pts} 点（来源={_src_label}）"
+        )
+
+    # 频率台阶连续录 1 条（ASYNC_START / WAIT_END）
+    _enable_freq_step_continuous_record(
+        strArrayTest,
+        uiThaiQianPinShengZai,
+        file_default="UF_curve",
+        log_label="欠频升载",
+        ladder_start_index=ladder_start,
+    )
+
+
+    # step_end：先 DC 后 AC，蓝点缓降后再关 AC（禁止 AC/DC 贴着关）
     if uiThaiQianPinShengZai.checkBox_S_End.isChecked():
-        strArrayTestStepSingle = []
-        strArraySingle = ["" for _ in range(10)]
-        S_AC_EndStatus = uiThaiQianPinShengZai.comboBox_S_End_AC.currentText()
-        if S_AC_EndStatus == "开启":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP ON"
-        elif S_AC_EndStatus == "关闭":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP OFF"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 5
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiQianPinShengZai.checkBox_S1_DC1.isChecked() and uiThaiQianPinShengZai.checkBox_S_End_DC1.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC1Status = uiThaiQianPinShengZai.comboBox_S_End_DC1.currentText()
-            if S_end_DC1Status == "开启":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC1Status == "关闭":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiQianPinShengZai.checkBox_S1_DC2.isChecked() and uiThaiQianPinShengZai.checkBox_S_End_DC2.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC2Status = uiThaiQianPinShengZai.comboBox_S_End_DC2.currentText()
-            if S_end_DC2Status == "开启":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC2Status == "关闭":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiQianPinShengZai.checkBox_S1_DC3.isChecked() and uiThaiQianPinShengZai.checkBox_S_End_DC3.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC3Status = uiThaiQianPinShengZai.comboBox_S_End_DC3.currentText()
-            if S_end_DC3Status == "开启":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC3Status == "关闭":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
-        if uiThaiQianPinShengZai.checkBox_S1_DC4.isChecked() and uiThaiQianPinShengZai.checkBox_S_End_DC4.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC4Status = uiThaiQianPinShengZai.comboBox_S_End_DC4.currentText()
-            if S_end_DC4Status == "开启":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC4Status == "关闭":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
+        dc_channels = append_ui_forced_shutdown_step(
+            strArrayTest,
+            strArrayTestStep,
+            uiThaiQianPinShengZai,
+            per_dc_factor=per_dc_factor,
+            settle_01s=BLUESIGHT_DC_OFF_SETTLE_01S,
+            log=ui.textEdit_ReturnMessage,
+            tag="欠频升载",
+        )
+        if any(per_dc_factor.get(str(ch - 1)) == "Bluesight" for ch in dc_channels):
+            try:
+                ui.textEdit_ReturnMessage.append(
+                    f"[欠频升载] 蓝点 DC 已 OUTP OFF，等待 {BLUESIGHT_DC_OFF_SETTLE_01S / 10.0:g}s 缓降后再关 AC"
+                )
+            except Exception:
+                pass
 
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
@@ -21602,137 +15693,8 @@ def thaitestPUSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiTestPU.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiTestPU.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiTestPU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiTestPU.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiTestPU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiTestPU.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiTestPU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiTestPU.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiTestPU.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiTestPU, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -22075,69 +16037,9 @@ def thaitestPUSend():
 
         S3ACVOLT = uiThaiTestPU.textEdit_S3_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-
-            print("单相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            print("三相电")
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S3Command = "VOLT " + S3ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S3Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S3ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S3Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22158,64 +16060,9 @@ def thaitestPUSend():
 
         S4ACVOLT = uiThaiTestPU.textEdit_S4_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S4Command = "VOLT " + S4ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S4Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S4ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S4Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22236,64 +16083,9 @@ def thaitestPUSend():
 
         S5ACVOLT = uiThaiTestPU.textEdit_S5_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S5Command = "VOLT " + S5ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S5Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S5ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S5Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22314,64 +16106,9 @@ def thaitestPUSend():
 
         S6ACVOLT = uiThaiTestPU.textEdit_S6_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S6Command = "VOLT " + S6ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S6Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S6ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S6Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22392,64 +16129,9 @@ def thaitestPUSend():
 
         S7ACVOLT = uiThaiTestPU.textEdit_S7_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S7Command = "VOLT " + S7ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S7Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S7ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S7Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22470,64 +16152,9 @@ def thaitestPUSend():
 
         S8ACVOLT = uiThaiTestPU.textEdit_S8_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S8Command = "VOLT " + S8ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S8Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S8ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S8Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22548,64 +16175,9 @@ def thaitestPUSend():
 
         S9ACVOLT = uiThaiTestPU.textEdit_S9_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S9Command = "VOLT " + S9ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S9Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S9ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S9Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22626,64 +16198,9 @@ def thaitestPUSend():
 
         S10ACVOLT = uiThaiTestPU.textEdit_S10_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S10Command = "VOLT " + S10ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S10Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S10ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S10Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22704,64 +16221,9 @@ def thaitestPUSend():
 
         S11ACVOLT = uiThaiTestPU.textEdit_S11_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S11Command = "VOLT " + S11ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S11Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S11ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S11Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22782,64 +16244,9 @@ def thaitestPUSend():
 
         S12ACVOLT = uiThaiTestPU.textEdit_S12_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S12Command = "VOLT " + S12ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S12Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S12ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S12Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22860,64 +16267,9 @@ def thaitestPUSend():
 
         S13ACVOLT = uiThaiTestPU.textEdit_S13_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S13Command = "VOLT " + S13ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S13Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S13ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S13Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -22938,64 +16290,9 @@ def thaitestPUSend():
 
         S14ACVOLT = uiThaiTestPU.textEdit_S14_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S14Command = "VOLT " + S14ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S14Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S14ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S14Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23016,64 +16313,9 @@ def thaitestPUSend():
 
         S15ACVOLT = uiThaiTestPU.textEdit_S15_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S15Command = "VOLT " + S15ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S15Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S15ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S15Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23094,64 +16336,9 @@ def thaitestPUSend():
 
         S16ACVOLT = uiThaiTestPU.textEdit_S16_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S16Command = "VOLT " + S16ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S16Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S16ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S16Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23172,64 +16359,9 @@ def thaitestPUSend():
 
         S17ACVOLT = uiThaiTestPU.textEdit_S17_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S17Command = "VOLT " + S17ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S17Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S17ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S17Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23250,64 +16382,9 @@ def thaitestPUSend():
 
         S18ACVOLT = uiThaiTestPU.textEdit_S18_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S18Command = "VOLT " + S18ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S18Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S18Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S18Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S18Command = "VOLT " + S18ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S18Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S18Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S18Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S18Command = "VOLT " + S18ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S18Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S18Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S18Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S18Command = "VOLT " + S18ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S18Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S18ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S18Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23328,64 +16405,9 @@ def thaitestPUSend():
 
         S19ACVOLT = uiThaiTestPU.textEdit_S19_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S19Command = "VOLT " + S19ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S19Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S19Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S19Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S19Command = "VOLT " + S19ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S19Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S19Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S19Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S19Command = "VOLT " + S19ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S19Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S19Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S19Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S19Command = "VOLT " + S19ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S19Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S19ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S19Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23406,64 +16428,9 @@ def thaitestPUSend():
 
         S20ACVOLT = uiThaiTestPU.textEdit_S20_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S20Command = "VOLT " + S20ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S20Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S20Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S20Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S20Command = "VOLT " + S20ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S20Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S20Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S20Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S20Command = "VOLT " + S20ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S20Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S20Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S20Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S20Command = "VOLT " + S20ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S20Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S20ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S20Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23484,64 +16451,9 @@ def thaitestPUSend():
 
         S21ACVOLT = uiThaiTestPU.textEdit_S21_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S21Command = "VOLT " + S21ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S21Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S21Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S21Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S21Command = "VOLT " + S21ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S21Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S21Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S21Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S21Command = "VOLT " + S21ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S21Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S21Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S21Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S21Command = "VOLT " + S21ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S21Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S21ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S21Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23562,64 +16474,9 @@ def thaitestPUSend():
 
         S22ACVOLT = uiThaiTestPU.textEdit_S22_AC_VOLT.toPlainText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S22Command = "VOLT " + S22ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S22Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-            strArraySingle = ["" for _ in range(10)]
-            S22Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S22Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S22Command = "VOLT " + S22ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S22Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S22Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S22Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S22Command = "VOLT " + S22ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S22Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S22Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S22Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S22Command = "VOLT " + S22ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S22Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        _bs = len(strArrayTest)
+        append_volt_set(strArrayTest, S1ACEACHStatus, S22ACVOLT)
+        strArrayTestStepSingle.extend(strArrayTest[_bs:])
         strArraySingle = ["" for _ in range(10)]
         S22Command = "*IDN?"
         strArraySingle[0] = "AC"
@@ -23789,6 +16646,30 @@ def thaiguoqianya_pinSend():
         elif uiThaiGuoQianYa_Pin.radioButton_S2_WT5000.isChecked():
             wt_config_dict = WT5000_params_config(_PageWidgetFinder(uiThaiGuoQianYa_Pin._wtStacked.widget(3)))
 
+        from utils.wt_recording_mode import apply_filename_list_to_wt_pages, MODE_CONTINUOUS
+        from utils.matrix_recording_commands import get_record_mode
+        from utils.ovuf_recording import recommended_ovuf_names
+
+        _rec_mode = get_record_mode(uiThaiGuoQianYa_Pin)
+        file_names = recommended_ovuf_names(uiThaiGuoQianYa_Pin, _rec_mode)
+        apply_filename_list_to_wt_pages(uiThaiGuoQianYa_Pin._wtStacked, file_names)
+        if file_names:
+            file_list_text = ",".join(file_names)
+            wt_config_dict["textEdit_FileNameList"] = file_list_text
+            if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
+                wt_config_dict["comboBox_AutoSave"] = 1
+            try:
+                for page_idx in range(uiThaiGuoQianYa_Pin._wtStacked.count()):
+                    page = uiThaiGuoQianYa_Pin._wtStacked.widget(page_idx)
+                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                    if te is not None:
+                        te.setPlainText(file_list_text)
+                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                    if combo is not None and combo.currentIndex() == 0:
+                        combo.setCurrentIndex(1)
+            except Exception as e:
+                _append_debug_log(f"[过欠压_过欠频] update WT FileNameList failed: {e}")
+
         strArraySingle = ["" for _ in range(10)]
         S1Command = wt_config_dict
         strArraySingle[0] = "Upper_WT_Config"
@@ -23835,137 +16716,8 @@ def thaiguoqianya_pinSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiGuoQianYa_Pin.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianYa_Pin.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianYa_Pin.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianYa_Pin.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianYa_Pin.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianYa_Pin.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianYa_Pin.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianYa_Pin.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianYa_Pin.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiGuoQianYa_Pin, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -24159,16 +16911,11 @@ def thaiguoqianya_pinSend():
             test_program.append([test_project_now_index, wt_type])
 
     # extend_step
-    phase_check_list = ['', '', '']
+    from utils.ovuf_recording import build_ovuf_phase_check_list
+
+    phase_check_list = build_ovuf_phase_check_list(uiThaiGuoQianYa_Pin)
     # 测试项
     extend_test_project = uiThaiGuoQianYa_Pin.comboBox_Test_Project.currentText()
-    # 测试相
-    if uiThaiGuoQianYa_Pin.checkBox_AC_Test_L1.isChecked():
-        phase_check_list[0] = 'T'
-    elif uiThaiGuoQianYa_Pin.checkBox_AC_Test_L2.isChecked():
-        phase_check_list[1] = 'T'
-    elif uiThaiGuoQianYa_Pin.checkBox_AC_Test_L3.isChecked():
-        phase_check_list[2] = 'T'
 
     # step3
     if uiThaiGuoQianYa_Pin.checkBox_S3.isChecked():
@@ -24234,13 +16981,9 @@ def thaiguoqianya_pinSend():
             if extend_test_project == "过欠压":
                 for i in range(len(S3_test_step_list)):
                     step = S3_test_step_list[i]
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "VOLT " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                     strArraySingle = ["" for _ in range(10)]
                     S3Command = "*IDN?"
@@ -24258,13 +17001,9 @@ def thaiguoqianya_pinSend():
             elif extend_test_project == "过欠频":
                 for i in range(len(S3_test_step_list)):
                     step = S3_test_step_list[i]
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "FREQ " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S3Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
                     strArrayTestStep.append(strArrayTestStepSingle)
 
                     strArraySingle = ["" for _ in range(10)]
@@ -24285,53 +17024,9 @@ def thaiguoqianya_pinSend():
                 if '' not in phase_check_list:
                     for i in range(len(S3_test_step_list)):
                         step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S3Command = "*IDN?"
@@ -24357,13 +17052,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S3Command = "*IDN?"
@@ -24389,13 +17080,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S3Command = "*IDN?"
@@ -24421,13 +17108,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S3Command = "*IDN?"
@@ -24446,56 +17129,11 @@ def thaiguoqianya_pinSend():
                 if '' not in phase_check_list:
                     for i in range(len(S3_test_step_list)):
                         step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
                         S3Command = "*IDN?"
@@ -24521,13 +17159,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -24554,13 +17188,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -24587,13 +17217,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -24674,13 +17300,9 @@ def thaiguoqianya_pinSend():
 
             if extend_test_project == "过欠压":
                 for step in S4_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "VOLT " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                     strArraySingle = ["" for _ in range(10)]
                     S4Command = "*IDN?"
@@ -24694,13 +17316,9 @@ def thaiguoqianya_pinSend():
 
             elif extend_test_project == "过欠频":
                 for step in S4_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "FREQ " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S4Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
                     strArrayTestStep.append(strArrayTestStepSingle)
 
                     strArraySingle = ["" for _ in range(10)]
@@ -24717,53 +17335,9 @@ def thaiguoqianya_pinSend():
             if extend_test_project == "过欠压":
                 if '' not in phase_check_list:
                     for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S4Command = "*IDN?"
@@ -24785,13 +17359,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S4Command = "*IDN?"
@@ -24813,13 +17383,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S4Command = "*IDN?"
@@ -24841,13 +17407,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S4Command = "*IDN?"
@@ -24862,56 +17424,11 @@ def thaiguoqianya_pinSend():
             elif extend_test_project == "过欠频":
                 if '' not in phase_check_list:
                     for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
                         S4Command = "*IDN?"
@@ -24933,13 +17450,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -24962,13 +17475,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -24991,13 +17500,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -25075,13 +17580,9 @@ def thaiguoqianya_pinSend():
 
             if extend_test_project == "过欠压":
                 for step in S5_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "VOLT " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                     strArraySingle = ["" for _ in range(10)]
                     S5Command = "*IDN?"
@@ -25095,13 +17596,9 @@ def thaiguoqianya_pinSend():
 
             elif extend_test_project == "过欠频":
                 for step in S5_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "FREQ " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S5Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
                     strArrayTestStep.append(strArrayTestStepSingle)
 
                     strArraySingle = ["" for _ in range(10)]
@@ -25118,53 +17615,9 @@ def thaiguoqianya_pinSend():
             if extend_test_project == "过欠压":
                 if '' not in phase_check_list:
                     for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S5Command = "*IDN?"
@@ -25186,13 +17639,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S5Command = "*IDN?"
@@ -25214,13 +17663,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S5Command = "*IDN?"
@@ -25242,13 +17687,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S5Command = "*IDN?"
@@ -25263,56 +17704,11 @@ def thaiguoqianya_pinSend():
             elif extend_test_project == "过欠频":
                 if '' not in phase_check_list:
                     for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
                         S5Command = "*IDN?"
@@ -25334,13 +17730,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -25363,13 +17755,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -25392,13 +17780,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -25476,13 +17860,9 @@ def thaiguoqianya_pinSend():
 
             if extend_test_project == "过欠压":
                 for step in S6_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "VOLT " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                     strArraySingle = ["" for _ in range(10)]
                     S6Command = "*IDN?"
@@ -25496,13 +17876,9 @@ def thaiguoqianya_pinSend():
 
             elif extend_test_project == "过欠频":
                 for step in S6_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "FREQ " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S6Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
                     strArrayTestStep.append(strArrayTestStepSingle)
 
                     strArraySingle = ["" for _ in range(10)]
@@ -25519,53 +17895,9 @@ def thaiguoqianya_pinSend():
             if extend_test_project == "过欠压":
                 if '' not in phase_check_list:
                     for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S6Command = "*IDN?"
@@ -25587,13 +17919,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S6Command = "*IDN?"
@@ -25615,13 +17943,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S6Command = "*IDN?"
@@ -25643,13 +17967,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S6Command = "*IDN?"
@@ -25664,56 +17984,11 @@ def thaiguoqianya_pinSend():
             elif extend_test_project == "过欠频":
                 if '' not in phase_check_list:
                     for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
                         S6Command = "*IDN?"
@@ -25735,13 +18010,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -25764,13 +18035,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -25793,13 +18060,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -25877,13 +18140,9 @@ def thaiguoqianya_pinSend():
 
             if extend_test_project == "过欠压":
                 for step in S7_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S7Command = "VOLT " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S7Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                     strArraySingle = ["" for _ in range(10)]
                     S7Command = "*IDN?"
@@ -25897,13 +18156,9 @@ def thaiguoqianya_pinSend():
 
             elif extend_test_project == "过欠频":
                 for step in S7_test_step_list:
-                    strArraySingle = ["" for _ in range(10)]
-                    S7Command = "FREQ " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S7Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
                     strArrayTestStep.append(strArrayTestStepSingle)
 
                     strArraySingle = ["" for _ in range(10)]
@@ -25920,53 +18175,9 @@ def thaiguoqianya_pinSend():
             if extend_test_project == "过欠压":
                 if '' not in phase_check_list:
                     for step in S7_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S7Command = "*IDN?"
@@ -25988,13 +18199,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S7Command = "*IDN?"
@@ -26016,13 +18223,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S7Command = "*IDN?"
@@ -26044,13 +18247,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S7Command = "*IDN?"
@@ -26065,56 +18264,11 @@ def thaiguoqianya_pinSend():
             elif extend_test_project == "过欠频":
                 if '' not in phase_check_list:
                     for step in S7_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
                         S7Command = "*IDN?"
@@ -26136,13 +18290,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -26165,13 +18315,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -26194,13 +18340,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S7Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S7Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -26279,13 +18421,9 @@ def thaiguoqianya_pinSend():
             if extend_test_project == "过欠压":
                 for i in range(len(S8_test_step_list)):
                     step = S8_test_step_list[i]
-                    strArraySingle = ["" for _ in range(10)]
-                    S8Command = "VOLT " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S8Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                     strArraySingle = ["" for _ in range(10)]
                     S8Command = "*IDN?"
@@ -26303,13 +18441,9 @@ def thaiguoqianya_pinSend():
             elif extend_test_project == "过欠频":
                 for i in range(len(S8_test_step_list)):
                     step = S8_test_step_list[i]
-                    strArraySingle = ["" for _ in range(10)]
-                    S8Command = "FREQ " + step
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "write"
-                    strArraySingle[2] = S8Command
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
+                    _bs = len(strArrayTest)
+                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
                     strArrayTestStep.append(strArrayTestStepSingle)
 
                     strArraySingle = ["" for _ in range(10)]
@@ -26330,53 +18464,9 @@ def thaiguoqianya_pinSend():
                 if '' not in phase_check_list:
                     for i in range(len(S8_test_step_list)):
                         step = S8_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S8Command = "*IDN?"
@@ -26402,13 +18492,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S8Command = "*IDN?"
@@ -26434,13 +18520,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S8Command = "*IDN?"
@@ -26466,13 +18548,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "VOLT " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
                         strArraySingle = ["" for _ in range(10)]
                         S8Command = "*IDN?"
@@ -26491,56 +18569,11 @@ def thaiguoqianya_pinSend():
                 if '' not in phase_check_list:
                     for i in range(len(S8_test_step_list)):
                         step = S8_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
                         S8Command = "*IDN?"
@@ -26566,13 +18599,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -26599,13 +18628,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -26632,13 +18657,9 @@ def thaiguoqianya_pinSend():
                         strArrayTest.append(strArraySingle)
                         strArrayTestStepSingle.append(strArraySingle)
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S8Command = "FREQ " + step
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S8Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
+                        _bs = len(strArrayTest)
+                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
+                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
                         strArrayTestStep.append(strArrayTestStepSingle)
 
                         strArraySingle = ["" for _ in range(10)]
@@ -26767,6 +18788,31 @@ def thaiguoqianya_pinSend():
 
         strArrayTestStep.append(strArrayTestStepSingle)
 
+    from utils.wt_recording_mode import MODE_CONTINUOUS
+    from utils.matrix_recording_commands import get_record_mode
+    from utils.ovuf_recording import apply_ovuf_recording_mode, recommended_ovuf_names
+
+    _dew = _is_dewetron_project_mode("过欠压_过欠频")
+    wt_on = bool(uiThaiGuoQianYa_Pin.checkBox_S2.isChecked() and (not _dew))
+    wt_continuous = get_record_mode(uiThaiGuoQianYa_Pin) == MODE_CONTINUOUS
+    _ovuf_names = recommended_ovuf_names(uiThaiGuoQianYa_Pin, get_record_mode(uiThaiGuoQianYa_Pin))
+    _ovuf_file_inc = apply_ovuf_recording_mode(
+        strArrayTest,
+        uiThaiGuoQianYa_Pin,
+        continuous=wt_continuous,
+        wt_on=wt_on,
+    )
+    if _ovuf_file_inc > 0:
+        if wt_continuous:
+            ui.textEdit_ReturnMessage.append(
+                "[过欠压_过欠频] 一条线连续录，单文件 %s" % (_ovuf_names[0] if _ovuf_names else "OVUF_BR")
+            )
+        else:
+            ui.textEdit_ReturnMessage.append(
+                "[过欠压_过欠频] 分开录，共 %d 个文件：%s"
+                % (len(_ovuf_names), ",".join(_ovuf_names))
+            )
+
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
     elif strShowErrorMessageBoxFlag == "2":
@@ -26786,7 +18832,10 @@ def thaiguoqianya_pinSend():
     elif strShowErrorMessageBoxFlag == "brand":
         QMessageBox.information(None, "错误提示信息", "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家", QMessageBox.Ok, QMessageBox.Ok)
     else:
-        total_save_file = total_save_file + 1
+        if _ovuf_file_inc > 0:
+            total_save_file = total_save_file + _ovuf_file_inc
+        else:
+            total_save_file = total_save_file + 1
         per_test_time_list.append(int(total_test_time) + 60)
         print(total_save_file, per_test_time_list)
         strtimenow = now_to_datenow()
@@ -26862,7 +18911,12 @@ def thaiguoqianpin_immunAppend():
     ui.textEdit_ReturnMessage.append(f"[巴西过欠频稳定性] 第{guoqianpin_immun_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('巴西过欠频稳定性')
     before_count = guoqianpin_immun_append_count
-    thaiguoqianpin_immunSend()
+    try:
+        thaiguoqianpin_immunSend()
+    except Exception as e:
+        logging.getLogger(__name__).exception("[巴西过欠频稳定性] 生成命令失败")
+        ui.textEdit_ReturnMessage.append(f"[巴西过欠频稳定性] 生成命令失败: {e}")
+        return
     if not _normalize_generated_dewetron_rows('巴西过欠频稳定性', snapshot):
         guoqianpin_immun_append_count = before_count
         uiThaiGuoQianPin_Immun.label_append_count.setText(str(before_count))
@@ -26944,137 +18998,8 @@ def thaiguoqianpin_immunSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiGuoQianPin_Immun.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianPin_Immun.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianPin_Immun.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianPin_Immun.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianPin_Immun.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianPin_Immun.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianPin_Immun.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiGuoQianPin_Immun.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiGuoQianPin_Immun.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiGuoQianPin_Immun, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -27267,12 +19192,44 @@ def thaiguoqianpin_immunSend():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
+    # 扫频更新率：全局勾选时才有效。最短 100ms（时间轴刻度）；点数有上限（immun_freq_sweep）
+    fRateSetTime_range = None
     if uiThaiGuoQianPin_Immun.checkBox_RATE.isChecked():
         RATE_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S2_RATE_TIME.toPlainText()
         RATE_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S2_RATE_TIME.currentText()
-        fRateSetTime = float(RATE_TIME_VALUE)
-        fRateSetTime_range = SetTimeFunction(fRateSetTime, RATE_TIME_UNIT) / 10
-        per_second_range = 1 / fRateSetTime_range
+        try:
+            fRateSetTime = float(str(RATE_TIME_VALUE).strip() or "0")
+        except ValueError:
+            fRateSetTime = 0.0
+        # SetTimeFunction 以 0.1s 为最小刻度；<100ms 会量化成 0（例如 50ms）
+        rate_tenths = SetTimeFunction(fRateSetTime, RATE_TIME_UNIT)
+        if rate_tenths <= 0:
+            msg = (
+                "[巴西过欠频稳定性] 更新率无效或过小（系统最短 100ms，不是 1 秒）。"
+                "请设 ≥100 毫秒（如 100/200/500），或改用「秒/分钟」。"
+            )
+            ui.textEdit_ReturnMessage.append(msg)
+            try:
+                QtWidgets.QMessageBox.warning(None, "更新率无效", msg)
+            except Exception:
+                pass
+            return
+        fRateSetTime_range = rate_tenths / 10.0
+
+    rate_wait_01s = int(round((fRateSetTime_range or 1.0) * 10))
+
+    from utils.immun_freq_sweep import build_immun_freq_sweep_points
+
+    def _immun_step_list(start_txt, end_txt, duration_s, step_rate_checked):
+        use_rate = bool(fRateSetTime_range) and bool(step_rate_checked)
+        pts = build_immun_freq_sweep_points(
+            float(start_txt),
+            float(end_txt),
+            duration_s=float(duration_s),
+            rate_s=float(fRateSetTime_range or 1.0),
+            use_rate=use_rate,
+        )
+        return [str(p) for p in pts]
 
     # step3
     if uiThaiGuoQianPin_Immun.checkBox_S3.isChecked():
@@ -27280,36 +19237,14 @@ def thaiguoqianpin_immunSend():
         S3_test_step_list = []
         S3ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S3_AC_FR_Start.toPlainText()
         S3ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S3_AC_FR_End.toPlainText()
-        delta_S3_FR_abs = abs(float(S3ACFR_start) - float(S3ACFR_end))
         S3_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S3_TIME.toPlainText()
         S3_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S3_TIME.currentText()
         fS3SetTime = float(S3_TIME_VALUE)
         real_test_time = SetTimeFunction(fS3SetTime, S3_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S3_RATE.isChecked():
-            S3_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS3StepSize = delta_S3_FR_abs / S3_total_test_count
-            S3FR_loop = True
-            fS3ACFR_start = float(S3ACFR_start)
-            fS3ACFR_end = float(S3ACFR_end)
-            if fS3ACFR_end > fS3ACFR_start:
-                while S3FR_loop:
-                    if fS3ACFR_start < fS3ACFR_end:
-                        S3_test_step_list.append(str(round(fS3ACFR_start,2)))
-                        fS3ACFR_start = fS3ACFR_start + fS3StepSize
-                    else:
-                        S3_test_step_list.append(str(round(fS3ACFR_end,2)))
-                        S3FR_loop = False
-            else:
-                while S3FR_loop:
-                    if fS3ACFR_end < fS3ACFR_start:
-                        S3_test_step_list.append(str(round(fS3ACFR_start,2)))
-                        fS3ACFR_start = fS3ACFR_start - fS3StepSize
-                    else:
-                        S3_test_step_list.append(str(round(fS3ACFR_end,2)))
-                        S3FR_loop = False
-        else:
-            S3_test_step_list.append(S3ACFR_start)
+        S3_test_step_list = _immun_step_list(
+            S3ACFR_start, S3ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S3_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S3_test_step_list)):
@@ -27330,9 +19265,9 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[2] = S3Command
                 if uiThaiGuoQianPin_Immun.checkBox_S3_RATE.isChecked():
                     if i == 0:
-                        strArraySingle[6] = fRateSetTime_range * 10
+                        strArraySingle[6] = rate_wait_01s
                     else:
-                        strArraySingle[9] = fRateSetTime_range * 10
+                        strArraySingle[9] = rate_wait_01s
                 else:
                     if i == 0:
                         strArraySingle[6] = int(real_test_time * 10)
@@ -27369,9 +19304,9 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[2] = S3Command
                 if uiThaiGuoQianPin_Immun.checkBox_S3_RATE.isChecked():
                     if i == 0:
-                        strArraySingle[6] = fRateSetTime_range * 10
+                        strArraySingle[6] = rate_wait_01s
                     else:
-                        strArraySingle[9] = fRateSetTime_range * 10
+                        strArraySingle[9] = rate_wait_01s
                 else:
                     if i == 0:
                         strArraySingle[6] = int(real_test_time * 10)
@@ -27389,37 +19324,14 @@ def thaiguoqianpin_immunSend():
         S4_test_step_list = []
         S4ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S4_AC_FR_Start.toPlainText()
         S4ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S4_AC_FR_End.toPlainText()
-        delta_S4_FR_abs = abs(float(S4ACFR_start) - float(S4ACFR_end))
         S4_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S4_TIME.toPlainText()
         S4_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S4_TIME.currentText()
         fS4SetTime = float(S4_TIME_VALUE)
         real_test_time = SetTimeFunction(fS4SetTime, S4_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S4_RATE.isChecked():
-            S4_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS4StepSize = delta_S4_FR_abs / S4_total_test_count
-            S4FR_loop = True
-            fS4ACFR_start = float(S4ACFR_start)
-            fS4ACFR_end = float(S4ACFR_end)
-            
-            if fS4ACFR_end > fS4ACFR_start:
-                while S4FR_loop:
-                    if fS4ACFR_start < fS4ACFR_end:
-                        S4_test_step_list.append(str(round(fS4ACFR_start,2)))
-                        fS4ACFR_start = fS4ACFR_start + fS4StepSize
-                    else:
-                        S4_test_step_list.append(str(round(fS4ACFR_end,2)))
-                        S4FR_loop = False
-            else:
-                while S4FR_loop:
-                    if fS4ACFR_end < fS4ACFR_start:
-                        S4_test_step_list.append(str(round(fS4ACFR_start,2)))
-                        fS4ACFR_start = fS4ACFR_start - fS4StepSize
-                    else:
-                        S4_test_step_list.append(str(round(fS4ACFR_end,2)))
-                        S4FR_loop = False
-        else:
-            S4_test_step_list.append(S4ACFR_start)
+        S4_test_step_list = _immun_step_list(
+            S4ACFR_start, S4ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S4_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S4_test_step_list)):
@@ -27439,7 +19351,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S4Command
                 if uiThaiGuoQianPin_Immun.checkBox_S4_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27472,7 +19384,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S4Command
                 if uiThaiGuoQianPin_Immun.checkBox_S4_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27487,37 +19399,14 @@ def thaiguoqianpin_immunSend():
         S5_test_step_list = []
         S5ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S5_AC_FR_Start.toPlainText()
         S5ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S5_AC_FR_End.toPlainText()
-        delta_S5_FR_abs = abs(float(S5ACFR_start) - float(S5ACFR_end))
         S5_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S5_TIME.toPlainText()
         S5_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S5_TIME.currentText()
         fS5SetTime = float(S5_TIME_VALUE)
         real_test_time = SetTimeFunction(fS5SetTime, S5_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S5_RATE.isChecked():
-            S5_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS5StepSize = delta_S5_FR_abs / S5_total_test_count
-            S5FR_loop = True
-            fS5ACFR_start = float(S5ACFR_start)
-            fS5ACFR_end = float(S5ACFR_end)
-            
-            if fS5ACFR_end > fS5ACFR_start:
-                while S5FR_loop:
-                    if fS5ACFR_start < fS5ACFR_end:
-                        S5_test_step_list.append(str(round(fS5ACFR_start,2)))
-                        fS5ACFR_start = fS5ACFR_start + fS5StepSize
-                    else:
-                        S5_test_step_list.append(str(round(fS5ACFR_end,2)))
-                        S5FR_loop = False
-            else:
-                while S5FR_loop:
-                    if fS5ACFR_end < fS5ACFR_start:
-                        S5_test_step_list.append(str(round(fS5ACFR_start,2)))
-                        fS5ACFR_start = fS5ACFR_start - fS5StepSize
-                    else:
-                        S5_test_step_list.append(str(round(fS5ACFR_end,2)))
-                        S5FR_loop = False
-        else:
-            S5_test_step_list.append(S5ACFR_start)
+        S5_test_step_list = _immun_step_list(
+            S5ACFR_start, S5ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S5_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S5_test_step_list)):
@@ -27537,7 +19426,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S5Command
                 if uiThaiGuoQianPin_Immun.checkBox_S5_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27570,7 +19459,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S5Command
                 if uiThaiGuoQianPin_Immun.checkBox_S5_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27585,37 +19474,14 @@ def thaiguoqianpin_immunSend():
         S6_test_step_list = []
         S6ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S6_AC_FR_Start.toPlainText()
         S6ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S6_AC_FR_End.toPlainText()
-        delta_S6_FR_abs = abs(float(S6ACFR_start) - float(S6ACFR_end))
         S6_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S6_TIME.toPlainText()
         S6_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S6_TIME.currentText()
         fS6SetTime = float(S6_TIME_VALUE)
         real_test_time = SetTimeFunction(fS6SetTime, S6_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S6_RATE.isChecked():
-            S6_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS6StepSize = delta_S6_FR_abs / S6_total_test_count
-            S6FR_loop = True
-            fS6ACFR_start = float(S6ACFR_start)
-            fS6ACFR_end = float(S6ACFR_end)
-            
-            if fS6ACFR_end > fS6ACFR_start:
-                while S6FR_loop:
-                    if fS6ACFR_start < fS6ACFR_end:
-                        S6_test_step_list.append(str(round(fS6ACFR_start,2)))
-                        fS6ACFR_start = fS6ACFR_start + fS6StepSize
-                    else:
-                        S6_test_step_list.append(str(round(fS6ACFR_end,2)))
-                        S6FR_loop = False
-            else:
-                while S6FR_loop:
-                    if fS6ACFR_end < fS6ACFR_start:
-                        S6_test_step_list.append(str(round(fS6ACFR_start,2)))
-                        fS6ACFR_start = fS6ACFR_start - fS6StepSize
-                    else:
-                        S6_test_step_list.append(str(round(fS6ACFR_end,2)))
-                        S6FR_loop = False
-        else:
-            S6_test_step_list.append(S6ACFR_start)
+        S6_test_step_list = _immun_step_list(
+            S6ACFR_start, S6ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S6_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S6_test_step_list)):
@@ -27635,7 +19501,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S6Command
                 if uiThaiGuoQianPin_Immun.checkBox_S6_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27668,7 +19534,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S6Command
                 if uiThaiGuoQianPin_Immun.checkBox_S6_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27683,38 +19549,14 @@ def thaiguoqianpin_immunSend():
         S7_test_step_list = []
         S7ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S7_AC_FR_Start.toPlainText()
         S7ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S7_AC_FR_End.toPlainText()
-        delta_S7_FR_abs = abs(float(S7ACFR_start) - float(S7ACFR_end))
         S7_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S7_TIME.toPlainText()
         S7_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S7_TIME.currentText()
         fS7SetTime = float(S7_TIME_VALUE)
         real_test_time = SetTimeFunction(fS7SetTime, S7_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S7_RATE.isChecked():
-            S7_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS7StepSize = delta_S7_FR_abs / S7_total_test_count
-            S7FR_loop = True
-            fS7ACFR_start = float(S7ACFR_start)
-            fS7ACFR_end = float(S7ACFR_end)
-            
-            if fS7ACFR_end > fS7ACFR_start:
-                while S7FR_loop:
-                    if fS7ACFR_start < fS7ACFR_end:
-                        S7_test_step_list.append(str(round(fS7ACFR_start,2)))
-                        fS7ACFR_start = fS7ACFR_start + fS7StepSize
-                    else:
-                        S7_test_step_list.append(str(round(fS7ACFR_end,2)))
-                        S7FR_loop = False
-            else:
-                while S7FR_loop:
-                    if fS7ACFR_end < fS7ACFR_start:
-                        S7_test_step_list.append(str(round(fS7ACFR_start,2)))
-                        fS7ACFR_start = fS7ACFR_start - fS7StepSize
-                    else:
-                        S7_test_step_list.append(str(round(fS7ACFR_end,2)))
-                        S7FR_loop = False
-
-        else:
-            S7_test_step_list.append(S7ACFR_start)
+        S7_test_step_list = _immun_step_list(
+            S7ACFR_start, S7ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S7_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S7_test_step_list)):
@@ -27734,7 +19576,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S7Command
                 if uiThaiGuoQianPin_Immun.checkBox_S7_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27767,7 +19609,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S7Command
                 if uiThaiGuoQianPin_Immun.checkBox_S7_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27782,37 +19624,14 @@ def thaiguoqianpin_immunSend():
         S8_test_step_list = []
         S8ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S8_AC_FR_Start.toPlainText()
         S8ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S8_AC_FR_End.toPlainText()
-        delta_S8_FR_abs = abs(float(S8ACFR_start) - float(S8ACFR_end))
         S8_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S8_TIME.toPlainText()
         S8_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S8_TIME.currentText()
         fS8SetTime = float(S8_TIME_VALUE)
         real_test_time = SetTimeFunction(fS8SetTime, S8_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S8_RATE.isChecked():
-            S8_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS8StepSize = delta_S8_FR_abs / S8_total_test_count
-            S8FR_loop = True
-            fS8ACFR_start = float(S8ACFR_start)
-            fS8ACFR_end = float(S8ACFR_end)
-            
-            if fS8ACFR_end > fS8ACFR_start:
-                while S8FR_loop:
-                    if fS8ACFR_start < fS8ACFR_end:
-                        S8_test_step_list.append(str(round(fS8ACFR_start,2)))
-                        fS8ACFR_start = fS8ACFR_start + fS8StepSize
-                    else:
-                        S8_test_step_list.append(str(round(fS8ACFR_end,2)))
-                        S8FR_loop = False
-            else:
-                while S8FR_loop:
-                    if fS8ACFR_end < fS8ACFR_start:
-                        S8_test_step_list.append(str(round(fS8ACFR_start,2)))
-                        fS8ACFR_start = fS8ACFR_start - fS8StepSize
-                    else:
-                        S8_test_step_list.append(str(round(fS8ACFR_end,2)))
-                        S8FR_loop = False
-        else:
-            S8_test_step_list.append(S8ACFR_start)
+        S8_test_step_list = _immun_step_list(
+            S8ACFR_start, S8ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S8_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S8_test_step_list)):
@@ -27832,7 +19651,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S8Command
                 if uiThaiGuoQianPin_Immun.checkBox_S8_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27865,7 +19684,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S8Command
                 if uiThaiGuoQianPin_Immun.checkBox_S8_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27880,38 +19699,14 @@ def thaiguoqianpin_immunSend():
         S9_test_step_list = []
         S9ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S9_AC_FR_Start.toPlainText()
         S9ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S9_AC_FR_End.toPlainText()
-        delta_S9_FR_abs = abs(float(S9ACFR_start) - float(S9ACFR_end))
         S9_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S9_TIME.toPlainText()
         S9_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S9_TIME.currentText()
         fS9SetTime = float(S9_TIME_VALUE)
         real_test_time = SetTimeFunction(fS9SetTime, S9_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S9_RATE.isChecked():
-            S9_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS9StepSize = delta_S9_FR_abs / S9_total_test_count
-            S9FR_loop = True
-            fS9ACFR_start = float(S9ACFR_start)
-            fS9ACFR_end = float(S9ACFR_end)
-            
-            if fS9ACFR_end > fS9ACFR_start:
-                while S9FR_loop:
-                    if fS9ACFR_start < fS9ACFR_end:
-                        S9_test_step_list.append(str(round(fS9ACFR_start,2)))
-                        fS9ACFR_start = fS9ACFR_start + fS9StepSize
-                    else:
-                        S9_test_step_list.append(str(round(fS9ACFR_end,2)))
-                        S9FR_loop = False
-            else:
-                while S9FR_loop:
-                    if fS9ACFR_end < fS9ACFR_start:
-                        S9_test_step_list.append(str(round(fS9ACFR_start,2)))
-                        fS9ACFR_start = fS9ACFR_start - fS9StepSize
-                    else:
-                        S9_test_step_list.append(str(round(fS9ACFR_end,2)))
-                        S9FR_loop = False
-
-        else:
-            S9_test_step_list.append(S9ACFR_start)
+        S9_test_step_list = _immun_step_list(
+            S9ACFR_start, S9ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S9_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S9_test_step_list)):
@@ -27931,7 +19726,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S9Command
                 if uiThaiGuoQianPin_Immun.checkBox_S9_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27964,7 +19759,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S9Command
                 if uiThaiGuoQianPin_Immun.checkBox_S9_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -27979,37 +19774,14 @@ def thaiguoqianpin_immunSend():
         S10_test_step_list = []
         S10ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S10_AC_FR_Start.toPlainText()
         S10ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S10_AC_FR_End.toPlainText()
-        delta_S10_FR_abs = abs(float(S10ACFR_start) - float(S10ACFR_end))
         S10_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S10_TIME.toPlainText()
         S10_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S10_TIME.currentText()
         fS10SetTime = float(S10_TIME_VALUE)
         real_test_time = SetTimeFunction(fS10SetTime, S10_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S10_RATE.isChecked():
-            S10_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS10StepSize = delta_S10_FR_abs / S10_total_test_count
-            S10FR_loop = True
-            fS10ACFR_start = float(S10ACFR_start)
-            fS10ACFR_end = float(S10ACFR_end)
-            
-            if fS10ACFR_end > fS10ACFR_start:
-                while S10FR_loop:
-                    if fS10ACFR_start < fS10ACFR_end:
-                        S10_test_step_list.append(str(round(fS10ACFR_start,2)))
-                        fS10ACFR_start = fS10ACFR_start + fS10StepSize
-                    else:
-                        S10_test_step_list.append(str(round(fS10ACFR_end,2)))
-                        S10FR_loop = False
-            else:
-                while S10FR_loop:
-                    if fS10ACFR_end < fS10ACFR_start:
-                        S10_test_step_list.append(str(round(fS10ACFR_start,2)))
-                        fS10ACFR_start = fS10ACFR_start - fS10StepSize
-                    else:
-                        S10_test_step_list.append(str(round(fS10ACFR_end,2)))
-                        S10FR_loop = False
-        else:
-            S10_test_step_list.append(S10ACFR_start)
+        S10_test_step_list = _immun_step_list(
+            S10ACFR_start, S10ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S10_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S10_test_step_list)):
@@ -28029,7 +19801,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S10Command
                 if uiThaiGuoQianPin_Immun.checkBox_S10_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -28062,7 +19834,7 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[1] = "query"
                 strArraySingle[2] = S10Command
                 if uiThaiGuoQianPin_Immun.checkBox_S10_RATE.isChecked():
-                    strArraySingle[9] = fRateSetTime_range * 10
+                    strArraySingle[9] = rate_wait_01s
                 else:
                     strArraySingle[9] = int(real_test_time * 10)
                 strArrayTest.append(strArraySingle)
@@ -28077,38 +19849,14 @@ def thaiguoqianpin_immunSend():
         S11_test_step_list = []
         S11ACFR_start = uiThaiGuoQianPin_Immun.textEdit_S11_AC_FR_Start.toPlainText()
         S11ACFR_end = uiThaiGuoQianPin_Immun.textEdit_S11_AC_FR_End.toPlainText()
-        delta_S11_FR_abs = abs(float(S11ACFR_start) - float(S11ACFR_end))
         S11_TIME_VALUE = uiThaiGuoQianPin_Immun.textEdit_S11_TIME.toPlainText()
         S11_TIME_UNIT = uiThaiGuoQianPin_Immun.comboBox_S11_TIME.currentText()
         fS11SetTime = float(S11_TIME_VALUE)
         real_test_time = SetTimeFunction(fS11SetTime, S11_TIME_UNIT) / 10
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S11_RATE.isChecked():
-            S11_total_test_count = max(1, int(real_test_time * per_second_range))
-            fS11StepSize = delta_S11_FR_abs / S11_total_test_count
-            S11FR_loop = True
-            fS11ACFR_start = float(S11ACFR_start)
-            fS11ACFR_end = float(S11ACFR_end)
-            
-            if fS11ACFR_end > fS11ACFR_start:
-                while S11FR_loop:
-                    if fS11ACFR_start < fS11ACFR_end:
-                        S11_test_step_list.append(str(round(fS11ACFR_start,2)))
-                        fS11ACFR_start = fS11ACFR_start + fS11StepSize
-                    else:
-                        S11_test_step_list.append(str(round(fS11ACFR_end,2)))
-                        S11FR_loop = False
-            else:
-                while S11FR_loop:
-                    if fS11ACFR_end < fS11ACFR_start:
-                        S11_test_step_list.append(str(round(fS11ACFR_start,2)))
-                        fS11ACFR_start = fS11ACFR_start - fS11StepSize
-                    else:
-                        S11_test_step_list.append(str(round(fS11ACFR_end,2)))
-                        S11FR_loop = False
-
-        else:
-            S11_test_step_list.append(S11ACFR_start)
+        S11_test_step_list = _immun_step_list(
+            S11ACFR_start, S11ACFR_end, real_test_time,
+            uiThaiGuoQianPin_Immun.checkBox_S11_RATE.isChecked(),
+        )
 
         if S1ACEACHStatus == "单相":
             for i in range(len(S11_test_step_list)):
@@ -28129,9 +19877,9 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[2] = S11Command
                 if uiThaiGuoQianPin_Immun.checkBox_S11_RATE.isChecked():
                     if i == len(S11_test_step_list) - 1:
-                        strArraySingle[6] = fRateSetTime_range * 10
+                        strArraySingle[6] = rate_wait_01s
                     else:
-                        strArraySingle[9] = fRateSetTime_range * 10
+                        strArraySingle[9] = rate_wait_01s
                 else:
                     if i == len(S11_test_step_list) - 1:
                         strArraySingle[6] = int(real_test_time * 10)
@@ -28168,9 +19916,9 @@ def thaiguoqianpin_immunSend():
                 strArraySingle[2] = S11Command
                 if uiThaiGuoQianPin_Immun.checkBox_S11_RATE.isChecked():
                     if i == len(S11_test_step_list) - 1:
-                        strArraySingle[6] = fRateSetTime_range * 10
+                        strArraySingle[6] = rate_wait_01s
                     else:
-                        strArraySingle[9] = fRateSetTime_range * 10
+                        strArraySingle[9] = rate_wait_01s
                 else:
                     if i == len(S11_test_step_list) - 1:
                         strArraySingle[6] = int(real_test_time * 10)
@@ -28182,116 +19930,24 @@ def thaiguoqianpin_immunSend():
 
         total_test_time = total_test_time + real_test_time
 
-    # step_end
+    # step_end：先 DC 后 AC，蓝点缓降后再关 AC（禁止 AC/DC 贴着关）
     if uiThaiGuoQianPin_Immun.checkBox_S_End.isChecked():
-        strArrayTestStepSingle = []
-        strArraySingle = ["" for _ in range(10)]
-        S_AC_EndStatus = uiThaiGuoQianPin_Immun.comboBox_S_End_AC.currentText()
-        if S_AC_EndStatus == "开启":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP ON"
-        elif S_AC_EndStatus == "关闭":
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = "OUTP OFF"
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-        strArrayTestStep.append(strArrayTestStepSingle)
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[8] = 5
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiGuoQianPin_Immun.checkBox_S1_DC1.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC1.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC1Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC1.currentText()
-            if S_end_DC1Status == "开启":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC1Status == "关闭":
-                strArraySingle[0] = "DC1"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiGuoQianPin_Immun.checkBox_S1_DC2.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC2.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC2Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC2.currentText()
-            if S_end_DC2Status == "开启":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC2Status == "关闭":
-                strArraySingle[0] = "DC2"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        if uiThaiGuoQianPin_Immun.checkBox_S1_DC3.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC3.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC3Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC3.currentText()
-            if S_end_DC3Status == "开启":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC3Status == "关闭":
-                strArraySingle[0] = "DC3"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 5
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        
-        if uiThaiGuoQianPin_Immun.checkBox_S1_DC4.isChecked() and uiThaiGuoQianPin_Immun.checkBox_S_End_DC4.isChecked():
-            strArraySingle = ["" for _ in range(10)]
-            S_end_DC4Status = uiThaiGuoQianPin_Immun.comboBox_S_End_DC4.currentText()
-            if S_end_DC4Status == "开启":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP ON"
-            elif S_end_DC4Status == "关闭":
-                strArraySingle[0] = "DC4"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "OUTP OFF"
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        strArrayTestStep.append(strArrayTestStepSingle)
+        dc_channels = append_ui_forced_shutdown_step(
+            strArrayTest,
+            strArrayTestStep,
+            uiThaiGuoQianPin_Immun,
+            per_dc_factor=per_dc_factor,
+            settle_01s=BLUESIGHT_DC_OFF_SETTLE_01S,
+            log=ui.textEdit_ReturnMessage.append,
+            tag="巴西过欠频稳定性",
+        )
+        if any(per_dc_factor.get(str(ch - 1)) == "Bluesight" for ch in dc_channels):
+            try:
+                ui.textEdit_ReturnMessage.append(
+                    f"[巴西过欠频稳定性] 蓝点 DC 已 OUTP OFF，等待 {BLUESIGHT_DC_OFF_SETTLE_01S / 10.0:g}s 缓降后再关 AC"
+                )
+            except Exception:
+                pass
 
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
@@ -28404,12 +20060,148 @@ def thaistaticMPPTtestSend():
     global project_change, wt_config_nums
     global DC_port_list, command_save_file_path
     global staticMPPTtest_append_count
+    global wt_type
     if 'staticMPPTtest_append_count' not in globals():
         staticMPPTtest_append_count = 0
     if 'wt_config_nums' not in globals():
         wt_config_nums = 0
-    # 每轮测试总时长list
 
+    # ── 蓝电 IP 分支：普通 AC/DC/WT 命令，不走 Soft Panel ──
+    if is_bluesight_mode(uiThaiStaticMPPTTest):
+        wt_config_dict = {}
+        if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+            stacked = getattr(uiThaiStaticMPPTTest, "_wtStacked", None)
+            if stacked is not None:
+                if uiThaiStaticMPPTTest.radioButton_S2_WT3000.isChecked():
+                    wt_config_dict = WT3000E_params_config(_PageWidgetFinder(stacked.widget(0)))
+                elif uiThaiStaticMPPTTest.radioButton_S2_WT1800.isChecked():
+                    wt_config_dict = WT1800_params_config(_PageWidgetFinder(stacked.widget(1)))
+                elif uiThaiStaticMPPTTest.radioButton_S2_WT1806E.isChecked():
+                    wt_config_dict = WT1806E_params_config(_PageWidgetFinder(stacked.widget(2)))
+                elif uiThaiStaticMPPTTest.radioButton_S2_WT5000.isChecked():
+                    wt_config_dict = WT5000_params_config(_PageWidgetFinder(stacked.widget(3)))
+
+        def _dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
+            from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+            return resolve_dc_iv_with_bridge(
+                vmp, imp, voc, isc, pf, dc_num,
+                get_iv_fn=DCGetIVValueFunction,
+                per_dc_factor=per_dc_factor,
+                command_list_dc=command_list_DC,
+            )
+
+        existing = [] if strAddTestFlag == "0" else list(strArrayTest)
+        plan = build_static_mppt_bluesight_plan(
+            uiThaiStaticMPPTTest,
+            wt_config_dict=wt_config_dict,
+            str_add_flag=strAddTestFlag,
+            project_change=project_change,
+            existing_commands=existing,
+            dc_iv_resolver=_dc_iv_bridge,
+            per_dc_factor=per_dc_factor,
+        )
+        if not plan["ok"]:
+            msg = plan.get("error") or "；".join(plan.get("dc_errors") or []) or "静态MPPT蓝电计划失败"
+            QMessageBox.information(None, "错误提示信息", msg, QMessageBox.Ok, QMessageBox.Ok)
+            return
+
+        strArrayTest = plan["commands"]
+        strArrayTestStep = plan["steps"]
+        if plan["wt_is_checked"] == "1":
+            WT_is_checked = "1"
+        if plan.get("wt_type"):
+            wt_type = plan["wt_type"]
+        if strAddTestFlag == "0":
+            test_program = list(plan["test_program"])
+            total_save_file = 0
+        else:
+            test_program.extend(plan["test_program"])
+        if strAddTestFlag == '1' and project_change == '1':
+            wt_config_nums = wt_config_nums + 1
+
+        file_names = plan.get("file_names") or []
+        if plan.get("wt_is_checked") == "1" and file_names:
+            file_list_text = ",".join(file_names)
+            stop_str = ""
+            if plan.get("wt_continuous"):
+                n_pts = max(1, len(plan.get("point_metas") or file_names))
+                dwell_01s = int(plan.get("dwell_01s") or 0)
+                stop_sec = int(round(n_pts * dwell_01s / 10.0 + 90))
+                if stop_sec < 20:
+                    stop_sec = 20
+                stop_str = _seconds_to_stoptime_str(stop_sec)
+            for cfg_row in strArrayTest:
+                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
+                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                    if stop_str:
+                        cfg_row[4]["textEdit_StopTime"] = stop_str
+                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
+                        cfg_row[4]["comboBox_AutoSave"] = 1
+                    break
+            try:
+                stacked = getattr(uiThaiStaticMPPTTest, "_wtStacked", None)
+                if stacked is not None:
+                    for page_idx in range(stacked.count()):
+                        page = stacked.widget(page_idx)
+                        te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                        if te is not None:
+                            te.setPlainText(file_list_text)
+                        if stop_str:
+                            st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                            if st is not None:
+                                st.setPlainText(stop_str)
+                        combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                        if combo is not None and combo.currentIndex() == 0:
+                            combo.setCurrentIndex(1)
+            except Exception as e:
+                _append_debug_log(f"[staticMPPT] update WT FileNameList failed: {e}")
+            wt_rounds = int(plan.get("wt_rounds") or len(file_names) or 0)
+            total_save_file = total_save_file + wt_rounds
+            if plan.get("wt_continuous"):
+                ui.textEdit_ReturnMessage.append(
+                    "[静态MPPT/蓝电] 连续录单文件 %s，StopTime %s，工况 %d 点"
+                    % (file_names[0], stop_str or "-", len(plan.get("point_metas") or []))
+                )
+            else:
+                ui.textEdit_ReturnMessage.append(
+                    "[静态MPPT/蓝电] 逐点存盘共 %d 文件" % len(file_names)
+                )
+
+        strtimenow = now_to_datenow()
+        if strAddTestFlag == "0":
+            try:
+                logger.info(strtimenow + "    设定实验内容完成")
+            except NameError:
+                pass
+            print(strtimenow + "    设定实验内容完成")
+        else:
+            try:
+                logger.info(strtimenow + "    累加设定实验内容完成")
+            except NameError:
+                pass
+            print(strtimenow + "    累加设定实验内容完成")
+            project_change = '0'
+        strSettingTestFlag = "1"
+        reset_wt_automation_state()
+        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+        commands_file_name = f'mppt_test_commands{now_time}.csv'
+        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+        if directory1[0]:
+            out = open(directory1[0], 'w+', newline='')
+            csv_write = csv.writer(out, dialect="excel")
+            for i in range(len(strArrayTest)):
+                csv_write.writerow(strArrayTest[i])
+            out.close()
+        dialog_windowstaticmppttest.close()
+        staticMPPTtest_append_count += 1
+        uiThaiStaticMPPTTest.label_append_count.setText(str(staticMPPTtest_append_count))
+        _sync_start_end_buttons()
+        ui.textEdit_ReturnMessage.append(
+            f"[静态MPPT/蓝电] 追加完成，当前计数: {staticMPPTtest_append_count}，开始/结束试验按钮已启用"
+        )
+        return
+
+    # ── 致茂 Soft Panel 旧路径（保留） ──
     DC1_config_file = []
     DC2_config_file = []
     DC3_config_file = []
@@ -28433,7 +20225,6 @@ def thaistaticMPPTtestSend():
     DC_port_list = []
     strArrayTestStep = []
     strArraySingle = ["" for _ in range(10)]
-    S1ACEACHStatus = uiThaiStaticMPPTTest.comboBox_S1_AC_2.currentText()
     # step1
     if uiThaiStaticMPPTTest.checkBox_S1.isChecked():
         strArrayTestStepSingle = []
@@ -28452,137 +20243,8 @@ def thaistaticMPPTtestSend():
         fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
         S1ACStatus = uiThaiStaticMPPTTest.comboBox_S1_AC.currentText()
 
-        if S1ACEACHStatus == "单相":
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS SINGLE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT ALL"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticMPPTTest.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticMPPTTest.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-        elif S1ACEACHStatus == "三相":
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:PHAS THREE"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:EDIT EACH"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 1"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticMPPTTest.textEdit_S1_AC_VOLT.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticMPPTTest.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 2"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticMPPTTest.textEdit_S1_AC_VOLT_2.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticMPPTTest.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "INST:NSEL 3"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACVOLT = uiThaiStaticMPPTTest.textEdit_S1_AC_VOLT_3.toPlainText()
-            S1Command = "VOLT " + S1ACVOLT
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArraySingle = ["" for _ in range(10)]
-            S1ACFR = uiThaiStaticMPPTTest.textEdit_S1_AC_FR.toPlainText()
-            S1Command = "FREQ " + S1ACFR
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "write"
-            strArraySingle[2] = S1Command
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
+        # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
+        append_ac_startup_from_ui(uiThaiStaticMPPTTest, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
         if S1ACStatus == "开启":
             strArraySingle[0] = "AC"
@@ -29002,6 +20664,11 @@ def thaifrequencyadaptabilitySend():
     if 'frequencyadaptability_append_count' not in globals():
         frequencyadaptability_append_count = 0
 
+    if strAddTestFlag == "0":
+        strArrayTest = []
+        total_save_file = 0
+        test_program = []
+
     wt_config_dict = {}
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
         if uiThaiFrequencyAdaptability.radioButton_S2_WT3000.isChecked():
@@ -29221,6 +20888,11 @@ def thaivoltageadaptabilitySend():
     if 'rapidvolt_append_count' not in globals():
         rapidvolt_append_count = 0
 
+    if strAddTestFlag == "0":
+        strArrayTest = []
+        total_save_file = 0
+        test_program = []
+
     wt_config_dict = {}
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
         if uiThaiVoltageAdaptability.radioButton_S2_WT3000.isChecked():
@@ -29300,13 +20972,18 @@ def thaivoltageadaptabilitySend():
                                 break
                 except Exception:
                     pass
-            file_names = resolve_volt_file_name_list(band_metas, existing_names)
-            # 连续录：只用第一个名字（与巴西过欠频稳定性 total_save_file+=1 一致）
-            file_list_text = file_names[0] if file_names else "VoltAdapt_BR_5421"
-            # StopTime：UI 数据采集合计 + 余量（ASYNC启动≈5s、0.1s等待粒度导致扫频偏长）
-            stop_sec = int(round(int(plan.get("band_duration_01s") or 0) / 10.0 + 15))
-            if stop_sec < 20:
-                stop_sec = 20
+            split_two = bool(plan.get("split_two_files"))
+            file_names = resolve_volt_file_name_list(
+                band_metas, existing_names, split_two_files=split_two
+            )
+            if split_two and len(file_names) >= 2:
+                file_list_text = ",".join(file_names[:2])
+            else:
+                file_list_text = file_names[0] if file_names else "VoltAdapt_BR_5421"
+            # StopTime：扫压墙钟 + 60s 余量（爱科细步进常比估算慢，余量不足会提前停录）
+            stop_sec = int(round(int(plan.get("band_duration_01s") or 0) / 10.0 + 60))
+            if stop_sec < 30:
+                stop_sec = 30
             hh, rem = divmod(stop_sec, 3600)
             mm, ss = divmod(rem, 60)
             stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
@@ -29331,11 +21008,24 @@ def thaivoltageadaptabilitySend():
                         combo.setCurrentIndex(1)
             except Exception as e:
                 _append_debug_log(f"[voltageadaptability] update WT FileNameList failed: {e}")
-            total_save_file = total_save_file + 1
-            ui.textEdit_ReturnMessage.append(
-                f"[电压适应性][巴西5.4.21] 连续录 1 条 {file_list_text}，"
-                f"频带 {len(band_metas)} 段，StopTime {stop_str}"
+            total_save_file = int(wt_rounds) if strAddTestFlag == "0" else (
+                total_save_file + int(wt_rounds)
             )
+            ui_s = int(plan.get("ui_duration_01s") or 0) / 10.0
+            wait_s = int(plan.get("sweep_wait_01s") or 0) / 10.0
+            n_volt = int(plan.get("sweep_volt_steps") or 0)
+            if split_two and wt_rounds >= 2:
+                ui.textEdit_ReturnMessage.append(
+                    f"[电压适应性][巴西5.4.21] 分文件录 {wt_rounds} 条 {file_list_text}，"
+                    f"电压带 {len(band_metas)} 段，VOLT步数 {n_volt}，"
+                    f"UI采集 {ui_s:.1f}s / 驻留 {wait_s:.1f}s → 初值 StopTime {stop_str}（每段 ASYNC 重算）"
+                )
+            else:
+                ui.textEdit_ReturnMessage.append(
+                    f"[电压适应性][巴西5.4.21] 连续录 1 条 {file_list_text}，"
+                    f"电压带 {len(band_metas)} 段，VOLT步数 {n_volt}，"
+                    f"UI采集 {ui_s:.1f}s / 驻留 {wait_s:.1f}s → StopTime {stop_str}"
+                )
 
         strtimenow = now_to_datenow()
         if strAddTestFlag == "0":
@@ -29440,6 +21130,11 @@ def thairocofSend():
     if 'rapidvolt_append_count' not in globals():
         rapidvolt_append_count = 0
 
+    if strAddTestFlag == "0":
+        strArrayTest = []
+        total_save_file = 0
+        test_program = []
+
     wt_config_dict = {}
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
         if uiThaiROCOF.radioButton_S2_WT3000.isChecked():
@@ -29522,13 +21217,17 @@ def thairocofSend():
             file_names = resolve_rocof_file_name_list(band_metas, existing_names)
             # 连续录：只用第一个名字（与巴西过欠频稳定性 total_save_file+=1 一致）
             file_list_text = file_names[0] if file_names else "ROCOF_protect"
-            # StopTime：UI 数据采集合计 + 余量（ASYNC启动≈5s、0.1s等待粒度导致扫频偏长）
-            stop_sec = int(round(int(plan.get("band_duration_01s") or 0) / 10.0 + 15))
-            if stop_sec < 20:
-                stop_sec = 20
-            hh, rem = divmod(stop_sec, 3600)
-            mm, ss = divmod(rem, 60)
-            stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
+            # StopTime：扫频墙钟 + 自适应余量（短 ROCOF 扫勿固定 +60s，否则扫完空等）
+            from utils.voltage_adaptability_commands import (
+                suggested_stoptime_margin_sec,
+                stoptime_str_from_wall_01s,
+            )
+
+            wall_01s = int(plan.get("band_duration_01s") or 0)
+            margin_sec = suggested_stoptime_margin_sec(wall_01s, n_volt=0)
+            stop_str, stop_sec = stoptime_str_from_wall_01s(
+                wall_01s, margin_sec=margin_sec, min_sec=20, n_volt=0
+            )
             for cfg_row in strArrayTest:
                 if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
                     cfg_row[4]["textEdit_FileNameList"] = file_list_text
@@ -29550,10 +21249,12 @@ def thairocofSend():
                         combo.setCurrentIndex(1)
             except Exception as e:
                 _append_debug_log(f"[rocof] update WT FileNameList failed: {e}")
-            total_save_file = total_save_file + 1
+            total_save_file = int(wt_rounds) if strAddTestFlag == "0" else (
+                total_save_file + int(wt_rounds)
+            )
             ui.textEdit_ReturnMessage.append(
                 f"[ROCOF保护][ROCOF] 连续录 1 条 {file_list_text}，"
-                f"频带 {len(band_metas)} 段，StopTime {stop_str}"
+                f"频带 {len(band_metas)} 段，StopTime {stop_str}（余量 {margin_sec}s）"
             )
 
         strtimenow = now_to_datenow()
@@ -29653,6 +21354,11 @@ def thairapidvoltSend():
     if 'rapidvolt_append_count' not in globals():
         rapidvolt_append_count = 0
 
+    if strAddTestFlag == "0":
+        strArrayTest = []
+        total_save_file = 0
+        test_program = []
+
     wt_config_dict = {}
     if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
         if uiThaiRapidVolt.radioButton_S2_WT3000.isChecked():
@@ -29733,8 +21439,10 @@ def thairapidvoltSend():
                 except Exception:
                     pass
             file_names = resolve_rapid_volt_file_name_list(band_metas, existing_names)
-            # 连续录：只用第一个名字（与巴西过欠频稳定性 total_save_file+=1 一致）
-            file_list_text = file_names[0] if file_names else "RapidVolt_change"
+            file_list_text = file_names[0] if file_names else "RVC_BR"
+            segment_names = ",".join(
+                str(m.get("name") or "").strip() for m in band_metas if m.get("name")
+            )
             # StopTime：UI 数据采集合计 + 余量（ASYNC启动≈5s、0.1s等待粒度导致扫频偏长）
             stop_sec = int(round(int(plan.get("band_duration_01s") or 0) / 10.0 + 15))
             if stop_sec < 20:
@@ -29766,7 +21474,7 @@ def thairapidvoltSend():
             total_save_file = total_save_file + 1
             ui.textEdit_ReturnMessage.append(
                 f"[快速电压变化] 连续录 1 条 {file_list_text}，"
-                f"频带 {len(band_metas)} 段，StopTime {stop_str}"
+                f"频带 {len(band_metas)} 段 [{segment_names}]，StopTime {stop_str}"
             )
 
         strtimenow = now_to_datenow()
@@ -30126,19 +21834,51 @@ def thaidynamicmpptSend():
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
         QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
-    else:
-        strSettingTestFlag = "1"
-        reset_wt_automation_state()
-        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
-        commands_file_name = f'dynamic_mppt_commands{now_time}.csv'
-        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
-        if directory1[0]:
-            out = open(directory1[0], 'w+', newline='')
+        return
+
+    band_metas = plan.get("band_metas") or plan.get("profile_metas") or []
+    wt_rounds = int(plan.get("wt_rounds") or 0)
+    file_names = list(plan.get("file_names") or [])
+    if plan.get("wt_is_checked") == "1" and wt_rounds > 0 and file_names:
+        from utils.Open_Save_ThaiDynamicMPPT import apply_send_wt_metadata
+
+        stop_str = apply_send_wt_metadata(plan)
+        file_list_text = file_names[0]
+        try:
+            for page_idx in range(uiThaiDynamicMPPT._wtStacked.count()):
+                page = uiThaiDynamicMPPT._wtStacked.widget(page_idx)
+                te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                if te is not None:
+                    te.setPlainText(file_list_text)
+                st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                if st is not None and stop_str:
+                    st.setPlainText(stop_str)
+                combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                if combo is not None and combo.currentIndex() == 0:
+                    combo.setCurrentIndex(1)
+        except Exception as e:
+            _append_debug_log(f"[dynamicmppt] update WT FileNameList failed: {e}")
+        total_save_file = total_save_file + 1
+        ui.textEdit_ReturnMessage.append(
+            f"[动态MPPT] 连续录 1 条 {file_list_text}，StopTime {stop_str or '-'}"
+        )
+
+    strSettingTestFlag = "1"
+    reset_wt_automation_state()
+    now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+    commands_file_name = f'dynamic_mppt_commands{now_time}.csv'
+    try:
+        save_dir = os.path.join(str(command_save_file_path), "command_data")
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, commands_file_name)
+        with open(save_path, "w+", newline="") as out:
             csv_write = csv.writer(out, dialect="excel")
             for i in range(len(strArrayTest)):
                 csv_write.writerow(strArrayTest[i])
-            out.close()
-        dialog_windowdynamicmppt.close()
+    except Exception as exc:
+        QMessageBox.warning(None, "提示信息", "命令表已生成，但保存 CSV 失败：%s" % exc)
+        ui.textEdit_ReturnMessage.append("[动态MPPT] 保存命令 CSV 失败: %s" % exc)
+    dialog_windowdynamicmppt.close()
 
     dynamicmppt_append_count += 1
     uiThaiDynamicMPPT.label_append_count.setText(str(dynamicmppt_append_count))
@@ -30215,6 +21955,16 @@ def _check_device_connections():
     return ""
 
 
+# OUTP ON 后读电压预检已停用：上电由试验命令表在开始后发送，无需再弹窗确认。
+def _maybe_check_output_health(device_key, display_name, controller, volt_min=5.0):
+    return True
+
+
+def _hook_output_on_health_check(device_key, command):
+    """保留钩子兼容调用点；不再做 OUTP ON 后电压预检。"""
+    return True
+
+
 def _get_dewetron_section(project_name=None):
     """Return the registered analyzer-mode section for a project."""
     name = project_name or ui.comboBox_PS.currentText()
@@ -30234,9 +21984,21 @@ def _is_dewetron_project_mode(project_name=None):
         except (KeyError, ValueError):
             pass
     if name == '电压闪变':
-        return hasattr(uiThaiDianYaShanBian, '_mode') and uiThaiDianYaShanBian._mode == 'dewetron'
+        try:
+            from setup.main_setup import LazyDialog
+            if isinstance(uiThaiDianYaShanBian, LazyDialog) and not uiThaiDianYaShanBian.is_created:
+                return False
+        except Exception:
+            pass
+        return getattr(uiThaiDianYaShanBian, '_mode', None) == 'dewetron'
     if name == '谐波电流':
-        return hasattr(uiThaiXieBoDianLiu, '_mode') and uiThaiXieBoDianLiu._mode == 'dewetron'
+        try:
+            from setup.main_setup import LazyDialog
+            if isinstance(uiThaiXieBoDianLiu, LazyDialog) and not uiThaiXieBoDianLiu.is_created:
+                return False
+        except Exception:
+            pass
+        return getattr(uiThaiXieBoDianLiu, '_mode', None) == 'dewetron'
     return False
 
 
@@ -30319,10 +22081,17 @@ def _prepare_dewetron_collector(project_name):
         fields = config.export_fields
         rate_text = config.rate_text
         test_type = spec.test_type
-        save_path = os.path.join(
-            'command_save_files', 'dewetron_data',
-            f'{test_type}_{time.strftime("%Y%m%d_%H%M%S")}.csv',
-        )
+        paths = list(getattr(section, "_dew_save_paths", None) or [])
+        if paths:
+            save_path = paths[0]
+            section._dew_save_index = 0
+        else:
+            save_path = os.path.join(
+                'command_save_files', 'dewetron_data',
+                f'{test_type}_{time.strftime("%Y%m%d_%H%M%S")}.csv',
+            )
+            section._dew_save_paths = [save_path]
+            section._dew_save_index = 0
 
     print(f"[_prepare_dewetron_collector] fields={fields}")
 
@@ -30365,22 +22134,39 @@ def RunProjectPush():
     global strTestFlag,strSettingTestFlag, WT_is_checked, test_program, heading_handle, flicker_is_test
     global strArrayTest, flicker_append_count
 
-    # TODO
-    print(test_program)
-    heading_handle = get_enumwindows()
-    print("父句柄更新！")
-    logger.info(f"父句柄更新：{heading_handle}")
-
-    # 闪变测试：如果尚未追加配置，阻止启动
     currentSecond = ui.comboBox_PS.currentText()
-
-    # ── 判断是否为 DEWETRON 模式 ──
     is_dewetron = _is_dewetron_project_mode(currentSecond)
     if 'flicker_append_count' not in globals():
         flicker_append_count = 0
     if currentSecond == '电压闪变' and flicker_append_count == 0 and strSettingTestFlag != "1":
         QMessageBox.warning(None, "提示", "请先追加测试配置后再开始试验")
         return
+
+    if strSettingTestFlag != "1" or not strArrayTest:
+        msg = (
+            "还没有可执行的试验命令。请先打开项目点「测试追加」，"
+            "并确认操作日志出现「追加完成」。"
+            "若追加时弹过错误，开始按钮即使亮了也不会真正启动。"
+        )
+        ui.textEdit_ReturnMessage.append("[开始试验] " + msg)
+        logger.info("请设定实验内容: strSettingTestFlag=%r commands=%s" % (
+            strSettingTestFlag, len(strArrayTest) if strArrayTest else 0
+        ))
+        box = QMessageBox(None)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("提示")
+        box.setText(msg)
+        box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
+        box.exec_()
+        return
+
+    try:
+        heading_handle = get_enumwindows()
+        print("父句柄更新！")
+        logger.info(f"父句柄更新：{heading_handle}")
+    except Exception as exc:
+        heading_handle = {}
+        logger.info("枚举窗口失败（可继续）：%s" % exc)
 
     if strSettingTestFlag == "1":
         # 设备连接校验：根据 strArrayTest 中实际用到的设备，一次性检查所有连接
@@ -30418,10 +22204,6 @@ def RunProjectPush():
         )
         _update_project_status(currentSecond, "进行中")
         strTestFlag = "1"
-    else:
-        strtimenow = now_to_datenow()
-        logger.info(strtimenow + "    请设定实验内容!")
-        print(strtimenow + "    请设定实验内容!")
 
 #暂停按钮按下
 def PauseProjectPush():
@@ -30457,11 +22239,125 @@ def _finish_dewetron_session(reason, send_stop=True):
     _dewetron_active_project = None
 
 
+def _abort_wt_side_effects(reason="manual"):
+    """结束试验时尽量一并停掉 WT 宏 / 自动测量等待 / 闪变测量。"""
+    global manager, test_status, WT_auto_messure_status, wt3000_controller, flicker_is_test, ui
+    global _wt_async_session_active, _wt_async_stop_requested, _wt_async_deadline_ts
+
+    # 1) 停 RecPlayer 宏（否则 End 只置标志，仍会卡在 manager.execute / sleep 等到脚本跑完）
+    try:
+        mgr = globals().get("manager")
+        if mgr is not None:
+            # 无论 is_active 判据如何都尝试 stop（避免竞态漏停）
+            try:
+                mgr.abort_check = lambda: True
+            except Exception:
+                pass
+            if hasattr(mgr, "stop"):
+                mgr.stop()
+            logger.info(f"结束试验: 已请求停止 WT 宏回放 ({reason})")
+            print(f"结束试验: 已请求停止 WT 宏回放 ({reason})")
+            if "ui" in globals() and ui is not None:
+                ui.textEdit_ReturnMessage.append("[结束] 已停止 WT 宏脚本")
+    except Exception as e:
+        logger.warning(f"结束试验: 停止 WT 宏失败: {e}")
+
+    # 2) 解除 RunProject 里等待 test_status 的阻塞。
+    # 注意：不要在这里把 setting_status/messure_status/first_test 置为已完成，
+    # 否则正在跑的 setting_set 会跳过「更新率」点击，WTViewer 里看起来像没选更新率。
+    try:
+        test_status = "0"
+        WT_auto_messure_status = ""
+        _wt_async_session_active = False
+        _wt_async_stop_requested = True
+        _wt_async_deadline_ts = 0.0
+    except Exception:
+        pass
+
+    # 3) 闪变等长时间测量：尽力发停止（设备不支持则忽略）
+    try:
+        is_flicker = globals().get("flicker_is_test") == "1"
+        handle = getattr(globals().get("wt3000_controller"), "handle", None) if "wt3000_controller" in globals() else None
+        if is_flicker and handle is not None:
+            for cmd in ("FLICKER:STOP", "STOP"):
+                try:
+                    handle.write(cmd)
+                    logger.info(f"结束试验: WT {cmd}")
+                    print(f"结束试验: WT {cmd}")
+                    break
+                except Exception:
+                    continue
+    except Exception as e:
+        logger.warning(f"结束试验: 停止 WT 测量失败: {e}")
+
+
+def _force_hardware_safe_off(reason="manual"):
+    """结束试验时立即关 DC/AC。爱科须 OUTP OFF + SYST:STANDBY，否则会出现「输出断了吸合还在」。
+
+    顺序：先 DC，错开等待后再关 AC。蓝点额外缓降等待。
+    DC2/3/4 常未连接：关断时静默跳过，禁止弹「未连接」打断结束流程。
+    """
+    global ui, per_dc_factor
+    messages = []
+    closed_dc = False
+    for label, fn_name in (
+        ("DC1", "CloseDC1OUTPUTON"),
+        ("DC2", "CloseDC2OUTPUTON"),
+        ("DC3", "CloseDC3OUTPUTON"),
+        ("DC4", "CloseDC4OUTPUTON"),
+    ):
+        fn = globals().get(fn_name)
+        if not callable(fn):
+            continue
+        try:
+            fn(silent_if_disconnected=True)
+            messages.append(label)
+            closed_dc = True
+            logger.info(f"结束试验: 已强制关闭 {label} ({reason})")
+        except Exception as exc:
+            logger.warning(f"结束试验: 关闭 {label} 失败: {exc}")
+    if closed_dc:
+        try:
+            factors = per_dc_factor if isinstance(per_dc_factor, dict) else {}
+            has_bluesight = any(
+                str(factors.get(str(i), "")).casefold() == "bluesight" for i in range(4)
+            )
+            wait_01s = (
+                BLUESIGHT_DC_OFF_SETTLE_01S
+                if has_bluesight
+                else DEFAULT_INTER_COMMAND_WAIT_01S
+            )
+            wait_s = max(0.0, float(wait_01s) / 10.0)
+            if wait_s > 0:
+                logger.info(
+                    f"结束试验: DC/AC 错开等待 {wait_s:g}s"
+                    f"（{'蓝点缓降' if has_bluesight else '命令间'}）后再关 AC ({reason})"
+                )
+                time.sleep(wait_s)
+        except Exception as exc:
+            logger.warning(f"结束试验: DC/AC 错开等待失败: {exc}")
+    fn_ac = globals().get("CloseACOUTPUTON")
+    if callable(fn_ac):
+        try:
+            fn_ac()
+            messages.append("AC")
+            logger.info(f"结束试验: 已强制关闭 AC ({reason})")
+        except Exception as exc:
+            logger.warning(f"结束试验: 关闭 AC 失败: {exc}")
+    if ui is not None and messages:
+        try:
+            ui.textEdit_ReturnMessage.append(
+                "[结束] 已强制关输出: " + ",".join(messages) + "（含爱科待机释放吸合；DC/AC已错开）"
+            )
+        except Exception:
+            pass
+
+
 #结束试验按下
 def EndProjectPush():
-    global strTestStatusFlag, dewetron_collector
+    global strTestStatusFlag, dewetron_collector, first_test
     try:
-        if strTestStatusFlag == "运行":
+        if strTestStatusFlag in ("运行", "暂停"):
             reply = QMessageBox.question(None, "确认结束", "确定要结束当前试验吗？",
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
@@ -30469,12 +22365,18 @@ def EndProjectPush():
                 strtimenow = now_to_datenow()
                 logger.info(strtimenow + "    结束试验!")
                 print(strtimenow + "    结束试验!")
+                _abort_wt_side_effects("manual")
+                _force_hardware_safe_off("manual")
                 currentSecond = ui.comboBox_PS.currentText()
                 _finish_run_progress(aborted=True)
                 _update_project_status(currentSecond, "已中止")
                 _reset_current_project_count()
                 _sync_start_end_buttons()
                 _finish_dewetron_session("manual", send_stop=True)
+                reset_wt_automation_state()
+                # reset 会清空 first_test；RunProject 若仍卡在 Upper_WT_Config 返回途中，
+                # 必须再置位，避免再次拉起整段 WTViewer 自动配置。
+                first_test = "1"
         else:
             QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
     except NameError:
@@ -30489,6 +22391,149 @@ def ConProjectPush():
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    继续试验!")
         print(strtimenow + "    继续试验!")
+
+def _reconnect_ac_for_run(max_attempts=2) -> bool:
+    """试验中 AC 断线后静默重连（爱科 Modbus / Chroma TCP / VISA）。成功返回 True。"""
+    global ac_controller, ui
+    if ac_controller is None:
+        return False
+    # 已连且句柄有效
+    if ac_controller.connected and ac_controller.handle is not None:
+        client = getattr(ac_controller, "client", None)
+        if client is not None and hasattr(client, "is_connected") and client.is_connected():
+            return True
+        if client is None:
+            return True
+
+    brand = globals().get("_ac_current_brand", "itech")
+    tcp_addr = ""
+    try:
+        tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
+    except Exception:
+        tcp_addr = str(getattr(ac_controller, "resource", "") or "")
+
+    for attempt in range(max_attempts):
+        try:
+            _append_debug_log(
+                f"[run_loop] AC reconnect attempt {attempt + 1}/{max_attempts} brand={brand} addr={tcp_addr}"
+            )
+            if brand == "itech" or getattr(ac_controller, "_itech", None) is not None:
+                endpoint = _split_ipv4_tcp_endpoint(tcp_addr) or _split_ipv4_tcp_endpoint(
+                    str(getattr(ac_controller, "resource", "") or "")
+                )
+                if endpoint is None:
+                    host = getattr(getattr(ac_controller, "client", None), "ip", None)
+                    port = getattr(getattr(ac_controller, "client", None), "port", 8080)
+                    if not host:
+                        continue
+                else:
+                    host, port = endpoint
+                client = getattr(ac_controller, "client", None)
+                if client is not None and hasattr(client, "_silent_recover"):
+                    if client._silent_recover():
+                        ac_controller._set_handle(client.inst or client)
+                        if getattr(ac_controller, "_itech", None) is None:
+                            ac_controller._itech = ItechTranslator(client)
+                        _append_debug_log("[run_loop] AC Modbus silent_recover OK")
+                        try:
+                            ui.textEdit_ReturnMessage.append("[AC] 试验中断线已自动重连(Modbus)")
+                        except Exception:
+                            pass
+                        return True
+                # 新建会话
+                _safe_close_handle(getattr(ac_controller, "handle", None))
+                ac_controller.client = None
+                ac_controller._itech = None
+                ac_controller._set_handle(None)
+                new_client = ModbusVISA(
+                    host,
+                    port,
+                    on_session_renewed=ac_controller._set_handle,
+                    use_plain_socket=True,
+                )
+                if new_client.connect():
+                    ac_controller.client = new_client
+                    ac_controller._set_handle(new_client.inst or new_client)
+                    ac_controller._itech = ItechTranslator(new_client)
+                    ac_controller.resource = f"{host}:{port}"
+                    _append_debug_log("[run_loop] AC Modbus reconnect OK")
+                    try:
+                        ui.textEdit_ReturnMessage.append("[AC] 试验中断线已自动重连(Modbus)")
+                    except Exception:
+                        pass
+                    return True
+            else:
+                prefer_socket = (
+                    ac_controller.uses_scpi_socket()
+                    or str(getattr(ac_controller, "resource", "") or "").startswith("TCPIP::")
+                    or brand == "chroma_ip"
+                )
+                host, port = ACController._parse_scpi_tcp_endpoint(
+                    tcp_addr, getattr(ac_controller, "resource", "")
+                )
+                if prefer_socket and host:
+                    if ac_controller.reconnect_scpi_tcp(host, port):
+                        try:
+                            ui.textEdit_ReturnMessage.append("[AC] 试验中断线已自动重连(SCPI-TCP)")
+                        except Exception:
+                            pass
+                        return True
+        except Exception as exc:
+            _append_debug_log(f"[run_loop] AC reconnect failed: {exc}")
+            logger.warning(f"[run_loop] AC reconnect failed: {exc}")
+        time.sleep(0.35)
+    return bool(ac_controller.connected and ac_controller.handle is not None)
+
+
+def _ac_execute_write_command(command) -> None:
+    """执行一条 AC write；失败时自动重连并最多再试 2 次。"""
+    global ac_controller
+    last_err = None
+    for attempt in range(3):
+        try:
+            if ac_controller is None or not ac_controller.connected or ac_controller.handle is None:
+                if not _reconnect_ac_for_run():
+                    raise RuntimeError("AC未连接，无法发送命令")
+            cmd_norm = str(command or "").strip().upper().replace(" ", "")
+            if cmd_norm in ("OUTPON", "OUTP:ON"):
+                ac_controller.open_output()
+            elif cmd_norm in ("OUTPOFF", "OUTP:OFF"):
+                ac_controller.close_output()
+            elif ac_controller._itech is not None:
+                ok, _ = ac_controller._itech.translate(command)
+                if not ok:
+                    raise RuntimeError(f"AC Modbus 命令发送失败: {command}")
+            else:
+                send_cmd = command
+                if ac_controller.is_chroma_61800():
+                    send_cmd = _normalize_chroma_ac_write(command)
+                ac_controller.handle.write(send_cmd)
+                try:
+                    logger.info(f"SendCommandToAC:{send_cmd}")
+                except Exception:
+                    pass
+                print(f"SendCommandToAC:{send_cmd}")
+            return
+        except Exception as exc:
+            last_err = exc
+            msg = str(exc)
+            _append_debug_log(f"[run_loop] AC write attempt {attempt + 1}/3 failed: {msg}")
+            # 未连接 / Modbus 失败 / 断线类：重连后再试
+            need_retry = (
+                "未连接" in msg
+                or "发送失败" in msg
+                or "10053" in msg
+                or "10054" in msg
+                or "ConnectionAborted" in msg
+                or "ConnectionReset" in msg
+                or "CONN_LOST" in msg.upper()
+            )
+            if attempt >= 2 or not need_retry:
+                break
+            _reconnect_ac_for_run()
+            time.sleep(0.25)
+    raise last_err if last_err is not None else RuntimeError("AC写命令失败")
+
 
 def _is_wt_async_start(col6_val):
     """静态 QU 连续测：只启动 WT，不阻塞到结束。"""
@@ -30534,50 +22579,476 @@ def _seconds_to_stoptime_str(sec):
     return f"{hh:02d}:{mm:02d}:{ss:02d}"
 
 
+def _freq_ladder_dwell_01s(ui_dialog):
+    """Sum frequency-step dwell (0.1s units). Prefer FrequencyLadder list when present."""
+    ladder = getattr(ui_dialog, "textEdit_FrequencyLadder", None)
+    ladder_text = ladder.toPlainText().strip() if ladder is not None else ""
+    if ladder_text:
+        from utils.overfreq_ladder_commands import parse_freq_hz_list
+
+        freqs = parse_freq_hz_list(ladder_text)
+        if freqs:
+            time_w = getattr(ui_dialog, "textEdit_FrequencyLadder_TIME", None)
+            time_u = getattr(ui_dialog, "comboBox_FrequencyLadder_TIME", None)
+            raw = (time_w.toPlainText().strip() if time_w is not None else "60") or "60"
+            unit = time_u.currentText() if time_u is not None else "秒"
+            try:
+                dwell = float(SetTimeFunction(float(raw), unit))
+            except Exception:
+                dwell = 600.0
+            return dwell * len(freqs), len(freqs)
+
+    total = 0.0
+    count = 0
+    for i in range(3, 18):
+        cb = getattr(ui_dialog, f"checkBox_S{i}", None)
+        if cb is None or not cb.isChecked():
+            continue
+        te = getattr(ui_dialog, f"textEdit_S{i}_TIME", None)
+        combo = getattr(ui_dialog, f"comboBox_S{i}_TIME", None)
+        if te is None or combo is None:
+            continue
+        raw = (te.toPlainText() or "").strip()
+        if raw == "":
+            continue
+        try:
+            total += float(SetTimeFunction(float(raw), combo.currentText()))
+            count += 1
+        except Exception:
+            continue
+    return total, count
+
+
+def _enable_freq_step_continuous_record(
+    str_array_test, ui_dialog, *, file_default, log_label, ladder_start_index=None
+):
+    """过频降载/欠频升载：S3~S17 频率台阶改为连续录 1 条（对齐静态QU）。
+
+    - 将台阶内 *IDN? 的 col6 单点测量改为 col9 驻留
+    - 在台阶起点插入 ASYNC_START，台阶结束后 WAIT_END
+    - 回写 FileNameList / StopTime（优先保留用户已填的第一个文件名）
+    成功返回 True。
+    """
+    cb_s2 = getattr(ui_dialog, "checkBox_S2", None)
+    if cb_s2 is None or not cb_s2.isChecked():
+        return False
+    dwell_01s, ladder_n = _freq_ladder_dwell_01s(ui_dialog)
+    if ladder_n <= 0:
+        return False
+
+    # 1) col6 数值测量 → col9 驻留（保留 ASYNC/WAIT 特殊值）
+    for row in str_array_test:
+        if not row or len(row) < 3:
+            continue
+        if row[0] != "AC" or row[1] != "query":
+            continue
+        while len(row) < 10:
+            row.append("")
+        c6 = row[6]
+        if c6 in ("", None):
+            continue
+        if _is_wt_async_start(c6) or _is_wt_wait_end(c6):
+            continue
+        try:
+            float(c6)
+        except (TypeError, ValueError):
+            continue
+        if row[9] in ("", None):
+            row[9] = c6
+        row[6] = ""
+
+    # 2) 台阶起点：优先用生成台阶时记录的下标（首点可能跳过 FREQ 只驻留）
+    insert_at = None
+    if ladder_start_index is not None:
+        try:
+            li = int(ladder_start_index)
+            if 0 <= li <= len(str_array_test):
+                insert_at = li
+        except (TypeError, ValueError):
+            insert_at = None
+    if insert_at is None:
+        seen_outp = False
+        for idx, row in enumerate(str_array_test):
+            if not row or len(row) < 3 or row[0] != "AC":
+                continue
+            cmd = str(row[2] or "")
+            op = row[1]
+            if op == "write" and cmd.upper().startswith("OUTP ON"):
+                seen_outp = True
+                continue
+            if op == "write" and cmd.upper().startswith("FREQ ") and seen_outp:
+                insert_at = idx
+                break
+    if insert_at is None:
+        for idx, row in enumerate(str_array_test):
+            if (
+                row
+                and len(row) >= 3
+                and row[0] == "AC"
+                and row[1] == "write"
+                and str(row[2] or "").upper().startswith("FREQ ")
+            ):
+                insert_at = idx
+                break
+    if insert_at is None:
+        _append_debug_log(f"[{log_label}] continuous record skipped: no ladder start found")
+        return False
+
+    async_row = ["" for _ in range(10)]
+    async_row[0] = "AC"
+    async_row[1] = "query"
+    async_row[2] = "*IDN?"
+    async_row[6] = "ASYNC_START"
+    str_array_test.insert(insert_at, async_row)
+
+    wait_row = ["" for _ in range(10)]
+    wait_row[0] = "AC"
+    wait_row[1] = "query"
+    wait_row[2] = "*IDN?"
+    wait_row[6] = "WAIT_END"
+    str_array_test.append(wait_row)
+
+    # 3) 单文件名 + StopTime 覆盖整段台阶
+    existing_names = []
+    for cfg_row in str_array_test:
+        if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
+            existing_names = [
+                p.strip()
+                for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
+                if p.strip()
+            ]
+            break
+    if not existing_names:
+        try:
+            stacked = getattr(ui_dialog, "_wtStacked", None)
+            if stacked is not None:
+                for page_idx in range(stacked.count()):
+                    page = stacked.widget(page_idx)
+                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                    if te is not None:
+                        existing_names = [
+                            p.strip()
+                            for p in re.split(r"[,，]", te.toPlainText() or "")
+                            if p.strip()
+                        ]
+                        if existing_names:
+                            break
+        except Exception:
+            pass
+    file_list_text = existing_names[0] if existing_names else file_default
+    stop_sec = int(round(float(dwell_01s) / 10.0 + 15))
+    if stop_sec < 20:
+        stop_sec = 20
+    stop_str = _seconds_to_stoptime_str(stop_sec)
+    for cfg_row in str_array_test:
+        if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
+            cfg_row[4]["textEdit_FileNameList"] = file_list_text
+            cfg_row[4]["textEdit_StopTime"] = stop_str
+            if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
+                cfg_row[4]["comboBox_AutoSave"] = 1
+            break
+    try:
+        stacked = getattr(ui_dialog, "_wtStacked", None)
+        if stacked is not None:
+            for page_idx in range(stacked.count()):
+                page = stacked.widget(page_idx)
+                te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                if te is not None:
+                    te.setPlainText(file_list_text)
+                st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                if st is not None:
+                    st.setPlainText(stop_str)
+                combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                if combo is not None and combo.currentIndex() == 0:
+                    combo.setCurrentIndex(1)
+    except Exception as e:
+        _append_debug_log(f"[{log_label}] update WT continuous FileNameList failed: {e}")
+
+    try:
+        ui.textEdit_ReturnMessage.append(
+            f"[{log_label}] 连续录 1 条 {file_list_text}，频率台阶 {ladder_n} 点，StopTime {stop_str}"
+        )
+    except Exception:
+        pass
+    _append_debug_log(
+        f"[{log_label}] continuous record enabled: file={file_list_text}, "
+        f"steps={ladder_n}, dwell_01s={dwell_01s}, StopTime={stop_str}"
+    )
+    return True
+
+
+# 连续录会话：ASYNC_START → WAIT_END。
+# - 中间驻留跟随录波结束 / 截止时刻提前放行
+# - WAIT_END 立刻请求停表，避免阶梯跑完还空等剩余 StopTime
+_wt_async_session_active = False
+_wt_async_stop_requested = False
+_wt_async_deadline_ts = 0.0
+
+
+def _wt_request_async_measure_stop(reason=""):
+    """请求 messure_testing 提前停连续录（阶梯结束或截止）。"""
+    global _wt_async_stop_requested
+    _wt_async_stop_requested = True
+    _append_debug_log(f"[run_loop] request async measure stop: {reason or '-'}")
+
+
 def _wt_async_start_measure(cmd_no):
     """触发一轮 WT 测量但不阻塞；供扫压期间连续录波。"""
     global now_save_file, save_file_name, WT_auto_messure_status, test_status, strTestStatusFlag
+    global config_dict, strArrayTest, _wt_async_session_active
+    global _wt_async_stop_requested, _wt_async_deadline_ts
     prev_index = now_save_file
     if not (now_save_file == 0 and save_file_name == ''):
         now_save_file = now_save_file + 1
+    stop_sec_for_deadline = None
+    # ASYNC 启动前按命令表扫压段重算 StopTime（messure_testing 读 config_dict）
+    try:
+        from utils.voltage_adaptability_commands import (
+            extract_continuous_band_rows,
+            recalculate_stoptime_from_band_rows,
+        )
+
+        start_i = int(cmd_no) - 1
+        band = extract_continuous_band_rows(strArrayTest, start_index=start_i)
+        if band:
+            stop_str, stop_sec, wall_01s, wait_01s, n_volt, n_dwell = recalculate_stoptime_from_band_rows(
+                band
+            )
+            stop_sec_for_deadline = int(stop_sec)
+            for row in strArrayTest:
+                if not row or row[0] != "Upper_WT_Config":
+                    continue
+                cfg = row[4]
+                if isinstance(cfg, dict):
+                    cfg["textEdit_StopTime"] = stop_str
+                elif isinstance(cfg, str) and cfg.strip():
+                    import ast
+
+                    try:
+                        parsed = ast.literal_eval(cfg.strip())
+                        if isinstance(parsed, dict):
+                            parsed["textEdit_StopTime"] = stop_str
+                            row[4] = parsed
+                    except Exception:
+                        pass
+                break
+            if isinstance(config_dict, dict):
+                config_dict["textEdit_StopTime"] = stop_str
+            # 禁止在命令线程里碰 LazyDialog / setPlainText：
+            # getattr(_wtStacked) 会触发 lazy-create，非主线程建 QDialog 会直接把进程打崩
+            # （实测 ROCOF ASYNC_START → lazy-create voltage/frequency → 无 traceback 退出）。
+            # 实际录波读 config_dict / Upper_WT_Config，界面 StopTime 保持追加时写入值即可。
+            _append_debug_log(
+                f"[run_loop] ASYNC_START recalc StopTime={stop_str} "
+                f"(wall={wall_01s/10:.1f}s wait={wait_01s/10:.1f}s "
+                f"dwell_steps={n_dwell} volt_steps={n_volt} stop_sec={stop_sec})"
+            )
+            _log = globals().get("logger")
+            if _log is not None:
+                _log.info(
+                    f"WT ASYNC_START StopTime={stop_str} wall_01s={wall_01s} cmd#{cmd_no}"
+                )
+    except Exception as exc:
+        _append_debug_log(f"[run_loop] ASYNC_START StopTime recalc failed: {exc}")
+    if stop_sec_for_deadline is None:
+        try:
+            raw = ""
+            if isinstance(config_dict, dict):
+                raw = config_dict.get("textEdit_StopTime") or ""
+            loop_01s = _stoptime_to_loop_01s(raw)
+            if loop_01s is not None:
+                stop_sec_for_deadline = int(round(loop_01s / 10.0))
+        except Exception:
+            stop_sec_for_deadline = None
+
     test_status = '1'
     WT_auto_messure_status = '1'
+    _wt_async_session_active = True
+    _wt_async_stop_requested = False
+    # 含 ASYNC 后等待 messure_testing 点开始的约 5s
+    if stop_sec_for_deadline is not None and stop_sec_for_deadline > 0:
+        _wt_async_deadline_ts = time.time() + float(stop_sec_for_deadline) + 5.0
+    else:
+        _wt_async_deadline_ts = 0.0
     _append_debug_log(
         f"[run_loop] WT ASYNC_START at command#{cmd_no}, index {prev_index}->{now_save_file}, "
-        f"save_file_name={save_file_name}"
+        f"save_file_name={save_file_name}, deadline_in={stop_sec_for_deadline}s"
     )
     # 给 messure_testing 一点时间点下「开始」
     for _ in range(50):
         if strTestStatusFlag == "结束":
             return
         time.sleep(0.1)
-    logger.info(f"WT 连续测量已启动(ASYNC_START), command#{cmd_no}")
+    _log = globals().get("logger")
+    if _log is not None:
+        _log.info(f"WT 连续测量已启动(ASYNC_START), command#{cmd_no}")
 
 
 def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600):
-    """阻塞直到本轮 WT 测量结束（test_status 回 '0'）。"""
-    global test_status, strTestStatusFlag
+    """阻塞直到本轮 WT 测量结束（test_status 回 '0'）。
+
+    阶梯命令已跑完：立刻请求 messure_testing 停表，避免再空等剩余 StopTime。
+    """
+    global test_status, strTestStatusFlag, _wt_async_session_active
+    _wt_request_async_measure_stop(f"WAIT_END@{cmd_no}")
     _append_debug_log(f"[run_loop] WT WAIT_END at command#{cmd_no}, test_status={test_status}")
     wait_start = time.time()
     last_log_sec = -1
+    _log = globals().get("logger")
     while True:
         if strTestStatusFlag == "结束":
             break
         elapsed = int(time.time() - wait_start)
         if elapsed != last_log_sec and elapsed % 5 == 0:
-            logger.info(
-                f"等待连续测量结束: 第{cmd_no}条, test_status={test_status}, 已等待{elapsed}s"
-            )
+            if _log is not None:
+                _log.info(
+                    f"等待连续测量结束: 第{cmd_no}条, test_status={test_status}, 已等待{elapsed}s"
+                )
             last_log_sec = elapsed
         if test_status == '0':
             test_status = ''
             _append_debug_log(f"[run_loop] WT WAIT_END done at command#{cmd_no}")
             break
         if elapsed >= wait_timeout_sec:
-            logger.error(
-                f"等待连续测量结束超时: 第{cmd_no}条, test_status={test_status}, 超时{wait_timeout_sec}s"
-            )
+            if _log is not None:
+                _log.error(
+                    f"等待连续测量结束超时: 第{cmd_no}条, test_status={test_status}, 超时{wait_timeout_sec}s"
+                )
             _show_connect_message(f"自动化等待连续测量超时（第{cmd_no}条）", ui)
+            break
+        time.sleep(0.05)
+    _wt_async_session_active = False
+
+
+def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9"):
+    """命令后驻留（0.1s 单位）。
+
+    一条线连续录（ASYNC_START…WAIT_END）期间：录波结束 / 截止时刻到 / 已请求停表
+    时立刻跳过剩余驻留，避免「WT 已停、软件还在 60s×N 空等」。
+    提前放行时不把 test_status 清掉，留给 WAIT_END / messure_testing 收尾。
+    """
+    global test_status, strTestStatusFlag, _wt_async_session_active
+    global _wt_async_stop_requested, _wt_async_deadline_ts
+    try:
+        ticks = max(0, int(float(dwell_01s)))
+    except (TypeError, ValueError):
+        ticks = 0
+    if ticks <= 0:
+        return
+
+    follow_measure = bool(_wt_async_session_active)
+    _log = globals().get("logger")
+
+    def _should_skip_dwell():
+        if not follow_measure:
+            return False
+        if test_status == "0" or _wt_async_stop_requested:
+            return True
+        if _wt_async_deadline_ts and time.time() >= _wt_async_deadline_ts:
+            _wt_request_async_measure_stop(f"deadline@{log_tag}#{cmd_no}")
+            return True
+        return False
+
+    if _should_skip_dwell():
+        if _log is not None:
+            _log.info(
+                f"连续录已结束/到期，跳过驻留: 第{cmd_no}条({log_tag}), 原计划{ticks * 0.1:.1f}s"
+            )
+        _append_debug_log(
+            f"[run_loop] skip {log_tag} dwell at command#{cmd_no}: "
+            f"status={test_status!r} stop_req={_wt_async_stop_requested}"
+        )
+        return
+
+    for x in range(ticks):
+        if strTestStatusFlag == "结束":
+            return
+        while strTestStatusFlag == "暂停":
+            time.sleep(0.01)
+        if _should_skip_dwell():
+            if _log is not None:
+                _log.info(
+                    f"连续录已结束/到期，跳过剩余驻留: 第{cmd_no}条({log_tag}), "
+                    f"已等{x * 0.1:.1f}/{ticks * 0.1:.1f}s"
+                )
+            _append_debug_log(
+                f"[run_loop] early exit {log_tag} dwell at command#{cmd_no}: "
+                f"{x}/{ticks} (0.1s)"
+            )
+            return
+        if x % 100 == 0 and ticks > 100:
+            waited_sec = round(x * 0.1, 1)
+            total_sec = round(ticks * 0.1, 1)
+            if _log is not None:
+                _log.info(f"第{cmd_no}条命令等待中: {waited_sec}/{total_sec}s")
+        time.sleep(0.1)
+
+
+def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
+    """触发测量后的等待：StopTime/录波结束后立刻放行，不再死等满 dwell。
+
+    台架实情：③「数据采集」常写成 5 分钟塞进 col6，而 WT StopTime 可能更短
+    （例如 2 分钟）。旧逻辑先 sleep 满 col6 再查 test_status，会出现
+    「停止时间早就到了、试验还在空等」。
+    """
+    global test_status, strTestStatusFlag
+    try:
+        ticks = max(0, int(float(dwell_01s)))
+    except (TypeError, ValueError):
+        ticks = 0
+
+    # 1) 最长等到数据采集时长，但录波一结束（test_status=0）马上跳出
+    for x in range(ticks):
+        if strTestStatusFlag == "结束":
+            return
+        while strTestStatusFlag == "暂停":
+            time.sleep(0.01)
+        if test_status == '0':
+            _append_debug_log(
+                f"[run_loop] measure done early during {log_tag} dwell "
+                f"at command#{cmd_no}: {x}/{ticks} (0.1s)"
+            )
+            logger.info(
+                f"测量已结束，跳过剩余数据采集等待: 第{cmd_no}条({log_tag}), "
+                f"已等{x * 0.1:.1f}/{ticks * 0.1:.1f}s"
+            )
+            test_status = ''
+            return
+        if x % 100 == 0 and ticks > 100:
+            logger.info(
+                f"等待测量/采集: 第{cmd_no}条({log_tag}), "
+                f"{x * 0.1:.1f}/{ticks * 0.1:.1f}s, test_status={test_status}"
+            )
+        time.sleep(0.1)
+
+    # 2) 采集时长已满但录波可能仍未停：再等到 testing_stop
+    wait_start = time.time()
+    last_log_sec = -1
+    wait_timeout_sec = 3600
+    while True:
+        if strTestStatusFlag == "结束":
+            break
+        elapsed = int(time.time() - wait_start)
+        if elapsed != last_log_sec and elapsed % 5 == 0:
+            logger.info(
+                f"等待测量完成: 第{cmd_no}条命令({log_tag}), "
+                f"test_status={test_status}, 已等待{elapsed}s"
+            )
+            last_log_sec = elapsed
+        if test_status == '0':
+            _append_debug_log(
+                f"[run_loop] measure wait done by {log_tag} at command#{cmd_no}"
+            )
+            test_status = ''
+            break
+        if elapsed >= wait_timeout_sec:
+            logger.error(
+                f"等待测量完成超时: 第{cmd_no}条命令({log_tag}), "
+                f"test_status={test_status}, 超时{wait_timeout_sec}s"
+            )
+            _show_connect_message(
+                f"自动化等待测量结果超时（第{cmd_no}条,{log_tag}）", ui
+            )
             break
         time.sleep(0.05)
 
@@ -30650,17 +23121,33 @@ def RunProject():
         auto_end_status = '0'
         # 逐条解释命令
         for i in range(len(strArrayTest)):
+            # 中途「结束试验」必须在每条命令入口立刻跳出，否则会卡在 Upper_WT_Config/宏后再继续跑后续命令
+            if strTestStatusFlag == "结束":
+                logger.info(f"试验已结束，跳过剩余命令（自第{i+1}条起）")
+                print(f"试验已结束，跳过剩余命令（自第{i+1}条起）")
+                break
+            # 若用户在试验中点了连接/刷新，等主线程设备 I/O 结束再发命令，避免抢 VISA 句柄
+            while _is_device_ui_busy():
+                if strTestStatusFlag == "结束":
+                    break
+                time.sleep(0.05)
+            if strTestStatusFlag == "结束":
+                logger.info(f"试验已结束（等待设备 UI 后），跳过剩余命令（自第{i+1}条起）")
+                print(f"试验已结束（等待设备 UI 后），跳过剩余命令（自第{i+1}条起）")
+                break
             print(f'正在解析第{i+1}条命令')
             _dev = strArrayTest[i][0] if len(strArrayTest[i]) > 0 else ""
             _op = strArrayTest[i][1] if len(strArrayTest[i]) > 1 else ""
             _scpi = strArrayTest[i][2] if len(strArrayTest[i]) > 2 else ""
             ui.textEdit_ReturnMessage.append(f"[执行] {i+1}. [{_dev}] {_op} {_scpi}")
             try:
+                _detail = f"[{_dev}] {_op} {str(_scpi)[:80]}".strip()
                 _emit_run_progress(
                     status="进行中",
                     cmd_index=i + 1,
                     cmd_total=len(strArrayTest),
                     current_round=(int(now_save_file) + 1) if int(globals().get("total_save_file") or 0) > 0 else int(_run_progress_state.get("current_round") or 0),
+                    current_detail=_detail,
                     persist=(i % 5 == 0 or i + 1 == len(strArrayTest)),
                 )
             except Exception:
@@ -30677,15 +23164,7 @@ def RunProject():
                             break
                         command = strArrayTest[i][2]
                         print(f"[WT调试] 准备发送第{i+1}条命令: {command}")
-                        if ac_controller is None or not ac_controller.connected:
-                            raise RuntimeError("AC未连接，无法发送命令")
-                        # 爱科 Modbus：用 _itech.translate()；其他：用 handle.write()
-                        if ac_controller._itech is not None:
-                            ok, _ = ac_controller._itech.translate(command)
-                            if not ok:
-                                raise RuntimeError(f"AC Modbus 命令发送失败: {command}")
-                        else:
-                            ac_controller.handle.write(command)
+                        _ac_execute_write_command(command)
                     except Exception as e:
                         print(e)
                         logger.error(f"解析第{i+1}条命令失败: {e}")
@@ -30694,19 +23173,16 @@ def RunProject():
                         # 标记命令为已执行
                         if dewetron_collector is not None and dewetron_collector.current_run():
                             dewetron_collector.mark_command_executed(i + 1, "OK")
-                        # [9]：命令后等待（单位 0.1s）
+                        # 试验流程首次 OUTP ON 后做读数软预检（不额外开关输出）
+                        if not _hook_output_on_health_check("AC", command):
+                            break
+                        # [9]：命令后等待（单位 0.1s）；连续录会话内跟随录波结束提前放行
                         if strArrayTest[i][9] != '':
-                            fTestTime = strArrayTest[i][9]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)
+                            _wait_command_dwell_01s(
+                                i + 1, strArrayTest[i][9], log_tag="write,col9"
+                            )
+                        if strTestStatusFlag == "结束":
+                            break
 
                         # [8]：命令后等待（单位 0.1s）
                         if strArrayTest[i][8] != '':
@@ -30721,6 +23197,8 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+                        if strTestStatusFlag == "结束":
+                            break
 
                         # [7]：触发一次 WT 自动测量，并阻塞等待该轮测量结束
                         # 典型动作：
@@ -30796,41 +23274,10 @@ def RunProject():
                                     f"save_file_name={save_file_name}"
                                 )
 
-                                # 4) 先按 col6 给定的等待时长等待（常用作"触发后最短稳定时间"）
-                                fTestTime = col6_raw
-                                iTestTime = int(fTestTime)
-                                for x in range(iTestTime):
-                                    if strTestStatusFlag == "结束":
-                                        break
-                                    time.sleep(0.1)
-
-                                # 5) 再等待测量真正结束（由 messure_testing 在 testing_stop 后置 test_status='0'）
-                                loop = True
-                                wait_start = time.time()
-                                last_log_sec = -1
-                                # 默认给足 1 小时超时（避免长测量被误判）；需要更严格可再按项目细化
-                                wait_timeout_sec = 3600
-                                while loop:
-                                    if strTestStatusFlag == "结束":
-                                        loop = False
-                                    else:
-                                        elapsed = int(time.time() - wait_start)
-                                        if elapsed != last_log_sec and elapsed % 5 == 0:
-                                            logger.info(
-                                                f"等待测量完成: 第{i+1}条命令(col6), test_status={test_status}, 已等待{elapsed}s"
-                                            )
-                                            last_log_sec = elapsed
-
-                                        if test_status == '0':
-                                            loop = False
-                                            test_status = ''
-                                        elif elapsed >= wait_timeout_sec:
-                                            logger.error(
-                                                f"等待测量完成超时: 第{i+1}条命令(col6), test_status={test_status}, 超时{wait_timeout_sec}s"
-                                            )
-                                            _show_connect_message(f"自动化等待测量结果超时（第{i+1}条,col6）", ui)
-                                            loop = False
-                                    time.sleep(0.05)
+                                # 4)+5) 等录波结束即放行（勿死等满 col6）
+                                _wait_measure_trigger_done(
+                                    i + 1, col6_raw, log_tag="col6"
+                                )
 
                 if strArrayTest[i][1] == "query":
                     try:
@@ -30852,24 +23299,9 @@ def RunProject():
                     else:
                         # query 后的 [9]/[8] 仍作为等待字段使用
                         if strArrayTest[i][9] != '':
-                            fTestTime = strArrayTest[i][9]
-                            # [9] 统一按 0.1 秒计数处理
-                            iTestTime = int(fTestTime)
-                            wait_time = 0.1
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                if x % 100 == 0 and iTestTime > 100:
-                                    # 每 10 秒打印一次等待进度，避免误判为"卡住"
-                                    waited_sec = round(x * wait_time, 1)
-                                    total_sec = round(iTestTime * wait_time, 1)
-                                    logger.info(f"第{i+1}条命令等待中: {waited_sec}/{total_sec}s")
-                                time.sleep(wait_time)
+                            _wait_command_dwell_01s(
+                                i + 1, strArrayTest[i][9], log_tag="query,col9"
+                            )
                         
                         if strArrayTest[i][8] != '':
                             fTestTime = strArrayTest[i][8]
@@ -30883,6 +23315,8 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+                        if strTestStatusFlag == "结束":
+                            break
 
                         # query 分支里的 [7]：
                         # - WT 已完成配置时（setting_status/messure_status 均为 '1'），按"自动测量触发位"处理
@@ -31068,41 +23502,9 @@ def RunProject():
                                     f"[run_loop] trigger measure(query,col6) command#{i+1}, index {prev_index}->{now_save_file}, "
                                     f"save_file_name={save_file_name}"
                                 )
-                                fTestTime = col6_raw
-                                iTestTime = int(fTestTime)
-                                for x in range(iTestTime):
-                                    if strTestStatusFlag == "结束":
-                                        break
-                                    time.sleep(0.1)
-                                loop = True
-                                wait_start = time.time()
-                                last_log_sec = -1
-                                wait_timeout_sec = 3600
-                                while loop:
-                                    if strTestStatusFlag == "结束":
-                                        loop = False
-                                    else:
-                                        elapsed = int(time.time() - wait_start)
-                                        if elapsed != last_log_sec and elapsed % 5 == 0:
-                                            logger.info(
-                                                f"等待测量完成: 第{i+1}条命令(query,col6), "
-                                                f"test_status={test_status}, 已等待{elapsed}s"
-                                            )
-                                            last_log_sec = elapsed
-                                        if test_status == '0':
-                                            loop = False
-                                            _append_debug_log(
-                                                f"[run_loop] measure wait done by query col6 at command#{i+1}, "
-                                                f"final_index={now_save_file}, final_test_status={test_status}"
-                                            )
-                                            test_status = ''
-                                        elif elapsed >= wait_timeout_sec:
-                                            logger.error(
-                                                f"等待测量完成超时: 第{i+1}条命令(query,col6), "
-                                                f"test_status={test_status}, 超时{wait_timeout_sec}s"
-                                            )
-                                            loop = False
-                                    time.sleep(0.05)
+                                _wait_measure_trigger_done(
+                                    i + 1, col6_raw, log_tag="query,col6"
+                                )
 
                 if strArrayTest[i][1] == "wait":
                     # AC + wait：不发设备命令，仅作为流程编排等待
@@ -31112,17 +23514,9 @@ def RunProject():
                     logger.info(strtimenow + "AC "+ "wait for next project")
                     print(strtimenow + "AC "+ "wait for next project")
                     if strArrayTest[i][9] != '':
-                        fTestTime = strArrayTest[i][9]
-                        iTestTime = int(fTestTime)
-                        for x in range(iTestTime):
-                            while True:
-                                if strTestStatusFlag == "暂停":
-                                    time.sleep(0.01)
-                                else:
-                                    break
-                            if strTestStatusFlag == "结束":
-                                break
-                            time.sleep(0.1)
+                        _wait_command_dwell_01s(
+                            i + 1, strArrayTest[i][9], log_tag="wait,col9"
+                        )
                         if len(test_program) != 0 and flicker_is_test == '1':
                             total_save_file = total_save_file
                             now_save_file = 0
@@ -31137,7 +23531,7 @@ def RunProject():
                             total_save_file = total_save_file - now_save_file
                             now_save_file = 0
                             wt_is_check()
-            # ---------------- MPPT 分支 ----------------
+            # ---------------- MPPT 分支（静态 MPPT） ----------------
             elif 'MPPT' in strArrayTest[i][0]:
                 if 'step1' in strArrayTest[i][0]:
                     Mppt_step1.update({strArrayTest[i][3]:strArrayTest[i][4]})
@@ -31179,6 +23573,8 @@ def RunProject():
             # ---------------- 上位机 WT 自动配置分支 ----------------
             elif strArrayTest[i][0] == "Upper_WT_Config":
                 print("Upper_WT_Config")
+                if strTestStatusFlag == "结束":
+                    break
                 # 兼容两种来源：
                 # 1) 直接传 dict（推荐）
                 # 2) 传 dict 的字符串表示（例如从 csv 读回/旧逻辑残留）
@@ -31201,8 +23597,13 @@ def RunProject():
                     except Exception as e:
                         _append_debug_log(f"[Upper_WT_Config][error] wt_is_check failed: {e}")
                         print(f"[Upper_WT_Config] wt_is_check 异常: {e}")
+                    if strTestStatusFlag == "结束":
+                        first_test = '1'
+                        break
                     time.sleep(0.5)
                     first_test = '1'
+                if strTestStatusFlag == "结束":
+                    break
             # ---------------- DC1 分支 ----------------
             elif strArrayTest[i][0] == "DC1":
                 if strArrayTest[i][1] == "write":
@@ -31220,6 +23621,8 @@ def RunProject():
                     except Exception as e:
                         print(e)
                     else:
+                        if not _hook_output_on_health_check("DC1", strArrayTest[i][2]):
+                            break
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
                             iTestTime = int(fTestTime)
@@ -31261,6 +23664,8 @@ def RunProject():
                     except Exception as e:
                         print(e)
                     else:
+                        if not _hook_output_on_health_check("DC2", strArrayTest[i][2]):
+                            break
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
                             iTestTime = int(fTestTime)
@@ -31302,6 +23707,8 @@ def RunProject():
                     except Exception as e:
                         print(e)
                     else:
+                        if not _hook_output_on_health_check("DC3", strArrayTest[i][2]):
+                            break
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
                             iTestTime = int(fTestTime)
@@ -31343,6 +23750,8 @@ def RunProject():
                     except Exception as e:
                         print(e)
                     else:
+                        if not _hook_output_on_health_check("DC4", strArrayTest[i][2]):
+                            break
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
                             iTestTime = int(fTestTime)
@@ -31367,6 +23776,8 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+                        if strTestStatusFlag == "结束":
+                            break
 
             # ---------------- DL850 分支 ----------------
             elif strArrayTest[i][0] == "DL850":
@@ -31410,6 +23821,8 @@ def RunProject():
                                 if strTestStatusFlag == "结束":
                                     break
                                 time.sleep(0.1)
+                        if strTestStatusFlag == "结束":
+                            break
 
             # ---------------- DEWETRON 分支 ----------------
             elif strArrayTest[i][0] == "DEWETRON":
@@ -31426,6 +23839,28 @@ def RunProject():
 
                         if DEWETRON_START_COMMAND in cmd_upper:
                             print(f"[RunProject] 第{i+1}条命令: START前配置NUMERIC")
+                            try:
+                                project_now = ui.comboBox_PS.currentText()
+                            except Exception:
+                                project_now = ""
+                            section = _get_dewetron_section(project_now) if project_now else None
+                            paths = list(getattr(section, "_dew_save_paths", None) or [])
+                            idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
+                            if section is not None and paths:
+                                path = paths[min(idx, len(paths) - 1)]
+                                set_path = getattr(dewetron_collector, "set_save_path", None)
+                                if callable(set_path):
+                                    set_path(path)
+                                else:
+                                    dewetron_collector._save_path = path
+                                names = list(getattr(section, "_dew_file_names", None) or [])
+                                label = names[idx] if idx < len(names) else f"轮次{idx + 1}"
+                                try:
+                                    _set_run_progress_round(
+                                        idx, "进行中", note=f"DEWETRON采集: {label}"
+                                    )
+                                except Exception:
+                                    pass
                             if not dewetron_collector.start_gathering():
                                 raise RuntimeError("DEWETRON NUMERIC/RATE配置失败")
                             sent = dewetron_controller.start_acquisition()
@@ -31439,9 +23874,29 @@ def RunProject():
                             sent = dewetron_controller.stop_acquisition()
                             if not sent:
                                 raise RuntimeError("DEWETRON STOP发送失败")
-                            csv_path = dewetron_collector.export_to_csv()
+                            try:
+                                project_now = ui.comboBox_PS.currentText()
+                            except Exception:
+                                project_now = ""
+                            section = _get_dewetron_section(project_now) if project_now else None
+                            paths = list(getattr(section, "_dew_save_paths", None) or [])
+                            idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
+                            export_path = None
+                            if section is not None and paths:
+                                export_path = paths[min(idx, len(paths) - 1)]
+                            csv_path = dewetron_collector.export_to_csv(export_path)
                             if csv_path:
                                 ui.textEdit_ReturnMessage.append(f"[DEWETRON] 数据已导出: {csv_path}")
+                            if section is not None:
+                                names = list(getattr(section, "_dew_file_names", None) or [])
+                                label = names[idx] if idx < len(names) else f"轮次{idx + 1}"
+                                try:
+                                    _set_run_progress_round(
+                                        idx, "完成", note=f"已导出: {label}"
+                                    )
+                                except Exception:
+                                    pass
+                                section._dew_save_index = idx + 1
                         elif not dewetron_controller.send_command(
                             command,
                             f"[DEWETRON] {command}",
@@ -31477,6 +23932,8 @@ def RunProject():
             # ---------------- WT 宏回放分支 ----------------
             elif strArrayTest[i][0] == "WT":
                 global wt_type
+                if strTestStatusFlag == "结束":
+                    break
                 if strArrayTest[i][2] != '': #这里专用于更改保存名.json
                     json_path = strArrayTest[i][1]
                     new_file_name = strArrayTest[i][2]
@@ -31494,7 +23951,14 @@ def RunProject():
                     except Exception:
                         macro_abs_path = filepath
                     _append_debug_log(f"[WT macro] execute file={filepath}, wt_type={wt_type}, abs={macro_abs_path}")
+                    # 宏内部轮询试验结束标志，点「结束试验」可立刻停脚本
+                    try:
+                        manager.abort_check = lambda: strTestStatusFlag == "结束"
+                    except Exception:
+                        pass
                     manager.execute(filepath)
+                    if strTestStatusFlag == "结束":
+                        break
 
                 # WT 分支里的 [7]：纯等待，用于给回放/设备预留完成时间
                 # 注意：UI 时间值经过 SetTimeFunction() 统一转换为 "0.1 秒单位"(seconds*10)。
@@ -31512,6 +23976,8 @@ def RunProject():
                         if strTestStatusFlag == "结束":
                             break
                         time.sleep(0.1)
+                    if strTestStatusFlag == "结束":
+                        break
                     
 
             elif strArrayTest[i][0] == "WT3000":
@@ -31650,12 +24116,11 @@ def RunProject():
             logger.info(now_to_datenow() + "    实验已中止")
             _finish_run_progress(aborted=True)
             _update_project_status(currentSecond, "已中止")
-        WT_auto_messure_status = ''
-        setting_status = ''
-        messure_status = ''
-        messsure_deatil_cofig = ''
-        messure_project_cofig = ''
         strArrayTest = []
+        # 退出执行态，确保下次追加可重置 WT 门闩并重新跑配置脚本
+        strTestStatusFlag = ""
+        test_status = ""
+        reset_wt_automation_state()
         # 重置计数器，禁用开始按钮，需要重新追加后才能再次试验
         _reset_current_project_count()
         _sync_start_end_buttons()
@@ -32517,7 +24982,7 @@ def thaichongliancheckBox1():
         print("234")
 
 def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
-    global ArrayfDCCurrValue, per_dc_factor, command_list_DC
+    global ArrayfDCCurrValue, per_dc_factor, command_list_DC, bluesight_stc_params
     # 兼容功率百分比输入格式：
     # - "80" / "80%" / "80 %"
     # - "0.8"（按 80% 处理）
@@ -32743,15 +25208,29 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
             strArrayIVValue.append(f"SOL:USER:ISC {fDCIsc}")
             return strArrayIVValue
     elif dc_type and dc_type == "Bluesight":
-        # 蓝点：从 UI 缓存读取 Pmpp/Umpp/FF（发送曲线时写入），编码到命令字符串
+        # 蓝点：设备页「发送曲线」写入 100% 基准 STC；各工况点再乘功率%。
+        # 缓存不得按某一次 strPF 覆盖，否则 75/50/30/20 会全部沿用第一次的 Pmpp。
         idx = int(DCNumber)
         params = bluesight_stc_params.get(idx) or bluesight_stc_params.get(idx + 1) or {}
         pmpp = params.get("pmpp", 0)
         umpp = params.get("umpp", 0)
         ff = params.get("ff", 0.8)
         if pmpp <= 0 or umpp <= 0:
+            from utils.guochan_sim_matrix import bluesight_stc_from_iv
+            derived = bluesight_stc_from_iv(strVmp, strImp, strVoc, strIsc, "100")
+            if derived is None:
+                return "1"
+            pmpp, umpp, ff = derived
+            bluesight_stc_params[idx] = {"pmpp": pmpp, "umpp": umpp, "ff": ff}
+        try:
+            fPf = _parse_percent(strPF)
+        except Exception:
+            fPf = 100.0
+        scale = max(fPf, 0.0) / 100.0
+        pmpp_out = pmpp * scale
+        if pmpp_out <= 0:
             return "1"
-        return [f"BLUESIGHT:STC {pmpp} {umpp} {ff}"]
+        return [f"BLUESIGHT:STC {pmpp_out} {umpp} {ff}"]
 
     # 兜底：理论上不会走到这里
     return "1"
@@ -33117,9 +25596,27 @@ def auto_config():
     # cells_crood = cell_crood
     wt_running = False
 
+    def _wt_auto_aborted():
+        return globals().get("strTestStatusFlag") == "结束"
+
+    def _abortable_sleep(seconds):
+        """分段 sleep，结束试验时可尽快返回 True。"""
+        deadline = time.time() + max(0.0, float(seconds))
+        while time.time() < deadline:
+            if _wt_auto_aborted():
+                return True
+            time.sleep(min(0.2, max(0.0, deadline - time.time())))
+        return _wt_auto_aborted()
+
+    if _wt_auto_aborted():
+        logger.info("[auto_config] 用户已结束试验，跳过 WTViewer 自动配置")
+        return False
+
     def _get_child_handle_by_text(parent_hwnd, target_text, retry_times=8, retry_interval=0.5):
         """重试获取指定文本的子控件句柄，避免界面尚未渲染时直接抛异常。"""
         for attempt in range(retry_times):
+            if _wt_auto_aborted():
+                return None
             child_dict = {}
             win32gui.EnumChildWindows(
                 parent_hwnd,
@@ -33131,7 +25628,8 @@ def auto_config():
             _append_debug_log(
                 f"[auto_config][wait] child '{target_text}' not found, attempt={attempt + 1}/{retry_times}"
             )
-            time.sleep(retry_interval)
+            if _abortable_sleep(retry_interval):
+                return None
         return None
     wt_guiconnect = True
     for proc in psutil.process_iter(['pid', 'name']):
@@ -33231,54 +25729,124 @@ def auto_config():
         logger.info('子句柄清空！')
         win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_dict)
         logger.info('重新获取子句柄！')
+        _child_texts = [t for t in param_dict.values() if t]
+        _branch = (
+            '开始在线连接' if '开始在线连接' in param_dict.values()
+            else '停止在线连接' if '停止在线连接' in param_dict.values()
+            else '数值页已开' if ('数值列表' in param_dict.values() and '数值' in param_dict.values())
+            else '其它'
+        )
+        logger.info(f"[auto_config] WTViewer 分支={_branch}, 子控件={_child_texts[:40]}")
+        try:
+            ui.textEdit_ReturnMessage.append(
+                f"[WT配置] 正在配置 WTViewer（{_branch}），请勿操作鼠标，电源命令会在这之后才发出"
+            )
+        except Exception:
+            pass
+
+        def _wt_auto_aborted():
+            return globals().get("strTestStatusFlag") == "结束"
+
+        if _wt_auto_aborted():
+            logger.info("[auto_config] 用户结束试验，停止 WTViewer 配置")
+            return False
 
         if '开始在线连接' in param_dict.values():
             messure_handle_dict = {}
             key_child_start = list(param_dict.keys())[list(param_dict.values()).index('开始在线连接')]
             left, top, right, bottom = win32gui.GetWindowRect(key_child_start) 
             pyautogui.moveTo(left + (right - left) / 2, top + (bottom - top) / 2, duration=1)
+            if _wt_auto_aborted():
+                return False
             pyautogui.click()
-            # 判断程序连接状态
-            loop = True
+            # 等按钮从「开始在线连接」变成其它（连上后一般是「停止在线连接」）
+            connect_ok = False
             param_list1 = {}
-            while loop:
+            wait_deadline = time.time() + 20
+            while time.time() < wait_deadline:
+                if _wt_auto_aborted():
+                    logger.info("[auto_config] 用户结束试验，停止等待 WTViewer 在线连接")
+                    return False
                 win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_list1)
-                if param_list1[key_child_start] != '开始在线连接':
-                    loop = False
-            time.sleep(1)
+                btn_text = param_list1.get(key_child_start, '')
+                if btn_text and btn_text != '开始在线连接':
+                    connect_ok = True
+                    break
+                if '停止在线连接' in param_list1.values():
+                    connect_ok = True
+                    break
+                time.sleep(0.5)
+            if not connect_ok:
+                msg = (
+                    "WTViewer 点击「开始在线连接」后 20 秒按钮未变化。"
+                    "请先在 WTViewer 手动连上仪表（按钮应变为「停止在线连接」），"
+                    "关掉残留的「数值详细设置」，再点开始。"
+                    "若 AutoTest 已占用 WT 的 10001 端口，请先在 Viewer 连上仪表，或确认 Viewer 已在线后再开始。"
+                )
+                logger.info(f"[auto_config][error] {msg}")
+                _append_debug_log(f"[auto_config][error] {msg}")
+                try:
+                    ui.textEdit_ReturnMessage.append(f"[WT配置] {msg}")
+                except Exception:
+                    pass
+                return False
+            if _abortable_sleep(1):
+                return False
             pyautogui.moveTo(setting_icon[0], setting_icon[1], duration=0.5)
             pyautogui.doubleClick()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
             pyautogui.click()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
+            if _wt_auto_aborted():
+                return False
             setting_set(h)
+            if _wt_auto_aborted():
+                return False
             pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
             pyautogui.doubleClick()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
             pyautogui.click()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
             messure_handle_now = _get_child_handle_by_text(h, '数值')
             if messure_handle_now is None:
                 _append_debug_log("[auto_config][error] child '数值' not found after reconnect flow")
+                return False
+            if _wt_auto_aborted():
                 return False
             messured_set(messure_handle_now)
             win32gui.EnumChildWindows(h, lambda hwnd, parm: parm.update({hwnd:win32gui.GetWindowText(hwnd)}), param_list1)           
         elif '停止在线连接' in param_dict.values():
             messure_handle_dict = {}
+            if _wt_auto_aborted():
+                return False
             pyautogui.moveTo(setting_icon[0], setting_icon[1], duration=0.5)
             pyautogui.doubleClick()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
             pyautogui.click()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
+            if _wt_auto_aborted():
+                return False
             setting_set(h)
+            if _wt_auto_aborted():
+                return False
             pyautogui.doubleClick(messure_icon[0], messure_icon[1], duration=0.5) 
             pyautogui.click()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
             pyautogui.click()
-            time.sleep(2)
+            if _abortable_sleep(2):
+                return False
             messure_handle_now = _get_child_handle_by_text(h, '数值')
             if messure_handle_now is None:
                 _append_debug_log("[auto_config][error] child '数值' not found in already-connected flow")
+                return False
+            if _wt_auto_aborted():
                 return False
             messured_set(messure_handle_now)
 
@@ -33286,23 +25854,34 @@ def auto_config():
             
         elif "数值列表" not in param_dict.values() and "数值" not in param_dict.values():
             messure_handle_dict = {}
+            if _wt_auto_aborted():
+                return False
             if setting_status == '':
                 key_child_setting = list(param_dict.keys())[list(param_dict.values()).index('接线方式')]
                 setting_set(h)
+            if _wt_auto_aborted():
+                return False
             pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
             pyautogui.doubleClick()
-            pyautogui.sleep(2)
+            if _abortable_sleep(2):
+                return False
             pyautogui.click()
-            pyautogui.sleep(2)
+            if _abortable_sleep(2):
+                return False
             key_child_messure = _get_child_handle_by_text(h, '数值')
             if key_child_messure is None:
                 _append_debug_log("[auto_config][error] child '数值' not found in open-measure-page flow")
                 return False
             left, top, right, bottom = win32gui.GetWindowRect(key_child_messure)
+            if _wt_auto_aborted():
+                return False
             messured_set(key_child_messure)
         elif "数值列表" in param_dict.values() and "数值" in param_dict.values():
             # 分支含义：当前 WT 主界面里已经同时存在"数值列表"和"数值"控件
             # 说明测量相关页面基本已打开，只需要判断"设置页参数是否已配置"即可。
+
+            if _wt_auto_aborted():
+                return False
 
             # setting_status == ''：代表"接线方式/更新率"等设置页参数还没做过
             if setting_status == '':
@@ -33312,19 +25891,27 @@ def auto_config():
                 # moveTo + doubleClick + click 是为了提高点击稳定性（不同机型/窗口焦点下，单击可能不生效）
                 pyautogui.moveTo(setting_icon[0], setting_icon[1], duration=0.5)
                 pyautogui.doubleClick()
-                pyautogui.sleep(2)
+                if _abortable_sleep(2):
+                    return False
                 pyautogui.click()
-                pyautogui.sleep(2)
+                if _abortable_sleep(2):
+                    return False
 
                 # 2) 执行设置页自动配置：接线方式、更新率等（按 config_dict 写入）
+                if _wt_auto_aborted():
+                    return False
                 setting_set(h)
 
                 # 3) 再切回"测量/数值"页签
+                if _wt_auto_aborted():
+                    return False
                 pyautogui.moveTo(messure_icon[0], messure_icon[1], duration=0.5)
                 pyautogui.doubleClick()
-                pyautogui.sleep(2)
+                if _abortable_sleep(2):
+                    return False
                 pyautogui.click()
-                pyautogui.sleep(2)
+                if _abortable_sleep(2):
+                    return False
 
                 # 4) 重新枚举子控件，拿到"数值"控件的最新句柄
                 #    重新获取是为了避免界面切页后句柄失效/变化
@@ -33343,6 +25930,8 @@ def auto_config():
             # 5) 进入"数值详细设置"流程：
             #    - 打开右键菜单中的"数值详细设置"
             #    - 配置测量项勾选、时间、保存文件名等
+            if _wt_auto_aborted():
+                return False
             messured_set(messure_handle_now)
 
 def setting_set(h):
@@ -33470,6 +26059,9 @@ def setting_set(h):
     # 第二段：配置"更新率"
     # 条件：窗口里存在"更新率"控件且尚未完成配置(setting_status != '1')
     # =========================
+    if globals().get("strTestStatusFlag") == "结束":
+        logger.info("[setting_set] 用户结束试验，跳过更新率配置")
+        return
     if "更新率" in parm_dict_set.values() and setting_status != '1':
         # 更新率下拉列表的经验步长与接线方式略不同
         step = 13
@@ -33882,7 +26474,8 @@ def messure_testing():
     """
     global test_time_list, messsure_deatil_cofig, config_dict, messure_status, setting_status, WT_auto_messure_status
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
-    global test_status, save_file_name
+    global test_status, save_file_name, strTestStatusFlag
+    global _wt_async_stop_requested, _wt_async_deadline_ts, _wt_async_session_active
 
     # 仅在关键状态变化时记录日志，避免定时器每 0.5 秒刷屏
     current_state = (setting_status, messure_status, WT_auto_messure_status, now_save_file, total_save_file)
@@ -33970,9 +26563,34 @@ def messure_testing():
                         _set_run_progress_round(now_save_file, "进行中", note=f"测量中: {current_name}")
                     except Exception:
                         pass
-                    # 成功开始后，按 loop_time 阻塞等待本轮测试时长结束
-                    # 注意：这里没有暂停/结束中断判断，属于"纯计时等待"
+                    # 成功开始后，按 loop_time 等待；结束试验 / 连续录 WAIT_END / 截止时刻应立刻停表
+                    aborted = False
+                    early_stop = False
                     for j in range(loop_time):
+                        if strTestStatusFlag == "结束":
+                            aborted = True
+                            _append_debug_log(
+                                f"[messure_testing] aborted by EndProject during wait "
+                                f"({j}/{loop_time})"
+                            )
+                            break
+                        if _wt_async_stop_requested:
+                            early_stop = True
+                            _append_debug_log(
+                                f"[messure_testing] stop requested during continuous wait "
+                                f"({j}/{loop_time})"
+                            )
+                            break
+                        if _wt_async_deadline_ts and time.time() >= _wt_async_deadline_ts:
+                            early_stop = True
+                            _append_debug_log(
+                                f"[messure_testing] async deadline reached during wait "
+                                f"({j}/{loop_time})"
+                            )
+                            break
+                        if strTestStatusFlag == "暂停":
+                            time.sleep(0.1)
+                            continue
                         time.sleep(0.1)
 
                     # 标记：下一轮进入前需要重新写入详细参数（如文件名/时间）
@@ -33982,7 +26600,9 @@ def messure_testing():
 
                     # 停止测量 + 保存处理 + 决定是否进入下一轮
                     _append_debug_log(
-                        f"[messure_testing] call testing_stop, current_index={now_save_file}, current_file={current_name}"
+                        f"[messure_testing] call testing_stop, aborted={aborted}, "
+                        f"early_stop={early_stop}, "
+                        f"current_index={now_save_file}, current_file={current_name}"
                     )
                     try:
                         testing_stop(test_count, now_save_file)
@@ -33993,6 +26613,11 @@ def messure_testing():
                         messsure_deatil_cofig = '0'
                         messure_status = '0'
                         test_status = '0'
+                    if aborted or early_stop:
+                        test_status = '0'
+                        WT_auto_messure_status = ''
+                        _wt_async_stop_requested = False
+                        _wt_async_deadline_ts = 0.0
                 else:
                     _append_debug_log("[messure_testing] testing_start failed, set status to reconfigure")
                     # 启动失败时同样把状态置回"待重配"，让后续流程有机会恢复
@@ -34156,10 +26781,22 @@ def testing_stop(test_count, count_now):
             return
     
         # 1) 当前项目所有文件都测完：总测试结束
-        # count_now 是 0-based 索引；total_save_file 是数量，末轮索引应为 total_save_file - 1
-        if count_now >= total_save_file - 1:
+        # count_now 是 0-based 索引。以「文件名列表长度」与 total_save_file 的较小值为准，
+        # 避免连续录只写了 1 个文件名、但 total_save_file 残留为 2 时误判还有下一轮，
+        # 从而在试验收尾前再次打开「数值详细设置」改文件名。
+        rounds = int(total_save_file or 0)
+        n_names = len(test_count) if isinstance(test_count, (list, tuple)) else 0
+        if n_names > 0:
+            rounds = min(rounds, n_names) if rounds > 0 else n_names
+        if rounds < 1:
+            rounds = 1
+        if count_now >= rounds - 1:
             print('测试结束')
-            _append_debug_log("[testing_stop] all tests finished")
+            _append_debug_log(
+                f"[testing_stop] all tests finished "
+                f"(count_now={count_now}, rounds={rounds}, "
+                f"total_save_file={total_save_file}, names={n_names})"
+            )
             try:
                 _set_run_progress_round(count_now, "完成", note="本轮完成")
             except Exception:
@@ -35296,6 +27933,17 @@ def system_error_info():
     """周期性轮询设备系统错误并尝试重连。"""
     global ac_controller
     while True:
+        # 主线程正在连接/刷新接口时让出，避免与 open_resource / *IDN? 抢同一句柄
+        if _is_device_ui_busy():
+            time.sleep(0.25)
+            continue
+        # 试验运行中不要 SYST:ERR?/自动重连，避免与 RunProject 抢同一句柄
+        try:
+            if "strTestStatusFlag" in globals() and strTestStatusFlag in ("运行", "暂停"):
+                time.sleep(1.0)
+                continue
+        except Exception:
+            pass
         if _should_poll_equ_ctrl_for_syst_err(ac_controller, ui.pushButton_ConnectEQUAC):
             # Modbus TCP（ModbusVISA）：句柄为 SOCKET，不支持 SCPI SYST:ERR?；勿用下拉框原文 open_resource（含中文会触发 PyVISA ascii 错误）
             if ac_controller.client is not None:
@@ -35310,48 +27958,63 @@ def system_error_info():
                     logger.error(e)
                     tcp_addr = _normalize_equ_resource_text(ui.comboBox_AC.currentText())
                     try:
-                        endpoint = _split_ipv4_tcp_endpoint(tcp_addr)
-                        if endpoint is not None:
-                            host, port = endpoint
-                            _safe_close_handle(ac_controller.handle)
-                            ac_controller.client = None
-                            ac_controller._itech = None
-                            ac_controller._set_handle(None)
-                            client = ModbusVISA(
-                                host,
-                                port,
-                                on_session_renewed=ac_controller._set_handle,
-                                use_plain_socket=True,
-                            )
-                            client.connect()
-                            if client.is_connected():
-                                ac_controller.client = client
-                                ac_controller._set_handle(client.inst or client)
-                                ac_controller._itech = ItechTranslator(client)
-                                ac_controller.resource = f'{host}:{port}'
-                                print(f'AC---reconnect(modbus)---{ac_controller.handle}')
-                                logger.info(f'AC---reconnect(modbus)---{ac_controller.handle}')
-                            else:
+                        # Chroma IP / ScpiSocket：必须用原生 TCP 重连。
+                        # 若误走 rm.open_resource(TCPIP0::ip::INSTR)，会得到坏 VISA 会话，
+                        # 上电时报 VI_ERROR_INV_RSRC_NAME（Parsing error / invalid character）。
+                        prefer_socket = (
+                            ac_controller.uses_scpi_socket()
+                            or str(getattr(ac_controller, "resource", "") or "").startswith("TCPIP::")
+                            or globals().get("_ac_current_brand") == "chroma_ip"
+                            or str(tcp_addr).upper().startswith("TCPIP")
+                        )
+                        host, port = ACController._parse_scpi_tcp_endpoint(
+                            tcp_addr, getattr(ac_controller, "resource", "")
+                        )
+                        if prefer_socket and host:
+                            ac_controller.reconnect_scpi_tcp(host, port)
+                        else:
+                            endpoint = _split_ipv4_tcp_endpoint(tcp_addr)
+                            if endpoint is not None:
+                                host, port = endpoint
+                                _safe_close_handle(ac_controller.handle)
                                 ac_controller.client = None
                                 ac_controller._itech = None
                                 ac_controller._set_handle(None)
-                        else:
-                            # USB/GPIB 等：必须先释放旧 VISA 会话再 open，否则常出现 VI_ERROR_SYSTEM_ERROR 且反复重连无效
-                            _safe_close_handle(ac_controller.handle)
-                            ac_controller._set_handle(None)
-                            time.sleep(0.12)
-                            handle = rm.open_resource(tcp_addr)
-                            try:
-                                _configure_scpi_resource(handle)
-                            except Exception:
-                                release_resource_handle(handle)
-                                raise
-                            ac_controller.client = None
-                            ac_controller._itech = None
-                            ac_controller._set_handle(handle)
-                            ac_controller.resource = tcp_addr
-                            print(f'AC---reconnect---{ac_controller.handle}')
-                            logger.info(f'AC---reconnect---{ac_controller.handle}')
+                                client = ModbusVISA(
+                                    host,
+                                    port,
+                                    on_session_renewed=ac_controller._set_handle,
+                                    use_plain_socket=True,
+                                )
+                                client.connect()
+                                if client.is_connected():
+                                    ac_controller.client = client
+                                    ac_controller._set_handle(client.inst or client)
+                                    ac_controller._itech = ItechTranslator(client)
+                                    ac_controller.resource = f'{host}:{port}'
+                                    print(f'AC---reconnect(modbus)---{ac_controller.handle}')
+                                    logger.info(f'AC---reconnect(modbus)---{ac_controller.handle}')
+                                else:
+                                    ac_controller.client = None
+                                    ac_controller._itech = None
+                                    ac_controller._set_handle(None)
+                            else:
+                                # USB/GPIB 等：必须先释放旧 VISA 会话再 open，否则常出现 VI_ERROR_SYSTEM_ERROR 且反复重连无效
+                                _safe_close_handle(ac_controller.handle)
+                                ac_controller._set_handle(None)
+                                time.sleep(0.12)
+                                handle = rm.open_resource(tcp_addr)
+                                try:
+                                    _configure_scpi_resource(handle)
+                                except Exception:
+                                    release_resource_handle(handle)
+                                    raise
+                                ac_controller.client = None
+                                ac_controller._itech = None
+                                ac_controller._set_handle(handle)
+                                ac_controller.resource = tcp_addr
+                                print(f'AC---reconnect---{ac_controller.handle}')
+                                logger.info(f'AC---reconnect---{ac_controller.handle}')
                     except Exception as e2:
                         logger.error(e2)
                         print(e2)
@@ -35607,7 +28270,7 @@ if __name__ == "__main__":
                 "Chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"],
                 "Keysight": ["SAS:MODE TABL", "SAS:TABL:ACT 1"],
                 "Itech": ["SOL 0", "SOL 1"],
-                "Bluesight": [],
+                "Bluesight": ["SYST:MODE SAS"],
             }
 
             # with open(f'.\config_files\{FILE_NAME}', 'r', encoding='utf-8') as f:
@@ -35691,6 +28354,23 @@ if __name__ == "__main__":
             ui = Ui_Dialog()
             ui.setupUi(main_window)
             print("[DEBUG_STARTUP]    setupUi 完成", flush=True)
+            try:
+                from PyQt5.QtGui import QIcon
+                from pathlib import Path as _Path
+                _icon = None
+                for _cand in (
+                    _Path("ui_files") / "logo.ico",
+                    _Path("ui_files") / "logo.jpg",
+                ):
+                    if _cand.is_file():
+                        _icon = QIcon(str(_cand))
+                        break
+                if _icon is not None and not _icon.isNull():
+                    app.setWindowIcon(_icon)
+                    main_window.setWindowIcon(_icon)
+                    print("[DEBUG_STARTUP]    window icon applied", flush=True)
+            except Exception as _icon_exc:
+                print(f"[DEBUG_STARTUP]    window icon skip: {_icon_exc}", flush=True)
 
             # 将主窗口、日志对象和资源管理器写入应用上下文，避免继续散落全局状态
             app_ctx = bootstrap(ui=ui, logger=logger, rm=rm)
@@ -35975,10 +28655,12 @@ if __name__ == "__main__":
 
                 # ── Step 3: 电压/频率设置 ──
                 textEdit_VOLT = QTextEdit()
+                textEdit_VOLT.setObjectName("textEdit_VOLT")
                 textEdit_VOLT.setPlainText("220")
                 textEdit_VOLT.setStyleSheet(_INPUT_QSS)
                 textEdit_FR = QTextEdit()
-                textEdit_FR.setPlainText("60")
+                textEdit_FR.setObjectName("textEdit_FR")
+                textEdit_FR.setPlainText("50")
                 textEdit_FR.setStyleSheet(_INPUT_QSS)
                 timeline.addStep("电压/频率设置",
                                  param_row([("电压:", textEdit_VOLT, "V"),
@@ -36052,16 +28734,19 @@ if __name__ == "__main__":
 
                 def _on_ac_brand_changed(idx):
                     global _ac_current_brand, _itech_ip_edit, _itech_port_edit
+                    from utils.ui_field_helpers import remember_value
                     _ac_current_brand = "itech" if idx == 1 else "chroma"
                     _ac_stack.setCurrentIndex(idx)
                     _itech_ip_edit = _itch_ac["ip_edit"]
                     _itech_port_edit = _itch_ac["port_edit"]
                     _sync_ac_connect_buttons()
+                    remember_value("device.ac.brand_idx", str(idx))
 
                 _ac_breadcrumb.indexChanged.connect(_on_ac_brand_changed)
 
-                _itch_ac["ip_edit"].setText("")
-                _itch_ac["port_edit"].setText("502")
+                from utils.ui_field_helpers import last_value, remember_value
+                _itch_ac["ip_edit"].setText(last_value("ac.ip", ""))
+                _itch_ac["port_edit"].setText(last_value("ac.port", "502"))
 
                 _ac_page_layout.addWidget(_ac_breadcrumb)
                 _ac_page_layout.addWidget(_ac_stack, 1)
@@ -36095,11 +28780,13 @@ if __name__ == "__main__":
 
                                 # 创建 IP 输入控件（初始隐藏）
                                 _chroma_ip_edit = QtWidgets.QLineEdit()
+                                _chroma_ip_edit.setObjectName("lineEdit_chroma_AC_IP")
                                 _chroma_ip_edit.setPlaceholderText("如 192.168.1.100")
                                 _chroma_ip_edit.setStyleSheet(_INPUT_QSS)
                                 _chroma_ip_edit.setMinimumWidth(160)
                                 _chroma_ip_edit.setVisible(False)
                                 _chroma_port_edit = QtWidgets.QLineEdit()
+                                _chroma_port_edit.setObjectName("lineEdit_chroma_AC_Port")
                                 _chroma_port_edit.setPlaceholderText("留空自动探测")
                                 _chroma_port_edit.setStyleSheet(_INPUT_QSS)
                                 _chroma_port_edit.setMinimumWidth(80)
@@ -36143,6 +28830,16 @@ if __name__ == "__main__":
 
                                 _comm_mode_combo.currentTextChanged.connect(
                                     lambda t: _on_comm_mode_changed(t == "IP"))
+                                from utils.ui_field_helpers import last_value, remember_value
+                                _chroma_ip_edit.setText(last_value("chroma.ac.ip", ""))
+                                _chroma_port_edit.setText(last_value("chroma.ac.port", ""))
+                                _saved_comm = last_value("device.ac.chroma_comm", "串口")
+                                if _saved_comm in ("串口", "IP"):
+                                    _comm_mode_combo.setCurrentText(_saved_comm)
+                                    _on_comm_mode_changed(_saved_comm == "IP")
+                                _comm_mode_combo.currentTextChanged.connect(
+                                    lambda t: remember_value("device.ac.chroma_comm", t)
+                                )
 
                                 # 修改 ConnectEQUAC 以支持 Chroma IP 模式
                                 _orig_connect_ac = ConnectEQUAC
@@ -36170,6 +28867,9 @@ if __name__ == "__main__":
                     _itech_port_edit = _itch_ac["port_edit"]
                     ip = _itch_ac["ip_edit"].text().strip()
                     port = _itch_ac["port_edit"].text().strip() or "502"
+                    from utils.ui_field_helpers import remember_value
+                    remember_value("ac.ip", ip)
+                    remember_value("ac.port", port)
                     addr = f"{ip}:{port}" if ip else ""
                     _itch_ac["log_edit"].append(f"正在连接 {addr} ...")
                     ui.textEdit_ReturnMessage.append(f"[AC Itech] 正在连接 {addr} ...")
@@ -36182,6 +28882,9 @@ if __name__ == "__main__":
                 _itch_ac["btn_connect"].clicked.connect(_itch_connect)
                 _itch_ac["btn_on"].clicked.connect(OpenACOUTPUTON)
                 _itch_ac["btn_off"].clicked.connect(CloseACOUTPUTON)
+                _saved_ac_idx = last_value("device.ac.brand_idx", "0")
+                if _saved_ac_idx.isdigit() and int(_saved_ac_idx) in (0, 1):
+                    _ac_breadcrumb.setIndex(int(_saved_ac_idx))
 
                 def _itch_ac_send_command():
                     """Itech 页面的单条命令发送。"""
@@ -36196,34 +28899,23 @@ if __name__ == "__main__":
                     if not ac_voltage or not ac_frequency:
                         QMessageBox.information(None, "错误", "电压或频率输入有误")
                         return
-                    if ac_controller._itech is not None:
-                        if ac_phase == "单相":
-                            command_list = [
-                                "INST:PHASE SINGLE",
-                                "VOLT " + ac_voltage,
-                                "FREQ " + ac_frequency,
-                            ]
-                        elif ac_phase == "三相":
-                            command_list = [
-                                "INST:PHASE THREE",
-                                "INST:EDIT EACH",
-                                "INST:NSEL 1", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
-                                "INST:NSEL 2", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
-                                "INST:NSEL 3", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
-                            ]
-                        else:
-                            command_list = []
+                    # 与 devices/ac_controller / ac_scpi_commands 一致：三相同压走 EDIT ALL
+                    if ac_phase == "单相":
+                        command_list = [
+                            "INST:PHAS SINGLE",
+                            "INST:EDIT ALL",
+                            "VOLT " + ac_voltage,
+                            "FREQ " + ac_frequency,
+                        ]
+                    elif ac_phase == "三相":
+                        command_list = [
+                            "INST:PHAS THREE",
+                            "INST:EDIT ALL",
+                            "VOLT " + ac_voltage,
+                            "FREQ " + ac_frequency,
+                        ]
                     else:
-                        if ac_phase == "单相":
-                            command_list = ["INST:PHAS SINGLE", "INST:EDIT ALL",
-                                            "VOLT " + ac_voltage, "FREQ " + ac_frequency]
-                        elif ac_phase == "三相":
-                            command_list = ["INST:PHAS THREE", "INST:EDIT EACH",
-                                            "INST:NSEL 1", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
-                                            "INST:NSEL 2", "VOLT " + ac_voltage, "FREQ " + ac_frequency,
-                                            "INST:NSEL 3", "VOLT " + ac_voltage, "FREQ " + ac_frequency]
-                        else:
-                            command_list = []
+                        command_list = []
                     for command in command_list:
                         if ac_controller._itech is not None:
                             ok, _ = ac_controller._itech.translate(command)
@@ -36265,10 +28957,13 @@ if __name__ == "__main__":
                 ip_edit.setObjectName("lineEdit_bluesight_DC1_IP")
                 ip_edit.setPlaceholderText("如 192.168.1.100")
                 ip_edit.setStyleSheet(_INPUT_QSS)
+                from utils.ui_field_helpers import last_value as _last_dc
+                ip_edit.setText(_last_dc("dc.ip", ""))
                 port_edit = QtWidgets.QLineEdit()
                 port_edit.setObjectName("lineEdit_bluesight_DC1_Port")
                 port_edit.setPlaceholderText("502")
                 port_edit.setStyleSheet(_INPUT_QSS)
+                port_edit.setText(_last_dc("dc.port", "502"))
                 btn_connect = QPushButton("连接")
                 btn_connect.setStyleSheet(_CONNECT_BTN_QSS)
                 btn_connect.setFixedWidth(120)
@@ -36661,9 +29356,11 @@ if __name__ == "__main__":
 
                 def _on_dc1_device_changed(idx):
                     global _dc1_device_type
+                    from utils.ui_field_helpers import remember_value
                     _dc1_device_type = _DC1_DEVICE_TYPES[idx]
                     _dc1_stack.setCurrentIndex(idx)
                     _sync_dc1_connect_buttons()
+                    remember_value("device.dc1.brand_idx", str(idx))
 
                 _dc1_breadcrumb.indexChanged.connect(_on_dc1_device_changed)
 
@@ -36809,6 +29506,9 @@ if __name__ == "__main__":
                     _dc1_device_type = "bluesight"
                     ip = _bs_dc1["ip_edit"].text().strip()
                     port = _bs_dc1["port_edit"].text().strip() or "502"
+                    from utils.ui_field_helpers import remember_value
+                    remember_value("dc.ip", ip)
+                    remember_value("dc.port", port)
                     if not ip:
                         QMessageBox.warning(None, "提示", "请输入 Bluesight 的 IP 地址")
                         return
@@ -36918,6 +29618,10 @@ if __name__ == "__main__":
                 _dc1_stack_ref = _dc1_stack
                 _dc1_bs_ref = _bs_dc1
                 _dc1_itech_ref = _itech_dc1
+                from utils.ui_field_helpers import last_value as _last_dc1_brand
+                _saved_dc1 = _last_dc1_brand("device.dc1.brand_idx", "")
+                if _saved_dc1.isdigit() and int(_saved_dc1) in (0, 1, 2):
+                    _dc1_breadcrumb.setIndex(int(_saved_dc1))
 
             # ui.gridLayout.addWidget(canvas)
             _connected_equ_resources = set()
@@ -36925,22 +29629,16 @@ if __name__ == "__main__":
             # Itech DC1 独立串口选择框也刷新资源列表
             if _dc1_itech_ref is not None:
                 _refresh_combo_box_with_states(_dc1_itech_ref["itech_serial_combo"], EQUList, _connected_equ_resources)
-            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC1_PORT, EQUList, _connected_equ_resources)
-            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC2_PORT, EQUList, _connected_equ_resources)
-            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC3_PORT, EQUList, _connected_equ_resources)
-            _refresh_combo_box_with_states(uiThaiStaticMPPTTest.comboBox_S1_DC4_PORT, EQUList, _connected_equ_resources)
+            # 静态MPPT 端口下拉：延迟到该试验页首次创建时再刷新（避免启动强制实例化）
             for combo_name in ["comboBox_AC", "comboBox_DC1", "comboBox_DC2", "comboBox_DC3", "comboBox_DC4", "comboBox_DL850", "comboBox_WT3000"]:
                 combo = getattr(ui, combo_name, None)
-                if combo is not None and combo.count() > 0:
-                    combo.setCurrentIndex(0)
-            for combo_name in ["comboBox_S1_DC1_PORT", "comboBox_S1_DC2_PORT", "comboBox_S1_DC3_PORT", "comboBox_S1_DC4_PORT"]:
-                combo = getattr(uiThaiStaticMPPTTest, combo_name, None)
                 if combo is not None and combo.count() > 0:
                     combo.setCurrentIndex(0)
             ui.comboBox_WT3000.setEditable(False)
             ui.comboBox_P.addItems(projectlist)
 
-            # ── 将 Auto_Test 设置对话框内容嵌入到项目配置页面 ──
+            # ── Auto_Test：启动只建占位页，首次进入项目时再创建/嵌入真实 UI ──
+            from setup.main_setup import LazyDialog as _LazyDialog
             _setting_stack = ui.settingStack
             _setting_stack.setContentsMargins(0, 0, 0, 0)
 
@@ -36978,24 +29676,10 @@ if __name__ == "__main__":
                 '动态MPPT': (dialog_windowdynamicmppt, uiThaiDynamicMPPT),
             }
 
-            _register_dewetron_project_sections()
-            _bind_shared_dewetron_actions()
-
-            # 为每个设置对话框创建一个嵌入页面
-            _setting_pages = {}
-            for _test_name, (_dlg, _ui) in _auto_test_dialogs.items():
-                if _dlg is None or _ui is None:
-                    continue
-
-                # 创建 QScrollArea 包裹对话框
-                _scroll = QtWidgets.QScrollArea()
-                _scroll.setWidgetResizable(True)
-                _scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-
-                # 将对话框内容提取到 scroll area
+            def _embed_auto_test_into_scroll(_scroll, _dlg, _ui_obj):
+                """将已创建的试验对话框内容填入占位 QScrollArea（与原启动嵌入逻辑一致）。"""
                 _dlg_layout = _dlg.layout()
                 if _dlg_layout is not None:
-                    # 有布局的对话框（如 DEWETRON）：提取子控件到带布局的容器
                     _container = QtWidgets.QWidget()
                     _container.setStyleSheet("background: #e2e5ea;")
                     _container_layout = QtWidgets.QVBoxLayout(_container)
@@ -37006,19 +29690,19 @@ if __name__ == "__main__":
                         _w = _item.widget()
                         if _w is not None:
                             _container_layout.addWidget(_w)
+                    _scroll.setWidgetResizable(True)
                     _scroll.setWidget(_container)
                 else:
-                    # 无布局的对话框（使用绝对定位，如电压闪变）
-                    # 直接 reparent 子控件到无布局容器，保留其绝对坐标
                     _container = QtWidgets.QWidget()
                     _container.setStyleSheet("background: #e2e5ea;")
                     _dlg_w = _dlg.width() or 1233
                     _dlg_h = _dlg.height() or 844
                     _container.setMinimumSize(_dlg_w, _dlg_h)
-                    for _child in _dlg.children():
-                        if _child != _ui and hasattr(_child, 'setParent'):
+                    for _child in list(_dlg.children()):
+                        if _child is _ui_obj:
+                            continue
+                        if hasattr(_child, 'setParent'):
                             _child.setParent(_container)
-                    # 修正所有子控件的字体颜色和样式
                     _LABEL_QSS = "color: #1e293b; font-size: 13px; background: transparent;"
                     _BTN_QSS = ("QPushButton { color: #ffffff; background-color: #3b82f6; border: none; "
                                 "border-radius: 4px; padding: 8px 16px; font-size: 13px; }"
@@ -37048,6 +29732,39 @@ if __name__ == "__main__":
                     _scroll.setWidgetResizable(False)
                     _scroll.setWidget(_container)
 
+            def _refresh_static_mppt_ports_if_ready():
+                if isinstance(uiThaiStaticMPPTTest, _LazyDialog) and not uiThaiStaticMPPTTest.is_created:
+                    return
+                _connected = globals().get('_connected_equ_resources', set())
+                _resources = globals().get('EQUList', [])
+                for _cname in ["comboBox_S1_DC1_PORT", "comboBox_S1_DC2_PORT",
+                               "comboBox_S1_DC3_PORT", "comboBox_S1_DC4_PORT"]:
+                    _combo = getattr(uiThaiStaticMPPTTest, _cname, None)
+                    if _combo is not None:
+                        _refresh_combo_box_with_states(_combo, _resources, _connected)
+                        if _combo.count() > 0:
+                            _combo.setCurrentIndex(0)
+
+            # 仅为每个试验建占位滚动页（不实例化 LazyDialog）
+            _setting_pages = {}
+            _auto_test_embed_done = set()
+            for _test_name, (_dlg, _ui) in _auto_test_dialogs.items():
+                if _dlg is None or _ui is None:
+                    continue
+                _scroll = QtWidgets.QScrollArea()
+                _scroll.setWidgetResizable(True)
+                _scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+                _ph = QtWidgets.QWidget()
+                _ph.setStyleSheet("background: #e2e5ea;")
+                _ph_lay = QtWidgets.QVBoxLayout(_ph)
+                _ph_lay.setContentsMargins(0, 0, 0, 0)
+                _ph_lbl = QtWidgets.QLabel("首次打开时加载参数页…")
+                _ph_lbl.setStyleSheet("color: #6b7280; font-size: 13px; background: transparent;")
+                _ph_lbl.setAlignment(QtCore.Qt.AlignCenter)
+                _ph_lay.addStretch(1)
+                _ph_lay.addWidget(_ph_lbl)
+                _ph_lay.addStretch(1)
+                _scroll.setWidget(_ph)
                 _setting_stack.addWidget(_scroll)
                 _setting_pages[_test_name] = _scroll
 
@@ -37066,13 +29783,46 @@ if __name__ == "__main__":
             _setting_stack._pages = _setting_pages
             _setting_stack._blank_page = _blank_page
 
+            def _ensure_auto_test_page(test_name):
+                """首次进入某试验时：创建 UI、绑信号钩子、嵌入页面、注册 DEWETRON。"""
+                if not test_name or test_name in _auto_test_embed_done:
+                    return
+                pair = _auto_test_dialogs.get(test_name)
+                if not pair:
+                    return
+                _dlg, _ui_obj = pair
+                if _dlg is None or _ui_obj is None:
+                    return
+                print(f"[DEBUG_STARTUP] ensure Auto_Test page: {test_name}", flush=True)
+                # dialog/ui 对 LazyDialog 是同一代理；ensure 会跑 on_create（信号）
+                if isinstance(_dlg, _LazyDialog):
+                    real_dlg, real_ui = _dlg.ensure()
+                elif isinstance(_ui_obj, _LazyDialog):
+                    real_dlg, real_ui = _ui_obj.ensure()
+                else:
+                    real_dlg, real_ui = _dlg, _ui_obj
+                _scroll = _setting_pages.get(test_name)
+                if _scroll is not None:
+                    _embed_auto_test_into_scroll(_scroll, real_dlg, real_ui)
+                _register_dewetron_section_for_project(test_name)
+                _bind_shared_dewetron_actions()
+                if test_name == '静态MPPT测试':
+                    _refresh_static_mppt_ports_if_ready()
+                _auto_test_embed_done.add(test_name)
+
+            ui._ensure_auto_test_page = _ensure_auto_test_page
+
             def _on_test_project_changed(index):
-                """当分项选择改变时，切换显示对应的设置对话框"""
+                """当分项选择改变时，按需加载并切换显示对应的设置页"""
                 _test_name = ui.comboBox_PS.currentText()
                 if _test_name in _setting_pages:
+                    _ensure_auto_test_page(_test_name)
                     _setting_stack.setCurrentWidget(_setting_pages[_test_name])
                 else:
                     _setting_stack.setCurrentWidget(_blank_page)
+                # 非运行/暂停时切换项目，清 WT 自动化门闩，避免上一项残留 first_test
+                if globals().get("strTestStatusFlag") not in ("运行", "暂停"):
+                    reset_wt_automation_state()
 
             def _sync_sidebar_nav_from_ps():
                 """下拉切换测试项目时，同步侧栏高亮。"""
@@ -37178,16 +29928,25 @@ if __name__ == "__main__":
             # WT5000配置确认
             uiThiaWT5000.pushButton_Confirm.clicked.connect(dialog_WT5000.close)
 
-            def _safe_click(obj, attr, slot):
-                """安全连接信号：如果 obj 有 attr 属性则连接，否则打印警告。"""
-                if hasattr(obj, attr):
-                    getattr(obj, attr).clicked.connect(slot)
+            def _when_ui_ready(obj, fn):
+                """在真实 UI 创建后再执行 fn(real_ui)；启动阶段只登记钩子，不实例化。"""
+                if isinstance(obj, _LazyDialog):
+                    obj.on_create(lambda: fn(obj._real_ui))
                 else:
-                    print(f"[WARN] {type(obj).__name__} 缺少 {attr}，跳过信号连接", flush=True)
+                    fn(obj)
 
-            print("[DEBUG_STARTUP]    信号连接段 德国重连...", flush=True)
+            def _safe_click(obj, attr, slot):
+                """安全连接信号：LazyDialog 延迟到首次创建；普通 UI 立即连接。"""
+                def _connect(ui_obj):
+                    if hasattr(ui_obj, attr):
+                        getattr(ui_obj, attr).clicked.connect(slot)
+                    else:
+                        print(f"[WARN] {type(ui_obj).__name__} 缺少 {attr}，跳过信号连接", flush=True)
+                _when_ui_ready(obj, _connect)
+
+            print("[DEBUG_STARTUP]    信号连接段 德国重连...(延迟登记)", flush=True)
             #德国重连
-            uithaichonglian.pushButton_Send.clicked.connect(thaichonglianSend)
+            _when_ui_ready(uithaichonglian, lambda u: u.pushButton_Send.clicked.connect(thaichonglianSend))
 
             #ThaiChonglian的配置档读取写入SaveFileDialogThaiChongLian
             _safe_click(uithaichonglian, "pushButton_ReadSettingFile", OpenFileDialogThaiChongLian)
@@ -37336,8 +30095,7 @@ if __name__ == "__main__":
                         ui.textEdit_ReturnMessage.append("[DEWETRON] 无法读取设备配置")
                 except Exception as e:
                     ui.textEdit_ReturnMessage.append(f"[DEWETRON] 刷新字段树失败: {e}")
-            uiThaiDianYaShanBian.radio_dewetron.toggled.connect(_on_dewetron_mode_toggled)
-
+            _when_ui_ready(uiThaiDianYaShanBian, lambda u: u.radio_dewetron.toggled.connect(_on_dewetron_mode_toggled))
             # 谐波电流
             _safe_click(uiThaiXieBoDianLiu, "pushButton_TestAppend", thaixiebodianliuAppend)
 
@@ -37349,8 +30107,7 @@ if __name__ == "__main__":
                 ui.textEdit_ReturnMessage.append("[谐波电流] 计数器已重置为0")
             _safe_click(uiThaiXieBoDianLiu, "pushButton_ResetCount", reset_xiebodianliu_count)
 
-            uiThaiXieBoDianLiu.pushButton_Send.clicked.connect(thaixiebodianliuSend)
-
+            _when_ui_ready(uiThaiXieBoDianLiu, lambda u: u.pushButton_Send.clicked.connect(thaixiebodianliuSend))
             # ThaiXieBoDianLiu的的配置档读取写入
             _safe_click(uiThaiXieBoDianLiu, "pushButton_ReadSettingFile", OpenFileDialogThaiXieBoDianLiu)
             _safe_click(uiThaiXieBoDianLiu, "pushButton_SaveSettingFile", SaveFileDialogThaiXieBoDianLiu)
@@ -37442,14 +30199,11 @@ if __name__ == "__main__":
                         ui.textEdit_ReturnMessage.append("[DEWETRON] 无法读取设备配置")
                 except Exception as e:
                     ui.textEdit_ReturnMessage.append(f"[DEWETRON] 刷新字段树失败: {e}")
-            uiThaiXieBoDianLiu.radio_dewetron.toggled.connect(_on_harmonic_dewetron_mode_toggled)
-            
+            _when_ui_ready(uiThaiXieBoDianLiu, lambda u: u.radio_dewetron.toggled.connect(_on_harmonic_dewetron_mode_toggled))
             # 固定PF=1
-            uiThaiFixedPF.pushButton_Send.clicked.connect(thaifixedpfSend)
-            uiThaiFixedPF._radio_group.buttonClicked.connect(lambda btn: thai_fixedpf_wt_change())
+            _when_ui_ready(uiThaiFixedPF, lambda u: u.pushButton_Send.clicked.connect(thaifixedpfSend))
+            _when_ui_ready(uiThaiFixedPF, lambda u: u._radio_group.buttonClicked.connect(lambda btn: thai_fixedpf_wt_change()))
             thaifixedpf_ui_init()
-            uiThaiFixedPF.btn_set_batch_time.clicked.connect(thai_fixedpf_batch_time_change)
-
             # uiThaiFixedPF.pushButton_S2_WT_3000_CONFIG.clicked.connect(wt_3000E_show)
             # uiThaiFixedPF.pushButton_S2_WT_1800_CONFIG.clicked.connect(wt_1800_show)
             # uiThaiFixedPF.pushButton_S2_WT_1806E_CONFIG.clicked.connect(wt_1806E_show)
@@ -37471,7 +30225,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiFixedPF, "pushButton_ResetCount", reset_fixedpf_count)
 
             # 无功能力范围
-            uiThaiReactiveQCap.pushButton_Send.clicked.connect(thaireactiveQcapSend)
+            _when_ui_ready(uiThaiReactiveQCap, lambda u: u.pushButton_Send.clicked.connect(thaireactiveQcapSend))
             _safe_click(uiThaiReactiveQCap, "pushButton_TestAppend", thaireactiveQcapAppend)
 
             def reset_reactiveQcap_count():
@@ -37486,7 +30240,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiReactiveQCap, "pushButton_SaveSettingFile", SaveFileDialogThaiReactiveQCap)
 
             # 定无功
-            uiThaiFixedQ.pushButton_Send.clicked.connect(thaifixedQSend)
+            _when_ui_ready(uiThaiFixedQ, lambda u: u.pushButton_Send.clicked.connect(thaifixedQSend))
             _safe_click(uiThaiFixedQ, "pushButton_TestAppend", thaifixedQAppend)
 
             def reset_fixedQ_count():
@@ -37501,7 +30255,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiFixedQ, "pushButton_SaveSettingFile", SaveFileDialogThaiFixedQ)
 
             # 无功注入
-            uiThaiReactiveQin.pushButton_Send.clicked.connect(thaireactiveQinSend)
+            _when_ui_ready(uiThaiReactiveQin, lambda u: u.pushButton_Send.clicked.connect(thaireactiveQinSend))
             _safe_click(uiThaiReactiveQin, "pushButton_TestAppend", thaireactiveQinAppend)
 
             def reset_reactiveQin_count():
@@ -37516,7 +30270,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiReactiveQin, "pushButton_SaveSettingFile", SaveFileDialogThaiReactiveQin)
 
             # 无功精度
-            uiThaiReactiveQacc.pushButton_Send.clicked.connect(thaireactiveQaccSend)
+            _when_ui_ready(uiThaiReactiveQacc, lambda u: u.pushButton_Send.clicked.connect(thaireactiveQaccSend))
             _safe_click(uiThaiReactiveQacc, "pushButton_TestAppend", thaireactiveQaccAppend)
 
             def reset_reactiveQacc_count():
@@ -37531,7 +30285,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiReactiveQacc, "pushButton_SaveSettingFile", SaveFileDialogThaiReactiveQacc)
 
             # 有功调度
-            uiThaiActiveP.pushButton_Send.clicked.connect(thaiactivePSend)
+            _when_ui_ready(uiThaiActiveP, lambda u: u.pushButton_Send.clicked.connect(thaiactivePSend))
             _safe_click(uiThaiActiveP, "pushButton_TestAppend", thaiactivePAppend)
 
             def reset_activeP_count():
@@ -37546,7 +30300,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiActiveP, "pushButton_SaveSettingFile", SaveFileDialogThaiActiveP)
 
             # overloads
-            uiThaiOverLoads.pushButton_Send.clicked.connect(thaioverloadsSend)
+            _when_ui_ready(uiThaiOverLoads, lambda u: u.pushButton_Send.clicked.connect(thaioverloadsSend))
             _safe_click(uiThaiOverLoads, "pushButton_TestAppend", thaioverloadsAppend)
 
             def reset_overloads_count():
@@ -37563,8 +30317,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiOverLoads, "pushButton_SaveSettingFile", SaveFileDialogThaiOverLoads)
             
             # 直流分量
-            uiThaiZhiLiuFenLiang.pushButton_Send.clicked.connect(thaizhiliufenliangSend)
-
+            _when_ui_ready(uiThaiZhiLiuFenLiang, lambda u: u.pushButton_Send.clicked.connect(thaizhiliufenliangSend))
             # 追加测试
             _safe_click(uiThaiZhiLiuFenLiang, "pushButton_TestAppend", thaizhiliufenliangAppend)
 
@@ -37583,8 +30336,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiZhiLiuFenLiang, "pushButton_SaveSettingFile", SaveFileDialogThaiZhiLiuFenLiang)
             
             # 静态QU
-            uiThaiStaticQU.pushButton_Send.clicked.connect(thaistaticQUSend)
-
+            _when_ui_ready(uiThaiStaticQU, lambda u: u.pushButton_Send.clicked.connect(thaistaticQUSend))
             # 追加测试
             _safe_click(uiThaiStaticQU, "pushButton_TestAppend", thaistaticQUAppend)
 
@@ -37603,7 +30355,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiStaticQU, "pushButton_SaveSettingFile", SaveFileDialogThaiStaticQU)
 
             # 动态QU
-            uiThaiDynamicQU.pushButton_Send.clicked.connect(thaidynamicQUSend)
+            _when_ui_ready(uiThaiDynamicQU, lambda u: u.pushButton_Send.clicked.connect(thaidynamicQUSend))
             _safe_click(uiThaiDynamicQU, "pushButton_TestAppend", thaidynamicQUAppend)
 
             def reset_dynamicQU_count():
@@ -37618,8 +30370,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiDynamicQU, "pushButton_SaveSettingFile", SaveFileDialogThaiDynamicQU)
 
             # 静态Cos(φ)
-            uiThaiStaticCosPhi.pushButton_Send.clicked.connect(thaistaticcosPhiSend)
-
+            _when_ui_ready(uiThaiStaticCosPhi, lambda u: u.pushButton_Send.clicked.connect(thaistaticcosPhiSend))
             # 追加测试
             _safe_click(uiThaiStaticCosPhi, "pushButton_TestAppend", thaistaticcosPhiAppend)
 
@@ -37638,8 +30389,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiStaticCosPhi, "pushButton_SaveSettingFile", SaveFileDialogThaiStaticCosPhi)
 
             # 动态Cos(φ)
-            uiThaiDynamicCosPhi.pushButton_Send.clicked.connect(thaidynamiccosPhiSend)
-
+            _when_ui_ready(uiThaiDynamicCosPhi, lambda u: u.pushButton_Send.clicked.connect(thaidynamiccosPhiSend))
             # 追加测试
             _safe_click(uiThaiDynamicCosPhi, "pushButton_TestAppend", thaidynamiccosPhiAppend)
 
@@ -37658,8 +30408,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiDynamicCosPhi, "pushButton_SaveSettingFile", SaveFileDialogThaiDynamicCosPhi)
             
             # 巴西Cos(φ)
-            uiThaiCosPhiBrazil.pushButton_Send.clicked.connect(thaicosPhiBrazilSend)
-
+            _when_ui_ready(uiThaiCosPhiBrazil, lambda u: u.pushButton_Send.clicked.connect(thaicosPhiBrazilSend))
             # 追加测试
             _safe_click(uiThaiCosPhiBrazil, "pushButton_TestAppend", thaicosPhiBrazilAppend)
 
@@ -37678,8 +30427,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiCosPhiBrazil, "pushButton_SaveSettingFile", SaveFileDialogThaiCosPhiBrazil)
 
             # 10分钟过压保护
-            uiThaiVoltProtect10min.pushButton_Send.clicked.connect(thaivoltprotect10minSend)
-
+            _when_ui_ready(uiThaiVoltProtect10min, lambda u: u.pushButton_Send.clicked.connect(thaivoltprotect10minSend))
             # 追加测试
             _safe_click(uiThaiVoltProtect10min, "pushButton_TestAppend", thaivoltprotect10minAppend)
 
@@ -37698,8 +30446,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiVoltProtect10min, "pushButton_SaveSettingFile", SaveFileDialogThaiVoltProtect10min)
 
             # 过频降载
-            uiThaiGuoPinJiangZai.pushButton_Send.clicked.connect(thaiguopinjiangzaiSend)
-
+            _when_ui_ready(uiThaiGuoPinJiangZai, lambda u: u.pushButton_Send.clicked.connect(thaiguopinjiangzaiSend))
             # 追加测试
             _safe_click(uiThaiGuoPinJiangZai, "pushButton_TestAppend", thaiguopinjiangzaiAppend)
 
@@ -37718,7 +30465,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiGuoPinJiangZai, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoPinJiangZai)
 
             # 欠频升载
-            uiThaiQianPinShengZai.pushButton_Send.clicked.connect(thaiqianpinshengzaiSend)
+            _when_ui_ready(uiThaiQianPinShengZai, lambda u: u.pushButton_Send.clicked.connect(thaiqianpinshengzaiSend))
             _safe_click(uiThaiQianPinShengZai, "pushButton_TestAppend", thaiqianpinshengzaiAppend)
 
             def reset_qianpinshengzai_count():
@@ -37733,8 +30480,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiQianPinShengZai, "pushButton_SaveSettingFile", SaveFileDialogThaiQianPinShengZai)
             
             # PU
-            uiThaiTestPU.pushButton_Send.clicked.connect(thaitestPUSend)
-
+            _when_ui_ready(uiThaiTestPU, lambda u: u.pushButton_Send.clicked.connect(thaitestPUSend))
             # 追加测试
             _safe_click(uiThaiTestPU, "pushButton_TestAppend", thaitestPUAppend)
 
@@ -37753,8 +30499,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiTestPU, "pushButton_SaveSettingFile", SaveFileDialogThaiTestPU)
 
             # 过欠压_过欠频
-            uiThaiGuoQianYa_Pin.pushButton_Send.clicked.connect(thaiguoqianya_pinSend)
-
+            _when_ui_ready(uiThaiGuoQianYa_Pin, lambda u: u.pushButton_Send.clicked.connect(thaiguoqianya_pinSend))
             # 追加测试
             _safe_click(uiThaiGuoQianYa_Pin, "pushButton_TestAppend", thaiguoqianya_pinAppend)
 
@@ -37773,8 +30518,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiGuoQianYa_Pin, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoQianYa_Pin)
             
             # 巴西过欠频稳定性
-            uiThaiGuoQianPin_Immun.pushButton_Send.clicked.connect(thaiguoqianpin_immunSend)
-
+            _when_ui_ready(uiThaiGuoQianPin_Immun, lambda u: u.pushButton_Send.clicked.connect(thaiguoqianpin_immunSend))
             # 追加测试
             _safe_click(uiThaiGuoQianPin_Immun, "pushButton_TestAppend", thaiguoqianpin_immunAppend)
 
@@ -37793,8 +30537,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiGuoQianPin_Immun, "pushButton_SaveSettingFile", SaveFileDialogThaiGuoQianPin_Immun)
 
             # 静态MPPT测试
-            uiThaiStaticMPPTTest.pushButton_Send.clicked.connect(thaistaticMPPTtestSend)
-
+            _when_ui_ready(uiThaiStaticMPPTTest, lambda u: u.pushButton_Send.clicked.connect(thaistaticMPPTtestSend))
             # 追加测试
             _safe_click(uiThaiStaticMPPTTest, "pushButton_TestAppend", thaistaticMPPTtestAppend)
 
@@ -37813,8 +30556,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiStaticMPPTTest, "pushButton_SaveSettingFile", SaveFileDialogThaiStaticMPPTTest)
 
             # 频率适应性
-            uiThaiFrequencyAdaptability.pushButton_Send.clicked.connect(thaifrequencyadaptabilitySend)
-
+            _when_ui_ready(uiThaiFrequencyAdaptability, lambda u: u.pushButton_Send.clicked.connect(thaifrequencyadaptabilitySend))
             # 追加测试
             _safe_click(uiThaiFrequencyAdaptability, "pushButton_TestAppend", thaifrequencyadaptabilityAppend)
 
@@ -37833,8 +30575,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiFrequencyAdaptability, "pushButton_SaveSettingFile", SaveFileDialogThaiFrequencyAdaptability)
 
             # 电压适应性
-            uiThaiVoltageAdaptability.pushButton_Send.clicked.connect(thaivoltageadaptabilitySend)
-
+            _when_ui_ready(uiThaiVoltageAdaptability, lambda u: u.pushButton_Send.clicked.connect(thaivoltageadaptabilitySend))
             # 追加测试
             _safe_click(uiThaiVoltageAdaptability, "pushButton_TestAppend", thaivoltageadaptabilityAppend)
 
@@ -37853,8 +30594,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiVoltageAdaptability, "pushButton_SaveSettingFile", SaveFileDialogThaiVoltageAdaptability)
 
             # ROCOF保护
-            uiThaiROCOF.pushButton_Send.clicked.connect(thairocofSend)
-
+            _when_ui_ready(uiThaiROCOF, lambda u: u.pushButton_Send.clicked.connect(thairocofSend))
             # 追加测试
             _safe_click(uiThaiROCOF, "pushButton_TestAppend", thairocofAppend)
 
@@ -37873,8 +30613,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiROCOF, "pushButton_SaveSettingFile", SaveFileDialogThaiROCOF)
 
             # 快速电压变化
-            uiThaiRapidVolt.pushButton_Send.clicked.connect(thairapidvoltSend)
-
+            _when_ui_ready(uiThaiRapidVolt, lambda u: u.pushButton_Send.clicked.connect(thairapidvoltSend))
             # 追加测试
             _safe_click(uiThaiRapidVolt, "pushButton_TestAppend", thairapidvoltAppend)
 
@@ -37893,7 +30632,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiRapidVolt, "pushButton_SaveSettingFile", SaveFileDialogThaiRapidVolt)
 
             # 低电压穿越
-            uiThaiLVRT.pushButton_Send.clicked.connect(thailvrtSend)
+            _when_ui_ready(uiThaiLVRT, lambda u: u.pushButton_Send.clicked.connect(thailvrtSend))
             _safe_click(uiThaiLVRT, "pushButton_TestAppend", thailvrtAppend)
             def reset_lvrt_count():
                 global lvrt_append_count
@@ -37907,7 +30646,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiLVRT, "pushButton_SaveSettingFile", SaveFileDialogThaiLVRT)
 
             # 相角突变
-            uiThaiPhaseJump.pushButton_Send.clicked.connect(thaiphasejumpSend)
+            _when_ui_ready(uiThaiPhaseJump, lambda u: u.pushButton_Send.clicked.connect(thaiphasejumpSend))
             _safe_click(uiThaiPhaseJump, "pushButton_TestAppend", thaiphasejumpAppend)
             def reset_phasejump_count():
                 global phasejump_append_count
@@ -37921,7 +30660,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiPhaseJump, "pushButton_SaveSettingFile", SaveFileDialogThaiPhaseJump)
 
             # 动态MPPT
-            uiThaiDynamicMPPT.pushButton_Send.clicked.connect(thaidynamicmpptSend)
+            _when_ui_ready(uiThaiDynamicMPPT, lambda u: u.pushButton_Send.clicked.connect(thaidynamicmpptSend))
             _safe_click(uiThaiDynamicMPPT, "pushButton_TestAppend", thaidynamicmpptAppend)
             def reset_dynamicmppt_count():
                 global dynamicmppt_append_count
@@ -38030,6 +30769,33 @@ if __name__ == "__main__":
 
 
             print("[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程", flush=True)
+            # 主界面设备页：本机记忆 IP/电压/频率 + Tab 跳下一输入框
+            # （试验对话框在 LazyDialog 首次创建时自动 polish，避免启动时全部实例化）
+            try:
+                from utils.ui_field_helpers import polish_input_widgets
+                _n = polish_input_widgets(main_window)
+                _wt3000_page = ui.stackedWidget.widget(7)
+                for _extra in getattr(_wt3000_page, "_extra_widgets_comboBox_WT3000", {}).values():
+                    polish_input_widgets(_extra)
+                for _name in (
+                    "uiACSetting", "uiDC1Setting", "uiDC2Setting", "uiDC3Setting",
+                    "uiDC4Setting", "uiDL850Setting", "uiDewetronSetting",
+                ):
+                    _f = locals().get(_name) or globals().get(_name)
+                    if _f is None:
+                        continue
+                    try:
+                        for _attr in dir(_f):
+                            if _attr.startswith("textEdit_") or _attr.startswith("lineEdit_"):
+                                _w = getattr(_f, _attr, None)
+                                if _w is not None:
+                                    polish_input_widgets(_w)
+                    except Exception as _pe:
+                        print(f"[UI] polish skip {_name}: {_pe}", flush=True)
+                print(f"[DEBUG_STARTUP]    polish_input_widgets done (~{_n})", flush=True)
+            except Exception as _polish_exc:
+                print(f"[DEBUG_STARTUP]    polish_input_widgets failed: {_polish_exc}", flush=True)
+
             # WT Auto Gui
             thread_error_info = threading.Thread(target=system_error_info, daemon=True)
             thread_error_info.start()

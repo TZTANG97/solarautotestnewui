@@ -30,23 +30,7 @@ class ThaiFixedPF_ConfigManager:
     #         Step4-8=测量步骤1-5(DC+PF+JSON+保存名), Step9=结束关机
     CONFIG_STRUCTURE = {
         "UI_State": [
-            ('cB_wt_json', 'combobox_text', 'wt_json'),
-            ('cB_S4_json_1', 'combobox_text', 'S4_json_1'),
-            ('cB_S4_json_2', 'combobox_text', 'S4_json_2'),
-            ('cB_S4_json_3', 'combobox_text', 'S4_json_3'),
-            ('cB_S5_json_1', 'combobox_text', 'S5_json_1'),
-            ('cB_S5_json_2', 'combobox_text', 'S5_json_2'),
-            ('cB_S5_json_3', 'combobox_text', 'S5_json_3'),
-            ('cB_S6_json_1', 'combobox_text', 'S6_json_1'),
-            ('cB_S6_json_2', 'combobox_text', 'S6_json_2'),
-            ('cB_S6_json_3', 'combobox_text', 'S6_json_3'),
-            ('cB_S7_json_1', 'combobox_text', 'S7_json_1'),
-            ('cB_S7_json_2', 'combobox_text', 'S7_json_2'),
-            ('cB_S7_json_3', 'combobox_text', 'S7_json_3'),
-            ('cB_S8_json_1', 'combobox_text', 'S8_json_1'),
-            ('cB_S8_json_2', 'combobox_text', 'S8_json_2'),
-            ('cB_S8_json_3', 'combobox_text', 'S8_json_3'),
-            ('cB_S14_json_14', 'combobox_text', 'S14_json_14'),
+            ('comboBox_S3_record_mode', 'combobox', 'record_mode'),
         ],
 
         "Step1": [
@@ -97,18 +81,14 @@ class ThaiFixedPF_ConfigManager:
             ('radio_S2_WT1800', 'radio', 'S2_WT1800'),
             ('radio_S2_WT1806E', 'radio', 'S2_WT1806E'),
             ('radio_S2_WT5000', 'radio', 'S2_WT5000'),
-            ('lE_wt_save_path', 'textedit', 'S2_Path'),
         ],
 
         "Step3": [
-            ('lE_S3_1', 'textedit', 'S3_time_1'),
-            ('lE_S3_2', 'textedit', 'S3_time_2'),
-            ('lE_S3_3', 'textedit', 'S3_time_3'),
-            ('lE_S3_4', 'textedit', 'S3_time_4'),
-            ('cB_S3_unit_1', 'combobox', 'S3_time_Unit_1'),
-            ('cB_S3_unit_2', 'combobox', 'S3_time_Unit_2'),
-            ('cB_S3_unit_3', 'combobox', 'S3_time_Unit_3'),
-            ('cB_S3_unit_4', 'combobox', 'S3_time_Unit_4'),
+            ('textEdit_S3_TIME_2', 'textedit', 'S3_collect_time'),
+            ('comboBox_S3_TIME_2', 'combobox', 'S3_collect_unit'),
+            ('textEdit_S3_TIME_3', 'textedit', 'S3_wait_time'),
+            ('comboBox_S3_TIME_3', 'combobox', 'S3_wait_unit'),
+            ('comboBox_S3_record_mode', 'combobox', 'S3_record_mode'),
         ],
 
         "Step4": [
@@ -118,10 +98,6 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_4', 'checkbox', 'S4_DC3_Enabled'),
             ('checkBox_S1_DC4_4', 'checkbox', 'S4_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_4', 'textedit', 'S4_PF'),
-            ('lE_S4_filename', 'textedit', 'S4_Filename'),
-            ('cB_S4_json_1', 'combobox_text', 'S4_json_1'),
-            ('cB_S4_json_2', 'combobox_text', 'S4_json_2'),
-            ('cB_S4_json_3', 'combobox_text', 'S4_json_3'),
         ],
 
         "Step5": [
@@ -131,10 +107,6 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_5', 'checkbox', 'S5_DC3_Enabled'),
             ('checkBox_S1_DC4_5', 'checkbox', 'S5_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_5', 'textedit', 'S5_PF'),
-            ('lE_S5_filename', 'textedit', 'S5_Filename'),
-            ('cB_S5_json_1', 'combobox_text', 'S5_json_1'),
-            ('cB_S5_json_2', 'combobox_text', 'S5_json_2'),
-            ('cB_S5_json_3', 'combobox_text', 'S5_json_3'),
         ],
 
         "Step6": [
@@ -144,10 +116,6 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_6', 'checkbox', 'S6_DC3_Enabled'),
             ('checkBox_S1_DC4_6', 'checkbox', 'S6_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_6', 'textedit', 'S6_PF'),
-            ('lE_S6_filename', 'textedit', 'S6_Filename'),
-            ('cB_S6_json_1', 'combobox_text', 'S6_json_1'),
-            ('cB_S6_json_2', 'combobox_text', 'S6_json_2'),
-            ('cB_S6_json_3', 'combobox_text', 'S6_json_3'),
         ],
 
         "Step7": [
@@ -157,10 +125,6 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_7', 'checkbox', 'S7_DC3_Enabled'),
             ('checkBox_S1_DC4_7', 'checkbox', 'S7_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_7', 'textedit', 'S7_PF'),
-            ('lE_S7_filename', 'textedit', 'S7_Filename'),
-            ('cB_S7_json_1', 'combobox_text', 'S7_json_1'),
-            ('cB_S7_json_2', 'combobox_text', 'S7_json_2'),
-            ('cB_S7_json_3', 'combobox_text', 'S7_json_3'),
         ],
 
         "Step8": [
@@ -170,15 +134,10 @@ class ThaiFixedPF_ConfigManager:
             ('checkBox_S1_DC3_8', 'checkbox', 'S8_DC3_Enabled'),
             ('checkBox_S1_DC4_8', 'checkbox', 'S8_DC4_Enabled'),
             ('textEdit_S1_DC1_PF_8', 'textedit', 'S8_PF'),
-            ('lE_S8_filename', 'textedit', 'S8_Filename'),
-            ('cB_S8_json_1', 'combobox_text', 'S8_json_1'),
-            ('cB_S8_json_2', 'combobox_text', 'S8_json_2'),
-            ('cB_S8_json_3', 'combobox_text', 'S8_json_3'),
         ],
 
         "Step9": [
             ('checkBox_S14', 'checkbox', 'S9_Enabled'),
-            ('checkBox_S14_2', 'checkbox', 'S9_json_Enabled'),
             ('comboBox_S5_AC', 'combobox', 'S9_AC_Type'),
             ('checkBox_S5_DC1', 'checkbox', 'S9_DC1_Enabled'),
             ('comboBox_S5_DC1', 'combobox', 'S9_DC1_Type'),
@@ -188,8 +147,6 @@ class ThaiFixedPF_ConfigManager:
             ('comboBox_S5_DC3', 'combobox', 'S9_DC3_Type'),
             ('checkBox_S5_DC4', 'checkbox', 'S9_DC4_Enabled'),
             ('comboBox_S5_DC4', 'combobox', 'S9_DC4_Type'),
-            ('lE_S14_1', 'textedit', 'S9_time_1'),
-            ('cB_S14_unit_1', 'combobox', 'S9_time_unit_1'),
         ],
     }
     
@@ -271,7 +228,9 @@ class ThaiFixedPF_ConfigManager:
             for step_name, fields in self.CONFIG_STRUCTURE.items():
                 settings.beginGroup(step_name)
                 for widget_name, widget_type, key in fields:
-                    widget = getattr(self.ui, widget_name)
+                    widget = getattr(self.ui, widget_name, None)
+                    if widget is None:
+                        continue
                     
                     if widget_type == 'checkbox':
                         settings.setValue(key, widget.isChecked())
@@ -331,7 +290,9 @@ class ThaiFixedPF_ConfigManager:
                     if not settings.contains(key):
                         continue
                     
-                    widget = getattr(self.ui, widget_name)
+                    widget = getattr(self.ui, widget_name, None)
+                    if widget is None:
+                        continue
                     
                     if widget_type == 'checkbox':
                         widget.setChecked(settings.value(key, type=bool))

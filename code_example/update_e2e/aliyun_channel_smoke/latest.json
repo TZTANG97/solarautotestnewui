@@ -1,0 +1,9 @@
+{
+    "version":  "20260907",
+    "zip_name":  "SolarAutoTest-Setup-20260907.zip",
+    "zip_url":  "https://example-bucket.oss-cn-hangzhou.aliyuncs.com/solarautotest/updates/SolarAutoTest-Setup-20260907.zip",
+    "zip_base_url":  "https://example-bucket.oss-cn-hangzhou.aliyuncs.com/solarautotest/updates",
+    "built":  "2026-09-07 15:30:30",
+    "size_mb":  0,
+    "channel":  "http"
+}

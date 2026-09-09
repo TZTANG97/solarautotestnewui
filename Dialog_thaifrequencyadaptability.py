@@ -317,7 +317,7 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         dcG.setContentsMargins(12, 20, 12, 12)
 
         # 表头
-        _dc_headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        _dc_headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for _c, _h in enumerate(_dc_headers):
             _hlbl = QtWidgets.QLabel(_h)
             _hlbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -502,6 +502,19 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         layout.addStretch()
 
         self.stackedWidget.addWidget(page)
+        self._apply_recommended_wt_filename("FreqAdapt_BR_5420")
+
+    def _apply_recommended_wt_filename(self, name):
+        stacked = getattr(self, "_wtStacked", None)
+        if stacked is None:
+            return
+        for page_idx in range(stacked.count()):
+            page = stacked.widget(page_idx)
+            if page is None:
+                continue
+            te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+            if te is not None:
+                te.setPlainText(name)
 
     def _integrate_analyzer_mode(self, layout, wt_group):
         """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
@@ -558,7 +571,13 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         guopin_cards = []
         for i in range(9):
             step_num = 3 + i
-            card = self._build_freq_card(step_num, "guopin", "过频 %d" % (i + 1))
+            card = self._build_freq_card(
+                step_num, "guopin", "过频 %d" % (i + 1),
+                default_checked=(i == 0),
+                default_start="50" if i == 0 else "",
+                default_end="51.5" if i == 0 else "",
+                default_duration="30" if i == 0 else "",
+            )
             scroll_layout.addWidget(card)
             guopin_cards.append(card)
 
@@ -588,7 +607,7 @@ class Ui_Dialog_thaifrequencyadaptability(object):
 
         # 欠频页总开关（勿与卡片 checkBox_S12 同名）
         self.checkBox_qianpin_page = QtWidgets.QCheckBox("启用欠频设置")
-        self.checkBox_qianpin_page.setChecked(True)
+        self.checkBox_qianpin_page.setChecked(False)
         self.checkBox_qianpin_page.setObjectName("checkBox_qianpin_page")
         self.checkBox_qianpin_page.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
         layout.addWidget(self.checkBox_qianpin_page)
@@ -605,7 +624,13 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         qianpin_cards = []
         for i in range(9):
             step_num = 12 + i
-            card = self._build_freq_card(step_num, "qianpin", "欠频 %d" % (i + 1))
+            card = self._build_freq_card(
+                step_num, "qianpin", "欠频 %d" % (i + 1),
+                default_checked=False,
+                default_start="50" if i == 0 else "",
+                default_end="47.5" if i == 0 else "",
+                default_duration="30" if i == 0 else "",
+            )
             scroll_layout.addWidget(card)
             qianpin_cards.append(card)
 
@@ -622,7 +647,17 @@ class Ui_Dialog_thaifrequencyadaptability(object):
 
         self.stackedWidget.addWidget(page)
 
-    def _build_freq_card(self, step_num, side_tag, title):
+    def _build_freq_card(
+        self,
+        step_num,
+        side_tag,
+        title,
+        *,
+        default_checked=False,
+        default_start="",
+        default_end="",
+        default_duration="",
+    ):
         """构建单个频率扫描配置卡片。"""
         card = QtWidgets.QWidget()
         card.setStyleSheet("background-color: white;")
@@ -640,7 +675,7 @@ class Ui_Dialog_thaifrequencyadaptability(object):
 
         # step checkbox
         _cb = QtWidgets.QCheckBox("step%d" % step_num)
-        _cb.setChecked(True)
+        _cb.setChecked(bool(default_checked))
         _cb.setObjectName("checkBox_S%d" % step_num)
         gG.addWidget(_cb, 0, 0)
         setattr(self, "checkBox_S%d" % step_num, _cb)
@@ -659,6 +694,8 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         _te_start = QtWidgets.QTextEdit()
         _te_start.setObjectName("textEdit_S%d_freq_start_%s" % (step_num, side_tag))
         _te_start.setFixedSize(80, 28)
+        if default_start:
+            _te_start.setPlainText(str(default_start))
         gG.addWidget(_te_start, 1, 1)
         setattr(self, "textEdit_S%d_freq_start_%s" % (step_num, side_tag), _te_start)
 
@@ -668,6 +705,8 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         _te_end = QtWidgets.QTextEdit()
         _te_end.setObjectName("textEdit_S%d_freq_end_%s" % (step_num, side_tag))
         _te_end.setFixedSize(80, 28)
+        if default_end:
+            _te_end.setPlainText(str(default_end))
         gG.addWidget(_te_end, 1, 3)
         setattr(self, "textEdit_S%d_freq_end_%s" % (step_num, side_tag), _te_end)
 
@@ -681,6 +720,8 @@ class Ui_Dialog_thaifrequencyadaptability(object):
         _te_dur = QtWidgets.QTextEdit()
         _te_dur.setObjectName("textEdit_S%d_test_duration_%s" % (step_num, side_tag))
         _te_dur.setFixedSize(80, 28)
+        if default_duration:
+            _te_dur.setPlainText(str(default_duration))
         gG.addWidget(_te_dur, 2, 1)
         setattr(self, "textEdit_S%d_test_duration_%s" % (step_num, side_tag), _te_dur)
 
@@ -701,6 +742,7 @@ class Ui_Dialog_thaifrequencyadaptability(object):
                 w.setEnabled(checked)
 
         _cb.toggled.connect(_on_step_toggled)
+        _on_step_toggled(_cb.isChecked())
 
         cardLayout.addWidget(grp)
         return card

@@ -296,7 +296,7 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         gDcLayout.setContentsMargins(12, 20, 12, 12)
 
         # Header
-        headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(headers):
             lbl = QtWidgets.QLabel(h)
             lbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -318,6 +318,8 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             gDcLayout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -336,6 +338,8 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             gDcLayout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -354,6 +358,8 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             gDcLayout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -372,6 +378,8 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             gDcLayout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -486,14 +494,23 @@ class Ui_Dialog_thaiguoqianpin_immun(object):
         self.textEdit_S2_RATE_TIME = QtWidgets.QTextEdit()
         self.textEdit_S2_RATE_TIME.setObjectName("textEdit_S2_RATE_TIME")
         self.textEdit_S2_RATE_TIME.setFixedSize(100, 31)
-        self.textEdit_S2_RATE_TIME.setText("50")
+        # 时间轴最小分辨率 100ms（再小会被量化成 0）；默认 200ms，仍可手改 100/500ms 或秒级
+        self.textEdit_S2_RATE_TIME.setText("200")
         g2Layout.addWidget(self.textEdit_S2_RATE_TIME, 2, 1)
 
         self.comboBox_S2_RATE_TIME = QtWidgets.QComboBox()
         self.comboBox_S2_RATE_TIME.setObjectName("comboBox_S2_RATE_TIME")
+        # 顺序与 .ui / 旧配置索引一致：0=毫秒, 1=秒, 2=分钟（禁止改顺序以免打开旧配置错位）
         self.comboBox_S2_RATE_TIME.addItems(["毫秒", "秒", "分钟"])
+        self.comboBox_S2_RATE_TIME.setCurrentIndex(0)  # 默认「毫秒」
+        self.comboBox_S2_RATE_TIME.setToolTip(
+            "扫频更新间隔。系统最短 100ms（50ms 无效）；可设 100/200/500ms 或秒/分钟。"
+            "点数过多时会自动限幅，不会再扫出上千点。"
+        )
         self.comboBox_S2_RATE_TIME.setFixedWidth(120)
         g2Layout.addWidget(self.comboBox_S2_RATE_TIME, 2, 2)
+        self.checkBox_RATE.setToolTip(self.comboBox_S2_RATE_TIME.toolTip())
+        self.textEdit_S2_RATE_TIME.setToolTip(self.comboBox_S2_RATE_TIME.toolTip())
 
         self._integrate_analyzer_mode(layout, self.groupBox_5)
         layout.addStretch()

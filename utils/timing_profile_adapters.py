@@ -28,6 +28,7 @@ from dewetron_autotest import (
     extract_ui_mode,
     read_dewetron_tail_columns,
 )
+from utils.ac_scpi_commands import append_ac_startup_setpoints, append_volt_set, resolve_chroma_61800
 from utils.dc_brand_cmd_guard import (
     has_bluesight_iv_cmds,
     has_chroma_iv_cmds,
@@ -212,16 +213,32 @@ def append_ac_voltage(
     out_rows: MutableSequence[List[Any]],
     phase_mode: str,
     voltages: Sequence[Any],
+    *,
+    chroma_61800=None,
 ) -> None:
+    if chroma_61800 is None:
+        chroma_61800 = resolve_chroma_61800()
     if phase_mode == "单相":
-        out_rows.append(ac_write_row("VOLT " + format_number(voltages[0])))
+        v = format_number(voltages[0])
+        volt_cmd = ("VOLT:AC " + v) if chroma_61800 else ("VOLT " + v)
+        out_rows.append(ac_write_row(volt_cmd))
         return
     if len(voltages) != 3:
         raise TimingProfileValidationError("三相电压必须提供 3 个值")
+    va = format_number(voltages[0])
+    vb = format_number(voltages[1])
+    vc = format_number(voltages[2])
+    if va == vb == vc:
+        append_volt_set(out_rows, phase_mode, voltages[0], chroma_61800=chroma_61800)
+        return
     out_rows.append(ac_write_row("INST:EDIT EACH"))
     for index, voltage in enumerate(voltages, 1):
         out_rows.append(ac_write_row("INST:NSEL %d" % index))
-        out_rows.append(ac_write_row("VOLT " + format_number(voltage)))
+        v = format_number(voltage)
+        volt_cmd = ("VOLT:AC " + v) if chroma_61800 else ("VOLT " + v)
+        out_rows.append(ac_write_row(volt_cmd))
+    if not chroma_61800:
+        out_rows.append(ac_write_row("INST:EDIT ALL"))
 
 
 def baseline_dc_values(ui: Any, channel: int) -> Dict[str, float]:
@@ -342,23 +359,21 @@ def prepare_plan_context(
         if not math.isfinite(frequency_value) or frequency_value <= 0:
             raise TimingProfileValidationError("交流频率必须大于 0")
 
-        phase_cmds = (
-            ("INST:PHAS SINGLE", "INST:EDIT ALL")
-            if phase_mode == "单相"
-            else ("INST:PHAS THREE", "INST:EDIT EACH")
-        )
-        for cmd in phase_cmds:
-            row = ac_write_row(cmd)
-            commands.append(row)
-            step_rows.append(row)
         append_rows: List[List[Any]] = []
-        append_ac_voltage(append_rows, phase_mode, voltages)
+        va = format_number(voltages[0])
+        vb = format_number(voltages[1]) if phase_mode == "三相" else None
+        vc = format_number(voltages[2]) if phase_mode == "三相" else None
+        append_ac_startup_setpoints(
+            append_rows,
+            phase_mode,
+            va,
+            vb,
+            vc,
+            format_number(frequency_value),
+        )
         for row in append_rows:
             commands.append(row)
             step_rows.append(row)
-        row = ac_write_row("FREQ " + format_number(frequency_value))
-        commands.append(row)
-        step_rows.append(row)
         ac_wait = _parse_startup_time(
             ui, "textEdit_S1_ACWaitTIME", "comboBox_S1_ACWaitTIME"
         )

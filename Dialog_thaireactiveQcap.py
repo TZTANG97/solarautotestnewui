@@ -122,6 +122,7 @@ class Ui_Dialog_thaireactiveQcap(object):
 
         # DC 联动
         self._connect_dc_linkage()
+        self._wire_recording_mode()
 
         # ── 隐藏提交按钮（保留 objectName 供兼容） ──
         self.pushButton_Send = QtWidgets.QPushButton()
@@ -307,7 +308,7 @@ class Ui_Dialog_thaireactiveQcap(object):
         ]
         for r, (cb_name, cb_text, combo_name, te_names) in enumerate(dc_channels, start=1):
             cb = QtWidgets.QCheckBox(cb_text)
-            cb.setChecked(True)
+            cb.setChecked(r == 1)
             cb.setObjectName(cb_name)
             dcLayout.addWidget(cb, r, 0)
             setattr(self, cb_name, cb)
@@ -323,6 +324,8 @@ class Ui_Dialog_thaireactiveQcap(object):
                 te = QtWidgets.QTextEdit()
                 te.setObjectName(te_name)
                 te.setFixedSize(80, 28)
+                if hasattr(te, "setTabChangesFocus"):
+                    te.setTabChangesFocus(True)
                 dcLayout.addWidget(te, r, c)
                 setattr(self, te_name, te)
 
@@ -483,14 +486,27 @@ class Ui_Dialog_thaireactiveQcap(object):
         self.comboBox_S3_TIME_2.setFixedWidth(80)
         ladder_layout.addWidget(self.comboBox_S3_TIME_2, 1, 2)
 
+        from utils.wt_recording_mode import MODE_LABELS, MODE_CONTINUOUS, MODE_SPLIT
+
+        ladder_layout.addWidget(QtWidgets.QLabel("录波方式："), 2, 0)
+        self.comboBox_S3_record_mode = QtWidgets.QComboBox()
+        self.comboBox_S3_record_mode.setObjectName("comboBox_S3_record_mode")
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_CONTINUOUS], MODE_CONTINUOUS)
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_SPLIT], MODE_SPLIT)
+        self.comboBox_S3_record_mode.setMinimumWidth(220)
+        ladder_layout.addWidget(self.comboBox_S3_record_mode, 2, 1)
+        self.pushButton_S3_fill_filenames = QtWidgets.QPushButton("填充推荐文件名")
+        self.pushButton_S3_fill_filenames.setObjectName("pushButton_S3_fill_filenames")
+        ladder_layout.addWidget(self.pushButton_S3_fill_filenames, 2, 2)
+
         tip = QtWidgets.QLabel(
-            "VDE 5.4.2 / 实验室常规：功率外循环 × 下方极限 cosφ；"
-            "每点改 DC IV（功率%）并数字 col6 逐点存盘。"
+            "VDE 5.4.2：功率外循环 × 极限 cosφ。"
+            "连续录为单文件 ASYNC；分开录为每点 col6 触发存盘。"
             "请在驻留前将逆变器设定到对应 cosφ（软件不改机侧 cosφ 指令）。"
         )
         tip.setWordWrap(True)
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
-        ladder_layout.addWidget(tip, 2, 0, 1, 4)
+        ladder_layout.addWidget(tip, 3, 0, 1, 4)
         layout.addWidget(ladder_grp)
 
         cos_grp = QtWidgets.QGroupBox("极限 cosφ（内循环，可多选）")
@@ -520,7 +536,7 @@ class Ui_Dialog_thaireactiveQcap(object):
         dc_layout = QtWidgets.QHBoxLayout(dc_grp)
         for i in range(1, 5):
             cb = QtWidgets.QCheckBox("直流电源%d" % i)
-            cb.setChecked(True)
+            cb.setChecked(False)
             cb.setObjectName("checkBox_S3_DC%d" % i)
             setattr(self, "checkBox_S3_DC%d" % i, cb)
             dc_layout.addWidget(cb)
@@ -624,6 +640,37 @@ class Ui_Dialog_thaireactiveQcap(object):
         for s1dc in step1_dcs:
             s1dc.toggled.connect(_update_end_dc)
         _update_end_dc()
+
+    def _wire_recording_mode(self):
+        from utils.reactive_qcap_commands import parse_power_ladder, selected_cos_labels
+        from utils.wt_recording_mode import (
+            apply_filename_list_to_wt_pages,
+            combo_index_to_mode,
+            qcap_recommended_filenames,
+        )
+        from components.wt_recording_mode_row import install_on_wt_filename_group
+
+        def _recommended_names():
+            mode = combo_index_to_mode(self.comboBox_S3_record_mode.currentIndex())
+            powers = parse_power_ladder(self.textEdit_PowerLadder.toPlainText())
+            cos_labels = selected_cos_labels(self)
+            return qcap_recommended_filenames(powers, cos_labels, mode)
+
+        def _fill_wt_names(names=None):
+            if names is None:
+                names = _recommended_names()
+            apply_filename_list_to_wt_pages(self._wtStacked, names)
+
+        self.pushButton_S3_fill_filenames.clicked.connect(lambda: _fill_wt_names())
+        self.comboBox_S3_record_mode.currentIndexChanged.connect(lambda _i: _fill_wt_names())
+
+        for page_idx in range(self._wtStacked.count()):
+            page = self._wtStacked.widget(page_idx)
+            row = install_on_wt_filename_group(page, _recommended_names)
+            if row is not None:
+                row.names_filled.connect(_fill_wt_names)
+
+        _fill_wt_names()
 
     def retranslateUi(self, Dialog_thaireactiveQcap):
         _translate = QtCore.QCoreApplication.translate

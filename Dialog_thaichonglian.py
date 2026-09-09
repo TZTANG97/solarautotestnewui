@@ -360,7 +360,7 @@ class Ui_Dialog_thaichonglian(object):
         g2Layout.setContentsMargins(12, 20, 12, 12)
 
         # Header
-        headers = ["通道", "开关", "Vmp", "Imp", "Voc", "Isc", "功率"]
+        headers = ["通道", "开关", "Vmp(V)", "Imp(A)", "Voc(V)", "Isc(A)", "功率(%)"]
         for c, h in enumerate(headers):
             lbl = QtWidgets.QLabel(h)
             lbl.setStyleSheet("font-weight: bold; color: #475569;")
@@ -382,6 +382,8 @@ class Ui_Dialog_thaichonglian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g2Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -400,6 +402,8 @@ class Ui_Dialog_thaichonglian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g2Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -418,6 +422,8 @@ class Ui_Dialog_thaichonglian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g2Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -436,6 +442,8 @@ class Ui_Dialog_thaichonglian(object):
             te = QtWidgets.QTextEdit()
             te.setObjectName(name)
             te.setFixedSize(80, 28)
+            if hasattr(te, "setTabChangesFocus"):
+                te.setTabChangesFocus(True)
             g2Layout.addWidget(te, r, c)
             setattr(self, name, te)
 
@@ -544,8 +552,13 @@ class Ui_Dialog_thaichonglian(object):
         self._wt_radio_group.buttonToggled.connect(_on_wt_radio_toggled)
 
         self._integrate_analyzer_mode(layout, self.groupBox_5)
-        layout.addStretch()
-        self.stackedWidget.addWidget(page)
+
+        # Scroll so DEWETRON / WT content is never clipped on smaller screens.
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        scroll.setWidget(page)
+        self.stackedWidget.addWidget(scroll)
 
     def _integrate_analyzer_mode(self, layout, wt_group):
         """Wrap the existing WT controls with the shared WT/DEWETRON selector."""
@@ -564,6 +577,9 @@ class Ui_Dialog_thaichonglian(object):
             "treeWidget_DEW_ExportFields",
         ):
             setattr(self, name, getattr(self.dewetronPanel, name))
+        self.comboBox_analyzer_recording_mode = getattr(
+            self.analyzerModeSection, "comboBox_analyzer_recording_mode", None
+        )
         self.get_checked_export_fields = self.dewetronPanel.get_checked_export_fields
         self.refresh_export_field_tree = self.dewetronPanel.refresh_export_field_tree
         self.set_checked_export_fields = self.dewetronPanel.set_checked_export_fields
