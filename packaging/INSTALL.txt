@@ -15,6 +15,11 @@ Install steps (first time)
 4. Edit %LOCALAPPDATA%\SolarAutoTest\config_files\config.ini  [update] section
    (see Aliyun / LAN channel below)
 5. Use desktop shortcut "SolarAutoTest"
+6. IOT cloud (optional): edit config\iot_bootstrap.json → set iot_base
+   to your IOT URL (e.g. http://iot-host:port/nss). First launch
+   announces this PC (pythonid appears under 台架管理 → 从发现添加).
+   After ops confirms add, this PC auto-claims the agent token.
+   Do NOT copy solar_agent.json between PCs.
 
 ============================================================
 Aliyun HTTP auto-update (EMKU OSS — recommended)

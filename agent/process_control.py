@@ -76,7 +76,16 @@ def is_running() -> bool:
 
 def status_text() -> str:
     if not config_file().is_file():
-        return "未配置（请先 setup_SolarAgentConfig / 填入令牌）"
+        return "未配置（将尝试自动登记）"
+    try:
+        import json
+
+        data = json.loads(config_file().read_text(encoding="utf-8"))
+        token = str(data.get("agent_token") or "").strip()
+        if not token or token.startswith("请填写"):
+            return "未配置令牌（将尝试自动登记）"
+    except Exception:
+        pass
     if is_running():
         return f"运行中 (pid={_read_pid()})"
     return "未运行"
@@ -88,7 +97,16 @@ def start_agent() -> Tuple[bool, str]:
         return True, f"Agent 已在运行 (pid={_read_pid()})"
     cfg = config_file()
     if not cfg.is_file():
-        return False, "缺少 config/solar_agent.json，请先配置 Agent 令牌"
+        return False, "缺少 config/solar_agent.json"
+    try:
+        import json
+
+        data = json.loads(cfg.read_text(encoding="utf-8"))
+        token = str(data.get("agent_token") or "").strip()
+        if not token or token.startswith("请填写"):
+            return False, "config/solar_agent.json 尚无有效令牌"
+    except Exception:
+        return False, "无法读取 Agent 配置"
     root = repo_root()
     env = os.environ.copy()
     creationflags = 0
@@ -130,12 +148,15 @@ def start_agent() -> Tuple[bool, str]:
 
 
 def ensure_agent_running(*, silent: bool = True) -> Tuple[bool, str]:
-    """软件启动时调用：有配置则后台拉起 Agent；已在跑则直接成功。"""
-    if not config_file().is_file():
-        return False, "未配置 Agent（无 config/solar_agent.json），跳过"
-    if is_running():
-        return True, f"Agent 已在运行 (pid={_read_pid()})"
-    return start_agent()
+    """软件启动时调用：无令牌则自动向 IOT 登记，再后台拉起 Agent。"""
+    try:
+        from agent.bootstrap import ensure_configured_and_start
+
+        return ensure_configured_and_start()
+    except Exception as exc:
+        if not silent:
+            return False, str(exc)
+        return False, f"自动配置/启动 Agent 失败: {exc}"
 
 
 def stop_agent() -> Tuple[bool, str]:

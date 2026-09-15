@@ -352,6 +352,15 @@ $oldLockHash = Get-FileHashSafe (Join-Path $InstallDir "uv.lock")
 Ensure-Directory $InstallDir
 Copy-AppFiles -Source $source -Destination $InstallDir
 
+# 新电脑 IOT 地址：无 iot_bootstrap.json 时从 example 生成（可改正式地址后再打安装包）
+$configDir = Join-Path $InstallDir "config"
+$bootPath = Join-Path $configDir "iot_bootstrap.json"
+$bootExample = Join-Path $configDir "iot_bootstrap.example.json"
+if (-not (Test-Path $bootPath) -and (Test-Path $bootExample)) {
+    Copy-Item -Force $bootExample $bootPath
+    Write-Ok "Seeded config\iot_bootstrap.json from example (edit iot_base for production IOT)"
+}
+
 # Persist version into install root (package root VERSION wins)
 $verSrc = Join-Path $packageRoot "VERSION"
 if (-not (Test-Path $verSrc)) { $verSrc = Join-Path $source "VERSION" }

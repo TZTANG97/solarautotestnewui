@@ -3,15 +3,18 @@
 出站连接 IOT。
 
 **日常请只双击原来的 `start_SolarAutoTest.bat`（或桌面快捷方式）**：  
-打开桌面软件后，若存在 `config/solar_agent.json`，会**在后台静默启动 Agent**，无需再点「启动 IOT Agent」。
+打开桌面软件后会静默处理 Agent（有令牌则启动；无令牌则先上报发现）。
 
 单独调试 Agent 才用 `start_SolarAgent.bat`。首页仅显示 Agent 状态，必要时可「停止 Agent」。
 
-## 配置（每台工控机一次）
+## 配置（对齐「添加设备」：先发现，再确认添加）
 
-运行 `setup_SolarAgentConfig.bat`，或把 IOT「台架管理」生成的令牌写入 `config/solar_agent.json`（已 gitignore）。
+1. 安装包内预置 `config/iot_bootstrap.json`（或环境变量 `SOLAR_IOT_BASE`）写好 IOT 地址，例如 `http://iot主机:端口/nss`。  
+2. **打开软件**：按本机 `machineId` 向 IOT **announce 发现**，预分配 `pythonid`（此时还没有令牌）。  
+3. 运维在 IOT「台架管理 → **从发现添加**」选中该 `pythonid`，填名称确认。  
+4. 本机 **自动 claim 令牌**，写入 `config/solar_agent.json`，并静默启动 Agent。  
 
-其他电脑：各自配置自己的令牌与 `iot_base`，不要共用该文件。
+仍可用 `setup_SolarAgentConfig.bat` 手工改地址/令牌。勿把 `solar_agent.json` 拷到别的电脑。
 
 ## 模式
 

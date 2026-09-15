@@ -1,0 +1,5 @@
+{
+  "iot_base": "http://127.0.0.1:18088/nss",
+  "register_key": "",
+  "comment": "安装包预置正式 IOT 地址。新电脑打开软件会 announce 发现；运维在台架管理「从发现添加」后本机自动 claim 令牌。register_key 仅当服务端配置了 SOLAR_SELF_REGISTER_KEY 时需要。"
+}
