@@ -536,6 +536,32 @@ class Ui_Dialog(object):
         homeTitle.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
         homeLayout.addWidget(homeTitle)
 
+        # IOT Agent 一键启停（在线升级安装包内也可从软件内启动）
+        _iotRow = QtWidgets.QHBoxLayout()
+        _iotRow.setSpacing(8)
+        self.pushButton_StartIotAgent = QtWidgets.QPushButton("启动 IOT Agent")
+        self.pushButton_StartIotAgent.setObjectName("pushButton_StartIotAgent")
+        self.pushButton_StartIotAgent.setFixedHeight(32)
+        self.pushButton_StartIotAgent.setStyleSheet(
+            "QPushButton { background:#2563eb; color:white; border:none; border-radius:4px; padding:0 14px; font-size:12px; }"
+            "QPushButton:hover { background:#1d4ed8; }"
+        )
+        _iotRow.addWidget(self.pushButton_StartIotAgent)
+        self.pushButton_StopIotAgent = QtWidgets.QPushButton("停止 Agent")
+        self.pushButton_StopIotAgent.setObjectName("pushButton_StopIotAgent")
+        self.pushButton_StopIotAgent.setFixedHeight(32)
+        self.pushButton_StopIotAgent.setStyleSheet(
+            "QPushButton { background:#e2e8f0; color:#334155; border:none; border-radius:4px; padding:0 12px; font-size:12px; }"
+            "QPushButton:hover { background:#cbd5e1; }"
+        )
+        _iotRow.addWidget(self.pushButton_StopIotAgent)
+        self.label_IotAgentStatus = QtWidgets.QLabel("IOT Agent: —")
+        self.label_IotAgentStatus.setObjectName("label_IotAgentStatus")
+        self.label_IotAgentStatus.setStyleSheet("font-size: 12px; color: #64748b; background: transparent;")
+        _iotRow.addWidget(self.label_IotAgentStatus)
+        _iotRow.addStretch(1)
+        homeLayout.addLayout(_iotRow)
+
         # -- 设备状态网格 (2x4，8个设备写死) --
         _devGridTitle = QtWidgets.QLabel("设备状态")
         _devGridTitle.setStyleSheet("font-size: 14px; font-weight: bold; color: #1e293b; background: transparent;")

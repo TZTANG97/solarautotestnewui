@@ -28,3 +28,10 @@ data_logs/
 code_example/update_e2e/**/*.zip
 code_example/media/**/*.zip
 __pycache__/
+
+# Solar Agent 本地配置与运行产物（含令牌，勿提交）
+config/solar_agent.json
+.solar_agent_mutex
+.solar_agent_mutex_e2e
+.solar_agent.pid
+iot_job_inbox/

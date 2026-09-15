@@ -1,0 +1,11 @@
+{
+  "iot_base": "http://127.0.0.1:18088/nss",
+  "agent_token": "请填写台架创建或重置令牌时显示的明文 sat_...",
+  "poll_interval_sec": 15,
+  "heartbeat_interval_sec": 15,
+  "dry_run": true,
+  "execution_mode": "",
+  "mutex_path": "",
+  "agent_version": "0.1.0",
+  "comment": "execution_mode 可填 dry_run|handoff|live；空则 dry_run=true→dry_run。handoff 需同时开桌面 SolarAutoTest。"
+}

@@ -29886,6 +29886,65 @@ if __name__ == "__main__":
                 ui.pushButton_SendWCommand.setEnabled(False)'''
 
             ui.pushButton_ReConnectEQU.clicked.connect(ReConnectEQU)
+
+            # 首页：IOT Agent 一键启停
+            def _refresh_iot_agent_status():
+                try:
+                    from agent.process_control import status_text
+
+                    ui.label_IotAgentStatus.setText(f"IOT Agent: {status_text()}")
+                except Exception as _e:
+                    try:
+                        ui.label_IotAgentStatus.setText(f"IOT Agent: 状态读取失败")
+                    except Exception:
+                        pass
+
+            def _start_iot_agent():
+                try:
+                    from agent.process_control import start_agent
+
+                    ok, msg = start_agent()
+                    try:
+                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] {msg}")
+                    except Exception:
+                        print(f"[IOT-Agent] {msg}", flush=True)
+                    _refresh_iot_agent_status()
+                except Exception as _e:
+                    try:
+                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] 启动异常: {_e}")
+                    except Exception:
+                        print(f"[IOT-Agent] 启动异常: {_e}", flush=True)
+
+            def _stop_iot_agent():
+                try:
+                    from agent.process_control import stop_agent
+
+                    ok, msg = stop_agent()
+                    try:
+                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] {msg}")
+                    except Exception:
+                        print(f"[IOT-Agent] {msg}", flush=True)
+                    _refresh_iot_agent_status()
+                except Exception as _e:
+                    try:
+                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] 停止异常: {_e}")
+                    except Exception:
+                        pass
+
+            try:
+                if hasattr(ui, "pushButton_StartIotAgent"):
+                    ui.pushButton_StartIotAgent.clicked.connect(_start_iot_agent)
+                if hasattr(ui, "pushButton_StopIotAgent"):
+                    ui.pushButton_StopIotAgent.clicked.connect(_stop_iot_agent)
+                _refresh_iot_agent_status()
+                from PyQt5.QtCore import QTimer as _QTimerIot
+
+                _iot_status_timer = _QTimerIot(main_window)
+                _iot_status_timer.setInterval(5000)
+                _iot_status_timer.timeout.connect(_refresh_iot_agent_status)
+                _iot_status_timer.start()
+            except Exception as _iot_btn_exc:
+                print(f"[WARN] IOT Agent 按钮绑定失败: {_iot_btn_exc}", flush=True)
             # AC 连接按钮已在 AC breadcrumb setup (line ~28677) 中连接 _connect_ac_with_mode
             # 此处不再重复连接，否则会触发两次 ConnectEQUAC 导致连接后立即断开
             ui.pushButton_ConnectEQUDC1.clicked.connect(ConnectEQUDC1)
@@ -30810,6 +30869,28 @@ if __name__ == "__main__":
             print(strtimenow + "    程式开启" )
             print("[DEBUG_STARTUP] 9/9 main_window.show()", flush=True)
             main_window.show()
+            # IOT 云任务 handoff：监视 pending → 过载 Append → 写 results
+            try:
+                from utils.iot_ui_handoff import start_iot_ui_handoff_from_main
+
+                def _iot_log(msg):
+                    try:
+                        ui.textEdit_ReturnMessage.append(f"[IOT-handoff] {msg}")
+                    except Exception:
+                        print(f"[IOT-handoff] {msg}", flush=True)
+
+                def _resolve_overload_ui():
+                    return globals().get("uiThaiOverLoads")
+
+                start_iot_ui_handoff_from_main(
+                    resolve_overload_ui=_resolve_overload_ui,
+                    overload_append=thaioverloadsAppend,
+                    log=_iot_log,
+                    parent=main_window,
+                )
+                print("[DEBUG_STARTUP]    IOT UI handoff 已挂载", flush=True)
+            except Exception as _iot_exc:
+                print(f"[DEBUG_STARTUP]    IOT UI handoff 挂载失败: {_iot_exc}", flush=True)
             print("[DEBUG_STARTUP]    app.exec_() 进入事件循环", flush=True)
             # 等待关闭
             sys.exit(app.exec_())
