@@ -1817,6 +1817,10 @@ _ac_current_brand = "chroma"  # "chroma", "chroma_ip", or "itech"
 _itech_ip_edit = None         # Itech 页面 IP 输入框引用
 _itech_port_edit = None       # Itech 页面端口输入框引用
 _ac_itch_ref = None           # Itech AC 页面控件引用
+_ac_breadcrumb_ref = None
+_ac_chroma_ip_edit = None
+_ac_chroma_port_edit = None
+_ac_comm_mode_combo = None
 
 # ── DC1 设备类型选择状态 ──
 _dc1_device_type = "chroma"   # "chroma", "bluesight", or "itech"
@@ -2573,6 +2577,196 @@ def _create_visa_resource_manager(local_file_path):
         except Exception as exc:
             last_error = exc
     raise RuntimeError(f'无法创建 VISA ResourceManager: {last_error}') from last_error
+
+
+def _finder_set_combo(combo_name: str, text: str) -> None:
+    combo = getattr(ui, combo_name, None) if "ui" in globals() else None
+    if combo is None or not text:
+        return
+    try:
+        if hasattr(combo, "findText") and combo.findText(text) < 0:
+            combo.addItem(text)
+        combo.setCurrentText(text)
+    except Exception as exc:
+        print(f"[设备发现] 写入 {combo_name} 失败: {exc}")
+
+
+def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
+    """按 connect_plan 切换品牌/填地址并调用现有连接函数。"""
+    global _ac_current_brand, _itech_ip_edit, _itech_port_edit
+    global _dc1_device_type, _dc2_device_type, _dc3_device_type, _dc4_device_type
+    from utils.device_discovery import remember_found_resource
+    from utils.device_finder_connect import combo_text_for_plan
+
+    target = str((plan or {}).get("target") or "")
+    addr = combo_text_for_plan(plan) or ""
+    try:
+        remember_found_resource(getattr(dev, "resource", "") or addr)
+    except Exception:
+        pass
+
+    try:
+        ui.textEdit_ReturnMessage.append(
+            f"[设备发现] 连接 {slot} → {target} {addr or getattr(dev, 'resource', '')}"
+        )
+    except Exception:
+        pass
+
+    if target == "ac_itech":
+        if _ac_breadcrumb_ref is not None:
+            _ac_breadcrumb_ref.setIndex(1)
+        _ac_current_brand = "itech"
+        if _ac_itch_ref is not None:
+            _itech_ip_edit = _ac_itch_ref.get("ip_edit")
+            _itech_port_edit = _ac_itch_ref.get("port_edit")
+        host = str(plan.get("host") or "")
+        port = plan.get("port") or 502
+        if _itech_ip_edit is not None:
+            _itech_ip_edit.setText(host)
+        if _itech_port_edit is not None:
+            _itech_port_edit.setText(str(port))
+        ConnectEQUAC()
+        return
+
+    if target == "ac_chroma_ip":
+        if _ac_breadcrumb_ref is not None:
+            _ac_breadcrumb_ref.setIndex(0)
+        if _ac_comm_mode_combo is not None:
+            try:
+                _ac_comm_mode_combo.setCurrentIndex(1)  # IP
+            except Exception:
+                pass
+        _ac_current_brand = "chroma_ip"
+        host = str(plan.get("host") or "")
+        port = plan.get("port")
+        ip_edit = _ac_chroma_ip_edit or _itech_ip_edit
+        port_edit = _ac_chroma_port_edit or _itech_port_edit
+        if ip_edit is not None:
+            _itech_ip_edit = ip_edit
+            ip_edit.setText(host)
+        if port_edit is not None:
+            _itech_port_edit = port_edit
+            port_edit.setText("" if port is None else str(port))
+        ConnectEQUAC()
+        return
+
+    if target == "ac_visa":
+        if _ac_breadcrumb_ref is not None:
+            _ac_breadcrumb_ref.setIndex(0)
+        if _ac_comm_mode_combo is not None:
+            try:
+                _ac_comm_mode_combo.setCurrentIndex(0)
+            except Exception:
+                pass
+        _ac_current_brand = "chroma"
+        _finder_set_combo("comboBox_AC", addr)
+        ConnectEQUAC()
+        return
+
+    if target in ("dc_itech", "dc_modbus", "dc_chroma"):
+        n = int(plan.get("n") or 1)
+        device_type = str(plan.get("device_type") or "chroma")
+        if n == 1:
+            _dc1_device_type = device_type
+            if _dc1_breadcrumb_ref is not None:
+                idx = {"chroma": 0, "bluesight": 1, "itech": 2}.get(device_type, 0)
+                _dc1_breadcrumb_ref.setIndex(idx)
+            _finder_set_combo("comboBox_DC1", addr)
+            if device_type == "itech" and _dc1_itech_ref and _dc1_itech_ref.get("ip_edit"):
+                host = str(plan.get("host") or addr.split(":")[0])
+                _dc1_itech_ref["ip_edit"].setText(host)
+            if device_type == "bluesight" and _dc1_bs_ref and _dc1_bs_ref.get("ip_edit"):
+                host = str(plan.get("host") or addr.split(":")[0])
+                _dc1_bs_ref["ip_edit"].setText(host)
+            ConnectEQUDC1()
+        elif n == 2:
+            _dc2_device_type = device_type
+            _finder_set_combo("comboBox_DC2", addr)
+            ConnectEQUDC2()
+        elif n == 3:
+            _dc3_device_type = device_type
+            _finder_set_combo("comboBox_DC3", addr)
+            ConnectEQUDC3()
+        elif n == 4:
+            _dc4_device_type = device_type
+            _finder_set_combo("comboBox_DC4", addr)
+            ConnectEQUDC4()
+        return
+
+    if target == "scope":
+        _finder_set_combo("comboBox_DL850", addr)
+        ConnectEQUDL850()
+        return
+
+    if target == "wt":
+        host = str(plan.get("host") or "")
+        port = plan.get("port")
+        try:
+            _wt_page = ui.stackedWidget.widget(7)
+            extras = getattr(_wt_page, "_extra_widgets_comboBox_WT3000", {}) or {}
+            ip_edit = extras.get("lineEdit_WT3000_IP")
+            port_edit = extras.get("lineEdit_WT3000_Port")
+            if ip_edit is not None and host:
+                ip_edit.setText(host)
+            if port_edit is not None and port:
+                port_edit.setText(str(port))
+        except Exception:
+            pass
+        if addr:
+            _finder_set_combo("comboBox_WT3000", addr)
+        ConnectEQUWT3000()
+        return
+
+    if target == "dew":
+        host = str(plan.get("host") or "")
+        port = plan.get("port") or 10001
+        ip_edit = getattr(ui, "lineEdit_IP", None)
+        port_edit = getattr(ui, "lineEdit_Port", None)
+        if ip_edit is not None:
+            ip_edit.setText(host)
+        if port_edit is not None:
+            port_edit.setText(str(port))
+        ConnectEQUDEWETRON()
+        return
+
+    try:
+        ui.textEdit_ReturnMessage.append(f"[设备发现] 未识别连接目标: {target}")
+    except Exception:
+        pass
+
+
+def OpenDeviceFinderDialog():
+    """首页/侧栏：扫描并勾选连接电源/示波器/WT/德威创。"""
+    from PyQt5.QtWidgets import QDialog
+
+    from components.device_finder_dialog import DeviceFinderDialog
+    from utils.device_discovery import last_known_resources
+    from utils.device_finder_connect import build_connect_jobs
+
+    status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+    parent = None
+    try:
+        parent = main_window
+    except Exception:
+        parent = None
+    dlg = DeviceFinderDialog(
+        parent=parent,
+        visa_rm=globals().get("rm"),
+        last_resources=last_known_resources(status_path),
+    )
+    if dlg.exec_() != QDialog.Accepted:
+        return
+    jobs = build_connect_jobs(dlg.checked_jobs())
+    if not jobs:
+        return
+    for slot, plan, dev in jobs:
+        try:
+            _apply_device_finder_plan(slot, plan, dev)
+        except Exception as exc:
+            try:
+                ui.textEdit_ReturnMessage.append(f"[设备发现] {slot} 连接异常: {exc}")
+            except Exception:
+                print(f"[设备发现] {slot} 连接异常: {exc}")
 
 
 #重新刷新接口函数
@@ -28731,6 +28925,7 @@ if __name__ == "__main__":
 
                 from components.breadcrumb import BreadcrumbWidget
                 _ac_breadcrumb = BreadcrumbWidget(["Chroma", "爱科(Itech)"])
+                _ac_breadcrumb_ref = _ac_breadcrumb
 
                 def _on_ac_brand_changed(idx):
                     global _ac_current_brand, _itech_ip_edit, _itech_port_edit
@@ -28791,6 +28986,9 @@ if __name__ == "__main__":
                                 _chroma_port_edit.setStyleSheet(_INPUT_QSS)
                                 _chroma_port_edit.setMinimumWidth(80)
                                 _chroma_port_edit.setVisible(False)
+                                _ac_chroma_ip_edit = _chroma_ip_edit
+                                _ac_chroma_port_edit = _chroma_port_edit
+                                _ac_comm_mode_combo = _comm_mode_combo
                                 _chroma_ip_label = QLabel("IP:")
                                 _chroma_ip_label.setStyleSheet(_LABEL_QSS)
                                 _chroma_ip_label.setVisible(False)
@@ -29936,6 +30134,10 @@ if __name__ == "__main__":
                     ui.pushButton_StartIotAgent.clicked.connect(_start_iot_agent)
                 if hasattr(ui, "pushButton_StopIotAgent"):
                     ui.pushButton_StopIotAgent.clicked.connect(_stop_iot_agent)
+                if hasattr(ui, "pushButton_FindDevices"):
+                    ui.pushButton_FindDevices.clicked.connect(OpenDeviceFinderDialog)
+                if hasattr(ui, "pushButton_FindDevicesSidebar"):
+                    ui.pushButton_FindDevicesSidebar.clicked.connect(OpenDeviceFinderDialog)
                 _refresh_iot_agent_status()
                 from PyQt5.QtCore import QTimer as _QTimerIot
 

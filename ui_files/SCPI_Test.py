@@ -327,6 +327,22 @@ class Ui_Dialog(object):
             QPushButton:hover { background-color: #d1d5db; color: #1f2937; }
         """)
         bottomLayout.addWidget(self.pushButton_ReConnectEQU)
+        self.pushButton_FindDevicesSidebar = QtWidgets.QPushButton()
+        self.pushButton_FindDevicesSidebar.setFixedSize(36, 36)
+        self.pushButton_FindDevicesSidebar.setToolTip("扫描并连接设备")
+        self.pushButton_FindDevicesSidebar.setObjectName("pushButton_FindDevicesSidebar")
+        _find_icon = self.pushButton_FindDevicesSidebar.style().standardIcon(
+            QtWidgets.QStyle.SP_FileDialogContentsView)
+        self.pushButton_FindDevicesSidebar.setIcon(_find_icon)
+        self.pushButton_FindDevicesSidebar.setIconSize(QtCore.QSize(20, 20))
+        self.pushButton_FindDevicesSidebar.setStyleSheet("""
+            QPushButton {
+                background-color: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;
+                border-radius: 6px;
+            }
+            QPushButton:hover { background-color: #a7f3d0; color: #064e3b; }
+        """)
+        bottomLayout.addWidget(self.pushButton_FindDevicesSidebar)
 
         sidebarLayout.addWidget(bottomBar)
         mainLayout.addWidget(sidebar)
@@ -559,6 +575,15 @@ class Ui_Dialog(object):
         self.label_IotAgentStatus.setObjectName("label_IotAgentStatus")
         self.label_IotAgentStatus.setStyleSheet("font-size: 12px; color: #64748b; background: transparent;")
         _iotRow.addWidget(self.label_IotAgentStatus)
+        self.pushButton_FindDevices = QtWidgets.QPushButton("扫描并连接设备")
+        self.pushButton_FindDevices.setObjectName("pushButton_FindDevices")
+        self.pushButton_FindDevices.setFixedHeight(32)
+        self.pushButton_FindDevices.setToolTip("扫描局域网/上次地址，勾选后连接电源、示波器、功率分析仪、德威创")
+        self.pushButton_FindDevices.setStyleSheet(
+            "QPushButton { background:#059669; color:white; border:none; border-radius:4px; padding:0 14px; font-size:12px; }"
+            "QPushButton:hover { background:#047857; }"
+        )
+        _iotRow.addWidget(self.pushButton_FindDevices)
         _iotRow.addStretch(1)
         homeLayout.addLayout(_iotRow)
 
