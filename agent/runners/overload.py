@@ -74,7 +74,13 @@ class OverloadRunner:
                 on_progress(8, f"handoff：释放锁失败 {exc}", "handoff_unlock")
 
         timeout = float(os.environ.get("SOLAR_HANDOFF_TIMEOUT_SEC") or 7200)
-        data = wait_result(self.repo_root, job_id, timeout_sec=timeout, poll_sec=2.0)
+        data = wait_result(
+            self.repo_root,
+            job_id,
+            timeout_sec=timeout,
+            poll_sec=2.0,
+            on_progress=on_progress,
+        )
         if not data:
             return RunResult(status="failed", fail_reason="handoff 超时：未收到 results/job_*.json")
         status = str(data.get("status") or "failed")

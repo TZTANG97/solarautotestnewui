@@ -31309,7 +31309,7 @@ if __name__ == "__main__":
             print(strtimenow + "    程式开启" )
             print("[DEBUG_STARTUP] 9/9 main_window.show()", flush=True)
             main_window.show()
-            # IOT 云任务 handoff：监视 pending → 过载 Append → 写 results
+            # IOT 云任务 handoff：监视 pending → Append/开始 → 等结束写 results
             try:
                 from utils.iot_ui_handoff import start_iot_ui_handoff_from_main
 
@@ -31322,17 +31322,49 @@ if __name__ == "__main__":
                 def _resolve_overload_ui():
                     return globals().get("uiThaiOverLoads")
 
+                def _resolve_antibackflow_ui():
+                    return globals().get("uiThaiAntiBackflow")
+
                 def _iot_get_run_status():
                     try:
                         return str((_run_progress_state or {}).get("status") or "")
                     except Exception:
                         return ""
 
+                def _iot_get_run_progress():
+                    try:
+                        st = _run_progress_state or {}
+                        detail = str(st.get("current_detail") or "").strip()
+                        status = str(st.get("status") or "")
+                        text = f"{status} {detail}".strip() if detail else status
+                        return {
+                            "percent": int(st.get("progress") or 0),
+                            "text": text or "进行中",
+                            "step": status or "running",
+                        }
+                    except Exception:
+                        return {"percent": 0, "text": "", "step": ""}
+
+                def _iot_ensure_project(name: str):
+                    try:
+                        if hasattr(ui, "comboBox_PS") and name:
+                            idx = ui.comboBox_PS.findText(str(name))
+                            if idx >= 0:
+                                ui.comboBox_PS.setCurrentIndex(idx)
+                            else:
+                                ui.comboBox_PS.setCurrentText(str(name))
+                    except Exception as exc:
+                        print(f"[IOT-handoff] 切换项目失败: {exc}", flush=True)
+
                 start_iot_ui_handoff_from_main(
                     resolve_overload_ui=_resolve_overload_ui,
                     overload_append=thaioverloadsAppend,
+                    resolve_antibackflow_ui=_resolve_antibackflow_ui,
+                    antibackflow_append=thaiantibackflowAppend,
                     start_test=RunProjectPush,
                     get_run_status=_iot_get_run_status,
+                    get_run_progress=_iot_get_run_progress,
+                    ensure_project=_iot_ensure_project,
                     log=_iot_log,
                     parent=main_window,
                 )

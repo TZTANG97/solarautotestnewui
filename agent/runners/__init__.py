@@ -20,6 +20,15 @@ def get_runner(
     if not mode:
         mode = "dry_run" if dry_run else "live"
     root = repo_root or Path(__file__).resolve().parent.parent
-    if tt in ("overload", "过载能力测试", "overloads"):
+    # 一期 handoff：过载 / 防逆流 共用 OverloadRunner（落盘 + 等 UI 结果）
+    if tt in (
+        "overload",
+        "过载能力测试",
+        "overloads",
+        "antibackflow",
+        "anti_backflow",
+        "防逆流测试",
+        "防逆流",
+    ):
         return OverloadRunner(execution_mode=mode, repo_root=root)
     raise ValueError(f"不支持的 testType: {test_type}")

@@ -89,14 +89,29 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
 class IotUiHandoffService(QObject):
     """挂在主窗口上的定时扫描服务。"""
 
+    # testType 别名 → (项目中文名, handler_key)
+    _TYPE_MAP = {
+        "overload": ("过载能力测试", "overload"),
+        "overloads": ("过载能力测试", "overload"),
+        "过载能力测试": ("过载能力测试", "overload"),
+        "antibackflow": ("防逆流测试", "antibackflow"),
+        "anti_backflow": ("防逆流测试", "antibackflow"),
+        "防逆流测试": ("防逆流测试", "antibackflow"),
+        "防逆流": ("防逆流测试", "antibackflow"),
+    }
+
     def __init__(
         self,
         *,
         repo_root: Optional[Path] = None,
         resolve_overload_ui: Optional[Callable[[], Any]] = None,
         overload_append: Optional[Callable[[], None]] = None,
+        resolve_antibackflow_ui: Optional[Callable[[], Any]] = None,
+        antibackflow_append: Optional[Callable[[], None]] = None,
         start_test: Optional[Callable[[], None]] = None,
         get_run_status: Optional[Callable[[], str]] = None,
+        get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
+        ensure_project: Optional[Callable[[str], None]] = None,
         log: Optional[Callable[[str], None]] = None,
         interval_ms: int = 3000,
         parent=None,
@@ -105,14 +120,19 @@ class IotUiHandoffService(QObject):
         self.repo_root = Path(repo_root) if repo_root else _repo_root()
         self.resolve_overload_ui = resolve_overload_ui
         self.overload_append = overload_append
+        self.resolve_antibackflow_ui = resolve_antibackflow_ui
+        self.antibackflow_append = antibackflow_append
         self.start_test = start_test
         self.get_run_status = get_run_status
+        self.get_run_progress = get_run_progress
+        self.ensure_project = ensure_project
         self._log = log or (lambda m: print(f"[IOT-handoff] {m}", flush=True))
         self._busy = False
         self._awaiting: Optional[Dict[str, Any]] = None
         self._timer = QTimer(self)
         self._timer.setInterval(max(1000, int(interval_ms)))
         self._timer.timeout.connect(self.poll_once)
+        self._last_progress_key = None
 
     def start(self) -> None:
         self._log(f"已启动，监视 {self.repo_root / 'iot_job_inbox' / 'pending'}")
@@ -164,6 +184,56 @@ class IotUiHandoffService(QObject):
             self._log(f"读取试验状态失败: {exc}")
             return ""
 
+    def _emit_progress(self, job_id: int, *, force: bool = False) -> None:
+        from agent.job_inbox import write_progress
+
+        percent = 15
+        text = "试验进行中"
+        step = "running"
+        if self.get_run_progress:
+            try:
+                snap = self.get_run_progress() or {}
+                if isinstance(snap, dict):
+                    if snap.get("percent") is not None:
+                        percent = int(snap.get("percent") or 0)
+                    if snap.get("text"):
+                        text = str(snap.get("text"))
+                    if snap.get("step"):
+                        step = str(snap.get("step"))
+            except Exception as exc:
+                self._log(f"读取进度失败: {exc}")
+        key = (percent, text, step)
+        if not force and key == self._last_progress_key:
+            return
+        self._last_progress_key = key
+        try:
+            write_progress(self.repo_root, job_id, percent=percent, text=text, step=step)
+        except Exception as exc:
+            self._log(f"写进度失败: {exc}")
+
+    def _resolve_handler(self, test_type: str):
+        raw = str(test_type or "").strip()
+        key = raw.lower() if raw.isascii() else raw
+        mapped = self._TYPE_MAP.get(key) or self._TYPE_MAP.get(raw)
+        if not mapped:
+            return None
+        project_name, handler_key = mapped
+        if handler_key == "overload":
+            return {
+                "project_name": project_name,
+                "resolve_ui": self.resolve_overload_ui,
+                "append": self.overload_append,
+                "label": "过载",
+            }
+        if handler_key == "antibackflow":
+            return {
+                "project_name": project_name,
+                "resolve_ui": self.resolve_antibackflow_ui,
+                "append": self.antibackflow_append,
+                "label": "防逆流",
+            }
+        return None
+
     def _move_pending_done(self, pending_path: Path) -> None:
         try:
             done_dir = self.repo_root / "iot_job_inbox" / "done"
@@ -208,6 +278,7 @@ class IotUiHandoffService(QObject):
             if not aw.get("seen_running"):
                 aw["seen_running"] = True
                 self._log(f"任务 {job_id} 已进入进行中")
+            self._emit_progress(job_id)
             return
 
         if status == "已结束":
@@ -313,7 +384,8 @@ class IotUiHandoffService(QObject):
             return
 
         try:
-            if test_type not in ("overload", "过载能力测试", "overloads"):
+            handler = self._resolve_handler(test_type)
+            if not handler:
                 write_result(
                     self.repo_root,
                     job_id,
@@ -325,12 +397,19 @@ class IotUiHandoffService(QObject):
                 self._move_pending_done(pending_path)
                 return
 
-            ui_obj = self.resolve_overload_ui() if self.resolve_overload_ui else None
+            if self.ensure_project:
+                try:
+                    self.ensure_project(handler["project_name"])
+                except Exception as exc:
+                    self._log(f"切换项目失败: {exc}")
+
+            resolve_ui = handler.get("resolve_ui")
+            ui_obj = resolve_ui() if resolve_ui else None
             if ui_obj is None:
                 write_result(
                     self.repo_root,
                     job_id,
-                    {"status": "failed", "fail_reason": "过载 UI 未就绪"},
+                    {"status": "failed", "fail_reason": f"{handler['label']} UI 未就绪"},
                 )
                 self._move_pending_done(pending_path)
                 return
@@ -385,10 +464,11 @@ class IotUiHandoffService(QObject):
                 wait_finish = bool(params.get("wait_finish"))
 
             appended = False
-            if auto_append and self.overload_append:
-                self.overload_append()
+            project_append = handler.get("append")
+            if auto_append and project_append:
+                project_append()
                 appended = True
-                self._log("已调用 thaioverloadsAppend")
+                self._log(f"已调用 {handler['label']} Append")
 
             if auto_start:
                 if not self.start_test:
@@ -424,6 +504,8 @@ class IotUiHandoffService(QObject):
                         "timeout_sec": timeout_sec,
                         "start_grace_sec": start_grace_sec,
                     }
+                    self._last_progress_key = None
+                    self._emit_progress(job_id, force=True)
                     self._log(
                         f"任务 {job_id} 等待试验结束（timeout={int(timeout_sec)}s，"
                         f"start_grace={int(start_grace_sec)}s）"
@@ -475,16 +557,24 @@ def start_iot_ui_handoff_from_main(
     *,
     resolve_overload_ui: Callable[[], Any],
     overload_append: Callable[[], None],
+    resolve_antibackflow_ui: Optional[Callable[[], Any]] = None,
+    antibackflow_append: Optional[Callable[[], None]] = None,
     start_test: Optional[Callable[[], None]] = None,
     get_run_status: Optional[Callable[[], str]] = None,
+    get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
+    ensure_project: Optional[Callable[[str], None]] = None,
     log: Optional[Callable[[str], None]] = None,
     parent=None,
 ) -> IotUiHandoffService:
     svc = IotUiHandoffService(
         resolve_overload_ui=resolve_overload_ui,
         overload_append=overload_append,
+        resolve_antibackflow_ui=resolve_antibackflow_ui,
+        antibackflow_append=antibackflow_append,
         start_test=start_test,
         get_run_status=get_run_status,
+        get_run_progress=get_run_progress,
+        ensure_project=ensure_project,
         log=log,
         parent=parent,
     )
