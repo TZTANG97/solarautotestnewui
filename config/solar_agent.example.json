@@ -1,5 +1,5 @@
 {
-  "iot_base": "http://127.0.0.1:18088/nss",
+  "iot_base": "https://www.laidecloud.com/nss",
   "agent_token": "",
   "poll_interval_sec": 15,
   "heartbeat_interval_sec": 15,
@@ -7,5 +7,5 @@
   "execution_mode": "handoff",
   "mutex_path": "",
   "agent_version": "0.1.0",
-  "comment": "正式台架默认 handoff。新电脑只需 iot_bootstrap.json 的 iot_base；上报发现后由运维在网页选 pythonid 添加，本机自动领令牌。也可 setup_SolarAgentConfig.bat 手工填。"
+  "comment": "正式环境默认 handoff。打开软件会上线到「添加设备」；添加后自动领令牌。勿把本文件拷到别的电脑。"
 }

@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-新电脑：生成本机 machineId → announce 上报发现 → 轮询 claim 领令牌 → 写 solar_agent.json。
+新电脑：machineId → announce 分配 pythonid → WebSocket 上线（进「添加设备」）
+→ 运维在添加设备选 pythonid 保存 → claim 令牌 → 写配置并跑任务。
 
-对齐 IOT「添加设备」：先发现 pythonid，运维在台架管理确认添加后，本机才拿到令牌。
-
-IOT 地址解析顺序：
-  环境变量 SOLAR_IOT_BASE
-  → config/solar_agent.json 已有 iot_base
-  → config/iot_bootstrap.json（安装包可预置）
-  → config/solar_agent.example.json
+IOT 地址优先安装包正式地址（iot_bootstrap.json），避免升级后仍指向 127.0.0.1。
 """
 from __future__ import annotations
 
@@ -28,7 +23,9 @@ from agent.config import _repo_root
 logger = logging.getLogger("solar.agent.bootstrap")
 
 CLAIM_POLL_SEC = 5.0
-CLAIM_LOG_EVERY = 6  # 约 30s 打一次等待日志
+CLAIM_LOG_EVERY = 6
+# 视为「联调地址」，升级后应被安装包正式 iot_bootstrap 覆盖
+_LOCAL_IOT_MARKERS = ("127.0.0.1", "localhost", "0.0.0.0", "请填写")
 
 
 def machine_id_path() -> Path:
@@ -61,18 +58,40 @@ def _read_json(path: Path) -> Dict[str, Any]:
         return {}
 
 
+def _is_local_iot(url: str) -> bool:
+    text = (url or "").strip().lower()
+    if not text:
+        return True
+    return any(m in text for m in _LOCAL_IOT_MARKERS)
+
+
 def resolve_iot_base(existing: Optional[Dict[str, Any]] = None) -> str:
+    """
+    优先：环境变量 → 安装包 iot_bootstrap（正式地址）→ 本机 solar_agent
+    （若 solar_agent 仍是 127.0.0.1 则忽略，避免升级后连错）。
+    """
     existing = existing or {}
-    candidates = [
-        os.environ.get("SOLAR_IOT_BASE") or "",
-        str(existing.get("iot_base") or ""),
-        str(_read_json(_repo_root() / "config" / "iot_bootstrap.json").get("iot_base") or ""),
-        str(_read_json(_repo_root() / "config" / "solar_agent.example.json").get("iot_base") or ""),
-    ]
-    for raw in candidates:
-        text = str(raw or "").strip().rstrip("/")
-        if text and "请填写" not in text:
-            return text
+    env = (os.environ.get("SOLAR_IOT_BASE") or "").strip().rstrip("/")
+    boot = str(_read_json(_repo_root() / "config" / "iot_bootstrap.json").get("iot_base") or "").strip().rstrip("/")
+    agent = str(existing.get("iot_base") or "").strip().rstrip("/")
+    example = str(
+        _read_json(_repo_root() / "config" / "solar_agent.example.json").get("iot_base") or ""
+    ).strip().rstrip("/")
+
+    if env and not _is_local_iot(env):
+        return env
+    if boot and not _is_local_iot(boot):
+        return boot
+    if agent and not _is_local_iot(agent):
+        return agent
+    if env:
+        return env
+    if boot:
+        return boot
+    if agent:
+        return agent
+    if example and "请填写" not in example:
+        return example
     return ""
 
 
@@ -113,7 +132,7 @@ def _http_json(
 def write_agent_config(
     *,
     iot_base: str,
-    agent_token: str,
+    agent_token: Optional[str] = None,
     pythonid: str = "",
     machine_id: str = "",
     extra: Optional[Dict[str, Any]] = None,
@@ -124,18 +143,21 @@ def write_agent_config(
     data.update(
         {
             "iot_base": iot_base.rstrip("/"),
-            "agent_token": agent_token,
-            "pythonid": pythonid,
-            "machine_id": machine_id,
+            "pythonid": pythonid or data.get("pythonid") or "",
+            "machine_id": machine_id or data.get("machine_id") or "",
             "poll_interval_sec": int(data.get("poll_interval_sec") or 15),
             "heartbeat_interval_sec": int(data.get("heartbeat_interval_sec") or 15),
             "dry_run": False,
             "execution_mode": "handoff",
             "mutex_path": data.get("mutex_path") or "",
             "agent_version": data.get("agent_version") or "0.1.0",
-            "comment": "本机领取令牌后生成；勿提交 Git。换机勿拷贝此文件。",
+            "comment": "正式环境；勿提交 Git。换机勿拷贝。令牌由添加设备后自动领取。",
         }
     )
+    if agent_token is not None:
+        data["agent_token"] = agent_token
+    elif "agent_token" not in data:
+        data["agent_token"] = ""
     if extra:
         data.update(extra)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -143,25 +165,18 @@ def write_agent_config(
 
 
 def announce(*, force: bool = False) -> Tuple[bool, str, Dict[str, Any]]:
-    """
-    向 IOT 上报发现。返回 (ok, message, data)。
-    data 可能含 pythonid / claimed / agentToken。
-    """
     cfg = _read_json(config_path())
-    if config_has_token(cfg) and not force:
-        return True, "已有 Agent 令牌，跳过发现上报", {"claimed": True, "skipped": True}
-
     iot_base = resolve_iot_base(cfg)
     if not iot_base:
         return (
             False,
-            "无法上报发现：未配置 IOT 地址。请在 config/iot_bootstrap.json 写入 "
-            '{"iot_base":"http://IOT主机:端口/nss"} 或设置环境变量 SOLAR_IOT_BASE',
+            "未配置 IOT 地址。请检查 config/iot_bootstrap.json 的 iot_base",
             {},
         )
 
     mid = ensure_machine_id()
     host = socket.gethostname()
+    # 已有令牌仍刷新发现/WS 用的 pythonid（不强制重新领令牌）
     body = {
         "machineId": mid,
         "hostName": host,
@@ -179,38 +194,40 @@ def announce(*, force: bool = False) -> Tuple[bool, str, Dict[str, Any]]:
         return False, f"发现上报返回异常: {res}", {}
 
     pythonid = str(data.get("pythonid") or data.get("pythonId") or "").strip()
-    claimed = bool(data.get("claimed"))
     token = str(data.get("agentToken") or data.get("agent_token") or "").strip()
+    old_base = str(cfg.get("iot_base") or "")
+    # 从本机联调切到正式环境时，丢掉旧本地令牌，走添加设备后重新 claim
+    keep_token = ""
     if token:
-        write_agent_config(
-            iot_base=iot_base,
-            agent_token=token,
-            pythonid=pythonid,
-            machine_id=mid,
-        )
+        keep_token = token
+    elif config_has_token(cfg) and not _is_local_iot(old_base) and not _is_local_iot(iot_base):
+        keep_token = str(cfg.get("agent_token") or "")
+    write_agent_config(
+        iot_base=iot_base,
+        agent_token=keep_token,
+        pythonid=pythonid,
+        machine_id=mid,
+    )
+    if keep_token and token:
         return True, f"已领取令牌 pythonid={pythonid}", data
-    if claimed:
-        return True, f"台架已添加 pythonid={pythonid}，等待领取令牌", data
-    return True, f"已上报发现 pythonid={pythonid}，等待 IOT 台架管理「从发现添加」", data
+    if keep_token and not token:
+        return True, f"已上线 pythonid={pythonid}（沿用令牌）", data
+    if bool(data.get("claimed")):
+        return True, f"台架已添加 pythonid={pythonid}，可领取令牌", data
+    return True, f"已上报 pythonid={pythonid}，请在「设备管理→添加设备」中选择并添加", data
 
 
 def claim_once() -> Tuple[bool, str, Dict[str, Any]]:
-    """尝试领取一次令牌。返回 (got_token, message, data)。"""
     cfg = _read_json(config_path())
-    if config_has_token(cfg):
-        return True, "已有令牌", {"claimed": True}
-
+    if config_has_token(cfg) and not _is_local_iot(str(cfg.get("iot_base") or "")):
+        # 令牌有效且地址非本地
+        pass
     iot_base = resolve_iot_base(cfg)
     if not iot_base:
         return False, "未配置 IOT 地址", {}
 
     mid = ensure_machine_id()
-    qs = urlencode(
-        {
-            "machineId": mid,
-            "registerKey": resolve_register_key(cfg),
-        }
-    )
+    qs = urlencode({"machineId": mid, "registerKey": resolve_register_key(cfg)})
     url = f"{iot_base.rstrip('/')}/api/solar-autotest/agent/claim?{qs}"
     try:
         res = _http_json("GET", url)
@@ -222,83 +239,91 @@ def claim_once() -> Tuple[bool, str, Dict[str, Any]]:
         return False, f"领取返回异常: {res}", {}
 
     token = str(data.get("agentToken") or data.get("agent_token") or "").strip()
-    pythonid = str(data.get("pythonid") or data.get("pythonId") or "").strip()
+    pythonid = str(data.get("pythonid") or data.get("pythonId") or cfg.get("pythonid") or "").strip()
     if not token:
-        return False, "尚未领取到令牌", data
+        return False, "尚未领取到令牌（请先在添加设备中完成登记）", data
 
-    write_agent_config(
-        iot_base=iot_base,
-        agent_token=token,
-        pythonid=pythonid,
-        machine_id=mid,
-    )
+    write_agent_config(iot_base=iot_base, agent_token=token, pythonid=pythonid, machine_id=mid)
     return True, f"已领取令牌 pythonid={pythonid}", data
 
 
 def wait_for_claim(*, max_wait_sec: float = 0) -> Tuple[bool, str]:
-    """
-    轮询 claim 直到拿到令牌。
-    max_wait_sec<=0 表示一直等到进程退出（软件常驻场景用短时轮询后由下次启动继续）。
-    启动阶段默认轮询一段时间，避免阻塞 UI 过久。
-    """
     deadline = None if max_wait_sec <= 0 else (time.time() + max_wait_sec)
     n = 0
     while True:
-        ok, msg, _data = claim_once()
+        ok, msg, _ = claim_once()
         if ok and config_has_token():
             return True, msg
         n += 1
         if n == 1 or n % CLAIM_LOG_EVERY == 0:
-            logger.info("%s", msg or "等待运维在 IOT 台架管理添加本机 pythonid…")
+            logger.info("%s", msg or "等待在「添加设备」中登记本机 pythonid…")
         if deadline is not None and time.time() >= deadline:
-            return False, msg or "仍在等待运维添加台架"
+            return False, msg or "仍在等待添加设备"
         time.sleep(CLAIM_POLL_SEC)
 
 
-def ensure_configured_and_start() -> Tuple[bool, str]:
-    """供软件启动：发现上报 → 尝试领取 → 有令牌则拉起 Agent；否则后台继续等添加。"""
-    from agent.process_control import start_agent, is_running
+def start_ws_presence_from_config() -> Tuple[bool, str]:
+    from agent.ws_gateway import start_presence
 
-    if config_has_token():
-        if is_running():
-            return True, "已有令牌；Agent 已在运行"
-        ok2, msg2 = start_agent()
-        return ok2, msg2
+    cfg = _read_json(config_path())
+    iot_base = resolve_iot_base(cfg)
+    pythonid = str(cfg.get("pythonid") or "").strip()
+    mid = str(cfg.get("machine_id") or ensure_machine_id()).strip()
+    if not iot_base or not pythonid:
+        return False, "缺少 iot_base 或 pythonid，无法 WebSocket 上线"
+    ok = start_presence(
+        iot_base=iot_base,
+        pythonid=pythonid,
+        machine_id=mid,
+        host_name=socket.gethostname(),
+    )
+    return (True, f"已 WebSocket 上线 pythonid={pythonid}") if ok else (False, "WebSocket 上线失败")
+
+
+def ensure_configured_and_start() -> Tuple[bool, str]:
+    """软件启动：announce → WS 上线（进添加设备）→ 有令牌则拉 Agent；否则后台 claim。"""
+    from agent.process_control import start_agent, is_running
 
     ok, msg, data = announce(force=False)
     if not ok:
         logger.warning("%s", msg)
         return False, msg
 
-    if config_has_token():
-        if is_running():
-            return True, msg + "；Agent 已在运行"
-        ok2, msg2 = start_agent()
-        return ok2, f"{msg}；{msg2}"
+    ws_ok, ws_msg = start_ws_presence_from_config()
+    if not ws_ok:
+        logger.warning("%s", ws_msg)
 
-    # 启动不长时间阻塞 UI：先短等一轮，再后台轮询
-    got, claim_msg = wait_for_claim(max_wait_sec=8.0)
-    if got:
+    if config_has_token() and not _is_local_iot(resolve_iot_base()):
+        # 纠正本机旧 127.0.0.1：若已有令牌但地址已切正式，仍要能跑 Agent
         if is_running():
-            return True, claim_msg + "；Agent 已在运行"
-        ok2, msg2 = start_agent()
-        return ok2, f"{claim_msg}；{msg2}"
+            return True, f"{msg}；{ws_msg}；Agent 已在运行"
+        ok2, msg2 = start_agent(allow_without_token=False)
+        return ok2, f"{msg}；{ws_msg}；{msg2}"
+
+    # 无令牌：启动 Agent 进入 presence/claim 模式
+    if not is_running():
+        ok2, msg2 = start_agent(allow_without_token=True)
+    else:
+        ok2, msg2 = True, "Agent 已在运行"
+
+    got, claim_msg = wait_for_claim(max_wait_sec=6.0)
+    if got:
+        return True, f"{msg}；{ws_msg}；{claim_msg}"
 
     pythonid = str((data or {}).get("pythonid") or (data or {}).get("pythonId") or "")
     tip = (
-        f"{msg}。请在 IOT「台架管理 → 从发现添加」选中 "
-        f"{pythonid or '本机 pythonid'}；添加后本机将自动领取令牌。"
+        f"{msg}。请打开 IOT「设备管理→添加设备」，选择 pythonid={pythonid or '本机'}，"
+        f"验证后添加；本机将自动领取令牌。（{ws_msg}；{msg2}）"
     )
     logger.warning("%s", tip)
     _start_claim_background()
-    return False, tip
+    return True, tip  # WS 已上线算成功，便于首页显示
 
 
 _claim_bg_started = False
 
 
 def _start_claim_background() -> None:
-    """后台领取令牌并启动 Agent（不阻塞 UI）。"""
     global _claim_bg_started
     if _claim_bg_started:
         return
@@ -307,19 +332,35 @@ def _start_claim_background() -> None:
     def _worker() -> None:
         global _claim_bg_started
         try:
-            while not config_has_token():
-                ok, msg, _ = claim_once()
-                if ok and config_has_token():
-                    logger.info("%s", msg)
+            while True:
+                base = resolve_iot_base(_read_json(config_path()))
+                if config_has_token() and not _is_local_iot(base):
+                    # 若配置里仍是旧本地地址，强制写成正式 base
+                    cfg = _read_json(config_path())
+                    if _is_local_iot(str(cfg.get("iot_base") or "")):
+                        write_agent_config(
+                            iot_base=base,
+                            agent_token=str(cfg.get("agent_token") or ""),
+                            pythonid=str(cfg.get("pythonid") or ""),
+                            machine_id=str(cfg.get("machine_id") or ensure_machine_id()),
+                        )
                     break
-                logger.debug("%s", msg)
+                ok, msg, _ = claim_once()
+                if ok:
+                    logger.info("%s", msg)
+                    base2 = resolve_iot_base(_read_json(config_path()))
+                    if config_has_token() and not _is_local_iot(base2):
+                        break
                 time.sleep(CLAIM_POLL_SEC)
             if config_has_token():
-                from agent.process_control import start_agent, is_running
+                from agent.process_control import is_running, start_agent, stop_agent
 
-                if not is_running():
-                    ok2, msg2 = start_agent()
-                    logger.info("%s", msg2 if ok2 else msg2)
+                if is_running():
+                    stop_agent()
+                    time.sleep(1.0)
+                ok2, msg2 = start_agent(allow_without_token=False)
+                logger.info("%s", msg2)
+                start_ws_presence_from_config()
         except Exception as exc:
             logger.warning("后台领取令牌异常: %s", exc)
         finally:
@@ -330,13 +371,6 @@ def _start_claim_background() -> None:
     threading.Thread(target=_worker, name="solar-claim", daemon=True).start()
 
 
-# 兼容旧名
 def self_register(*, force: bool = False) -> Tuple[bool, str]:
     ok, msg, _ = announce(force=force)
-    if ok and not config_has_token():
-        got, claim_msg = wait_for_claim(max_wait_sec=8.0)
-        if got:
-            return True, claim_msg
-        _start_claim_background()
-        return False, msg
     return ok, msg

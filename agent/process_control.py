@@ -76,14 +76,15 @@ def is_running() -> bool:
 
 def status_text() -> str:
     if not config_file().is_file():
-        return "未配置（将尝试自动登记）"
+        return "未配置（将尝试自动上线）"
     try:
         import json
 
         data = json.loads(config_file().read_text(encoding="utf-8"))
         token = str(data.get("agent_token") or "").strip()
+        pid = str(data.get("pythonid") or "").strip()
         if not token or token.startswith("请填写"):
-            return "未配置令牌（将尝试自动登记）"
+            return f"已上报待添加设备" + (f" ({pid})" if pid else "")
     except Exception:
         pass
     if is_running():
@@ -91,7 +92,7 @@ def status_text() -> str:
     return "未运行"
 
 
-def start_agent() -> Tuple[bool, str]:
+def start_agent(*, allow_without_token: bool = False) -> Tuple[bool, str]:
     """后台启动 Agent（无控制台窗口）。返回 (ok, message)。"""
     if is_running():
         return True, f"Agent 已在运行 (pid={_read_pid()})"
@@ -103,7 +104,7 @@ def start_agent() -> Tuple[bool, str]:
 
         data = json.loads(cfg.read_text(encoding="utf-8"))
         token = str(data.get("agent_token") or "").strip()
-        if not token or token.startswith("请填写"):
+        if not allow_without_token and (not token or token.startswith("请填写")):
             return False, "config/solar_agent.json 尚无有效令牌"
     except Exception:
         return False, "无法读取 Agent 配置"

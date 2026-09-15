@@ -38,14 +38,19 @@ class AgentConfig:
         return "dry_run" if self.dry_run else "live"
 
 
+def default_config_path() -> Path:
+    return _repo_root() / "config" / "solar_agent.json"
+
+
 def load_config(path: Optional[str] = None) -> AgentConfig:
     """
     优先级：显式 path > 环境变量 SOLAR_AGENT_CONFIG > config/solar_agent.json
     令牌可用环境变量 SOLAR_AGENT_TOKEN 覆盖。
+    iot_base：环境变量 > 非本地的 solar_agent > iot_bootstrap 正式地址 > 其余。
     """
     cfg_path = path or os.environ.get("SOLAR_AGENT_CONFIG") or ""
     if not cfg_path:
-        cfg_path = str(_repo_root() / "config" / "solar_agent.json")
+        cfg_path = str(default_config_path())
     p = Path(cfg_path)
     raw: Dict[str, Any] = {}
     if p.is_file():
@@ -53,15 +58,36 @@ def load_config(path: Optional[str] = None) -> AgentConfig:
     elif not path and not os.environ.get("SOLAR_AGENT_TOKEN"):
         example = _repo_root() / "config" / "solar_agent.example.json"
         raise FileNotFoundError(
-            f"未找到配置 {p}。请复制 {example} 为 solar_agent.json 并填写 agent_token。"
+            f"未找到配置 {p}。请复制 {example} 为 solar_agent.json；打开软件会自动上线。"
         )
 
     token = (os.environ.get("SOLAR_AGENT_TOKEN") or raw.get("agent_token") or "").strip()
-    base = (
-        os.environ.get("SOLAR_IOT_BASE")
-        or raw.get("iot_base")
-        or "http://127.0.0.1:18082/nss"
-    ).rstrip("/")
+
+    def _local(u: str) -> bool:
+        t = (u or "").lower()
+        return (not t) or any(x in t for x in ("127.0.0.1", "localhost", "0.0.0.0", "请填写"))
+
+    env_base = (os.environ.get("SOLAR_IOT_BASE") or "").strip().rstrip("/")
+    agent_base = str(raw.get("iot_base") or "").strip().rstrip("/")
+    boot = {}
+    try:
+        bp = _repo_root() / "config" / "iot_bootstrap.json"
+        if bp.is_file():
+            boot = json.loads(bp.read_text(encoding="utf-8"))
+    except Exception:
+        boot = {}
+    boot_base = str(boot.get("iot_base") or "").strip().rstrip("/")
+
+    if env_base and not _local(env_base):
+        base = env_base
+    elif boot_base and not _local(boot_base):
+        base = boot_base
+    elif agent_base and not _local(agent_base):
+        base = agent_base
+    else:
+        base = env_base or boot_base or agent_base or "https://www.laidecloud.com/nss"
+    base = base.rstrip("/")
+
     dry = raw.get("dry_run", True)
     if os.environ.get("SOLAR_AGENT_DRY_RUN", "").strip() != "":
         dry = os.environ.get("SOLAR_AGENT_DRY_RUN", "1").strip() not in ("0", "false", "False")

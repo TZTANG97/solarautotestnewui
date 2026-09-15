@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import traceback
+from pathlib import Path
 from typing import Optional
 
 from agent.client import IotSolarClient
@@ -169,14 +170,57 @@ def main(argv: Optional[list] = None) -> int:
     except Exception as exc:
         logger.error("%s", exc)
         return 2
-    if not cfg.agent_token or cfg.agent_token.startswith("请填写"):
-        logger.error("请配置有效的 agent_token")
-        return 2
 
-    client = IotSolarClient(cfg.iot_base, cfg.agent_token)
+    host = socket.gethostname()
+    pythonid = ""
+    machine_id = ""
+    try:
+        import json
+        from agent.config import default_config_path
+
+        p = Path(args.config) if args.config else default_config_path()
+        raw = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+        pythonid = str(raw.get("pythonid") or "").strip()
+        machine_id = str(raw.get("machine_id") or "").strip()
+    except Exception:
+        pass
+
+    # 无令牌也可先 WebSocket 上线，便于「添加设备」发现
+    try:
+        from agent.ws_gateway import start_presence
+
+        if pythonid and cfg.iot_base:
+            start_presence(
+                iot_base=cfg.iot_base,
+                pythonid=pythonid,
+                machine_id=machine_id,
+                host_name=host,
+            )
+            logger.info("WebSocket 上线 pythonid=%s", pythonid)
+    except Exception as exc:
+        logger.warning("WebSocket 上线失败: %s", exc)
+
+    if not cfg.agent_token or cfg.agent_token.startswith("请填写"):
+        logger.info("尚无 agent_token，进入等待「添加设备」领取令牌…")
+        from agent.bootstrap import claim_once, config_has_token, resolve_iot_base, _is_local_iot
+
+        while True:
+            ok, msg, _ = claim_once()
+            if ok and config_has_token():
+                try:
+                    cfg = load_config(args.config or None)
+                except Exception as exc:
+                    logger.warning("重新加载配置失败: %s", exc)
+                if cfg.agent_token and not cfg.agent_token.startswith("请填写"):
+                    if not _is_local_iot(cfg.iot_base):
+                        logger.info("%s", msg)
+                        break
+            logger.info("%s", msg)
+            time.sleep(5.0)
+
+    client = IotSolarClient(cfg.iot_base, cfg.agent_token, pythonid=pythonid)
     _client_ref = client
     mutex = LocalMutex(cfg.mutex_file)
-    host = socket.gethostname()
 
     def _on_signal(signum, _frame):
         logger.warning("收到信号 %s，准备退出并结案当前任务", signum)
@@ -192,11 +236,12 @@ def main(argv: Optional[list] = None) -> int:
             pass
 
     logger.info(
-        "Solar Agent 启动 base=%s mode=%s version=%s host=%s",
+        "Solar Agent 启动 base=%s mode=%s version=%s host=%s pythonid=%s",
         cfg.iot_base,
         cfg.resolved_execution_mode,
         cfg.agent_version,
         host,
+        pythonid or client.pythonid,
     )
 
     interval = max(3.0, float(cfg.poll_interval_sec))
