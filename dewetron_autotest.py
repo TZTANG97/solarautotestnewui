@@ -136,6 +136,11 @@ _PROJECT_SPECS: Tuple[DewetronProjectSpec, ...] = (
         "active-p",
         aliases=("activeP", "yougongdiaodu", "有功控制", "有功调度测试"),
     ),
+    DewetronProjectSpec(
+        "防逆流测试",
+        "anti-backflow",
+        aliases=("antibackflow", "antiBackflow", "防逆流", "anti-vertido"),
+    ),
     DewetronProjectSpec("Test_PU", "test-pu", aliases=("testPU",)),
     DewetronProjectSpec(
         "静态Cos(φ)", "static-cos-phi", aliases=("staticcosphi", "静态CosPhi")

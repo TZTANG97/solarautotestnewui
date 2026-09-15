@@ -43,6 +43,7 @@ from Dialog_thaifixedQ import Ui_Dialog_thaifixedQ
 from Dialog_thaireactiveQin import Ui_Dialog_thaireactiveQin
 from Dialog_thaireactiveQacc import Ui_Dialog_thaireactiveQacc
 from Dialog_thaiactiveP import Ui_Dialog_thaiactiveP
+from Dialog_thaantibackflow import Ui_Dialog_thaantibackflow
 from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
 from Dialog_thaidynamiccosPhi import Ui_Dialog_thaidynamiccosPhi
 from Dialog_thaistaticmppttest import Ui_Dialog_thaistaticmppttest
@@ -566,6 +567,7 @@ class MainSetup(BaseSetup):
             ("reactiveQin", Ui_Dialog_thaireactiveQin, "dialog_windowreactiveQin", "uiThaiReactiveQin"),
             ("reactiveQacc", Ui_Dialog_thaireactiveQacc, "dialog_windowreactiveQacc", "uiThaiReactiveQacc"),
             ("activeP", Ui_Dialog_thaiactiveP, "dialog_windowactiveP", "uiThaiActiveP"),
+            ("antibackflow", Ui_Dialog_thaantibackflow, "dialog_windowantibackflow", "uiThaiAntiBackflow"),
             ("overloads", Ui_Dialog_thaioverloads, "dialog_windowoverloads", "uiThaiOverLoads"),
             ("cosPhiBrazil", Ui_Dialog_thaicosPhi_Brazil, "dialog_windowcosPhiBrazil", "uiThaiCosPhiBrazil"),
             ("guoqianpin_immun", Ui_Dialog_thaiguoqianpin_immun, "dialog_windowguoqianpin_immun", "uiThaiGuoQianPin_Immun"),

@@ -22,6 +22,7 @@ UI_CONTINUOUS_FILENAME = {
     "Ui_Dialog_thaireactiveQin": "Qin_BR",
     "Ui_Dialog_thaireactiveQacc": "Qacc_BR",
     "Ui_Dialog_thaiactiveP": "Pdisp_BR",
+    "Ui_Dialog_thaantibackflow": "AntiBackflow_BR",
     "Ui_Dialog_thaiguoqianya_pin": "OVUF_BR",
     "Ui_Dialog_thaiguoqianpin_immun": "Immun_BR",
     "Ui_Dialog_thaistaticQU": "QU_curve",
