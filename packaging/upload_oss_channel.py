@@ -136,6 +136,15 @@ def main() -> int:
         (f"{prefix}/latest.json", json_path),
         (f"{prefix}/{zip_path.name}", zip_path),
     ]
+    # Fixed first-install URL: always overwrite SolarAutoTest-Setup-latest.zip
+    stable_name = str(manifest.get("stable_zip_name") or "SolarAutoTest-Setup-latest.zip").strip()
+    stable_local = channel_dir / stable_name
+    if not stable_local.is_file():
+        # Publish-HttpChannel should have copied it; fallback to versioned zip content
+        stable_local = zip_path
+    if stable_local.is_file():
+        uploads.append((f"{prefix}/{stable_name}", stable_local))
+
     headers = {}
     if args.public_read:
         headers["x-oss-object-acl"] = "public-read"
@@ -150,6 +159,7 @@ def main() -> int:
     print(f"  channel = {public_base}")
     print(f"  latest  = {public_base}/latest.json")
     print(f"  zip     = {public_base}/{zip_path.name}")
+    print(f"  stable  = {public_base}/{stable_name}  (固定下载地址)")
     # Sanity: HEAD
     for key, _ in uploads:
         meta = bucket.head_object(key)

@@ -77,20 +77,26 @@ $OutDir = [IO.Path]::GetFullPath($OutDir)
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 $zipName = "SolarAutoTest-Setup-" + $Version + ".zip"
+$stableZipName = "SolarAutoTest-Setup-latest.zip"
 $destZip = Join-Path $OutDir $zipName
+$stableZip = Join-Path $OutDir $stableZipName
 Copy-Item -Force $ZipPath $destZip
+Copy-Item -Force $ZipPath $stableZip
 
 $sizeMb = [math]::Round((Get-Item $destZip).Length / 1MB, 1)
 $zipUrl = $HttpBaseUrl + "/" + $zipName
+$stableZipUrl = $HttpBaseUrl + "/" + $stableZipName
 
 $manifest = [ordered]@{
-    version      = $Version
-    zip_name     = $zipName
-    zip_url      = $zipUrl
-    zip_base_url = $HttpBaseUrl
-    built        = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-    size_mb      = $sizeMb
-    channel      = "http"
+    version         = $Version
+    zip_name        = $zipName
+    zip_url         = $zipUrl
+    stable_zip_name = $stableZipName
+    stable_zip_url  = $stableZipUrl
+    zip_base_url    = $HttpBaseUrl
+    built           = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+    size_mb         = $sizeMb
+    channel         = "http"
 }
 $jsonPath = Join-Path $OutDir "latest.json"
 # UTF-8 without BOM (PowerShell 5.1 Set-Content UTF8 writes BOM)
@@ -107,6 +113,7 @@ Write-Host ("  version:  " + $Version)
 Write-Host ("  latest:   " + $jsonPath)
 Write-Host ("  zip:      " + $destZip)
 Write-Host ("  zip_url:  " + $zipUrl)
+Write-Host ("  stable:   " + $stableZipUrl + "  (固定下载地址，每次发版覆盖)")
 Write-Host ""
 Write-Host "Client config.ini:"
 Write-Host ("  channel = " + $HttpBaseUrl)
@@ -123,7 +130,9 @@ if ($UseEmkuOss) {
     & $EmkuPython @pyArgs
     if ($LASTEXITCODE -ne 0) { throw "EMKU OSS upload failed: $LASTEXITCODE" }
     Write-Host ""
-    Write-Host "User first-install download link (zip):" -ForegroundColor Cyan
+    Write-Host "User first-install download link (fixed, always latest):" -ForegroundColor Cyan
+    Write-Host ("  " + ($HttpBaseUrl.TrimEnd('/') + "/" + $stableZipName))
+    Write-Host "Versioned zip (auto-update / rollback):" -ForegroundColor DarkGray
     Write-Host ("  " + ($HttpBaseUrl.TrimEnd('/') + "/" + $zipName))
     Write-Host "Auto-update channel (put in config.ini):" -ForegroundColor Cyan
     Write-Host ("  channel = " + $HttpBaseUrl.TrimEnd('/'))
