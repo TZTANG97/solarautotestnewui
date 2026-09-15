@@ -30085,33 +30085,17 @@ if __name__ == "__main__":
 
             ui.pushButton_ReConnectEQU.clicked.connect(ReConnectEQU)
 
-            # 首页：IOT Agent 一键启停
+            # 首页：IOT Agent 状态（启动时静默拉起，无需点按钮）
             def _refresh_iot_agent_status():
                 try:
                     from agent.process_control import status_text
 
                     ui.label_IotAgentStatus.setText(f"IOT Agent: {status_text()}")
-                except Exception as _e:
+                except Exception:
                     try:
-                        ui.label_IotAgentStatus.setText(f"IOT Agent: 状态读取失败")
+                        ui.label_IotAgentStatus.setText("IOT Agent: 状态读取失败")
                     except Exception:
                         pass
-
-            def _start_iot_agent():
-                try:
-                    from agent.process_control import start_agent
-
-                    ok, msg = start_agent()
-                    try:
-                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] {msg}")
-                    except Exception:
-                        print(f"[IOT-Agent] {msg}", flush=True)
-                    _refresh_iot_agent_status()
-                except Exception as _e:
-                    try:
-                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] 启动异常: {_e}")
-                    except Exception:
-                        print(f"[IOT-Agent] 启动异常: {_e}", flush=True)
 
             def _stop_iot_agent():
                 try:
@@ -30129,9 +30113,23 @@ if __name__ == "__main__":
                     except Exception:
                         pass
 
+            def _auto_start_iot_agent():
+                try:
+                    from agent.process_control import ensure_agent_running
+
+                    ok, msg = ensure_agent_running(silent=True)
+                    # 仅写日志，不弹窗
+                    try:
+                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] {msg}")
+                    except Exception:
+                        print(f"[IOT-Agent] {msg}", flush=True)
+                except Exception as _e:
+                    print(f"[IOT-Agent] 自动启动异常: {_e}", flush=True)
+                _refresh_iot_agent_status()
+
             try:
                 if hasattr(ui, "pushButton_StartIotAgent"):
-                    ui.pushButton_StartIotAgent.clicked.connect(_start_iot_agent)
+                    ui.pushButton_StartIotAgent.hide()
                 if hasattr(ui, "pushButton_StopIotAgent"):
                     ui.pushButton_StopIotAgent.clicked.connect(_stop_iot_agent)
                 if hasattr(ui, "pushButton_FindDevices"):
@@ -30145,8 +30143,10 @@ if __name__ == "__main__":
                 _iot_status_timer.setInterval(5000)
                 _iot_status_timer.timeout.connect(_refresh_iot_agent_status)
                 _iot_status_timer.start()
+                # 主界面就绪后静默拉起 Agent（有 config/solar_agent.json 时）
+                _QTimerIot.singleShot(1200, _auto_start_iot_agent)
             except Exception as _iot_btn_exc:
-                print(f"[WARN] IOT Agent 按钮绑定失败: {_iot_btn_exc}", flush=True)
+                print(f"[WARN] IOT Agent 绑定失败: {_iot_btn_exc}", flush=True)
             # AC 连接按钮已在 AC breadcrumb setup (line ~28677) 中连接 _connect_ac_with_mode
             # 此处不再重复连接，否则会触发两次 ConnectEQUAC 导致连接后立即断开
             ui.pushButton_ConnectEQUDC1.clicked.connect(ConnectEQUDC1)

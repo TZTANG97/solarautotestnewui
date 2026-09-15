@@ -552,29 +552,22 @@ class Ui_Dialog(object):
         homeTitle.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
         homeLayout.addWidget(homeTitle)
 
-        # IOT Agent 一键启停（在线升级安装包内也可从软件内启动）
+        # IOT Agent：软件启动后静默拉起；首页仅显示状态（可停止）
         _iotRow = QtWidgets.QHBoxLayout()
         _iotRow.setSpacing(8)
-        self.pushButton_StartIotAgent = QtWidgets.QPushButton("启动 IOT Agent")
-        self.pushButton_StartIotAgent.setObjectName("pushButton_StartIotAgent")
-        self.pushButton_StartIotAgent.setFixedHeight(32)
-        self.pushButton_StartIotAgent.setStyleSheet(
-            "QPushButton { background:#2563eb; color:white; border:none; border-radius:4px; padding:0 14px; font-size:12px; }"
-            "QPushButton:hover { background:#1d4ed8; }"
-        )
-        _iotRow.addWidget(self.pushButton_StartIotAgent)
-        self.pushButton_StopIotAgent = QtWidgets.QPushButton("停止 Agent")
-        self.pushButton_StopIotAgent.setObjectName("pushButton_StopIotAgent")
-        self.pushButton_StopIotAgent.setFixedHeight(32)
-        self.pushButton_StopIotAgent.setStyleSheet(
-            "QPushButton { background:#e2e8f0; color:#334155; border:none; border-radius:4px; padding:0 12px; font-size:12px; }"
-            "QPushButton:hover { background:#cbd5e1; }"
-        )
-        _iotRow.addWidget(self.pushButton_StopIotAgent)
         self.label_IotAgentStatus = QtWidgets.QLabel("IOT Agent: —")
         self.label_IotAgentStatus.setObjectName("label_IotAgentStatus")
         self.label_IotAgentStatus.setStyleSheet("font-size: 12px; color: #64748b; background: transparent;")
         _iotRow.addWidget(self.label_IotAgentStatus)
+        self.pushButton_StopIotAgent = QtWidgets.QPushButton("停止 Agent")
+        self.pushButton_StopIotAgent.setObjectName("pushButton_StopIotAgent")
+        self.pushButton_StopIotAgent.setFixedHeight(28)
+        self.pushButton_StopIotAgent.setToolTip("一般无需操作；Agent 会在软件启动时后台自动拉起")
+        self.pushButton_StopIotAgent.setStyleSheet(
+            "QPushButton { background:#e2e8f0; color:#334155; border:none; border-radius:4px; padding:0 10px; font-size:11px; }"
+            "QPushButton:hover { background:#cbd5e1; }"
+        )
+        _iotRow.addWidget(self.pushButton_StopIotAgent)
         self.pushButton_FindDevices = QtWidgets.QPushButton("扫描并连接设备")
         self.pushButton_FindDevices.setObjectName("pushButton_FindDevices")
         self.pushButton_FindDevices.setFixedHeight(32)

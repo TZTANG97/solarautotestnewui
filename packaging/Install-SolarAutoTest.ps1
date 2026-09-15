@@ -209,6 +209,8 @@ function Write-Launcher([string]$InstallRoot) {
         "echo Runtime: %UV_PROJECT_ENVIRONMENT%",
         "echo.",
         "",
+        "REM IOT Agent is started silently by SCPITestWave when config\\solar_agent.json exists",
+        "",
         "`"%UV_EXE%`" run --frozen python SCPITestWave.py",
         "set `"EC=%ERRORLEVEL%`"",
         "popd",

@@ -3,9 +3,9 @@
 出站连接 IOT。
 
 **日常请只双击原来的 `start_SolarAutoTest.bat`（或桌面快捷方式）**：  
-若存在 `config/solar_agent.json`，会**自动后台启动 Agent**，再打开桌面软件。不必再单独点 Agent。
+打开桌面软件后，若存在 `config/solar_agent.json`，会**在后台静默启动 Agent**，无需再点「启动 IOT Agent」。
 
-单独调试 Agent 才用 `start_SolarAgent.bat`。
+单独调试 Agent 才用 `start_SolarAgent.bat`。首页仅显示 Agent 状态，必要时可「停止 Agent」。
 
 ## 配置（每台工控机一次）
 

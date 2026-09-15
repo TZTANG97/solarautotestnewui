@@ -83,7 +83,7 @@ def status_text() -> str:
 
 
 def start_agent() -> Tuple[bool, str]:
-    """后台启动 Agent。返回 (ok, message)。"""
+    """后台启动 Agent（无控制台窗口）。返回 (ok, message)。"""
     if is_running():
         return True, f"Agent 已在运行 (pid={_read_pid()})"
     cfg = config_file()
@@ -97,7 +97,6 @@ def start_agent() -> Tuple[bool, str]:
             subprocess, "DETACHED_PROCESS", 0x00000008
         )
     try:
-        # 优先 uv run，与项目惯例一致
         cmd = ["uv", "run", "python", "-m", "agent"]
         proc = subprocess.Popen(
             cmd,
@@ -128,6 +127,15 @@ def start_agent() -> Tuple[bool, str]:
     except OSError:
         pass
     return True, f"已启动 Agent (pid={proc.pid})"
+
+
+def ensure_agent_running(*, silent: bool = True) -> Tuple[bool, str]:
+    """软件启动时调用：有配置则后台拉起 Agent；已在跑则直接成功。"""
+    if not config_file().is_file():
+        return False, "未配置 Agent（无 config/solar_agent.json），跳过"
+    if is_running():
+        return True, f"Agent 已在运行 (pid={_read_pid()})"
+    return start_agent()
 
 
 def stop_agent() -> Tuple[bool, str]:

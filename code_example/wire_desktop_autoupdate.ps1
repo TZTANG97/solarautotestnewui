@@ -91,10 +91,7 @@ echo Install: %CD%
 echo Runtime: %UV_PROJECT_ENVIRONMENT%
 echo.
 
-if exist "%~dp0config\solar_agent.json" (
-  echo [IOT] starting Solar Agent...
-  start "SolarAgent" /MIN cmd /c "cd /d %~dp0 && %UV_EXE% run --frozen python -m agent"
-)
+REM IOT Agent: started silently inside SCPITestWave when config\solar_agent.json exists
 
 "%UV_EXE%" run --frozen python SCPITestWave.py
 set "EC=%ERRORLEVEL%"
