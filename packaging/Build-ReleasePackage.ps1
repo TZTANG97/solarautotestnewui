@@ -11,6 +11,7 @@ param(
     [string]$OssBucket = "",
     [string]$OssPrefix = "solarautotest/updates",
     [string]$OssEndpoint = "",
+    [string]$Version = "",
     [switch]$PublishEmkuOss,
     [switch]$PublishGitLab,
     [switch]$SkipBundleUv
@@ -34,7 +35,12 @@ if (-not $OutDir) {
 }
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 $stage = Join-Path $OutDir "SolarAutoTest-Setup"
-$zipPath = Join-Path $OutDir ("SolarAutoTest-Setup-" + (Get-Date -Format "yyyyMMdd") + ".zip")
+# Same-day republish needs HHMM so clients do not skip update
+if (-not $Version) {
+    $Version = Get-Date -Format "yyyyMMdd.HHmm"
+}
+$pkgVersion = $Version.Trim()
+$zipPath = Join-Path $OutDir ("SolarAutoTest-Setup-" + $pkgVersion + ".zip")
 
 Write-Host "Repo:  $repoRoot"
 Write-Host "Stage: $stage"
@@ -52,8 +58,7 @@ Copy-Item -Force (Join-Path $PSScriptRoot "Check-And-Update.ps1") (Join-Path $st
 Copy-Item -Force (Join-Path $PSScriptRoot "Verify-Install.ps1") (Join-Path $stage "Verify-Install.ps1")
 Copy-Item -Force (Join-Path $PSScriptRoot "INSTALL.txt") (Join-Path $stage "INSTALL.txt")
 
-# Version stamp for LAN upgrade detection (YYYYMMDD.build)
-$pkgVersion = Get-Date -Format "yyyyMMdd"
+# Version stamp for LAN upgrade detection (yyyyMMdd.HHmm)
 $versionFile = Join-Path $stage "VERSION"
 $versionText = @(
     $pkgVersion

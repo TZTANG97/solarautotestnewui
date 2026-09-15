@@ -102,10 +102,24 @@ def main() -> int:
     if not json_path.is_file():
         raise SystemExit(f"latest.json not found: {json_path}")
 
-    zips = sorted(channel_dir.glob("SolarAutoTest-Setup-*.zip"))
-    if not zips:
-        raise SystemExit(f"No SolarAutoTest-Setup-*.zip in {channel_dir}")
-    zip_path = zips[-1]
+    try:
+        import json as _json
+
+        manifest = _json.loads(json_path.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        raise SystemExit(f"invalid latest.json: {exc}") from exc
+
+    zip_name = str(manifest.get("zip_name") or "").strip()
+    if zip_name:
+        zip_path = channel_dir / zip_name
+        if not zip_path.is_file():
+            raise SystemExit(f"latest.json zip_name missing on disk: {zip_path}")
+    else:
+        # Fallback: prefer newest mtime (NOT lexical sort — 20260915.zip sorts after 20260915.1325.zip)
+        zips = list(channel_dir.glob("SolarAutoTest-Setup-*.zip"))
+        if not zips:
+            raise SystemExit(f"No SolarAutoTest-Setup-*.zip in {channel_dir}")
+        zip_path = max(zips, key=lambda p: p.stat().st_mtime)
 
     emku_env = _find_emku_env(args.emku_env.strip() or None)
     print(f"Using EMKU env: {emku_env}")
