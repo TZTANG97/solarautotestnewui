@@ -3,9 +3,9 @@
   "agent_token": "请填写台架创建或重置令牌时显示的明文 sat_...",
   "poll_interval_sec": 15,
   "heartbeat_interval_sec": 15,
-  "dry_run": true,
-  "execution_mode": "",
+  "dry_run": false,
+  "execution_mode": "handoff",
   "mutex_path": "",
   "agent_version": "0.1.0",
-  "comment": "execution_mode 可填 dry_run|handoff|live；空则 dry_run=true→dry_run。handoff 需同时开桌面 SolarAutoTest。"
+  "comment": "正式台架：execution_mode=handoff + dry_run=false，并保持桌面 SolarAutoTest 打开。联调可改 dry_run=true。"
 }

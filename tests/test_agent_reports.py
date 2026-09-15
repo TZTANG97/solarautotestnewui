@@ -30,9 +30,31 @@ def test_collect_includes_result_and_listed(tmp_path: Path) -> None:
     assert "status.json" in names
 
 
+def test_collect_includes_recent_csv(tmp_path: Path) -> None:
+    job_id = 7
+    write_result(
+        tmp_path,
+        job_id,
+        {"status": "success", "result_summary": {"elapsed_sec": 30}},
+    )
+    csv_dir = tmp_path / "command_save_files" / "command_data"
+    csv_dir.mkdir(parents=True)
+    recent = csv_dir / "wt_run.csv"
+    recent.write_text("a,b\n1,2\n", encoding="utf-8")
+    files = collect_report_files(
+        tmp_path,
+        job_id,
+        {"result_summary": {"elapsed_sec": 30}},
+    )
+    names = {p.name for p in files}
+    assert "wt_run.csv" in names
+
+
 if __name__ == "__main__":
     import tempfile
 
     with tempfile.TemporaryDirectory() as d:
-        test_collect_includes_result_and_listed(Path(d))
+        root = Path(d)
+        test_collect_includes_result_and_listed(root)
+        test_collect_includes_recent_csv(root)
     print("reports collect PASS")

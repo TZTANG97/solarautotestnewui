@@ -85,6 +85,7 @@ class DeviceFinderDialog(QDialog):
         tip = QLabel(
             "打开后不会自动扫描。默认先列本机上次连过的地址；勾选「扫描局域网」会扫当前网段常见端口。"
             "只连接勾选行，且必须人手指定槽位（同型号多台不会自动占用 DC1/DC2）。"
+            "开测前请先在仪器面板设好电压/电流/功率输出上限（软件本期不代设）。"
         )
         tip.setWordWrap(True)
         tip.setStyleSheet(f"color: {theme.MUTED};")

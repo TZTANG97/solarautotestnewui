@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""IOT Solar AutoTest HTTP 客户端（出站 HTTPS/HTTP）。"""
+"""IOT Solar AutoTest HTTP 客户端（出站 HTTPS/HTTP）。
+
+报文标识字段与《WebSocket 数据通信原则》一致：
+pythonid / clientid / experid / type / status / equs / commands / rep_url
+"""
 from __future__ import annotations
 
 import json
@@ -9,10 +13,12 @@ from typing import Any, Dict, Optional
 
 
 class IotSolarClient:
-    def __init__(self, base: str, token: str, timeout: float = 30.0):
+    def __init__(self, base: str, token: str, timeout: float = 30.0, pythonid: str = ""):
         self.base = base.rstrip("/")
         self.token = token
         self.timeout = timeout
+        self.pythonid = pythonid or ""
+        self.clientid = ""
 
     def _request(self, method: str, path: str, body: Optional[dict] = None) -> Dict[str, Any]:
         url = f"{self.base}{path}"
@@ -45,8 +51,11 @@ class IotSolarClient:
             "POST",
             "/api/solar-autotest/agent/heartbeat",
             {
-                "agentVersion": agent_version,
-                "hostName": host_name,
+                "type": "on",
+                "pythonid": self.pythonid,
+                "clientid": self.clientid,
+                "agent_version": agent_version,
+                "host_name": host_name,
                 "busy": busy,
                 "fault": fault,
             },
@@ -54,7 +63,32 @@ class IotSolarClient:
 
     def claim_next(self) -> Optional[Dict[str, Any]]:
         res = self._request("GET", "/api/solar-autotest/agent/jobs/next")
-        return res.get("data")
+        data = res.get("data")
+        if not data:
+            return None
+        # 协议 startexper：experid 为主；兼容 id
+        if "experid" in data and "id" not in data:
+            try:
+                data = dict(data)
+                data["id"] = int(data["experid"])
+            except (TypeError, ValueError):
+                pass
+        # commands.command 内嵌 JSON 时可还原 params
+        cmds = data.get("commands") if isinstance(data, dict) else None
+        if isinstance(cmds, dict) and not data.get("params"):
+            raw = cmds.get("command")
+            if isinstance(raw, str) and raw.strip().startswith("{"):
+                try:
+                    nested = json.loads(raw)
+                    if isinstance(nested, dict):
+                        data.setdefault("testType", nested.get("testType") or "")
+                        data.setdefault("title", nested.get("title") or "")
+                        data.setdefault("params", nested.get("params") or {})
+                except json.JSONDecodeError:
+                    pass
+        if self.pythonid == "" and isinstance(data, dict):
+            self.pythonid = str(data.get("pythonid") or "")
+        return data
 
     def progress(
         self,
@@ -64,12 +98,22 @@ class IotSolarClient:
         progress_text: str = "",
         current_step: str = "",
     ) -> Dict[str, Any]:
+        pct = 0 if progress_percent is None else int(progress_percent)
         body: Dict[str, Any] = {
-            "progressText": progress_text,
-            "currentStep": current_step,
+            "type": "experdata",
+            "pythonid": self.pythonid,
+            "clientid": self.clientid,
+            "experid": str(job_id),
+            "time": "1",
+            "equs": [
+                {
+                    "equ_id": f"SOLAR-JOB-{job_id}",
+                    "progress_percent": pct,
+                    "progress_text": progress_text,
+                    "current_step": current_step,
+                }
+            ],
         }
-        if progress_percent is not None:
-            body["progressPercent"] = progress_percent
         return self._request("POST", f"/api/solar-autotest/agent/jobs/{job_id}/progress", body)
 
     def done(
@@ -81,13 +125,26 @@ class IotSolarClient:
         result_summary: Optional[dict] = None,
         report_meta: Optional[list] = None,
     ) -> Dict[str, Any]:
+        # 协议返回 status：OK / NG / FAIL；同时带业务 status 映射由服务端处理
+        proto_status = {
+            "success": "OK",
+            "aborted": "NG",
+            "failed": "FAIL",
+            "ok": "OK",
+            "ng": "NG",
+            "fail": "FAIL",
+        }.get(str(status or "").lower(), status)
         body: Dict[str, Any] = {
-            "status": status,
-            "failReason": fail_reason,
-            "resultSummary": result_summary or {},
+            "type": "exper_auto_end",
+            "pythonid": self.pythonid,
+            "clientid": self.clientid,
+            "experid": str(job_id),
+            "status": proto_status,
+            "fail_reason": fail_reason,
+            "result_summary": result_summary or {},
         }
         if report_meta:
-            body["reportMeta"] = report_meta
+            body["report_meta"] = report_meta
         return self._request(
             "POST",
             f"/api/solar-autotest/agent/jobs/{job_id}/done",
@@ -98,7 +155,14 @@ class IotSolarClient:
         return self._request(
             "POST",
             f"/api/solar-autotest/agent/jobs/{job_id}/reject",
-            {"reason": reason},
+            {
+                "type": "endexper_return",
+                "pythonid": self.pythonid,
+                "clientid": self.clientid,
+                "experid": str(job_id),
+                "status": "NG",
+                "reason": reason,
+            },
         )
 
     def upload_report(self, job_id: int, file_path: str, filename: Optional[str] = None) -> Dict[str, Any]:

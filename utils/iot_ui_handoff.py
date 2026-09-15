@@ -242,6 +242,32 @@ class IotUiHandoffService(QObject):
         except OSError:
             pass
 
+    def _attach_report_files(self, result: Dict[str, Any], job_id: int) -> None:
+        """结案时把本机近期试验产出路径写入 result_summary.report_files，供 Agent 上传。"""
+        try:
+            from agent.reports import collect_report_files
+        except Exception:
+            return
+        summary = result.get("result_summary")
+        if not isinstance(summary, dict):
+            summary = {}
+            result["result_summary"] = summary
+        # 先写结果文件，再收集（collect 会包含 results JSON）
+        from agent.job_inbox import write_result
+
+        write_result(self.repo_root, job_id, result)
+        paths = collect_report_files(self.repo_root, job_id, result)
+        listed = []
+        for p in paths:
+            try:
+                listed.append(str(p.resolve()))
+            except OSError:
+                listed.append(str(p))
+        if listed:
+            summary["report_files"] = listed
+            result["result_summary"] = summary
+            write_result(self.repo_root, job_id, result)
+
     def _finish_job(
         self,
         *,
@@ -253,7 +279,10 @@ class IotUiHandoffService(QObject):
         from agent.job_inbox import write_result
         from agent.ui_mutex import ui_release
 
-        write_result(self.repo_root, job_id, result)
+        try:
+            self._attach_report_files(result, job_id)
+        except Exception:
+            write_result(self.repo_root, job_id, result)
         self._log(f"任务 {job_id} 已写回 results status={result.get('status')}")
         if pending_path is not None:
             self._move_pending_done(pending_path)

@@ -35,8 +35,12 @@ def run_once_job(
     execution_mode: str = "",
     repo_root=None,
 ) -> None:
-    job_id = int(job["id"])
+    # 协议 experid 与兼容 id
+    raw_id = job.get("experid") or job.get("id")
+    job_id = int(raw_id)
     test_type = job.get("testType") or ""
+    if job.get("pythonid"):
+        client.pythonid = str(job.get("pythonid") or client.pythonid)
     holder = mutex.is_held_by_other("agent")
     if holder:
         logger.warning("本机锁被 %s 占用，拒绝任务 %s", holder, job_id)
@@ -140,11 +144,14 @@ def main(argv: Optional[list] = None) -> int:
         owner = str((data or {}).get("owner") or "")
         agent_busy = owner == "agent"
         try:
-            client.heartbeat(
+            hb = client.heartbeat(
                 agent_version=cfg.agent_version,
                 host_name=host,
                 busy=agent_busy,
             )
+            data_hb = hb.get("data") if isinstance(hb, dict) else None
+            if isinstance(data_hb, dict) and data_hb.get("pythonid"):
+                client.pythonid = str(data_hb.get("pythonid") or "")
         except Exception as exc:
             logger.warning("心跳失败: %s", exc)
             time.sleep(interval)
@@ -168,8 +175,8 @@ def main(argv: Optional[list] = None) -> int:
 
         if job:
             logger.info(
-                "领取任务 id=%s type=%s title=%s",
-                job.get("id"),
+                "领取任务 experid=%s type=%s title=%s",
+                job.get("experid") or job.get("id"),
                 job.get("testType"),
                 job.get("title"),
             )
