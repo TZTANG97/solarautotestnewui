@@ -24,4 +24,4 @@ handoff 示例参数：
 
 - `auto_start=true` 时默认等「已结束/已中止」再写 results；等待期间写 `iot_job_inbox/progress/`，Agent 会上报云端进度
 - 调试可设 `"wait_finish":false` 启动后立即回传
-- 可选：`start_grace_sec`、`wait_finish_timeout_sec`
+- 结案后自动上传 `iot_job_inbox/results/job_*.json`、`status.json`，以及结果里列出的 `report_files`

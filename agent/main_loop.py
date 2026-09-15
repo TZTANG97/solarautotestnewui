@@ -74,14 +74,28 @@ def run_once_job(
             except Exception as exc:
                 logger.warning("progress 上报失败: %s", exc)
 
+        from pathlib import Path as _Path
+
+        root = _Path(repo_root) if repo_root else _Path(__file__).resolve().parent.parent
         result = runner.run(job, on_progress)
         client.done(
             job_id,
             status=result.get("status") or "failed",
             fail_reason=result.get("fail_reason") or "",
             result_summary=result.get("result_summary"),
-            report_meta=result.get("report_meta"),
+            report_meta=None,
         )
+        try:
+            from agent.reports import collect_report_files
+
+            for path in collect_report_files(root, job_id, result):
+                try:
+                    client.upload_report(job_id, str(path))
+                    logger.info("已上传报告 %s", path.name)
+                except Exception as exc:
+                    logger.warning("上传报告失败 %s: %s", path, exc)
+        except Exception as exc:
+            logger.warning("收集报告失败: %s", exc)
         logger.info("任务 %s 结案: %s", job_id, result.get("status"))
     except Exception as exc:
         logger.error("任务 %s 异常: %s\n%s", job_id, exc, traceback.format_exc())

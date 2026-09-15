@@ -81,15 +81,17 @@ class IotSolarClient:
         result_summary: Optional[dict] = None,
         report_meta: Optional[list] = None,
     ) -> Dict[str, Any]:
+        body: Dict[str, Any] = {
+            "status": status,
+            "failReason": fail_reason,
+            "resultSummary": result_summary or {},
+        }
+        if report_meta:
+            body["reportMeta"] = report_meta
         return self._request(
             "POST",
             f"/api/solar-autotest/agent/jobs/{job_id}/done",
-            {
-                "status": status,
-                "failReason": fail_reason,
-                "resultSummary": result_summary or {},
-                "reportMeta": report_meta or [],
-            },
+            body,
         )
 
     def reject(self, job_id: int, reason: str) -> Dict[str, Any]:
