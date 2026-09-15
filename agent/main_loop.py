@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import signal
 import socket
 import sys
+import threading
 import time
 import traceback
 from typing import Optional
@@ -18,6 +20,10 @@ from agent.runners import get_runner
 
 logger = logging.getLogger("solar.agent")
 
+# 当前执行中的任务；进程退出时尽量结案，避免云端永久 running
+_current_job_id: Optional[int] = None
+_client_ref: Optional[IotSolarClient] = None
+
 
 def _setup_log() -> None:
     logging.basicConfig(
@@ -27,6 +33,20 @@ def _setup_log() -> None:
     )
 
 
+def _abort_current_on_exit(reason: str) -> None:
+    global _current_job_id
+    job_id = _current_job_id
+    client = _client_ref
+    if not job_id or not client:
+        return
+    try:
+        client.done(job_id, status="aborted", fail_reason=reason[:500])
+        logger.info("退出前已结案任务 %s: %s", job_id, reason)
+    except Exception as exc:
+        logger.warning("退出前结案失败 job=%s: %s", job_id, exc)
+    _current_job_id = None
+
+
 def run_once_job(
     client: IotSolarClient,
     mutex: LocalMutex,
@@ -34,7 +54,12 @@ def run_once_job(
     dry_run: bool = True,
     execution_mode: str = "",
     repo_root=None,
+    *,
+    agent_version: str = "",
+    host_name: str = "",
+    heartbeat_interval_sec: float = 15.0,
 ) -> None:
+    global _current_job_id
     # 协议 experid 与兼容 id
     raw_id = job.get("experid") or job.get("id")
     job_id = int(raw_id)
@@ -50,12 +75,30 @@ def run_once_job(
         client.reject(job_id, reason="busy_local")
         return
     released_early = {"ok": False}
+    _current_job_id = job_id
 
     def _release_for_ui() -> None:
         if not released_early["ok"]:
             mutex.release("agent")
             released_early["ok"] = True
             logger.info("handoff：已提前释放 agent 锁，供 UI 执行")
+
+    # handoff 等待期间主循环被堵住，单独线程续心跳，避免云端误判离线又卡住任务
+    stop_hb = threading.Event()
+
+    def _hb_while_job() -> None:
+        while not stop_hb.wait(max(5.0, float(heartbeat_interval_sec))):
+            try:
+                client.heartbeat(
+                    agent_version=agent_version,
+                    host_name=host_name,
+                    busy=True,
+                )
+            except Exception as exc:
+                logger.warning("任务中心跳失败: %s", exc)
+
+    hb_thread = threading.Thread(target=_hb_while_job, name="solar-agent-hb", daemon=True)
+    hb_thread.start()
 
     try:
         runner = get_runner(
@@ -108,11 +151,14 @@ def run_once_job(
         except Exception:
             pass
     finally:
+        stop_hb.set()
+        _current_job_id = None
         if not released_early["ok"]:
             mutex.release("agent")
 
 
 def main(argv: Optional[list] = None) -> int:
+    global _client_ref
     _setup_log()
     parser = argparse.ArgumentParser(description="Solar AutoTest IOT Agent（独立进程）")
     parser.add_argument("--config", default="", help="配置文件路径，默认 config/solar_agent.json")
@@ -128,8 +174,23 @@ def main(argv: Optional[list] = None) -> int:
         return 2
 
     client = IotSolarClient(cfg.iot_base, cfg.agent_token)
+    _client_ref = client
     mutex = LocalMutex(cfg.mutex_file)
     host = socket.gethostname()
+
+    def _on_signal(signum, _frame):
+        logger.warning("收到信号 %s，准备退出并结案当前任务", signum)
+        _abort_current_on_exit(f"Agent 进程收到信号 {signum} 退出")
+        raise SystemExit(0)
+
+    for sig in (getattr(signal, "SIGINT", None), getattr(signal, "SIGTERM", None)):
+        if sig is None:
+            continue
+        try:
+            signal.signal(sig, _on_signal)
+        except Exception:
+            pass
+
     logger.info(
         "Solar Agent 启动 base=%s mode=%s version=%s host=%s",
         cfg.iot_base,
@@ -186,6 +247,9 @@ def main(argv: Optional[list] = None) -> int:
                 job,
                 dry_run=cfg.dry_run,
                 execution_mode=cfg.resolved_execution_mode,
+                agent_version=cfg.agent_version,
+                host_name=host,
+                heartbeat_interval_sec=float(cfg.heartbeat_interval_sec or 15),
             )
 
         time.sleep(interval)
