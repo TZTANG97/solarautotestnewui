@@ -16,5 +16,12 @@
 ## 模式
 
 - 默认 `dry_run: true`：联调模拟进度  
-- `execution_mode: handoff`：落盘给已打开的桌面 UI 追加命令  
+- `execution_mode: handoff`：落盘给已打开的桌面 UI；参数可含 `auto_append` / `auto_start`（true 时 Append 后调「开始试验」）  
 - `live`：尚未实现  
+
+handoff 示例参数：
+`{"widgets":{"textEdit_S1_AC_VOLT":"230"},"auto_append":true,"auto_start":true}`
+
+- `auto_start=true` 时默认 `wait_finish=true`：等桌面状态变为「已结束/已中止」再写 results（Agent 才结案）
+- 调试可设 `"wait_finish":false` 启动后立即回传
+- 可选：`start_grace_sec`（未进入「进行中」判失败，默认 20）、`wait_finish_timeout_sec`（默认 7200）

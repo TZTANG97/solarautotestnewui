@@ -3,11 +3,13 @@
 IOT 云任务 → 桌面 UI handoff。
 
 Agent（execution_mode=handoff）把任务写入 iot_job_inbox/pending/，
-本模块在主界面定时扫描：应用参数 → 调用过载 Append → 写回 results/。
+本模块在主界面定时扫描：应用参数 → 调用过载 Append →（可选）开始试验 →
+等试验结束再写回 results/。
 """
 from __future__ import annotations
 
 import json
+import time
 import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
@@ -93,6 +95,8 @@ class IotUiHandoffService(QObject):
         repo_root: Optional[Path] = None,
         resolve_overload_ui: Optional[Callable[[], Any]] = None,
         overload_append: Optional[Callable[[], None]] = None,
+        start_test: Optional[Callable[[], None]] = None,
+        get_run_status: Optional[Callable[[], str]] = None,
         log: Optional[Callable[[str], None]] = None,
         interval_ms: int = 3000,
         parent=None,
@@ -101,8 +105,11 @@ class IotUiHandoffService(QObject):
         self.repo_root = Path(repo_root) if repo_root else _repo_root()
         self.resolve_overload_ui = resolve_overload_ui
         self.overload_append = overload_append
+        self.start_test = start_test
+        self.get_run_status = get_run_status
         self._log = log or (lambda m: print(f"[IOT-handoff] {m}", flush=True))
         self._busy = False
+        self._awaiting: Optional[Dict[str, Any]] = None
         self._timer = QTimer(self)
         self._timer.setInterval(max(1000, int(interval_ms)))
         self._timer.timeout.connect(self.poll_once)
@@ -115,6 +122,9 @@ class IotUiHandoffService(QObject):
         self._timer.stop()
 
     def poll_once(self) -> None:
+        if self._awaiting:
+            self._check_awaiting_finish()
+            return
         if self._busy:
             return
         pending_dir = self.repo_root / "iot_job_inbox" / "pending"
@@ -141,8 +151,154 @@ class IotUiHandoffService(QObject):
             try:
                 self._handle_job(job, path)
             finally:
-                self._busy = False
+                if not self._awaiting:
+                    self._busy = False
             break  # 一次只处理一个
+
+    def _read_run_status(self) -> str:
+        if not self.get_run_status:
+            return ""
+        try:
+            return str(self.get_run_status() or "").strip()
+        except Exception as exc:
+            self._log(f"读取试验状态失败: {exc}")
+            return ""
+
+    def _move_pending_done(self, pending_path: Path) -> None:
+        try:
+            done_dir = self.repo_root / "iot_job_inbox" / "done"
+            done_dir.mkdir(parents=True, exist_ok=True)
+            pending_path.replace(done_dir / pending_path.name)
+        except OSError:
+            pass
+
+    def _finish_job(
+        self,
+        *,
+        job_id: int,
+        pending_path: Optional[Path],
+        result: Dict[str, Any],
+        release_ui: bool = True,
+    ) -> None:
+        from agent.job_inbox import write_result
+        from agent.ui_mutex import ui_release
+
+        write_result(self.repo_root, job_id, result)
+        self._log(f"任务 {job_id} 已写回 results status={result.get('status')}")
+        if pending_path is not None:
+            self._move_pending_done(pending_path)
+        self._awaiting = None
+        self._busy = False
+        if release_ui:
+            ui_release(repo_root=self.repo_root)
+
+    def _check_awaiting_finish(self) -> None:
+        aw = self._awaiting
+        if not aw:
+            return
+        job_id = int(aw["job_id"])
+        pending_path = aw.get("pending_path")
+        now = time.time()
+        elapsed = now - float(aw.get("started_at") or now)
+        status = self._read_run_status()
+        start_grace = float(aw.get("start_grace_sec") or 20)
+        timeout = float(aw.get("timeout_sec") or 7200)
+
+        if status == "进行中":
+            if not aw.get("seen_running"):
+                aw["seen_running"] = True
+                self._log(f"任务 {job_id} 已进入进行中")
+            return
+
+        if status == "已结束":
+            if not aw.get("seen_running") and elapsed < start_grace:
+                # 可能仍是上一轮残留状态，再等片刻看是否进入「进行中」
+                return
+            self._finish_job(
+                job_id=job_id,
+                pending_path=pending_path,
+                result={
+                    "status": "success",
+                    "fail_reason": "",
+                    "result_summary": {
+                        "handoff": True,
+                        "appended": aw.get("appended"),
+                        "started": True,
+                        "waited_finish": True,
+                        "run_status": status,
+                        "elapsed_sec": round(elapsed, 1),
+                        "missingWidgets": aw.get("missing") or [],
+                        "note": "试验已正常结束并回传",
+                    },
+                    "report_meta": [],
+                },
+            )
+            return
+
+        if status in ("已中止", "失败"):
+            if not aw.get("seen_running") and elapsed < start_grace:
+                return
+            self._finish_job(
+                job_id=job_id,
+                pending_path=pending_path,
+                result={
+                    "status": "aborted" if status == "已中止" else "failed",
+                    "fail_reason": f"试验状态={status}",
+                    "result_summary": {
+                        "handoff": True,
+                        "appended": aw.get("appended"),
+                        "started": bool(aw.get("seen_running")),
+                        "waited_finish": True,
+                        "run_status": status,
+                        "elapsed_sec": round(elapsed, 1),
+                        "missingWidgets": aw.get("missing") or [],
+                    },
+                    "report_meta": [],
+                },
+            )
+            return
+
+        if not aw.get("seen_running") and elapsed >= start_grace:
+            self._finish_job(
+                job_id=job_id,
+                pending_path=pending_path,
+                result={
+                    "status": "failed",
+                    "fail_reason": (
+                        f"开始试验后 {int(start_grace)}s 内未进入「进行中」"
+                        f"（当前状态={status or '空'}），可能启动被拦截"
+                    ),
+                    "result_summary": {
+                        "handoff": True,
+                        "appended": aw.get("appended"),
+                        "started": False,
+                        "waited_finish": True,
+                        "run_status": status,
+                        "missingWidgets": aw.get("missing") or [],
+                    },
+                    "report_meta": [],
+                },
+            )
+            return
+
+        if elapsed >= timeout:
+            self._finish_job(
+                job_id=job_id,
+                pending_path=pending_path,
+                result={
+                    "status": "failed",
+                    "fail_reason": f"等待试验结束超时（{int(timeout)}s），当前状态={status or '空'}",
+                    "result_summary": {
+                        "handoff": True,
+                        "appended": aw.get("appended"),
+                        "started": bool(aw.get("seen_running")),
+                        "waited_finish": True,
+                        "run_status": status,
+                        "missingWidgets": aw.get("missing") or [],
+                    },
+                    "report_meta": [],
+                },
+            )
 
     def _handle_job(self, job: dict, pending_path: Path) -> None:
         from agent.job_inbox import write_result
@@ -166,6 +322,7 @@ class IotUiHandoffService(QObject):
                         "fail_reason": f"UI handoff 暂不支持 testType={test_type}",
                     },
                 )
+                self._move_pending_done(pending_path)
                 return
 
             ui_obj = self.resolve_overload_ui() if self.resolve_overload_ui else None
@@ -175,6 +332,7 @@ class IotUiHandoffService(QObject):
                     job_id,
                     {"status": "failed", "fail_reason": "过载 UI 未就绪"},
                 )
+                self._move_pending_done(pending_path)
                 return
 
             # 强制 LazyDialog 创建
@@ -199,7 +357,16 @@ class IotUiHandoffService(QObject):
                 widgets = {
                     k: v
                     for k, v in widgets.items()
-                    if k not in ("e2e", "auto_append", "auto_start", "settings_csv", "widgets")
+                    if k not in (
+                        "e2e",
+                        "auto_append",
+                        "auto_start",
+                        "wait_finish",
+                        "wait_finish_timeout_sec",
+                        "start_grace_sec",
+                        "settings_csv",
+                        "widgets",
+                    )
                     and not str(k).startswith("_")
                 }
 
@@ -210,12 +377,60 @@ class IotUiHandoffService(QObject):
             auto_append = True
             if isinstance(params, dict) and "auto_append" in params:
                 auto_append = bool(params.get("auto_append"))
+            auto_start = False
+            if isinstance(params, dict) and "auto_start" in params:
+                auto_start = bool(params.get("auto_start"))
+            wait_finish = True
+            if isinstance(params, dict) and "wait_finish" in params:
+                wait_finish = bool(params.get("wait_finish"))
 
             appended = False
             if auto_append and self.overload_append:
                 self.overload_append()
                 appended = True
                 self._log("已调用 thaioverloadsAppend")
+
+            if auto_start:
+                if not self.start_test:
+                    write_result(
+                        self.repo_root,
+                        job_id,
+                        {
+                            "status": "failed",
+                            "fail_reason": "auto_start=true 但未绑定开始试验回调",
+                            "result_summary": {"appended": appended},
+                        },
+                    )
+                    self._move_pending_done(pending_path)
+                    return
+                self.start_test()
+                self._log("已调用开始试验 RunProjectPush")
+
+                if wait_finish:
+                    timeout_sec = 7200.0
+                    start_grace_sec = 20.0
+                    if isinstance(params, dict):
+                        if params.get("wait_finish_timeout_sec") is not None:
+                            timeout_sec = float(params.get("wait_finish_timeout_sec"))
+                        if params.get("start_grace_sec") is not None:
+                            start_grace_sec = float(params.get("start_grace_sec"))
+                    self._awaiting = {
+                        "job_id": job_id,
+                        "pending_path": pending_path,
+                        "appended": appended,
+                        "missing": missing,
+                        "started_at": time.time(),
+                        "seen_running": False,
+                        "timeout_sec": timeout_sec,
+                        "start_grace_sec": start_grace_sec,
+                    }
+                    self._log(
+                        f"任务 {job_id} 等待试验结束（timeout={int(timeout_sec)}s，"
+                        f"start_grace={int(start_grace_sec)}s）"
+                    )
+                    # 立刻检查一次（短试验 / 单测模拟）
+                    self._check_awaiting_finish()
+                    return
 
             write_result(
                 self.repo_root,
@@ -226,22 +441,23 @@ class IotUiHandoffService(QObject):
                     "result_summary": {
                         "handoff": True,
                         "appended": appended,
+                        "started": bool(auto_start),
+                        "waited_finish": False,
                         "missingWidgets": missing,
-                        "note": "已应用参数并追加命令；完整启停试验可后续扩展 auto_start",
+                        "note": (
+                            "已追加并启动试验（未等待结束，wait_finish=false）"
+                            if auto_start
+                            else "已应用参数并追加命令；params.auto_start=true 时可自动开始试验"
+                        ),
                     },
                     "report_meta": [],
                 },
             )
             self._log(f"任务 {job_id} 已写回 results")
-            # 可选：处理完移动 pending
-            try:
-                done_dir = self.repo_root / "iot_job_inbox" / "done"
-                done_dir.mkdir(parents=True, exist_ok=True)
-                pending_path.replace(done_dir / pending_path.name)
-            except OSError:
-                pass
+            self._move_pending_done(pending_path)
         except Exception as exc:
             self._log(f"处理失败: {exc}\n{traceback.format_exc()}")
+            self._awaiting = None
             try:
                 write_result(
                     self.repo_root,
@@ -251,19 +467,24 @@ class IotUiHandoffService(QObject):
             except Exception:
                 pass
         finally:
-            ui_release(repo_root=self.repo_root)
+            if not self._awaiting:
+                ui_release(repo_root=self.repo_root)
 
 
 def start_iot_ui_handoff_from_main(
     *,
     resolve_overload_ui: Callable[[], Any],
     overload_append: Callable[[], None],
+    start_test: Optional[Callable[[], None]] = None,
+    get_run_status: Optional[Callable[[], str]] = None,
     log: Optional[Callable[[str], None]] = None,
     parent=None,
 ) -> IotUiHandoffService:
     svc = IotUiHandoffService(
         resolve_overload_ui=resolve_overload_ui,
         overload_append=overload_append,
+        start_test=start_test,
+        get_run_status=get_run_status,
         log=log,
         parent=parent,
     )

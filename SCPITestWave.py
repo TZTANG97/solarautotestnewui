@@ -30882,9 +30882,17 @@ if __name__ == "__main__":
                 def _resolve_overload_ui():
                     return globals().get("uiThaiOverLoads")
 
+                def _iot_get_run_status():
+                    try:
+                        return str((_run_progress_state or {}).get("status") or "")
+                    except Exception:
+                        return ""
+
                 start_iot_ui_handoff_from_main(
                     resolve_overload_ui=_resolve_overload_ui,
                     overload_append=thaioverloadsAppend,
+                    start_test=RunProjectPush,
+                    get_run_status=_iot_get_run_status,
                     log=_iot_log,
                     parent=main_window,
                 )

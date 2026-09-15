@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-"""handoff：pending →（模拟 UI）→ results → Agent wait_result。"""
+"""handoff：pending → Append/Start → 等结束 → results → Agent wait_result。"""
 from __future__ import annotations
 
-import json
 import sys
 import threading
 import time
@@ -11,7 +10,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from agent.job_inbox import wait_result, write_pending_job
 from agent.runners.overload import OverloadRunner
 from utils.iot_ui_handoff import IotUiHandoffService
 
@@ -24,16 +22,23 @@ def test_handoff_roundtrip(tmp_path: Path | None = None) -> None:
         shutil.rmtree(root, ignore_errors=True)
     root.mkdir(parents=True, exist_ok=True)
 
-    # 把 inbox 建在 root 下：修改 OverloadRunner repo_root
     job = {
         "id": 9001,
         "testType": "overload",
         "title": "handoff-unit",
-        "params": {"widgets": {}, "auto_append": True, "e2e": True},
+        "params": {
+            "widgets": {},
+            "auto_append": True,
+            "auto_start": True,
+            "start_grace_sec": 2,
+            "wait_finish_timeout_sec": 30,
+            "e2e": True,
+        },
     }
-    write_pending_job(root, job)
 
     released = {"ok": False}
+    started = {"ok": False}
+    run_status = {"v": "未开始"}
 
     def release():
         released["ok"] = True
@@ -47,24 +52,32 @@ def test_handoff_roundtrip(tmp_path: Path | None = None) -> None:
         progress.append((p, t, s))
 
     def ui_side():
-        time.sleep(0.5)
+        time.sleep(0.4)
         svc = IotUiHandoffService(
             repo_root=root,
             resolve_overload_ui=lambda: type("U", (), {})(),
             overload_append=lambda: None,
+            start_test=lambda: started.__setitem__("ok", True) or run_status.__setitem__("v", "进行中"),
+            get_run_status=lambda: run_status["v"],
             log=lambda m: print("ui:", m),
-            interval_ms=500,
+            interval_ms=200,
         )
-        # 直接处理一次，不启 timer
+        svc.poll_once()
+        # 模拟试验跑一会后结束
+        time.sleep(0.3)
+        run_status["v"] = "已结束"
         svc.poll_once()
 
     th = threading.Thread(target=ui_side, daemon=True)
     th.start()
     result = runner.run(job, on_progress)
-    th.join(timeout=10)
+    th.join(timeout=15)
     assert released["ok"], "应释放 agent 锁"
+    assert started["ok"], "auto_start=true 时应调用开始试验"
     assert result["status"] == "success", result
-    print("handoff unit PASS", result.get("result_summary"))
+    summary = result.get("result_summary") or {}
+    assert summary.get("waited_finish") is True, summary
+    print("handoff unit PASS", summary)
 
 
 if __name__ == "__main__":
