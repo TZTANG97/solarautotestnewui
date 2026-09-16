@@ -66,8 +66,8 @@ class IotSolarClient:
         data = res.get("data")
         if not data:
             return None
-        # 协议 startexper：experid 为主；兼容 id
-        if "experid" in data and "id" not in data:
+        # 协议 startexper：id=solar_jobs 主键（HTTPS）；experid 可为实验 id
+        if "id" not in data and "experid" in data:
             try:
                 data = dict(data)
                 data["id"] = int(data["experid"])

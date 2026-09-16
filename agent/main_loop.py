@@ -61,8 +61,10 @@ def run_once_job(
     heartbeat_interval_sec: float = 15.0,
 ) -> None:
     global _current_job_id
-    # 协议 experid 与兼容 id
-    raw_id = job.get("experid") or job.get("id")
+    # HTTPS 任务主键用 id；协议 experid 可为 experiments.id（与 id 不同）
+    raw_id = job.get("id")
+    if raw_id is None:
+        raw_id = job.get("experid")
     job_id = int(raw_id)
     test_type = job.get("testType") or ""
     if job.get("pythonid"):
