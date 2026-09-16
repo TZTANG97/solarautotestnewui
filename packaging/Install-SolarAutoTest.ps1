@@ -85,6 +85,9 @@ function Copy-AppFiles([string]$Source, [string]$Destination) {
     if (-not (Test-Path (Join-Path $Destination "uv.lock"))) {
         throw "Missing uv.lock after copy"
     }
+    # Install excludes command_save_files (runtime data); create empty dirs for first append.
+    Ensure-Directory (Join-Path $Destination "command_save_files\command_data")
+    Ensure-Directory (Join-Path $Destination "command_save_files\dewetron_data")
     Write-Ok "App files copied"
 }
 
@@ -181,8 +184,7 @@ function Write-Launcher([string]$InstallRoot) {
         "",
         "REM LAN auto-update (before app starts, so files are not locked)",
         "if exist `"%~dp0Check-And-Update.ps1`" (",
-        "    echo Checking for updates...",
-        "    powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%~dp0Check-And-Update.ps1`" -InstallDir `"%CD%`"",
+        "    powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"%~dp0Check-And-Update.ps1`" -InstallDir `"%CD%`"",
         ")",
         "",
         "set `"LOCAL_ROOT=%LOCALAPPDATA%\SolarAutoTestRuntime`"",
@@ -350,10 +352,21 @@ if ($isUpgrade) {
 $oldLockHash = Get-FileHashSafe (Join-Path $InstallDir "uv.lock")
 
 Ensure-Directory $InstallDir
+
+# 升级前备份本机身份，避免被安装包 config 覆盖后当成「新电脑」又要重新添加
+$configDir = Join-Path $InstallDir "config"
+$identityBackup = Join-Path $env:TEMP ("SolarAutoTest-identity-" + [guid]::NewGuid().ToString())
+Ensure-Directory $identityBackup
+foreach ($name in @("solar_machine_id", "solar_agent.json")) {
+    $srcId = Join-Path $configDir $name
+    if (Test-Path $srcId) {
+        Copy-Item -Force $srcId (Join-Path $identityBackup $name)
+    }
+}
+
 Copy-AppFiles -Source $source -Destination $InstallDir
 
 # 正式 IOT 地址：每次安装/升级用安装包内 example 覆盖 iot_bootstrap.json
-$configDir = Join-Path $InstallDir "config"
 $bootPath = Join-Path $configDir "iot_bootstrap.json"
 $bootExample = Join-Path $configDir "iot_bootstrap.example.json"
 if (Test-Path $bootExample) {
@@ -361,6 +374,17 @@ if (Test-Path $bootExample) {
     Copy-Item -Force $bootExample $bootPath
     Write-Ok "Updated config\iot_bootstrap.json (formal IOT address from package)"
 }
+
+# 还原本机 machineId / 令牌（只还原升级前已有的文件）
+foreach ($name in @("solar_machine_id", "solar_agent.json")) {
+    $bak = Join-Path $identityBackup $name
+    if (Test-Path $bak) {
+        Ensure-Directory $configDir
+        Copy-Item -Force $bak (Join-Path $configDir $name)
+        Write-Ok ("Restored config\" + $name + " (keep same bench identity)")
+    }
+}
+Remove-Item -Recurse -Force $identityBackup -ErrorAction SilentlyContinue
 
 # Persist version into install root (package root VERSION wins)
 $verSrc = Join-Path $packageRoot "VERSION"

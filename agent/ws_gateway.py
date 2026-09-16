@@ -40,15 +40,26 @@ def iot_base_to_ws_url(iot_base: str) -> str:
     return f"{scheme}://{netloc}{path}"
 
 
+def _solar_equipment_codes(machine_id: str, host_name: str = "") -> tuple[str, str, str]:
+    """与 IOT solar_equipment_naming 对齐：型号 SolarBench / 序列号 SAT-主机-短码 / 设备ID SolarBenchStyle…"""
+    import re
+
+    hx = re.sub(r"[^0-9a-fA-F]", "", (machine_id or "").lower())
+    short8 = (hx[:8] or "LOCAL000").upper()
+    short12 = (hx[:12] or (short8 + "0000")[:12]).upper()
+    host = re.sub(r"[^A-Za-z0-9_-]+", "-", (host_name or "PC").strip()).strip("-_")[:24] or "PC"
+    return "SolarBench", f"SAT-{host}-{short8}"[:64], f"SolarBenchStyle{short12}"[:255]
+
+
 def build_solar_equs(*, pythonid: str, machine_id: str = "", host_name: str = "") -> List[Dict[str, Any]]:
     host = host_name or socket.gethostname()
-    mid = (machine_id or "")[:16] or "local"
+    equ_num, equ_seq, equ_id = _solar_equipment_codes(machine_id or "", host)
     return [
         {
-            "equ_id": f"SOLAR-BENCH-{mid}",
+            "equ_id": equ_id,
             "equ_firm": "SolarAutoTest",
-            "equ_num": "PV-Bench",
-            "equ_seq": mid,
+            "equ_num": equ_num,
+            "equ_seq": equ_seq,
             "equ_name": f"光伏自动化台架-{host}",
             "status": "on",
             "pythonid": pythonid,

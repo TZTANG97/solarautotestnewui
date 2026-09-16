@@ -36,6 +36,22 @@ def config_path() -> Path:
     return _repo_root() / "config" / "solar_agent.json"
 
 
+def _windows_machine_guid() -> str:
+    """本机稳定机器码（重装目录不变则同一台机），避免随机 uuid 导致反复「重新添加」。"""
+    try:
+        import winreg  # type: ignore
+
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography")
+        try:
+            val, _ = winreg.QueryValueEx(key, "MachineGuid")
+        finally:
+            winreg.CloseKey(key)
+        hx = "".join(c for c in str(val) if c.isalnum()).lower()
+        return hx if len(hx) >= 8 else ""
+    except Exception:
+        return ""
+
+
 def ensure_machine_id() -> str:
     path = machine_id_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,7 +59,8 @@ def ensure_machine_id() -> str:
         mid = path.read_text(encoding="utf-8").strip()
         if len(mid) >= 8:
             return mid
-    mid = uuid.uuid4().hex
+    # 已有文件优先；新机用 Windows MachineGuid，保证同机同码
+    mid = _windows_machine_guid() or uuid.uuid4().hex
     path.write_text(mid + "\n", encoding="utf-8")
     return mid
 
