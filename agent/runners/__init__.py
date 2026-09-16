@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from agent.config import _repo_root
 from agent.runners.overload import OverloadRunner
 
 
@@ -19,7 +20,8 @@ def get_runner(
     mode = (execution_mode or "").strip()
     if not mode:
         mode = "dry_run" if dry_run else "live"
-    root = repo_root or Path(__file__).resolve().parent.parent
+    # 必须与 UI handoff / config 同一安装根，勿用 runners/ 的 parent.parent（会落到 agent/）
+    root = Path(repo_root) if repo_root else _repo_root()
     # 一期 handoff：过载 / 防逆流 共用 OverloadRunner（落盘 + 等 UI 结果）
     if tt in (
         "overload",

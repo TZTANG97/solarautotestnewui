@@ -21,8 +21,11 @@ class OverloadRunner:
     def __init__(self, execution_mode: str = "dry_run", repo_root=None):
         from pathlib import Path
 
+        from agent.config import _repo_root
+
         self.execution_mode = (execution_mode or "dry_run").strip().lower()
-        self.repo_root = Path(repo_root) if repo_root else Path(__file__).resolve().parent.parent
+        # 与桌面 UI handoff 共用安装根下的 iot_job_inbox（勿落到 agent/）
+        self.repo_root = Path(repo_root) if repo_root else _repo_root()
         self._release_for_ui = None
 
     def set_release_for_ui(self, callback) -> None:

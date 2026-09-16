@@ -124,7 +124,9 @@ def run_once_job(
 
         from pathlib import Path as _Path
 
-        root = _Path(repo_root) if repo_root else _Path(__file__).resolve().parent.parent
+        from agent.config import _repo_root as _agent_repo_root
+
+        root = _Path(repo_root) if repo_root else _agent_repo_root()
         result = runner.run(job, on_progress)
         client.done(
             job_id,

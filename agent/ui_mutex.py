@@ -9,7 +9,9 @@ from agent.mutex import LocalMutex
 
 
 def default_mutex_path(repo_root: Optional[Path] = None) -> Path:
-    root = repo_root or Path(__file__).resolve().parent.parent
+    from agent.config import _repo_root
+
+    root = Path(repo_root) if repo_root else _repo_root()
     return root / ".solar_agent_mutex"
 
 

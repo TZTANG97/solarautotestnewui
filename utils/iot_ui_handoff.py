@@ -135,11 +135,41 @@ class IotUiHandoffService(QObject):
         self._last_progress_key = None
 
     def start(self) -> None:
-        self._log(f"已启动，监视 {self.repo_root / 'iot_job_inbox' / 'pending'}")
+        watched = " ; ".join(str(d / "pending") for d in self._inbox_dirs())
+        self._log(f"已启动，监视 {watched}")
         self._timer.start()
 
     def stop(self) -> None:
         self._timer.stop()
+
+    def _inbox_dirs(self) -> list:
+        """安装根 iot_job_inbox 优先；兼容旧 Agent 误写到 agent/iot_job_inbox。"""
+        primary = self.repo_root / "iot_job_inbox"
+        legacy = self.repo_root / "agent" / "iot_job_inbox"
+        out = [primary]
+        if legacy.resolve() != primary.resolve():
+            out.append(legacy)
+        return out
+
+    def _write_roots_for(self, pending_path: Optional[Path]) -> list:
+        """结案/进度写入安装根；若 pending 来自旧 agent/ 目录则双写，让旧 Agent wait_result 能收到。"""
+        roots = [self.repo_root]
+        if pending_path is not None:
+            try:
+                parts = set(Path(pending_path).resolve().parts)
+            except OSError:
+                parts = set(Path(pending_path).parts)
+            if "agent" in parts and "iot_job_inbox" in parts:
+                legacy_root = self.repo_root / "agent"
+                if legacy_root.resolve() != self.repo_root.resolve():
+                    roots.append(legacy_root)
+        return roots
+
+    def _write_result_all(self, pending_path: Optional[Path], job_id: int, result: Dict[str, Any]) -> None:
+        from agent.job_inbox import write_result
+
+        for root in self._write_roots_for(pending_path):
+            write_result(root, job_id, result)
 
     def poll_once(self) -> None:
         if self._awaiting:
@@ -147,33 +177,38 @@ class IotUiHandoffService(QObject):
             return
         if self._busy:
             return
-        pending_dir = self.repo_root / "iot_job_inbox" / "pending"
-        if not pending_dir.is_dir():
-            return
-        files = sorted(pending_dir.glob("job_*.json"))
-        if not files:
-            return
-        # 跳过已有结果的
-        for path in files:
-            try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
-            except Exception as exc:
-                self._log(f"读取失败 {path.name}: {exc}")
+        for inbox in self._inbox_dirs():
+            pending_dir = inbox / "pending"
+            if not pending_dir.is_dir():
                 continue
-            job = payload.get("job") or payload
-            job_id = int(job.get("id") or 0)
-            if job_id <= 0:
+            files = sorted(pending_dir.glob("job_*.json"))
+            if not files:
                 continue
-            result_file = self.repo_root / "iot_job_inbox" / "results" / f"job_{job_id}.json"
-            if result_file.is_file():
-                continue
-            self._busy = True
-            try:
-                self._handle_job(job, path)
-            finally:
-                if not self._awaiting:
-                    self._busy = False
-            break  # 一次只处理一个
+            for path in files:
+                try:
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                except Exception as exc:
+                    self._log(f"读取失败 {path.name}: {exc}")
+                    continue
+                job = payload.get("job") or payload
+                job_id = int(job.get("id") or 0)
+                if job_id <= 0:
+                    continue
+                already = False
+                for root in self._write_roots_for(path):
+                    if (root / "iot_job_inbox" / "results" / f"job_{job_id}.json").is_file():
+                        already = True
+                        break
+                if already:
+                    continue
+                self._busy = True
+                try:
+                    self._handle_job(job, path)
+                finally:
+                    if not self._awaiting:
+                        self._busy = False
+                return
+
 
     def _read_run_status(self) -> str:
         if not self.get_run_status:
@@ -206,8 +241,12 @@ class IotUiHandoffService(QObject):
         if not force and key == self._last_progress_key:
             return
         self._last_progress_key = key
+        pending = None
+        if self._awaiting:
+            pending = self._awaiting.get("pending_path")
         try:
-            write_progress(self.repo_root, job_id, percent=percent, text=text, step=step)
+            for root in self._write_roots_for(pending):
+                write_progress(root, job_id, percent=percent, text=text, step=step)
         except Exception as exc:
             self._log(f"写进度失败: {exc}")
 
@@ -252,10 +291,13 @@ class IotUiHandoffService(QObject):
         if not isinstance(summary, dict):
             summary = {}
             result["result_summary"] = summary
-        # 先写结果文件，再收集（collect 会包含 results JSON）
         from agent.job_inbox import write_result
 
-        write_result(self.repo_root, job_id, result)
+        pending = None
+        if self._awaiting:
+            pending = self._awaiting.get("pending_path")
+        for root in self._write_roots_for(pending):
+            write_result(root, job_id, result)
         paths = collect_report_files(self.repo_root, job_id, result)
         listed = []
         for p in paths:
@@ -266,7 +308,8 @@ class IotUiHandoffService(QObject):
         if listed:
             summary["report_files"] = listed
             result["result_summary"] = summary
-            write_result(self.repo_root, job_id, result)
+            for root in self._write_roots_for(pending):
+                write_result(root, job_id, result)
 
     def _finish_job(
         self,
@@ -282,7 +325,8 @@ class IotUiHandoffService(QObject):
         try:
             self._attach_report_files(result, job_id)
         except Exception:
-            write_result(self.repo_root, job_id, result)
+            for root in self._write_roots_for(pending_path):
+                write_result(root, job_id, result)
         self._log(f"任务 {job_id} 已写回 results status={result.get('status')}")
         if pending_path is not None:
             self._move_pending_done(pending_path)
@@ -415,8 +459,8 @@ class IotUiHandoffService(QObject):
         try:
             handler = self._resolve_handler(test_type)
             if not handler:
-                write_result(
-                    self.repo_root,
+                self._write_result_all(
+                    pending_path,
                     job_id,
                     {
                         "status": "failed",
@@ -435,8 +479,8 @@ class IotUiHandoffService(QObject):
             resolve_ui = handler.get("resolve_ui")
             ui_obj = resolve_ui() if resolve_ui else None
             if ui_obj is None:
-                write_result(
-                    self.repo_root,
+                self._write_result_all(
+                    pending_path,
                     job_id,
                     {"status": "failed", "fail_reason": f"{handler['label']} UI 未就绪"},
                 )
@@ -501,8 +545,8 @@ class IotUiHandoffService(QObject):
 
             if auto_start:
                 if not self.start_test:
-                    write_result(
-                        self.repo_root,
+                    self._write_result_all(
+                        pending_path,
                         job_id,
                         {
                             "status": "failed",
@@ -543,8 +587,8 @@ class IotUiHandoffService(QObject):
                     self._check_awaiting_finish()
                     return
 
-            write_result(
-                self.repo_root,
+            self._write_result_all(
+                pending_path,
                 job_id,
                 {
                     "status": "success",
@@ -570,8 +614,8 @@ class IotUiHandoffService(QObject):
             self._log(f"处理失败: {exc}\n{traceback.format_exc()}")
             self._awaiting = None
             try:
-                write_result(
-                    self.repo_root,
+                self._write_result_all(
+                    pending_path,
                     job_id,
                     {"status": "failed", "fail_reason": str(exc)[:500]},
                 )
