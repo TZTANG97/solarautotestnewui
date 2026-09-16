@@ -55,7 +55,7 @@ from Dialog_thaiqianpinshengzai import Ui_Dialog_thaiqianpinshengzai
 from Dialog_thaitestPU import Ui_Dialog_thaitestPU
 from Dialog_thaiWT3000_Setting import Ui_Dialog_thai_WT3000_Setting
 from enums.wt_auto_enums import (CELLS_COORD_WT1800, CELLS_COORD_WT1806E, CELLS_COORD_WT3000, CELLS_COORD_WT5000,
-                                 START_AND_STOP_COORD, DC_STATIC_MPPT_TEST,
+                                 START_AND_STOP_COORD, START_AND_STOP_ALIASES, DC_STATIC_MPPT_TEST,
                                  INTEGRAL_COORD)
 from ui_files.SCPI_Test import Ui_Dialog
 from utils import (Open_Save_ThaiChongLian, Open_Save_ThaiDianYaShanBian,
@@ -2608,6 +2608,13 @@ def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
         pass
 
     try:
+        from utils.iot_auto_connect import remember_slot_for_resource
+
+        remember_slot_for_resource(getattr(dev, "resource", "") or addr, slot)
+    except Exception:
+        pass
+
+    try:
         ui.textEdit_ReturnMessage.append(
             f"[设备发现] 连接 {slot} → {target} {addr or getattr(dev, 'resource', '')}"
         )
@@ -3233,6 +3240,22 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
 
             mode = MODE_CONTINUOUS if continuous else _MODE_SPLIT
             recommended = recommended_reconnect_names(project_ui, mode)
+            if recommended:
+                file_names = list(recommended)
+        except Exception:
+            pass
+    if project_name == "谐波电流" and project_ui is not None:
+        try:
+            from utils.wt_recording_mode import (
+                MODE_SPLIT as _MODE_SPLIT,
+                collect_harmonic_power_percents,
+                harmonic_recommended_filenames,
+            )
+
+            mode = MODE_CONTINUOUS if continuous else _MODE_SPLIT
+            recommended = harmonic_recommended_filenames(
+                collect_harmonic_power_percents(project_ui), mode
+            )
             if recommended:
                 file_names = list(recommended)
         except Exception:
@@ -6908,7 +6931,10 @@ def thaixiebodianliuSend():
         total_save_file = 0
         test_program = []
 
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1') or (
+        # 同项目再次追加也要换文件名，否则会盖掉上一轮 Harmonic_P*
+        strAddTestFlag == "1" and not is_dewetron
+    ):
         if not is_dewetron:
             if uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked():
                 page = uiThaiXieBoDianLiu._wtStacked.widget(0)
@@ -6922,6 +6948,42 @@ def thaixiebodianliuSend():
             elif uiThaiXieBoDianLiu.radioButton_S2_WT5000.isChecked():
                 page = uiThaiXieBoDianLiu._wtStacked.widget(3)
                 wt_config_dict = WT5000_params_config(_PageWidgetFinder(page))
+
+            from utils.wt_recording_mode import (
+                apply_filename_list_to_wt_pages,
+                combo_index_to_mode,
+                collect_harmonic_power_percents,
+                harmonic_recommended_filenames,
+                previous_wt_filename_list,
+            )
+            _rec_mode = combo_index_to_mode(
+                uiThaiXieBoDianLiu.comboBox_S3_record_mode.currentIndex()
+            )
+            # 每轮追加带时分秒后缀；结束试验清零计数后再追加也不会盖文件
+            _run_tag = time.strftime("%H%M%S")
+            file_names = harmonic_recommended_filenames(
+                collect_harmonic_power_percents(uiThaiXieBoDianLiu),
+                _rec_mode,
+                run_tag=_run_tag,
+            )
+            if strAddTestFlag == "1":
+                prev_names = previous_wt_filename_list(strArrayTest)
+                if prev_names:
+                    file_names = list(prev_names) + list(file_names)
+            apply_filename_list_to_wt_pages(uiThaiXieBoDianLiu._wtStacked, file_names)
+            if file_names:
+                file_list_text = ",".join(file_names)
+                wt_config_dict["textEdit_FileNameList"] = file_list_text
+                if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
+                    wt_config_dict["comboBox_AutoSave"] = 1
+                try:
+                    for page_idx in range(uiThaiXieBoDianLiu._wtStacked.count()):
+                        page = uiThaiXieBoDianLiu._wtStacked.widget(page_idx)
+                        te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                        if te is not None:
+                            te.setPlainText(file_list_text)
+                except Exception as e:
+                    _append_debug_log(f"[谐波] update WT FileNameList failed: {e}")
 
             strArraySingle = ["" for _ in range(10)]
             S1Command = wt_config_dict
@@ -6993,7 +7055,6 @@ def thaixiebodianliuSend():
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
 
-        DC_PF_VALUE_LIST = []
         # DC1
         if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked():
             S1DC1Vmp = uiThaiXieBoDianLiu.textEdit_S1_DC1_VOLT.toPlainText()
@@ -7001,7 +7062,6 @@ def thaixiebodianliuSend():
             S1DC1Voc = uiThaiXieBoDianLiu.textEdit_S1_DC1_Voc.toPlainText()
             S1DC1Isc = uiThaiXieBoDianLiu.textEdit_S1_DC1_Isc.toPlainText()
             S1DC1PF = uiThaiXieBoDianLiu.textEdit_S1_DC1_PF.toPlainText()
-            DC_PF_VALUE_LIST.append(S1DC1PF)
             a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S1DC1PF, 0)
             if a == "1":
                 dc_error_messages.append("DC电源1赋值错误,请重新输入")
@@ -7052,7 +7112,6 @@ def thaixiebodianliuSend():
             S1DC2Voc = uiThaiXieBoDianLiu.textEdit_S1_DC2_Voc.toPlainText()
             S1DC2Isc = uiThaiXieBoDianLiu.textEdit_S1_DC2_Isc.toPlainText()
             S1DC2PF = uiThaiXieBoDianLiu.textEdit_S1_DC2_PF.toPlainText()
-            DC_PF_VALUE_LIST.append(S1DC2PF)
             a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S1DC2PF, 1)
             if a == "1":
                 dc_error_messages.append("DC电源2赋值错误,请重新输入")
@@ -7092,7 +7151,6 @@ def thaixiebodianliuSend():
             S1DC3Voc = uiThaiXieBoDianLiu.textEdit_S1_DC3_Voc.toPlainText()
             S1DC3Isc = uiThaiXieBoDianLiu.textEdit_S1_DC3_Isc.toPlainText()
             S1DC3PF = uiThaiXieBoDianLiu.textEdit_S1_DC3_PF.toPlainText()
-            DC_PF_VALUE_LIST.append(S1DC3PF)
             a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S1DC3PF, 2)
 
             if a == "1":
@@ -7124,7 +7182,6 @@ def thaixiebodianliuSend():
             S1DC4Voc = uiThaiXieBoDianLiu.textEdit_S1_DC4_Voc.toPlainText()
             S1DC4Isc = uiThaiXieBoDianLiu.textEdit_S1_DC4_Isc.toPlainText()
             S1DC4PF = uiThaiXieBoDianLiu.textEdit_S1_DC4_PF.toPlainText()
-            DC_PF_VALUE_LIST.append(S1DC4PF)
             a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S1DC4PF, 3)
 
             if a == "1":
@@ -7193,110 +7250,109 @@ def thaixiebodianliuSend():
     fS1ACWaitTime = float(S1_ACWaitTimeValue)
     fS1ACWaitTime = SetTimeFunction(fS1ACWaitTime, S1_ACWaitTimeUnit)
 
-    # step3
+    # 分开录时 WT 面板 StopTime 必须等于「数据采集」，否则面板先到 0、软件还不点停止。
+    if not is_dewetron:
+        collect_sec = max(1, int(round(float(fS3SetTime) / 10.0)))
+        stop_str = _seconds_to_stoptime_str(collect_sec)
+        for row in strArrayTest:
+            if row and row[0] == "Upper_WT_Config" and isinstance(row[4], dict):
+                row[4]["textEdit_StopTime"] = stop_str
+        try:
+            stacked = getattr(uiThaiXieBoDianLiu, "_wtStacked", None)
+            if stacked is not None:
+                for page_idx in range(stacked.count()):
+                    page = stacked.widget(page_idx)
+                    st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                    if st is not None:
+                        st.setPlainText(stop_str)
+        except Exception as e:
+            _append_debug_log(f"[谐波] update WT StopTime failed: {e}")
+
+    # step3（首个功率点）：与后续点一致，始终按下发 DC IV。
+    # 旧逻辑在「功率% == 启机 PF」时跳过 IV，会导致首点（如 5%）看起来“没发送”。
     if uiThaiXieBoDianLiu.checkBox_S3.isChecked():
         strArrayTestStepSingle = []
         total_save_file = total_save_file + 1
 
         S3DCPF = uiThaiXieBoDianLiu.textEdit_S1_DC1_PF_2.toPlainText()
         print(f'S3DCPF---{S3DCPF}')
-        if S3DCPF in DC_PF_VALUE_LIST:
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[7] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        # DC1
+        if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_2.isChecked():
+            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF,0)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 10
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-        else:
-            # DC1
-            if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_2.isChecked():
-                a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF,0)
+            if a == "1":
+                strShowErrorMessageBoxFlag = "1"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "1"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "2"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
+        if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_2.isChecked():
+            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
 
-            if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_2.isChecked():
-                a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
+            if a == "1":
+                strShowErrorMessageBoxFlag = "3"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "3"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "4"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
+        if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_2.isChecked():
+            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
 
-            if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_2.isChecked():
-                a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
+            if a == "1":
+                strShowErrorMessageBoxFlag = "5"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "5"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "6"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
+        if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_2.isChecked():
+            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
 
-            if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_2.isChecked():
-                a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
+            if a == "1":
+                strShowErrorMessageBoxFlag = "7"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "7"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "8"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[9] = fS1ACWaitTime
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            strArrayTestStepSingle = []
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[7] = fS3SetTime
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[7] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[8] = 10
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 10
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
-
-            strArrayTestStep.append(strArrayTestStepSingle)
+        strArrayTestStep.append(strArrayTestStepSingle)
 
     # step4
     if uiThaiXieBoDianLiu.checkBox_S3_2.isChecked():
@@ -8173,6 +8229,25 @@ def thaixiebodianliuSend():
         ui.textEdit_ReturnMessage.append(
             f"[谐波] 德威创模式：采集完成，等待 {dew_wait_seconds}s，停止录制")
 
+    try:
+        from utils.wt_recording_mode import (
+            MODE_CONTINUOUS,
+            combo_index_to_mode,
+            collect_harmonic_power_percents,
+        )
+
+        _n_harm = len(collect_harmonic_power_percents(uiThaiXieBoDianLiu))
+        _harm_mode = combo_index_to_mode(
+            uiThaiXieBoDianLiu.comboBox_S3_record_mode.currentIndex()
+        )
+        if _harm_mode == MODE_CONTINUOUS and _n_harm:
+            if strAddTestFlag == "0":
+                total_save_file = 1
+            else:
+                total_save_file = total_save_file - _n_harm + 1
+    except Exception:
+        pass
+
     # step14
     if uiThaiXieBoDianLiu.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
@@ -8274,6 +8349,24 @@ def thaixiebodianliuSend():
             strArrayTestStepSingle.append(strArraySingle)
             strArrayTestStep.append(strArrayTestStepSingle)
 
+    # 谐波功率点曾只写 strShowErrorMessageBoxFlag、不写入 dc_error_messages，
+    # 会导致 IV 失败仍落盘执行（功率点看似“没发送”）。此处统一收口。
+    _harm_flag_msgs = {
+        "1": "DC电源1赋值错误,请重新输入",
+        "2": "DC电源1Isc,Imp赋值超范围,请重新输入",
+        "3": "DC电源2赋值错误,请重新输入",
+        "4": "DC电源2Isc,Imp赋值超范围,请重新输入",
+        "5": "DC电源3赋值错误,请重新输入",
+        "6": "DC电源3Isc,Imp赋值超范围,请重新输入",
+        "7": "DC电源4赋值错误,请重新输入",
+        "8": "DC电源4Isc,Imp赋值超范围,请重新输入",
+        "brand": "DC厂家未识别或命令与品牌不匹配（已拦截致茂IVC混用），请先连接并识别厂家",
+    }
+    if strShowErrorMessageBoxFlag and strShowErrorMessageBoxFlag not in ("0", ""):
+        _msg = _harm_flag_msgs.get(strShowErrorMessageBoxFlag)
+        if _msg and _msg not in dc_error_messages:
+            dc_error_messages.append(_msg)
+
     if dc_error_messages:
         # 显示所有错误信息
         all_errors = "\n".join([f"{i+1}. {msg}" for i, msg in enumerate(dc_error_messages)])
@@ -8315,11 +8408,9 @@ def thaixiebodianliuSend():
             if directory1[0] == '':
                 print('请选择一个文件')
             else:
-                out = open(directory1[0], 'w+', newline='')
-                csv_write = csv.writer(out, dialect="excel")
-                for i in range(len(strArrayTest)):
-                    csv_write.writerow(strArrayTest[i])
-                out.close()
+                from utils.command_csv_io import write_command_csv
+
+                write_command_csv(directory1[0], strArrayTest)
 
         if 'harmonic_append_count' not in globals():
             harmonic_append_count = 0
@@ -10899,6 +10990,48 @@ def OpenFileDialogThaiOverLoads():
         'uiThiaWT5000': uiThiaWT5000,
     }
     Open_Save_ThaiOverLoads.Open_File_ThaiOverLoads(kwargs)
+
+
+def ExportIotOverloadTemplate():
+    """把当前过载页控件导出为 IOT 云任务模板（中文提示）。"""
+    global uiThaiOverLoads
+    try:
+        from pathlib import Path
+
+        from PyQt5.QtWidgets import QMessageBox
+
+        from utils.iot_widget_export import export_widgets_json
+
+        out = Path(__file__).resolve().parent / "iot_templates" / "overload_default.json"
+        export_widgets_json(
+            uiThaiOverLoads,
+            out,
+            meta={
+                "auto_append": True,
+                "auto_start": False,
+                "_template": "overload_default",
+                "_note": "由本机过载页「导出IOT模板」生成；云端建任务可选此模板",
+            },
+        )
+        try:
+            ui.textEdit_ReturnMessage.append(f"[过载能力测试] 已导出 IOT 模板：{out}")
+        except Exception:
+            pass
+        QMessageBox.information(
+            None,
+            "导出成功",
+            f"已导出到：\n{out}\n\n云端新建过载任务时可选用对应模板参数。",
+            QMessageBox.Ok,
+            QMessageBox.Ok,
+        )
+    except Exception as exc:
+        try:
+            from PyQt5.QtWidgets import QMessageBox
+
+            QMessageBox.warning(None, "导出失败", f"导出 IOT 模板失败：{exc}", QMessageBox.Ok, QMessageBox.Ok)
+        except Exception:
+            print(f"[过载能力测试] 导出 IOT 模板失败: {exc}")
+
 
 # 直流分量
 def thaizhiliufenliangAppend():
@@ -23398,6 +23531,25 @@ def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9"):
         time.sleep(0.1)
 
 
+def _trigger_wt_col7_and_wait(cmd_no, dwell_01s, *, log_tag="col7"):
+    """col7 触发一轮 WT 测量并等到结束。
+
+    必须先把 test_status 置成 '1'。结束试验 / 上一轮失败会留下 '0'，
+    旧等待循环把 '0' 当成“本轮已录完”，5% 还在录就会去发 20%。
+    """
+    global now_save_file, save_file_name, WT_auto_messure_status, test_status
+    prev_index = now_save_file
+    if not (now_save_file == 0 and save_file_name == ""):
+        now_save_file = now_save_file + 1
+    test_status = "1"
+    WT_auto_messure_status = "1"
+    _append_debug_log(
+        f"[run_loop] trigger measure by {log_tag} at command#{cmd_no}, "
+        f"index {prev_index}->{now_save_file}, save_file_name={save_file_name}"
+    )
+    _wait_measure_trigger_done(cmd_no, dwell_01s, log_tag=log_tag)
+
+
 def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
     """触发测量后的等待：StopTime/录波结束后立刻放行，不再死等满 dwell。
 
@@ -23523,6 +23675,8 @@ def RunProject():
         strTestStatusFlag = "运行"
         # 当前保存文件索引（给 WT 自动测量流程使用）
         now_save_file = 0
+        # 结束试验会留下 test_status='0'。不清掉的话，首轮 col7 会立刻当成录波已结束。
+        test_status = ''
         # 重置当前文件名，确保 col6/col7 首轮触发判断 (now_save_file==0 and save_file_name=='')
         # 能正确生效；否则上一次测试残留的文件名会让首轮被误判为"非首轮"，
         # 导致 now_save_file 提前递增到 1，第一段被错误地存成 file_list[1]，
@@ -23625,39 +23779,9 @@ def RunProject():
                                 f"messure_status={messure_status}, WT_auto_messure_status={WT_auto_messure_status}, "
                                 f"now_save_file={now_save_file}, test_status={test_status}"
                             )
-                            # 首轮触发时保持 index=0（首个文件名），后续触发再递增
-                            prev_index = now_save_file
-                            if not (now_save_file == 0 and save_file_name == ''):
-                                now_save_file = now_save_file + 1
-                            WT_auto_messure_status = '1'
-                            _append_debug_log(
-                                f"[run_loop] trigger measure by col7 at command#{i+1}, index {prev_index}->{now_save_file}, "
-                                f"save_file_name={save_file_name}"
+                            _trigger_wt_col7_and_wait(
+                                i + 1, strArrayTest[i][7], log_tag="write,col7"
                             )
-                            loop = True
-                            loop_1 = ''
-                            while loop:
-                                if strTestStatusFlag == "结束":
-                                    loop = False
-                                elif strTestStatusFlag == "暂停":
-                                    loop_1 = True
-                                    while loop_1:
-                                        if strTestStatusFlag == "暂停":
-                                            time.sleep(0.1)
-                                        else:
-                                            now_save_file = now_save_file - 1
-                                            i = i - 1
-                                            loop_1 = False
-                                            loop = False
-                                else:
-                                    if test_status == '0':
-                                        loop = False
-                                        _append_debug_log(
-                                            f"[run_loop] measure wait done by col7 at command#{i+1}, "
-                                            f"final_index={now_save_file}, final_test_status={test_status}"
-                                        )
-                                        test_status = ''
-                                time.sleep(0.01)
 
                         # [6]：自动测量触发协议（过欠压/过欠频等常用）
                         # 目标：触发 WT 测量后，必须阻塞等待测量结束（test_status 回到 '0'）再继续执行后续命令，
@@ -23737,39 +23861,9 @@ def RunProject():
                         # - WT 未就绪时，保持历史行为：仅作为普通等待字段
                         if strArrayTest[i][7] != '':
                             if setting_status == '1' and messure_status == '1':
-                                prev_index = now_save_file
-                                # 首轮触发时保持 index=0（首个文件名），后续触发再递增
-                                if not (now_save_file == 0 and save_file_name == ''):
-                                    now_save_file = now_save_file + 1
-                                WT_auto_messure_status = '1'
-                                _append_debug_log(
-                                    f"[run_loop] trigger measure(query,col7) command#{i+1}, index {prev_index}->{now_save_file}, "
-                                    f"save_file_name={save_file_name}"
+                                _trigger_wt_col7_and_wait(
+                                    i + 1, strArrayTest[i][7], log_tag="query,col7"
                                 )
-                                loop = True
-                                loop_1 = ''
-                                while loop:
-                                    if strTestStatusFlag == "结束":
-                                        loop = False
-                                    elif strTestStatusFlag == "暂停":
-                                        loop_1 = True
-                                        while loop_1:
-                                            if strTestStatusFlag == "暂停":
-                                                time.sleep(0.1)
-                                            else:
-                                                now_save_file = now_save_file - 1
-                                                i = i - 1
-                                                loop_1 = False
-                                                loop = False
-                                    else:
-                                        if test_status == '0':
-                                            loop = False
-                                            _append_debug_log(
-                                                f"[run_loop] measure wait done by query col7 at command#{i+1}, "
-                                                f"final_index={now_save_file}, final_test_status={test_status}"
-                                            )
-                                            test_status = ''
-                                    time.sleep(0.01)
                             else:
                                 # 自恢复：测量页未就绪（空串或 '0'）时补一次 messured_set
                                 recovered = False
@@ -23810,39 +23904,9 @@ def RunProject():
                                         _append_debug_log(f"[run_loop][recover][error] messured_set failed: {e}")
 
                                 if setting_status == '1' and messure_status == '1':
-                                    prev_index = now_save_file
-                                    # 首轮触发时保持 index=0（首个文件名），后续触发再递增
-                                    if not (now_save_file == 0 and save_file_name == ''):
-                                        now_save_file = now_save_file + 1
-                                    WT_auto_messure_status = '1'
-                                    _append_debug_log(
-                                        f"[run_loop] trigger measure(query,col7) after recover command#{i+1}, "
-                                        f"index {prev_index}->{now_save_file}, save_file_name={save_file_name}"
+                                    _trigger_wt_col7_and_wait(
+                                        i + 1, strArrayTest[i][7], log_tag="query,col7,recovered"
                                     )
-                                    loop = True
-                                    loop_1 = ''
-                                    while loop:
-                                        if strTestStatusFlag == "结束":
-                                            loop = False
-                                        elif strTestStatusFlag == "暂停":
-                                            loop_1 = True
-                                            while loop_1:
-                                                if strTestStatusFlag == "暂停":
-                                                    time.sleep(0.1)
-                                                else:
-                                                    now_save_file = now_save_file - 1
-                                                    i = i - 1
-                                                    loop_1 = False
-                                                    loop = False
-                                        else:
-                                            if test_status == '0':
-                                                loop = False
-                                                _append_debug_log(
-                                                    f"[run_loop] measure wait done by query col7(recovered) at command#{i+1}, "
-                                                    f"final_index={now_save_file}, final_test_status={test_status}"
-                                                )
-                                                test_status = ''
-                                        time.sleep(0.01)
                                 else:
                                     # 兼容历史：WT 未完成自动配置时，[7] 退化为纯等待
                                     _append_debug_log(
@@ -26758,45 +26822,44 @@ def messured_set(messure_handle):
                             f"cells idx {cell_idx} out of range (len={len(_cells_detail)})"
                         )
                         continue
-                    # 特殊下拉项：需要展开后按偏移选择
+                    # 特殊下拉项：谐波开始/结束只能点下拉（顺序 Total/DC/1…50）
                     if i in i_list:
                         pyautogui.moveTo(_cells_detail[cell_idx][0] + left, _cells_detail[cell_idx][1] + top, duration=0.5)
                         pyautogui.doubleClick()
                         pyautogui.moveTo(_cells_detail[cell_idx][0] + left, _cells_detail[cell_idx][1] + top + 20, duration=0.5)
                         value = config_2[i]
-                        # START_AND_STOP_COORD 的 key 目前是 'DC' / '1' / '50' 等，
-                        # 用户配置里可能输入 'dc'（大小写不同）或带空格，做一次规范化避免 KeyError。
                         value_key = str(value).strip()
+                        alias = START_AND_STOP_ALIASES.get(value_key) or START_AND_STOP_ALIASES.get(
+                            value_key.upper()
+                        )
+                        if alias:
+                            if alias != value_key:
+                                _append_debug_log(
+                                    f"[messured_set] normalize START_AND_STOP '{value_key}' -> '{alias}'"
+                                )
+                            value_key = alias
                         if value_key not in START_AND_STOP_COORD:
-                            value_key_upper = value_key.upper()
-                            if value_key_upper in START_AND_STOP_COORD:
-                                _append_debug_log(
-                                    f"[messured_set][warn] normalize START_AND_STOP key '{value_key}' -> '{value_key_upper}'"
-                                )
-                                value_key = value_key_upper
-                            else:
-                                _append_debug_log(
-                                    f"[messured_set][error] unknown START_AND_STOP key '{value_key}', "
-                                    f"available={list(START_AND_STOP_COORD.keys())}"
-                                )
-                                # 不抛异常，避免整条配置流程崩溃；跳过该项由人工检查配置
-                                continue
-                        # 先滚回列表顶部附近
-                        pyautogui.scroll(3600)
+                            _append_debug_log(
+                                f"[messured_set][error] unknown START_AND_STOP key '{value}', "
+                                f"use DC/1/50 (0→DC, 51→50)."
+                            )
+                            pyautogui.press('esc')
+                            continue
                         if value_key == '50':
-                            # 某些值需要先滚动到指定区间再点击
                             pyautogui.scroll(START_AND_STOP_COORD[value_key][0])
                             pyautogui.sleep(0.2)
                             pyautogui.scroll(START_AND_STOP_COORD[value_key][1])
                             pyautogui.sleep(0.2)
                             pyautogui.click()
                         else:
-                            # 其他值通过预定义偏移量点击
                             offset = START_AND_STOP_COORD[value_key][1]
                             pyautogui.moveTo(
                                 _cells_detail[cell_idx][0] + left,
                                 _cells_detail[cell_idx][1] + top + offset, duration=0.5)
                             pyautogui.click()
+                        _append_debug_log(
+                            f"[messured_set] START_AND_STOP dropdown '{value_key}'"
+                        )
                     else:
                         # 普通项目：直接点击勾选
                         pyautogui.moveTo(_cells_detail[cell_idx][0] + left, _cells_detail[cell_idx][1] + top, duration=0.5)
@@ -28556,6 +28619,12 @@ if __name__ == "__main__":
 
     local_file_path = "./local_file"
     command_save_file_path = "./command_save_files"
+    try:
+        from utils.command_csv_io import ensure_command_save_dirs
+
+        command_save_file_path = ensure_command_save_dirs(command_save_file_path)
+    except Exception as e:
+        print(f"[WARN] ensure command_save dirs failed: {e}", flush=True)
     log_dir = os.path.dirname(command_save_file_path)
 
     # local_file_path = "D:/project/photovoltaic_automation_t"
@@ -30814,7 +30883,8 @@ if __name__ == "__main__":
             # OverLoads的的配置档读取写入
             _safe_click(uiThaiOverLoads, "pushButton_ReadSettingFile", OpenFileDialogThaiOverLoads)
             _safe_click(uiThaiOverLoads, "pushButton_SaveSettingFile", SaveFileDialogThaiOverLoads)
-            
+            _safe_click(uiThaiOverLoads, "pushButton_ExportIotTemplate", ExportIotOverloadTemplate)
+
             # 直流分量
             _when_ui_ready(uiThaiZhiLiuFenLiang, lambda u: u.pushButton_Send.clicked.connect(thaizhiliufenliangSend))
             # 追加测试
@@ -31315,9 +31385,9 @@ if __name__ == "__main__":
 
                 def _iot_log(msg):
                     try:
-                        ui.textEdit_ReturnMessage.append(f"[IOT-handoff] {msg}")
+                        ui.textEdit_ReturnMessage.append(f"[IOT交接] {msg}")
                     except Exception:
-                        print(f"[IOT-handoff] {msg}", flush=True)
+                        print(f"[IOT交接] {msg}", flush=True)
 
                 def _resolve_overload_ui():
                     return globals().get("uiThaiOverLoads")
@@ -31354,7 +31424,41 @@ if __name__ == "__main__":
                             else:
                                 ui.comboBox_PS.setCurrentText(str(name))
                     except Exception as exc:
-                        print(f"[IOT-handoff] 切换项目失败: {exc}", flush=True)
+                        print(f"[IOT交接] 切换项目失败: {exc}", flush=True)
+
+                def _iot_auto_connect():
+                    from utils.iot_auto_connect import auto_connect_best_effort
+                    import os
+
+                    status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+                    return auto_connect_best_effort(
+                        apply_plan=_apply_device_finder_plan,
+                        visa_rm=globals().get("rm"),
+                        status_json_path=status_path,
+                        log=_iot_log,
+                    )
+
+                def _iot_ensure_ready(ui_obj, test_type):
+                    from utils.iot_device_ready import (
+                        check_devices_ready,
+                        format_ready_fail_reason,
+                        required_dc_slots_from_ui,
+                    )
+
+                    slots = required_dc_slots_from_ui(ui_obj)
+                    ok, reasons = check_devices_ready(
+                        ac_controller=globals().get("ac_controller"),
+                        dc_controllers={
+                            "dc1": globals().get("dc1_controller"),
+                            "dc2": globals().get("dc2_controller"),
+                            "dc3": globals().get("dc3_controller"),
+                            "dc4": globals().get("dc4_controller"),
+                        },
+                        per_dc_factor=globals().get("per_dc_factor") or {},
+                        required_dc_slots=slots,
+                        require_ac=True,
+                    )
+                    return ok, format_ready_fail_reason(reasons)
 
                 start_iot_ui_handoff_from_main(
                     resolve_overload_ui=_resolve_overload_ui,
@@ -31365,6 +31469,8 @@ if __name__ == "__main__":
                     get_run_status=_iot_get_run_status,
                     get_run_progress=_iot_get_run_progress,
                     ensure_project=_iot_ensure_project,
+                    auto_connect=_iot_auto_connect,
+                    ensure_ready=_iot_ensure_ready,
                     log=_iot_log,
                     parent=main_window,
                 )

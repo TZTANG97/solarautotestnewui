@@ -241,6 +241,87 @@ def fixed_pf_recommended_filenames(power_levels, mode: str = MODE_CONTINUOUS):
     return ["FixedPF_P%s" % _format_setpoint_tag(p) for p in power_levels]
 
 
+def _apply_run_tag(names, run_tag: str = ""):
+    """给文件名加轮次/时间后缀，避免再次追加或结束后重跑盖掉上一轮 CSV。"""
+    tag = str(run_tag or "").strip()
+    if not tag:
+        return list(names)
+    # 只保留文件名安全字符
+    safe = "".join(ch for ch in tag if ch.isalnum() or ch in ("-", "_"))
+    if not safe:
+        return list(names)
+    return ["%s_%s" % (n, safe) for n in names]
+
+
+def harmonic_recommended_filenames(
+    power_levels, mode: str = MODE_CONTINUOUS, run_tag: str = ""
+):
+    """谐波电流：连续录 Harmonic_BR；分开录 Harmonic_P100 等（按勾选功率点）。
+
+    run_tag：追加/重跑时传入（如 085812），生成 Harmonic_P5_085812，避免覆盖上一轮。
+    """
+    if mode == MODE_CONTINUOUS:
+        names = ["Harmonic_BR"]
+    else:
+        names = []
+        seen = {}
+        for p in power_levels:
+            base = "Harmonic_P%s" % _format_setpoint_tag(p)
+            n = seen.get(base, 0) + 1
+            seen[base] = n
+            names.append(base if n == 1 else "%s_%s" % (base, n))
+        if not names:
+            names = ["Harmonic_P100"]
+    return _apply_run_tag(names, run_tag)
+
+
+def previous_wt_filename_list(commands) -> list:
+    """从已追加命令里取出最近一次 Upper_WT_Config 的文件名列表。"""
+    import re
+
+    last = []
+    for row in commands or []:
+        if not row or row[0] != "Upper_WT_Config":
+            continue
+        cfg = row[4] if len(row) > 4 else None
+        if not isinstance(cfg, dict):
+            continue
+        raw = str(cfg.get("textEdit_FileNameList") or "").strip()
+        if not raw:
+            continue
+        last = [p.strip() for p in re.split(r"[,，]", raw) if p.strip()]
+    return last
+
+
+def collect_harmonic_power_percents(ui):
+    """③ 谐波设置里已勾选卡片的功率 %（与 Send 勾选顺序一致）。"""
+    specs = (
+        ("checkBox_S3", "textEdit_S1_DC1_PF_2"),
+        ("checkBox_S3_2", "textEdit_S1_DC1_PF_3"),
+        ("checkBox_S3_3", "textEdit_S1_DC1_PF_4"),
+        ("checkBox_S3_4", "textEdit_S1_DC1_PF_5"),
+        ("checkBox_S3_5", "textEdit_S1_DC1_PF_6"),
+        ("checkBox_S3_10", "textEdit_S1_DC1_PF_10"),
+        ("checkBox_S3_6", "textEdit_S1_DC1_PF_9"),
+        ("checkBox_S3_7", "textEdit_S1_DC1_PF_7"),
+        ("checkBox_S3_9", "textEdit_S1_DC1_PF_11"),
+        ("checkBox_S3_8", "textEdit_S1_DC1_PF_8"),
+        ("checkBox_S3_11", "textEdit_S1_DC1_PF_12"),
+    )
+    percents = []
+    for cb_name, pf_name in specs:
+        cb = getattr(ui, cb_name, None)
+        if cb is None or not cb.isChecked():
+            continue
+        te = getattr(ui, pf_name, None)
+        raw = te.toPlainText().strip() if te is not None else ""
+        try:
+            percents.append(float(raw))
+        except (TypeError, ValueError):
+            percents.append(float(len(percents) + 1))
+    return percents
+
+
 def overload_recommended_filenames(mode: str = MODE_CONTINUOUS):
     """过载能力：单段 90min，连续录/分开录都是 1 个文件，名字区分路径。"""
     if mode == MODE_CONTINUOUS:

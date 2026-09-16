@@ -51,12 +51,29 @@ New-Item -ItemType Directory -Path $stage -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $stage "app") -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $stage "bundled") -Force | Out-Null
 
-# Copy installer scripts to stage root
+# Copy installer scripts to stage root (keep UTF-8 BOM — PS 5.1 misparses Chinese without it)
+$ps1Files = @(
+    "Install-SolarAutoTest.ps1",
+    "Check-And-Update.ps1",
+    "Verify-Install.ps1"
+)
 Copy-Item -Force (Join-Path $PSScriptRoot "install.bat") (Join-Path $stage "install.bat")
-Copy-Item -Force (Join-Path $PSScriptRoot "Install-SolarAutoTest.ps1") (Join-Path $stage "Install-SolarAutoTest.ps1")
-Copy-Item -Force (Join-Path $PSScriptRoot "Check-And-Update.ps1") (Join-Path $stage "Check-And-Update.ps1")
-Copy-Item -Force (Join-Path $PSScriptRoot "Verify-Install.ps1") (Join-Path $stage "Verify-Install.ps1")
 Copy-Item -Force (Join-Path $PSScriptRoot "INSTALL.txt") (Join-Path $stage "INSTALL.txt")
+foreach ($name in $ps1Files) {
+    $src = Join-Path $PSScriptRoot $name
+    $dst = Join-Path $stage $name
+    $text = [System.IO.File]::ReadAllText($src)
+    $utf8Bom = New-Object System.Text.UTF8Encoding $true
+    [System.IO.File]::WriteAllText($dst, $text, $utf8Bom)
+}
+# Smoke-parse installer before zip (fail fast if quote/encoding breaks PS 5.1)
+$installPs1 = Join-Path $stage "Install-SolarAutoTest.ps1"
+$parseErrs = $null
+$null = [System.Management.Automation.Language.Parser]::ParseFile($installPs1, [ref]$null, [ref]$parseErrs)
+if ($parseErrs -and $parseErrs.Count -gt 0) {
+    throw ("Install-SolarAutoTest.ps1 parse error: " + $parseErrs[0].ToString())
+}
+Write-Host "[OK] Install-SolarAutoTest.ps1 parse check passed"
 
 # Version stamp for LAN upgrade detection (yyyyMMdd.HHmm)
 $versionFile = Join-Path $stage "VERSION"

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Install SolarAutoTest to this PC (local copy + uv + venv).
@@ -171,59 +171,77 @@ function Ensure-Uv([string]$InstallRoot) {
 
 function Write-Launcher([string]$InstallRoot) {
     $launcher = Join-Path $InstallRoot "Start-SolarAutoTest.bat"
+    # bat 行用单引号写入，避免 PowerShell `"...\`" 弄乱；升级后若改写本 bat，
+    # Check-And-Update 返回 10，必须 restart，否则 cmd 按行号错位（'OOT'/LOCAL_ROOT 空）。
     $lines = @(
-        "@echo off",
-        "setlocal EnableExtensions",
-        "chcp 65001 >nul",
-        "pushd `"%~dp0`" >nul 2>&1",
-        "if errorlevel 1 (",
-        "    echo [ERROR] Cannot open install directory",
-        "    pause",
-        "    exit /b 1",
-        ")",
-        "",
-        "REM LAN auto-update (before app starts, so files are not locked)",
-        "if exist `"%~dp0Check-And-Update.ps1`" (",
-        "    powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"%~dp0Check-And-Update.ps1`" -InstallDir `"%CD%`"",
-        ")",
-        "",
-        "set `"LOCAL_ROOT=%LOCALAPPDATA%\SolarAutoTestRuntime`"",
-        "set `"UV_PROJECT_ENVIRONMENT=%LOCAL_ROOT%\.venv`"",
-        "set `"UV_PYTHON_INSTALL_DIR=%LOCAL_ROOT%\python`"",
-        "set `"UV_CACHE_DIR=%LOCAL_ROOT%\uv-cache`"",
-        "if not exist `"%LOCAL_ROOT%`" mkdir `"%LOCAL_ROOT%`" >nul 2>&1",
-        "",
-        "set `"UV_EXE=%~dp0tools\uv.exe`"",
-        "if not exist `"%UV_EXE%`" (",
-        "    for /f `"delims=`" %%I in ('where uv.exe 2^>nul') do (",
-        "        if not defined UV_EXE set `"UV_EXE=%%I`"",
-        "    )",
-        ")",
-        "if not exist `"%UV_EXE%`" (",
-        "    echo [ERROR] uv.exe not found. Re-run installer.",
-        "    popd",
-        "    pause",
-        "    exit /b 1",
-        ")",
-        "",
-        "echo SolarAutoTest",
-        "echo Install: %CD%",
-        "echo Runtime: %UV_PROJECT_ENVIRONMENT%",
-        "echo.",
-        "",
-        "REM IOT Agent is started silently by SCPITestWave when config\\solar_agent.json exists",
-        "",
-        "`"%UV_EXE%`" run --frozen python SCPITestWave.py",
-        "set `"EC=%ERRORLEVEL%`"",
-        "popd",
-        "if not `"%EC%`"==`"0`" (",
-        "    echo [ERROR] Exit code %EC%",
-        "    pause",
-        ")",
-        "exit /b %EC%"
+        '@echo off',
+        'setlocal EnableExtensions',
+        'chcp 65001 >nul',
+        'pushd "%~dp0" >nul 2>&1',
+        'if errorlevel 1 (',
+        '    echo [ERROR] Cannot open install directory',
+        '    pause',
+        '    exit /b 1',
+        ')',
+        '',
+        'REM LAN auto-update (before app starts, so files are not locked)',
+        'if exist "%~dp0Check-And-Update.ps1" (',
+        '    powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0Check-And-Update.ps1" -InstallDir "%CD%"',
+        '    set "UPD_EC=%ERRORLEVEL%"',
+        '    if "%UPD_EC%"=="10" (',
+        '        echo Restarting after upgrade...',
+        '        popd',
+        '        call "%~f0"',
+        '        exit /b %ERRORLEVEL%',
+        '    )',
+        ')',
+        '',
+        'REM Split path: avoid mid-upgrade bat rewrite eating LOCAL_ROOT',
+        'set "LOCAL_ROOT=%LOCALAPPDATA%"',
+        'if not defined LOCAL_ROOT set "LOCAL_ROOT=%USERPROFILE%\AppData\Local"',
+        'set "LOCAL_ROOT=%LOCAL_ROOT%\SolarAutoTestRuntime"',
+        'set "UV_PROJECT_ENVIRONMENT=%LOCAL_ROOT%\.venv"',
+        'set "UV_PYTHON_INSTALL_DIR=%LOCAL_ROOT%\python"',
+        'set "UV_CACHE_DIR=%LOCAL_ROOT%\uv-cache"',
+        'if not exist "%LOCAL_ROOT%" mkdir "%LOCAL_ROOT%" >nul 2>&1',
+        '',
+        'set "UV_EXE=%~dp0tools\uv.exe"',
+        'if not exist "%UV_EXE%" (',
+        '    for /f "delims=" %%I in (''where uv.exe 2^>nul'') do (',
+        '        if not defined UV_EXE set "UV_EXE=%%I"',
+        '    )',
+        ')',
+        'if not exist "%UV_EXE%" (',
+        '    echo [ERROR] uv.exe not found. Re-run installer.',
+        '    popd',
+        '    pause',
+        '    exit /b 1',
+        ')',
+        '',
+        'echo SolarAutoTest',
+        'echo Install: %CD%',
+        'echo Runtime: %UV_PROJECT_ENVIRONMENT%',
+        'echo.',
+        '',
+        'REM IOT Agent is started silently by SCPITestWave when config\solar_agent.json exists',
+        '',
+        '"%UV_EXE%" run --frozen python SCPITestWave.py',
+        'set "EC=%ERRORLEVEL%"',
+        'popd',
+        'if not "%EC%"=="0" (',
+        '    echo [ERROR] Exit code %EC%',
+        '    pause',
+        ')',
+        'exit /b %EC%'
     )
     Set-Content -Path $launcher -Value $lines -Encoding ASCII
     Write-Ok ("Launcher written: " + $launcher)
+    # 桌面快捷方式必须指向可见 bat（升级/进度要看得见）；
+    # IOT Agent 黑窗由 agent/process_control.py 单独隐藏，不要用 Silent.vbs 藏主控制台。
+    $silentVbs = Join-Path $InstallRoot "Start-SolarAutoTest-Silent.vbs"
+    if (Test-Path $silentVbs) {
+        Remove-Item -Force $silentVbs -ErrorAction SilentlyContinue
+    }
     return $launcher
 }
 
@@ -245,6 +263,7 @@ function New-AppShortcut([string]$TargetBat, [string]$InstallRoot) {
     Ensure-Directory $startMenu
 
     $iconPath = Resolve-AppIcon $InstallRoot
+    # 始终指向可见 bat，方便看升级/启动进度；不要指向 Silent.vbs
     $wsh = New-Object -ComObject WScript.Shell
     foreach ($dir in @($desktop, $startMenu)) {
         $lnkPath = Join-Path $dir "SolarAutoTest.lnk"
@@ -381,7 +400,7 @@ foreach ($name in @("solar_machine_id", "solar_agent.json")) {
     if (Test-Path $bak) {
         Ensure-Directory $configDir
         Copy-Item -Force $bak (Join-Path $configDir $name)
-        Write-Ok ("Restored config\" + $name + " (keep same bench identity)")
+        Write-Ok ("Restored config/" + $name + " (keep same bench identity)")
     }
 }
 Remove-Item -Recurse -Force $identityBackup -ErrorAction SilentlyContinue

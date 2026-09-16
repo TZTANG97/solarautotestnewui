@@ -162,6 +162,8 @@ class Ui_Dialog_thaixiebodianliu(object):
         self._build_step13()          # 关机设置
 
         self._mode = 'wt3000'
+        self._apply_harmonic_order_defaults()
+        self._wire_recording_mode()
 
         # 默认显示第一页
         self._switch_step(0)
@@ -310,6 +312,7 @@ class Ui_Dialog_thaixiebodianliu(object):
         acGrid.addWidget(self._make_label("V"), 1, 3)
 
         self.comboBox_S1_AC_2 = self._make_combo("comboBox_S1_AC_2", ["单相", "三相"])
+        self.comboBox_S1_AC_2.setCurrentText("三相")
         acGrid.addWidget(self.comboBox_S1_AC_2, 1, 4)
 
         acGrid.addWidget(self._make_label("频率:"), 1, 5)
@@ -763,7 +766,130 @@ class Ui_Dialog_thaixiebodianliu(object):
         self.comboBox_S3_TIME_3 = self._make_combo("comboBox_S3_TIME_3", ["秒", "分钟", "毫秒"], parent=self)
         tg.addWidget(self.comboBox_S3_TIME_3, 0, 5)
 
+        from utils.wt_recording_mode import MODE_LABELS, MODE_CONTINUOUS, MODE_SPLIT
+
+        tg.addWidget(self._make_label("录波方式:"), 1, 0)
+        self.comboBox_S3_record_mode = QtWidgets.QComboBox()
+        self.comboBox_S3_record_mode.setObjectName("comboBox_S3_record_mode")
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_CONTINUOUS], MODE_CONTINUOUS)
+        self.comboBox_S3_record_mode.addItem(MODE_LABELS[MODE_SPLIT], MODE_SPLIT)
+        self.comboBox_S3_record_mode.setCurrentIndex(1)
+        self.comboBox_S3_record_mode.setMinimumWidth(220)
+        tg.addWidget(self.comboBox_S3_record_mode, 1, 1, 1, 2)
+        self.pushButton_S3_fill_filenames = QtWidgets.QPushButton("填充推荐文件名")
+        self.pushButton_S3_fill_filenames.setObjectName("pushButton_S3_fill_filenames")
+        tg.addWidget(self.pushButton_S3_fill_filenames, 1, 3, 1, 2)
+
+        tip = QtWidgets.QLabel(
+            "一条线连续录：多个功率点录成 Harmonic_BR；分开录：每个功率点单独存盘（Harmonic_P100 等）。"
+            "每次「测试追加」会自动加时分秒后缀（如 Harmonic_P5_085812），避免第二轮盖掉上一轮文件。"
+            "谐波阶次只能填 WT 支持的值：开始填 DC（不要填 0），结束填 50。"
+            "启机时间（默认 5 分钟）内界面可能像没反应，其实在等逆变器启机；"
+            "之后每个勾选功率点还要再等「数据采集」时长（默认 10 分钟）。"
+            "例如勾 6 个点：约 5 + 6×10 = 65 分钟。"
+        )
+        tip.setWordWrap(True)
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tg.addWidget(tip, 2, 0, 1, 6)
+
         return grp
+
+    def _apply_harmonic_order_defaults(self):
+        """谐波试验 WT 默认：阶次 DC～50；SigmaA 接线；勾选 U/I/P（有 A 无 W 常见因接线是 ---）。"""
+        stacked = getattr(self, "_wtStacked", None)
+        if stacked is None:
+            return
+        from PyQt5 import QtWidgets
+
+        measure_on = (
+            "checkBox_SetSigmaA",
+            "checkBox_SetU",
+            "checkBox_SetI",
+            "checkBox_SetP",
+            "checkBox_SetUk",
+            "checkBox_SetIk",
+            "checkBox_SetPk",
+        )
+        phase = "三相"
+        phase_cb = getattr(self, "comboBox_S1_AC_2", None)
+        if phase_cb is not None:
+            phase = phase_cb.currentText().strip() or phase
+        # comboBox_SigmA1: --- / 1P3W / 3P3W / 3P4W / 3V3A
+        sigma_a_mode = 3 if phase == "三相" else 1  # 3P4W / 1P3W
+
+        for page_idx in range(stacked.count()):
+            page = stacked.widget(page_idx)
+            if page is None:
+                continue
+            start = page.findChild(QtWidgets.QTextEdit, "textEdit_SetStart")
+            stop = page.findChild(QtWidgets.QTextEdit, "textEdit_SetStop")
+            if start is not None:
+                cur = start.toPlainText().strip()
+                if (not cur) or cur == "0":
+                    start.setPlainText("DC")
+            if stop is not None:
+                cur = stop.toPlainText().strip()
+                if (not cur) or cur in ("51",):
+                    stop.setPlainText("50")
+            sigm_a1 = page.findChild(QtWidgets.QComboBox, "comboBox_SigmA1")
+            if sigm_a1 is not None and sigm_a1.currentIndex() == 0:
+                # 仅在仍为「---」时写入，避免覆盖试验员已选手动接线
+                sigm_a1.setCurrentIndex(sigma_a_mode)
+            for name in measure_on:
+                cb = page.findChild(QtWidgets.QCheckBox, name)
+                if cb is not None and not cb.isChecked():
+                    cb.setChecked(True)
+
+        # 相数切换时同步 SigmaA 接线（仍只在原为 --- 或我们写入的默认值时更新）
+        if phase_cb is not None and not getattr(self, "_harmonic_phase_wired", False):
+            def _on_phase_changed(_idx=None):
+                ph = phase_cb.currentText().strip()
+                mode = 3 if ph == "三相" else 1
+                for i in range(stacked.count()):
+                    pg = stacked.widget(i)
+                    if pg is None:
+                        continue
+                    cbx = pg.findChild(QtWidgets.QComboBox, "comboBox_SigmA1")
+                    if cbx is None:
+                        continue
+                    # ---(0) 或仍是旧默认 1P3W/3P4W 时跟随相数
+                    if cbx.currentIndex() in (0, 1, 3):
+                        cbx.setCurrentIndex(mode)
+
+            phase_cb.currentIndexChanged.connect(_on_phase_changed)
+            self._harmonic_phase_wired = True
+
+    def _wire_recording_mode(self):
+        from utils.wt_recording_mode import (
+            apply_filename_list_to_wt_pages,
+            combo_index_to_mode,
+            collect_harmonic_power_percents,
+            harmonic_recommended_filenames,
+        )
+        from components.wt_recording_mode_row import install_on_wt_filename_group
+
+        def _recommended_names():
+            mode = combo_index_to_mode(self.comboBox_S3_record_mode.currentIndex())
+            return harmonic_recommended_filenames(collect_harmonic_power_percents(self), mode)
+
+        def _fill_wt_names(names=None):
+            if names is None:
+                names = _recommended_names()
+            apply_filename_list_to_wt_pages(self._wtStacked, names)
+
+        self.pushButton_S3_fill_filenames.clicked.connect(lambda: _fill_wt_names())
+        self.comboBox_S3_record_mode.currentIndexChanged.connect(lambda _i: _fill_wt_names())
+        for spec in _HARMONIC_SPECS:
+            getattr(self, spec["step_cb"]).toggled.connect(lambda _c: _fill_wt_names())
+            getattr(self, spec["pf_te"]).textChanged.connect(lambda: _fill_wt_names())
+
+        for page_idx in range(self._wtStacked.count()):
+            page = self._wtStacked.widget(page_idx)
+            row = install_on_wt_filename_group(page, _recommended_names)
+            if row is not None:
+                row.names_filled.connect(_fill_wt_names)
+
+        _fill_wt_names()
 
     # ══════════════════════════════════════════════
     # 谐波设置合并页（timeline + card 布局）

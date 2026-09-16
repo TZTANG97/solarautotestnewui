@@ -185,14 +185,7 @@ def build_wt3000_content(parent):
     wg.setSpacing(6)
     wg.setContentsMargins(8, 16, 8, 8)
 
-    for r, (lbl_text, c1_items, c2_items) in enumerate([
-        ("SigmaA:", ["---", "1P3W", "3P3W", "3P4W", "3V3A"], ["Element1", "Element2", "Element3", "Element4"]),
-        ("SigmaB:", ["---", "1P3W", "3P3W", "3P4W", "3V3A"], ["Element1", "Element2", "Element3", "Element4"]),
-    ]):
-        wg.addWidget(_make_lbl(lbl_text), r, 0)
-        _make_combo(parent, f"comboBox_SigmA{'1' if r==0 else '2'}" if r==0 else f"comboBox_SigmB{'1' if r==0 else '2'}", c1_items)
-        # 修正：SigmaA 用 SigmA1/A2，SigmaB 用 SigmB1/B2
-    # 手动构建 SigmaA 行
+    # SigmaA / SigmaB 接线
     wg.addWidget(_make_lbl("SigmaA:"), 0, 0)
     _make_combo(parent, "comboBox_SigmA1", ["---", "1P3W", "3P3W", "3P4W", "3V3A"])
     wg.addWidget(parent.comboBox_SigmA1, 0, 1)
@@ -403,11 +396,11 @@ def build_wt3000_content(parent):
             hm.addWidget(getattr(parent, name), r, c + 1)
 
     # Start / Stop
-    hm.addWidget(_make_lbl("开始:"), 7, 0)
+    hm.addWidget(_make_lbl("开始阶次:"), 7, 0)
     _make_te(parent, "textEdit_SetStart", max_h=32)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStart"), 7, 1)
-    hm.addWidget(_make_lbl("结束:"), 7, 2)
+    hm.addWidget(_make_lbl("结束阶次:"), 7, 2)
     _make_te(parent, "textEdit_SetStop", max_h=32)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStop"), 7, 3)
@@ -694,11 +687,11 @@ def build_wt1800_content(parent):
             hm.addWidget(getattr(parent, name), r, c + 1)
 
     # Start / Stop
-    hm.addWidget(_make_lbl("开始:"), 7, 0)
+    hm.addWidget(_make_lbl("开始阶次:"), 7, 0)
     _make_te(parent, "textEdit_SetStart", max_h=32)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStart"), 7, 1)
-    hm.addWidget(_make_lbl("结束:"), 7, 2)
+    hm.addWidget(_make_lbl("结束阶次:"), 7, 2)
     _make_te(parent, "textEdit_SetStop", max_h=32)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStop"), 7, 3)
@@ -979,11 +972,11 @@ def build_wt1806e_content(parent):
             hm.addWidget(getattr(parent, name), r, c + 1)
 
     # Start / Stop
-    hm.addWidget(_make_lbl("开始:"), 7, 0)
+    hm.addWidget(_make_lbl("开始阶次:"), 7, 0)
     _make_te(parent, "textEdit_SetStart", max_h=32)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStart"), 7, 1)
-    hm.addWidget(_make_lbl("结束:"), 7, 2)
+    hm.addWidget(_make_lbl("结束阶次:"), 7, 2)
     _make_te(parent, "textEdit_SetStop", max_h=32)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStop"), 7, 3)
@@ -1205,11 +1198,11 @@ def build_wt5000_content(parent):
         bm.addWidget(getattr(parent, name), 7, i + 1)
 
     # Start / Stop
-    bm.addWidget(_make_lbl("开始:"), 8, 0)
+    bm.addWidget(_make_lbl("开始阶次:"), 8, 0)
     _make_te(parent, "textEdit_SetStart", max_h=32)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     bm.addWidget(getattr(parent, "textEdit_SetStart"), 8, 1)
-    bm.addWidget(_make_lbl("结束:"), 8, 2)
+    bm.addWidget(_make_lbl("结束阶次:"), 8, 2)
     _make_te(parent, "textEdit_SetStop", max_h=32)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     bm.addWidget(getattr(parent, "textEdit_SetStop"), 8, 3)

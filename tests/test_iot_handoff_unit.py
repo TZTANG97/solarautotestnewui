@@ -110,6 +110,91 @@ def test_antibackflow_handler_maps() -> None:
     print("antibackflow map PASS")
 
 
+
+
+def test_ensure_ready_fails_writes_failed(tmp_path: Path) -> None:
+    root = Path(tmp_path)
+    pending = root / "iot_job_inbox" / "pending"
+    pending.mkdir(parents=True)
+    job = {
+        "id": 9101,
+        "testType": "overload",
+        "params": {"widgets": {}, "auto_append": True, "auto_start": False},
+    }
+    (pending / "job_9101.json").write_text(
+        __import__("json").dumps({"job": job}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    appended = {"n": 0}
+
+    svc = IotUiHandoffService(
+        repo_root=root,
+        resolve_overload_ui=lambda: type("U", (), {})(),
+        overload_append=lambda: appended.__setitem__("n", appended["n"] + 1),
+        ensure_ready=lambda ui, tt: (False, "直流电源1厂家未识别（当前=空）；请先连接并识别厂家，禁止致茂IVC混用"),
+        log=lambda m: None,
+        interval_ms=200,
+    )
+    # bypass ui mutex for unit test
+    import agent.ui_mutex as um
+
+    um.ui_try_acquire = lambda **kw: True  # type: ignore
+    um.ui_release = lambda **kw: None  # type: ignore
+    svc.poll_once()
+    result_path = root / "iot_job_inbox" / "results" / "job_9101.json"
+    assert result_path.is_file(), "should write failed result"
+    data = __import__("json").loads(result_path.read_text(encoding="utf-8"))
+    body = data.get("result") or data
+    assert body.get("status") == "failed"
+    assert "厂家未识别" in (body.get("fail_reason") or "")
+    assert appended["n"] == 0
+
+
+def test_append_brand_qmessage_fails(tmp_path: Path) -> None:
+    from PyQt5.QtWidgets import QMessageBox
+
+    root = Path(tmp_path)
+    pending = root / "iot_job_inbox" / "pending"
+    pending.mkdir(parents=True)
+    job = {
+        "id": 9102,
+        "testType": "overload",
+        "params": {"widgets": {}, "auto_append": True, "auto_start": False},
+    }
+    (pending / "job_9102.json").write_text(
+        __import__("json").dumps({"job": job}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    def _append_bad():
+        QMessageBox.information(None, "错误", "厂家未知，赋值失败")
+
+    svc = IotUiHandoffService(
+        repo_root=root,
+        resolve_overload_ui=lambda: type("U", (), {})(),
+        overload_append=_append_bad,
+        ensure_ready=lambda ui, tt: (True, ""),
+        wrap_append_errors=True,
+        log=lambda m: None,
+        interval_ms=200,
+    )
+    import agent.ui_mutex as um
+
+    um.ui_try_acquire = lambda **kw: True  # type: ignore
+    um.ui_release = lambda **kw: None  # type: ignore
+
+    # avoid real dialog
+    QMessageBox.information = staticmethod(lambda *a, **k: QMessageBox.Ok)  # type: ignore
+
+    svc.poll_once()
+    result_path = root / "iot_job_inbox" / "results" / "job_9102.json"
+    assert result_path.is_file()
+    data = __import__("json").loads(result_path.read_text(encoding="utf-8"))
+    body = data.get("result") or data
+    assert body.get("status") == "failed"
+    assert any(k in (body.get("fail_reason") or "") for k in ("厂家", "错误", "赋值"))
+
 if __name__ == "__main__":
     test_handoff_roundtrip()
     test_antibackflow_handler_maps()
+    # ensure_ready / QMessageBox cases need tmp_path; run via pytest

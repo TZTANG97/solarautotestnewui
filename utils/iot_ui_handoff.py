@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-IOT 云任务 → 桌面 UI handoff。
+IOT 云任务 → 桌面界面交接。
 
 Agent（execution_mode=handoff）把任务写入 iot_job_inbox/pending/，
-本模块在主界面定时扫描：应用参数 → 调用过载 Append →（可选）开始试验 →
+本模块在主界面定时扫描：应用参数 → 调用过载追加 →（可选）开始试验 →
 等试验结束再写回 results/。
 """
 from __future__ import annotations
@@ -12,13 +12,14 @@ import json
 import time
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from PyQt5.QtCore import QObject, QTimer
 from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
     QLineEdit,
+    QMessageBox,
     QPlainTextEdit,
     QRadioButton,
     QTextEdit,
@@ -28,6 +29,34 @@ from PyQt5.QtWidgets import (
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
+
+
+_SLOT_LABEL_ZH = {
+    "ac": "交流电源",
+    "dc1": "直流电源1",
+    "dc2": "直流电源2",
+    "dc3": "直流电源3",
+    "dc4": "直流电源4",
+    "wt": "功率分析仪",
+    "scope": "示波器",
+    "dew": "德威创",
+}
+
+
+def _format_auto_connect_summary(summary: Any) -> str:
+    if not isinstance(summary, dict):
+        return str(summary)
+    found = summary.get("found", 0)
+    attempted = summary.get("attempted", 0)
+    connected = summary.get("connected") or []
+    errors = summary.get("errors") or []
+    skipped = summary.get("skipped_ambiguous", 0)
+    conn_txt = "、".join(str(x) for x in connected) if connected else "无"
+    err_txt = "、".join(str(x) for x in errors) if errors else "无"
+    return (
+        f"发现{found}台，尝试连接{attempted}台，已连接={conn_txt}，"
+        f"失败={err_txt}，因歧义跳过{skipped}台"
+    )
 
 
 def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
@@ -86,6 +115,38 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
     return missing
 
 
+def _append_with_message_capture(project_append: Callable[[], None]) -> Tuple[Optional[str], Optional[BaseException]]:
+    """Call append; capture QMessageBox.information texts that look like brand/assign errors."""
+    captured: List[str] = []
+    orig = QMessageBox.information
+
+    def _info(parent, title, text, *args, **kwargs):
+        try:
+            captured.append(str(text or ""))
+        except Exception:
+            pass
+        try:
+            # 云任务交接时不弹窗，避免挡住自动流程；文案已捕获写入失败原因
+            return QMessageBox.Ok
+        except Exception:
+            return QMessageBox.Ok
+
+    QMessageBox.information = staticmethod(_info)  # type: ignore[method-assign]
+    err: Optional[BaseException] = None
+    try:
+        project_append()
+    except BaseException as exc:  # noqa: BLE001 — surface to caller as fail_reason
+        err = exc
+    finally:
+        QMessageBox.information = orig  # type: ignore[method-assign]
+    fail_reason = None
+    for msg in captured:
+        if any(k in msg for k in ("厂家", "错误", "赋值", "超范围", "IVC")):
+            fail_reason = msg.strip() or "追加时弹窗报错"
+            break
+    return fail_reason, err
+
+
 class IotUiHandoffService(QObject):
     """挂在主窗口上的定时扫描服务。"""
 
@@ -112,6 +173,9 @@ class IotUiHandoffService(QObject):
         get_run_status: Optional[Callable[[], str]] = None,
         get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
         ensure_project: Optional[Callable[[str], None]] = None,
+        auto_connect: Optional[Callable[[], Any]] = None,
+        ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
+        wrap_append_errors: bool = True,
         log: Optional[Callable[[str], None]] = None,
         interval_ms: int = 3000,
         parent=None,
@@ -126,7 +190,10 @@ class IotUiHandoffService(QObject):
         self.get_run_status = get_run_status
         self.get_run_progress = get_run_progress
         self.ensure_project = ensure_project
-        self._log = log or (lambda m: print(f"[IOT-handoff] {m}", flush=True))
+        self.auto_connect = auto_connect
+        self.ensure_ready = ensure_ready
+        self.wrap_append_errors = bool(wrap_append_errors)
+        self._log = log or (lambda m: print(f"[IOT交接] {m}", flush=True))
         self._busy = False
         self._awaiting: Optional[Dict[str, Any]] = None
         self._timer = QTimer(self)
@@ -464,7 +531,7 @@ class IotUiHandoffService(QObject):
                     job_id,
                     {
                         "status": "failed",
-                        "fail_reason": f"UI handoff 暂不支持 testType={test_type}",
+                        "fail_reason": f"界面交接暂不支持试验类型={test_type}",
                     },
                 )
                 self._move_pending_done(pending_path)
@@ -482,7 +549,7 @@ class IotUiHandoffService(QObject):
                 self._write_result_all(
                     pending_path,
                     job_id,
-                    {"status": "failed", "fail_reason": f"{handler['label']} UI 未就绪"},
+                    {"status": "failed", "fail_reason": f"{handler['label']}界面未就绪"},
                 )
                 self._move_pending_done(pending_path)
                 return
@@ -536,12 +603,67 @@ class IotUiHandoffService(QObject):
             if isinstance(params, dict) and "wait_finish" in params:
                 wait_finish = bool(params.get("wait_finish"))
 
+            if self.auto_connect:
+                try:
+                    summary = self.auto_connect()
+                    self._log(f"自动连接结果: {_format_auto_connect_summary(summary)}")
+                except Exception as exc:
+                    self._log(f"自动连接异常（尽力继续）: {exc}")
+
+            if self.ensure_ready:
+                try:
+                    ready_ok, ready_reason = self.ensure_ready(real_ui, test_type)
+                except Exception as exc:
+                    ready_ok, ready_reason = False, f"设备就绪检查异常: {exc}"
+                if not ready_ok:
+                    self._write_result_all(
+                        pending_path,
+                        job_id,
+                        {
+                            "status": "failed",
+                            "fail_reason": str(ready_reason or "设备未就绪"),
+                            "result_summary": {
+                                "handoff": True,
+                                "appended": False,
+                                "started": False,
+                                "missingWidgets": missing,
+                                "ready_check": False,
+                            },
+                        },
+                    )
+                    self._move_pending_done(pending_path)
+                    return
+
             appended = False
             project_append = handler.get("append")
             if auto_append and project_append:
-                project_append()
-                appended = True
-                self._log(f"已调用 {handler['label']} Append")
+                if self.wrap_append_errors:
+                    fail_msg, append_err = _append_with_message_capture(project_append)
+                    if fail_msg or append_err:
+                        reason = fail_msg or str(append_err)
+                        self._write_result_all(
+                            pending_path,
+                            job_id,
+                            {
+                                "status": "failed",
+                                "fail_reason": reason[:500],
+                                "result_summary": {
+                                    "handoff": True,
+                                    "appended": False,
+                                    "started": False,
+                                    "missingWidgets": missing,
+                                    "append_error": True,
+                                },
+                            },
+                        )
+                        self._move_pending_done(pending_path)
+                        return
+                    appended = True
+                    self._log(f"已调用{handler['label']}追加")
+                else:
+                    project_append()
+                    appended = True
+                    self._log(f"已调用{handler['label']}追加")
 
             if auto_start:
                 if not self.start_test:
@@ -550,14 +672,14 @@ class IotUiHandoffService(QObject):
                         job_id,
                         {
                             "status": "failed",
-                            "fail_reason": "auto_start=true 但未绑定开始试验回调",
+                            "fail_reason": "已勾选自动开跑，但本机未绑定开始试验回调",
                             "result_summary": {"appended": appended},
                         },
                     )
                     self._move_pending_done(pending_path)
                     return
                 self.start_test()
-                self._log("已调用开始试验 RunProjectPush")
+                self._log("已调用开始试验")
 
                 if wait_finish:
                     timeout_sec = 7200.0
@@ -580,8 +702,8 @@ class IotUiHandoffService(QObject):
                     self._last_progress_key = None
                     self._emit_progress(job_id, force=True)
                     self._log(
-                        f"任务 {job_id} 等待试验结束（timeout={int(timeout_sec)}s，"
-                        f"start_grace={int(start_grace_sec)}s）"
+                        f"任务 {job_id} 等待试验结束（超时{int(timeout_sec)}秒，"
+                        f"启动宽限{int(start_grace_sec)}秒）"
                     )
                     # 立刻检查一次（短试验 / 单测模拟）
                     self._check_awaiting_finish()
@@ -600,9 +722,9 @@ class IotUiHandoffService(QObject):
                         "waited_finish": False,
                         "missingWidgets": missing,
                         "note": (
-                            "已追加并启动试验（未等待结束，wait_finish=false）"
+                            "已追加并启动试验（未等待结束）"
                             if auto_start
-                            else "已应用参数并追加命令；params.auto_start=true 时可自动开始试验"
+                            else "已应用参数并追加命令；勾选「自动开跑」时可自动开始试验"
                         ),
                     },
                     "report_meta": [],
@@ -636,6 +758,9 @@ def start_iot_ui_handoff_from_main(
     get_run_status: Optional[Callable[[], str]] = None,
     get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
     ensure_project: Optional[Callable[[str], None]] = None,
+    auto_connect: Optional[Callable[[], Any]] = None,
+    ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
+    wrap_append_errors: bool = True,
     log: Optional[Callable[[str], None]] = None,
     parent=None,
 ) -> IotUiHandoffService:
@@ -648,6 +773,9 @@ def start_iot_ui_handoff_from_main(
         get_run_status=get_run_status,
         get_run_progress=get_run_progress,
         ensure_project=ensure_project,
+        auto_connect=auto_connect,
+        ensure_ready=ensure_ready,
+        wrap_append_errors=wrap_append_errors,
         log=log,
         parent=parent,
     )

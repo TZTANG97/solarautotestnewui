@@ -92,6 +92,43 @@ def status_text() -> str:
     return "未运行"
 
 
+def _hidden_popen_kwargs():
+    """Windows 下后台启动时隐藏控制台（避免多出一个黑窗/Windows Terminal）。"""
+    kwargs = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "stdin": subprocess.DEVNULL,
+    }
+    if os.name != "nt":
+        kwargs["close_fds"] = True
+        return kwargs
+    # 不要同时用 DETACHED_PROCESS：部分环境下反而会再挂一个可见控制台
+    kwargs["creationflags"] = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = int(getattr(subprocess, "SW_HIDE", 0))
+        kwargs["startupinfo"] = si
+    except Exception:
+        pass
+    return kwargs
+
+
+def _agent_launch_commands() -> list:
+    """优先当前解释器 / pythonw，避免再走 `uv run` 弹窗。"""
+    cmds = []
+    exe = Path(sys.executable).resolve() if sys.executable else None
+    if exe is not None and exe.is_file():
+        if os.name == "nt":
+            pythonw = exe.with_name("pythonw.exe")
+            if pythonw.is_file():
+                cmds.append([str(pythonw), "-m", "agent"])
+        cmds.append([str(exe), "-m", "agent"])
+    # 最后才回退 uv（可能闪窗，仅当上面都不可用）
+    cmds.append(["uv", "run", "python", "-m", "agent"])
+    return cmds
+
+
 def start_agent(*, allow_without_token: bool = False) -> Tuple[bool, str]:
     """后台启动 Agent（无控制台窗口）。返回 (ok, message)。"""
     if is_running():
@@ -110,37 +147,23 @@ def start_agent(*, allow_without_token: bool = False) -> Tuple[bool, str]:
         return False, "无法读取 Agent 配置"
     root = repo_root()
     env = os.environ.copy()
-    creationflags = 0
-    if os.name == "nt":
-        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(
-            subprocess, "DETACHED_PROCESS", 0x00000008
-        )
-    try:
-        cmd = ["uv", "run", "python", "-m", "agent"]
-        proc = subprocess.Popen(
-            cmd,
-            cwd=str(root),
-            env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=creationflags,
-            close_fds=True,
-        )
-    except FileNotFoundError:
+    for k in ("PYTHONUNBUFFERED",):
+        env.pop(k, None)
+    popen_kwargs = _hidden_popen_kwargs()
+    last_exc: Optional[BaseException] = None
+    proc = None
+    for cmd in _agent_launch_commands():
         try:
-            proc = subprocess.Popen(
-                [sys.executable, "-m", "agent"],
-                cwd=str(root),
-                env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=creationflags,
-                close_fds=True,
-            )
+            proc = subprocess.Popen(cmd, cwd=str(root), env=env, **popen_kwargs)
+            break
+        except FileNotFoundError as exc:
+            last_exc = exc
+            continue
         except Exception as exc:
-            return False, f"启动失败: {exc}"
-    except Exception as exc:
-        return False, f"启动失败: {exc}"
+            last_exc = exc
+            continue
+    if proc is None:
+        return False, f"启动失败: {last_exc}"
     try:
         pid_file().write_text(str(proc.pid), encoding="utf-8")
     except OSError:

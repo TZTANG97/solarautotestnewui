@@ -323,7 +323,9 @@ try {
     }
 
     Ok ("Upgraded to " + $remoteVer)
-    exit 0
+    # 10 = 已升级；父级 Start-SolarAutoTest.bat 必须重启自身，
+    # 否则 cmd 按行号继续读已被重写的 bat，会错位（出现 'OOT'、LOCAL_ROOT 丢失）。
+    exit 10
 }
 catch {
     Warn ("Upgrade failed: " + $_.Exception.Message)

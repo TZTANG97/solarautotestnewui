@@ -121,9 +121,103 @@ def test_fixedpf_continuous_still_single_file():
     dlg.close()
 
 
+def test_harmonic_split_filenames_follow_power_points():
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
+    from utils.wt_recording_mode import (
+        MODE_CONTINUOUS,
+        MODE_SPLIT,
+        collect_harmonic_power_percents,
+        harmonic_recommended_filenames,
+    )
+
+    assert harmonic_recommended_filenames([100, 50, 20], MODE_CONTINUOUS) == ["Harmonic_BR"]
+    assert harmonic_recommended_filenames([100, 50, 20], MODE_SPLIT) == [
+        "Harmonic_P100",
+        "Harmonic_P50",
+        "Harmonic_P20",
+    ]
+    assert harmonic_recommended_filenames([100, 100], MODE_SPLIT) == [
+        "Harmonic_P100",
+        "Harmonic_P100_2",
+    ]
+    assert harmonic_recommended_filenames([5, 20], MODE_SPLIT, run_tag="085812") == [
+        "Harmonic_P5_085812",
+        "Harmonic_P20_085812",
+    ]
+    assert harmonic_recommended_filenames([100], MODE_CONTINUOUS, run_tag="085812") == [
+        "Harmonic_BR_085812",
+    ]
+
+    dlg = QtWidgets.QDialog()
+    ui = Ui_Dialog_thaixiebodianliu()
+    ui.setupUi(dlg)
+    app.processEvents()
+
+    start = ui._wtStacked.currentWidget().findChild(
+        type(ui.textEdit_S3_TIME_2), "textEdit_SetStart"
+    )
+    stop = ui._wtStacked.currentWidget().findChild(
+        type(ui.textEdit_S3_TIME_2), "textEdit_SetStop"
+    )
+    assert start.toPlainText().strip() == "DC"
+    assert stop.toPlainText().strip() == "50"
+
+    page = ui._wtStacked.currentWidget()
+    sigm = page.findChild(QtWidgets.QComboBox, "comboBox_SigmA1")
+    assert sigm is not None and sigm.currentIndex() == 3, sigm.currentIndex()  # 三相→3P4W
+    assert sigm.currentText() == "3P4W"
+
+    for name in (
+        "checkBox_SetP",
+        "checkBox_SetU",
+        "checkBox_SetI",
+        "checkBox_SetSigmaA",
+    ):
+        cb = page.findChild(QtWidgets.QCheckBox, name)
+        assert cb is not None and cb.isChecked(), name
+
+    # 只留三个功率点，分开录
+    for spec in (
+        "checkBox_S3",
+        "checkBox_S3_2",
+        "checkBox_S3_3",
+        "checkBox_S3_4",
+        "checkBox_S3_5",
+        "checkBox_S3_10",
+        "checkBox_S3_6",
+        "checkBox_S3_7",
+        "checkBox_S3_9",
+        "checkBox_S3_8",
+        "checkBox_S3_11",
+    ):
+        getattr(ui, spec).setChecked(False)
+    ui.checkBox_S3.setChecked(True)
+    ui.checkBox_S3_2.setChecked(True)
+    ui.checkBox_S3_3.setChecked(True)
+    ui.textEdit_S1_DC1_PF_2.setPlainText("100")
+    ui.textEdit_S1_DC1_PF_3.setPlainText("50")
+    ui.textEdit_S1_DC1_PF_4.setPlainText("20")
+    ui.comboBox_S3_record_mode.setCurrentIndex(1)
+    app.processEvents()
+
+    percents = collect_harmonic_power_percents(ui)
+    assert percents == [100.0, 50.0, 20.0]
+    te = ui._wtStacked.currentWidget().findChild(
+        type(ui.textEdit_S3_TIME_2), "textEdit_FileNameList"
+    )
+    assert te.toPlainText().strip() == "Harmonic_P100,Harmonic_P50,Harmonic_P20"
+
+    ui.comboBox_S3_record_mode.setCurrentIndex(0)
+    app.processEvents()
+    assert te.toPlainText().strip() == "Harmonic_BR"
+    dlg.close()
+
+
 if __name__ == "__main__":
     test_registry_covers_common_dialogs()
     test_default_names_continuous_uses_registry()
     test_dialog_open_continuous_autofill()
     test_fixedpf_continuous_still_single_file()
+    test_harmonic_split_filenames_follow_power_points()
     print("OK: continuous recording filename autofill")
