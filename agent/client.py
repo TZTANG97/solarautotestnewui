@@ -46,19 +46,23 @@ class IotSolarClient:
         host_name: str = "",
         busy: bool = False,
         fault: bool = False,
+        instruments: Optional[list] = None,
     ) -> Dict[str, Any]:
+        body: Dict[str, Any] = {
+            "type": "on",
+            "pythonid": self.pythonid,
+            "clientid": self.clientid,
+            "agent_version": agent_version,
+            "host_name": host_name,
+            "busy": busy,
+            "fault": fault,
+        }
+        if instruments is not None:
+            body["instruments"] = list(instruments)
         return self._request(
             "POST",
             "/api/solar-autotest/agent/heartbeat",
-            {
-                "type": "on",
-                "pythonid": self.pythonid,
-                "clientid": self.clientid,
-                "agent_version": agent_version,
-                "host_name": host_name,
-                "busy": busy,
-                "fault": fault,
-            },
+            body,
         )
 
     def claim_next(self) -> Optional[Dict[str, Any]]:

@@ -16,6 +16,7 @@ from typing import Optional
 
 from agent.client import IotSolarClient
 from agent.config import load_config
+from agent.instruments_snapshot import collect_instruments_snapshot
 from agent.mutex import LocalMutex
 from agent.runners import get_runner
 
@@ -96,6 +97,9 @@ def run_once_job(
                     agent_version=agent_version,
                     host_name=host_name,
                     busy=True,
+                    instruments=collect_instruments_snapshot(
+                        status_json_path=str((repo_root or Path(".")) / "status.json"),
+                    ),
                 )
             except Exception as exc:
                 logger.warning("任务中心跳失败: %s", exc)
@@ -244,6 +248,12 @@ def main(argv: Optional[list] = None) -> int:
     client = IotSolarClient(cfg.iot_base, cfg.agent_token, pythonid=pythonid)
     _client_ref = client
     mutex = LocalMutex(cfg.mutex_file)
+    try:
+        from agent.config import _repo_root as _agent_repo_root
+
+        repo_root = _agent_repo_root()
+    except Exception:
+        repo_root = Path(__file__).resolve().parents[1]
 
     def _on_signal(signum, _frame):
         logger.warning("收到信号 %s，准备退出并结案当前任务", signum)
@@ -277,6 +287,9 @@ def main(argv: Optional[list] = None) -> int:
                 agent_version=cfg.agent_version,
                 host_name=host,
                 busy=agent_busy,
+                instruments=collect_instruments_snapshot(
+                    status_json_path=str(repo_root / "status.json"),
+                ),
             )
             data_hb = hb.get("data") if isinstance(hb, dict) else None
             if isinstance(data_hb, dict) and data_hb.get("pythonid"):
