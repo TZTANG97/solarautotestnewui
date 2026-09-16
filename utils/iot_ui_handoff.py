@@ -175,6 +175,7 @@ class IotUiHandoffService(QObject):
         ensure_project: Optional[Callable[[str], None]] = None,
         auto_connect: Optional[Callable[[], Any]] = None,
         ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
+        stop_test: Optional[Callable[[], None]] = None,
         wrap_append_errors: bool = True,
         log: Optional[Callable[[str], None]] = None,
         interval_ms: int = 3000,
@@ -192,6 +193,7 @@ class IotUiHandoffService(QObject):
         self.ensure_project = ensure_project
         self.auto_connect = auto_connect
         self.ensure_ready = ensure_ready
+        self.stop_test = stop_test
         self.wrap_append_errors = bool(wrap_append_errors)
         self._log = log or (lambda m: print(f"[IOT交接] {m}", flush=True))
         self._busy = False
@@ -200,6 +202,7 @@ class IotUiHandoffService(QObject):
         self._timer.setInterval(max(1000, int(interval_ms)))
         self._timer.timeout.connect(self.poll_once)
         self._last_progress_key = None
+        self._stop_inflight = False
 
     def start(self) -> None:
         watched = " ; ".join(str(d / "pending") for d in self._inbox_dirs())
@@ -241,9 +244,11 @@ class IotUiHandoffService(QObject):
     def poll_once(self) -> None:
         if self._awaiting:
             self._check_awaiting_finish()
+            self._drain_stop_requests()
             return
         if self._busy:
             return
+        self._drain_stop_requests()
         for inbox in self._inbox_dirs():
             pending_dir = inbox / "pending"
             if not pending_dir.is_dir():
@@ -276,6 +281,39 @@ class IotUiHandoffService(QObject):
                         self._busy = False
                 return
 
+    def _drain_stop_requests(self) -> None:
+        """扫描 stop_requests：调用结束试验/关电源后 ack。"""
+        if self._stop_inflight:
+            return
+        from agent.job_inbox import ack_stop_request, list_stop_requests
+
+        reqs = list_stop_requests(self.repo_root)
+        # 兼容旧 Agent 误写到 agent/iot_job_inbox
+        legacy = self.repo_root / "agent"
+        if legacy.resolve() != self.repo_root.resolve():
+            for extra in list_stop_requests(legacy):
+                reqs.append(extra)
+        if not reqs:
+            return
+        self._stop_inflight = True
+        try:
+            for req in reqs:
+                job_id = int(req.get("job_id") or 0)
+                if job_id <= 0:
+                    continue
+                if callable(self.stop_test):
+                    try:
+                        self.stop_test()
+                        self._log("收到远程停机，已执行结束试验/关电源")
+                    except Exception as exc:
+                        self._log(f"远程停机执行失败: {exc}")
+                else:
+                    self._log("收到远程停机，但未绑定 stop_test 回调")
+                ack_stop_request(self.repo_root, job_id)
+                if legacy.resolve() != self.repo_root.resolve():
+                    ack_stop_request(legacy, job_id)
+        finally:
+            self._stop_inflight = False
 
     def _read_run_status(self) -> str:
         if not self.get_run_status:
@@ -377,6 +415,45 @@ class IotUiHandoffService(QObject):
             result["result_summary"] = summary
             for root in self._write_roots_for(pending):
                 write_result(root, job_id, result)
+
+    def abort_awaiting_job(self, fail_reason: str = "软件急停") -> Optional[int]:
+        """若有等待结案的云任务，立即以 aborted 写回并释放 UI。返回 job_id 或 None。"""
+        aw = self._awaiting
+        if not aw:
+            return None
+        job_id = int(aw["job_id"])
+        pending_path = aw.get("pending_path")
+        started_at = float(aw.get("started_at") or time.time())
+        elapsed = max(0.0, time.time() - started_at)
+        reason = str(fail_reason or "软件急停").strip() or "软件急停"
+        try:
+            from agent.job_inbox import ack_stop_request, write_stop_request
+
+            write_stop_request(self.repo_root, job_id, reason=reason)
+            ack_stop_request(self.repo_root, job_id)
+        except Exception as exc:
+            self._log(f"软件急停写 stop_request 失败: {exc}")
+        self._finish_job(
+            job_id=job_id,
+            pending_path=pending_path,
+            result={
+                "status": "aborted",
+                "fail_reason": reason,
+                "result_summary": {
+                    "handoff": True,
+                    "software_estop": True,
+                    "appended": aw.get("appended"),
+                    "started": bool(aw.get("seen_running")),
+                    "waited_finish": False,
+                    "elapsed_sec": round(elapsed, 1),
+                    "missingWidgets": aw.get("missing") or [],
+                    "note": reason,
+                },
+                "report_meta": [],
+            },
+        )
+        self._log(f"任务 {job_id} 因软件急停已中止")
+        return job_id
 
     def _finish_job(
         self,
@@ -760,6 +837,7 @@ def start_iot_ui_handoff_from_main(
     ensure_project: Optional[Callable[[str], None]] = None,
     auto_connect: Optional[Callable[[], Any]] = None,
     ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
+    stop_test: Optional[Callable[[], None]] = None,
     wrap_append_errors: bool = True,
     log: Optional[Callable[[str], None]] = None,
     parent=None,
@@ -775,6 +853,7 @@ def start_iot_ui_handoff_from_main(
         ensure_project=ensure_project,
         auto_connect=auto_connect,
         ensure_ready=ensure_ready,
+        stop_test=stop_test,
         wrap_append_errors=wrap_append_errors,
         log=log,
         parent=parent,

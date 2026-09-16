@@ -90,6 +90,14 @@ class IotSolarClient:
             self.pythonid = str(data.get("pythonid") or "")
         return data
 
+    def get_job(self, job_id: int) -> dict:
+        """查询本台架任务状态（远程中止轮询）。"""
+        res = self._request("GET", f"/api/solar-autotest/agent/jobs/{int(job_id)}")
+        data = res.get("data")
+        if not isinstance(data, dict):
+            return {}
+        return data
+
     def progress(
         self,
         job_id: int,

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Optional
 
-from agent.job_inbox import wait_result, write_pending_job, write_result
+from agent.job_inbox import wait_result, write_pending_job, write_result, write_stop_request
 from agent.runners.base import ProgressCb, RunResult
 
 
@@ -27,10 +27,15 @@ class OverloadRunner:
         # 与桌面 UI handoff 共用安装根下的 iot_job_inbox（勿落到 agent/）
         self.repo_root = Path(repo_root) if repo_root else _repo_root()
         self._release_for_ui = None
+        self._abort_check: Optional[Callable[[], Optional[str]]] = None
 
     def set_release_for_ui(self, callback) -> None:
         """handoff 落盘后回调，用于释放 agent 互斥锁以便 UI 占锁。"""
         self._release_for_ui = callback
+
+    def set_abort_check(self, callback: Optional[Callable[[], Optional[str]]]) -> None:
+        """handoff 等待期间轮询云端中止；返回非空原因则写 stop_request 并结案 aborted。"""
+        self._abort_check = callback
 
     def run(self, job: Dict[str, Any], on_progress: ProgressCb) -> Dict[str, Any]:
         write_pending_job(self.repo_root, job)
@@ -83,9 +88,26 @@ class OverloadRunner:
             timeout_sec=timeout,
             poll_sec=2.0,
             on_progress=on_progress,
+            abort_check=self._abort_check,
         )
         if not data:
             return RunResult(status="failed", fail_reason="handoff 超时：未收到 results/job_*.json")
+        if data.get("_remote_abort"):
+            reason = str(data.get("fail_reason") or "云端已中止")
+            try:
+                write_stop_request(self.repo_root, job_id, reason=reason)
+            except Exception:
+                pass
+            on_progress(100, "handoff：云端远程中止，已请求本机关机", "remote_abort")
+            return RunResult(
+                status="aborted",
+                fail_reason="云端远程中止，已请求本机关机",
+                result_summary={
+                    "handoff": True,
+                    "remote_abort": True,
+                    "cloud_reason": reason,
+                },
+            )
         status = str(data.get("status") or "failed")
         on_progress(100, "handoff：已收到本机结果", "done")
         return RunResult(

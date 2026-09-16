@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import shutil
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 def inbox_root(repo_root: Path) -> Path:
@@ -75,6 +76,71 @@ def write_result(repo_root: Path, job_id: int, result: Dict[str, Any]) -> Path:
     return path
 
 
+def stop_requests_dir(repo_root: Path) -> Path:
+    d = inbox_root(repo_root) / "stop_requests"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def write_stop_request(repo_root: Path, job_id: int, reason: str = "") -> Path:
+    """写入远程停机请求，供 UI handoff 扫描后按关电源规则结束试验。"""
+    d = stop_requests_dir(repo_root)
+    jid = int(job_id)
+    path = d / f"job_{jid}.json"
+    payload = {
+        "job_id": jid,
+        "reason": str(reason or ""),
+        "written_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def list_stop_requests(repo_root: Path) -> List[Dict[str, Any]]:
+    d = inbox_root(repo_root) / "stop_requests"
+    if not d.is_dir():
+        return []
+    out: List[Dict[str, Any]] = []
+    for path in sorted(d.glob("job_*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if "job_id" not in data:
+            try:
+                data = dict(data)
+                data["job_id"] = int(path.stem.split("_", 1)[1])
+            except (IndexError, ValueError):
+                pass
+        data["_path"] = str(path)
+        out.append(data)
+    return out
+
+
+def ack_stop_request(repo_root: Path, job_id: int) -> bool:
+    """确认已处理停机请求：移到 stop_requests/done/，不存在则返回 False。"""
+    d = inbox_root(repo_root) / "stop_requests"
+    path = d / f"job_{int(job_id)}.json"
+    if not path.is_file():
+        return False
+    done = d / "done"
+    done.mkdir(parents=True, exist_ok=True)
+    dest = done / path.name
+    try:
+        if dest.exists():
+            dest.unlink()
+        shutil.move(str(path), str(dest))
+        return True
+    except OSError:
+        try:
+            path.unlink()
+            return True
+        except OSError:
+            return False
+
+
 def wait_result(
     repo_root: Path,
     job_id: int,
@@ -82,7 +148,9 @@ def wait_result(
     timeout_sec: float = 3600,
     poll_sec: float = 2.0,
     on_progress=None,
+    abort_check: Optional[Callable[[], Optional[str]]] = None,
 ) -> Optional[Dict[str, Any]]:
+    """轮询 results；可选 abort_check 返回非空原因时提前返回远程中止哨兵。"""
     path = result_path(repo_root, job_id)
     deadline = time.time() + max(1.0, timeout_sec)
     last_prog_key = None
@@ -93,6 +161,17 @@ def wait_result(
                 return data
             except (OSError, ValueError, json.JSONDecodeError):
                 pass
+        if callable(abort_check):
+            try:
+                reason = abort_check()
+            except Exception:
+                reason = None
+            if reason:
+                return {
+                    "status": "aborted",
+                    "fail_reason": str(reason),
+                    "_remote_abort": True,
+                }
         if callable(on_progress):
             prog = read_progress(repo_root, job_id)
             if prog:

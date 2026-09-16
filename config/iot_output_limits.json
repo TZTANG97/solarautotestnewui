@@ -1,0 +1,9 @@
+{
+  "_note": "台架期望输出上限；连接后读回对比，超限禁止开跑。数值填仪器面板应设的上限；null 表示不检查该项。enforce=false 时仅记录告警仍允许开跑。各品牌读回接口后续按厂家补齐，未实现时该槽位标记未读回。",
+  "ac": {"volt_max": null, "curr_max": null, "pow_max": null},
+  "dc1": {"volt_max": null, "curr_max": null, "pow_max": null},
+  "dc2": {"volt_max": null, "curr_max": null, "pow_max": null},
+  "dc3": {"volt_max": null, "curr_max": null, "pow_max": null},
+  "dc4": {"volt_max": null, "curr_max": null, "pow_max": null},
+  "enforce": true
+}

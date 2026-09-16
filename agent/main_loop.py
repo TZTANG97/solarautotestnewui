@@ -111,6 +111,25 @@ def run_once_job(
         if hasattr(runner, "set_release_for_ui"):
             runner.set_release_for_ui(_release_for_ui)
 
+        if hasattr(runner, "set_abort_check"):
+
+            def _cloud_abort_check() -> Optional[str]:
+                try:
+                    info = client.get_job(job_id)
+                except Exception as exc:
+                    logger.debug("abort 轮询失败: %s", exc)
+                    return None
+                st = str((info or {}).get("status") or "").strip().lower()
+                if st != "aborted":
+                    return None
+                return str(
+                    (info or {}).get("fail_reason")
+                    or (info or {}).get("failReason")
+                    or "运维网页手动中止"
+                )
+
+            runner.set_abort_check(_cloud_abort_check)
+
         def on_progress(percent: int, text: str, step: str) -> None:
             try:
                 client.progress(

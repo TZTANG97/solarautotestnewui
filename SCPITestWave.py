@@ -11033,6 +11033,47 @@ def ExportIotOverloadTemplate():
             print(f"[过载能力测试] 导出 IOT 模板失败: {exc}")
 
 
+def ExportIotAntibackflowTemplate():
+    """把当前防逆流页控件导出为 IOT 云任务模板（中文提示）。"""
+    global uiThaiAntiBackflow
+    try:
+        from pathlib import Path
+
+        from PyQt5.QtWidgets import QMessageBox
+
+        from utils.iot_widget_export import export_widgets_json
+
+        out = Path(__file__).resolve().parent / "iot_templates" / "antibackflow_default.json"
+        export_widgets_json(
+            uiThaiAntiBackflow,
+            out,
+            meta={
+                "auto_append": True,
+                "auto_start": False,
+                "_template": "antibackflow_default",
+                "_note": "由本机防逆流页「导出IOT模板」生成；云端建任务可选此模板",
+            },
+        )
+        try:
+            ui.textEdit_ReturnMessage.append(f"[防逆流测试] 已导出 IOT 模板：{out}")
+        except Exception:
+            pass
+        QMessageBox.information(
+            None,
+            "导出成功",
+            f"已导出到：\n{out}\n\n云端新建防逆流任务时可选用对应模板参数。",
+            QMessageBox.Ok,
+            QMessageBox.Ok,
+        )
+    except Exception as exc:
+        try:
+            from PyQt5.QtWidgets import QMessageBox
+
+            QMessageBox.warning(None, "导出失败", f"导出 IOT 模板失败：{exc}", QMessageBox.Ok, QMessageBox.Ok)
+        except Exception:
+            print(f"[防逆流测试] 导出 IOT 模板失败: {exc}")
+
+
 # 直流分量
 def thaizhiliufenliangAppend():
     global strAddTestFlag, zhiliufenliang_append_count
@@ -22901,33 +22942,86 @@ def _force_hardware_safe_off(reason="manual"):
 
 
 #结束试验按下
-def EndProjectPush():
+def EndProjectPush(*, force=False, silent_if_idle=False, off_reason="manual"):
+    """结束当前试验。force=True 跳过确认；silent_if_idle=True 未运行时不弹窗。"""
     global strTestStatusFlag, dewetron_collector, first_test
     try:
         if strTestStatusFlag in ("运行", "暂停"):
-            reply = QMessageBox.question(None, "确认结束", "确定要结束当前试验吗？",
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply == QMessageBox.Yes:
-                strTestStatusFlag = "结束"
-                strtimenow = now_to_datenow()
-                logger.info(strtimenow + "    结束试验!")
-                print(strtimenow + "    结束试验!")
-                _abort_wt_side_effects("manual")
-                _force_hardware_safe_off("manual")
-                currentSecond = ui.comboBox_PS.currentText()
-                _finish_run_progress(aborted=True)
-                _update_project_status(currentSecond, "已中止")
-                _reset_current_project_count()
-                _sync_start_end_buttons()
-                _finish_dewetron_session("manual", send_stop=True)
-                reset_wt_automation_state()
-                # reset 会清空 first_test；RunProject 若仍卡在 Upper_WT_Config 返回途中，
-                # 必须再置位，避免再次拉起整段 WTViewer 自动配置。
-                first_test = "1"
-        else:
+            if not force:
+                reply = QMessageBox.question(
+                    None,
+                    "确认结束",
+                    "确定要结束当前试验吗？",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No,
+                )
+                if reply != QMessageBox.Yes:
+                    return
+            strTestStatusFlag = "结束"
+            strtimenow = now_to_datenow()
+            logger.info(strtimenow + "    结束试验!")
+            print(strtimenow + "    结束试验!")
+            _abort_wt_side_effects(off_reason)
+            _force_hardware_safe_off(off_reason)
+            currentSecond = ui.comboBox_PS.currentText()
+            _finish_run_progress(aborted=True)
+            _update_project_status(currentSecond, "已中止")
+            _reset_current_project_count()
+            _sync_start_end_buttons()
+            _finish_dewetron_session(off_reason, send_stop=True)
+            reset_wt_automation_state()
+            # reset 会清空 first_test；RunProject 若仍卡在 Upper_WT_Config 返回途中，
+            # 必须再置位，避免再次拉起整段 WTViewer 自动配置。
+            first_test = "1"
+        elif not silent_if_idle:
             QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
     except NameError:
-        QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
+        if not silent_if_idle:
+            QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
+
+
+def SoftwareEstopPush():
+    """软件急停：确认后先关输出，再强制中止试验（并通知 IOT handoff）。"""
+    from utils.iot_software_estop import ESTOP_CONFIRM_ZH, ESTOP_FAIL_REASON_ZH, estop_software
+
+    reply = QMessageBox.question(
+        None,
+        "软件急停",
+        ESTOP_CONFIRM_ZH,
+        QMessageBox.Yes | QMessageBox.No,
+        QMessageBox.No,
+    )
+    if reply != QMessageBox.Yes:
+        return
+
+    def _log_estop(msg: str):
+        try:
+            logger.info(msg)
+        except Exception:
+            pass
+        print(msg, flush=True)
+        try:
+            if ui is not None:
+                ui.textEdit_ReturnMessage.append(msg)
+        except Exception:
+            pass
+
+    def _notify_handoff():
+        svc = globals().get("_iot_ui_handoff_svc")
+        if svc is None:
+            return
+        abort = getattr(svc, "abort_awaiting_job", None)
+        if callable(abort):
+            abort(ESTOP_FAIL_REASON_ZH)
+
+    estop_software(
+        force_off=lambda: _force_hardware_safe_off("software_estop"),
+        end_project=lambda: EndProjectPush(
+            force=True, silent_if_idle=True, off_reason="software_estop"
+        ),
+        notify_handoff=_notify_handoff,
+        log=_log_estop,
+    )
 
 #继续试验按钮按下
 def ConProjectPush():
@@ -30457,6 +30551,8 @@ if __name__ == "__main__":
             # 初始化多轮进度桥接（必须在主线程创建，供后台 Timer 发信号）
             _ensure_progress_bridge()
             ui.pushButton_EndTest.clicked.connect(EndProjectPush)
+            if hasattr(ui, "pushButton_SoftwareEstop"):
+                ui.pushButton_SoftwareEstop.clicked.connect(SoftwareEstopPush)
             ui.pushButton_StopTest.clicked.connect(PauseProjectPush)
             ui.pushButton_ConTest.clicked.connect(ConProjectPush)
 
@@ -30866,6 +30962,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiAntiBackflow, "pushButton_ResetCount", reset_antibackflow_count)
             _safe_click(uiThaiAntiBackflow, "pushButton_ReadSettingFile", OpenFileDialogThaiAntiBackflow)
             _safe_click(uiThaiAntiBackflow, "pushButton_SaveSettingFile", SaveFileDialogThaiAntiBackflow)
+            _safe_click(uiThaiAntiBackflow, "pushButton_ExportIotTemplate", ExportIotAntibackflowTemplate)
 
             # overloads
             _when_ui_ready(uiThaiOverLoads, lambda u: u.pushButton_Send.clicked.connect(thaioverloadsSend))
@@ -31444,23 +31541,60 @@ if __name__ == "__main__":
                         format_ready_fail_reason,
                         required_dc_slots_from_ui,
                     )
+                    from utils.iot_output_limits import (
+                        check_output_limits_gate,
+                        default_limits_path,
+                        load_expected_limits,
+                        read_limits_from_controllers,
+                    )
 
                     slots = required_dc_slots_from_ui(ui_obj)
+                    dc_controllers = {
+                        "dc1": globals().get("dc1_controller"),
+                        "dc2": globals().get("dc2_controller"),
+                        "dc3": globals().get("dc3_controller"),
+                        "dc4": globals().get("dc4_controller"),
+                    }
                     ok, reasons = check_devices_ready(
                         ac_controller=globals().get("ac_controller"),
-                        dc_controllers={
-                            "dc1": globals().get("dc1_controller"),
-                            "dc2": globals().get("dc2_controller"),
-                            "dc3": globals().get("dc3_controller"),
-                            "dc4": globals().get("dc4_controller"),
-                        },
+                        dc_controllers=dc_controllers,
                         per_dc_factor=globals().get("per_dc_factor") or {},
                         required_dc_slots=slots,
                         require_ac=True,
                     )
-                    return ok, format_ready_fail_reason(reasons)
+                    if not ok:
+                        return ok, format_ready_fail_reason(reasons)
 
-                start_iot_ui_handoff_from_main(
+                    # 强制读上限门禁：配置缺失或期望全 null 则跳过，不打扰未配台上架
+                    limits_path = default_limits_path()
+                    if limits_path.is_file():
+                        try:
+                            expected_limits = load_expected_limits(limits_path)
+                        except Exception as lim_exc:
+                            return False, "输出上限配置读取失败：%s" % lim_exc
+                        if bool(expected_limits.get("enforce", True)):
+                            actual_limits = read_limits_from_controllers(
+                                ac_controller=globals().get("ac_controller"),
+                                dc_controllers=dc_controllers,
+                            )
+                            ok_lim, reason_lim = check_output_limits_gate(
+                                expected=expected_limits,
+                                actual=actual_limits,
+                            )
+                            if not ok_lim:
+                                return False, reason_lim
+                    return True, ""
+
+                def _iot_remote_stop_test():
+                    """远程停机：等同结束试验，按关电源规则（直流先关→交流）；跳过确认弹窗。"""
+                    print(
+                        "[IOT交接] 远程停机按关电源规则（直流先关→交流）",
+                        flush=True,
+                    )
+                    EndProjectPush(force=True, silent_if_idle=True)
+
+                global _iot_ui_handoff_svc
+                _iot_ui_handoff_svc = start_iot_ui_handoff_from_main(
                     resolve_overload_ui=_resolve_overload_ui,
                     overload_append=thaioverloadsAppend,
                     resolve_antibackflow_ui=_resolve_antibackflow_ui,
@@ -31471,6 +31605,7 @@ if __name__ == "__main__":
                     ensure_project=_iot_ensure_project,
                     auto_connect=_iot_auto_connect,
                     ensure_ready=_iot_ensure_ready,
+                    stop_test=_iot_remote_stop_test,
                     log=_iot_log,
                     parent=main_window,
                 )

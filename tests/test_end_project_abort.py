@@ -87,7 +87,8 @@ def test_abort_does_not_force_setting_status_done():
 
 def test_end_push_reasserts_first_test_after_reset():
     src = (ROOT / "SCPITestWave.py").read_text(encoding="utf-8")
-    idx = src.find("def EndProjectPush():")
+    idx = src.find("def EndProjectPush(")
     chunk = src[idx : idx + 1600]
     assert "reset_wt_automation_state()" in chunk
     assert 'first_test = "1"' in chunk
+    assert "force=" in chunk or "silent_if_idle" in chunk

@@ -1,0 +1,7 @@
+{
+  "widgets": {},
+  "auto_append": true,
+  "auto_start": false,
+  "_template": "antibackflow_default",
+  "_note": "空参数表示使用本机防逆流页当前默认值；可在防逆流页点「导出IOT模板」覆盖本文件"
+}

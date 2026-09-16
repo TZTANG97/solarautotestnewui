@@ -824,6 +824,17 @@ class Ui_Dialog(object):
         self.pushButton_EndTest = QtWidgets.QPushButton("结束试验")
         self.pushButton_EndTest.setObjectName("pushButton_EndTest")
         testBtnLayout.addWidget(self.pushButton_EndTest)
+        self.pushButton_SoftwareEstop = QtWidgets.QPushButton("软件急停")
+        self.pushButton_SoftwareEstop.setObjectName("pushButton_SoftwareEstop")
+        self.pushButton_SoftwareEstop.setStyleSheet("""
+            QPushButton {
+                background-color: #dc2626; color: white; border: none;
+                border-radius: 6px; padding: 8px 18px; font-size: 14px; font-weight: bold;
+            }
+            QPushButton:hover { background-color: #b91c1c; }
+            QPushButton:pressed { background-color: #991b1b; }
+        """)
+        testBtnLayout.addWidget(self.pushButton_SoftwareEstop)
         self.pushButton_ShowMultiSettingDetail = QtWidgets.QPushButton("测试追加")
         self.pushButton_ShowMultiSettingDetail.setObjectName("pushButton_ShowMultiSettingDetail")
         self.pushButton_ShowMultiSettingDetail.setVisible(False)
@@ -1024,6 +1035,7 @@ class Ui_Dialog(object):
         self.pushButton_StartTest.setText(_translate("Dialog", "开始试验"))
         self.pushButton_StopTest.setText(_translate("Dialog", "暂停试验"))
         self.pushButton_EndTest.setText(_translate("Dialog", "结束试验"))
+        self.pushButton_SoftwareEstop.setText(_translate("Dialog", "软件急停"))
         self.pushButton_ConTest.setText(_translate("Dialog", "继续运行试验"))
         self.pushButton_ClearMessage.setText(_translate("Dialog", "清空消息"))
         self.btn_test.setText(_translate("Dialog", "test"))

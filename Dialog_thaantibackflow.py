@@ -60,6 +60,16 @@ class Ui_Dialog_thaantibackflow(object):
         """)
         topLayout.addWidget(self.pushButton_SaveSettingFile)
 
+        self.pushButton_ExportIotTemplate = QtWidgets.QPushButton("导出IOT模板")
+        self.pushButton_ExportIotTemplate.setObjectName("pushButton_ExportIotTemplate")
+        self.pushButton_ExportIotTemplate.setToolTip("把当前防逆流页控件导出为 iot_templates/antibackflow_default.json，供云端任务模板使用")
+        self.pushButton_ExportIotTemplate.setStyleSheet("""
+            QPushButton { background-color: #0ea5e9; color: white; border: none; border-radius: 4px;
+                          padding: 6px 14px; font-size: 12px; }
+            QPushButton:hover { background-color: #0284c7; }
+        """)
+        topLayout.addWidget(self.pushButton_ExportIotTemplate)
+
         sep = QtWidgets.QFrame()
         sep.setFrameShape(QtWidgets.QFrame.VLine)
         sep.setStyleSheet("color: #cbd5e1; border: none; max-width: 1px;")
