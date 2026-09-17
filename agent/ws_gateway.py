@@ -40,31 +40,102 @@ def iot_base_to_ws_url(iot_base: str) -> str:
     return f"{scheme}://{netloc}{path}"
 
 
-def _solar_equipment_codes(machine_id: str, host_name: str = "") -> tuple[str, str, str]:
-    """与 IOT solar_equipment_naming 对齐：型号 SolarBench / 序列号 SAT-主机-短码 / 设备ID SolarBenchStyle…"""
+# 与 IOT app/services/solar_equipment_naming 台架角色对齐（equdata 仅报台架 + 已连接真机）
+_SOLAR_BENCH = ("SolarBench", "光伏工控台架", "BENCH")
+
+
+def _solar_codes_for_role(
+    equ_num: str, role_tag: str, machine_id: str, host_name: str = ""
+) -> tuple[str, str, str]:
+    """型号 / 序列号 SAT-{ROLE}-主机-短码 / 设备ID {型号}Style…"""
     import re
 
     hx = re.sub(r"[^0-9a-fA-F]", "", (machine_id or "").lower())
     short8 = (hx[:8] or "LOCAL000").upper()
     short12 = (hx[:12] or (short8 + "0000")[:12]).upper()
     host = re.sub(r"[^A-Za-z0-9_-]+", "-", (host_name or "PC").strip()).strip("-_")[:24] or "PC"
-    return "SolarBench", f"SAT-{host}-{short8}"[:64], f"SolarBenchStyle{short12}"[:255]
+    equ_seq = f"SAT-{role_tag}-{host}-{short8}"[:64]
+    equ_id = f"{equ_num}Style{short12}"[:255]
+    return equ_num, equ_seq, equ_id
 
 
-def build_solar_equs(*, pythonid: str, machine_id: str = "", host_name: str = "") -> List[Dict[str, Any]]:
+def _stable_inst_equ_id(pythonid: str, resource: str) -> str:
+    import hashlib
+
+    digest = hashlib.sha1(f"{pythonid}|{resource}".encode("utf-8")).hexdigest()[:16].upper()
+    return f"SolarInst{digest}"
+
+
+def build_solar_equs(
+    *,
+    pythonid: str,
+    machine_id: str = "",
+    host_name: str = "",
+    instruments: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    equdata_return.equs：
+    - 始终含工控台架 SolarBench
+    - 另附软件已连接的真仪器（品牌/型号/地址），不再虚构未连接的 SolarAC/DC 卡
+    """
     host = host_name or socket.gethostname()
-    equ_num, equ_seq, equ_id = _solar_equipment_codes(machine_id or "", host)
-    return [
+    mid = machine_id or ""
+    pid = (pythonid or "").strip()
+    out: List[Dict[str, Any]] = []
+
+    equ_num, label, role_tag = _SOLAR_BENCH
+    _n, equ_seq, equ_id = _solar_codes_for_role(equ_num, role_tag, mid, host)
+    out.append(
         {
             "equ_id": equ_id,
             "equ_firm": "SolarAutoTest",
             "equ_num": equ_num,
             "equ_seq": equ_seq,
-            "equ_name": f"光伏自动化台架-{host}",
+            "equ_name": f"{label}-{host}",
+            "equ_type": "1",
             "status": "on",
-            "pythonid": pythonid,
+            "pythonid": pid,
         }
-    ]
+    )
+
+    kind_fallback = {
+        "ac": "AC源",
+        "dc": "DC源",
+        "wt": "功率分析仪",
+        "scope": "示波器",
+        "dew": "德威创",
+    }
+    for item in instruments or []:
+        if not isinstance(item, dict):
+            continue
+        if not item.get("connected"):
+            continue
+        resource = str(item.get("resource") or "").strip()
+        if not resource or resource.lower().startswith("pending:"):
+            continue
+        brand = str(item.get("brand") or "").strip() or "未知厂商"
+        model = str(item.get("model") or "").strip()
+        kind = str(item.get("kind") or "unknown").strip().lower()
+        if not model:
+            model = kind_fallback.get(kind, kind.upper() or "Instrument")
+        serial = str(item.get("serial") or "").strip() or resource[:64]
+        name = f"{brand} {model}".strip()
+        out.append(
+            {
+                "equ_id": _stable_inst_equ_id(pid, resource),
+                "equ_firm": brand,
+                "equ_num": model[:255],
+                "equ_seq": serial[:255],
+                "equ_name": name[:255],
+                "equ_type": "1",
+                "status": "on" if item.get("online", True) else "off",
+                "pythonid": pid,
+                "resource": resource,
+                "slot": str(item.get("slot") or "").strip().lower(),
+                "kind": kind,
+            }
+        )
+    return out
 
 
 class SolarWsPresence:
@@ -163,6 +234,13 @@ class SolarWsPresence:
                 return
             if msg_type in ("equdata", "getequdata") and client_id:
                 ret_type = "equdata_return" if msg_type == "equdata" else "getequdata_return"
+                instruments: List[Dict[str, Any]] = []
+                try:
+                    from agent.instruments_snapshot import collect_instruments_snapshot
+
+                    instruments = collect_instruments_snapshot(force=True, min_interval_sec=0)
+                except Exception as exc:
+                    logger.debug("equdata 采集仪器失败: %s", exc)
                 reply = {
                     "type": ret_type,
                     "pythonid": self.pythonid,
@@ -171,10 +249,16 @@ class SolarWsPresence:
                         pythonid=self.pythonid,
                         machine_id=self.machine_id,
                         host_name=self.host_name,
+                        instruments=instruments,
                     ),
                 }
                 ws.send(json.dumps(reply, ensure_ascii=False))
-                logger.info("已应答 %s clientid=%s", ret_type, client_id)
+                logger.info(
+                    "已应答 %s clientid=%s equs=%s",
+                    ret_type,
+                    client_id,
+                    len(reply["equs"]),
+                )
 
         def on_error(_ws, err) -> None:
             logger.debug("WS error: %s", err)

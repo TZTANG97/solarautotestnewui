@@ -4,12 +4,24 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 _cache: List[Dict[str, Any]] = []
 _cache_at: float = 0.0
+
+
+def parse_scpi_idn(idn: str) -> Tuple[str, str, str]:
+    """*IDN? → (brand, model, serial)。"""
+    text = (idn or "").strip()
+    if not text or text.startswith("未响应"):
+        return "", "", ""
+    parts = [p.strip() for p in text.split(",")]
+    brand = parts[0] if parts else ""
+    model = parts[1] if len(parts) > 1 else ""
+    serial = parts[2] if len(parts) > 2 else ""
+    return brand[:64], model[:128], serial[:64]
 
 
 def collect_instruments_snapshot(
@@ -65,15 +77,20 @@ def collect_instruments_snapshot(
 def _dev_to_item(d: Any, *, slot: str = "", connected: bool = False) -> Dict[str, Any]:
     extra = getattr(d, "extra", None) or {}
     offline = bool(extra.get("offline"))
+    idn = getattr(d, "idn", "") or ""
+    idn_brand, idn_model, idn_serial = parse_scpi_idn(idn)
+    brand = (getattr(d, "brand_hint", "") or idn_brand or "").strip()
+    model = (idn_model or "").strip()
     return {
         "kind": (getattr(d, "kind_hint", None) or "unknown"),
         "slot": (slot or "").strip().lower(),
         "resource": getattr(d, "resource", "") or "",
         "host": getattr(d, "host", "") or "",
         "port": getattr(d, "port", None),
-        "brand": getattr(d, "brand_hint", "") or "",
-        "model": "",
-        "idn": getattr(d, "idn", "") or "",
+        "brand": brand,
+        "model": model,
+        "serial": idn_serial,
+        "idn": idn,
         "online": not offline,
         "connected": bool(connected) and not offline,
         "source": getattr(d, "source", "") or "agent_scan",
