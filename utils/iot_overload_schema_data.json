@@ -1,7 +1,7 @@
 {
   "testType": "overload",
   "title": "过载能力测试",
-  "version": 3,
+  "version": 4,
   "groups": [
     {
       "id": "step1_ac",
@@ -47,38 +47,6 @@
       "type": "checkbox",
       "group": "step1_ac",
       "default": true,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1",
-      "label": "直流电源1",
-      "type": "checkbox",
-      "group": "step1_dc",
-      "default": true,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2",
-      "label": "直流电源2",
-      "type": "checkbox",
-      "group": "step1_dc",
-      "default": false,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3",
-      "label": "直流电源3",
-      "type": "checkbox",
-      "group": "step1_dc",
-      "default": false,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC4",
-      "label": "直流电源4",
-      "type": "checkbox",
-      "group": "step1_dc",
-      "default": false,
       "options": []
     },
     {
@@ -153,6 +121,38 @@
       "type": "text",
       "group": "step1_ac",
       "default": "230",
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
       "options": []
     },
     {
@@ -381,7 +381,7 @@
     },
     {
       "name": "checkBox_DEW_RealtimeWaveform",
-      "label": "实时波形",
+      "label": "启用实时波形显示",
       "type": "checkbox",
       "group": "step2_dew",
       "default": false,
@@ -390,16 +390,64 @@
     },
     {
       "name": "comboBox_DEW_MaxRefreshRate",
-      "label": "最大刷新率",
+      "label": "最大刷新率 (ms)",
       "type": "select",
       "group": "step2_dew",
-      "default": null,
-      "options": [],
+      "default": "Default",
+      "options": [
+        "Default",
+        "100",
+        "50",
+        "20",
+        "10",
+        "5",
+        "2",
+        "1"
+      ],
+      "uiHint": "dew"
+    },
+    {
+      "name": "dew_export_fields",
+      "label": "导出字段选择",
+      "type": "multi",
+      "group": "step2_dew",
+      "default": [
+        "U1_tRMS",
+        "U2_tRMS",
+        "U3_tRMS",
+        "I1_tRMS",
+        "I2_tRMS",
+        "I3_tRMS",
+        "P1",
+        "P2",
+        "P3",
+        "P_sum",
+        "Q_sum",
+        "S_sum",
+        "Freq",
+        "PF_sum"
+      ],
+      "options": [
+        "U1_tRMS",
+        "U2_tRMS",
+        "U3_tRMS",
+        "I1_tRMS",
+        "I2_tRMS",
+        "I3_tRMS",
+        "P1",
+        "P2",
+        "P3",
+        "P_sum",
+        "Q_sum",
+        "S_sum",
+        "Freq",
+        "PF_sum"
+      ],
       "uiHint": "dew"
     },
     {
       "name": "spinBox_DEW_DecimalPlaces",
-      "label": "小数位数",
+      "label": "保留小数位数",
       "type": "number",
       "group": "step2_dew",
       "default": 3,
@@ -1781,6 +1829,35 @@
           }
         ]
       }
-    ]
+    ],
+    "dew": {
+      "rateOptions": [
+        "Default",
+        "100",
+        "50",
+        "20",
+        "10",
+        "5",
+        "2",
+        "1"
+      ],
+      "exportFieldOptions": [
+        "U1_tRMS",
+        "U2_tRMS",
+        "U3_tRMS",
+        "I1_tRMS",
+        "I2_tRMS",
+        "I3_tRMS",
+        "P1",
+        "P2",
+        "P3",
+        "P_sum",
+        "Q_sum",
+        "S_sum",
+        "Freq",
+        "PF_sum"
+      ],
+      "note": "导出字段在本机连接 DEWETRON 后可再刷新；线上先勾选常用通道。"
+    }
   }
 }

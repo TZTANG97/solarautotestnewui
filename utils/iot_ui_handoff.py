@@ -748,9 +748,43 @@ class IotUiHandoffService(QObject):
                 except Exception as exc:
                     self._log(f"过载 schema 默认值合并跳过: {exc}")
 
-            missing = apply_widget_values(real_ui, widgets)
+            widgets_for_ui = {
+                k: v
+                for k, v in (widgets or {}).items()
+                if k not in ("dew_export_fields",)
+            }
+            missing = apply_widget_values(real_ui, widgets_for_ui)
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
+
+            # 德威创导出字段：不在标准控件树里，单独写入面板
+            try:
+                raw_fields = None
+                if isinstance(widgets, dict):
+                    raw_fields = widgets.get("dew_export_fields")
+                if raw_fields is not None and hasattr(real_ui, "set_checked_export_fields"):
+                    if isinstance(raw_fields, str):
+                        field_list = [x.strip() for x in raw_fields.replace("，", ",").split(",") if x.strip()]
+                    elif isinstance(raw_fields, (list, tuple)):
+                        field_list = [str(x).strip() for x in raw_fields if str(x).strip()]
+                    else:
+                        field_list = []
+                    if field_list:
+                        real_ui.set_checked_export_fields(field_list)
+                        self._log(f"德威创导出字段已写入 {len(field_list)} 项")
+                # 切到德威创模式
+                if isinstance(widgets, dict) and (
+                    widgets.get("radio_dewetron") in (True, "1", 1, "true", "True")
+                ):
+                    radio = getattr(real_ui, "radio_dewetron", None)
+                    if radio is not None and hasattr(radio, "setChecked"):
+                        radio.setChecked(True)
+                        try:
+                            radio.click()
+                        except Exception:
+                            pass
+            except Exception as exc:
+                self._log(f"德威创面板写入跳过: {exc}")
 
             auto_append = True
             if isinstance(params, dict) and "auto_append" in params:
