@@ -85,6 +85,11 @@ def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     resource = str(row.get("resource") or "").strip()
     if not resource or resource in ("未配置", "-"):
         return None
+    # 残缺 IP（192.1 / 192.10）不上报
+    host, _port = _parse_host_port(resource)
+    if host and host.replace(".", "").isdigit():
+        if len(host.split(".")) != 4:
+            return None
     connected_now = bool(row.get("connected"))
     ever_connected = bool(str(row.get("last_connected") or "").strip()) or connected_now
     if not ever_connected:
