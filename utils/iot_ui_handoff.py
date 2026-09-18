@@ -60,20 +60,65 @@ def _format_auto_connect_summary(summary: Any) -> str:
 
 
 def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
-    """按 objectName 写控件。返回未找到的键列表。"""
+    """按 objectName 写控件。返回未找到的键列表。
+
+    功率分析仪为 QStackedWidget 多页同名控件时，优先写当前可见页，
+    避免 findChild 总命中第一页（WT3000）导致其它型号配置无效。
+    """
     missing = []
     if not values:
         return missing
-    for name, val in values.items():
+
+    active_page = None
+    try:
+        stacked = getattr(root_widget, "_wtStacked", None)
+        if stacked is not None and hasattr(stacked, "currentWidget"):
+            active_page = stacked.currentWidget()
+    except Exception:
+        active_page = None
+
+    def _find(name: str):
         w = None
-        if hasattr(root_widget, "findChild"):
+        if active_page is not None and hasattr(active_page, "findChild"):
+            try:
+                w = active_page.findChild(QWidget, str(name))
+            except Exception:
+                w = None
+        if w is None and hasattr(root_widget, "findChild"):
             try:
                 w = root_widget.findChild(QWidget, str(name))
             except Exception:
                 w = None
         if w is None and hasattr(root_widget, str(name)):
             w = getattr(root_widget, str(name), None)
-        # LazyDialog / Ui 对象：属性即控件
+        return w
+
+    # 先切型号 / 分析仪模式，再写其它控件
+    priority = (
+        "radio_wt",
+        "radio_dewetron",
+        "radio_S2_WT3000",
+        "radio_S2_WT1800",
+        "radio_S2_WT1806E",
+        "radio_S2_WT5000",
+        "radioButton_S2_WT3000",
+        "radioButton_S2_WT1800",
+        "radioButton_S2_WT1806E",
+        "radioButton_S2_WT5000",
+    )
+    ordered = []
+    seen = set()
+    for k in priority:
+        if k in values:
+            ordered.append(k)
+            seen.add(k)
+    for k in values:
+        if k not in seen:
+            ordered.append(k)
+
+    for name in ordered:
+        val = values.get(name)
+        w = _find(name)
         if w is None:
             missing.append(str(name))
             continue
@@ -85,7 +130,20 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
             elif isinstance(w, QCheckBox):
                 w.setChecked(bool(val) if not isinstance(val, str) else val.strip() in ("1", "true", "True", "yes"))
             elif isinstance(w, QRadioButton):
-                w.setChecked(bool(val) if not isinstance(val, str) else val.strip() in ("1", "true", "True", "yes"))
+                checked = bool(val) if not isinstance(val, str) else val.strip() in ("1", "true", "True", "yes")
+                w.setChecked(checked)
+                if checked:
+                    try:
+                        # 触发 stacked 切页
+                        w.click()
+                    except Exception:
+                        pass
+                    try:
+                        stacked = getattr(root_widget, "_wtStacked", None)
+                        if stacked is not None and hasattr(stacked, "currentWidget"):
+                            active_page = stacked.currentWidget()
+                    except Exception:
+                        pass
             elif isinstance(w, QComboBox):
                 if isinstance(val, int):
                     w.setCurrentIndex(val)
@@ -99,7 +157,6 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
                         except (TypeError, ValueError):
                             missing.append(str(name))
             else:
-                # 尝试常见 API
                 if hasattr(w, "setPlainText"):
                     w.setPlainText(str(val))
                 elif hasattr(w, "setText"):

@@ -241,16 +241,57 @@ def fixed_pf_recommended_filenames(power_levels, mode: str = MODE_CONTINUOUS):
     return ["FixedPF_P%s" % _format_setpoint_tag(p) for p in power_levels]
 
 
-def _apply_run_tag(names, run_tag: str = ""):
+def make_recording_run_tag() -> str:
+    """时分秒后缀，同试验多轮追加时区分录波/结果文件名。"""
+    import time
+
+    return time.strftime("%H%M%S")
+
+
+def apply_run_tag(names, run_tag: str = ""):
     """给文件名加轮次/时间后缀，避免再次追加或结束后重跑盖掉上一轮 CSV。"""
     tag = str(run_tag or "").strip()
     if not tag:
-        return list(names)
+        return list(names or [])
     # 只保留文件名安全字符
     safe = "".join(ch for ch in tag if ch.isalnum() or ch in ("-", "_"))
     if not safe:
-        return list(names)
-    return ["%s_%s" % (n, safe) for n in names]
+        return list(names or [])
+    return ["%s_%s" % (n, safe) for n in (names or [])]
+
+
+# 兼容旧私有名
+_apply_run_tag = apply_run_tag
+
+
+def should_refresh_wt_config(str_add_flag, project_change="0") -> bool:
+    """首次、换项目、或同项目再次追加时都要刷新 WT 配置（含文件名列表）。
+
+    同项目追加若不刷新 FileNameList，多轮会写到同一文件名而覆盖。
+    """
+    flag = str(str_add_flag or "0").strip()
+    if flag == "0":
+        return True
+    if flag == "1":
+        return True
+    return str(project_change or "0").strip() == "1"
+
+
+def finalize_append_file_names(
+    new_names,
+    existing_commands=None,
+    *,
+    is_append: bool = False,
+    run_tag=None,
+):
+    """本轮推荐名 + 时分秒后缀；追加时拼上已有 Upper_WT_Config 文件名，避免覆盖。"""
+    tag = make_recording_run_tag() if run_tag is None else str(run_tag or "")
+    tagged = apply_run_tag(list(new_names or []), tag)
+    if is_append:
+        prev = previous_wt_filename_list(existing_commands)
+        if prev:
+            return list(prev) + list(tagged)
+    return tagged
 
 
 def harmonic_recommended_filenames(
@@ -272,7 +313,7 @@ def harmonic_recommended_filenames(
             names.append(base if n == 1 else "%s_%s" % (base, n))
         if not names:
             names = ["Harmonic_P100"]
-    return _apply_run_tag(names, run_tag)
+    return apply_run_tag(names, run_tag)
 
 
 def previous_wt_filename_list(commands) -> list:

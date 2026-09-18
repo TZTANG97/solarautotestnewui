@@ -1,7 +1,7 @@
 {
   "testType": "overload",
   "title": "过载能力测试",
-  "version": 1,
+  "version": 2,
   "groups": [
     {
       "id": "step1_ac",
@@ -18,6 +18,14 @@
     {
       "id": "step2_wt",
       "title": "② 功率分析仪"
+    },
+    {
+      "id": "step2_dew",
+      "title": "② 德威创"
+    },
+    {
+      "id": "step2_wt_cfg",
+      "title": "② 功率分析仪 · 测量/存盘"
     },
     {
       "id": "step3_ov",
@@ -45,7 +53,7 @@
       "name": "checkBox_S1_DC1",
       "label": "启用直流电源1",
       "type": "checkbox",
-      "group": "step1_ac",
+      "group": "step1_dc",
       "default": true,
       "options": []
     },
@@ -53,24 +61,24 @@
       "name": "checkBox_S1_DC2",
       "label": "启用直流电源2",
       "type": "checkbox",
-      "group": "step1_ac",
-      "default": true,
+      "group": "step1_dc",
+      "default": false,
       "options": []
     },
     {
       "name": "checkBox_S1_DC3",
       "label": "启用直流电源3",
       "type": "checkbox",
-      "group": "step1_ac",
-      "default": true,
+      "group": "step1_dc",
+      "default": false,
       "options": []
     },
     {
       "name": "checkBox_S1_DC4",
       "label": "启用直流电源4",
       "type": "checkbox",
-      "group": "step1_ac",
-      "default": true,
+      "group": "step1_dc",
+      "default": false,
       "options": []
     },
     {
@@ -163,7 +171,7 @@
       "label": "直流2 开关",
       "type": "select",
       "group": "step1_dc",
-      "default": "开启",
+      "default": "关闭",
       "options": [
         "开启",
         "关闭"
@@ -174,7 +182,7 @@
       "label": "直流3 开关",
       "type": "select",
       "group": "step1_dc",
-      "default": "开启",
+      "default": "关闭",
       "options": [
         "开启",
         "关闭"
@@ -185,7 +193,7 @@
       "label": "直流4 开关",
       "type": "select",
       "group": "step1_dc",
-      "default": "开启",
+      "default": "关闭",
       "options": [
         "开启",
         "关闭"
@@ -372,6 +380,33 @@
       "options": []
     },
     {
+      "name": "checkBox_DEW_RealtimeWaveform",
+      "label": "德威创实时波形",
+      "type": "checkbox",
+      "group": "step2_dew",
+      "default": false,
+      "options": [],
+      "uiHint": "dew"
+    },
+    {
+      "name": "comboBox_DEW_MaxRefreshRate",
+      "label": "德威创刷新率",
+      "type": "select",
+      "group": "step2_dew",
+      "default": null,
+      "options": [],
+      "uiHint": "dew"
+    },
+    {
+      "name": "spinBox_DEW_DecimalPlaces",
+      "label": "德威创小数位",
+      "type": "number",
+      "group": "step2_dew",
+      "default": 3,
+      "options": [],
+      "uiHint": "dew"
+    },
+    {
       "name": "checkBox_S2",
       "label": "启用步骤2 功率分析仪",
       "type": "checkbox",
@@ -382,34 +417,1414 @@
     {
       "name": "radio_S2_WT1800",
       "label": "选用 WT1800",
-      "type": "text",
+      "type": "radio",
       "group": "step2_wt",
-      "default": null,
+      "default": false,
       "options": []
     },
     {
       "name": "radio_S2_WT1806E",
       "label": "选用 WT1806E",
-      "type": "text",
+      "type": "radio",
       "group": "step2_wt",
-      "default": null,
+      "default": false,
       "options": []
     },
     {
       "name": "radio_S2_WT3000",
       "label": "选用 WT3000",
-      "type": "text",
+      "type": "radio",
       "group": "step2_wt",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "radio_S2_WT5000",
       "label": "选用 WT5000",
-      "type": "text",
+      "type": "radio",
       "group": "step2_wt",
-      "default": null,
+      "default": false,
       "options": []
+    },
+    {
+      "name": "radio_dewetron",
+      "label": "使用德威创",
+      "type": "radio",
+      "group": "step2_wt",
+      "default": false,
+      "options": [],
+      "uiHint": "analyzer_mode"
+    },
+    {
+      "name": "radio_wt",
+      "label": "使用功率分析仪(WT)",
+      "type": "radio",
+      "group": "step2_wt",
+      "default": true,
+      "options": [],
+      "uiHint": "analyzer_mode"
+    },
+    {
+      "name": "checkBox_AutoName",
+      "label": "AutoName",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_Set",
+      "label": "",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetCfI",
+      "label": "CfI",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetCfU",
+      "label": "CfU",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaF1",
+      "label": "DeltaF1",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaF2",
+      "label": "DeltaF2",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaF3",
+      "label": "DeltaF3",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaF4",
+      "label": "DeltaF4",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaI",
+      "label": "DeltaI",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaP1",
+      "label": "DeltaP1",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaP2",
+      "label": "DeltaP2",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaP3",
+      "label": "DeltaP3",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaPSigma",
+      "label": "DeltaPSigma",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaU1",
+      "label": "DeltaU1",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaU2",
+      "label": "DeltaU2",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaU3",
+      "label": "DeltaU3",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetDeltaUSigma",
+      "label": "DeltaUSigma",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEaI",
+      "label": "EaI",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEaU",
+      "label": "EaU",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetElement1",
+      "label": "Element1",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetElement2",
+      "label": "Element2",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetElement3",
+      "label": "Element3",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetElement4",
+      "label": "Element4",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetElement5",
+      "label": "Element5",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetElement6",
+      "label": "Element6",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEta1",
+      "label": "Eta1",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEta2",
+      "label": "Eta2",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEta3",
+      "label": "Eta3",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEta4",
+      "label": "Eta4",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEta5",
+      "label": "Eta5",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEta6",
+      "label": "Eta6",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEvent1",
+      "label": "Event1",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEvent2",
+      "label": "Event2",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEvent3",
+      "label": "Event3",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEvent4",
+      "label": "Event4",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEvent5",
+      "label": "Event5",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetEvent6",
+      "label": "Event6",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetFreq2I",
+      "label": "Freq2I",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetFreq2U",
+      "label": "Freq2U",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetFreqI",
+      "label": "FreqI",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetFreqPLL1",
+      "label": "FreqPLL1",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetFreqPLL2",
+      "label": "FreqPLL2",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetFreqU",
+      "label": "FreqU",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetI",
+      "label": "I",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIac",
+      "label": "Iac",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIdc",
+      "label": "Idc",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIfnd",
+      "label": "Ifnd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIhdfk",
+      "label": "Ihdfk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIk",
+      "label": "Ik",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetImn",
+      "label": "Imn",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetImpeak",
+      "label": "Impeak",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIppeak",
+      "label": "Ippeak",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIrange",
+      "label": "Irange",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIrmn",
+      "label": "Irmn",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIrms",
+      "label": "Irms",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIthd",
+      "label": "Ithd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetIthf",
+      "label": "Ithf",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetItif",
+      "label": "Itif",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetK_factor",
+      "label": "K_factor",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetLambda",
+      "label": "Lambda",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetLambdafnd",
+      "label": "Lambdafnd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetP",
+      "label": "P",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPF",
+      "label": "PF",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPFk",
+      "label": "PFk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPc",
+      "label": "Pc",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPfnd",
+      "label": "Pfnd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhdfk",
+      "label": "Phdfk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhi",
+      "label": "Phi",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhiIk",
+      "label": "PhiIk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhiUi_Ii",
+      "label": "PhiUi_Ii",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhiUi_Ij",
+      "label": "PhiUi_Ij",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhiUi_Ik",
+      "label": "PhiUi_Ik",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhiUi_Uj",
+      "label": "PhiUi_Uj",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhiUi_Uk",
+      "label": "PhiUi_Uk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhiUk",
+      "label": "PhiUk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhifnd",
+      "label": "Phifnd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPhik",
+      "label": "Phik",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPk",
+      "label": "Pk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPm",
+      "label": "Pm",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPmpeak",
+      "label": "Pmpeak",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPppeak",
+      "label": "Pppeak",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetPthd",
+      "label": "Pthd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetQ",
+      "label": "Q",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetQfnd",
+      "label": "Qfnd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetQk",
+      "label": "Qk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetRngI",
+      "label": "RngI",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetRngU",
+      "label": "RngU",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetRpk",
+      "label": "Rpk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetRsk",
+      "label": "Rsk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetS",
+      "label": "S",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSfnd",
+      "label": "Sfnd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSigma",
+      "label": "Sigma",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSigmaA",
+      "label": "SigmaA",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSigmaB",
+      "label": "SigmaB",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSigmaC",
+      "label": "SigmaC",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSk",
+      "label": "Sk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSlip",
+      "label": "Slip",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSpeed",
+      "label": "Speed",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetSyncSp",
+      "label": "SyncSp",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetTSDate",
+      "label": "TSDate",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetTSSubsec",
+      "label": "TSSubsec",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetTSTime",
+      "label": "TSTime",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetTime",
+      "label": "Time",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetTorque",
+      "label": "Torque",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetU",
+      "label": "U",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUac",
+      "label": "Uac",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUdc",
+      "label": "Udc",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUfnd",
+      "label": "Ufnd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUhdfk",
+      "label": "Uhdfk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUk",
+      "label": "Uk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUmn",
+      "label": "Umn",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUmpeak",
+      "label": "Umpeak",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUppeak",
+      "label": "Uppeak",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUrange",
+      "label": "Urange",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUrmn",
+      "label": "Urmn",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUrms",
+      "label": "Urms",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUthd",
+      "label": "Uthd",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUthf",
+      "label": "Uthf",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetUtif",
+      "label": "Utif",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetWP",
+      "label": "WP",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetWPMinus",
+      "label": "WPMinus",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetWPPlus",
+      "label": "WPPlus",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetWQ",
+      "label": "WQ",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetWS",
+      "label": "WS",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetXpk",
+      "label": "Xpk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetXsk",
+      "label": "Xsk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetZk",
+      "label": "Zk",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_Sethcf",
+      "label": "hcf",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_Sethvf",
+      "label": "hvf",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_Setq",
+      "label": "q",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetqMinus",
+      "label": "qMinus",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "checkBox_SetqPlus",
+      "label": "qPlus",
+      "type": "checkbox",
+      "group": "step2_wt_cfg",
+      "default": false,
+      "options": [],
+      "uiHint": "wt_measure"
+    },
+    {
+      "name": "comboBox_AutoSave",
+      "label": "AutoSave",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "OFF",
+      "options": [
+        "OFF",
+        "自动保存",
+        "手动保存"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_ProjectNum",
+      "label": "ProjectNum",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "12",
+      "options": [
+        "12",
+        "24",
+        "48",
+        "200"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_ReplaceRate",
+      "label": "ReplaceRate",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "50ms",
+      "options": [
+        "50ms",
+        "100ms",
+        "250ms",
+        "500ms",
+        "1s",
+        "2s",
+        "5s",
+        "10s",
+        "20s"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_SigmA1",
+      "label": "SigmA1",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "---",
+      "options": [
+        "---",
+        "1P3W",
+        "3P3W",
+        "3P4W",
+        "3V3A"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_SigmA2",
+      "label": "SigmA2",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "Element1",
+      "options": [
+        "Element1",
+        "Element2",
+        "Element3",
+        "Element4"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_SigmB1",
+      "label": "SigmB1",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "---",
+      "options": [
+        "---",
+        "1P3W",
+        "3P3W",
+        "3P4W",
+        "3V3A"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_SigmB2",
+      "label": "SigmB2",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "Element1",
+      "options": [
+        "Element1",
+        "Element2",
+        "Element3",
+        "Element4"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_UnitSet",
+      "label": "UnitSet",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "OFF",
+      "options": [
+        "OFF",
+        "ON"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "comboBox_WiringCom",
+      "label": "WiringCom",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "OFF",
+      "options": [
+        "OFF",
+        "U_I",
+        "I_U"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "textEdit_FileNameList",
+      "label": "录波文件名列表",
+      "type": "text",
+      "group": "step2_wt_cfg",
+      "default": "",
+      "options": [],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "textEdit_SavePath",
+      "label": "textEdit_SavePath",
+      "type": "text",
+      "group": "step2_wt_cfg",
+      "default": "",
+      "options": [],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "textEdit_SetStart",
+      "label": "textEdit_SetStart",
+      "type": "text",
+      "group": "step2_wt_cfg",
+      "default": "",
+      "options": [],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "textEdit_SetStop",
+      "label": "textEdit_SetStop",
+      "type": "text",
+      "group": "step2_wt_cfg",
+      "default": "",
+      "options": [],
+      "uiHint": "wt_cfg"
+    },
+    {
+      "name": "textEdit_StopTime",
+      "label": "停止时间",
+      "type": "text",
+      "group": "step2_wt_cfg",
+      "default": "",
+      "options": [],
+      "uiHint": "wt_cfg"
     },
     {
       "name": "checkBox_S3",

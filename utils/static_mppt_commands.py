@@ -170,7 +170,7 @@ def build_static_mppt_bluesight_plan(
     file_names: List[str] = []
     point_metas: List[Dict[str, Any]] = []
 
-    need_wt = str_add_flag == "0" or (str_add_flag == "1" and project_change == "1")
+    need_wt = True  # 同项目追加也刷新 WT 文件名，避免多轮覆盖
     analyzer_on = bool(
         getattr(ui, "checkBox_Analyzer", None)
         and ui.checkBox_Analyzer.isChecked()

@@ -1353,6 +1353,22 @@ def _parse_progress_file_names():
     return names
 
 
+def _finalize_recording_file_names(file_names, *, run_tag=None, merge_previous=True):
+    """本轮录波文件名加时分秒后缀；追加时拼上已有列表，避免多轮同名覆盖。"""
+    try:
+        from utils.wt_recording_mode import finalize_append_file_names
+    except Exception:
+        return list(file_names or [])
+    flag = str(globals().get("strAddTestFlag") or "0").strip()
+    existing = globals().get("strArrayTest") if merge_previous else None
+    return finalize_append_file_names(
+        file_names,
+        existing,
+        is_append=(flag == "1"),
+        run_tag=run_tag,
+    )
+
+
 def _init_run_progress_plan(project_name=None, status="待开始"):
     """追加完成后初始化轮次表。"""
     try:
@@ -3275,6 +3291,7 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
     )
     spec = get_project_spec(project_name)
     test_type = spec.test_type if spec else project_name
+    file_names = _finalize_recording_file_names(file_names)
     save_paths = resolve_dewetron_save_paths(
         test_type=str(test_type or "dewetron"),
         continuous=continuous,
@@ -6289,7 +6306,7 @@ def thaichonglianSend():
         total_save_file = 0
         test_program = []
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uithaichonglian.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uithaichonglian._wtStacked.widget(0)))
         elif uithaichonglian.radioButton_S2_WT1800.isChecked():
@@ -6307,6 +6324,7 @@ def thaichonglianSend():
         file_names = recommended_reconnect_names(uithaichonglian, _rec_mode)
         apply_filename_list_to_wt_pages(uithaichonglian._wtStacked, file_names)
         if file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             wt_config_dict["textEdit_FileNameList"] = file_list_text
             if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
@@ -6931,10 +6949,7 @@ def thaixiebodianliuSend():
         total_save_file = 0
         test_program = []
 
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1') or (
-        # 同项目再次追加也要换文件名，否则会盖掉上一轮 Harmonic_P*
-        strAddTestFlag == "1" and not is_dewetron
-    ):
+    if strAddTestFlag == "0" or (strAddTestFlag == "1" and not is_dewetron):  # 同项目追加也刷新录波文件名
         if not is_dewetron:
             if uiThaiXieBoDianLiu.radioButton_S2_WT3000.isChecked():
                 page = uiThaiXieBoDianLiu._wtStacked.widget(0)
@@ -8720,7 +8735,7 @@ def thaifixedpfSend():
     if not _fixedpf_dew_mode:
         manager.change_wt_type(wt_type)
 
-    if (not _fixedpf_dew_mode) and (strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1')):
+    if (not _fixedpf_dew_mode) and (strAddTestFlag == "0" or strAddTestFlag == "1"):  # 同项目追加也刷新录波文件名
         if uiThaiFixedPF.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiFixedPF._wtStacked.widget(0)))
         elif uiThaiFixedPF.radioButton_S2_WT1800.isChecked():
@@ -8747,6 +8762,7 @@ def thaifixedpfSend():
         file_names = fixed_pf_recommended_filenames(_pf_percents, _rec_mode)
         apply_filename_list_to_wt_pages(uiThaiFixedPF._wtStacked, file_names)
         if file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             wt_config_dict["textEdit_FileNameList"] = file_list_text
             if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
@@ -9312,7 +9328,7 @@ def thaireactiveQcapSend():
         reactiveQcap_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiReactiveQCap.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiReactiveQCap._wtStacked.widget(0)))
         elif uiThaiReactiveQCap.radioButton_S2_WT1800.isChecked():
@@ -9370,6 +9386,7 @@ def thaireactiveQcapSend():
 
     file_names = plan.get("file_names") or []
     if plan.get("wt_is_checked") == "1" and file_names:
+        file_names = _finalize_recording_file_names(file_names)
         file_list_text = ",".join(file_names)
         # 连续录必须在追加时就把 StopTime 写入 WT 配置，否则 Upper_WT_Config
         # 仍用界面旧短时，面板会先停录，软件却按 ASYNC 重算的长时长继续空等。
@@ -9516,7 +9533,7 @@ def thaifixedQSend():
         fixedQ_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiFixedQ.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiFixedQ._wtStacked.widget(0)))
         elif uiThaiFixedQ.radioButton_S2_WT1800.isChecked():
@@ -9570,6 +9587,7 @@ def thaifixedQSend():
             total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             stop_str = ""
             if plan.get("wt_continuous"):
@@ -9714,7 +9732,7 @@ def thaireactiveQaccSend():
         reactiveQacc_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiReactiveQacc.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiReactiveQacc._wtStacked.widget(0)))
         elif uiThaiReactiveQacc.radioButton_S2_WT1800.isChecked():
@@ -9768,6 +9786,7 @@ def thaireactiveQaccSend():
             total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             stop_str = ""
             if plan.get("wt_continuous"):
@@ -9912,7 +9931,7 @@ def thaireactiveQinSend():
         reactiveQin_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiReactiveQin.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiReactiveQin._wtStacked.widget(0)))
         elif uiThaiReactiveQin.radioButton_S2_WT1800.isChecked():
@@ -9966,6 +9985,7 @@ def thaireactiveQinSend():
             total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             stop_str = ""
             if plan.get("wt_continuous"):
@@ -10110,7 +10130,7 @@ def thaiactivePSend():
         activeP_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiActiveP.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiActiveP._wtStacked.widget(0)))
         elif uiThaiActiveP.radioButton_S2_WT1800.isChecked():
@@ -10164,6 +10184,7 @@ def thaiactivePSend():
             total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             stop_str = ""
             if plan.get("wt_continuous"):
@@ -10305,7 +10326,7 @@ def thaiantibackflowSend():
         antibackflow_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiAntiBackflow.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiAntiBackflow._wtStacked.widget(0)))
         elif uiThaiAntiBackflow.radioButton_S2_WT1800.isChecked():
@@ -10359,6 +10380,7 @@ def thaiantibackflowSend():
             total_save_file = 0
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             stop_str = ""
             if plan.get("wt_continuous"):
@@ -10503,7 +10525,7 @@ def thaioverloadsSend():
         total_save_file = 0
         test_program = []
 
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiOverLoads.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiOverLoads._wtStacked.widget(0)))
         elif uiThaiOverLoads.radioButton_S2_WT1800.isChecked():
@@ -10523,6 +10545,7 @@ def thaioverloadsSend():
         file_names = overload_recommended_filenames(_rec_mode)
         apply_filename_list_to_wt_pages(uiThaiOverLoads._wtStacked, file_names)
         if file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             wt_config_dict["textEdit_FileNameList"] = file_list_text
             if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
@@ -11108,7 +11131,7 @@ def thaizhiliufenliangSend():
         total_save_file = 0
         test_program = []
 
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiZhiLiuFenLiang.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiZhiLiuFenLiang._wtStacked.widget(0)))
         elif uiThaiZhiLiuFenLiang.radioButton_S2_WT1800.isChecked():
@@ -11131,6 +11154,7 @@ def thaizhiliufenliangSend():
         )
         apply_filename_list_to_wt_pages(uiThaiZhiLiuFenLiang._wtStacked, file_names)
         if file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             wt_config_dict["textEdit_FileNameList"] = file_list_text
             if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
@@ -11904,7 +11928,7 @@ def thaistaticQUSend():
         total_save_file = 0
         test_program = []
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiStaticQU.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiStaticQU._wtStacked.widget(0)))
         elif uiThaiStaticQU.radioButton_S2_WT1800.isChecked():
@@ -12249,12 +12273,12 @@ def thaistaticQUSend():
             row[6] = "WAIT_END"
             strArrayTest.append(row)
             total_save_file = total_save_file + 1
-            staticqu_file_names = ["QU_curve"]
+            staticqu_file_names = _finalize_recording_file_names(["QU_curve"])
             stop_sec = int(round(len(u_pct_list) * (float(f_ladder_dwell) / 10.0) + 5))
             if stop_sec < 10:
                 stop_sec = 10
             stop_str = _seconds_to_stoptime_str(stop_sec)
-            file_list_text = "QU_curve"
+            file_list_text = ",".join(staticqu_file_names) if staticqu_file_names else "QU_curve"
             for cfg_row in strArrayTest:
                 if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
                     cfg_row[4]["textEdit_FileNameList"] = file_list_text
@@ -12652,7 +12676,7 @@ def thaidynamicQUSend():
         dynamicQU_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiDynamicQU.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiDynamicQU._wtStacked.widget(0)))
         elif uiThaiDynamicQU.radioButton_S2_WT1800.isChecked():
@@ -12870,7 +12894,7 @@ def thaistaticcosPhiSend():
         test_program = []
         wt_config_nums = 0
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiStaticCosPhi.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiStaticCosPhi._wtStacked.widget(0)))
         elif uiThaiStaticCosPhi.radioButton_S2_WT1800.isChecked():
@@ -13243,6 +13267,7 @@ def thaistaticcosPhiSend():
         staticcos_file_names = list(measure_names)
 
     if staticcos_file_names:
+        staticcos_file_names = _finalize_recording_file_names(staticcos_file_names)
         file_list_text = ",".join(staticcos_file_names)
         stop_str = stoptime_hhmmss(stop_sec)
         merge_path = ""
@@ -13523,7 +13548,7 @@ def thaidynamiccosPhiSend():
         dynamiccosPhi_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiDynamicCosPhi.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiDynamicCosPhi._wtStacked.widget(0)))
         elif uiThaiDynamicCosPhi.radioButton_S2_WT1800.isChecked():
@@ -13737,7 +13762,7 @@ def thaicosPhiBrazilSend():
         test_program = []
         wt_config_nums = 0
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiCosPhiBrazil.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiCosPhiBrazil._wtStacked.widget(0)))
         elif uiThaiCosPhiBrazil.radioButton_S2_WT1800.isChecked():
@@ -14619,6 +14644,7 @@ def thaicosPhiBrazilSend():
             wt_continuous=wt_continuous,
         )
         stop_str = stoptime_hhmmss(stop_sec)
+        measure_names = _finalize_recording_file_names(measure_names)
         file_list_text = ",".join(measure_names)
 
         for cfg_row in strArrayTest:
@@ -14751,7 +14777,7 @@ def thaivoltprotect10minSend():
         test_program = []
         wt_config_nums = 0
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiVoltProtect10min.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiVoltProtect10min._wtStacked.widget(0)))
         elif uiThaiVoltProtect10min.radioButton_S2_WT1800.isChecked():
@@ -15366,7 +15392,7 @@ def thaiguopinjiangzaiSend():
         total_save_file = 0
         test_program = []
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiGuoPinJiangZai.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiGuoPinJiangZai._wtStacked.widget(0)))
         elif uiThaiGuoPinJiangZai.radioButton_S2_WT1800.isChecked():
@@ -15797,7 +15823,7 @@ def thaiqianpinshengzaiSend():
         total_save_file = 0
         test_program = []
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiQianPinShengZai.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiQianPinShengZai._wtStacked.widget(0)))
         elif uiThaiQianPinShengZai.radioButton_S2_WT1800.isChecked():
@@ -16227,7 +16253,7 @@ def thaitestPUSend():
         total_save_file = 0
         test_program = []
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiTestPU.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiTestPU._wtStacked.widget(0)))
         elif uiThaiTestPU.radioButton_S2_WT1800.isChecked():
@@ -17224,7 +17250,7 @@ def thaiguoqianya_pinSend():
         per_test_time_list = []
         test_program = []
     
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiGuoQianYa_Pin.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiGuoQianYa_Pin._wtStacked.widget(0)))
         elif uiThaiGuoQianYa_Pin.radioButton_S2_WT1800.isChecked():
@@ -17242,6 +17268,7 @@ def thaiguoqianya_pinSend():
         file_names = recommended_ovuf_names(uiThaiGuoQianYa_Pin, _rec_mode)
         apply_filename_list_to_wt_pages(uiThaiGuoQianYa_Pin._wtStacked, file_names)
         if file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             wt_config_dict["textEdit_FileNameList"] = file_list_text
             if wt_config_dict.get("comboBox_AutoSave", 0) == 0:
@@ -19530,7 +19557,7 @@ def thaiguoqianpin_immunSend():
         total_save_file = 0
         test_program = []
 
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiGuoQianPin_Immun.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiGuoQianPin_Immun._wtStacked.widget(0)))
         elif uiThaiGuoQianPin_Immun.radioButton_S2_WT1800.isChecked():
@@ -20657,7 +20684,7 @@ def thaistaticMPPTtestSend():
     # ── 蓝电 IP 分支：普通 AC/DC/WT 命令，不走 Soft Panel ──
     if is_bluesight_mode(uiThaiStaticMPPTTest):
         wt_config_dict = {}
-        if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+        if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
             stacked = getattr(uiThaiStaticMPPTTest, "_wtStacked", None)
             if stacked is not None:
                 if uiThaiStaticMPPTTest.radioButton_S2_WT3000.isChecked():
@@ -20709,6 +20736,7 @@ def thaistaticMPPTtestSend():
 
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
+            file_names = _finalize_recording_file_names(file_names)
             file_list_text = ",".join(file_names)
             stop_str = ""
             if plan.get("wt_continuous"):
@@ -21258,7 +21286,7 @@ def thaifrequencyadaptabilitySend():
         test_program = []
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiFrequencyAdaptability.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiFrequencyAdaptability._wtStacked.widget(0)))
         elif uiThaiFrequencyAdaptability.radioButton_S2_WT1800.isChecked():
@@ -21482,7 +21510,7 @@ def thaivoltageadaptabilitySend():
         test_program = []
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiVoltageAdaptability.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiVoltageAdaptability._wtStacked.widget(0)))
         elif uiThaiVoltageAdaptability.radioButton_S2_WT1800.isChecked():
@@ -21564,6 +21592,14 @@ def thaivoltageadaptabilitySend():
             file_names = resolve_volt_file_name_list(
                 band_metas, existing_names, split_two_files=split_two
             )
+            # 电压适应性 resolve 已含 existing；再加时分秒避免同秒外再次追加覆盖
+            new_only = [n for n in file_names if n not in set(existing_names or [])]
+            if not new_only:
+                new_only = list(file_names or [])
+            tagged_new = _finalize_recording_file_names(new_only, merge_previous=False)
+            file_names = list(existing_names or []) + [
+                n for n in tagged_new if n not in set(existing_names or [])
+            ]
             if split_two and len(file_names) >= 2:
                 file_list_text = ",".join(file_names[:2])
             else:
@@ -21724,7 +21760,7 @@ def thairocofSend():
         test_program = []
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiROCOF.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiROCOF._wtStacked.widget(0)))
         elif uiThaiROCOF.radioButton_S2_WT1800.isChecked():
@@ -21948,7 +21984,7 @@ def thairapidvoltSend():
         test_program = []
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiRapidVolt.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiRapidVolt._wtStacked.widget(0)))
         elif uiThaiRapidVolt.radioButton_S2_WT1800.isChecked():
@@ -22160,7 +22196,7 @@ def thailvrtSend():
         lvrt_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiLVRT.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiLVRT._wtStacked.widget(0)))
         elif uiThaiLVRT.radioButton_S2_WT1800.isChecked():
@@ -22271,7 +22307,7 @@ def thaiphasejumpSend():
         _ac_current_brand = "chroma"
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiPhaseJump.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiPhaseJump._wtStacked.widget(0)))
         elif uiThaiPhaseJump.radioButton_S2_WT1800.isChecked():
@@ -22381,7 +22417,7 @@ def thaidynamicmpptSend():
         dynamicmppt_append_count = 0
 
     wt_config_dict = {}
-    if strAddTestFlag == "0" or (strAddTestFlag == '1' and project_change == '1'):
+    if strAddTestFlag == "0" or strAddTestFlag == "1":  # 同项目追加也刷新录波文件名
         if uiThaiDynamicMPPT.radioButton_S2_WT3000.isChecked():
             wt_config_dict = WT3000E_params_config(_PageWidgetFinder(uiThaiDynamicMPPT._wtStacked.widget(0)))
         elif uiThaiDynamicMPPT.radioButton_S2_WT1800.isChecked():
