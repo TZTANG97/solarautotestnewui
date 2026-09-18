@@ -1,7 +1,7 @@
 {
   "widgets": {},
-  "auto_append": true,
-  "auto_start": false,
   "_template": "overload_default",
-  "_note": "空参数表示使用本机过载页当前默认值；可在过载页点「导出IOT模板」覆盖本文件"
+  "_note": "空 widgets 时 handoff 会用 utils/iot_overload_schema_data.json 默认值；IOT 开测表单会下发完整 widgets。可用「导出IOT模板」覆盖本文件。",
+  "auto_append": true,
+  "auto_start": false
 }

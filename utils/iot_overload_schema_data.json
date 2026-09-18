@@ -1,0 +1,475 @@
+{
+  "testType": "overload",
+  "title": "过载能力测试",
+  "version": 1,
+  "groups": [
+    {
+      "id": "step1_ac",
+      "title": "① AC 电源"
+    },
+    {
+      "id": "step1_dc",
+      "title": "① DC 电源"
+    },
+    {
+      "id": "step1_time",
+      "title": "① 时序"
+    },
+    {
+      "id": "step2_wt",
+      "title": "② 功率分析仪"
+    },
+    {
+      "id": "step3_ov",
+      "title": "③ 过载测试"
+    },
+    {
+      "id": "step4_off",
+      "title": "④ 关机设置"
+    },
+    {
+      "id": "other",
+      "title": "其它"
+    }
+  ],
+  "fields": [
+    {
+      "name": "checkBox_S1",
+      "label": "启用步骤1 AC/DC",
+      "type": "checkbox",
+      "group": "step1_ac",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1",
+      "label": "启用直流电源1",
+      "type": "checkbox",
+      "group": "step1_ac",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2",
+      "label": "启用直流电源2",
+      "type": "checkbox",
+      "group": "step1_ac",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3",
+      "label": "启用直流电源3",
+      "type": "checkbox",
+      "group": "step1_ac",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4",
+      "label": "启用直流电源4",
+      "type": "checkbox",
+      "group": "step1_ac",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_AC",
+      "label": "AC 开关",
+      "type": "select",
+      "group": "step1_ac",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_ACWaitTIME",
+      "label": "等待时间单位",
+      "type": "select",
+      "group": "step1_ac",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "毫秒"
+      ]
+    },
+    {
+      "name": "comboBox_S1_AC_2",
+      "label": "AC 单相/三相",
+      "type": "select",
+      "group": "step1_ac",
+      "default": "单相",
+      "options": [
+        "单相",
+        "三相"
+      ]
+    },
+    {
+      "name": "textEdit_S1_ACWaitTIME",
+      "label": "等待时间",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "3",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_AC_FR",
+      "label": "AC 频率(Hz)",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "50",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_AC_VOLT",
+      "label": "A相电压(V)",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_AC_VOLT_2",
+      "label": "B相电压(V)",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_AC_VOLT_3",
+      "label": "C相电压(V)",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC1",
+      "label": "直流1 开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC2",
+      "label": "直流2 开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC3",
+      "label": "直流3 开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC4",
+      "label": "直流4 开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC1_CURR",
+      "label": "直流1 Imp(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Isc",
+      "label": "直流1 Isc(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF",
+      "label": "直流1 功率(%)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_VOLT",
+      "label": "直流1 Vmp(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Voc",
+      "label": "直流1 Voc(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_CURR",
+      "label": "直流2 Imp(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Isc",
+      "label": "直流2 Isc(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_PF",
+      "label": "直流2 功率(%)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_VOLT",
+      "label": "直流2 Vmp(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Voc",
+      "label": "直流2 Voc(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_CURR",
+      "label": "直流3 Imp(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Isc",
+      "label": "直流3 Isc(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_PF",
+      "label": "直流3 功率(%)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_VOLT",
+      "label": "直流3 Vmp(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Voc",
+      "label": "直流3 Voc(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_CURR",
+      "label": "直流4 Imp(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Isc",
+      "label": "直流4 Isc(A)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_PF",
+      "label": "直流4 功率(%)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_VOLT",
+      "label": "直流4 Vmp(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Voc",
+      "label": "直流4 Voc(V)",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "220",
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_TIME",
+      "label": "启机时间单位",
+      "type": "select",
+      "group": "step1_time",
+      "default": "分钟",
+      "options": [
+        "分钟",
+        "秒",
+        "毫秒"
+      ]
+    },
+    {
+      "name": "textEdit_S1_TIME",
+      "label": "启机时间",
+      "type": "text",
+      "group": "step1_time",
+      "default": "5",
+      "options": []
+    },
+    {
+      "name": "checkBox_S2",
+      "label": "启用步骤2 功率分析仪",
+      "type": "checkbox",
+      "group": "step2_wt",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "radio_S2_WT1800",
+      "label": "选用 WT1800",
+      "type": "text",
+      "group": "step2_wt",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "radio_S2_WT1806E",
+      "label": "选用 WT1806E",
+      "type": "text",
+      "group": "step2_wt",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "radio_S2_WT3000",
+      "label": "选用 WT3000",
+      "type": "text",
+      "group": "step2_wt",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "radio_S2_WT5000",
+      "label": "选用 WT5000",
+      "type": "text",
+      "group": "step2_wt",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "checkBox_S3",
+      "label": "启用步骤3 过载测试",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "comboBox_S3_TIME_2",
+      "label": "过载保持时间单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "分钟",
+      "options": [
+        "分钟",
+        "秒",
+        "毫秒"
+      ]
+    },
+    {
+      "name": "comboBox_S3_record_mode",
+      "label": "录波方式",
+      "type": "select",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S3_TIME_2",
+      "label": "过载保持时间",
+      "type": "text",
+      "group": "step3_ov",
+      "default": "90",
+      "options": []
+    },
+    {
+      "name": "checkBox_S5",
+      "label": "启用步骤4 关机",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "comboBox_S5_AC",
+      "label": "关机 AC",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    }
+  ],
+  "jobFlags": {
+    "auto_append": true,
+    "auto_start": true,
+    "wait_finish": true
+  }
+}

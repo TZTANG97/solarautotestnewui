@@ -14,7 +14,7 @@ import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from PyQt5.QtCore import QObject, QTimer
+from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -161,6 +161,9 @@ class IotUiHandoffService(QObject):
         "防逆流": ("防逆流测试", "antibackflow"),
     }
 
+    # (summary_or_none, error_or_none) — 探测在后台线程，回主线程继续交接
+    _auto_connect_finished = pyqtSignal(object, object)
+
     def __init__(
         self,
         *,
@@ -174,6 +177,8 @@ class IotUiHandoffService(QObject):
         get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
         ensure_project: Optional[Callable[[str], None]] = None,
         auto_connect: Optional[Callable[[], Any]] = None,
+        prepare_auto_connect: Optional[Callable[[], Any]] = None,
+        apply_auto_connect: Optional[Callable[[Any], Any]] = None,
         ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
         stop_test: Optional[Callable[[], None]] = None,
         wrap_append_errors: bool = True,
@@ -192,6 +197,8 @@ class IotUiHandoffService(QObject):
         self.get_run_progress = get_run_progress
         self.ensure_project = ensure_project
         self.auto_connect = auto_connect
+        self.prepare_auto_connect = prepare_auto_connect
+        self.apply_auto_connect = apply_auto_connect
         self.ensure_ready = ensure_ready
         self.stop_test = stop_test
         self.wrap_append_errors = bool(wrap_append_errors)
@@ -203,6 +210,8 @@ class IotUiHandoffService(QObject):
         self._timer.timeout.connect(self.poll_once)
         self._last_progress_key = None
         self._stop_inflight = False
+        self._job_ctx: Optional[Dict[str, Any]] = None
+        self._auto_connect_finished.connect(self._on_auto_connect_finished)
 
     def start(self) -> None:
         watched = " ; ".join(str(d / "pending") for d in self._inbox_dirs())
@@ -277,7 +286,8 @@ class IotUiHandoffService(QObject):
                 try:
                     self._handle_job(job, path)
                 finally:
-                    if not self._awaiting:
+                    # 后台探测中 (_job_ctx) 或等待试验结束 (_awaiting) 时保持 busy
+                    if not self._awaiting and self._job_ctx is None:
                         self._busy = False
                 return
 
@@ -662,9 +672,22 @@ class IotUiHandoffService(QObject):
                         "start_grace_sec",
                         "settings_csv",
                         "widgets",
+                        "instruments",
+                        "auto_connect_from",
+                        "experId",
+                        "experid",
+                        "source",
                     )
                     and not str(k).startswith("_")
                 }
+
+            if handler_key == "overload":
+                try:
+                    from utils.iot_overload_schema import merge_widgets
+
+                    widgets = merge_widgets(None, widgets if isinstance(widgets, dict) else {})
+                except Exception as exc:
+                    self._log(f"过载 schema 默认值合并跳过: {exc}")
 
             missing = apply_widget_values(real_ui, widgets)
             if missing:
@@ -680,13 +703,183 @@ class IotUiHandoffService(QObject):
             if isinstance(params, dict) and "wait_finish" in params:
                 wait_finish = bool(params.get("wait_finish"))
 
-            if self.auto_connect:
-                try:
-                    summary = self.auto_connect()
-                    self._log(f"自动连接结果: {_format_auto_connect_summary(summary)}")
-                except Exception as exc:
-                    self._log(f"自动连接异常（尽力继续）: {exc}")
+            self._job_ctx = {
+                "job": job,
+                "pending_path": pending_path,
+                "job_id": job_id,
+                "test_type": test_type,
+                "handler": handler,
+                "real_ui": real_ui,
+                "missing": missing,
+                "auto_append": auto_append,
+                "auto_start": auto_start,
+                "wait_finish": wait_finish,
+                "params": params,
+            }
 
+            # 已连好则跳过扫连，避免主线程卡在 TCP/SCPI 探测
+            if self.ensure_ready:
+                try:
+                    ready_ok, _ready_reason = self.ensure_ready(real_ui, test_type)
+                except Exception:
+                    ready_ok = False
+                if ready_ok:
+                    self._log("设备已就绪，跳过自动扫连")
+                    self._continue_job_after_connect(None)
+                    return
+
+            cloud_inst = None
+            if isinstance(params, dict):
+                raw_inst = params.get("instruments")
+                if isinstance(raw_inst, list) and raw_inst:
+                    cloud_inst = raw_inst
+
+            if cloud_inst and self.apply_auto_connect:
+                self._log("按 IOT 下发的仪器配置连接（后台探测计划）…")
+                import threading
+
+                def _worker_cloud():
+                    prepared = None
+                    err = None
+                    try:
+                        from utils.iot_auto_connect import prepare_jobs_from_cloud_instruments
+
+                        jobs = prepare_jobs_from_cloud_instruments(cloud_inst)
+                        prepared = (jobs, [])
+                        if not jobs:
+                            err = ValueError("云端仪器配置无有效槽位/地址，将尝试本机扫连")
+                    except Exception as exc:
+                        err = exc
+                    if err is not None and prepared and prepared[0]:
+                        err = None
+                    try:
+                        if err is not None and not (prepared and prepared[0]):
+                            # 回退本机扫连
+                            if self.prepare_auto_connect:
+                                try:
+                                    prepared = self.prepare_auto_connect()
+                                    err = None
+                                    self._log("云端配置无效，已回退本机扫连计划")
+                                except Exception as exc2:
+                                    err = exc2
+                        self._auto_connect_finished.emit(prepared, err)
+                    except Exception:
+                        QTimer.singleShot(
+                            0, lambda: self._on_auto_connect_finished(prepared, err)
+                        )
+
+                threading.Thread(
+                    target=_worker_cloud, name="iot-handoff-cloud-connect", daemon=True
+                ).start()
+                return
+
+            if self.prepare_auto_connect and self.apply_auto_connect:
+                self._log("后台探测设备（不阻塞界面）…")
+                import threading
+
+                def _worker():
+                    prepared = None
+                    err = None
+                    try:
+                        prepared = self.prepare_auto_connect()
+                    except Exception as exc:
+                        err = exc
+                    try:
+                        self._auto_connect_finished.emit(prepared, err)
+                    except Exception:
+                        QTimer.singleShot(
+                            0, lambda: self._on_auto_connect_finished(prepared, err)
+                        )
+
+                threading.Thread(target=_worker, name="iot-handoff-autoconnect", daemon=True).start()
+                return
+
+            if self.auto_connect:
+                self._log("后台自动连接设备（不阻塞界面）…")
+                import threading
+
+                def _worker2():
+                    summary = None
+                    err = None
+                    try:
+                        summary = self.auto_connect()
+                    except Exception as exc:
+                        err = exc
+                    try:
+                        self._auto_connect_finished.emit(summary, err)
+                    except Exception:
+                        QTimer.singleShot(
+                            0, lambda: self._on_auto_connect_finished(summary, err)
+                        )
+
+                threading.Thread(target=_worker2, name="iot-handoff-autoconnect", daemon=True).start()
+                return
+
+            self._continue_job_after_connect(None)
+            return
+        except Exception as exc:
+            self._log(f"处理失败: {exc}\n{traceback.format_exc()}")
+            self._awaiting = None
+            self._job_ctx = None
+            try:
+                self._write_result_all(
+                    pending_path,
+                    job_id,
+                    {"status": "failed", "fail_reason": str(exc)[:500]},
+                )
+            except Exception:
+                pass
+        finally:
+            # 等后台探测 / 等试验结束时不释放
+            if not self._awaiting and self._job_ctx is None:
+                self._busy = False
+                try:
+                    from agent.ui_mutex import ui_release
+
+                    ui_release(repo_root=self.repo_root)
+                except Exception:
+                    pass
+
+    def _on_auto_connect_finished(self, prepared: Any, err: Any) -> None:
+        if err is not None:
+            self._log(f"自动连接探测异常（尽力继续）: {err}")
+            self._continue_job_after_connect(None)
+            return
+        # prepare 返回 (jobs, devices) 时在主线程 apply
+        if self.apply_auto_connect and prepared is not None and not isinstance(prepared, dict):
+            try:
+                summary = self.apply_auto_connect(prepared)
+                self._log(f"自动连接结果: {_format_auto_connect_summary(summary)}")
+            except Exception as exc:
+                self._log(f"自动连接执行异常（尽力继续）: {exc}")
+                summary = None
+        elif isinstance(prepared, dict):
+            self._log(f"自动连接结果: {_format_auto_connect_summary(prepared)}")
+            summary = prepared
+        else:
+            summary = prepared
+        self._continue_job_after_connect(summary)
+
+    def _continue_job_after_connect(self, _summary: Any) -> None:
+        from agent.ui_mutex import ui_release
+
+        ctx = self._job_ctx
+        if not ctx:
+            self._busy = False
+            return
+        job = ctx["job"]
+        pending_path = ctx["pending_path"]
+        job_id = int(ctx["job_id"])
+        test_type = ctx["test_type"]
+        handler = ctx["handler"]
+        real_ui = ctx["real_ui"]
+        missing = ctx.get("missing") or []
+        auto_append = bool(ctx.get("auto_append", True))
+        auto_start = bool(ctx.get("auto_start", False))
+        wait_finish = bool(ctx.get("wait_finish", True))
+        params = ctx.get("params") or {}
+
+        try:
             if self.ensure_ready:
                 try:
                     ready_ok, ready_reason = self.ensure_ready(real_ui, test_type)
@@ -758,33 +951,39 @@ class IotUiHandoffService(QObject):
                 self.start_test()
                 self._log("已调用开始试验")
 
-                if wait_finish:
-                    timeout_sec = 7200.0
-                    start_grace_sec = 20.0
-                    if isinstance(params, dict):
-                        if params.get("wait_finish_timeout_sec") is not None:
-                            timeout_sec = float(params.get("wait_finish_timeout_sec"))
-                        if params.get("start_grace_sec") is not None:
-                            start_grace_sec = float(params.get("start_grace_sec"))
-                    self._awaiting = {
-                        "job_id": job_id,
-                        "pending_path": pending_path,
-                        "appended": appended,
-                        "missing": missing,
-                        "started_at": time.time(),
-                        "seen_running": False,
-                        "timeout_sec": timeout_sec,
-                        "start_grace_sec": start_grace_sec,
-                    }
-                    self._last_progress_key = None
-                    self._emit_progress(job_id, force=True)
-                    self._log(
-                        f"任务 {job_id} 等待试验结束（超时{int(timeout_sec)}秒，"
-                        f"启动宽限{int(start_grace_sec)}秒）"
-                    )
-                    # 立刻检查一次（短试验 / 单测模拟）
-                    self._check_awaiting_finish()
-                    return
+            # 以下保持与原 _handle_job 后半一致：等结束或立即结案
+            wait_finish_timeout = 7200
+            start_grace = 8
+            if isinstance(params, dict):
+                try:
+                    if params.get("wait_finish_timeout_sec") is not None:
+                        wait_finish_timeout = int(params.get("wait_finish_timeout_sec"))
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    if params.get("start_grace_sec") is not None:
+                        start_grace = int(params.get("start_grace_sec"))
+                except (TypeError, ValueError):
+                    pass
+
+            if auto_start and wait_finish and self.get_run_status:
+                self._awaiting = {
+                    "job_id": job_id,
+                    "pending_path": pending_path,
+                    "appended": appended,
+                    "missing": missing,
+                    "started_at": time.time(),
+                    "timeout_sec": float(max(30, wait_finish_timeout)),
+                    "start_grace_sec": float(max(0, start_grace)),
+                    "seen_running": False,
+                }
+                self._emit_progress(job_id, force=True)
+                self._log(
+                    f"任务 {job_id} 等待试验结束（超时{int(wait_finish_timeout)}秒，"
+                    f"启动宽限{int(start_grace)}秒）"
+                )
+                self._check_awaiting_finish()
+                return
 
             self._write_result_all(
                 pending_path,
@@ -798,31 +997,20 @@ class IotUiHandoffService(QObject):
                         "started": bool(auto_start),
                         "waited_finish": False,
                         "missingWidgets": missing,
-                        "note": (
-                            "已追加并启动试验（未等待结束）"
-                            if auto_start
-                            else "已应用参数并追加命令；勾选「自动开跑」时可自动开始试验"
-                        ),
                     },
                     "report_meta": [],
                 },
             )
-            self._log(f"任务 {job_id} 已写回 results")
             self._move_pending_done(pending_path)
-        except Exception as exc:
-            self._log(f"处理失败: {exc}\n{traceback.format_exc()}")
-            self._awaiting = None
-            try:
-                self._write_result_all(
-                    pending_path,
-                    job_id,
-                    {"status": "failed", "fail_reason": str(exc)[:500]},
-                )
-            except Exception:
-                pass
+            self._log(f"任务 {job_id} 已结案（未等待试验结束）")
         finally:
+            self._job_ctx = None
             if not self._awaiting:
-                ui_release(repo_root=self.repo_root)
+                self._busy = False
+                try:
+                    ui_release(repo_root=self.repo_root)
+                except Exception:
+                    pass
 
 
 def start_iot_ui_handoff_from_main(
@@ -836,6 +1024,8 @@ def start_iot_ui_handoff_from_main(
     get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
     ensure_project: Optional[Callable[[str], None]] = None,
     auto_connect: Optional[Callable[[], Any]] = None,
+    prepare_auto_connect: Optional[Callable[[], Any]] = None,
+    apply_auto_connect: Optional[Callable[[Any], Any]] = None,
     ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
     stop_test: Optional[Callable[[], None]] = None,
     wrap_append_errors: bool = True,
@@ -852,6 +1042,8 @@ def start_iot_ui_handoff_from_main(
         get_run_progress=get_run_progress,
         ensure_project=ensure_project,
         auto_connect=auto_connect,
+        prepare_auto_connect=prepare_auto_connect,
+        apply_auto_connect=apply_auto_connect,
         ensure_ready=ensure_ready,
         stop_test=stop_test,
         wrap_append_errors=wrap_append_errors,
