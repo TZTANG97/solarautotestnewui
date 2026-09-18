@@ -395,15 +395,40 @@ if (Test-Path $bootExample) {
 }
 
 # 还原本机 machineId / 令牌（只还原升级前已有的文件）
+$restoredIdentity = $false
 foreach ($name in @("solar_machine_id", "solar_agent.json")) {
     $bak = Join-Path $identityBackup $name
     if (Test-Path $bak) {
         Ensure-Directory $configDir
         Copy-Item -Force $bak (Join-Path $configDir $name)
         Write-Ok ("Restored config/" + $name + " (keep same bench identity)")
+        $restoredIdentity = $true
     }
 }
 Remove-Item -Recurse -Force $identityBackup -ErrorAction SilentlyContinue
+
+# 新装或包内误带了联调身份：丢掉 solar_agent.json / solar_machine_id，让软件启动时重新 announce
+# （否则会带着打包机的 machineId / 127.0.0.1 令牌，IOT「添加设备」永远看不见本机）
+if (-not $restoredIdentity) {
+    foreach ($name in @("solar_machine_id", "solar_agent.json")) {
+        $p = Join-Path $configDir $name
+        if (Test-Path $p) {
+            Remove-Item -Force $p
+            Write-WarnLine ("Removed packaged config/" + $name + " (will re-register on first launch)")
+        }
+    }
+} else {
+    # 升级保留身份时：若残留的是本机联调地址，仍清掉令牌文件里的 127.0.0.1（iot_bootstrap 会覆盖正式地址）
+    $agentCfg = Join-Path $configDir "solar_agent.json"
+    if (Test-Path $agentCfg) {
+        try {
+            $raw = Get-Content -Raw -Encoding UTF8 $agentCfg
+            if ($raw -match '127\.0\.0\.1|localhost') {
+                Write-WarnLine "Detected local IOT URL in solar_agent.json; keeping machine_id but clearing stale token/base on next Agent announce"
+            }
+        } catch {}
+    }
+}
 
 # Persist version into install root (package root VERSION wins)
 $verSrc = Join-Path $packageRoot "VERSION"

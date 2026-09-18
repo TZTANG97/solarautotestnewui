@@ -55,12 +55,33 @@ def _windows_machine_guid() -> str:
 def ensure_machine_id() -> str:
     path = machine_id_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    guid = _windows_machine_guid()
     if path.is_file():
         mid = path.read_text(encoding="utf-8").strip()
         if len(mid) >= 8:
+            # 安装包曾误带开发机 machine_id：本机 Windows GUID 对不上则作废并重生
+            # （否则多台工控机会共用同一个 pythonid，IOT「添加设备」看不到新机）
+            if guid and mid.lower() != guid.lower():
+                logger.warning(
+                    "solar_machine_id 与本机 MachineGuid 不一致（疑似安装包串机），已重置: %s → %s",
+                    mid[:8],
+                    guid[:8],
+                )
+                mid = guid
+                path.write_text(mid + "\n", encoding="utf-8")
+                # 清掉串机带来的令牌/pythonid，强制重新 announce
+                cfg = _read_json(config_path())
+                if cfg:
+                    write_agent_config(
+                        iot_base=resolve_iot_base(cfg) or str(cfg.get("iot_base") or ""),
+                        agent_token="",
+                        pythonid="",
+                        machine_id=mid,
+                    )
+                return mid
             return mid
     # 已有文件优先；新机用 Windows MachineGuid，保证同机同码
-    mid = _windows_machine_guid() or uuid.uuid4().hex
+    mid = guid or uuid.uuid4().hex
     path.write_text(mid + "\n", encoding="utf-8")
     return mid
 
@@ -181,7 +202,7 @@ def write_agent_config(
     return path
 
 
-def announce(*, force: bool = False) -> Tuple[bool, str, Dict[str, Any]]:
+def announce(*, force: bool = False, timeout: float = 12.0) -> Tuple[bool, str, Dict[str, Any]]:
     cfg = _read_json(config_path())
     iot_base = resolve_iot_base(cfg)
     if not iot_base:
@@ -202,7 +223,7 @@ def announce(*, force: bool = False) -> Tuple[bool, str, Dict[str, Any]]:
     }
     url = f"{iot_base.rstrip('/')}/api/solar-autotest/agent/announce"
     try:
-        res = _http_json("POST", url, body)
+        res = _http_json("POST", url, body, timeout=float(timeout))
     except Exception as exc:
         return False, f"发现上报失败（IOT={iot_base}）: {exc}", {}
 
@@ -298,12 +319,15 @@ def start_ws_presence_from_config() -> Tuple[bool, str]:
 
 
 def ensure_configured_and_start() -> Tuple[bool, str]:
-    """软件启动：announce → WS 上线（进添加设备）→ 有令牌则拉 Agent；否则后台 claim。"""
+    """软件启动：announce → WS 上线 → 有令牌则拉 Agent；无令牌则后台 claim（不阻塞 UI）。"""
     from agent.process_control import start_agent, is_running
 
-    ok, msg, data = announce(force=False)
+    # 启动路径用更短超时，避免主界面长时间白屏；失败走后台重试
+    ok, msg, data = announce(force=False, timeout=8.0)
     if not ok:
         logger.warning("%s", msg)
+        # 网络失败也拉起后台 claim/重试，不卡住界面
+        _start_claim_background()
         return False, msg
 
     ws_ok, ws_msg = start_ws_presence_from_config()
@@ -311,30 +335,25 @@ def ensure_configured_and_start() -> Tuple[bool, str]:
         logger.warning("%s", ws_msg)
 
     if config_has_token() and not _is_local_iot(resolve_iot_base()):
-        # 纠正本机旧 127.0.0.1：若已有令牌但地址已切正式，仍要能跑 Agent
         if is_running():
             return True, f"{msg}；{ws_msg}；Agent 已在运行"
         ok2, msg2 = start_agent(allow_without_token=False)
         return ok2, f"{msg}；{ws_msg}；{msg2}"
 
-    # 无令牌：启动 Agent 进入 presence/claim 模式
+    # 无令牌：不在此同步等待领取（原先最多卡 6s），一律后台领取
     if not is_running():
         ok2, msg2 = start_agent(allow_without_token=True)
     else:
         ok2, msg2 = True, "Agent 已在运行"
-
-    got, claim_msg = wait_for_claim(max_wait_sec=6.0)
-    if got:
-        return True, f"{msg}；{ws_msg}；{claim_msg}"
 
     pythonid = str((data or {}).get("pythonid") or (data or {}).get("pythonId") or "")
     tip = (
         f"{msg}。请打开 IOT「设备管理→添加设备」，选择 pythonid={pythonid or '本机'}，"
         f"验证后添加；本机将自动领取令牌。（{ws_msg}；{msg2}）"
     )
-    logger.warning("%s", tip)
+    logger.info("%s", tip)
     _start_claim_background()
-    return True, tip  # WS 已上线算成功，便于首页显示
+    return True, tip
 
 
 _claim_bg_started = False

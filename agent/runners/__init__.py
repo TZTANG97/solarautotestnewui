@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""按 testType 分发执行器。"""
+"""按 testType 分发执行器。
+
+接入新试验时：在此注册 runner，并与 IOT 侧
+app/services/solar_blockly_catalog.SOLAR_TEST_SPECS 的 test_type / write^solar_* 对齐。
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,6 +27,7 @@ def get_runner(
     # 必须与 UI handoff / config 同一安装根，勿用 runners/ 的 parent.parent（会落到 agent/）
     root = Path(repo_root) if repo_root else _repo_root()
     # 一期 handoff：过载 / 防逆流 共用 OverloadRunner（落盘 + 等 UI 结果）
+    # 对应 Blockly：solar_overload / solar_antibackflow（start→块→stop）
     if tt in (
         "overload",
         "过载能力测试",

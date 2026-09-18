@@ -106,25 +106,87 @@ def discover_for_auto_connect(
     return out
 
 
-def auto_connect_best_effort(
+def prepare_jobs_from_cloud_instruments(
+    instruments: Sequence[Dict[str, Any]],
+) -> List[Tuple[str, dict, Any]]:
+    """IOT 开测下发的 instruments → 连接计划（可在后台线程跑）。"""
+    from utils.device_discovery import FoundDevice, connect_plan, parse_host_port
+
+    jobs: List[Tuple[str, dict, Any]] = []
+    for item in instruments or []:
+        if not isinstance(item, dict):
+            continue
+        slot = str(item.get("slot") or "").strip().lower()
+        resource = str(item.get("resource") or item.get("addr") or "").strip()
+        if not slot or not resource or resource.lower().startswith("pending:"):
+            continue
+        host = str(item.get("host") or "").strip()
+        port = item.get("port")
+        try:
+            port_i = int(port) if port is not None and str(port).strip() != "" else None
+        except (TypeError, ValueError):
+            port_i = None
+        if not host or port_i is None:
+            h2, p2 = parse_host_port(resource)
+            host = host or (h2 or "")
+            port_i = port_i if port_i is not None else p2
+        brand = str(item.get("brand") or "").strip()
+        kind = str(item.get("kind") or "").strip().lower()
+        if not kind or kind == "unknown":
+            kind = "dc" if slot.startswith("dc") else slot
+        proto = ""
+        bl = brand.lower()
+        if bl == "bluesight" or (bl == "itech" and slot.startswith("dc")):
+            proto = "modbus"
+        elif bl == "itech" and slot == "ac":
+            proto = "modbus"
+        dev = FoundDevice(
+            resource=resource,
+            host=host or "",
+            port=port_i,
+            protocol=proto,
+            kind_hint=kind,
+            brand_hint=brand,
+            idn="",
+            source="cloud_config",
+            extra={"from_cloud": True},
+        )
+        plan = connect_plan(slot, dev)
+        if str(plan.get("target") or "") == "unknown":
+            continue
+        jobs.append((slot, plan, dev))
+    return jobs
+
+
+def prepare_auto_connect_jobs(
     *,
-    apply_plan: Callable[[str, dict, Any], None],
     visa_rm=None,
     status_json_path: Optional[str] = None,
     scan_lan: bool = False,
-    log: Optional[Callable[[str], None]] = None,
-) -> Dict[str, Any]:
-    _log = log or (lambda m: None)
+) -> Tuple[List[Tuple[str, dict, Any]], List[FoundDevice]]:
+    """仅发现+建议槽位（可在后台线程跑）；不触碰 Qt。"""
+    from utils.device_finder_connect import build_connect_jobs
+
     devices = discover_for_auto_connect(
         visa_rm=visa_rm,
         status_json_path=status_json_path,
         scan_lan=scan_lan,
     )
     pairs = suggest_auto_jobs(devices)
-    jobs = build_connect_jobs(pairs)
+    return build_connect_jobs(pairs), devices
+
+
+def apply_prepared_connect_jobs(
+    jobs: Sequence[Tuple[str, dict, Any]],
+    *,
+    apply_plan: Callable[[str, dict, Any], None],
+    log: Optional[Callable[[str], None]] = None,
+) -> Dict[str, Any]:
+    """在主线程执行连接计划。"""
+    _log = log or (lambda m: None)
     connected: List[str] = []
     errors: List[str] = []
-    for slot, plan, dev in jobs:
+    for slot, plan, dev in jobs or []:
         try:
             apply_plan(slot, plan, dev)
             remember_slot_for_resource(getattr(dev, "resource", "") or "", slot)
@@ -134,9 +196,29 @@ def auto_connect_best_effort(
             errors.append(f"{slot}: {exc}")
             _log(f"自动连接失败 {slot}: {exc}")
     return {
-        "found": len(devices),
-        "attempted": len(jobs),
+        "found": len(jobs or []),
+        "attempted": len(jobs or []),
         "connected": connected,
         "errors": errors,
-        "skipped_ambiguous": max(0, len(devices) - len(jobs)),
+        "skipped_ambiguous": 0,
     }
+
+
+def auto_connect_best_effort(
+    *,
+    apply_plan: Callable[[str, dict, Any], None],
+    visa_rm=None,
+    status_json_path: Optional[str] = None,
+    scan_lan: bool = False,
+    log: Optional[Callable[[str], None]] = None,
+) -> Dict[str, Any]:
+    _log = log or (lambda m: None)
+    jobs, devices = prepare_auto_connect_jobs(
+        visa_rm=visa_rm,
+        status_json_path=status_json_path,
+        scan_lan=scan_lan,
+    )
+    summary = apply_prepared_connect_jobs(jobs, apply_plan=apply_plan, log=_log)
+    summary["found"] = len(devices)
+    summary["skipped_ambiguous"] = max(0, len(devices) - len(jobs))
+    return summary

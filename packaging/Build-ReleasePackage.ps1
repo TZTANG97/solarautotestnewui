@@ -93,12 +93,21 @@ $xd = @(
     "__pycache__", ".pytest_cache", "packaging", "dist", "data_logs",
     "uv-cache", "node_modules", "agent-transcripts", "command_save_files"
 )
-$xf = @("/XF", "*.pyc", "*.pyo", "*.log", "log.txt", "*.zip", "*.7z")
+# Never ship local IOT identity into the zip (would make every PC share one pythonid / localhost token)
+$xf = @(
+    "/XF", "*.pyc", "*.pyo", "*.log", "log.txt", "*.zip", "*.7z",
+    "solar_agent.json", "solar_machine_id", "iot_bootstrap.json"
+)
 $rcArgs = @($repoRoot, $appDest, "/E", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP", "/R:1", "/W:1") + $xd + $xf
 & robocopy @rcArgs | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed: $LASTEXITCODE" }
 # Ensure VERSION survives robocopy (repo may not have it)
 Copy-Item -Force $versionFile (Join-Path $stage "app\VERSION")
+# Defense in depth: delete if somehow still present under app/config
+foreach ($bad in @("solar_agent.json", "solar_machine_id", "iot_bootstrap.json")) {
+    $p = Join-Path $appDest ("config\" + $bad)
+    if (Test-Path $p) { Remove-Item -Force $p }
+}
 
 # Bundle uv.exe for offline-friendly install
 $bundleUv = Join-Path $stage "bundled\uv.exe"

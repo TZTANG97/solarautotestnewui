@@ -30500,18 +30500,39 @@ if __name__ == "__main__":
                         pass
 
             def _auto_start_iot_agent():
-                try:
-                    from agent.process_control import ensure_agent_running
+                """网络 announce/claim 放到后台线程，避免启动后白屏卡顿。"""
+                from PyQt5.QtCore import QObject, pyqtSignal
 
-                    ok, msg = ensure_agent_running(silent=True)
-                    # 仅写日志，不弹窗
+                class _BootBridge(QObject):
+                    finished = pyqtSignal(str)
+
+                bridge = _BootBridge(main_window)
+
+                def _on_done(msg: str):
                     try:
                         ui.textEdit_ReturnMessage.append(f"[IOT-Agent] {msg}")
                     except Exception:
                         print(f"[IOT-Agent] {msg}", flush=True)
-                except Exception as _e:
-                    print(f"[IOT-Agent] 自动启动异常: {_e}", flush=True)
-                _refresh_iot_agent_status()
+                    _refresh_iot_agent_status()
+
+                bridge.finished.connect(_on_done)
+
+                def _worker():
+                    msg = ""
+                    try:
+                        from agent.process_control import ensure_agent_running
+
+                        _ok, msg = ensure_agent_running(silent=True)
+                    except Exception as _e:
+                        msg = f"自动启动异常: {_e}"
+                    try:
+                        bridge.finished.emit(str(msg or ""))
+                    except Exception:
+                        print(f"[IOT-Agent] {msg}", flush=True)
+
+                import threading
+
+                threading.Thread(target=_worker, name="iot-agent-boot", daemon=True).start()
 
             try:
                 if hasattr(ui, "pushButton_StartIotAgent"):
@@ -31535,6 +31556,32 @@ if __name__ == "__main__":
                         log=_iot_log,
                     )
 
+                def _iot_prepare_auto_connect():
+                    from utils.iot_auto_connect import prepare_auto_connect_jobs
+                    import os
+
+                    status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+                    return prepare_auto_connect_jobs(
+                        visa_rm=globals().get("rm"),
+                        status_json_path=status_path,
+                        scan_lan=False,
+                    )
+
+                def _iot_apply_auto_connect(prepared):
+                    from utils.iot_auto_connect import apply_prepared_connect_jobs
+
+                    jobs, devices = prepared if isinstance(prepared, tuple) else (prepared, [])
+                    summary = apply_prepared_connect_jobs(
+                        jobs,
+                        apply_plan=_apply_device_finder_plan,
+                        log=_iot_log,
+                    )
+                    summary["found"] = len(devices) if devices is not None else summary.get("found", 0)
+                    summary["skipped_ambiguous"] = max(
+                        0, int(summary.get("found") or 0) - int(summary.get("attempted") or 0)
+                    )
+                    return summary
+
                 def _iot_ensure_ready(ui_obj, test_type):
                     from utils.iot_device_ready import (
                         check_devices_ready,
@@ -31604,6 +31651,8 @@ if __name__ == "__main__":
                     get_run_progress=_iot_get_run_progress,
                     ensure_project=_iot_ensure_project,
                     auto_connect=_iot_auto_connect,
+                    prepare_auto_connect=_iot_prepare_auto_connect,
+                    apply_auto_connect=_iot_apply_auto_connect,
                     ensure_ready=_iot_ensure_ready,
                     stop_test=_iot_remote_stop_test,
                     log=_iot_log,
