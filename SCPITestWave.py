@@ -31549,6 +31549,9 @@ if __name__ == "__main__":
                 def _resolve_antibackflow_ui():
                     return globals().get("uiThaiAntiBackflow")
 
+                def _resolve_flicker_ui():
+                    return globals().get("uiThaiDianYaShanBian")
+
                 def _iot_get_run_status():
                     try:
                         return str((_run_progress_state or {}).get("status") or "")
@@ -31682,6 +31685,8 @@ if __name__ == "__main__":
                     overload_append=thaioverloadsAppend,
                     resolve_antibackflow_ui=_resolve_antibackflow_ui,
                     antibackflow_append=thaiantibackflowAppend,
+                    resolve_flicker_ui=_resolve_flicker_ui,
+                    flicker_append=thaidianyashanbianAppend,
                     start_test=RunProjectPush,
                     get_run_status=_iot_get_run_status,
                     get_run_progress=_iot_get_run_progress,

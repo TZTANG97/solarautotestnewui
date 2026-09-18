@@ -1,7 +1,7 @@
 {
   "testType": "antibackflow",
   "title": "防逆流测试",
-  "version": 4,
+  "version": 6,
   "groups": [
     {
       "id": "step1_ac",

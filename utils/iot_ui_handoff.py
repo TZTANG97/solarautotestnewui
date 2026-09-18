@@ -216,6 +216,10 @@ class IotUiHandoffService(QObject):
         "anti_backflow": ("防逆流测试", "antibackflow"),
         "防逆流测试": ("防逆流测试", "antibackflow"),
         "防逆流": ("防逆流测试", "antibackflow"),
+        "flicker": ("电压闪变", "flicker"),
+        "voltage_flicker": ("电压闪变", "flicker"),
+        "电压闪变": ("电压闪变", "flicker"),
+        "闪变": ("电压闪变", "flicker"),
     }
 
     # (summary_or_none, error_or_none) — 探测在后台线程，回主线程继续交接
@@ -229,6 +233,8 @@ class IotUiHandoffService(QObject):
         overload_append: Optional[Callable[[], None]] = None,
         resolve_antibackflow_ui: Optional[Callable[[], Any]] = None,
         antibackflow_append: Optional[Callable[[], None]] = None,
+        resolve_flicker_ui: Optional[Callable[[], Any]] = None,
+        flicker_append: Optional[Callable[[], None]] = None,
         start_test: Optional[Callable[[], None]] = None,
         get_run_status: Optional[Callable[[], str]] = None,
         get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
@@ -249,6 +255,8 @@ class IotUiHandoffService(QObject):
         self.overload_append = overload_append
         self.resolve_antibackflow_ui = resolve_antibackflow_ui
         self.antibackflow_append = antibackflow_append
+        self.resolve_flicker_ui = resolve_flicker_ui
+        self.flicker_append = flicker_append
         self.start_test = start_test
         self.get_run_status = get_run_status
         self.get_run_progress = get_run_progress
@@ -444,6 +452,14 @@ class IotUiHandoffService(QObject):
                 "resolve_ui": self.resolve_antibackflow_ui,
                 "append": self.antibackflow_append,
                 "label": "防逆流",
+            }
+        if handler_key == "flicker":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_flicker_ui,
+                "append": self.flicker_append,
+                "label": "电压闪变",
             }
         return None
 
@@ -753,6 +769,10 @@ class IotUiHandoffService(QObject):
                 for k, v in (widgets or {}).items()
                 if k not in ("dew_export_fields",)
             }
+            # 闪变 Dialog 用 radio_wt3000；线上表单写 radio_wt
+            if (handler.get("key") or "") == "flicker" and isinstance(widgets_for_ui, dict):
+                if "radio_wt3000" not in widgets_for_ui and "radio_wt" in widgets_for_ui:
+                    widgets_for_ui = {**widgets_for_ui, "radio_wt3000": widgets_for_ui.get("radio_wt")}
             missing = apply_widget_values(real_ui, widgets_for_ui)
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
@@ -783,6 +803,19 @@ class IotUiHandoffService(QObject):
                             radio.click()
                         except Exception:
                             pass
+                elif (handler.get("key") or "") == "flicker" and isinstance(widgets, dict):
+                    # WT 模式：点选 radio_wt3000
+                    use_wt = widgets.get("radio_wt") in (True, "1", 1, "true", "True") or widgets.get(
+                        "radio_wt3000"
+                    ) in (True, "1", 1, "true", "True")
+                    if use_wt:
+                        radio = getattr(real_ui, "radio_wt3000", None)
+                        if radio is not None and hasattr(radio, "setChecked"):
+                            radio.setChecked(True)
+                            try:
+                                radio.click()
+                            except Exception:
+                                pass
             except Exception as exc:
                 self._log(f"德威创面板写入跳过: {exc}")
 
@@ -1112,6 +1145,8 @@ def start_iot_ui_handoff_from_main(
     overload_append: Callable[[], None],
     resolve_antibackflow_ui: Optional[Callable[[], Any]] = None,
     antibackflow_append: Optional[Callable[[], None]] = None,
+    resolve_flicker_ui: Optional[Callable[[], Any]] = None,
+    flicker_append: Optional[Callable[[], None]] = None,
     start_test: Optional[Callable[[], None]] = None,
     get_run_status: Optional[Callable[[], str]] = None,
     get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
@@ -1130,6 +1165,8 @@ def start_iot_ui_handoff_from_main(
         overload_append=overload_append,
         resolve_antibackflow_ui=resolve_antibackflow_ui,
         antibackflow_append=antibackflow_append,
+        resolve_flicker_ui=resolve_flicker_ui,
+        flicker_append=flicker_append,
         start_test=start_test,
         get_run_status=get_run_status,
         get_run_progress=get_run_progress,

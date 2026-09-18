@@ -26,8 +26,8 @@ def get_runner(
         mode = "dry_run" if dry_run else "live"
     # 必须与 UI handoff / config 同一安装根，勿用 runners/ 的 parent.parent（会落到 agent/）
     root = Path(repo_root) if repo_root else _repo_root()
-    # 一期 handoff：过载 / 防逆流 共用 OverloadRunner（落盘 + 等 UI 结果）
-    # 对应 Blockly：solar_overload / solar_antibackflow（start→块→stop）
+    # 一期 handoff：过载 / 防逆流 / 电压闪变 共用 OverloadRunner（落盘 + 等 UI 结果）
+    # 对应 Blockly：solar_overload / solar_antibackflow / solar_flicker（start→块→stop）
     if tt in (
         "overload",
         "过载能力测试",
@@ -36,6 +36,10 @@ def get_runner(
         "anti_backflow",
         "防逆流测试",
         "防逆流",
+        "flicker",
+        "voltage_flicker",
+        "电压闪变",
+        "闪变",
     ):
         return OverloadRunner(execution_mode=mode, repo_root=root)
     raise ValueError(f"不支持的 testType: {test_type}")

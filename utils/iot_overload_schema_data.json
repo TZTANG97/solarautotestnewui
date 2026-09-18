@@ -1,7 +1,7 @@
 {
   "testType": "overload",
   "title": "过载能力测试",
-  "version": 4,
+  "version": 6,
   "groups": [
     {
       "id": "step1_ac",
