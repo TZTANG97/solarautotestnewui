@@ -102,11 +102,16 @@ def test_antibackflow_handler_maps() -> None:
     svc = IotUiHandoffService(
         resolve_antibackflow_ui=lambda: object(),
         antibackflow_append=lambda: None,
+        resolve_overload_ui=lambda: object(),
+        overload_append=lambda: None,
     )
     h = svc._resolve_handler("antibackflow")
     assert h and h["project_name"] == "防逆流测试"
+    assert h.get("key") == "antibackflow"
     h2 = svc._resolve_handler("防逆流测试")
     assert h2 and h2["label"] == "防逆流"
+    h3 = svc._resolve_handler("overload")
+    assert h3 and h3.get("key") == "overload"
     print("antibackflow map PASS")
 
 

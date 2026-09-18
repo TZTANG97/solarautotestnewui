@@ -374,6 +374,7 @@ class IotUiHandoffService(QObject):
         project_name, handler_key = mapped
         if handler_key == "overload":
             return {
+                "key": handler_key,
                 "project_name": project_name,
                 "resolve_ui": self.resolve_overload_ui,
                 "append": self.overload_append,
@@ -381,6 +382,7 @@ class IotUiHandoffService(QObject):
             }
         if handler_key == "antibackflow":
             return {
+                "key": handler_key,
                 "project_name": project_name,
                 "resolve_ui": self.resolve_antibackflow_ui,
                 "append": self.antibackflow_append,
@@ -681,7 +683,7 @@ class IotUiHandoffService(QObject):
                     and not str(k).startswith("_")
                 }
 
-            if handler_key == "overload":
+            if (handler.get("key") or "") == "overload":
                 try:
                     from utils.iot_overload_schema import merge_widgets
 
