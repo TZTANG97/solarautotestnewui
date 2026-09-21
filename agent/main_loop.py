@@ -17,6 +17,7 @@ from typing import Optional
 from agent.client import IotSolarClient
 from agent.config import load_config
 from agent.instruments_snapshot import collect_instruments_snapshot
+from agent.local_endpoints import collect_local_endpoints
 from agent.mutex import LocalMutex
 from agent.runners import get_runner
 
@@ -139,6 +140,7 @@ def _do_heartbeat(
             host_name=host_name,
             busy=busy,
             instruments=collect_instruments_snapshot(status_json_path=status_json_path),
+            local_resources=collect_local_endpoints(),
             probe_results=probe_results,
             probe_request_id=rid,
             control_result=ctrl_result,

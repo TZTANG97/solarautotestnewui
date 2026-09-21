@@ -187,14 +187,23 @@ def apply_prepared_connect_jobs(
     *,
     apply_plan: Callable[[str, dict, Any], None],
     log: Optional[Callable[[str], None]] = None,
+    session_ok: Optional[Callable[[str], bool]] = None,
 ) -> Dict[str, Any]:
-    """在主线程执行连接计划。"""
+    """在主线程执行连接计划。
+
+    ``session_ok`` 为真才算连上。连接函数失败时往往只打日志、不抛异常，
+    不能把「没报错」当成已连接。
+    """
     _log = log or (lambda m: None)
     connected: List[str] = []
     errors: List[str] = []
     for slot, plan, dev in jobs or []:
         try:
             apply_plan(slot, plan, dev)
+            if session_ok is not None and not session_ok(slot):
+                errors.append(f"{slot}: 桌面连接失败（会话未建立）")
+                _log(f"自动连接失败 {slot}: 会话未建立")
+                continue
             remember_slot_for_resource(getattr(dev, "resource", "") or "", slot)
             connected.append(f"{slot}:{getattr(dev, 'resource', '')}")
             _log(f"自动连接 {slot} -> {getattr(dev, 'resource', '')}")

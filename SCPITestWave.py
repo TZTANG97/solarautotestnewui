@@ -2720,6 +2720,24 @@ def _finder_set_combo(combo_name: str, text: str) -> None:
         print(f"[设备发现] 写入 {combo_name} 失败: {exc}")
 
 
+def _iot_slot_session_ok(slot: str) -> bool:
+    """云端回传用：以控制器真实会话为准，不看 TCP 是否通。"""
+    name = {
+        "ac": "ac_controller",
+        "dc1": "dc1_controller",
+        "dc2": "dc2_controller",
+        "dc3": "dc3_controller",
+        "dc4": "dc4_controller",
+        "wt": "wt3000_controller",
+        "scope": "dl850_controller",
+        "dew": "dewetron_controller",
+    }.get(str(slot or "").strip().lower())
+    if not name:
+        return False
+    ctrl = globals().get(name)
+    return ctrl is not None and bool(getattr(ctrl, "connected", False))
+
+
 def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
     """按 connect_plan 切换品牌/填地址并调用现有连接函数。"""
     global _ac_current_brand, _itech_ip_edit, _itech_port_edit
@@ -32128,7 +32146,10 @@ if __name__ == "__main__":
                     if not jobs:
                         return {"ok": False, "message": "无法解析连接计划（检查槽位/地址/品牌）"}
                     summary = apply_prepared_connect_jobs(
-                        jobs, apply_plan=_apply_device_finder_plan, log=_iot_log
+                        jobs,
+                        apply_plan=_apply_device_finder_plan,
+                        log=_iot_log,
+                        session_ok=_iot_slot_session_ok,
                     )
                     connected = summary.get("connected") or []
                     errors = summary.get("errors") or []
