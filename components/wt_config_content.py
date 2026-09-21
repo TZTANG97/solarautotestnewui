@@ -151,6 +151,20 @@ def _maybe_wire_recording_autofill(parent) -> None:
     QTimer.singleShot(0, _go)
 
 
+def _add_acquire_mode_row(parent, layout) -> None:
+    """在每个 WT 页顶部插入「宏 / SCPI」采集模式行（四机型共用）。"""
+    from components.wt_acquire_mode_row import WtAcquireModeRow
+
+    # build_wt*_content(self) 的 self 常是 Ui_Dialog_*（非 QWidget），
+    # 只能用于 setattr；Qt 父子关系交给 layout。
+    qt_parent = parent if isinstance(parent, QtWidgets.QWidget) else None
+    row = WtAcquireModeRow(qt_parent)
+    row.setObjectName("wtAcquireModeRow")
+    # 供 _PageWidgetFinder / params_config 按 objectName 查找
+    setattr(parent, "comboBox_wt_acquire_mode", row.comboBox_wt_acquire_mode)
+    layout.addWidget(row)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # WT3000E 配置内容
 # ═══════════════════════════════════════════════════════════════════════════
@@ -170,6 +184,8 @@ def build_wt3000_content(parent):
     cl = QtWidgets.QVBoxLayout(cw)
     cl.setContentsMargins(16, 16, 16, 16)
     cl.setSpacing(12)
+
+    _add_acquire_mode_row(parent, cl)
 
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")
@@ -470,6 +486,8 @@ def build_wt1800_content(parent):
     cl.setContentsMargins(16, 16, 16, 16)
     cl.setSpacing(12)
 
+    _add_acquire_mode_row(parent, cl)
+
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")
     basicGrp.setStyleSheet(_GROUPBOX_STYLE)
@@ -765,6 +783,8 @@ def build_wt1806e_content(parent):
     cl.setContentsMargins(16, 16, 16, 16)
     cl.setSpacing(12)
 
+    _add_acquire_mode_row(parent, cl)
+
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")
     basicGrp.setStyleSheet(_GROUPBOX_STYLE)
@@ -1049,6 +1069,8 @@ def build_wt5000_content(parent):
     cl = QtWidgets.QVBoxLayout(cw)
     cl.setContentsMargins(16, 16, 16, 16)
     cl.setSpacing(12)
+
+    _add_acquire_mode_row(parent, cl)
 
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")

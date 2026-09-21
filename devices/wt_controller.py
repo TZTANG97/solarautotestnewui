@@ -1,4 +1,12 @@
 from devices.scpi_common import _configure_scpi_resource
+from devices.wt_scpi_rate import (
+    is_serial_resource,
+    parse_rate_ms,
+    rate_command,
+    rates_match_ms,
+    serial_too_slow_for_rate,
+    snap_rate_ms,
+)
 
 
 class WT3000Controller:
@@ -12,6 +20,7 @@ class WT3000Controller:
         self.handle = None
         self.connected = False
         self.resource = ''
+        self.last_rate_ms = None
 
     def _candidate_resources(self, tcp_addr):
         if not tcp_addr:
@@ -101,7 +110,65 @@ class WT3000Controller:
         self.handle = None
         self.connected = False
         self.resource = ''
+        self.last_rate_ms = None
         return None, '0'
+
+    def write(self, command):
+        if self.handle is None:
+            raise RuntimeError("WT SCPI 未连接")
+        self.handle.write(command)
+
+    def query(self, command):
+        if self.handle is None:
+            raise RuntimeError("WT SCPI 未连接")
+        return str(self.handle.query(command)).strip()
+
+    def set_rate_ms(self, rate_ms, verify=True):
+        """Set instrument data-update rate and optionally verify via ``:RATE?``.
+
+        Returns (ok, actual_ms, warning_or_empty).
+        """
+        if self.handle is None:
+            return False, None, "WT SCPI 未连接"
+        target = snap_rate_ms(int(rate_ms))
+        warning = ""
+        resource = self.resource or getattr(self.handle, "resource_name", "")
+        if serial_too_slow_for_rate(resource, target):
+            warning = (
+                f"串口链路难以稳定达到 {target}ms，建议改用以太网；"
+                "否则采样间隔常会卡在约 180–250ms"
+            )
+            self.logger.info(warning)
+            print(warning)
+        cmd = rate_command(target)
+        try:
+            self.handle.write(cmd)
+        except Exception as exc:
+            msg = f"{cmd} 发送失败: {exc}"
+            self.logger.info(msg)
+            print(msg)
+            return False, None, msg
+        if not verify:
+            self.last_rate_ms = target
+            return True, target, warning
+        try:
+            reply = self.query(":RATE?")
+        except Exception as exc:
+            msg = f":RATE? 失败: {exc}"
+            self.logger.info(msg)
+            print(msg)
+            return False, None, msg
+        actual = parse_rate_ms(reply)
+        self.last_rate_ms = actual
+        if not rates_match_ms(target, actual, tol_ms=10):
+            msg = f"RATE 回读 {actual}ms != 目标 {target}ms (reply={reply!r})"
+            self.logger.info(msg)
+            print(msg)
+            return False, actual, msg
+        info = f"WT RATE OK: {actual}ms (resource={resource}, serial={is_serial_resource(resource)})"
+        self.logger.info(info)
+        print(info)
+        return True, actual, warning
 
 
 def connect_wt3000(tcp_addr, rm, logger, show_message, baud_rate):

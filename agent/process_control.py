@@ -183,6 +183,79 @@ def ensure_agent_running(*, silent: bool = True) -> Tuple[bool, str]:
         return False, f"自动配置/启动 Agent 失败: {exc}"
 
 
+def _terminate_process_tree(pid: int, *, timeout_sec: float = 5.0) -> None:
+    """结束 pid 及其子进程（uv/python 包装层残留）。"""
+    try:
+        import psutil
+
+        root = psutil.Process(pid)
+        children = root.children(recursive=True)
+        for child in children:
+            try:
+                child.terminate()
+            except Exception:
+                pass
+        try:
+            root.terminate()
+        except Exception:
+            pass
+        _, alive = psutil.wait_procs([root, *children], timeout=timeout_sec)
+        for p in alive:
+            try:
+                p.kill()
+            except Exception:
+                pass
+        return
+    except Exception:
+        pass
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    else:
+        try:
+            os.kill(pid, 15)
+        except OSError:
+            pass
+
+
+def _iter_repo_agent_pids() -> list:
+    """扫描本仓库目录下仍在跑的 ``python -m agent``（含 bat 手动启动）。"""
+    root = str(repo_root().resolve()).lower()
+    found: list = []
+    try:
+        import psutil
+    except Exception:
+        return found
+    for proc in psutil.process_iter(["pid", "cmdline", "cwd"]):
+        try:
+            info = proc.info or {}
+            cmd = info.get("cmdline") or []
+            if not isinstance(cmd, (list, tuple)) or len(cmd) < 2:
+                continue
+            low = [str(x).lower() for x in cmd]
+            is_agent = False
+            for i in range(len(low) - 1):
+                if low[i] == "-m" and low[i + 1] in ("agent", "agent.__main__", "agent.main_loop"):
+                    is_agent = True
+                    break
+            if not is_agent:
+                continue
+            cwd = str(info.get("cwd") or "").lower()
+            if cwd and (cwd == root or cwd.startswith(root + os.sep) or cwd.startswith(root + "/")):
+                found.append(int(info["pid"]))
+                continue
+            # cwd 为空时：命令行里带本仓库路径也算
+            joined = " ".join(low)
+            if root.replace("\\", "/") in joined.replace("\\", "/"):
+                found.append(int(info["pid"]))
+        except Exception:
+            continue
+    return found
+
+
 def stop_agent() -> Tuple[bool, str]:
     pid = _read_pid()
     if pid is None or not _pid_alive(pid):
@@ -191,29 +264,30 @@ def stop_agent() -> Tuple[bool, str]:
         except Exception:
             pass
         return True, "Agent 未在运行"
-    try:
-        import psutil
-
-        p = psutil.Process(pid)
-        p.terminate()
-        try:
-            p.wait(timeout=5)
-        except Exception:
-            p.kill()
-    except Exception:
-        if os.name == "nt":
-            subprocess.run(
-                ["taskkill", "/PID", str(pid), "/F"],
-                capture_output=True,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-        else:
-            try:
-                os.kill(pid, 15)
-            except OSError as exc:
-                return False, f"停止失败: {exc}"
+    _terminate_process_tree(pid)
     try:
         pid_file().unlink(missing_ok=True)
     except Exception:
         pass
     return True, f"已停止 Agent (pid={pid})"
+
+
+def stop_agent_for_app_exit() -> Tuple[bool, str]:
+    """主界面退出时调用：停掉 pid 文件记录的 Agent，并清掉同仓库残留进程。"""
+    msgs: list = []
+    ok, msg = stop_agent()
+    msgs.append(msg)
+    orphans = _iter_repo_agent_pids()
+    cleaned = 0
+    for opid in orphans:
+        if not _pid_alive(opid):
+            continue
+        _terminate_process_tree(opid)
+        cleaned += 1
+    if cleaned:
+        msgs.append(f"已清理残留 Agent {cleaned} 个")
+    try:
+        pid_file().unlink(missing_ok=True)
+    except Exception:
+        pass
+    return True, "; ".join(msgs)

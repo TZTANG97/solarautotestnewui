@@ -26,6 +26,95 @@ logger = logging.getLogger("solar.agent")
 _current_job_id: Optional[int] = None
 _client_ref: Optional[IotSolarClient] = None
 
+# 云端试连：心跳领取后探测，下一轮心跳回传
+_pending_probe_request_id: str = ""
+_pending_probe_results: Optional[list] = None
+_probe_lock = threading.Lock()
+
+
+def _consume_probe_payload() -> tuple:
+    """取出待上报的试连结果（只发一次）。"""
+    global _pending_probe_request_id, _pending_probe_results
+    with _probe_lock:
+        rid = _pending_probe_request_id
+        results = _pending_probe_results
+        _pending_probe_request_id = ""
+        _pending_probe_results = None
+    return rid, results
+
+
+def _handle_pending_actions(data_hb: dict) -> None:
+    """处理心跳回包里的 pendingActions（当前仅 probe_instruments）。"""
+    global _pending_probe_request_id, _pending_probe_results
+    if not isinstance(data_hb, dict):
+        return
+    actions = data_hb.get("pendingActions") or data_hb.get("pending_actions") or []
+    if not isinstance(actions, list):
+        return
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        if str(action.get("type") or "") != "probe_instruments":
+            continue
+        request_id = str(action.get("requestId") or action.get("request_id") or "")
+        instruments = action.get("instruments") or []
+        logger.info("收到试连任务 requestId=%s count=%s", request_id, len(instruments or []))
+        try:
+            from agent.instrument_probe import probe_instruments
+
+            results = probe_instruments(instruments if isinstance(instruments, list) else [])
+        except Exception as exc:
+            logger.warning("试连执行失败: %s", exc)
+            results = [
+                {
+                    "resource": str((x or {}).get("resource") or ""),
+                    "slot": str((x or {}).get("slot") or ""),
+                    "connected": False,
+                    "error": str(exc)[:255],
+                }
+                for x in (instruments or [])
+                if isinstance(x, dict)
+            ]
+        with _probe_lock:
+            _pending_probe_request_id = request_id
+            _pending_probe_results = results
+        ok_n = sum(1 for r in results if r.get("connected"))
+        logger.info("试连完成 requestId=%s ok=%s/%s", request_id, ok_n, len(results))
+
+
+def _do_heartbeat(
+    client: IotSolarClient,
+    *,
+    agent_version: str,
+    host_name: str,
+    busy: bool,
+    status_json_path: str,
+) -> Optional[dict]:
+    rid, probe_results = _consume_probe_payload()
+    try:
+        hb = client.heartbeat(
+            agent_version=agent_version,
+            host_name=host_name,
+            busy=busy,
+            instruments=collect_instruments_snapshot(status_json_path=status_json_path),
+            probe_results=probe_results,
+            probe_request_id=rid,
+        )
+    except Exception:
+        # 回传失败时把结果塞回去，下一轮再试
+        if probe_results is not None:
+            with _probe_lock:
+                if _pending_probe_results is None:
+                    _pending_probe_request_id = rid
+                    _pending_probe_results = probe_results
+        raise
+    data_hb = hb.get("data") if isinstance(hb, dict) else None
+    if isinstance(data_hb, dict):
+        if data_hb.get("pythonid"):
+            client.pythonid = str(data_hb.get("pythonid") or "")
+        _handle_pending_actions(data_hb)
+    return data_hb if isinstance(data_hb, dict) else None
+
 
 def _setup_log() -> None:
     logging.basicConfig(
@@ -93,13 +182,12 @@ def run_once_job(
     def _hb_while_job() -> None:
         while not stop_hb.wait(max(5.0, float(heartbeat_interval_sec))):
             try:
-                client.heartbeat(
+                _do_heartbeat(
+                    client,
                     agent_version=agent_version,
                     host_name=host_name,
                     busy=True,
-                    instruments=collect_instruments_snapshot(
-                        status_json_path=str((repo_root or Path(".")) / "status.json"),
-                    ),
+                    status_json_path=str((repo_root or Path(".")) / "status.json"),
                 )
             except Exception as exc:
                 logger.warning("任务中心跳失败: %s", exc)
@@ -283,17 +371,13 @@ def main(argv: Optional[list] = None) -> int:
         owner = str((data or {}).get("owner") or "")
         agent_busy = owner == "agent"
         try:
-            hb = client.heartbeat(
+            _do_heartbeat(
+                client,
                 agent_version=cfg.agent_version,
                 host_name=host,
                 busy=agent_busy,
-                instruments=collect_instruments_snapshot(
-                    status_json_path=str(repo_root / "status.json"),
-                ),
+                status_json_path=str(repo_root / "status.json"),
             )
-            data_hb = hb.get("data") if isinstance(hb, dict) else None
-            if isinstance(data_hb, dict) and data_hb.get("pythonid"):
-                client.pythonid = str(data_hb.get("pythonid") or "")
         except Exception as exc:
             logger.warning("心跳失败: %s", exc)
             time.sleep(interval)

@@ -47,6 +47,8 @@ class IotSolarClient:
         busy: bool = False,
         fault: bool = False,
         instruments: Optional[list] = None,
+        probe_results: Optional[list] = None,
+        probe_request_id: str = "",
     ) -> Dict[str, Any]:
         body: Dict[str, Any] = {
             "type": "on",
@@ -59,6 +61,10 @@ class IotSolarClient:
         }
         if instruments is not None:
             body["instruments"] = list(instruments)
+        if probe_results is not None:
+            body["probeResults"] = list(probe_results)
+            if probe_request_id:
+                body["probeRequestId"] = str(probe_request_id)
         return self._request(
             "POST",
             "/api/solar-autotest/agent/heartbeat",

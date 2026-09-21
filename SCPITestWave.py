@@ -22550,9 +22550,11 @@ def SaveFileDialogThaiDynamicMPPT():
 def _check_device_connections():
     """根据 strArrayTest 中实际用到的设备，检查连接状态。返回未连接设备的描述字符串，全部连接返回空字符串。
 
-    注意：Upper_WT_Config / WT 走 WTViewerEfree 宏/自动配置，不依赖 wt3000 SCPI 连接，
-    故不纳入本校验；只有真正发 SCPI 的 WT3000 / DEWETRON 等才检查控制器。
+    Upper_WT_Config 默认走 WTViewer 宏，不校验 wt3000 SCPI；
+    若配置为 SCPI 命令模式，则必须已连接功率分析仪。
     """
+    from utils.wt_acquire_mode import is_scpi_mode
+
     device_map = {
         "AC": ("交流电源", ac_controller),
         "DC1": ("DC电源1", dc1_controller),
@@ -22564,9 +22566,23 @@ def _check_device_connections():
         "DL850": ("示波器(DL850)", dl850_controller),
     }
     used_devices = set()
+    scpi_wt_needed = False
     for cmd in strArrayTest:
         if len(cmd) > 0 and cmd[0] in device_map:
             used_devices.add(cmd[0])
+        if len(cmd) > 0 and cmd[0] == "Upper_WT_Config":
+            cfg = cmd[4] if len(cmd) > 4 else None
+            if isinstance(cfg, str) and cfg.strip():
+                try:
+                    import ast
+                    cfg = ast.literal_eval(cfg.strip())
+                except Exception:
+                    cfg = {}
+            if is_scpi_mode(cfg if isinstance(cfg, dict) else {}):
+                scpi_wt_needed = True
+
+    if scpi_wt_needed:
+        used_devices.add("WT3000")
 
     disconnected = []
     for device_key in sorted(used_devices):
@@ -22867,6 +22883,15 @@ def _abort_wt_side_effects(reason="manual"):
     """结束试验时尽量一并停掉 WT 宏 / 自动测量等待 / 闪变测量。"""
     global manager, test_status, WT_auto_messure_status, wt3000_controller, flicker_is_test, ui
     global _wt_async_session_active, _wt_async_stop_requested, _wt_async_deadline_ts
+
+    # 0) 停 SCPI 采集会话
+    try:
+        from utils import wt_scpi_session
+
+        wt_scpi_session.request_stop(f"abort:{reason}")
+        wt_scpi_session.stop_and_export(globals().get("config_dict"))
+    except Exception as e:
+        logger.warning(f"结束试验: 停止 WT SCPI 采集失败: {e}")
 
     # 1) 停 RecPlayer 宏（否则 End 只置标志，仍会卡在 manager.execute / sleep 等到脚本跑完）
     try:
@@ -24199,6 +24224,43 @@ def RunProject():
                             config_dict = {}
                     else:
                         config_dict = {}
+                # SCPI 命令模式：跳过 WTViewer 宏配置，直接准备 NUMERIC 采集
+                try:
+                    from utils.wt_acquire_mode import is_scpi_mode
+                    from utils import wt_scpi_session
+                except Exception as e:
+                    is_scpi_mode = lambda *_a, **_k: False  # noqa: E731
+                    wt_scpi_session = None
+                    _append_debug_log(f"[Upper_WT_Config][warn] scpi helpers import failed: {e}")
+                if is_scpi_mode(config_dict if isinstance(config_dict, dict) else {}):
+                    _append_debug_log("[Upper_WT_Config] acquire_mode=scpi → skip WTViewer auto_config")
+                    if ui is not None:
+                        try:
+                            ui.textEdit_ReturnMessage.append(
+                                "[功率分析仪] SCPI 命令模式：跳过宏/WTViewer，使用 :RATE+NUMERIC"
+                            )
+                        except Exception:
+                            pass
+                    ok, err = (False, "no session")
+                    if wt_scpi_session is not None:
+                        ok, err = wt_scpi_session.prepare_from_config(
+                            config_dict, logger=logger
+                        )
+                    if not ok:
+                        _append_debug_log(f"[Upper_WT_Config][error] SCPI prepare failed: {err}")
+                        print(f"[Upper_WT_Config] SCPI prepare 失败: {err}")
+                        if ui is not None:
+                            try:
+                                ui.textEdit_ReturnMessage.append(f"[功率分析仪] SCPI 准备失败: {err}")
+                            except Exception:
+                                pass
+                    else:
+                        setting_status = "1"
+                        messure_status = "1"
+                        first_test = "1"
+                    if strTestStatusFlag == "结束":
+                        break
+                    continue
                 if first_test == '':
                     try:
                         wt_is_check()
@@ -27102,6 +27164,59 @@ def messure_testing():
             WT_auto_messure_status = ''
             # 置位"测量进行中"，供 run_loop(col6/col7) 阻塞等待
             test_status = '1'
+
+            # SCPI 命令模式：不点 WTViewer，直接 :RATE + NUMERIC 采数
+            try:
+                from utils.wt_acquire_mode import is_scpi_mode
+                from utils import wt_scpi_session
+            except Exception:
+                is_scpi_mode = lambda *_a, **_k: False  # noqa: E731
+                wt_scpi_session = None
+            if is_scpi_mode(config_dict if isinstance(config_dict, dict) else {}):
+                _append_debug_log("[messure_testing] SCPI acquire path")
+                try:
+                    if ui is not None:
+                        ui.textEdit_ReturnMessage.append("[功率分析仪] SCPI 采集中…")
+                except Exception:
+                    pass
+                ok = False
+                if wt_scpi_session is not None:
+                    ok = wt_scpi_session.run_measure_blocking(
+                        config_dict if isinstance(config_dict, dict) else {},
+                        file_index=max(0, int(now_save_file or 0)),
+                        stop_event_check=lambda: globals().get("strTestStatusFlag") == "结束",
+                        async_stop_check=lambda: bool(
+                            globals().get("_wt_async_stop_requested")
+                        ),
+                        logger=logger,
+                    )
+                if ok:
+                    csv_path = wt_scpi_session.last_csv() if wt_scpi_session else ""
+                    _append_debug_log(f"[messure_testing] SCPI done csv={csv_path}")
+                    try:
+                        if ui is not None and csv_path:
+                            ui.textEdit_ReturnMessage.append(
+                                f"[功率分析仪] SCPI 已导出: {csv_path}"
+                            )
+                    except Exception:
+                        pass
+                else:
+                    err = (
+                        wt_scpi_session.last_error()
+                        if wt_scpi_session
+                        else "SCPI session unavailable"
+                    )
+                    _append_debug_log(f"[messure_testing][error] SCPI measure failed: {err}")
+                    try:
+                        if ui is not None:
+                            ui.textEdit_ReturnMessage.append(
+                                f"[功率分析仪] SCPI 采集失败: {err}"
+                            )
+                    except Exception:
+                        pass
+                test_status = '0'
+                messsure_deatil_cofig = ''
+                return
 
             # 解析待保存文件名列表（支持英文逗号/中文逗号）
             # 示例："case1,case2，case3" -> ["case1", "case2", "case3"]
@@ -30535,6 +30650,22 @@ if __name__ == "__main__":
                     except Exception:
                         pass
 
+            def _stop_iot_agent_on_exit():
+                """关主界面 / 退出进程时同步停掉 Agent，避免仍 WS 上线显示待机。"""
+                try:
+                    from agent.process_control import stop_agent_for_app_exit
+
+                    _ok, msg = stop_agent_for_app_exit()
+                    print(f"[IOT-Agent] 退出同步停止: {msg}", flush=True)
+                except Exception as _e:
+                    print(f"[IOT-Agent] 退出停止异常: {_e}", flush=True)
+                    try:
+                        from agent.process_control import stop_agent
+
+                        stop_agent()
+                    except Exception:
+                        pass
+
             def _auto_start_iot_agent():
                 """网络 announce/claim 放到后台线程，避免启动后白屏卡顿。"""
                 from PyQt5.QtCore import QObject, pyqtSignal
@@ -30588,6 +30719,29 @@ if __name__ == "__main__":
                 _iot_status_timer.start()
                 # 主界面就绪后静默拉起 Agent（有 config/solar_agent.json 时）
                 _QTimerIot.singleShot(1200, _auto_start_iot_agent)
+                # 关软件 → 同步停 Agent（aboutToQuit + 关窗）
+                try:
+                    app.aboutToQuit.connect(_stop_iot_agent_on_exit)
+                except Exception:
+                    pass
+                _prev_close = getattr(main_window, "closeEvent", None)
+
+                def _main_close_event(event):
+                    _stop_iot_agent_on_exit()
+                    if callable(_prev_close):
+                        try:
+                            _prev_close(event)
+                            return
+                        except Exception:
+                            pass
+                    try:
+                        from PyQt5.QtWidgets import QMainWindow as _QMW
+
+                        _QMW.closeEvent(main_window, event)
+                    except Exception:
+                        event.accept()
+
+                main_window.closeEvent = _main_close_event
             except Exception as _iot_btn_exc:
                 print(f"[WARN] IOT Agent 绑定失败: {_iot_btn_exc}", flush=True)
             # AC 连接按钮已在 AC breadcrumb setup (line ~28677) 中连接 _connect_ac_with_mode
@@ -31552,6 +31706,90 @@ if __name__ == "__main__":
                 def _resolve_flicker_ui():
                     return globals().get("uiThaiDianYaShanBian")
 
+                def _resolve_harmonic_ui():
+                    return globals().get("uiThaiXieBoDianLiu")
+
+                def _resolve_fixedpf_ui():
+                    return globals().get("uiThaiFixedPF")
+
+                def _resolve_dccomponent_ui():
+                    return globals().get("uiThaiZhiLiuFenLiang")
+
+                def _resolve_reconnect_ui():
+                    return globals().get("uithaichonglian")
+
+                def _resolve_ovuf_ui():
+                    return globals().get("uiThaiGuoQianYa_Pin")
+
+                def _resolve_guopinjiangzai_ui():
+                    return globals().get("uiThaiGuoPinJiangZai")
+
+                def _resolve_qianpinshengzai_ui():
+                    return globals().get("uiThaiQianPinShengZai")
+
+                def _resolve_voltprotect10min_ui():
+                    return globals().get("uiThaiVoltProtect10min")
+
+                def _resolve_guoqianpin_immun_ui():
+                    return globals().get("uiThaiGuoQianPin_Immun")
+
+                def _resolve_staticmppt_ui():
+                    return globals().get("uiThaiStaticMPPTTest")
+
+                def _resolve_frequencyadaptability_ui():
+                    return globals().get("uiThaiFrequencyAdaptability")
+
+                def _resolve_voltageadaptability_ui():
+                    return globals().get("uiThaiVoltageAdaptability")
+
+                def _resolve_rocof_ui():
+                    return globals().get("uiThaiROCOF")
+
+                def _resolve_rapidvolt_ui():
+                    return globals().get("uiThaiRapidVolt")
+
+                def _resolve_lvrt_ui():
+                    return globals().get("uiThaiLVRT")
+
+                def _resolve_phasejump_ui():
+                    return globals().get("uiThaiPhaseJump")
+
+                def _resolve_dynamicmppt_ui():
+                    return globals().get("uiThaiDynamicMPPT")
+
+                def _resolve_reactiveqcap_ui():
+                    return globals().get("uiThaiReactiveQCap")
+
+                def _resolve_fixedq_ui():
+                    return globals().get("uiThaiFixedQ")
+
+                def _resolve_reactiveqin_ui():
+                    return globals().get("uiThaiReactiveQin")
+
+                def _resolve_reactiveqacc_ui():
+                    return globals().get("uiThaiReactiveQacc")
+
+                def _resolve_activep_ui():
+                    return globals().get("uiThaiActiveP")
+
+                def _resolve_staticqu_ui():
+                    return globals().get("uiThaiStaticQU")
+
+                def _resolve_dynamicqu_ui():
+                    return globals().get("uiThaiDynamicQU")
+
+                def _resolve_testpu_ui():
+                    return globals().get("uiThaiTestPU")
+
+                def _resolve_staticcosphi_ui():
+                    return globals().get("uiThaiStaticCosPhi")
+
+                def _resolve_dynamiccosphi_ui():
+                    return globals().get("uiThaiDynamicCosPhi")
+
+                def _resolve_cosphibrazil_ui():
+                    return globals().get("uiThaiCosPhiBrazil")
+
                 def _iot_get_run_status():
                     try:
                         return str((_run_progress_state or {}).get("status") or "")
@@ -31687,6 +31925,62 @@ if __name__ == "__main__":
                     antibackflow_append=thaiantibackflowAppend,
                     resolve_flicker_ui=_resolve_flicker_ui,
                     flicker_append=thaidianyashanbianAppend,
+                    resolve_harmonic_ui=_resolve_harmonic_ui,
+                    harmonic_append=thaixiebodianliuAppend,
+                    resolve_fixedpf_ui=_resolve_fixedpf_ui,
+                    fixedpf_append=thaifixedpfAppend,
+                    resolve_dccomponent_ui=_resolve_dccomponent_ui,
+                    dccomponent_append=thaizhiliufenliangAppend,
+                    resolve_reconnect_ui=_resolve_reconnect_ui,
+                    reconnect_append=thaichonglianAppend,
+                    resolve_ovuf_ui=_resolve_ovuf_ui,
+                    ovuf_append=thaiguoqianya_pinAppend,
+                    resolve_guopinjiangzai_ui=_resolve_guopinjiangzai_ui,
+                    guopinjiangzai_append=thaiguopinjiangzaiAppend,
+                    resolve_qianpinshengzai_ui=_resolve_qianpinshengzai_ui,
+                    qianpinshengzai_append=thaiqianpinshengzaiAppend,
+                    resolve_voltprotect10min_ui=_resolve_voltprotect10min_ui,
+                    voltprotect10min_append=thaivoltprotect10minAppend,
+                    resolve_guoqianpin_immun_ui=_resolve_guoqianpin_immun_ui,
+                    guoqianpin_immun_append=thaiguoqianpin_immunAppend,
+                    resolve_staticmppt_ui=_resolve_staticmppt_ui,
+                    staticmppt_append=thaistaticMPPTtestAppend,
+                    resolve_frequencyadaptability_ui=_resolve_frequencyadaptability_ui,
+                    frequencyadaptability_append=thaifrequencyadaptabilityAppend,
+                    resolve_voltageadaptability_ui=_resolve_voltageadaptability_ui,
+                    voltageadaptability_append=thaivoltageadaptabilityAppend,
+                    resolve_rocof_ui=_resolve_rocof_ui,
+                    rocof_append=thairocofAppend,
+                    resolve_rapidvolt_ui=_resolve_rapidvolt_ui,
+                    rapidvolt_append=thairapidvoltAppend,
+                    resolve_lvrt_ui=_resolve_lvrt_ui,
+                    lvrt_append=thailvrtAppend,
+                    resolve_phasejump_ui=_resolve_phasejump_ui,
+                    phasejump_append=thaiphasejumpAppend,
+                    resolve_dynamicmppt_ui=_resolve_dynamicmppt_ui,
+                    dynamicmppt_append=thaidynamicmpptAppend,
+                    resolve_reactiveqcap_ui=_resolve_reactiveqcap_ui,
+                    reactiveqcap_append=thaireactiveQcapAppend,
+                    resolve_fixedq_ui=_resolve_fixedq_ui,
+                    fixedq_append=thaifixedQAppend,
+                    resolve_reactiveqin_ui=_resolve_reactiveqin_ui,
+                    reactiveqin_append=thaireactiveQinAppend,
+                    resolve_reactiveqacc_ui=_resolve_reactiveqacc_ui,
+                    reactiveqacc_append=thaireactiveQaccAppend,
+                    resolve_activep_ui=_resolve_activep_ui,
+                    activep_append=thaiactivePAppend,
+                    resolve_staticqu_ui=_resolve_staticqu_ui,
+                    staticqu_append=thaistaticQUAppend,
+                    resolve_dynamicqu_ui=_resolve_dynamicqu_ui,
+                    dynamicqu_append=thaidynamicQUAppend,
+                    resolve_testpu_ui=_resolve_testpu_ui,
+                    testpu_append=thaitestPUAppend,
+                    resolve_staticcosphi_ui=_resolve_staticcosphi_ui,
+                    staticcosphi_append=thaistaticcosPhiAppend,
+                    resolve_dynamiccosphi_ui=_resolve_dynamiccosphi_ui,
+                    dynamiccosphi_append=thaidynamiccosPhiAppend,
+                    resolve_cosphibrazil_ui=_resolve_cosphibrazil_ui,
+                    cosphibrazil_append=thaicosPhiBrazilAppend,
                     start_test=RunProjectPush,
                     get_run_status=_iot_get_run_status,
                     get_run_progress=_iot_get_run_progress,

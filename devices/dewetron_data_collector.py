@@ -40,6 +40,7 @@ import time
 import threading
 import re
 from dataclasses import dataclass, field
+from typing import Optional
 
 
 # 数据库固定路径
@@ -291,6 +292,19 @@ class DewetronDataCollector:
         # 采集准备状态
         self._ready_to_gather = False
 
+        # 跳脱截图：主产物=跳脱前后时间段波形；Oxygen 整窗为可选附属
+        self._trip_screenshot_enabled = True
+        self._trip_monitor = None
+        self._trip_shot_count = 0
+        self._trip_last_warn = ""
+        self._trip_pre_s = 2.0
+        self._trip_post_s = 1.0
+        self._trip_capture_oxygen = True  # 另存整窗；主存证仍是时间段图
+        # 环形缓冲：(elapsed_s, values)；按采样率约保留 pre+post+余量
+        self._trip_sample_buf = []
+        self._trip_buf_max = 400
+        self._trip_pending = None  # {trip_elapsed, stamp, reason}
+
     def start(self):
         """启动守护线程。"""
         if self._thread and self._thread.is_alive():
@@ -417,6 +431,12 @@ class DewetronDataCollector:
         if not valid:
             return self._prepare_failure("没有可用的设备采集字段", warnings)
 
+        # 跳脱截图需要实时电流：若用户未勾选 I 通道，尽量从设备补上 I1/I2/I3
+        if self._trip_screenshot_enabled:
+            injected = self._inject_current_channels_for_trip(valid, device_channels, warnings)
+            if injected:
+                valid = injected
+
         self._fields = valid
         self._scpi_channels = list(valid)
         self._csv_header = ['Time [s]']
@@ -431,6 +451,7 @@ class DewetronDataCollector:
         self._rate_ms = parse_rate_ms(rate_text)
         self._save_path = save_path or ''
         self._test_type = test_type or 'dewetron'
+        self._setup_trip_monitor_from_fields()
         try:
             self._connect_database()
         except sqlite3.Error as exc:
@@ -521,11 +542,25 @@ class DewetronDataCollector:
 
         self.is_gather.set()
         self._ready_to_gather = False
+        if self._trip_monitor is not None:
+            self._trip_monitor.reset()
+            self._trip_shot_count = 0
+            self._trip_sample_buf = []
+            self._trip_pending = None
+            # 按 rate 估算缓冲长度：pre+post+1s 余量，至少 50 点
+            rate = max(int(self._rate_ms or 100), 20)
+            need = int((self._trip_pre_s + self._trip_post_s + 1.0) * 1000 / rate) + 10
+            self._trip_buf_max = max(50, min(2000, need))
         print("[Collector][on_acquisition_started] 采集线程开始工作")
         return True
 
     def stop_gathering(self):
         """幂等停止当前采集并完成当前 run。"""
+        # 若有待出时间段图，停采前尽量落盘
+        try:
+            self._flush_pending_trip_shot(force=True)
+        except Exception:
+            pass
         was_active = self.is_gather.is_set() or self._ready_to_gather or self._run_id is not None
         self.is_gather.clear()
         self._ready_to_gather = False
@@ -533,6 +568,8 @@ class DewetronDataCollector:
             self.finish_run()
         if was_active:
             self._log.info(f"[Collector] 停止采集，共 {self._total_rows} 行数据")
+            if self._trip_shot_count:
+                self._log.info(f"[Collector] 本段跳脱截图 {self._trip_shot_count} 张")
         return was_active
 
     def finish_batch(self):
@@ -1131,6 +1168,7 @@ class DewetronDataCollector:
                     self._total_rows += 1
                     self._no_data_backoff_s = 0.0
                     success = True
+                    self._maybe_trip_screenshot(row)
         except Exception as exc:
             print(f"[Collector][_collect_one_point] 异常: {exc}")
 
@@ -1141,6 +1179,166 @@ class DewetronDataCollector:
             sleep_time = self._next_no_data_delay(interval_s)
         time.sleep(sleep_time)
         return success
+
+    def _inject_current_channels_for_trip(self, valid, device_channels, warnings):
+        """若尚无电流通道，从设备通道表补 I1/I2/I3（或 I_tRMS）。"""
+        from utils.dewetron_trip_monitor import find_current_indices
+
+        phase_idx, total_idx = find_current_indices(valid)
+        if phase_idx or total_idx is not None:
+            return valid
+
+        preferred = ("I1_tRMS", "I2_tRMS", "I3_tRMS", "I_tRMS")
+        added = []
+        out = list(valid)
+        for short in preferred:
+            matched = next(
+                (ch for ch in sorted(device_channels) if ch == short or ch.startswith(short + "@")),
+                None,
+            )
+            if matched and matched not in out:
+                out.append(matched)
+                added.append(matched)
+        if added:
+            # 仅日志；不改 PrepareResult.warnings 契约，避免影响既有 UI/测试
+            print(f"[Collector][prepare] 跳脱监测补通道: {added}")
+            return out
+        print("[Collector][prepare] 跳脱截图：设备无 I1/I2/I3，本段无法自动截图")
+        return valid
+
+    def _setup_trip_monitor_from_fields(self):
+        """按当前 NUMERIC 字段重建跳脱监视器。"""
+        from utils.dewetron_trip_monitor import TripMonitor, find_current_indices
+
+        if not self._trip_screenshot_enabled:
+            self._trip_monitor = None
+            return
+        phase_idx, total_idx = find_current_indices(self._fields or [])
+        if not phase_idx and total_idx is None:
+            self._trip_monitor = None
+            msg = "[Collector] 跳脱截图未启用：采集字段中无电流通道"
+            if msg != self._trip_last_warn:
+                print(msg)
+                self._trip_last_warn = msg
+            return
+        self._trip_monitor = TripMonitor(phase_indices=phase_idx, total_index=total_idx)
+        print(
+            f"[Collector] 跳脱监视已就绪 phase_idx={phase_idx} total_idx={total_idx}"
+        )
+
+    def _maybe_trip_screenshot(self, values):
+        """跳脱后等齐 post 窗口，再只截跳脱前后时间段；可选 Oxygen 整窗。"""
+        mon = self._trip_monitor
+        if mon is None or not self._trip_screenshot_enabled:
+            return
+
+        elapsed = time.time() - float(self._gather_start_time or time.time())
+        try:
+            self._trip_sample_buf.append((elapsed, list(values)))
+            if len(self._trip_sample_buf) > self._trip_buf_max:
+                overflow = len(self._trip_sample_buf) - self._trip_buf_max
+                del self._trip_sample_buf[:overflow]
+        except Exception:
+            pass
+
+        # 已有待出图：等 post_s 到齐
+        if self._trip_pending is not None:
+            self._flush_pending_trip_shot(force=False, now_elapsed=elapsed)
+            return
+
+        try:
+            event = mon.feed(values, now_mono=time.monotonic())
+        except Exception as exc:
+            print(f"[Collector][trip] 检测异常: {exc}")
+            return
+        if event is None:
+            return
+
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        self._trip_pending = {
+            "trip_elapsed": elapsed,
+            "stamp": stamp,
+            "reason": event.reason,
+        }
+        print(
+            f"[Collector][trip] 检测到跳脱 {event.reason}，"
+            f"等待时间段窗口 +{self._trip_post_s:.1f}s 后截图"
+        )
+        # 若 post_s==0 立即出图
+        self._flush_pending_trip_shot(force=False, now_elapsed=elapsed)
+
+    def _flush_pending_trip_shot(self, *, force: bool = False, now_elapsed: Optional[float] = None):
+        pending = self._trip_pending
+        if not pending:
+            return
+        trip_elapsed = float(pending["trip_elapsed"])
+        if now_elapsed is None:
+            now_elapsed = time.time() - float(self._gather_start_time or time.time())
+        if (not force) and (now_elapsed < trip_elapsed + float(self._trip_post_s)):
+            return
+
+        stamp = str(pending.get("stamp") or time.strftime("%Y%m%d_%H%M%S"))
+        reason = str(pending.get("reason") or "trip")
+        self._trip_pending = None
+
+        try:
+            from utils.dewetron_trip_period_shot import (
+                build_trip_oxygen_path,
+                build_trip_period_path,
+                render_trip_period_png,
+                slice_trip_period,
+            )
+            from utils.oxygen_screenshot import capture_oxygen_window
+
+            # 只取跳脱前后时间段，不画整段试验
+            period = [
+                s
+                for s in self._trip_sample_buf
+                if (trip_elapsed - float(self._trip_pre_s))
+                <= float(s[0])
+                <= (trip_elapsed + float(self._trip_post_s) + 0.05)
+            ]
+            if len(period) < 2:
+                period = slice_trip_period(
+                    self._trip_sample_buf,
+                    pre_s=self._trip_pre_s,
+                    post_s=self._trip_post_s,
+                )
+
+            png = build_trip_period_path(self._save_path, stamp=stamp)
+            ok, msg = render_trip_period_png(
+                period,
+                self._fields or [],
+                png,
+                title=f"{self._test_type or 'dewetron'} trip",
+                trip_time_s=trip_elapsed,
+            )
+            if ok:
+                self._trip_shot_count += 1
+                line = f"[Collector][trip] {reason} -> {msg}"
+                print(line)
+                try:
+                    self._log.info(line)
+                except Exception:
+                    pass
+            else:
+                line = f"[Collector][trip] {reason}，时间段截图失败: {msg}"
+                print(line)
+                try:
+                    self._log.info(line)
+                except Exception:
+                    pass
+
+            if self._trip_capture_oxygen:
+                oxy = build_trip_oxygen_path(self._save_path, stamp=stamp)
+                ok2, msg2 = capture_oxygen_window(oxy)
+                print(
+                    f"[Collector][trip] Oxygen附属: {msg2}"
+                    if ok2
+                    else f"[Collector][trip] Oxygen附属失败: {msg2}"
+                )
+        except Exception as exc:
+            print(f"[Collector][trip] 截图异常: {exc}")
 
     def _parse_value(self, raw_val):
         """解析 :NUM:NORM:VAL? 返回值，返回数值列表。"""

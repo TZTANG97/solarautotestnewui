@@ -118,6 +118,43 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
 
     for name in ordered:
         val = values.get(name)
+        key = str(name)
+        # 时序表 / EN50530 面板：JSON 整包写入（非普通 QWidget 文本）
+        if key in (
+            "TIMING_PROFILE_JSON",
+            "timing_profile_json",
+            "timingProfileTable",
+            "EN50530_BUNDLE_JSON",
+            "en50530_bundle_json",
+        ):
+            table = getattr(root_widget, "timingProfileTable", None) or getattr(
+                root_widget, "timing_profile_table", None
+            )
+            panel = getattr(root_widget, "en50530Panel", None) or table
+            try:
+                if key.startswith("EN50530") or key.startswith("en50530"):
+                    target = panel
+                    if target is not None and hasattr(target, "set_bundle_json"):
+                        if val is not None and str(val).strip():
+                            target.set_bundle_json(
+                                val if isinstance(val, str) else json.dumps(val, ensure_ascii=False)
+                            )
+                        continue
+                if table is not None and hasattr(table, "from_json"):
+                    if val is not None and str(val).strip():
+                        table.from_json(val)
+                    continue
+                if table is not None and hasattr(table, "set_bundle_json"):
+                    if val is not None and str(val).strip():
+                        table.set_bundle_json(
+                            val if isinstance(val, str) else json.dumps(val, ensure_ascii=False)
+                        )
+                    continue
+            except Exception:
+                missing.append(key)
+                continue
+            missing.append(key)
+            continue
         w = _find(name)
         if w is None:
             missing.append(str(name))
@@ -220,6 +257,162 @@ class IotUiHandoffService(QObject):
         "voltage_flicker": ("电压闪变", "flicker"),
         "电压闪变": ("电压闪变", "flicker"),
         "闪变": ("电压闪变", "flicker"),
+        "harmonic": ("谐波电流", "harmonic"),
+        "harmonics": ("谐波电流", "harmonic"),
+        "harmonic_current": ("谐波电流", "harmonic"),
+        "谐波电流": ("谐波电流", "harmonic"),
+        "谐波": ("谐波电流", "harmonic"),
+        "谐波电流测试": ("谐波电流", "harmonic"),
+        "fixedpf": ("固定PF=1", "fixedpf"),
+        "fixed_pf": ("固定PF=1", "fixedpf"),
+        "fixedpf1": ("固定PF=1", "fixedpf"),
+        "固定PF=1": ("固定PF=1", "fixedpf"),
+        "固定PF": ("固定PF=1", "fixedpf"),
+        "固定pf=1": ("固定PF=1", "fixedpf"),
+        "固定pf": ("固定PF=1", "fixedpf"),
+        "dccomponent": ("直流分量", "dccomponent"),
+        "dc_component": ("直流分量", "dccomponent"),
+        "zhiliufenliang": ("直流分量", "dccomponent"),
+        "直流分量": ("直流分量", "dccomponent"),
+        "直流分量测试": ("直流分量", "dccomponent"),
+        "reconnect": ("重连", "reconnect"),
+        "chonglian": ("重连", "reconnect"),
+        "reconn": ("重连", "reconnect"),
+        "重连": ("重连", "reconnect"),
+        "重联": ("重连", "reconnect"),
+        "重连测试": ("重连", "reconnect"),
+        "ovuf": ("过欠压_过欠频", "ovuf"),
+        "guoqianya_pin": ("过欠压_过欠频", "ovuf"),
+        "volt_freq": ("过欠压_过欠频", "ovuf"),
+        "过欠压_过欠频": ("过欠压_过欠频", "ovuf"),
+        "过欠压过欠频": ("过欠压_过欠频", "ovuf"),
+        "guopinjiangzai": ("过频降载", "guopinjiangzai"),
+        "guopin": ("过频降载", "guopinjiangzai"),
+        "of_reduce": ("过频降载", "guopinjiangzai"),
+        "过频降载": ("过频降载", "guopinjiangzai"),
+        "qianpinshengzai": ("欠频升载", "qianpinshengzai"),
+        "qianpin": ("欠频升载", "qianpinshengzai"),
+        "uf_raise": ("欠频升载", "qianpinshengzai"),
+        "欠频升载": ("欠频升载", "qianpinshengzai"),
+        "voltprotect10min": ("10min过压保护", "voltprotect10min"),
+        "voltprotect": ("10min过压保护", "voltprotect10min"),
+        "10min过压保护": ("10min过压保护", "voltprotect10min"),
+        "过压保护10min": ("10min过压保护", "voltprotect10min"),
+        "guoqianpin_immun": ("巴西过欠频稳定性", "guoqianpin_immun"),
+        "guoqianpinimmun": ("巴西过欠频稳定性", "guoqianpin_immun"),
+        "brazil_ovuf": ("巴西过欠频稳定性", "guoqianpin_immun"),
+        "巴西过欠频稳定性": ("巴西过欠频稳定性", "guoqianpin_immun"),
+        "过欠频稳定性": ("巴西过欠频稳定性", "guoqianpin_immun"),
+        "staticmppt": ("静态MPPT测试", "staticmppt"),
+        "staticmppttest": ("静态MPPT测试", "staticmppt"),
+        "static_mppt": ("静态MPPT测试", "staticmppt"),
+        "静态MPPT测试": ("静态MPPT测试", "staticmppt"),
+        "静态MPPT": ("静态MPPT测试", "staticmppt"),
+        "静态mppt测试": ("静态MPPT测试", "staticmppt"),
+        "静态mppt": ("静态MPPT测试", "staticmppt"),
+        "frequencyadaptability": ("频率适应性", "frequencyadaptability"),
+        "freqadapt": ("频率适应性", "frequencyadaptability"),
+        "频率适应性": ("频率适应性", "frequencyadaptability"),
+        "voltageadaptability": ("电压适应性", "voltageadaptability"),
+        "voltadapt": ("电压适应性", "voltageadaptability"),
+        "voltage_adaptability": ("电压适应性", "voltageadaptability"),
+        "电压适应性": ("电压适应性", "voltageadaptability"),
+        "rocof": ("ROCOF保护", "rocof"),
+        "rocofprotect": ("ROCOF保护", "rocof"),
+        "rocof_protect": ("ROCOF保护", "rocof"),
+        "ROCOF保护": ("ROCOF保护", "rocof"),
+        "rocof保护": ("ROCOF保护", "rocof"),
+        "rapidvolt": ("快速电压变化", "rapidvolt"),
+        "rapid_volt": ("快速电压变化", "rapidvolt"),
+        "rvc": ("快速电压变化", "rapidvolt"),
+        "快速电压变化": ("快速电压变化", "rapidvolt"),
+        "lvrt": ("低电压穿越", "lvrt"),
+        "lowvoltage_ride_through": ("低电压穿越", "lvrt"),
+        "低电压穿越": ("低电压穿越", "lvrt"),
+        "phasejump": ("相角突变", "phasejump"),
+        "phase_jump": ("相角突变", "phasejump"),
+        "相角突变": ("相角突变", "phasejump"),
+        "dynamicmppt": ("动态MPPT", "dynamicmppt"),
+        "dynamic_mppt": ("动态MPPT", "dynamicmppt"),
+        "动态MPPT": ("动态MPPT", "dynamicmppt"),
+        "动态mppt": ("动态MPPT", "dynamicmppt"),
+        "reactiveqcap": ("无功能力范围", "reactiveqcap"),
+        "reactiveQcap": ("无功能力范围", "reactiveqcap"),
+        "reactiveqcap": ("无功能力范围", "reactiveqcap"),
+        "reactive_qcap": ("无功能力范围", "reactiveqcap"),
+        "无功能力范围": ("无功能力范围", "reactiveqcap"),
+        "无功控制范围": ("无功能力范围", "reactiveqcap"),
+        "fixedq": ("定无功", "fixedq"),
+        "fixedQ": ("定无功", "fixedq"),
+        "fixedq": ("定无功", "fixedq"),
+        "fixed_q": ("定无功", "fixedq"),
+        "定无功": ("定无功", "fixedq"),
+        "固无功": ("定无功", "fixedq"),
+        "reactiveqin": ("无功注入", "reactiveqin"),
+        "reactiveQin": ("无功注入", "reactiveqin"),
+        "reactiveqin": ("无功注入", "reactiveqin"),
+        "reactive_qin": ("无功注入", "reactiveqin"),
+        "无功注入": ("无功注入", "reactiveqin"),
+        "reactiveqacc": ("无功精度", "reactiveqacc"),
+        "reactiveQacc": ("无功精度", "reactiveqacc"),
+        "reactiveqacc": ("无功精度", "reactiveqacc"),
+        "reactive_qacc": ("无功精度", "reactiveqacc"),
+        "无功精度": ("无功精度", "reactiveqacc"),
+        "activep": ("有功调度", "activep"),
+        "activeP": ("有功调度", "activep"),
+        "activep": ("有功调度", "activep"),
+        "active_p": ("有功调度", "activep"),
+        "有功调度": ("有功调度", "activep"),
+        "有功控制": ("有功调度", "activep"),
+        "staticqu": ("静态QU", "staticqu"),
+        "staticQU": ("静态QU", "staticqu"),
+        "staticqu": ("静态QU", "staticqu"),
+        "static_qu": ("静态QU", "staticqu"),
+        "静态QU": ("静态QU", "staticqu"),
+        "静态qu": ("静态QU", "staticqu"),
+        "静态qu": ("静态QU", "staticqu"),
+        "dynamicqu": ("动态QU", "dynamicqu"),
+        "dynamicQU": ("动态QU", "dynamicqu"),
+        "dynamicqu": ("动态QU", "dynamicqu"),
+        "dynamic_qu": ("动态QU", "dynamicqu"),
+        "动态QU": ("动态QU", "dynamicqu"),
+        "动态qu": ("动态QU", "dynamicqu"),
+        "动态qu": ("动态QU", "dynamicqu"),
+        "testpu": ("Test_PU", "testpu"),
+        "testPU": ("Test_PU", "testpu"),
+        "testpu": ("Test_PU", "testpu"),
+        "test_pu": ("Test_PU", "testpu"),
+        "Test_PU": ("Test_PU", "testpu"),
+        "test_pu": ("Test_PU", "testpu"),
+        "test_PU": ("Test_PU", "testpu"),
+        "test_pu": ("Test_PU", "testpu"),
+        "staticcosphi": ("静态Cos(φ)", "staticcosphi"),
+        "staticcosPhi": ("静态Cos(φ)", "staticcosphi"),
+        "staticcosphi": ("静态Cos(φ)", "staticcosphi"),
+        "static_cosphi": ("静态Cos(φ)", "staticcosphi"),
+        "静态Cos(φ)": ("静态Cos(φ)", "staticcosphi"),
+        "静态cos(φ)": ("静态Cos(φ)", "staticcosphi"),
+        "静态cos(φ)": ("静态Cos(φ)", "staticcosphi"),
+        "静态CosPhi": ("静态Cos(φ)", "staticcosphi"),
+        "静态cosphi": ("静态Cos(φ)", "staticcosphi"),
+        "dynamiccosphi": ("动态Cos(φ)", "dynamiccosphi"),
+        "dynamiccosPhi": ("动态Cos(φ)", "dynamiccosphi"),
+        "dynamiccosphi": ("动态Cos(φ)", "dynamiccosphi"),
+        "dynamic_cosphi": ("动态Cos(φ)", "dynamiccosphi"),
+        "动态Cos(φ)": ("动态Cos(φ)", "dynamiccosphi"),
+        "动态cos(φ)": ("动态Cos(φ)", "dynamiccosphi"),
+        "动态cos(φ)": ("动态Cos(φ)", "dynamiccosphi"),
+        "动态CosPhi": ("动态Cos(φ)", "dynamiccosphi"),
+        "动态cosphi": ("动态Cos(φ)", "dynamiccosphi"),
+        "cosphibrazil": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "cosPhiBrazil": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "cosphibrazil": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "cos_phi_brazil": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "Cos(φ)_Brazil": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "cos(φ)_brazil": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "cos(φ)_brazil": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "巴西CosPhi": ("Cos(φ)_Brazil", "cosphibrazil"),
+        "巴西cosphi": ("Cos(φ)_Brazil", "cosphibrazil"),
     }
 
     # (summary_or_none, error_or_none) — 探测在后台线程，回主线程继续交接
@@ -235,6 +428,62 @@ class IotUiHandoffService(QObject):
         antibackflow_append: Optional[Callable[[], None]] = None,
         resolve_flicker_ui: Optional[Callable[[], Any]] = None,
         flicker_append: Optional[Callable[[], None]] = None,
+        resolve_harmonic_ui: Optional[Callable[[], Any]] = None,
+        harmonic_append: Optional[Callable[[], None]] = None,
+        resolve_fixedpf_ui: Optional[Callable[[], Any]] = None,
+        fixedpf_append: Optional[Callable[[], None]] = None,
+        resolve_dccomponent_ui: Optional[Callable[[], Any]] = None,
+        dccomponent_append: Optional[Callable[[], None]] = None,
+        resolve_reconnect_ui: Optional[Callable[[], Any]] = None,
+        reconnect_append: Optional[Callable[[], None]] = None,
+        resolve_ovuf_ui: Optional[Callable[[], Any]] = None,
+        ovuf_append: Optional[Callable[[], None]] = None,
+        resolve_guopinjiangzai_ui: Optional[Callable[[], Any]] = None,
+        guopinjiangzai_append: Optional[Callable[[], None]] = None,
+        resolve_qianpinshengzai_ui: Optional[Callable[[], Any]] = None,
+        qianpinshengzai_append: Optional[Callable[[], None]] = None,
+        resolve_voltprotect10min_ui: Optional[Callable[[], Any]] = None,
+        voltprotect10min_append: Optional[Callable[[], None]] = None,
+        resolve_guoqianpin_immun_ui: Optional[Callable[[], Any]] = None,
+        guoqianpin_immun_append: Optional[Callable[[], None]] = None,
+        resolve_staticmppt_ui: Optional[Callable[[], Any]] = None,
+        staticmppt_append: Optional[Callable[[], None]] = None,
+        resolve_frequencyadaptability_ui: Optional[Callable[[], Any]] = None,
+        frequencyadaptability_append: Optional[Callable[[], None]] = None,
+        resolve_voltageadaptability_ui: Optional[Callable[[], Any]] = None,
+        voltageadaptability_append: Optional[Callable[[], None]] = None,
+        resolve_rocof_ui: Optional[Callable[[], Any]] = None,
+        rocof_append: Optional[Callable[[], None]] = None,
+        resolve_rapidvolt_ui: Optional[Callable[[], Any]] = None,
+        rapidvolt_append: Optional[Callable[[], None]] = None,
+        resolve_lvrt_ui: Optional[Callable[[], Any]] = None,
+        lvrt_append: Optional[Callable[[], None]] = None,
+        resolve_phasejump_ui: Optional[Callable[[], Any]] = None,
+        phasejump_append: Optional[Callable[[], None]] = None,
+        resolve_dynamicmppt_ui: Optional[Callable[[], Any]] = None,
+        dynamicmppt_append: Optional[Callable[[], None]] = None,
+        resolve_reactiveqcap_ui: Optional[Callable[[], Any]] = None,
+        reactiveqcap_append: Optional[Callable[[], None]] = None,
+        resolve_fixedq_ui: Optional[Callable[[], Any]] = None,
+        fixedq_append: Optional[Callable[[], None]] = None,
+        resolve_reactiveqin_ui: Optional[Callable[[], Any]] = None,
+        reactiveqin_append: Optional[Callable[[], None]] = None,
+        resolve_reactiveqacc_ui: Optional[Callable[[], Any]] = None,
+        reactiveqacc_append: Optional[Callable[[], None]] = None,
+        resolve_activep_ui: Optional[Callable[[], Any]] = None,
+        activep_append: Optional[Callable[[], None]] = None,
+        resolve_staticqu_ui: Optional[Callable[[], Any]] = None,
+        staticqu_append: Optional[Callable[[], None]] = None,
+        resolve_dynamicqu_ui: Optional[Callable[[], Any]] = None,
+        dynamicqu_append: Optional[Callable[[], None]] = None,
+        resolve_testpu_ui: Optional[Callable[[], Any]] = None,
+        testpu_append: Optional[Callable[[], None]] = None,
+        resolve_staticcosphi_ui: Optional[Callable[[], Any]] = None,
+        staticcosphi_append: Optional[Callable[[], None]] = None,
+        resolve_dynamiccosphi_ui: Optional[Callable[[], Any]] = None,
+        dynamiccosphi_append: Optional[Callable[[], None]] = None,
+        resolve_cosphibrazil_ui: Optional[Callable[[], Any]] = None,
+        cosphibrazil_append: Optional[Callable[[], None]] = None,
         start_test: Optional[Callable[[], None]] = None,
         get_run_status: Optional[Callable[[], str]] = None,
         get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
@@ -257,6 +506,62 @@ class IotUiHandoffService(QObject):
         self.antibackflow_append = antibackflow_append
         self.resolve_flicker_ui = resolve_flicker_ui
         self.flicker_append = flicker_append
+        self.resolve_harmonic_ui = resolve_harmonic_ui
+        self.harmonic_append = harmonic_append
+        self.resolve_fixedpf_ui = resolve_fixedpf_ui
+        self.fixedpf_append = fixedpf_append
+        self.resolve_dccomponent_ui = resolve_dccomponent_ui
+        self.dccomponent_append = dccomponent_append
+        self.resolve_reconnect_ui = resolve_reconnect_ui
+        self.reconnect_append = reconnect_append
+        self.resolve_ovuf_ui = resolve_ovuf_ui
+        self.ovuf_append = ovuf_append
+        self.resolve_guopinjiangzai_ui = resolve_guopinjiangzai_ui
+        self.guopinjiangzai_append = guopinjiangzai_append
+        self.resolve_qianpinshengzai_ui = resolve_qianpinshengzai_ui
+        self.qianpinshengzai_append = qianpinshengzai_append
+        self.resolve_voltprotect10min_ui = resolve_voltprotect10min_ui
+        self.voltprotect10min_append = voltprotect10min_append
+        self.resolve_guoqianpin_immun_ui = resolve_guoqianpin_immun_ui
+        self.guoqianpin_immun_append = guoqianpin_immun_append
+        self.resolve_staticmppt_ui = resolve_staticmppt_ui
+        self.staticmppt_append = staticmppt_append
+        self.resolve_frequencyadaptability_ui = resolve_frequencyadaptability_ui
+        self.frequencyadaptability_append = frequencyadaptability_append
+        self.resolve_voltageadaptability_ui = resolve_voltageadaptability_ui
+        self.voltageadaptability_append = voltageadaptability_append
+        self.resolve_rocof_ui = resolve_rocof_ui
+        self.rocof_append = rocof_append
+        self.resolve_rapidvolt_ui = resolve_rapidvolt_ui
+        self.rapidvolt_append = rapidvolt_append
+        self.resolve_lvrt_ui = resolve_lvrt_ui
+        self.lvrt_append = lvrt_append
+        self.resolve_phasejump_ui = resolve_phasejump_ui
+        self.phasejump_append = phasejump_append
+        self.resolve_dynamicmppt_ui = resolve_dynamicmppt_ui
+        self.dynamicmppt_append = dynamicmppt_append
+        self.resolve_reactiveqcap_ui = resolve_reactiveqcap_ui
+        self.reactiveqcap_append = reactiveqcap_append
+        self.resolve_fixedq_ui = resolve_fixedq_ui
+        self.fixedq_append = fixedq_append
+        self.resolve_reactiveqin_ui = resolve_reactiveqin_ui
+        self.reactiveqin_append = reactiveqin_append
+        self.resolve_reactiveqacc_ui = resolve_reactiveqacc_ui
+        self.reactiveqacc_append = reactiveqacc_append
+        self.resolve_activep_ui = resolve_activep_ui
+        self.activep_append = activep_append
+        self.resolve_staticqu_ui = resolve_staticqu_ui
+        self.staticqu_append = staticqu_append
+        self.resolve_dynamicqu_ui = resolve_dynamicqu_ui
+        self.dynamicqu_append = dynamicqu_append
+        self.resolve_testpu_ui = resolve_testpu_ui
+        self.testpu_append = testpu_append
+        self.resolve_staticcosphi_ui = resolve_staticcosphi_ui
+        self.staticcosphi_append = staticcosphi_append
+        self.resolve_dynamiccosphi_ui = resolve_dynamiccosphi_ui
+        self.dynamiccosphi_append = dynamiccosphi_append
+        self.resolve_cosphibrazil_ui = resolve_cosphibrazil_ui
+        self.cosphibrazil_append = cosphibrazil_append
         self.start_test = start_test
         self.get_run_status = get_run_status
         self.get_run_progress = get_run_progress
@@ -460,6 +765,230 @@ class IotUiHandoffService(QObject):
                 "resolve_ui": self.resolve_flicker_ui,
                 "append": self.flicker_append,
                 "label": "电压闪变",
+            }
+        if handler_key == "harmonic":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_harmonic_ui,
+                "append": self.harmonic_append,
+                "label": "谐波电流",
+            }
+        if handler_key == "fixedpf":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_fixedpf_ui,
+                "append": self.fixedpf_append,
+                "label": "固定PF=1",
+            }
+        if handler_key == "dccomponent":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_dccomponent_ui,
+                "append": self.dccomponent_append,
+                "label": "直流分量",
+            }
+        if handler_key == "reconnect":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_reconnect_ui,
+                "append": self.reconnect_append,
+                "label": "重连",
+            }
+        if handler_key == "ovuf":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_ovuf_ui,
+                "append": self.ovuf_append,
+                "label": "过欠压_过欠频",
+            }
+        if handler_key == "guopinjiangzai":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_guopinjiangzai_ui,
+                "append": self.guopinjiangzai_append,
+                "label": "过频降载",
+            }
+        if handler_key == "qianpinshengzai":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_qianpinshengzai_ui,
+                "append": self.qianpinshengzai_append,
+                "label": "欠频升载",
+            }
+        if handler_key == "voltprotect10min":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_voltprotect10min_ui,
+                "append": self.voltprotect10min_append,
+                "label": "10min过压保护",
+            }
+        if handler_key == "guoqianpin_immun":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_guoqianpin_immun_ui,
+                "append": self.guoqianpin_immun_append,
+                "label": "巴西过欠频稳定性",
+            }
+        if handler_key == "staticmppt":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_staticmppt_ui,
+                "append": self.staticmppt_append,
+                "label": "静态MPPT测试",
+            }
+        if handler_key == "frequencyadaptability":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_frequencyadaptability_ui,
+                "append": self.frequencyadaptability_append,
+                "label": "频率适应性",
+            }
+        if handler_key == "voltageadaptability":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_voltageadaptability_ui,
+                "append": self.voltageadaptability_append,
+                "label": "电压适应性",
+            }
+        if handler_key == "rocof":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_rocof_ui,
+                "append": self.rocof_append,
+                "label": "ROCOF保护",
+            }
+        if handler_key == "rapidvolt":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_rapidvolt_ui,
+                "append": self.rapidvolt_append,
+                "label": "快速电压变化",
+            }
+        if handler_key == "lvrt":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_lvrt_ui,
+                "append": self.lvrt_append,
+                "label": "低电压穿越",
+            }
+        if handler_key == "phasejump":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_phasejump_ui,
+                "append": self.phasejump_append,
+                "label": "相角突变",
+            }
+        if handler_key == "dynamicmppt":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_dynamicmppt_ui,
+                "append": self.dynamicmppt_append,
+                "label": "动态MPPT",
+            }
+        if handler_key == "reactiveqcap":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_reactiveqcap_ui,
+                "append": self.reactiveqcap_append,
+                "label": "无功能力范围",
+            }
+        if handler_key == "fixedq":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_fixedq_ui,
+                "append": self.fixedq_append,
+                "label": "定无功",
+            }
+        if handler_key == "reactiveqin":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_reactiveqin_ui,
+                "append": self.reactiveqin_append,
+                "label": "无功注入",
+            }
+        if handler_key == "reactiveqacc":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_reactiveqacc_ui,
+                "append": self.reactiveqacc_append,
+                "label": "无功精度",
+            }
+        if handler_key == "activep":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_activep_ui,
+                "append": self.activep_append,
+                "label": "有功调度",
+            }
+        if handler_key == "staticqu":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_staticqu_ui,
+                "append": self.staticqu_append,
+                "label": "静态QU",
+            }
+        if handler_key == "dynamicqu":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_dynamicqu_ui,
+                "append": self.dynamicqu_append,
+                "label": "动态QU",
+            }
+        if handler_key == "testpu":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_testpu_ui,
+                "append": self.testpu_append,
+                "label": "Test_PU",
+            }
+        if handler_key == "staticcosphi":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_staticcosphi_ui,
+                "append": self.staticcosphi_append,
+                "label": "静态Cos(φ)",
+            }
+        if handler_key == "dynamiccosphi":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_dynamiccosphi_ui,
+                "append": self.dynamiccosphi_append,
+                "label": "动态Cos(φ)",
+            }
+        if handler_key == "cosphibrazil":
+            return {
+                "key": handler_key,
+                "project_name": project_name,
+                "resolve_ui": self.resolve_cosphibrazil_ui,
+                "append": self.cosphibrazil_append,
+                "label": "Cos(φ)_Brazil",
             }
         return None
 
@@ -769,8 +1298,38 @@ class IotUiHandoffService(QObject):
                 for k, v in (widgets or {}).items()
                 if k not in ("dew_export_fields",)
             }
-            # 闪变 Dialog 用 radio_wt3000；线上表单写 radio_wt
-            if (handler.get("key") or "") == "flicker" and isinstance(widgets_for_ui, dict):
+            # 闪变/谐波/固定PF/直流分量 Dialog 用 radio_wt3000；线上表单写 radio_wt
+            if (handler.get("key") or "") in (
+                "flicker",
+                "harmonic",
+                "fixedpf",
+                "dccomponent",
+                "reconnect",
+                "ovuf",
+                "guopinjiangzai",
+                "qianpinshengzai",
+                "voltprotect10min",
+                "guoqianpin_immun",
+                "staticmppt",
+                "frequencyadaptability",
+                "voltageadaptability",
+                "rocof",
+                "rapidvolt",
+                "lvrt",
+                "phasejump",
+                "dynamicmppt",
+                "reactiveqcap",
+                "fixedq",
+                "reactiveqin",
+                "reactiveqacc",
+                "activep",
+                "staticqu",
+                "dynamicqu",
+                "testpu",
+                "staticcosphi",
+                "dynamiccosphi",
+                "cosphibrazil",
+            ) and isinstance(widgets_for_ui, dict):
                 if "radio_wt3000" not in widgets_for_ui and "radio_wt" in widgets_for_ui:
                     widgets_for_ui = {**widgets_for_ui, "radio_wt3000": widgets_for_ui.get("radio_wt")}
             missing = apply_widget_values(real_ui, widgets_for_ui)
@@ -803,7 +1362,37 @@ class IotUiHandoffService(QObject):
                             radio.click()
                         except Exception:
                             pass
-                elif (handler.get("key") or "") == "flicker" and isinstance(widgets, dict):
+                elif (handler.get("key") or "") in (
+                    "flicker",
+                    "harmonic",
+                    "fixedpf",
+                    "dccomponent",
+                    "reconnect",
+                    "ovuf",
+                    "guopinjiangzai",
+                    "qianpinshengzai",
+                    "voltprotect10min",
+                    "guoqianpin_immun",
+                    "staticmppt",
+                    "frequencyadaptability",
+                    "voltageadaptability",
+                    "rocof",
+                    "rapidvolt",
+                    "lvrt",
+                    "phasejump",
+                    "dynamicmppt",
+                    "reactiveqcap",
+                    "fixedq",
+                    "reactiveqin",
+                    "reactiveqacc",
+                    "activep",
+                    "staticqu",
+                    "dynamicqu",
+                    "testpu",
+                    "staticcosphi",
+                    "dynamiccosphi",
+                    "cosphibrazil",
+                ) and isinstance(widgets, dict):
                     # WT 模式：点选 radio_wt3000
                     use_wt = widgets.get("radio_wt") in (True, "1", 1, "true", "True") or widgets.get(
                         "radio_wt3000"
@@ -1147,6 +1736,62 @@ def start_iot_ui_handoff_from_main(
     antibackflow_append: Optional[Callable[[], None]] = None,
     resolve_flicker_ui: Optional[Callable[[], Any]] = None,
     flicker_append: Optional[Callable[[], None]] = None,
+    resolve_harmonic_ui: Optional[Callable[[], Any]] = None,
+    harmonic_append: Optional[Callable[[], None]] = None,
+    resolve_fixedpf_ui: Optional[Callable[[], Any]] = None,
+    fixedpf_append: Optional[Callable[[], None]] = None,
+    resolve_dccomponent_ui: Optional[Callable[[], Any]] = None,
+    dccomponent_append: Optional[Callable[[], None]] = None,
+    resolve_reconnect_ui: Optional[Callable[[], Any]] = None,
+    reconnect_append: Optional[Callable[[], None]] = None,
+    resolve_ovuf_ui: Optional[Callable[[], Any]] = None,
+    ovuf_append: Optional[Callable[[], None]] = None,
+    resolve_guopinjiangzai_ui: Optional[Callable[[], Any]] = None,
+    guopinjiangzai_append: Optional[Callable[[], None]] = None,
+    resolve_qianpinshengzai_ui: Optional[Callable[[], Any]] = None,
+    qianpinshengzai_append: Optional[Callable[[], None]] = None,
+    resolve_voltprotect10min_ui: Optional[Callable[[], Any]] = None,
+    voltprotect10min_append: Optional[Callable[[], None]] = None,
+    resolve_guoqianpin_immun_ui: Optional[Callable[[], Any]] = None,
+    guoqianpin_immun_append: Optional[Callable[[], None]] = None,
+    resolve_staticmppt_ui: Optional[Callable[[], Any]] = None,
+    staticmppt_append: Optional[Callable[[], None]] = None,
+    resolve_frequencyadaptability_ui: Optional[Callable[[], Any]] = None,
+    frequencyadaptability_append: Optional[Callable[[], None]] = None,
+    resolve_voltageadaptability_ui: Optional[Callable[[], Any]] = None,
+    voltageadaptability_append: Optional[Callable[[], None]] = None,
+    resolve_rocof_ui: Optional[Callable[[], Any]] = None,
+    rocof_append: Optional[Callable[[], None]] = None,
+    resolve_rapidvolt_ui: Optional[Callable[[], Any]] = None,
+    rapidvolt_append: Optional[Callable[[], None]] = None,
+    resolve_lvrt_ui: Optional[Callable[[], Any]] = None,
+    lvrt_append: Optional[Callable[[], None]] = None,
+    resolve_phasejump_ui: Optional[Callable[[], Any]] = None,
+    phasejump_append: Optional[Callable[[], None]] = None,
+    resolve_dynamicmppt_ui: Optional[Callable[[], Any]] = None,
+    dynamicmppt_append: Optional[Callable[[], None]] = None,
+    resolve_reactiveqcap_ui: Optional[Callable[[], Any]] = None,
+    reactiveqcap_append: Optional[Callable[[], None]] = None,
+    resolve_fixedq_ui: Optional[Callable[[], Any]] = None,
+    fixedq_append: Optional[Callable[[], None]] = None,
+    resolve_reactiveqin_ui: Optional[Callable[[], Any]] = None,
+    reactiveqin_append: Optional[Callable[[], None]] = None,
+    resolve_reactiveqacc_ui: Optional[Callable[[], Any]] = None,
+    reactiveqacc_append: Optional[Callable[[], None]] = None,
+    resolve_activep_ui: Optional[Callable[[], Any]] = None,
+    activep_append: Optional[Callable[[], None]] = None,
+    resolve_staticqu_ui: Optional[Callable[[], Any]] = None,
+    staticqu_append: Optional[Callable[[], None]] = None,
+    resolve_dynamicqu_ui: Optional[Callable[[], Any]] = None,
+    dynamicqu_append: Optional[Callable[[], None]] = None,
+    resolve_testpu_ui: Optional[Callable[[], Any]] = None,
+    testpu_append: Optional[Callable[[], None]] = None,
+    resolve_staticcosphi_ui: Optional[Callable[[], Any]] = None,
+    staticcosphi_append: Optional[Callable[[], None]] = None,
+    resolve_dynamiccosphi_ui: Optional[Callable[[], Any]] = None,
+    dynamiccosphi_append: Optional[Callable[[], None]] = None,
+    resolve_cosphibrazil_ui: Optional[Callable[[], Any]] = None,
+    cosphibrazil_append: Optional[Callable[[], None]] = None,
     start_test: Optional[Callable[[], None]] = None,
     get_run_status: Optional[Callable[[], str]] = None,
     get_run_progress: Optional[Callable[[], Dict[str, Any]]] = None,
@@ -1167,6 +1812,62 @@ def start_iot_ui_handoff_from_main(
         antibackflow_append=antibackflow_append,
         resolve_flicker_ui=resolve_flicker_ui,
         flicker_append=flicker_append,
+        resolve_harmonic_ui=resolve_harmonic_ui,
+        harmonic_append=harmonic_append,
+        resolve_fixedpf_ui=resolve_fixedpf_ui,
+        fixedpf_append=fixedpf_append,
+        resolve_dccomponent_ui=resolve_dccomponent_ui,
+        dccomponent_append=dccomponent_append,
+        resolve_reconnect_ui=resolve_reconnect_ui,
+        reconnect_append=reconnect_append,
+        resolve_ovuf_ui=resolve_ovuf_ui,
+        ovuf_append=ovuf_append,
+        resolve_guopinjiangzai_ui=resolve_guopinjiangzai_ui,
+        guopinjiangzai_append=guopinjiangzai_append,
+        resolve_qianpinshengzai_ui=resolve_qianpinshengzai_ui,
+        qianpinshengzai_append=qianpinshengzai_append,
+        resolve_voltprotect10min_ui=resolve_voltprotect10min_ui,
+        voltprotect10min_append=voltprotect10min_append,
+        resolve_guoqianpin_immun_ui=resolve_guoqianpin_immun_ui,
+        guoqianpin_immun_append=guoqianpin_immun_append,
+        resolve_staticmppt_ui=resolve_staticmppt_ui,
+        staticmppt_append=staticmppt_append,
+        resolve_frequencyadaptability_ui=resolve_frequencyadaptability_ui,
+        frequencyadaptability_append=frequencyadaptability_append,
+        resolve_voltageadaptability_ui=resolve_voltageadaptability_ui,
+        voltageadaptability_append=voltageadaptability_append,
+        resolve_rocof_ui=resolve_rocof_ui,
+        rocof_append=rocof_append,
+        resolve_rapidvolt_ui=resolve_rapidvolt_ui,
+        rapidvolt_append=rapidvolt_append,
+        resolve_lvrt_ui=resolve_lvrt_ui,
+        lvrt_append=lvrt_append,
+        resolve_phasejump_ui=resolve_phasejump_ui,
+        phasejump_append=phasejump_append,
+        resolve_dynamicmppt_ui=resolve_dynamicmppt_ui,
+        dynamicmppt_append=dynamicmppt_append,
+        resolve_reactiveqcap_ui=resolve_reactiveqcap_ui,
+        reactiveqcap_append=reactiveqcap_append,
+        resolve_fixedq_ui=resolve_fixedq_ui,
+        fixedq_append=fixedq_append,
+        resolve_reactiveqin_ui=resolve_reactiveqin_ui,
+        reactiveqin_append=reactiveqin_append,
+        resolve_reactiveqacc_ui=resolve_reactiveqacc_ui,
+        reactiveqacc_append=reactiveqacc_append,
+        resolve_activep_ui=resolve_activep_ui,
+        activep_append=activep_append,
+        resolve_staticqu_ui=resolve_staticqu_ui,
+        staticqu_append=staticqu_append,
+        resolve_dynamicqu_ui=resolve_dynamicqu_ui,
+        dynamicqu_append=dynamicqu_append,
+        resolve_testpu_ui=resolve_testpu_ui,
+        testpu_append=testpu_append,
+        resolve_staticcosphi_ui=resolve_staticcosphi_ui,
+        staticcosphi_append=staticcosphi_append,
+        resolve_dynamiccosphi_ui=resolve_dynamiccosphi_ui,
+        dynamiccosphi_append=dynamiccosphi_append,
+        resolve_cosphibrazil_ui=resolve_cosphibrazil_ui,
+        cosphibrazil_append=cosphibrazil_append,
         start_test=start_test,
         get_run_status=get_run_status,
         get_run_progress=get_run_progress,

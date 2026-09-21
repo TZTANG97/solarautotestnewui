@@ -2471,6 +2471,8 @@ def WT3000E_params_config(uiThiaWT3000E):
         checkBox_SetF20 = ''
     params_dict.update({"checkBox_SetF20":checkBox_SetF20})
 
+    from utils.wt_acquire_mode import inject_mode_into_params
+    inject_mode_into_params(params_dict, uiThiaWT3000E)
     return params_dict
 
 
