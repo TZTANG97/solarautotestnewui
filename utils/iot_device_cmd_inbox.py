@@ -75,6 +75,7 @@ def execute_device_cmd(
     payload: Dict[str, Any],
     *,
     apply_connect: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+    apply_disconnect: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     output_on: Optional[Callable[[str], bool]] = None,
     output_off: Optional[Callable[[str], bool]] = None,
     dew_build: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
@@ -98,13 +99,18 @@ def execute_device_cmd(
             return {"ok": ok, "message": msg, "detail": summary or {}}
 
         if action == "disconnect":
-            # 当前以关输出+标记为主；完整断开依赖各槽位 disconnect，后续可补
+            if apply_disconnect:
+                summary = apply_disconnect(instrument)
+                ok = bool((summary or {}).get("ok", True))
+                msg = str((summary or {}).get("message") or ("已断开" if ok else "断开失败"))
+                _log(f"[仪器控制] disconnect {slot}: {msg}")
+                return {"ok": ok, "message": msg, "detail": summary or {}}
             if output_off and slot:
                 try:
                     output_off(slot)
                 except Exception:
                     pass
-            _log(f"[仪器控制] disconnect {slot}: 已请求关输出")
+            _log(f"[仪器控制] disconnect {slot}: 已请求关输出（无专用断开回调）")
             return {"ok": True, "message": f"{slot} 已请求断开/关输出"}
 
         if action == "output_on":

@@ -585,6 +585,7 @@ class IotUiHandoffService(QObject):
         self._auto_connect_finished.connect(self._on_auto_connect_finished)
         # 云端仪器控制（连接/输出/德威创构造）回调，由 SCPITestWave 启动后挂载
         self.device_apply_connect = None
+        self.device_apply_disconnect = None
         self.device_output_on = None
         self.device_output_off = None
         self.device_dew_build = None
@@ -731,6 +732,7 @@ class IotUiHandoffService(QObject):
                 result = execute_device_cmd(
                     payload,
                     apply_connect=self.device_apply_connect,
+                    apply_disconnect=self.device_apply_disconnect,
                     output_on=self.device_output_on,
                     output_off=self.device_output_off,
                     dew_build=self.device_dew_build,

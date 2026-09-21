@@ -2067,6 +2067,8 @@ def ConnectEQUAC():
         _save_device_status("交流电源", True, tcp_addr)
     else:
         ui.textEdit_ReturnMessage.append(f"[AC] 连接失败 ({ac_device_key}) {tcp_addr}")
+        _sync_ac_connect_buttons()
+        _save_device_status("交流电源", False)
 
 def _sync_ac_connect_buttons():
     """同步 AC Chroma/Itech 两个页面的连接按钮文字。"""
@@ -2608,6 +2610,17 @@ def ConnectEQUDEWETRON():
             dewetron_collector.start()
             logger.info("DEWETRON 数据采集器已启动")
             print("DEWETRON 数据采集器已启动")
+        try:
+            # 与「数据已导出」相同：命令线程直接 append（QTimer 跨线程经常丢）
+            def _dew_ui_notify(message):
+                try:
+                    ui.textEdit_ReturnMessage.append(str(message or ""))
+                except Exception:
+                    pass
+
+            dewetron_collector.set_ui_notify(_dew_ui_notify)
+        except Exception as exc:
+            logger.info(f"DEWETRON UI 通知绑定失败: {exc}")
         dewetron_coordinator.set_collector(dewetron_collector)
         ctx = get_app_context()
         ctx.dewetron_controller = dewetron_controller
@@ -2738,11 +2751,30 @@ def _iot_slot_session_ok(slot: str) -> bool:
     return ctrl is not None and bool(getattr(ctrl, "connected", False))
 
 
+def _reconcile_status_json_with_sessions() -> None:
+    """启动时按真实控制器纠偏 status.json，避免假已连接被 Agent 上报上去。"""
+    mapping = (
+        ("交流电源", "ac"),
+        ("直流电源1", "dc1"),
+        ("直流电源2", "dc2"),
+        ("直流电源3", "dc3"),
+        ("直流电源4", "dc4"),
+        ("WT3000", "wt"),
+        ("DL850", "scope"),
+        ("DEWETRON", "dew"),
+    )
+    for name, slot in mapping:
+        try:
+            _save_device_status(name, bool(_iot_slot_session_ok(slot)))
+        except Exception:
+            pass
+
+
 def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
     """按 connect_plan 切换品牌/填地址并调用现有连接函数。"""
     global _ac_current_brand, _itech_ip_edit, _itech_port_edit
     global _dc1_device_type, _dc2_device_type, _dc3_device_type, _dc4_device_type
-    from utils.device_discovery import remember_found_resource
+    from utils.device_discovery import remember_found_resource, remember_successful_device
     from utils.device_finder_connect import combo_text_for_plan
 
     target = str((plan or {}).get("target") or "")
@@ -2756,6 +2788,11 @@ def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
         from utils.iot_auto_connect import remember_slot_for_resource
 
         remember_slot_for_resource(getattr(dev, "resource", "") or addr, slot)
+    except Exception:
+        pass
+
+    try:
+        remember_successful_device(slot, dev)
     except Exception:
         pass
 
@@ -24665,6 +24702,9 @@ def RunProject():
                             if not dewetron_collector.on_acquisition_started():
                                 dewetron_controller.stop_acquisition()
                                 raise RuntimeError("DEWETRON未进入Started状态")
+                            ui.textEdit_ReturnMessage.append(
+                                "[DEWETRON] 采集已开始；断流时自动记录跳脱值（U/F），无需截图"
+                            )
                         elif DEWETRON_STOP_COMMAND in cmd_upper or ':STORE:STOP' in cmd_upper:
                             dewetron_collector.stop_gathering()
                             sent = dewetron_controller.stop_acquisition()
@@ -24683,6 +24723,31 @@ def RunProject():
                             csv_path = dewetron_collector.export_to_csv(export_path)
                             if csv_path:
                                 ui.textEdit_ReturnMessage.append(f"[DEWETRON] 数据已导出: {csv_path}")
+                            trip_n = int(
+                                getattr(dewetron_collector, "_trip_event_count", 0) or 0
+                            )
+                            if trip_n:
+                                summaries = []
+                                for ev in list(
+                                    getattr(dewetron_collector, "_trip_events", None) or []
+                                )[-5:]:
+                                    tv = ev.get("trip_values") or {}
+                                    bits = []
+                                    if tv.get("u_v") is not None:
+                                        bits.append(f"U={float(tv['u_v']):.3f}V")
+                                    if tv.get("f_hz") is not None:
+                                        bits.append(f"F={float(tv['f_hz']):.3f}Hz")
+                                    label = " ".join(bits) if bits else "值未取到"
+                                    summaries.append(
+                                        f"{ev.get('wall_clock', '?')} {label}"
+                                    )
+                                ui.textEdit_ReturnMessage.append(
+                                    f"[DEWETRON] 本段跳脱 {trip_n} 次：{'；'.join(summaries)}"
+                                )
+                            else:
+                                ui.textEdit_ReturnMessage.append(
+                                    "[DEWETRON] 本段未检测到电流跳脱（交流电流需先≥2A再掉到近0）"
+                                )
                             if section is not None:
                                 names = list(getattr(section, "_dew_file_names", None) or [])
                                 label = names[idx] if idx < len(names) else f"轮次{idx + 1}"
@@ -32165,6 +32230,29 @@ if __name__ == "__main__":
                         "errors": errors,
                     }
 
+                def _iot_device_disconnect(instrument):
+                    sl = str((instrument or {}).get("slot") or "").strip().lower()
+                    fn = {
+                        "ac": DisconnectEQUAC,
+                        "dc1": DisconnectEQUDC1,
+                        "dc2": DisconnectEQUDC2,
+                        "dc3": DisconnectEQUDC3,
+                        "dc4": DisconnectEQUDC4,
+                        "wt": DisconnectEQUWT3000,
+                        "scope": DisconnectEQUDL850,
+                        "dew": DisconnectEQUDEWETRON,
+                    }.get(sl)
+                    if not fn:
+                        return {"ok": False, "message": f"槽位 {sl} 不支持断开"}
+                    try:
+                        fn()
+                    except Exception as exc:
+                        return {"ok": False, "message": f"断开失败: {exc}"}
+                    still = _iot_slot_session_ok(sl)
+                    if still:
+                        return {"ok": False, "message": f"{sl} 断开后会话仍在"}
+                    return {"ok": True, "message": f"{sl} 已断开"}
+
                 def _iot_device_output_on(slot):
                     sl = str(slot or "").strip().lower()
                     fn = {
@@ -32205,9 +32293,14 @@ if __name__ == "__main__":
                         return {"ok": False, "message": f"构造失败: {exc}"}
 
                 _iot_ui_handoff_svc.device_apply_connect = _iot_device_connect
+                _iot_ui_handoff_svc.device_apply_disconnect = _iot_device_disconnect
                 _iot_ui_handoff_svc.device_output_on = _iot_device_output_on
                 _iot_ui_handoff_svc.device_output_off = _iot_device_output_off
                 _iot_ui_handoff_svc.device_dew_build = _iot_device_dew_build
+                try:
+                    _reconcile_status_json_with_sessions()
+                except Exception as _rec_exc:
+                    print(f"[DEBUG_STARTUP]    status.json 会话纠偏失败: {_rec_exc}", flush=True)
                 print("[DEBUG_STARTUP]    IOT UI handoff 已挂载（含仪器控制）", flush=True)
             except Exception as _iot_exc:
                 print(f"[DEBUG_STARTUP]    IOT UI handoff 挂载失败: {_iot_exc}", flush=True)
