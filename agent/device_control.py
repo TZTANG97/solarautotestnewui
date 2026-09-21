@@ -16,7 +16,7 @@ def _repo_root() -> Path:
 def run_control_via_desktop(
     action_payload: Dict[str, Any],
     *,
-    timeout_sec: float = 90.0,
+    timeout_sec: float = 25.0,
 ) -> Dict[str, Any]:
     """Agent 侧：写 device_cmds pending，阻塞等待桌面 results。"""
     from utils.iot_device_cmd_inbox import wait_result, write_pending
@@ -51,4 +51,5 @@ def run_control_via_desktop(
         }
     result = dict(result)
     result["requestId"] = request_id
+    result["action"] = str(action_payload.get("action") or "")
     return result

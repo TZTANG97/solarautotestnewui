@@ -111,7 +111,7 @@ def _handle_pending_actions(data_hb: dict) -> None:
                 try:
                     from agent.device_control import run_control_via_desktop
 
-                    result = run_control_via_desktop(act, timeout_sec=90.0)
+                    result = run_control_via_desktop(act, timeout_sec=25.0)
                 except Exception as exc:
                     logger.warning("仪器控制失败: %s", exc)
                     result = {"ok": False, "message": str(exc)[:500], "requestId": rid}
