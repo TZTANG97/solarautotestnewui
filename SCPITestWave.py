@@ -215,16 +215,25 @@ def _device_ui_busy(reason="device_io"):
         _device_ui_busy_depth += 1
         _device_ui_busy_reason = str(reason or "device_io")
     app = QApplication.instance()
-    if app is not None:
+    remote = False
+    try:
+        from utils.iot_remote_ui import remote_connect_silent
+
+        remote = bool(remote_connect_silent())
+    except Exception:
+        remote = False
+    # 云端连接时不要等待光标，也不要 processEvents：否则主窗口像卡住，定时器还会重入
+    if app is not None and not remote:
         app.setOverrideCursor(Qt.WaitCursor)
     try:
-        try:
-            QApplication.processEvents()
-        except Exception:
-            pass
+        if not remote:
+            try:
+                QApplication.processEvents()
+            except Exception:
+                pass
         yield
     finally:
-        if app is not None:
+        if app is not None and not remote:
             try:
                 app.restoreOverrideCursor()
             except Exception:
@@ -1961,6 +1970,14 @@ def ConnectEQUAC():
         ip_text = _itech_ip_edit.text().strip() if _itech_ip_edit else ""
         port_text = _itech_port_edit.text().strip() if _itech_port_edit else "502"
         if not ip_text:
+            try:
+                from utils.iot_remote_ui import remote_connect_silent
+
+                if remote_connect_silent():
+                    print("[AC] 云端连接缺少 Itech IP")
+                    return
+            except Exception:
+                pass
             QMessageBox.warning(None, "提示", "请输入 Itech 交流电源的 IP 地址")
             return
         if not port_text:
@@ -1970,6 +1987,14 @@ def ConnectEQUAC():
     elif _ac_current_brand == "chroma_ip":
         ip_text = _itech_ip_edit.text().strip() if _itech_ip_edit else ""
         if not ip_text:
+            try:
+                from utils.iot_remote_ui import remote_connect_silent
+
+                if remote_connect_silent():
+                    print("[AC] 云端连接缺少 Chroma IP")
+                    return
+            except Exception:
+                pass
             QMessageBox.warning(None, "提示", "请输入 Chroma 交流电源的 IP 地址")
             return
         tcp_addr = f"TCPIP0::{ip_text}::INSTR"

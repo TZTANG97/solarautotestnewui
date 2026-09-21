@@ -578,6 +578,7 @@ class IotUiHandoffService(QObject):
         self._timer = QTimer(self)
         self._timer.setInterval(max(1000, int(interval_ms)))
         self._timer.timeout.connect(self.poll_once)
+        self._device_cmd_busy = False
         self._last_progress_key = None
         self._stop_inflight = False
         self._job_ctx: Optional[Dict[str, Any]] = None
@@ -672,15 +673,29 @@ class IotUiHandoffService(QObject):
                 return
 
     def _drain_device_cmds(self) -> None:
-        """执行 Agent 下发的逐台连接 / 开关输出 / 德威创构造。"""
+        """执行 Agent 下发的逐台连接 / 开关输出 / 德威创构造。
+
+        必须停掉本定时器再连设备：连接内部会 processEvents / 嵌套事件循环，
+        否则定时器重入会再连一次，并弹出模态框把主界面卡住。
+        """
+        if self._device_cmd_busy:
+            return
         from utils.iot_device_cmd_inbox import (
             execute_device_cmd,
             list_pending,
             write_result,
         )
+        from utils.iot_remote_ui import silent_remote_connect
 
-        for path in list_pending(self.repo_root):
-            request_id = ""
+        paths = list_pending(self.repo_root)
+        if not paths:
+            return
+        path = paths[0]
+        self._device_cmd_busy = True
+        was_active = self._timer.isActive()
+        self._timer.stop()
+        request_id = ""
+        try:
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
             except Exception as exc:
@@ -689,42 +704,50 @@ class IotUiHandoffService(QObject):
                     path.unlink(missing_ok=True)
                 except Exception:
                     pass
-                continue
+                return
             if not isinstance(payload, dict):
                 try:
                     path.unlink(missing_ok=True)
                 except Exception:
                     pass
-                continue
-            request_id = str(payload.get("requestId") or "").strip()
-            if not request_id:
-                request_id = path.stem.replace("cmd_", "", 1)
-            # 已有结果则清理 pending
+                return
+            request_id = str(payload.get("requestId") or "").strip() or path.stem.replace("cmd_", "", 1)
             done = self.repo_root / "iot_job_inbox" / "device_cmds" / "results" / f"cmd_{request_id}.json"
             if done.is_file():
                 try:
                     path.unlink(missing_ok=True)
                 except Exception:
                     pass
-                continue
-            result = execute_device_cmd(
-                payload,
-                apply_connect=self.device_apply_connect,
-                output_on=self.device_output_on,
-                output_off=self.device_output_off,
-                dew_build=self.device_dew_build,
-                log=self._log,
-            )
+                return
+            # 先挪走 pending，避免连接过程中重入又执行同一条
+            running = path.parent.parent / "running"
+            running.mkdir(parents=True, exist_ok=True)
+            claimed = running / path.name
+            try:
+                path.replace(claimed)
+            except Exception:
+                claimed = path
+            with silent_remote_connect():
+                result = execute_device_cmd(
+                    payload,
+                    apply_connect=self.device_apply_connect,
+                    output_on=self.device_output_on,
+                    output_off=self.device_output_off,
+                    dew_build=self.device_dew_build,
+                    log=self._log,
+                )
             try:
                 write_result(self.repo_root, request_id, result)
             except Exception as exc:
                 self._log(f"仪器控制写结果失败: {exc}")
             try:
-                path.unlink(missing_ok=True)
+                claimed.unlink(missing_ok=True)
             except Exception:
                 pass
-            # 一次 poll 只跑一条，避免阻塞 UI 过久
-            return
+        finally:
+            self._device_cmd_busy = False
+            if was_active:
+                self._timer.start()
 
     def _drain_stop_requests(self) -> None:
         """扫描 stop_requests：调用结束试验/关电源后 ack。"""

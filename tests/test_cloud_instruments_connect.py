@@ -23,3 +23,22 @@ def test_prepare_jobs_from_cloud_instruments_ac_dc():
 def test_prepare_skips_empty():
     assert prepare_jobs_from_cloud_instruments([]) == []
     assert prepare_jobs_from_cloud_instruments([{"slot": "ac", "resource": ""}]) == []
+
+
+def test_ac_port_502_is_itech_modbus_not_chroma_scpi():
+    """502 是 Modbus。占位品牌或空品牌都不能走 Chroma SCPI，否则桌面会在错误端口上空等。"""
+    jobs = prepare_jobs_from_cloud_instruments(
+        [
+            {
+                "slot": "ac",
+                "kind": "ac",
+                "resource": "192.168.40.210:502",
+                "brand": "chroma / itech / bluesight",
+            }
+        ]
+    )
+    assert len(jobs) == 1
+    _slot, plan, dev = jobs[0]
+    assert plan.get("target") == "ac_itech"
+    assert plan.get("port") == 502
+    assert (dev.protocol or "") == "modbus"

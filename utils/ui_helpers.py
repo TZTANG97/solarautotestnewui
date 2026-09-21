@@ -1,7 +1,20 @@
 from PyQt5.QtWidgets import QMessageBox
 
 
+def _remote_connect_silent() -> bool:
+    try:
+        from utils.iot_remote_ui import remote_connect_silent
+
+        return bool(remote_connect_silent())
+    except Exception:
+        return False
+
+
 def _show_connect_message(msg, parent=None):
+    # 云端下发的连接在后台执行：弹模态框会把整个自动化软件卡住（人在网页上看不到这个框）
+    if _remote_connect_silent():
+        print(f'[连接提示] {msg}')
+        return
     try:
         QMessageBox.information(None, '连接提示', msg, QMessageBox.Ok, QMessageBox.Ok)
     except Exception:

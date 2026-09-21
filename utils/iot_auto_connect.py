@@ -131,6 +131,9 @@ def prepare_jobs_from_cloud_instruments(
             host = host or (h2 or "")
             port_i = port_i if port_i is not None else p2
         brand = str(item.get("brand") or "").strip()
+        # 界面占位文案不要当成真实品牌
+        if "/" in brand or "chroma /" in brand.lower():
+            brand = ""
         kind = str(item.get("kind") or "").strip().lower()
         if not kind or kind == "unknown":
             kind = "dc" if slot.startswith("dc") else slot
@@ -138,8 +141,11 @@ def prepare_jobs_from_cloud_instruments(
         bl = brand.lower()
         if bl == "bluesight" or (bl == "itech" and slot.startswith("dc")):
             proto = "modbus"
-        elif bl == "itech" and slot == "ac":
+        elif slot == "ac" and (bl == "itech" or (port_i == 502 and bl != "chroma")):
+            # :502 是 Modbus（Itech）。误走 Chroma SCPI 会在错误端口上等超时，桌面像卡住
             proto = "modbus"
+            if not bl:
+                brand = "itech"
         dev = FoundDevice(
             resource=resource,
             host=host or "",
