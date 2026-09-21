@@ -285,6 +285,26 @@ def run_once_job(
                 )
             except Exception as exc:
                 logger.warning("progress 上报失败: %s", exc)
+            try:
+                from agent import ws_gateway
+
+                ws_gateway.send_json(
+                    {
+                        "type": "experdata",
+                        "experid": str(job_id),
+                        "time": "1",
+                        "equs": [
+                            {
+                                "equ_id": f"SOLAR-JOB-{job_id}",
+                                "progress_percent": int(percent),
+                                "progress_text": text,
+                                "current_step": step,
+                            }
+                        ],
+                    }
+                )
+            except Exception:
+                pass
 
         from pathlib import Path as _Path
 
@@ -299,6 +319,25 @@ def run_once_job(
             result_summary=result.get("result_summary"),
             report_meta=None,
         )
+        try:
+            from agent import ws_gateway
+
+            proto_status = {
+                "success": "OK",
+                "aborted": "NG",
+                "failed": "FAIL",
+            }.get(str(result.get("status") or "").lower(), "FAIL")
+            ws_gateway.send_json(
+                {
+                    "type": "exper_auto_end",
+                    "experid": str(job_id),
+                    "status": proto_status,
+                    "fail_reason": result.get("fail_reason") or "",
+                    "result_summary": result.get("result_summary") or {},
+                }
+            )
+        except Exception:
+            pass
         try:
             from agent.reports import collect_report_files
 
@@ -444,7 +483,15 @@ def main(argv: Optional[list] = None) -> int:
             continue
 
         try:
-            job = client.claim_next()
+            job = None
+            try:
+                from agent import ws_gateway
+
+                job = ws_gateway.pop_pending_job()
+            except Exception:
+                job = None
+            if not job:
+                job = client.claim_next()
         except Exception as exc:
             logger.warning("领任务失败: %s", exc)
             time.sleep(interval)
@@ -452,11 +499,25 @@ def main(argv: Optional[list] = None) -> int:
 
         if job:
             logger.info(
-                "领取任务 experid=%s type=%s title=%s",
+                "领取任务 experid=%s type=%s title=%s via=%s",
                 job.get("experid") or job.get("id"),
                 job.get("testType"),
                 job.get("title"),
+                "ws" if job.get("type") == "startexper" else "http",
             )
+            # WS 下发的 startexper 可能尚未 HTTP claim；用 id 跑即可
+            if job.get("commands") and isinstance(job.get("commands"), dict) and not job.get("testType"):
+                try:
+                    import json as _json
+
+                    cmd = job["commands"].get("command") or ""
+                    nested = _json.loads(cmd) if isinstance(cmd, str) else cmd
+                    if isinstance(nested, dict):
+                        job.setdefault("testType", nested.get("testType") or "")
+                        job.setdefault("title", nested.get("title") or "")
+                        job.setdefault("params", nested.get("params") or {})
+                except Exception:
+                    pass
             run_once_job(
                 client,
                 mutex,
