@@ -2442,6 +2442,81 @@ def ConnectEQUDL850():
         ui.pushButton_ConnectEQUDL850.setText("取消连接")
         _save_device_status("DL850", True, tcp_addr)
 
+def _sync_dewetron_address_ui(tcp_addr: str) -> None:
+    """把地址写回首页 + 德威创设置页，保证 Web 下发后桌面看到的 IP/端口一致。"""
+    host, _, port = (tcp_addr or "").partition(":")
+    host = host.strip()
+    port = (port or "10001").strip() or "10001"
+    for obj_name, value in (("lineEdit_IP", host), ("lineEdit_Port", port)):
+        edit = getattr(ui, obj_name, None)
+        if edit is not None and hasattr(edit, "setText") and value:
+            try:
+                edit.setText(value)
+            except Exception:
+                pass
+    dew_ui = globals().get("uiDewetronSetting")
+    if dew_ui is None:
+        return
+    for obj_name, value in (("lineEdit_deviceIP", host), ("lineEdit_port", port)):
+        edit = getattr(dew_ui, obj_name, None)
+        if edit is not None and hasattr(edit, "setText") and value:
+            try:
+                edit.setText(value)
+            except Exception:
+                pass
+
+
+def _apply_dewetron_widgets_to_setting_ui(widgets: dict) -> None:
+    """Web 下发的德威创参数写到桌面设置页（含接线类型）。"""
+    dew_ui = globals().get("uiDewetronSetting")
+    if dew_ui is None or not isinstance(widgets, dict):
+        return
+    # IP/端口
+    ip = str(widgets.get("lineEdit_deviceIP") or widgets.get("lineEdit_IP") or "").strip()
+    port = str(widgets.get("lineEdit_port") or widgets.get("lineEdit_Port") or "").strip()
+    if ip or port:
+        addr = ip if not port else f"{ip}:{port}"
+        _sync_dewetron_address_ui(addr)
+    # 常用下拉
+    mapping = {
+        "comboBox_maxRefreshRate": widgets.get("comboBox_maxRefreshRate")
+        or widgets.get("comboBox_DEW_MaxRefreshRate"),
+        "comboBox_downsampling": widgets.get("comboBox_downsampling"),
+        "comboBox_frequencyChannel": widgets.get("comboBox_frequencyChannel"),
+    }
+    for name, value in mapping.items():
+        if value is None or value == "":
+            continue
+        combo = getattr(dew_ui, name, None)
+        if combo is None:
+            continue
+        try:
+            text = str(value)
+            idx = combo.findText(text) if hasattr(combo, "findText") else -1
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+            elif hasattr(combo, "setCurrentText"):
+                combo.setCurrentText(text)
+        except Exception:
+            pass
+    # 接线类型 0..4
+    wiring = widgets.get("dew_wiring_type")
+    try:
+        wiring_i = int(wiring) if wiring is not None and str(wiring).strip() != "" else None
+    except (TypeError, ValueError):
+        wiring_i = None
+    if wiring_i is not None and hasattr(dew_ui, "_wiring_buttons"):
+        try:
+            for type_id, btn in dew_ui._wiring_buttons:
+                if int(type_id) == int(wiring_i):
+                    btn.setChecked(True)
+                    if hasattr(dew_ui, "wiringDiagramCanvas"):
+                        dew_ui.wiringDiagramCanvas.set_wiring_type(int(wiring_i))
+                    break
+        except Exception:
+            pass
+
+
 @_with_device_ui_busy("ConnectEQUDEWETRON")
 def ConnectEQUDEWETRON():
     """连接 DEWETRON。"""
@@ -2451,7 +2526,7 @@ def ConnectEQUDEWETRON():
         DisconnectEQUDEWETRON()
         return
 
-    # 从UI对象获取IP输入框
+    # 从UI对象获取IP输入框（首页；若空则回退德威创设置页）
     tcp_addr = ''
     ip_edit = getattr(ui, "lineEdit_IP", None)
     port_edit = getattr(ui, "lineEdit_Port", None)
@@ -2465,12 +2540,23 @@ def ConnectEQUDEWETRON():
             else:
                 tcp_addr = ip_text
 
+    if not tcp_addr:
+        dew_ui = globals().get("uiDewetronSetting")
+        if dew_ui is not None:
+            dip = getattr(dew_ui, "lineEdit_deviceIP", None)
+            dport = getattr(dew_ui, "lineEdit_port", None)
+            if dip is not None and dip.text().strip():
+                p = dport.text().strip() if dport is not None else "10001"
+                tcp_addr = f"{dip.text().strip()}:{p or '10001'}"
+
     logger.info(f"DEWETRON 连接地址: {tcp_addr}")
 
     if not tcp_addr:
         logger.warning("DEWETRON 未输入连接地址")
         print("DEWETRON 未输入连接地址")
         return
+
+    _sync_dewetron_address_ui(tcp_addr)
 
     if dewetron_controller is None:
         dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
@@ -2745,12 +2831,9 @@ def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
     if target == "dew":
         host = str(plan.get("host") or "")
         port = plan.get("port") or 10001
-        ip_edit = getattr(ui, "lineEdit_IP", None)
-        port_edit = getattr(ui, "lineEdit_Port", None)
-        if ip_edit is not None:
-            ip_edit.setText(host)
-        if port_edit is not None:
-            port_edit.setText(str(port))
+        tcp_addr = f"{host}:{port}" if host else ""
+        if tcp_addr:
+            _sync_dewetron_address_ui(tcp_addr)
         ConnectEQUDEWETRON()
         return
 
@@ -32000,6 +32083,22 @@ if __name__ == "__main__":
                         prepare_jobs_from_cloud_instruments,
                     )
 
+                    # 德威创：先把 Web 下发的 IP/参数写到桌面设置页
+                    try:
+                        inst = instrument or {}
+                        if str(inst.get("kind") or "").lower() == "dew" or str(
+                            inst.get("slot") or ""
+                        ).lower() == "dew":
+                            widgets = {}
+                            res = str(inst.get("resource") or "")
+                            if res and ":" in res and "://" not in res:
+                                h, _, p = res.partition(":")
+                                widgets["lineEdit_deviceIP"] = h.strip()
+                                widgets["lineEdit_port"] = (p or "10001").strip()
+                            _apply_dewetron_widgets_to_setting_ui(widgets)
+                    except Exception as exc:
+                        _iot_log(f"德威创 UI 预同步: {exc}")
+
                     jobs = prepare_jobs_from_cloud_instruments([instrument or {}])
                     if not jobs:
                         return {"ok": False, "message": "无法解析连接计划（检查槽位/地址/品牌）"}
@@ -32050,17 +32149,12 @@ if __name__ == "__main__":
 
                 def _iot_device_dew_build(widgets):
                     try:
-                        if widgets:
-                            dew_ui = globals().get("uiDewetronSetting")
-                            if dew_ui is not None:
-                                from utils.iot_ui_handoff import apply_widget_values
-
-                                apply_widget_values(dew_ui, widgets)
+                        _apply_dewetron_widgets_to_setting_ui(widgets or {})
                     except Exception as exc:
                         _iot_log(f"德威创参数写入: {exc}")
                     try:
                         BuildDEWETRONTestPageWithLoading()
-                        return {"ok": True, "message": "德威创测试界面构造已执行"}
+                        return {"ok": True, "message": "德威创测试界面构造已执行（桌面页参数已同步）"}
                     except Exception as exc:
                         return {"ok": False, "message": f"构造失败: {exc}"}
 
