@@ -44,6 +44,34 @@ def test_ac_port_502_is_itech_modbus_not_chroma_scpi():
     assert (dev.protocol or "") == "modbus"
 
 
+def test_ac_chroma_ip_plus_502_is_rejected_by_explain():
+    from utils.iot_auto_connect import explain_ac_brand_port_mismatch
+
+    msg = explain_ac_brand_port_mismatch(brand="chroma_ip", port=502)
+    assert "不匹配" in msg
+    assert "502" in msg
+
+
+def test_ac_chroma_brand_plus_502_coerces_to_itech_if_not_blocked():
+    """未拦时端口 502 仍强制爱科，避免走 Chroma SCPI 空等。"""
+    jobs = prepare_jobs_from_cloud_instruments(
+        [
+            {
+                "slot": "ac",
+                "kind": "ac",
+                "resource": "192.168.40.210:502",
+                "brand": "chroma",
+                "host": "192.168.40.210",
+                "port": 502,
+            }
+        ]
+    )
+    assert len(jobs) == 1
+    _slot, plan, dev = jobs[0]
+    assert plan.get("target") == "ac_itech"
+    assert (dev.brand_hint or "") == "itech"
+
+
 def test_ac_serial_is_chroma_visa_not_modbus():
     jobs = prepare_jobs_from_cloud_instruments(
         [
@@ -78,3 +106,4 @@ def test_failed_session_is_not_connected():
     assert summary["connected"] == []
     assert summary["errors"]
     assert "会话未建立" in summary["errors"][0]
+    assert "ac_itech" in summary["errors"][0]

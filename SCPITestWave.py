@@ -30275,7 +30275,7 @@ if __name__ == "__main__":
 
                 # 创建面包屑
                 from components.breadcrumb import BreadcrumbWidget
-                _dc1_breadcrumb = BreadcrumbWidget(["Chroma", "Bluesight", "Itech"])
+                _dc1_breadcrumb = BreadcrumbWidget(["Chroma", "Bluesight", "爱科(Itech)"])
 
                 _DC1_DEVICE_TYPES = ["chroma", "bluesight", "itech"]
 
@@ -32188,6 +32188,7 @@ if __name__ == "__main__":
                 def _iot_device_connect(instrument):
                     from utils.iot_auto_connect import (
                         apply_prepared_connect_jobs,
+                        explain_ac_brand_port_mismatch,
                         prepare_jobs_from_cloud_instruments,
                     )
 
@@ -32207,7 +32208,26 @@ if __name__ == "__main__":
                     except Exception as exc:
                         _iot_log(f"德威创 UI 预同步: {exc}")
 
-                    jobs = prepare_jobs_from_cloud_instruments([instrument or {}])
+                    inst = instrument or {}
+                    try:
+                        port_chk = inst.get("port")
+                        port_i = int(port_chk) if port_chk is not None and str(port_chk).strip() != "" else None
+                    except (TypeError, ValueError):
+                        port_i = None
+                    if port_i is None:
+                        from utils.device_discovery import parse_host_port
+
+                        _h, port_i = parse_host_port(
+                            str(inst.get("resource") or inst.get("addr") or "")
+                        )
+                    mismatch = explain_ac_brand_port_mismatch(
+                        brand=str(inst.get("brand") or ""),
+                        port=port_i,
+                    )
+                    if mismatch and str(inst.get("slot") or "").strip().lower() in ("", "ac"):
+                        return {"ok": False, "message": mismatch}
+
+                    jobs = prepare_jobs_from_cloud_instruments([inst])
                     if not jobs:
                         return {"ok": False, "message": "无法解析连接计划（检查槽位/地址/品牌）"}
                     summary = apply_prepared_connect_jobs(

@@ -106,6 +106,37 @@ def discover_for_auto_connect(
     return out
 
 
+def explain_ac_brand_port_mismatch(
+    *,
+    brand: str = "",
+    port: Optional[int] = None,
+) -> str:
+    """AC 品牌与端口明显冲突时返回中文说明，否则空串。
+
+    502 = 爱科 Modbus；Chroma 网口 SCPI 常见 2101。网页若选「致茂网口」却留着 502，
+    桌面连不上时只会得到含糊的「会话未建立」。
+    """
+    bl = str(brand or "").strip().lower()
+    if port is None:
+        return ""
+    try:
+        port_i = int(port)
+    except (TypeError, ValueError):
+        return ""
+    chroma_net = bl in ("chroma_ip", "chroma")
+    if chroma_net and port_i == 502:
+        return (
+            "品牌与端口不匹配：502 是爱科(Itech)（Modbus）；"
+            "致茂 Chroma 网口请用 2101，或把品牌改成「爱科(Itech)」"
+        )
+    if bl == "itech" and port_i == 2101:
+        return (
+            "品牌与端口不匹配：2101 通常是致茂 Chroma SCPI；"
+            "爱科(Itech) 请用 502，或把品牌改成「致茂 Chroma（网口）」"
+        )
+    return ""
+
+
 def prepare_jobs_from_cloud_instruments(
     instruments: Sequence[Dict[str, Any]],
 ) -> List[Tuple[str, dict, Any]]:
@@ -141,10 +172,11 @@ def prepare_jobs_from_cloud_instruments(
         bl = brand.lower()
         if bl == "bluesight" or (bl == "itech" and slot.startswith("dc")):
             proto = "modbus"
-        elif slot == "ac" and (bl == "itech" or (port_i == 502 and bl != "chroma")):
-            # :502 是 Modbus（Itech）。误走 Chroma SCPI 会在错误端口上等超时，桌面像卡住
+        elif slot == "ac" and (bl == "itech" or port_i == 502):
+            # :502 一律走爱科 Modbus。误走 Chroma SCPI 会在错误端口上等超时。
+            # 若网页仍标 chroma/chroma_ip，外层应先用 explain_ac_brand_port_mismatch 拦住。
             proto = "modbus"
-            if not bl:
+            if bl in ("", "chroma", "chroma_ip"):
                 brand = "itech"
         dev = FoundDevice(
             resource=resource,
@@ -201,8 +233,15 @@ def apply_prepared_connect_jobs(
         try:
             apply_plan(slot, plan, dev)
             if session_ok is not None and not session_ok(slot):
-                errors.append(f"{slot}: 桌面连接失败（会话未建立）")
-                _log(f"自动连接失败 {slot}: 会话未建立")
+                target = str((plan or {}).get("target") or "")
+                host = str(getattr(dev, "host", "") or "")
+                port = getattr(dev, "port", None)
+                where = f"{host}:{port}" if host and port is not None else str(
+                    getattr(dev, "resource", "") or ""
+                )
+                hint = f"{target}@{where}" if target else where
+                errors.append(f"{slot}: 桌面连接失败（会话未建立；{hint}）")
+                _log(f"自动连接失败 {slot}: 会话未建立 {hint}")
                 continue
             remember_slot_for_resource(getattr(dev, "resource", "") or "", slot)
             connected.append(f"{slot}:{getattr(dev, 'resource', '')}")
