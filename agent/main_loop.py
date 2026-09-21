@@ -31,6 +31,11 @@ _pending_probe_request_id: str = ""
 _pending_probe_results: Optional[list] = None
 _probe_lock = threading.Lock()
 
+# 仪器控制结果回传
+_pending_control_request_id: str = ""
+_pending_control_result: Optional[dict] = None
+_control_lock = threading.Lock()
+
 
 def _consume_probe_payload() -> tuple:
     """取出待上报的试连结果（只发一次）。"""
@@ -43,9 +48,20 @@ def _consume_probe_payload() -> tuple:
     return rid, results
 
 
+def _consume_control_payload() -> tuple:
+    global _pending_control_request_id, _pending_control_result
+    with _control_lock:
+        rid = _pending_control_request_id
+        result = _pending_control_result
+        _pending_control_request_id = ""
+        _pending_control_result = None
+    return rid, result
+
+
 def _handle_pending_actions(data_hb: dict) -> None:
-    """处理心跳回包里的 pendingActions（当前仅 probe_instruments）。"""
+    """处理心跳回包里的 pendingActions（probe / control_instrument）。"""
     global _pending_probe_request_id, _pending_probe_results
+    global _pending_control_request_id, _pending_control_result
     if not isinstance(data_hb, dict):
         return
     actions = data_hb.get("pendingActions") or data_hb.get("pending_actions") or []
@@ -54,32 +70,57 @@ def _handle_pending_actions(data_hb: dict) -> None:
     for action in actions:
         if not isinstance(action, dict):
             continue
-        if str(action.get("type") or "") != "probe_instruments":
-            continue
-        request_id = str(action.get("requestId") or action.get("request_id") or "")
-        instruments = action.get("instruments") or []
-        logger.info("收到试连任务 requestId=%s count=%s", request_id, len(instruments or []))
-        try:
-            from agent.instrument_probe import probe_instruments
+        atype = str(action.get("type") or "")
+        if atype == "probe_instruments":
+            request_id = str(action.get("requestId") or action.get("request_id") or "")
+            instruments = action.get("instruments") or []
+            logger.info("收到试连任务 requestId=%s count=%s", request_id, len(instruments or []))
+            try:
+                from agent.instrument_probe import probe_instruments
 
-            results = probe_instruments(instruments if isinstance(instruments, list) else [])
-        except Exception as exc:
-            logger.warning("试连执行失败: %s", exc)
-            results = [
-                {
-                    "resource": str((x or {}).get("resource") or ""),
-                    "slot": str((x or {}).get("slot") or ""),
-                    "connected": False,
-                    "error": str(exc)[:255],
-                }
-                for x in (instruments or [])
-                if isinstance(x, dict)
-            ]
-        with _probe_lock:
-            _pending_probe_request_id = request_id
-            _pending_probe_results = results
-        ok_n = sum(1 for r in results if r.get("connected"))
-        logger.info("试连完成 requestId=%s ok=%s/%s", request_id, ok_n, len(results))
+                results = probe_instruments(instruments if isinstance(instruments, list) else [])
+            except Exception as exc:
+                logger.warning("试连执行失败: %s", exc)
+                results = [
+                    {
+                        "resource": str((x or {}).get("resource") or ""),
+                        "slot": str((x or {}).get("slot") or ""),
+                        "connected": False,
+                        "error": str(exc)[:255],
+                    }
+                    for x in (instruments or [])
+                    if isinstance(x, dict)
+                ]
+            with _probe_lock:
+                _pending_probe_request_id = request_id
+                _pending_probe_results = results
+            ok_n = sum(1 for r in results if r.get("connected"))
+            logger.info("试连完成 requestId=%s ok=%s/%s", request_id, ok_n, len(results))
+            continue
+
+        if atype == "control_instrument":
+            request_id = str(action.get("requestId") or action.get("request_id") or "")
+            logger.info(
+                "收到仪器控制 requestId=%s action=%s",
+                request_id,
+                action.get("action"),
+            )
+
+            def _run_ctrl(act=action, rid=request_id):
+                global _pending_control_request_id, _pending_control_result
+                try:
+                    from agent.device_control import run_control_via_desktop
+
+                    result = run_control_via_desktop(act, timeout_sec=90.0)
+                except Exception as exc:
+                    logger.warning("仪器控制失败: %s", exc)
+                    result = {"ok": False, "message": str(exc)[:500], "requestId": rid}
+                with _control_lock:
+                    _pending_control_request_id = rid
+                    _pending_control_result = result
+
+            threading.Thread(target=_run_ctrl, name="iot-device-ctrl", daemon=True).start()
+            continue
 
 
 def _do_heartbeat(
@@ -91,6 +132,7 @@ def _do_heartbeat(
     status_json_path: str,
 ) -> Optional[dict]:
     rid, probe_results = _consume_probe_payload()
+    ctrl_rid, ctrl_result = _consume_control_payload()
     try:
         hb = client.heartbeat(
             agent_version=agent_version,
@@ -99,6 +141,8 @@ def _do_heartbeat(
             instruments=collect_instruments_snapshot(status_json_path=status_json_path),
             probe_results=probe_results,
             probe_request_id=rid,
+            control_result=ctrl_result,
+            control_request_id=ctrl_rid,
         )
     except Exception:
         # 回传失败时把结果塞回去，下一轮再试
@@ -107,6 +151,11 @@ def _do_heartbeat(
                 if _pending_probe_results is None:
                     _pending_probe_request_id = rid
                     _pending_probe_results = probe_results
+        if ctrl_result is not None:
+            with _control_lock:
+                if _pending_control_result is None:
+                    _pending_control_request_id = ctrl_rid
+                    _pending_control_result = ctrl_result
         raise
     data_hb = hb.get("data") if isinstance(hb, dict) else None
     if isinstance(data_hb, dict):

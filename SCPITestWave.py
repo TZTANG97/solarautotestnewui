@@ -31993,7 +31993,82 @@ if __name__ == "__main__":
                     log=_iot_log,
                     parent=main_window,
                 )
-                print("[DEBUG_STARTUP]    IOT UI handoff 已挂载", flush=True)
+
+                def _iot_device_connect(instrument):
+                    from utils.iot_auto_connect import (
+                        apply_prepared_connect_jobs,
+                        prepare_jobs_from_cloud_instruments,
+                    )
+
+                    jobs = prepare_jobs_from_cloud_instruments([instrument or {}])
+                    if not jobs:
+                        return {"ok": False, "message": "无法解析连接计划（检查槽位/地址/品牌）"}
+                    summary = apply_prepared_connect_jobs(
+                        jobs, apply_plan=_apply_device_finder_plan, log=_iot_log
+                    )
+                    connected = summary.get("connected") or []
+                    errors = summary.get("errors") or []
+                    ok = bool(connected) and not errors
+                    return {
+                        "ok": ok,
+                        "message": (
+                            "已连接 " + "、".join(connected)
+                            if ok
+                            else ("；".join(errors) or "连接失败")
+                        ),
+                        "connected": connected,
+                        "errors": errors,
+                    }
+
+                def _iot_device_output_on(slot):
+                    sl = str(slot or "").strip().lower()
+                    fn = {
+                        "ac": OpenACOUTPUTON,
+                        "dc1": OpenDC1OUTPUTON,
+                        "dc2": OpenDC2OUTPUTON,
+                        "dc3": OpenDC3OUTPUTON,
+                        "dc4": OpenDC4OUTPUTON,
+                    }.get(sl)
+                    if not fn:
+                        _iot_log(f"槽位 {sl} 不支持打开输出")
+                        return False
+                    return bool(fn())
+
+                def _iot_device_output_off(slot):
+                    sl = str(slot or "").strip().lower()
+                    fn = {
+                        "ac": CloseACOUTPUTON,
+                        "dc1": CloseDC1OUTPUTON,
+                        "dc2": CloseDC2OUTPUTON,
+                        "dc3": CloseDC3OUTPUTON,
+                        "dc4": CloseDC4OUTPUTON,
+                    }.get(sl)
+                    if not fn:
+                        _iot_log(f"槽位 {sl} 不支持关闭输出")
+                        return False
+                    return bool(fn())
+
+                def _iot_device_dew_build(widgets):
+                    try:
+                        if widgets:
+                            dew_ui = globals().get("uiDewetronSetting")
+                            if dew_ui is not None:
+                                from utils.iot_ui_handoff import apply_widget_values
+
+                                apply_widget_values(dew_ui, widgets)
+                    except Exception as exc:
+                        _iot_log(f"德威创参数写入: {exc}")
+                    try:
+                        BuildDEWETRONTestPageWithLoading()
+                        return {"ok": True, "message": "德威创测试界面构造已执行"}
+                    except Exception as exc:
+                        return {"ok": False, "message": f"构造失败: {exc}"}
+
+                _iot_ui_handoff_svc.device_apply_connect = _iot_device_connect
+                _iot_ui_handoff_svc.device_output_on = _iot_device_output_on
+                _iot_ui_handoff_svc.device_output_off = _iot_device_output_off
+                _iot_ui_handoff_svc.device_dew_build = _iot_device_dew_build
+                print("[DEBUG_STARTUP]    IOT UI handoff 已挂载（含仪器控制）", flush=True)
             except Exception as _iot_exc:
                 print(f"[DEBUG_STARTUP]    IOT UI handoff 挂载失败: {_iot_exc}", flush=True)
             print("[DEBUG_STARTUP]    app.exec_() 进入事件循环", flush=True)

@@ -582,6 +582,11 @@ class IotUiHandoffService(QObject):
         self._stop_inflight = False
         self._job_ctx: Optional[Dict[str, Any]] = None
         self._auto_connect_finished.connect(self._on_auto_connect_finished)
+        # 云端仪器控制（连接/输出/德威创构造）回调，由 SCPITestWave 启动后挂载
+        self.device_apply_connect = None
+        self.device_output_on = None
+        self.device_output_off = None
+        self.device_dew_build = None
 
     def start(self) -> None:
         watched = " ; ".join(str(d / "pending") for d in self._inbox_dirs())
@@ -621,6 +626,11 @@ class IotUiHandoffService(QObject):
             write_result(root, job_id, result)
 
     def poll_once(self) -> None:
+        # 仪器控制（连接/输出/德威创构造）优先于试验任务，与自动化同路径
+        try:
+            self._drain_device_cmds()
+        except Exception as exc:
+            self._log(f"仪器控制轮询异常: {exc}")
         if self._awaiting:
             self._check_awaiting_finish()
             self._drain_stop_requests()
@@ -660,6 +670,61 @@ class IotUiHandoffService(QObject):
                     if not self._awaiting and self._job_ctx is None:
                         self._busy = False
                 return
+
+    def _drain_device_cmds(self) -> None:
+        """执行 Agent 下发的逐台连接 / 开关输出 / 德威创构造。"""
+        from utils.iot_device_cmd_inbox import (
+            execute_device_cmd,
+            list_pending,
+            write_result,
+        )
+
+        for path in list_pending(self.repo_root):
+            request_id = ""
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                self._log(f"仪器控制读取失败 {path.name}: {exc}")
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                continue
+            if not isinstance(payload, dict):
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                continue
+            request_id = str(payload.get("requestId") or "").strip()
+            if not request_id:
+                request_id = path.stem.replace("cmd_", "", 1)
+            # 已有结果则清理 pending
+            done = self.repo_root / "iot_job_inbox" / "device_cmds" / "results" / f"cmd_{request_id}.json"
+            if done.is_file():
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                continue
+            result = execute_device_cmd(
+                payload,
+                apply_connect=self.device_apply_connect,
+                output_on=self.device_output_on,
+                output_off=self.device_output_off,
+                dew_build=self.device_dew_build,
+                log=self._log,
+            )
+            try:
+                write_result(self.repo_root, request_id, result)
+            except Exception as exc:
+                self._log(f"仪器控制写结果失败: {exc}")
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            # 一次 poll 只跑一条，避免阻塞 UI 过久
+            return
 
     def _drain_stop_requests(self) -> None:
         """扫描 stop_requests：调用结束试验/关电源后 ack。"""

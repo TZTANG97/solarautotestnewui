@@ -43,8 +43,9 @@
 | 设备连接与发令 | `devices/` | 创建/断开/重连一起迁，避免第三份真源 |
 | Dialog UI | 暂留 `Dialog_*.py` | 整文件大改时再迁 `dialogs/`，并保留兼容导入 |
 | 正式回归测试 | `tests/` | pytest 可跑 |
-| 一次性脚本/补丁 | `code_example/` 或 `scripts/scratch/` | 禁止继续堆根目录 |
-| 运行产物 | `data_logs/`、`command_save_files/`、`dist/` | 不入库（gitignore） |
+| 一次性脚本/补丁 | `code_example/` 或 `scripts/scratch/` | 禁止继续堆根目录；根目录 `test_*` / `_tmp*` / `_check*` 已迁到 `scripts/scratch/` |
+| 说明文档 | `docs/` | 架构/交接/命令表等，勿堆根目录 |
+| 运行产物 | `data_logs/`、`command_save_files/`、`dist/`、`screenshots/`、`status.json` | 不入库（gitignore） |
 
 新建目录时：若 `sends/` 尚不存在，**第一次**抽出某个 Send 时再创建，不要空建一堆文件夹。
 

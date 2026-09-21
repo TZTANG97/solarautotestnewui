@@ -1,5 +1,6 @@
 *.pyc
 log.txt
+test_log
 
 # command_save_files 下生成的数据文件（不参与版本库）
 command_save_files/command_data/
@@ -21,13 +22,22 @@ database/*.sqlite-wal
 .vscode/
 .idea/
 
-# 构建产物 / 运行日志 / 安装包
+# 构建产物 / 运行日志 / 安装包 / 截图
 dist/
 data_logs/
+updates/
+screenshots/
 *.zip
 code_example/update_e2e/**/*.zip
 code_example/media/**/*.zip
 __pycache__/
+_tmp_*/
+**/_tmp_*/
+tools/uv.exe
+*.exe
+
+# 运行时状态（首页/Agent 读写，勿提交本机状态）
+status.json
 
 # Solar Agent 本地配置与运行产物（含令牌，勿提交）
 config/solar_agent.json
