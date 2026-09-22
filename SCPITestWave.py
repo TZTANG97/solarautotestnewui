@@ -1072,8 +1072,21 @@ def _reload_home_status(data):
     for dev in data.get("devices", []):
         name = dev["name"]
         if name in getattr(ui, '_home_dots', {}):
-            color = "#22c55e" if dev.get("connected") else "#ef4444"
-            ui._home_dots[name].setStyleSheet(f"background-color: {color}; border-radius: 5px;")
+            ok = bool(dev.get("connected"))
+            color = "#059669" if ok else "#dc2626"
+            text = "已连接" if ok else "未连接"
+            badge = ui._home_dots[name]
+            badge.setText(text)
+            # Text badge only — never solid fill (became huge red blocks)
+            badge.setStyleSheet(
+                f"color: {color}; font-size: 11px; font-weight: 700; "
+                f"background: transparent; padding: 0;"
+            )
+            try:
+                badge.setMinimumSize(0, 0)
+                badge.setMaximumSize(16777215, 16777215)
+            except Exception:
+                pass
         if name in getattr(ui, '_home_res_labels', {}):
             res = dev.get("resource", "") or "未配置"
             ui._home_res_labels[name].setText(res)
@@ -22987,6 +23000,28 @@ def RunProjectPush():
             box.exec_()
             return
         ui.textEdit_ReturnMessage.append(f"[开始试验] 设备校验通过，开始执行「{currentSecond}」...")
+        # 第一次（及之后）成功启动：把本试验 UI 参数落到本地，与设备页隔离
+        try:
+            from utils.test_ui_preset import snapshot_and_save_test_preset
+
+            _ui_obj = None
+            _map = getattr(ui, "_auto_test_dialogs", None) or globals().get(
+                "_auto_test_dialogs", {}
+            )
+            _pair = _map.get(currentSecond) if _map else None
+            if _pair:
+                _dlg, _ui_obj = _pair
+                if hasattr(_ui_obj, "ensure"):
+                    _dlg, _ui_obj = _ui_obj.ensure()
+                elif hasattr(_dlg, "ensure"):
+                    _dlg, _ui_obj = _dlg.ensure()
+            if _ui_obj is not None:
+                _path = snapshot_and_save_test_preset(currentSecond, _ui_obj)
+                ui.textEdit_ReturnMessage.append(
+                    f"[开始试验] 已保存本试验参数到本地：{_path}"
+                )
+        except Exception as _save_preset_exc:
+            print(f"[RunProject] save test preset skip: {_save_preset_exc}", flush=True)
         # ── DEWETRON 模式：必须先完成采集预处理，再放行执行线程 ──
         print(f"[RunProject] is_dewetron={is_dewetron}, dewetron_collector={'存在' if dewetron_collector else 'None'}")
         if is_dewetron:
@@ -28842,9 +28877,174 @@ def _should_poll_equ_ctrl_for_syst_err(ctrl, connect_btn):
         return False
 
 
+def _startup_auto_connect_last_devices() -> None:
+    """兼容旧调用：改为异步启动，避免堵死 UI。"""
+    _schedule_startup_auto_connect(visa_rm=None)
+
+
+def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
+    """后台：VISA 列表 + 准备连接任务；主线程：按槽位排队连接（不长时间卡界面）。"""
+    from PyQt5.QtCore import QObject, QTimer, pyqtSignal
+
+    try:
+        ui.textEdit_ReturnMessage.append("[启动] 后台准备自动连接（界面可继续操作）…")
+    except Exception:
+        pass
+
+    parent = None
+    try:
+        parent = main_window
+    except Exception:
+        parent = None
+
+    class _BootBridge(QObject):
+        prepared = pyqtSignal(object, object, object)  # equ_list, jobs, devices
+
+    bridge = _BootBridge(parent)
+
+    def _on_prepared(equ_list, jobs, devices):
+        global EQUList
+        try:
+            if equ_list:
+                EQUList = list(equ_list)
+            elif not EQUList:
+                EQUList = ["未发现可连接设备"]
+        except Exception:
+            EQUList = ["未发现可连接设备"]
+        print(f"[DEBUG_STARTUP]    boot equ={EQUList!r} jobs={len(jobs or [])}", flush=True)
+        _run_startup_connect_jobs_stepwise(list(jobs or []), list(devices or []))
+
+    bridge.prepared.connect(_on_prepared)
+
+    def _worker():
+        equ_list = []
+        jobs = []
+        devices = []
+        try:
+            _rm = visa_rm
+            if _rm is None:
+                try:
+                    _rm = rm
+                except Exception:
+                    _rm = None
+            if _rm is not None:
+                try:
+                    str1 = _rm.list_resources()
+                    equ_list = list(str1) if str1 else []
+                except Exception as exc:
+                    print(f"[DEBUG_STARTUP]    boot list_resources fail: {exc}", flush=True)
+            from utils.iot_auto_connect import prepare_auto_connect_jobs
+
+            jobs, devices = prepare_auto_connect_jobs(
+                visa_rm=_rm, status_json_path=None, scan_lan=False
+            )
+        except Exception as exc:
+            print(f"[DEBUG_STARTUP]    boot prepare fail: {exc}", flush=True)
+            jobs, devices = [], []
+        try:
+            bridge.prepared.emit(equ_list, jobs, devices)
+        except Exception as exc:
+            print(f"[DEBUG_STARTUP]    boot emit fail: {exc}", flush=True)
+
+    import threading
+
+    threading.Thread(target=_worker, name="startup-auto-connect", daemon=True).start()
+
+
+def _run_startup_connect_jobs_stepwise(jobs, devices) -> None:
+    """主线程逐个槽位连接，槽位之间让出事件循环，避免一打开卡死数秒。"""
+    from PyQt5.QtCore import QTimer
+
+    state = {
+        "i": 0,
+        "connected": [],
+        "errors": [],
+        "found": len(devices or []),
+        "jobs": jobs or [],
+    }
+
+    def _log(msg: str) -> None:
+        try:
+            ui.textEdit_ReturnMessage.append(f"[启动自动连] {msg}")
+        except Exception:
+            print(f"[启动自动连] {msg}", flush=True)
+
+    if not state["jobs"]:
+        try:
+            ui.textEdit_ReturnMessage.append(
+                f"[启动] 自动连接完成：无可连任务（发现 {state['found']}）"
+            )
+        except Exception:
+            pass
+        return
+
+    try:
+        ui.textEdit_ReturnMessage.append(
+            f"[启动] 开始按槽位连接（共 {len(state['jobs'])}），请稍候…"
+        )
+    except Exception:
+        pass
+
+    def _step() -> None:
+        jobs_local = state["jobs"]
+        i = state["i"]
+        if i >= len(jobs_local):
+            try:
+                _reconcile_status_json_with_sessions()
+            except Exception:
+                pass
+            msg = (
+                f"[启动] 自动连接完成：成功 {len(state['connected'])}，"
+                f"失败 {len(state['errors'])}，发现 {state['found']}"
+            )
+            try:
+                ui.textEdit_ReturnMessage.append(msg)
+                for e in state["errors"][:8]:
+                    ui.textEdit_ReturnMessage.append(f"[启动自动连] {e}")
+            except Exception:
+                print(msg, flush=True)
+            return
+
+        slot, plan, dev = jobs_local[i]
+        state["i"] = i + 1
+        try:
+            _apply_device_finder_plan(slot, plan, dev)
+            if _iot_slot_session_ok(slot):
+                try:
+                    from utils.iot_auto_connect import remember_slot_for_resource
+
+                    remember_slot_for_resource(getattr(dev, "resource", "") or "", slot)
+                except Exception:
+                    pass
+                state["connected"].append(f"{slot}:{getattr(dev, 'resource', '')}")
+                _log(f"自动连接 {slot} -> {getattr(dev, 'resource', '')}")
+            else:
+                target = str((plan or {}).get("target") or "")
+                host = str(getattr(dev, "host", "") or "")
+                port = getattr(dev, "port", None)
+                where = (
+                    f"{host}:{port}"
+                    if host and port is not None
+                    else str(getattr(dev, "resource", "") or "")
+                )
+                hint = f"{target}@{where}" if target else where
+                err = f"{slot}: 桌面连接失败（会话未建立；{hint}）"
+                state["errors"].append(err)
+                _log(f"自动连接失败 {slot}: 会话未建立 {hint}")
+        except Exception as exc:
+            state["errors"].append(f"{slot}: {exc}")
+            _log(f"自动连接失败 {slot}: {exc}")
+
+        # Yield so clicks/paint still work between device connects
+        QTimer.singleShot(50, _step)
+
+    QTimer.singleShot(0, _step)
+
+
 def system_error_info():
-    """周期性轮询设备系统错误并尝试重连。"""
+    """周期性轮询设备系统错误并尝试重连；并纠偏 status.json（对齐 Java list 轮询在线）。"""
     global ac_controller
+    _reconcile_ticks = 0
     while True:
         # 主线程正在连接/刷新接口时让出，避免与 open_resource / *IDN? 抢同一句柄
         if _is_device_ui_busy():
@@ -28857,6 +29057,14 @@ def system_error_info():
                 continue
         except Exception:
             pass
+        # 约每 5 秒按真实会话纠偏 status.json，供 Agent equdata 上报「已连才 on」
+        _reconcile_ticks += 1
+        if _reconcile_ticks >= 5:
+            _reconcile_ticks = 0
+            try:
+                _reconcile_status_json_with_sessions()
+            except Exception:
+                pass
         if _should_poll_equ_ctrl_for_syst_err(ac_controller, ui.pushButton_ConnectEQUAC):
             # Modbus TCP（ModbusVISA）：句柄为 SOCKET，不支持 SCPI SYST:ERR?；勿用下拉框原文 open_resource（含中文会触发 PyVISA ascii 错误）
             if ac_controller.client is not None:
@@ -29254,18 +29462,35 @@ if __name__ == "__main__":
             print("[DEBUG_STARTUP] 4/9 VISA ResourceManager...", flush=True)
             # rm = visa.ResourceManager(local_file_path + '/visa32.dll')
             rm = _create_visa_resource_manager(local_file_path)
-            str1 = rm.list_resources()
-            print(f"[DEBUG_STARTUP]    list_resources = {str1}", flush=True)
-            if len(str1) > 0:
-                iNumber = len(str1)
-                print(iNumber)
-                EQUList = str1
-            else:
-                EQUList = ['未发现可连接设备']
+            # Do NOT list_resources() on the UI startup path — NI-VISA LAN/USB scan
+            # can freeze the process for several seconds before the window appears.
+            EQUList = ['未发现可连接设备']
+            print("[DEBUG_STARTUP]    list_resources deferred (non-blocking startup)", flush=True)
 
             print("[DEBUG_STARTUP] 5/9 QApplication...", flush=True)
             # printingwave()
             app = QApplication(sys.argv)
+            try:
+                from components.ui_theme import apply_app_theme
+                from utils.ui_scale import scale_for_size
+                from utils.window_fit import clamp_window_size
+
+                # Theme once at the size we'll open with — never again on maximize
+                _sw, _sh = clamp_window_size(1600, 900, min_w=1100, min_h=700, margin=48)
+                _s0 = scale_for_size(_sw, _sh)
+                apply_app_theme(app, scale=_s0)
+                print(
+                    f"[DEBUG_STARTUP]    theme applied scale={_s0:.2f} for {_sw}x{_sh}",
+                    flush=True,
+                )
+            except Exception as _theme_exc:
+                print(f"[DEBUG_STARTUP]    theme skip: {_theme_exc}", flush=True)
+                try:
+                    from components.ui_theme import apply_app_theme
+
+                    apply_app_theme(app)
+                except Exception:
+                    pass
             print("[DEBUG_STARTUP]    QApplication 创建完成", flush=True)
 
             print("[DEBUG_STARTUP] 6/9 创建主窗口 + Ui_Dialog.setupUi", flush=True)
@@ -29273,6 +29498,35 @@ if __name__ == "__main__":
             ui = Ui_Dialog()
             ui.setupUi(main_window)
             print("[DEBUG_STARTUP]    setupUi 完成", flush=True)
+            try:
+                from utils.window_fit import fit_window_to_screen
+
+                _fw, _fh = fit_window_to_screen(
+                    main_window,
+                    design_w=1600,
+                    design_h=900,
+                    min_w=1100,
+                    min_h=700,
+                )
+                print(
+                    f"[DEBUG_STARTUP]    window fit {_fw}x{_fh} (screen-aware)",
+                    flush=True,
+                )
+            except Exception as _fit_exc:
+                print(f"[DEBUG_STARTUP]    window fit skip: {_fit_exc}", flush=True)
+            try:
+                from utils.ui_scale import apply_startup_ui_scale, install_ui_scale_watcher
+
+                _sc = apply_startup_ui_scale(main_window, design_w=1600, design_h=900)
+                install_ui_scale_watcher(
+                    main_window, design_w=1600, design_h=900, apply_immediately=True
+                )
+                print(
+                    f"[DEBUG_STARTUP]    ui font-scale locked={_sc:.2f} + live font watcher",
+                    flush=True,
+                )
+            except Exception as _scale_exc:
+                print(f"[DEBUG_STARTUP]    ui scale skip: {_scale_exc}", flush=True)
             try:
                 from PyQt5.QtGui import QIcon
                 from pathlib import Path as _Path
@@ -29698,41 +29952,50 @@ if __name__ == "__main__":
                                 _comm_mode_combo = QComboBox()
                                 _comm_mode_combo.addItems(["串口", "IP"])
                                 _comm_mode_combo.setStyleSheet(_INPUT_QSS)
-                                _comm_mode_combo.setFixedWidth(80)
+                                _comm_mode_combo.setFixedWidth(88)
+                                _comm_mode_combo.setMinimumHeight(32)
+                                _comm_mode_label = QLabel("方式")
+                                _comm_mode_label.setStyleSheet(_LABEL_QSS)
 
                                 # 创建 IP 输入控件（初始隐藏）
                                 _chroma_ip_edit = QtWidgets.QLineEdit()
                                 _chroma_ip_edit.setObjectName("lineEdit_chroma_AC_IP")
                                 _chroma_ip_edit.setPlaceholderText("如 192.168.1.100")
                                 _chroma_ip_edit.setStyleSheet(_INPUT_QSS)
-                                _chroma_ip_edit.setMinimumWidth(160)
+                                _chroma_ip_edit.setMinimumWidth(180)
+                                _chroma_ip_edit.setMinimumHeight(32)
                                 _chroma_ip_edit.setVisible(False)
                                 _chroma_port_edit = QtWidgets.QLineEdit()
                                 _chroma_port_edit.setObjectName("lineEdit_chroma_AC_Port")
-                                _chroma_port_edit.setPlaceholderText("留空自动探测")
+                                _chroma_port_edit.setPlaceholderText("留空自动")
                                 _chroma_port_edit.setStyleSheet(_INPUT_QSS)
-                                _chroma_port_edit.setMinimumWidth(80)
+                                _chroma_port_edit.setMinimumWidth(100)
+                                _chroma_port_edit.setMinimumHeight(32)
                                 _chroma_port_edit.setVisible(False)
                                 _ac_chroma_ip_edit = _chroma_ip_edit
                                 _ac_chroma_port_edit = _chroma_port_edit
                                 _ac_comm_mode_combo = _comm_mode_combo
-                                _chroma_ip_label = QLabel("IP:")
+                                _chroma_ip_label = QLabel("IP")
                                 _chroma_ip_label.setStyleSheet(_LABEL_QSS)
                                 _chroma_ip_label.setVisible(False)
-                                _chroma_port_label = QLabel("端口:")
+                                _chroma_port_label = QLabel("端口")
                                 _chroma_port_label.setStyleSheet(_LABEL_QSS)
                                 _chroma_port_label.setVisible(False)
 
                                 # 找到现有的 combo 和 connectBtn
                                 _serial_combo = ui.comboBox_AC
                                 _connect_btn = ui.pushButton_ConnectEQUAC
+                                _iface_label = _connect_content.findChild(
+                                    QLabel, "timelineConnectIfaceLabel"
+                                )
 
                                 # 在最前面插入通信模式选择器
-                                _conn_lay.insertWidget(0, _comm_mode_combo)
-                                _conn_lay.insertWidget(1, _chroma_ip_label)
-                                _conn_lay.insertWidget(2, _chroma_ip_edit)
-                                _conn_lay.insertWidget(3, _chroma_port_label)
-                                _conn_lay.insertWidget(4, _chroma_port_edit)
+                                _conn_lay.insertWidget(0, _comm_mode_label)
+                                _conn_lay.insertWidget(1, _comm_mode_combo)
+                                _conn_lay.insertWidget(2, _chroma_ip_label)
+                                _conn_lay.insertWidget(3, _chroma_ip_edit)
+                                _conn_lay.insertWidget(4, _chroma_port_label)
+                                _conn_lay.insertWidget(5, _chroma_port_edit)
 
                                 # 模式切换逻辑
                                 def _on_comm_mode_changed(mode_is_ip):
@@ -29740,6 +30003,8 @@ if __name__ == "__main__":
                                         # IP 模式：隐藏串口，显示 IP 输入
                                         if _serial_combo is not None:
                                             _serial_combo.setVisible(False)
+                                        if _iface_label is not None:
+                                            _iface_label.setVisible(False)
                                         _chroma_ip_label.setVisible(True)
                                         _chroma_ip_edit.setVisible(True)
                                         _chroma_port_label.setVisible(True)
@@ -29748,6 +30013,8 @@ if __name__ == "__main__":
                                         # 串口模式：显示串口，隐藏 IP 输入
                                         if _serial_combo is not None:
                                             _serial_combo.setVisible(True)
+                                        if _iface_label is not None:
+                                            _iface_label.setVisible(True)
                                         _chroma_ip_label.setVisible(False)
                                         _chroma_ip_edit.setVisible(False)
                                         _chroma_port_label.setVisible(False)
@@ -30601,6 +30868,9 @@ if __name__ == "__main__":
                 '相角突变': (dialog_windowphasejump, uiThaiPhaseJump),
                 '动态MPPT': (dialog_windowdynamicmppt, uiThaiDynamicMPPT),
             }
+            # 供 RunProject / 预设读写跨闭包访问
+            ui._auto_test_dialogs = _auto_test_dialogs
+            globals()["_auto_test_dialogs"] = _auto_test_dialogs
 
             def _embed_auto_test_into_scroll(_scroll, _dlg, _ui_obj):
                 """将已创建的试验对话框内容填入占位 QScrollArea（与原启动嵌入逻辑一致）。"""
@@ -30734,6 +31004,35 @@ if __name__ == "__main__":
                 _bind_shared_dewetron_actions()
                 if test_name == '静态MPPT测试':
                     _refresh_static_mppt_ports_if_ready()
+                # 本试验参数本地恢复（与 AC/DC 设备页隔离）
+                try:
+                    _panel = getattr(real_ui, "dewetronPanel", None)
+                    if _panel is not None and hasattr(_panel, "set_preset_name"):
+                        _panel.set_preset_name(test_name)
+                    from utils.ui_field_helpers import polish_input_widgets as _polish_test
+
+                    _polish_test(real_ui, memory_scope=f"test:{test_name}")
+                    # Re-apply live font/size scale so newly embedded fixed boxes grow
+                    try:
+                        _watcher = getattr(main_window, "_ui_scale_watcher", None)
+                        if _watcher is not None:
+                            _watcher.apply_now()
+                    except Exception:
+                        pass
+                    from utils.test_ui_preset import apply_test_preset
+
+                    if apply_test_preset(test_name, real_ui):
+                        print(
+                            f"[DEBUG_STARTUP] loaded test preset for {test_name}",
+                            flush=True,
+                        )
+                    elif _panel is not None and hasattr(_panel, "_try_load_export_preset"):
+                        _panel._try_load_export_preset(apply_rate=True)
+                except Exception as _preset_exc:
+                    print(
+                        f"[DEBUG_STARTUP] test preset skip ({test_name}): {_preset_exc}",
+                        flush=True,
+                    )
                 _auto_test_embed_done.add(test_name)
 
             ui._ensure_auto_test_page = _ensure_auto_test_page
@@ -31837,47 +32136,81 @@ if __name__ == "__main__":
 
 
             print("[DEBUG_STARTUP]    信号连接段结束，启动 system_error_info 线程", flush=True)
-            # 主界面设备页：本机记忆 IP/电压/频率 + Tab 跳下一输入框
-            # （试验对话框在 LazyDialog 首次创建时自动 polish，避免启动时全部实例化）
-            try:
-                from utils.ui_field_helpers import polish_input_widgets
-                _n = polish_input_widgets(main_window)
-                _wt3000_page = ui.stackedWidget.widget(7)
-                for _extra in getattr(_wt3000_page, "_extra_widgets_comboBox_WT3000", {}).values():
-                    polish_input_widgets(_extra)
-                for _name in (
-                    "uiACSetting", "uiDC1Setting", "uiDC2Setting", "uiDC3Setting",
-                    "uiDC4Setting", "uiDL850Setting", "uiDewetronSetting",
-                ):
-                    _f = locals().get(_name) or globals().get(_name)
-                    if _f is None:
-                        continue
-                    try:
-                        for _attr in dir(_f):
-                            if _attr.startswith("textEdit_") or _attr.startswith("lineEdit_"):
-                                _w = getattr(_f, _attr, None)
-                                if _w is not None:
-                                    polish_input_widgets(_w)
-                    except Exception as _pe:
-                        print(f"[UI] polish skip {_name}: {_pe}", flush=True)
-                print(f"[DEBUG_STARTUP]    polish_input_widgets done (~{_n})", flush=True)
-            except Exception as _polish_exc:
-                print(f"[DEBUG_STARTUP]    polish_input_widgets failed: {_polish_exc}", flush=True)
-
-            # WT Auto Gui
+            # polish / DB 放到 show 之后异步做，避免打开前再卡一截
             thread_error_info = threading.Thread(target=system_error_info, daemon=True)
             thread_error_info.start()
             print("[DEBUG_STARTUP]    system_error_info 线程已启动", flush=True)
-
-            # 初始化 DEWETRON 数据库（启动时立即创建，不等连接）
-            print("[DEBUG_STARTUP]    初始化 DEWETRON 数据库...", flush=True)
-            init_database()
 
             strtimenow = now_to_datenow()
             logger.info(strtimenow + "    程式开启" )
             print(strtimenow + "    程式开启" )
             print("[DEBUG_STARTUP] 9/9 main_window.show()", flush=True)
             main_window.show()
+            try:
+                main_window.raise_()
+                main_window.activateWindow()
+            except Exception:
+                pass
+            try:
+                ui.textEdit_ReturnMessage.append("[启动] 主界面已打开")
+            except Exception:
+                pass
+
+            def _deferred_polish_and_db():
+                try:
+                    from utils.ui_field_helpers import polish_input_widgets
+
+                    _n = polish_input_widgets(main_window)
+                    _wt3000_page = ui.stackedWidget.widget(7)
+                    for _extra in getattr(
+                        _wt3000_page, "_extra_widgets_comboBox_WT3000", {}
+                    ).values():
+                        polish_input_widgets(_extra)
+                    for _name in (
+                        "uiACSetting",
+                        "uiDC1Setting",
+                        "uiDC2Setting",
+                        "uiDC3Setting",
+                        "uiDC4Setting",
+                        "uiDL850Setting",
+                        "uiDewetronSetting",
+                    ):
+                        _f = globals().get(_name)
+                        if _f is None:
+                            continue
+                        try:
+                            for _attr in dir(_f):
+                                if _attr.startswith("textEdit_") or _attr.startswith(
+                                    "lineEdit_"
+                                ):
+                                    _w = getattr(_f, _attr, None)
+                                    if _w is not None:
+                                        polish_input_widgets(_w)
+                        except Exception as _pe:
+                            print(f"[UI] polish skip {_name}: {_pe}", flush=True)
+                    print(
+                        f"[DEBUG_STARTUP]    deferred polish_input_widgets done (~{_n})",
+                        flush=True,
+                    )
+                except Exception as _polish_exc:
+                    print(
+                        f"[DEBUG_STARTUP]    deferred polish failed: {_polish_exc}",
+                        flush=True,
+                    )
+                try:
+                    print("[DEBUG_STARTUP]    deferred init DEWETRON database...", flush=True)
+                    init_database()
+                except Exception as _db_exc:
+                    print(f"[DEBUG_STARTUP]    deferred init_database fail: {_db_exc}", flush=True)
+
+            # 打开软件后：VISA 扫描 + 准备任务在后台；连接按槽位排队，不堵界面
+            try:
+                from PyQt5.QtCore import QTimer
+
+                QTimer.singleShot(0, _deferred_polish_and_db)
+                QTimer.singleShot(600, lambda: _schedule_startup_auto_connect(visa_rm=rm))
+            except Exception as _ac_exc:
+                print(f"[DEBUG_STARTUP]    启动自动连接调度失败: {_ac_exc}", flush=True)
             # IOT 云任务 handoff：监视 pending → Append/开始 → 等结束写 results
             try:
                 from utils.iot_ui_handoff import start_iot_ui_handoff_from_main
