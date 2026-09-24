@@ -1,6 +1,10 @@
 # 巴西 ANEEL 140 AutoTest 接入进度
 
-更新日期：2026-08-31
+> **IOT Web 接入顺序以桌面进度表为准**：  
+> `C:\Users\13852\Desktop\光伏自动化项目进度表-20260923.xlsx`（「项目进度总览」序号 1→30，I 列）。  
+> 2026-09-24 已回写：表内 Web **已接入 30/30**（序1~30 均开测表单+细 Blockly+handoff）；安全上限读回/硬线急停仍属二期。
+
+更新日期：2026-09-24
 
 | 试验项 | 标准章节 | AutoTest 对话框 | 状态 | 备注 |
 |--------|----------|-----------------|------|------|
@@ -114,4 +118,26 @@
 - [x] 设定 CSV 往返
 - [ ] 台架真机一次（人工；建议先只开 1 行 Slope=100）
 - [ ] CEI 动态效率报告（另项）
+
+## IOT Web 参数对齐（与桌面一致）
+
+更新日期：2026-09-23
+
+| 试验项 | testType | 桌面 Dialog | Web schema | 参数核对 | 备注 |
+|--------|----------|-------------|------------|----------|------|
+| 过载能力测试 | overload | Dialog_thaioverloads | 已有 | 已接 | 一期 handoff 金样 |
+| 防逆流 | antibackflow | Dialog_thaantibackflow | 已有 | 已接 | — |
+| 电压闪变 | flicker | Dialog_thaiguodianyashanbian | 已有 | 已接 | 勿改业务 |
+| 谐波电流 | harmonic | Dialog_thaixiebodianliu | 已有 | 已接 | — |
+| 固定PF=1 | fixedpf | Dialog_thaifixedPF | 已有 | 已接 | — |
+| 直流分量 | dccomponent | Dialog_thaizhiliufenliang | 已有 | 已接 | — |
+| 重连 | reconnect | Dialog_thaichonglian | 已有 | 已接 | — |
+| 过欠压_过欠频 | ovuf | Dialog_thaiguoqianya_pin | 已有 | 已接 | 勿改业务 |
+| 过频降载 | guopinjiangzai | Dialog_thaiguopinjiangzai | 已有 | **已核对 2026-09-23** | Web 仅展 FrequencyLadder；旧 S3~S17 隐藏；默认 list 与桌面一致 |
+| 欠频升载 | qianpinshengzai | Dialog_thaiqianpinshengzai | 已有 | **已核对 2026-09-23** | 同上（欠频默认 list） |
+| 10min过压保护 | voltprotect10min | Dialog_thaivoltprotect10min | 已有 | **已核对 2026-09-24** | 过压保护 L1~L3 / 采集 / 复归；关机标签对齐 |
+| 巴西过欠频稳定性 | guoqianpin_immun | Dialog_thaiguoqianpin_immun | 已有 | **已核对 2026-09-24** | 频率扫描主路径；兼容控件 hidden |
+| 频率适应性～动态MPPT（序13–30） | （见 schema 目录） | 对应 Dialog_thai* | 已有 | **已核对 2026-09-24** | 进度表 I 列 **30/30 已接入**；执行仍 handoff→桌面 Append |
+
+核对原则：Web 开测表单字段名/默认值/中文标签 = 桌面 Dialog 可见控件；桌面隐藏兼容控件不得出现在 Web。
 
