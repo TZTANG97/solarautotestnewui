@@ -157,7 +157,7 @@
     },
     {
       "name": "comboBox_S1_DC1",
-      "label": "直流电源1",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
       "default": "开启",
@@ -168,7 +168,7 @@
     },
     {
       "name": "comboBox_S1_DC2",
-      "label": "直流电源2",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
       "default": "关闭",
@@ -179,7 +179,7 @@
     },
     {
       "name": "comboBox_S1_DC3",
-      "label": "直流电源3",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
       "default": "关闭",
@@ -190,7 +190,7 @@
     },
     {
       "name": "comboBox_S1_DC4",
-      "label": "直流电源4",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
       "default": "关闭",
@@ -204,7 +204,7 @@
       "label": "Imp",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "10",
       "options": []
     },
     {
@@ -212,7 +212,7 @@
       "label": "Isc",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "12",
       "options": []
     },
     {
@@ -220,7 +220,7 @@
       "label": "功率%",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "100",
       "options": []
     },
     {
@@ -228,7 +228,7 @@
       "label": "Vmp",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "400",
       "options": []
     },
     {
@@ -236,7 +236,7 @@
       "label": "Voc",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "450",
       "options": []
     },
     {

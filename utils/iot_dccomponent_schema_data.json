@@ -63,34 +63,34 @@
     },
     {
       "name": "checkBox_S1_DC1",
-      "label": "启用直流电源1",
+      "label": "直流电源1",
       "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
+      "group": "step1_dc",
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S1_DC2",
-      "label": "启用直流电源2",
+      "label": "直流电源2",
       "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
+      "group": "step1_dc",
+      "default": false,
       "options": []
     },
     {
       "name": "checkBox_S1_DC3",
-      "label": "启用直流电源3",
+      "label": "直流电源3",
       "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
+      "group": "step1_dc",
+      "default": false,
       "options": []
     },
     {
       "name": "checkBox_S1_DC4",
-      "label": "启用直流电源4",
+      "label": "直流电源4",
       "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
+      "group": "step1_dc",
+      "default": false,
       "options": []
     },
     {
@@ -169,79 +169,91 @@
     },
     {
       "name": "comboBox_S1_DC1",
-      "label": "直流1 开关",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
-      "default": null,
-      "options": []
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
     },
     {
       "name": "comboBox_S1_DC2",
-      "label": "直流2 开关",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "开启",
+        "关闭"
+      ]
     },
     {
       "name": "comboBox_S1_DC3",
-      "label": "直流3 开关",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "开启",
+        "关闭"
+      ]
     },
     {
       "name": "comboBox_S1_DC4",
-      "label": "直流4 开关",
+      "label": "开关",
       "type": "select",
       "group": "step1_dc",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "开启",
+        "关闭"
+      ]
     },
     {
       "name": "textEdit_S1_DC1_CURR",
-      "label": "直流1 Imp(A)",
+      "label": "Imp",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "10",
       "options": []
     },
     {
       "name": "textEdit_S1_DC1_Isc",
-      "label": "直流1 Isc(A)",
+      "label": "Isc",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "12",
       "options": []
     },
     {
       "name": "textEdit_S1_DC1_PF",
-      "label": "直流1 功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "100",
       "options": []
     },
     {
       "name": "textEdit_S1_DC1_VOLT",
-      "label": "直流1 Vmp(V)",
+      "label": "Vmp",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "400",
       "options": []
     },
     {
       "name": "textEdit_S1_DC1_Voc",
-      "label": "直流1 Voc(V)",
+      "label": "Voc",
       "type": "text",
       "group": "step1_dc",
-      "default": null,
+      "default": "450",
       "options": []
     },
     {
       "name": "textEdit_S1_DC2_CURR",
-      "label": "直流2 Imp(A)",
+      "label": "Imp",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -249,7 +261,7 @@
     },
     {
       "name": "textEdit_S1_DC2_Isc",
-      "label": "直流2 Isc(A)",
+      "label": "Isc",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -257,7 +269,7 @@
     },
     {
       "name": "textEdit_S1_DC2_PF",
-      "label": "直流2 功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -265,7 +277,7 @@
     },
     {
       "name": "textEdit_S1_DC2_VOLT",
-      "label": "直流2 Vmp(V)",
+      "label": "Vmp",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -273,7 +285,7 @@
     },
     {
       "name": "textEdit_S1_DC2_Voc",
-      "label": "直流2 Voc(V)",
+      "label": "Voc",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -281,7 +293,7 @@
     },
     {
       "name": "textEdit_S1_DC3_CURR",
-      "label": "直流3 Imp(A)",
+      "label": "Imp",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -289,7 +301,7 @@
     },
     {
       "name": "textEdit_S1_DC3_Isc",
-      "label": "直流3 Isc(A)",
+      "label": "Isc",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -297,7 +309,7 @@
     },
     {
       "name": "textEdit_S1_DC3_PF",
-      "label": "直流3 功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -305,7 +317,7 @@
     },
     {
       "name": "textEdit_S1_DC3_VOLT",
-      "label": "直流3 Vmp(V)",
+      "label": "Vmp",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -313,7 +325,7 @@
     },
     {
       "name": "textEdit_S1_DC3_Voc",
-      "label": "直流3 Voc(V)",
+      "label": "Voc",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -321,7 +333,7 @@
     },
     {
       "name": "textEdit_S1_DC4_CURR",
-      "label": "直流4 Imp(A)",
+      "label": "Imp",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -329,7 +341,7 @@
     },
     {
       "name": "textEdit_S1_DC4_Isc",
-      "label": "直流4 Isc(A)",
+      "label": "Isc",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -337,7 +349,7 @@
     },
     {
       "name": "textEdit_S1_DC4_PF",
-      "label": "直流4 功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -345,7 +357,7 @@
     },
     {
       "name": "textEdit_S1_DC4_VOLT",
-      "label": "直流4 Vmp(V)",
+      "label": "Vmp",
       "type": "text",
       "group": "step1_dc",
       "default": null,
@@ -353,7 +365,7 @@
     },
     {
       "name": "textEdit_S1_DC4_Voc",
-      "label": "直流4 Voc(V)",
+      "label": "Voc",
       "type": "text",
       "group": "step1_dc",
       "default": null,

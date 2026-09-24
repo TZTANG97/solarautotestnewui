@@ -2064,6 +2064,210 @@
         "关闭",
         "开启"
       ]
+    },
+    {
+      "name": "comboBox_S1_DC1",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC1_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "400",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "10",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "450",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "12",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC2",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "关闭",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC2_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC3",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "关闭",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC3_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC4",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "关闭",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC4_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
     }
   ],
   "jobFlags": {

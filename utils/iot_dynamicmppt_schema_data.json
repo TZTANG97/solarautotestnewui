@@ -187,7 +187,7 @@
       "label": "开关",
       "type": "select",
       "group": "step1_dc",
-      "default": "开启",
+      "default": "关闭",
       "options": [
         "开启",
         "关闭"
@@ -198,7 +198,7 @@
       "label": "开关",
       "type": "select",
       "group": "step1_dc",
-      "default": "开启",
+      "default": "关闭",
       "options": [
         "开启",
         "关闭"
@@ -209,7 +209,7 @@
       "label": "开关",
       "type": "select",
       "group": "step1_dc",
-      "default": "开启",
+      "default": "关闭",
       "options": [
         "开启",
         "关闭"
@@ -220,7 +220,7 @@
       "label": "Imp",
       "type": "text",
       "group": "step1_dc",
-      "default": "12",
+      "default": "10",
       "options": []
     },
     {
@@ -228,7 +228,7 @@
       "label": "Isc",
       "type": "text",
       "group": "step1_dc",
-      "default": "13",
+      "default": "12",
       "options": []
     },
     {
@@ -244,7 +244,7 @@
       "label": "Vmp",
       "type": "text",
       "group": "step1_dc",
-      "default": "650",
+      "default": "400",
       "options": []
     },
     {
@@ -252,7 +252,7 @@
       "label": "Voc",
       "type": "text",
       "group": "step1_dc",
-      "default": "720",
+      "default": "450",
       "options": []
     },
     {
