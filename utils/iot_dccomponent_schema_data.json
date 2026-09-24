@@ -1364,34 +1364,34 @@
     },
     {
       "name": "checkBox_S3_DC1",
-      "label": "checkBox_S3_DC1",
+      "label": "100%Pn·直流电源1",
       "type": "checkbox",
       "group": "step3_pn100",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_DC2",
-      "label": "checkBox_S3_DC2",
+      "label": "100%Pn·直流电源2",
       "type": "checkbox",
       "group": "step3_pn100",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_DC3",
-      "label": "checkBox_S3_DC3",
+      "label": "100%Pn·直流电源3",
       "type": "checkbox",
       "group": "step3_pn100",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_DC4",
-      "label": "checkBox_S3_DC4",
+      "label": "100%Pn·直流电源4",
       "type": "checkbox",
       "group": "step3_pn100",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
@@ -1420,18 +1420,18 @@
     },
     {
       "name": "comboBox_S3_record_mode",
-      "label": "录波模式",
+      "label": "录波方式",
       "type": "select",
       "group": "step3_pn100",
-      "default": "一条线连续录",
+      "default": "一条线连续录（单文件）",
       "options": [
-        "一条线连续录",
-        "分开录"
+        "一条线连续录（单文件）",
+        "分开录（多文件/逐点存盘）"
       ]
     },
     {
       "name": "textEdit_S3_DC_PF",
-      "label": "100%Pn 功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step3_pn100",
       "default": "100",
@@ -1439,7 +1439,7 @@
     },
     {
       "name": "textEdit_S3_TIME_2",
-      "label": "数据采集时长",
+      "label": "数据采集",
       "type": "text",
       "group": "step3_pn100",
       "default": "5",
@@ -1463,39 +1463,39 @@
     },
     {
       "name": "checkBox_S4_DC1",
-      "label": "checkBox_S4_DC1",
+      "label": "66%Pn·直流电源1",
       "type": "checkbox",
       "group": "step4_pn66",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S4_DC2",
-      "label": "checkBox_S4_DC2",
+      "label": "66%Pn·直流电源2",
       "type": "checkbox",
       "group": "step4_pn66",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S4_DC3",
-      "label": "checkBox_S4_DC3",
+      "label": "66%Pn·直流电源3",
       "type": "checkbox",
       "group": "step4_pn66",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S4_DC4",
-      "label": "checkBox_S4_DC4",
+      "label": "66%Pn·直流电源4",
       "type": "checkbox",
       "group": "step4_pn66",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "textEdit_S4_DC_PF",
-      "label": "66%Pn 功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step4_pn66",
       "default": "66",
@@ -1511,39 +1511,39 @@
     },
     {
       "name": "checkBox_S5_DC1",
-      "label": "checkBox_S5_DC1",
+      "label": "33%Pn·直流电源1",
       "type": "checkbox",
       "group": "step5_pn33",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S5_DC2",
-      "label": "checkBox_S5_DC2",
+      "label": "33%Pn·直流电源2",
       "type": "checkbox",
       "group": "step5_pn33",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S5_DC3",
-      "label": "checkBox_S5_DC3",
+      "label": "33%Pn·直流电源3",
       "type": "checkbox",
       "group": "step5_pn33",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S5_DC4",
-      "label": "checkBox_S5_DC4",
+      "label": "33%Pn·直流电源4",
       "type": "checkbox",
       "group": "step5_pn33",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "textEdit_S5_DC_PF",
-      "label": "33%Pn 功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step5_pn33",
       "default": "33",
@@ -1559,39 +1559,39 @@
     },
     {
       "name": "checkBox_S6_DC1",
-      "label": "checkBox_S6_DC1",
+      "label": "可选·直流电源1",
       "type": "checkbox",
       "group": "step6_optional",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S6_DC2",
-      "label": "checkBox_S6_DC2",
+      "label": "可选·直流电源2",
       "type": "checkbox",
       "group": "step6_optional",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S6_DC3",
-      "label": "checkBox_S6_DC3",
+      "label": "可选·直流电源3",
       "type": "checkbox",
       "group": "step6_optional",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S6_DC4",
-      "label": "checkBox_S6_DC4",
+      "label": "可选·直流电源4",
       "type": "checkbox",
       "group": "step6_optional",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "textEdit_S6_DC_PF",
-      "label": "可选功率(%)",
+      "label": "功率%",
       "type": "text",
       "group": "step6_optional",
       "default": "20",
@@ -1607,39 +1607,39 @@
     },
     {
       "name": "checkBox_S7_DC1",
-      "label": "checkBox_S7_DC1",
+      "label": "直流电源1",
       "type": "checkbox",
       "group": "step7_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S7_DC2",
-      "label": "checkBox_S7_DC2",
+      "label": "直流电源2",
       "type": "checkbox",
       "group": "step7_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S7_DC3",
-      "label": "checkBox_S7_DC3",
+      "label": "直流电源3",
       "type": "checkbox",
       "group": "step7_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S7_DC4",
-      "label": "checkBox_S7_DC4",
+      "label": "直流电源4",
       "type": "checkbox",
       "group": "step7_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "comboBox_S7_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step7_off",
       "default": "关闭",
@@ -1650,35 +1650,47 @@
     },
     {
       "name": "comboBox_S7_DC1",
-      "label": "comboBox_S7_DC1",
+      "label": "直流1关机",
       "type": "select",
       "group": "step7_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     },
     {
       "name": "comboBox_S7_DC2",
-      "label": "comboBox_S7_DC2",
+      "label": "直流2关机",
       "type": "select",
       "group": "step7_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     },
     {
       "name": "comboBox_S7_DC3",
-      "label": "comboBox_S7_DC3",
+      "label": "直流3关机",
       "type": "select",
       "group": "step7_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     },
     {
       "name": "comboBox_S7_DC4",
-      "label": "comboBox_S7_DC4",
+      "label": "直流4关机",
       "type": "select",
       "group": "step7_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     }
   ],
   "jobFlags": {

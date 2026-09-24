@@ -29,7 +29,7 @@
     },
     {
       "id": "step4_mppt",
-      "title": "④ MPPT测试"
+      "title": "④ MPPT时长"
     },
     {
       "id": "step5_off",
@@ -42,6 +42,146 @@
   ],
   "fields": [
     {
+      "name": "checkBox_S1_{dcPrefix}",
+      "label": "checkBox_S1_{dcPrefix}",
+      "type": "checkbox",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "checkBox_S1_{dcPrefix}_Vdc1",
+      "label": "checkBox_S1_{dcPrefix}_Vdc1",
+      "type": "checkbox",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "checkBox_S1_{dcPrefix}_Vdc2",
+      "label": "checkBox_S1_{dcPrefix}_Vdc2",
+      "type": "checkbox",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "checkBox_S1_{dcPrefix}_Vdc3",
+      "label": "checkBox_S1_{dcPrefix}_Vdc3",
+      "type": "checkbox",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "checkBox_S1_{dcPrefix}_Vmax",
+      "label": "checkBox_S1_{dcPrefix}_Vmax",
+      "type": "checkbox",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "checkBox_S1_{dcPrefix}_Vmin",
+      "label": "checkBox_S1_{dcPrefix}_Vmin",
+      "type": "checkbox",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "checkBox_S1_{dcPrefix}_Vnom",
+      "label": "checkBox_S1_{dcPrefix}_Vnom",
+      "type": "checkbox",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "comboBox_S1_{dcPrefix}_PORT",
+      "label": "comboBox_S1_{dcPrefix}_PORT",
+      "type": "select",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "textEdit_S1_{dcPrefix}_Vdc1",
+      "label": "textEdit_S1_{dcPrefix}_Vdc1",
+      "type": "text",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "textEdit_S1_{dcPrefix}_Vdc2",
+      "label": "textEdit_S1_{dcPrefix}_Vdc2",
+      "type": "text",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "textEdit_S1_{dcPrefix}_Vdc3",
+      "label": "textEdit_S1_{dcPrefix}_Vdc3",
+      "type": "text",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "textEdit_S1_{dcPrefix}_Vmax",
+      "label": "textEdit_S1_{dcPrefix}_Vmax",
+      "type": "text",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "textEdit_S1_{dcPrefix}_Vmin",
+      "label": "textEdit_S1_{dcPrefix}_Vmin",
+      "type": "text",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
+      "name": "textEdit_S1_{dcPrefix}_Vnom",
+      "label": "textEdit_S1_{dcPrefix}_Vnom",
+      "type": "text",
+      "group": "other",
+      "default": null,
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
+    },
+    {
       "name": "checkBox_S1",
       "label": "启用步骤1 AC/DC",
       "type": "checkbox",
@@ -50,64 +190,8 @@
       "options": []
     },
     {
-      "name": "checkBox_S1_{dcPrefix}",
-      "label": "checkBox_S1_{dcPrefix}",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_{dcPrefix}_Vdc1",
-      "label": "checkBox_S1_{dcPrefix}_Vdc1",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_{dcPrefix}_Vdc2",
-      "label": "checkBox_S1_{dcPrefix}_Vdc2",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_{dcPrefix}_Vdc3",
-      "label": "checkBox_S1_{dcPrefix}_Vdc3",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_{dcPrefix}_Vmax",
-      "label": "checkBox_S1_{dcPrefix}_Vmax",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_{dcPrefix}_Vmin",
-      "label": "checkBox_S1_{dcPrefix}_Vmin",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_{dcPrefix}_Vnom",
-      "label": "checkBox_S1_{dcPrefix}_Vnom",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
       "name": "comboBox_S1_AC",
-      "label": "comboBox_S1_AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step1_ac",
       "default": "开启",
@@ -118,19 +202,19 @@
     },
     {
       "name": "comboBox_S1_ACWaitTIME",
-      "label": "comboBox_S1_ACWaitTIME",
+      "label": "AC 等待单位",
       "type": "select",
       "group": "step1_ac",
       "default": "秒",
       "options": [
         "秒",
-        "分钟",
-        "毫秒"
+        "毫秒",
+        "分钟"
       ]
     },
     {
       "name": "comboBox_S1_AC_2",
-      "label": "comboBox_S1_AC_2",
+      "label": "相数",
       "type": "select",
       "group": "step1_ac",
       "default": "单相",
@@ -141,7 +225,7 @@
     },
     {
       "name": "comboBox_S1_TIME",
-      "label": "comboBox_S1_TIME",
+      "label": "启机等待单位",
       "type": "select",
       "group": "step1_ac",
       "default": "分钟",
@@ -152,31 +236,8 @@
       ]
     },
     {
-      "name": "comboBox_S1_Vdc_Count",
-      "label": "comboBox_S1_Vdc_Count",
-      "type": "select",
-      "group": "step1_ac",
-      "default": "3",
-      "options": [
-        "3",
-        "1",
-        "2",
-        "4",
-        "5",
-        "6"
-      ]
-    },
-    {
-      "name": "comboBox_S1_{dcPrefix}_PORT",
-      "label": "comboBox_S1_{dcPrefix}_PORT",
-      "type": "select",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
       "name": "radio_Mode_Bluesight",
-      "label": "radio_Mode_Bluesight",
+      "label": "蓝电 IP（国产）",
       "type": "radio",
       "group": "step1_ac",
       "default": true,
@@ -184,15 +245,15 @@
     },
     {
       "name": "radio_Mode_SoftPanel",
-      "label": "radio_Mode_SoftPanel",
+      "label": "Soft Panel 曲线",
       "type": "radio",
       "group": "step1_ac",
-      "default": null,
+      "default": false,
       "options": []
     },
     {
       "name": "textEdit_S1_ACWaitTIME",
-      "label": "textEdit_S1_ACWaitTIME",
+      "label": "AC 等待时长",
       "type": "text",
       "group": "step1_ac",
       "default": "3",
@@ -200,7 +261,7 @@
     },
     {
       "name": "textEdit_S1_AC_FR",
-      "label": "textEdit_S1_AC_FR",
+      "label": "频率(Hz)",
       "type": "text",
       "group": "step1_ac",
       "default": "50",
@@ -208,7 +269,7 @@
     },
     {
       "name": "textEdit_S1_AC_VOLT",
-      "label": "textEdit_S1_AC_VOLT",
+      "label": "电压 L1(V)",
       "type": "text",
       "group": "step1_ac",
       "default": "230",
@@ -216,7 +277,7 @@
     },
     {
       "name": "textEdit_S1_AC_VOLT_2",
-      "label": "textEdit_S1_AC_VOLT_2",
+      "label": "电压 L2(V)",
       "type": "text",
       "group": "step1_ac",
       "default": "230",
@@ -224,7 +285,7 @@
     },
     {
       "name": "textEdit_S1_AC_VOLT_3",
-      "label": "textEdit_S1_AC_VOLT_3",
+      "label": "电压 L3(V)",
       "type": "text",
       "group": "step1_ac",
       "default": "230",
@@ -232,63 +293,271 @@
     },
     {
       "name": "textEdit_S1_TIME",
-      "label": "textEdit_S1_TIME",
+      "label": "启机等待",
       "type": "text",
       "group": "step1_ac",
       "default": "5",
       "options": []
     },
     {
-      "name": "textEdit_S1_{dcPrefix}_Vdc1",
-      "label": "textEdit_S1_{dcPrefix}_Vdc1",
-      "type": "text",
-      "group": "step1_ac",
+      "name": "checkBox_S1_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_Vdc1",
+      "label": "DC1·Vdc1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_Vdc2",
+      "label": "DC1·Vdc2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_Vdc3",
+      "label": "DC1·Vdc3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_Vmax",
+      "label": "DC1·Vmax",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_Vmin",
+      "label": "DC1·Vmin",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_Vnom",
+      "label": "DC1·Vnom",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_Vdc1",
+      "label": "DC2·Vdc1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_Vdc2",
+      "label": "DC2·Vdc2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_Vdc3",
+      "label": "DC2·Vdc3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_Vmax",
+      "label": "DC2·Vmax",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_Vmin",
+      "label": "DC2·Vmin",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_Vnom",
+      "label": "DC2·Vnom",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_Vdc1",
+      "label": "DC3·Vdc1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_Vdc2",
+      "label": "DC3·Vdc2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_Vdc3",
+      "label": "DC3·Vdc3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_Vmax",
+      "label": "DC3·Vmax",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_Vmin",
+      "label": "DC3·Vmin",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_Vnom",
+      "label": "DC3·Vnom",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_Vdc1",
+      "label": "DC4·Vdc1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_Vdc2",
+      "label": "DC4·Vdc2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_Vdc3",
+      "label": "DC4·Vdc3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_Vmax",
+      "label": "DC4·Vmax",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_Vmin",
+      "label": "DC4·Vmin",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_Vnom",
+      "label": "DC4·Vnom",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC1_PORT",
+      "label": "DC1 接口",
+      "type": "select",
+      "group": "step1_dc",
       "default": null,
       "options": []
     },
     {
-      "name": "textEdit_S1_{dcPrefix}_Vdc2",
-      "label": "textEdit_S1_{dcPrefix}_Vdc2",
-      "type": "text",
-      "group": "step1_ac",
+      "name": "comboBox_S1_DC2_PORT",
+      "label": "DC2 接口",
+      "type": "select",
+      "group": "step1_dc",
       "default": null,
       "options": []
     },
     {
-      "name": "textEdit_S1_{dcPrefix}_Vdc3",
-      "label": "textEdit_S1_{dcPrefix}_Vdc3",
-      "type": "text",
-      "group": "step1_ac",
+      "name": "comboBox_S1_DC3_PORT",
+      "label": "DC3 接口",
+      "type": "select",
+      "group": "step1_dc",
       "default": null,
       "options": []
     },
     {
-      "name": "textEdit_S1_{dcPrefix}_Vmax",
-      "label": "textEdit_S1_{dcPrefix}_Vmax",
-      "type": "text",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_{dcPrefix}_Vmin",
-      "label": "textEdit_S1_{dcPrefix}_Vmin",
-      "type": "text",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_{dcPrefix}_Vnom",
-      "label": "textEdit_S1_{dcPrefix}_Vnom",
-      "type": "text",
-      "group": "step1_ac",
+      "name": "comboBox_S1_DC4_PORT",
+      "label": "DC4 接口",
+      "type": "select",
+      "group": "step1_dc",
       "default": null,
       "options": []
     },
     {
       "name": "comboBox_S1_DC_START",
-      "label": "comboBox_S1_DC_START",
+      "label": "直流启机",
       "type": "select",
       "group": "step1_dc",
       "default": "开启",
@@ -296,6 +565,306 @@
         "开启",
         "关闭"
       ]
+    },
+    {
+      "name": "comboBox_S1_Vdc_Count",
+      "label": "Vdc 点数",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "3",
+      "options": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "name": "textEdit_BS_Vmax_Imp",
+      "label": "蓝电 Vmax·Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "12.3",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vmax_Isc",
+      "label": "蓝电 Vmax·Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "13.5",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vmax_Vmp",
+      "label": "蓝电 Vmax·Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "750",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vmax_Voc",
+      "label": "蓝电 Vmax·Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "900",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vmin_Imp",
+      "label": "蓝电 Vmin·Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "12.3",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vmin_Isc",
+      "label": "蓝电 Vmin·Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "13.5",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vmin_Vmp",
+      "label": "蓝电 Vmin·Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "500",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vmin_Voc",
+      "label": "蓝电 Vmin·Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "650",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vnom_Imp",
+      "label": "蓝电 Vnom·Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "12.3",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vnom_Isc",
+      "label": "蓝电 Vnom·Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "13.5",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vnom_Vmp",
+      "label": "蓝电 Vnom·Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "650",
+      "options": []
+    },
+    {
+      "name": "textEdit_BS_Vnom_Voc",
+      "label": "蓝电 Vnom·Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": "800",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Vdc1",
+      "label": "DC1·Vdc1文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Vdc2",
+      "label": "DC1·Vdc2文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Vdc3",
+      "label": "DC1·Vdc3文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Vmax",
+      "label": "DC1·Vmax文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Vmin",
+      "label": "DC1·Vmin文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Vnom",
+      "label": "DC1·Vnom文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Vdc1",
+      "label": "DC2·Vdc1文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Vdc2",
+      "label": "DC2·Vdc2文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Vdc3",
+      "label": "DC2·Vdc3文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Vmax",
+      "label": "DC2·Vmax文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Vmin",
+      "label": "DC2·Vmin文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Vnom",
+      "label": "DC2·Vnom文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Vdc1",
+      "label": "DC3·Vdc1文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Vdc2",
+      "label": "DC3·Vdc2文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Vdc3",
+      "label": "DC3·Vdc3文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Vmax",
+      "label": "DC3·Vmax文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Vmin",
+      "label": "DC3·Vmin文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Vnom",
+      "label": "DC3·Vnom文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Vdc1",
+      "label": "DC4·Vdc1文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Vdc2",
+      "label": "DC4·Vdc2文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Vdc3",
+      "label": "DC4·Vdc3文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Vmax",
+      "label": "DC4·Vmax文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Vmin",
+      "label": "DC4·Vmin文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Vnom",
+      "label": "DC4·Vnom文件/值",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
     },
     {
       "name": "checkBox_DEW_RealtimeWaveform",
@@ -1308,7 +1877,7 @@
     },
     {
       "name": "checkBox_S2_Pn_10",
-      "label": "功率段 10%",
+      "label": "10%",
       "type": "checkbox",
       "group": "step3_power",
       "default": false,
@@ -1316,7 +1885,7 @@
     },
     {
       "name": "checkBox_S2_Pn_100",
-      "label": "功率段 100%",
+      "label": "100%",
       "type": "checkbox",
       "group": "step3_power",
       "default": true,
@@ -1324,7 +1893,7 @@
     },
     {
       "name": "checkBox_S2_Pn_20",
-      "label": "功率段 20%",
+      "label": "20%",
       "type": "checkbox",
       "group": "step3_power",
       "default": false,
@@ -1332,7 +1901,7 @@
     },
     {
       "name": "checkBox_S2_Pn_25",
-      "label": "功率段 25%",
+      "label": "25%",
       "type": "checkbox",
       "group": "step3_power",
       "default": false,
@@ -1340,7 +1909,7 @@
     },
     {
       "name": "checkBox_S2_Pn_30",
-      "label": "功率段 30%",
+      "label": "30%",
       "type": "checkbox",
       "group": "step3_power",
       "default": false,
@@ -1348,7 +1917,7 @@
     },
     {
       "name": "checkBox_S2_Pn_5",
-      "label": "功率段 5%",
+      "label": "5%",
       "type": "checkbox",
       "group": "step3_power",
       "default": false,
@@ -1356,7 +1925,7 @@
     },
     {
       "name": "checkBox_S2_Pn_50",
-      "label": "功率段 50%",
+      "label": "50%",
       "type": "checkbox",
       "group": "step3_power",
       "default": false,
@@ -1364,7 +1933,7 @@
     },
     {
       "name": "checkBox_S2_Pn_75",
-      "label": "功率段 75%",
+      "label": "75%",
       "type": "checkbox",
       "group": "step3_power",
       "default": false,
@@ -1372,7 +1941,7 @@
     },
     {
       "name": "textEdit_S2_Vdc1_PATH",
-      "label": "textEdit_S2_Vdc1_PATH",
+      "label": "Vdc1 路径",
       "type": "text",
       "group": "step3_power",
       "default": null,
@@ -1380,7 +1949,7 @@
     },
     {
       "name": "textEdit_S2_Vdc2_PATH",
-      "label": "textEdit_S2_Vdc2_PATH",
+      "label": "Vdc2 路径",
       "type": "text",
       "group": "step3_power",
       "default": null,
@@ -1388,7 +1957,7 @@
     },
     {
       "name": "textEdit_S2_Vdc3_PATH",
-      "label": "textEdit_S2_Vdc3_PATH",
+      "label": "Vdc3 路径",
       "type": "text",
       "group": "step3_power",
       "default": null,
@@ -1396,7 +1965,7 @@
     },
     {
       "name": "textEdit_S2_Vmax_PATH",
-      "label": "textEdit_S2_Vmax_PATH",
+      "label": "Vmax 路径",
       "type": "text",
       "group": "step3_power",
       "default": null,
@@ -1404,7 +1973,7 @@
     },
     {
       "name": "textEdit_S2_Vmin_PATH",
-      "label": "textEdit_S2_Vmin_PATH",
+      "label": "Vmin 路径",
       "type": "text",
       "group": "step3_power",
       "default": null,
@@ -1412,7 +1981,7 @@
     },
     {
       "name": "textEdit_S2_Vnom_PATH",
-      "label": "textEdit_S2_Vnom_PATH",
+      "label": "Vnom 路径",
       "type": "text",
       "group": "step3_power",
       "default": null,
@@ -1468,7 +2037,7 @@
     },
     {
       "name": "checkBox_S_End_DC",
-      "label": "checkBox_S_End_DC",
+      "label": "直流电源",
       "type": "checkbox",
       "group": "step5_off",
       "default": true,
@@ -1476,7 +2045,7 @@
     },
     {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step5_off",
       "default": "关闭",
@@ -1487,7 +2056,7 @@
     },
     {
       "name": "comboBox_S_End_DC",
-      "label": "comboBox_S_End_DC",
+      "label": "直流关机",
       "type": "select",
       "group": "step5_off",
       "default": "关闭",

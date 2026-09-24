@@ -1440,7 +1440,7 @@
     },
     {
       "name": "checkBox_S_End_DC1",
-      "label": "checkBox_S_End_DC1",
+      "label": "直流电源1",
       "type": "checkbox",
       "group": "step8_off",
       "default": true,
@@ -1448,7 +1448,7 @@
     },
     {
       "name": "checkBox_S_End_DC2",
-      "label": "checkBox_S_End_DC2",
+      "label": "直流电源2",
       "type": "checkbox",
       "group": "step8_off",
       "default": true,
@@ -1456,7 +1456,7 @@
     },
     {
       "name": "checkBox_S_End_DC3",
-      "label": "checkBox_S_End_DC3",
+      "label": "直流电源3",
       "type": "checkbox",
       "group": "step8_off",
       "default": true,
@@ -1464,7 +1464,7 @@
     },
     {
       "name": "checkBox_S_End_DC4",
-      "label": "checkBox_S_End_DC4",
+      "label": "直流电源4",
       "type": "checkbox",
       "group": "step8_off",
       "default": true,
@@ -1472,7 +1472,7 @@
     },
     {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step8_off",
       "default": "关闭",
@@ -1483,7 +1483,7 @@
     },
     {
       "name": "comboBox_S_End_DC1",
-      "label": "comboBox_S_End_DC1",
+      "label": "直流电源1关机",
       "type": "select",
       "group": "step8_off",
       "default": "关闭",
@@ -1494,7 +1494,7 @@
     },
     {
       "name": "comboBox_S_End_DC2",
-      "label": "comboBox_S_End_DC2",
+      "label": "直流电源2关机",
       "type": "select",
       "group": "step8_off",
       "default": "关闭",
@@ -1505,7 +1505,7 @@
     },
     {
       "name": "comboBox_S_End_DC3",
-      "label": "comboBox_S_End_DC3",
+      "label": "直流电源3关机",
       "type": "select",
       "group": "step8_off",
       "default": "关闭",
@@ -1516,7 +1516,7 @@
     },
     {
       "name": "comboBox_S_End_DC4",
-      "label": "comboBox_S_End_DC4",
+      "label": "直流电源4关机",
       "type": "select",
       "group": "step8_off",
       "default": "关闭",

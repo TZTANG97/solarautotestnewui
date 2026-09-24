@@ -79,10 +79,10 @@
     },
     {
       "name": "comboBox_S1_AC",
-      "label": "comboBox_S1_AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "开启",
       "options": [
         "开启",
         "关闭"
@@ -102,10 +102,10 @@
     },
     {
       "name": "comboBox_S1_AC_2",
-      "label": "comboBox_S1_AC_2",
+      "label": "相数",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "单相",
       "options": [
         "单相",
         "三相"
@@ -133,34 +133,34 @@
     },
     {
       "name": "textEdit_S1_AC_FR",
-      "label": "textEdit_S1_AC_FR",
+      "label": "交流频率",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "50",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT",
-      "label": "textEdit_S1_AC_VOLT",
+      "label": "交流电压1",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT_2",
-      "label": "textEdit_S1_AC_VOLT_2",
+      "label": "交流电压2",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT_3",
-      "label": "textEdit_S1_AC_VOLT_3",
+      "label": "交流电压3",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
@@ -172,6 +172,82 @@
       "options": []
     },
     {
+      "name": "checkBox_S1_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC1",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC2",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC3",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC4",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
       "name": "radio_dewetron",
       "label": "德威创",
       "type": "radio",
@@ -181,7 +257,7 @@
     },
     {
       "name": "checkBox_S2",
-      "label": "启用步骤2 功率分析仪",
+      "label": "启用功率分析仪",
       "type": "checkbox",
       "group": "step2_wt",
       "default": true,
@@ -1236,8 +1312,8 @@
       "default": "秒",
       "options": [
         "秒",
-        "毫秒",
-        "分钟"
+        "分钟",
+        "小时"
       ]
     },
     {
@@ -1248,8 +1324,8 @@
       "default": "秒",
       "options": [
         "秒",
-        "毫秒",
-        "分钟"
+        "分钟",
+        "小时"
       ]
     },
     {
@@ -1260,8 +1336,8 @@
       "default": "秒",
       "options": [
         "秒",
-        "毫秒",
-        "分钟"
+        "分钟",
+        "小时"
       ]
     },
     {
@@ -1272,8 +1348,8 @@
       "default": "秒",
       "options": [
         "秒",
-        "毫秒",
-        "分钟"
+        "分钟",
+        "小时"
       ]
     },
     {
@@ -1284,8 +1360,8 @@
       "default": "秒",
       "options": [
         "秒",
-        "毫秒",
-        "分钟"
+        "分钟",
+        "小时"
       ]
     },
     {
@@ -1296,8 +1372,8 @@
       "default": "秒",
       "options": [
         "秒",
-        "毫秒",
-        "分钟"
+        "分钟",
+        "小时"
       ]
     },
     {
@@ -1305,7 +1381,7 @@
       "label": "ROCOF1 终点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "52",
       "options": []
     },
     {
@@ -1313,7 +1389,7 @@
       "label": "ROCOF1 起点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "50",
       "options": []
     },
     {
@@ -1321,15 +1397,15 @@
       "label": "ROCOF1 (Hz/s)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
       "name": "textEdit_S3_test_duration_rocof",
-      "label": "ROCOF1 时长",
+      "label": "ROCOF1 数据采集",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
@@ -1337,7 +1413,7 @@
       "label": "ROCOF2 终点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "48",
       "options": []
     },
     {
@@ -1345,7 +1421,7 @@
       "label": "ROCOF2 起点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "50",
       "options": []
     },
     {
@@ -1353,15 +1429,15 @@
       "label": "ROCOF2 (Hz/s)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
       "name": "textEdit_S4_test_duration_rocof",
-      "label": "ROCOF2 时长",
+      "label": "ROCOF2 数据采集",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
@@ -1369,7 +1445,7 @@
       "label": "ROCOF3 终点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "52",
       "options": []
     },
     {
@@ -1377,7 +1453,7 @@
       "label": "ROCOF3 起点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "50",
       "options": []
     },
     {
@@ -1385,15 +1461,15 @@
       "label": "ROCOF3 (Hz/s)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "1",
       "options": []
     },
     {
       "name": "textEdit_S5_test_duration_rocof",
-      "label": "ROCOF3 时长",
+      "label": "ROCOF3 数据采集",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
@@ -1401,7 +1477,7 @@
       "label": "ROCOF4 终点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "48",
       "options": []
     },
     {
@@ -1409,7 +1485,7 @@
       "label": "ROCOF4 起点(Hz)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "50",
       "options": []
     },
     {
@@ -1417,15 +1493,15 @@
       "label": "ROCOF4 (Hz/s)",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "1",
       "options": []
     },
     {
       "name": "textEdit_S6_test_duration_rocof",
-      "label": "ROCOF4 时长",
+      "label": "ROCOF4 数据采集",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
@@ -1454,10 +1530,10 @@
     },
     {
       "name": "textEdit_S7_test_duration_rocof",
-      "label": "ROCOF5 时长",
+      "label": "ROCOF5 数据采集",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
@@ -1486,10 +1562,10 @@
     },
     {
       "name": "textEdit_S8_test_duration_rocof",
-      "label": "ROCOF6 时长",
+      "label": "ROCOF6 数据采集",
       "type": "text",
       "group": "step3_rocof",
-      "default": null,
+      "default": "2",
       "options": []
     },
     {
@@ -1501,11 +1577,87 @@
       "options": []
     },
     {
+      "name": "checkBox_S_End_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step4_off",
-      "default": null,
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC1",
+      "label": "直流电源1关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC2",
+      "label": "直流电源2关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC3",
+      "label": "直流电源3关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC4",
+      "label": "直流电源4关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
       "options": [
         "关闭",
         "开启"

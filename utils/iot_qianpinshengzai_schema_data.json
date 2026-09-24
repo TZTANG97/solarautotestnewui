@@ -1348,7 +1348,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S11",
@@ -1356,7 +1358,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S12",
@@ -1364,7 +1368,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S13",
@@ -1372,7 +1378,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S14",
@@ -1380,7 +1388,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S15",
@@ -1388,7 +1398,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S16",
@@ -1396,7 +1408,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S17",
@@ -1404,11 +1418,13 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S3",
-      "label": "启用欠频台阶1",
+      "label": "启用频率台阶",
       "type": "checkbox",
       "group": "step3_freq",
       "default": true,
@@ -1420,7 +1436,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S5",
@@ -1428,7 +1446,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S6",
@@ -1436,7 +1456,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S7",
@@ -1444,7 +1466,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S8",
@@ -1452,7 +1476,9 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S9",
@@ -1460,11 +1486,13 @@
       "type": "checkbox",
       "group": "step3_freq",
       "default": false,
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_FrequencyLadder_TIME",
-      "label": "欠频 驻留单位",
+      "label": "驻留单位",
       "type": "select",
       "group": "step3_freq",
       "default": "秒",
@@ -1484,7 +1512,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S11_TIME",
@@ -1496,7 +1526,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S12_TIME",
@@ -1508,7 +1540,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S13_TIME",
@@ -1520,7 +1554,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S14_TIME",
@@ -1532,7 +1568,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S15_TIME",
@@ -1544,7 +1582,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S16_TIME",
@@ -1556,7 +1596,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S17_TIME",
@@ -1568,7 +1610,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S3_TIME",
@@ -1580,7 +1624,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S4_TIME",
@@ -1592,7 +1638,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S5_TIME",
@@ -1604,7 +1652,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S6_TIME",
@@ -1616,7 +1666,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S7_TIME",
@@ -1628,7 +1680,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S8_TIME",
@@ -1640,7 +1694,9 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "comboBox_S9_TIME",
@@ -1652,11 +1708,13 @@
         "秒",
         "毫秒",
         "分钟"
-      ]
+      ],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_FrequencyLadder",
-      "label": "欠频 频率Hz(list)",
+      "label": "频率Hz(list)",
       "type": "text",
       "group": "step3_freq",
       "default": "50,49.75,49.5,49.25,49.0,49.25,49.5,49.75,50",
@@ -1664,7 +1722,7 @@
     },
     {
       "name": "textEdit_FrequencyLadder_TIME",
-      "label": "欠频 每点驻留",
+      "label": "每点驻留",
       "type": "text",
       "group": "step3_freq",
       "default": "60",
@@ -1672,7 +1730,7 @@
     },
     {
       "name": "textEdit_FrequencyLadder_VOLT",
-      "label": "欠频 交流电压(V)",
+      "label": "交流电压(V)",
       "type": "text",
       "group": "step3_freq",
       "default": "230",
@@ -1684,7 +1742,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S10_AC_VOLT",
@@ -1692,7 +1752,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S10_TIME",
@@ -1700,7 +1762,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S11_AC_FR",
@@ -1708,7 +1772,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S11_AC_VOLT",
@@ -1716,7 +1782,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S11_TIME",
@@ -1724,7 +1792,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S12_AC_FR",
@@ -1732,7 +1802,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S12_AC_VOLT",
@@ -1740,7 +1812,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S12_TIME",
@@ -1748,7 +1822,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S13_AC_FR",
@@ -1756,7 +1832,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S13_AC_VOLT",
@@ -1764,7 +1842,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S13_TIME",
@@ -1772,7 +1852,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S14_AC_FR",
@@ -1780,7 +1862,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S14_AC_VOLT",
@@ -1788,7 +1872,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S14_TIME",
@@ -1796,7 +1882,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S15_AC_FR",
@@ -1804,7 +1892,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S15_AC_VOLT",
@@ -1812,7 +1902,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S15_TIME",
@@ -1820,7 +1912,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S16_AC_FR",
@@ -1828,7 +1922,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S16_AC_VOLT",
@@ -1836,7 +1932,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S16_TIME",
@@ -1844,7 +1942,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S17_AC_FR",
@@ -1852,7 +1952,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S17_AC_VOLT",
@@ -1860,7 +1962,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S17_TIME",
@@ -1868,7 +1972,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S3_AC_FR",
@@ -1876,7 +1982,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S3_AC_VOLT",
@@ -1884,7 +1992,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S3_TIME",
@@ -1892,7 +2002,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S4_AC_FR",
@@ -1900,7 +2012,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S4_AC_VOLT",
@@ -1908,7 +2022,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S4_TIME",
@@ -1916,7 +2032,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S5_AC_FR",
@@ -1924,7 +2042,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S5_AC_VOLT",
@@ -1932,7 +2052,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S5_TIME",
@@ -1940,7 +2062,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S6_AC_FR",
@@ -1948,7 +2072,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S6_AC_VOLT",
@@ -1956,7 +2082,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S6_TIME",
@@ -1964,7 +2092,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S7_AC_FR",
@@ -1972,7 +2102,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S7_AC_VOLT",
@@ -1980,7 +2112,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S7_TIME",
@@ -1988,7 +2122,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S8_AC_FR",
@@ -1996,7 +2132,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S8_AC_VOLT",
@@ -2004,7 +2142,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S8_TIME",
@@ -2012,7 +2152,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S9_AC_FR",
@@ -2020,7 +2162,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "50",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S9_AC_VOLT",
@@ -2028,7 +2172,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "230",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "textEdit_S9_TIME",
@@ -2036,7 +2182,9 @@
       "type": "text",
       "group": "step3_freq",
       "default": "60",
-      "options": []
+      "options": [],
+      "hidden": true,
+      "uiHint": "legacy_hidden"
     },
     {
       "name": "checkBox_S_End",
@@ -2048,7 +2196,7 @@
     },
     {
       "name": "checkBox_S_End_DC1",
-      "label": "checkBox_S_End_DC1",
+      "label": "直流电源1",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -2056,7 +2204,7 @@
     },
     {
       "name": "checkBox_S_End_DC2",
-      "label": "checkBox_S_End_DC2",
+      "label": "直流电源2",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -2064,7 +2212,7 @@
     },
     {
       "name": "checkBox_S_End_DC3",
-      "label": "checkBox_S_End_DC3",
+      "label": "直流电源3",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -2072,7 +2220,7 @@
     },
     {
       "name": "checkBox_S_End_DC4",
-      "label": "checkBox_S_End_DC4",
+      "label": "直流电源4",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -2080,7 +2228,7 @@
     },
     {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -2091,7 +2239,7 @@
     },
     {
       "name": "comboBox_S_End_DC1",
-      "label": "comboBox_S_End_DC1",
+      "label": "直流电源1关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -2102,7 +2250,7 @@
     },
     {
       "name": "comboBox_S_End_DC2",
-      "label": "comboBox_S_End_DC2",
+      "label": "直流电源2关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -2113,7 +2261,7 @@
     },
     {
       "name": "comboBox_S_End_DC3",
-      "label": "comboBox_S_End_DC3",
+      "label": "直流电源3关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -2124,7 +2272,7 @@
     },
     {
       "name": "comboBox_S_End_DC4",
-      "label": "comboBox_S_End_DC4",
+      "label": "直流电源4关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",

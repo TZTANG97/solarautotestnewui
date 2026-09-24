@@ -42,14 +42,6 @@
   ],
   "fields": [
     {
-      "name": "checkBox_RATE",
-      "label": "checkBox_RATE",
-      "type": "checkbox",
-      "group": "other",
-      "default": true,
-      "options": []
-    },
-    {
       "name": "checkBox_S1",
       "label": "启用步骤1 AC/DC",
       "type": "checkbox",
@@ -419,6 +411,14 @@
       "default": false,
       "options": [],
       "uiHint": "analyzer_mode"
+    },
+    {
+      "name": "checkBox_RATE",
+      "label": "更新率(分析仪)",
+      "type": "checkbox",
+      "group": "step2_wt",
+      "default": true,
+      "options": []
     },
     {
       "name": "checkBox_S2",
@@ -1860,7 +1860,7 @@
     },
     {
       "name": "checkBox_S_End_DC1",
-      "label": "checkBox_S_End_DC1",
+      "label": "直流电源1",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -1868,7 +1868,7 @@
     },
     {
       "name": "checkBox_S_End_DC2",
-      "label": "checkBox_S_End_DC2",
+      "label": "直流电源2",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -1876,7 +1876,7 @@
     },
     {
       "name": "checkBox_S_End_DC3",
-      "label": "checkBox_S_End_DC3",
+      "label": "直流电源3",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -1884,7 +1884,7 @@
     },
     {
       "name": "checkBox_S_End_DC4",
-      "label": "checkBox_S_End_DC4",
+      "label": "直流电源4",
       "type": "checkbox",
       "group": "step4_off",
       "default": true,
@@ -1892,7 +1892,7 @@
     },
     {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -1903,7 +1903,7 @@
     },
     {
       "name": "comboBox_S_End_DC1",
-      "label": "comboBox_S_End_DC1",
+      "label": "直流1关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -1914,7 +1914,7 @@
     },
     {
       "name": "comboBox_S_End_DC2",
-      "label": "comboBox_S_End_DC2",
+      "label": "直流2关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -1925,7 +1925,7 @@
     },
     {
       "name": "comboBox_S_End_DC3",
-      "label": "comboBox_S_End_DC3",
+      "label": "直流3关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",
@@ -1936,7 +1936,7 @@
     },
     {
       "name": "comboBox_S_End_DC4",
-      "label": "comboBox_S_End_DC4",
+      "label": "直流4关机",
       "type": "select",
       "group": "step4_off",
       "default": "关闭",

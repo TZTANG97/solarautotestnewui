@@ -41,7 +41,7 @@
     },
     {
       "id": "step7_phase",
-      "title": "⑦ 过欠频/相位"
+      "title": "⑦ 测试相位"
     },
     {
       "id": "step8_off",
@@ -1389,7 +1389,7 @@
       "label": "启用过压扫描",
       "type": "checkbox",
       "group": "step3_ov",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
@@ -1397,8 +1397,12 @@
       "label": "过压 时长单位",
       "type": "select",
       "group": "step3_ov",
-      "default": null,
-      "options": []
+      "default": "秒",
+      "options": [
+        "秒",
+        "毫秒",
+        "分钟"
+      ]
     },
     {
       "name": "textEdit_S3_AC_FR_End",
@@ -1453,7 +1457,7 @@
       "label": "启用欠压扫描",
       "type": "checkbox",
       "group": "step4_uv",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
@@ -1461,8 +1465,12 @@
       "label": "欠压 时长单位",
       "type": "select",
       "group": "step4_uv",
-      "default": null,
-      "options": []
+      "default": "秒",
+      "options": [
+        "秒",
+        "毫秒",
+        "分钟"
+      ]
     },
     {
       "name": "textEdit_S4_AC_FR_End",
@@ -1517,7 +1525,7 @@
       "label": "启用过频扫描",
       "type": "checkbox",
       "group": "step5_of",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
@@ -1525,8 +1533,12 @@
       "label": "过频 时长单位",
       "type": "select",
       "group": "step5_of",
-      "default": null,
-      "options": []
+      "default": "秒",
+      "options": [
+        "秒",
+        "毫秒",
+        "分钟"
+      ]
     },
     {
       "name": "textEdit_S5_AC_FR_End",
@@ -1581,7 +1593,7 @@
       "label": "启用欠频扫描",
       "type": "checkbox",
       "group": "step6_uf",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
@@ -1589,8 +1601,12 @@
       "label": "欠频 时长单位",
       "type": "select",
       "group": "step6_uf",
-      "default": null,
-      "options": []
+      "default": "秒",
+      "options": [
+        "秒",
+        "毫秒",
+        "分钟"
+      ]
     },
     {
       "name": "textEdit_S6_AC_FR_End",
@@ -1666,7 +1682,7 @@
     },
     {
       "name": "checkBox_S7",
-      "label": "启用过频参数(页内)",
+      "label": "启用过频扫描(相位页)",
       "type": "checkbox",
       "group": "step7_phase",
       "default": true,
@@ -1674,7 +1690,7 @@
     },
     {
       "name": "checkBox_S8",
-      "label": "启用欠频参数(页内)",
+      "label": "启用欠频扫描(相位页)",
       "type": "checkbox",
       "group": "step7_phase",
       "default": true,
@@ -1682,7 +1698,7 @@
     },
     {
       "name": "comboBox_S7_TIME",
-      "label": "comboBox_S7_TIME",
+      "label": "过频相位 时长单位",
       "type": "select",
       "group": "step7_phase",
       "default": "秒",
@@ -1694,7 +1710,7 @@
     },
     {
       "name": "comboBox_S8_TIME",
-      "label": "comboBox_S8_TIME",
+      "label": "欠频相位 时长单位",
       "type": "select",
       "group": "step7_phase",
       "default": "秒",
@@ -1717,7 +1733,7 @@
     },
     {
       "name": "textEdit_S7_AC_FR_End",
-      "label": "textEdit_S7_AC_FR_End",
+      "label": "过频相位 频率终点(Hz)",
       "type": "text",
       "group": "step7_phase",
       "default": "50",
@@ -1725,7 +1741,7 @@
     },
     {
       "name": "textEdit_S7_AC_FR_Start",
-      "label": "textEdit_S7_AC_FR_Start",
+      "label": "过频相位 频率起点(Hz)",
       "type": "text",
       "group": "step7_phase",
       "default": "50",
@@ -1733,7 +1749,7 @@
     },
     {
       "name": "textEdit_S7_AC_VOLT_End",
-      "label": "textEdit_S7_AC_VOLT_End",
+      "label": "过频相位 电压终点(V)",
       "type": "text",
       "group": "step7_phase",
       "default": "230",
@@ -1741,7 +1757,7 @@
     },
     {
       "name": "textEdit_S7_AC_VOLT_Start",
-      "label": "textEdit_S7_AC_VOLT_Start",
+      "label": "过频相位 电压起点(V)",
       "type": "text",
       "group": "step7_phase",
       "default": "230",
@@ -1749,7 +1765,7 @@
     },
     {
       "name": "textEdit_S7_Step_Size",
-      "label": "textEdit_S7_Step_Size",
+      "label": "过频相位 步长",
       "type": "text",
       "group": "step7_phase",
       "default": "5",
@@ -1757,7 +1773,7 @@
     },
     {
       "name": "textEdit_S7_TIME",
-      "label": "textEdit_S7_TIME",
+      "label": "过频相位 采集时长",
       "type": "text",
       "group": "step7_phase",
       "default": "3",
@@ -1765,7 +1781,7 @@
     },
     {
       "name": "textEdit_S8_AC_FR_End",
-      "label": "textEdit_S8_AC_FR_End",
+      "label": "欠频相位 频率终点(Hz)",
       "type": "text",
       "group": "step7_phase",
       "default": "50",
@@ -1773,7 +1789,7 @@
     },
     {
       "name": "textEdit_S8_AC_FR_Start",
-      "label": "textEdit_S8_AC_FR_Start",
+      "label": "欠频相位 频率起点(Hz)",
       "type": "text",
       "group": "step7_phase",
       "default": "50",
@@ -1781,7 +1797,7 @@
     },
     {
       "name": "textEdit_S8_AC_VOLT_End",
-      "label": "textEdit_S8_AC_VOLT_End",
+      "label": "欠频相位 电压终点(V)",
       "type": "text",
       "group": "step7_phase",
       "default": "230",
@@ -1789,7 +1805,7 @@
     },
     {
       "name": "textEdit_S8_AC_VOLT_Start",
-      "label": "textEdit_S8_AC_VOLT_Start",
+      "label": "欠频相位 电压起点(V)",
       "type": "text",
       "group": "step7_phase",
       "default": "230",
@@ -1797,7 +1813,7 @@
     },
     {
       "name": "textEdit_S8_Step_Size",
-      "label": "textEdit_S8_Step_Size",
+      "label": "欠频相位 步长",
       "type": "text",
       "group": "step7_phase",
       "default": "5",
@@ -1805,7 +1821,7 @@
     },
     {
       "name": "textEdit_S8_TIME",
-      "label": "textEdit_S8_TIME",
+      "label": "欠频相位 采集时长",
       "type": "text",
       "group": "step7_phase",
       "default": "3",
@@ -1821,39 +1837,39 @@
     },
     {
       "name": "checkBox_S_End_DC1",
-      "label": "checkBox_S_End_DC1",
+      "label": "直流电源1",
       "type": "checkbox",
       "group": "step8_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S_End_DC2",
-      "label": "checkBox_S_End_DC2",
+      "label": "直流电源2",
       "type": "checkbox",
       "group": "step8_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S_End_DC3",
-      "label": "checkBox_S_End_DC3",
+      "label": "直流电源3",
       "type": "checkbox",
       "group": "step8_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S_End_DC4",
-      "label": "checkBox_S_End_DC4",
+      "label": "直流电源4",
       "type": "checkbox",
       "group": "step8_off",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step8_off",
       "default": "关闭",
@@ -1864,35 +1880,47 @@
     },
     {
       "name": "comboBox_S_End_DC1",
-      "label": "comboBox_S_End_DC1",
+      "label": "直流1关机",
       "type": "select",
       "group": "step8_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     },
     {
       "name": "comboBox_S_End_DC2",
-      "label": "comboBox_S_End_DC2",
+      "label": "直流2关机",
       "type": "select",
       "group": "step8_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     },
     {
       "name": "comboBox_S_End_DC3",
-      "label": "comboBox_S_End_DC3",
+      "label": "直流3关机",
       "type": "select",
       "group": "step8_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     },
     {
       "name": "comboBox_S_End_DC4",
-      "label": "comboBox_S_End_DC4",
+      "label": "直流4关机",
       "type": "select",
       "group": "step8_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     }
   ],
   "jobFlags": {

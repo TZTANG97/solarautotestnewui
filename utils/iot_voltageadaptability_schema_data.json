@@ -83,10 +83,10 @@
     },
     {
       "name": "comboBox_S1_AC",
-      "label": "comboBox_S1_AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "开启",
       "options": [
         "开启",
         "关闭"
@@ -94,10 +94,10 @@
     },
     {
       "name": "comboBox_S1_ACWaitTIME",
-      "label": "comboBox_S1_ACWaitTIME",
+      "label": "等待时间单位",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "秒",
       "options": [
         "秒",
         "分钟",
@@ -106,10 +106,10 @@
     },
     {
       "name": "comboBox_S1_AC_2",
-      "label": "comboBox_S1_AC_2",
+      "label": "相数",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "单相",
       "options": [
         "单相",
         "三相"
@@ -117,10 +117,10 @@
     },
     {
       "name": "comboBox_S1_TIME",
-      "label": "comboBox_S1_TIME",
+      "label": "启机时间单位",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "分钟",
       "options": [
         "分钟",
         "秒",
@@ -129,7 +129,7 @@
     },
     {
       "name": "textEdit_S1_ACWaitTIME",
-      "label": "textEdit_S1_ACWaitTIME",
+      "label": "等待时间",
       "type": "text",
       "group": "step1_ac",
       "default": "3",
@@ -137,42 +137,278 @@
     },
     {
       "name": "textEdit_S1_AC_FR",
-      "label": "textEdit_S1_AC_FR",
+      "label": "交流频率",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "50",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT",
-      "label": "textEdit_S1_AC_VOLT",
+      "label": "交流电压1",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT_2",
-      "label": "textEdit_S1_AC_VOLT_2",
+      "label": "交流电压2",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT_3",
-      "label": "textEdit_S1_AC_VOLT_3",
+      "label": "交流电压3",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
       "name": "textEdit_S1_TIME",
-      "label": "textEdit_S1_TIME",
+      "label": "启机时间",
       "type": "text",
       "group": "step1_ac",
-      "default": "5",
+      "default": "1",
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC1",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC2",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC3",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC4",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC1_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
       "options": []
     },
     {
@@ -185,7 +421,7 @@
     },
     {
       "name": "checkBox_S2",
-      "label": "启用步骤2 功率分析仪",
+      "label": "启用功率分析仪",
       "type": "checkbox",
       "group": "step2_wt",
       "default": true,
@@ -193,7 +429,7 @@
     },
     {
       "name": "checkBox_S2_split_ov_uv_files",
-      "label": "过/欠压分文件录波",
+      "label": "过压/欠压分开录波文件",
       "type": "checkbox",
       "group": "step2_wt",
       "default": false,
@@ -1129,6 +1365,150 @@
       "uiHint": "wt_cfg"
     },
     {
+      "name": "checkBox_S10",
+      "label": "启用过压8",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S10_RATE",
+      "label": "过压8 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S11",
+      "label": "启用过压9",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S11_RATE",
+      "label": "过压9 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S3",
+      "label": "启用过压1",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S3_RATE",
+      "label": "过压1 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S4",
+      "label": "启用过压2",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S4_RATE",
+      "label": "过压2 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S5",
+      "label": "启用过压3",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S5_RATE",
+      "label": "过压3 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S6",
+      "label": "启用过压4",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S6_RATE",
+      "label": "过压4 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S7",
+      "label": "启用过压5",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S7_RATE",
+      "label": "过压5 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S8",
+      "label": "启用过压6",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S8_RATE",
+      "label": "过压6 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S9",
+      "label": "启用过压7",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S9_RATE",
+      "label": "过压7 更新率",
+      "type": "checkbox",
+      "group": "step3_ov",
+      "default": true,
+      "options": []
+    },
+    {
       "name": "checkBox_guoya_page",
       "label": "启用过压设置",
       "type": "checkbox",
@@ -1137,11 +1517,479 @@
       "options": []
     },
     {
+      "name": "comboBox_S10_test_time_unit_guoya",
+      "label": "过压8 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S11_test_time_unit_guoya",
+      "label": "过压9 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S3_test_time_unit_guoya",
+      "label": "过压1 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S4_test_time_unit_guoya",
+      "label": "过压2 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S5_test_time_unit_guoya",
+      "label": "过压3 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S6_test_time_unit_guoya",
+      "label": "过压4 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S7_test_time_unit_guoya",
+      "label": "过压5 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S8_test_time_unit_guoya",
+      "label": "过压6 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S9_test_time_unit_guoya",
+      "label": "过压7 单位",
+      "type": "select",
+      "group": "step3_ov",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "textEdit_S10_test_duration_guoya",
+      "label": "过压8 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S10_volt_end_guoya",
+      "label": "过压8 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S10_volt_start_guoya",
+      "label": "过压8 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S11_test_duration_guoya",
+      "label": "过压9 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S11_volt_end_guoya",
+      "label": "过压9 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S11_volt_start_guoya",
+      "label": "过压9 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S3_test_duration_guoya",
+      "label": "过压1 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": "30",
+      "options": []
+    },
+    {
+      "name": "textEdit_S3_volt_end_guoya",
+      "label": "过压1 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": "253",
+      "options": []
+    },
+    {
+      "name": "textEdit_S3_volt_start_guoya",
+      "label": "过压1 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "textEdit_S4_test_duration_guoya",
+      "label": "过压2 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S4_volt_end_guoya",
+      "label": "过压2 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S4_volt_start_guoya",
+      "label": "过压2 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S5_test_duration_guoya",
+      "label": "过压3 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S5_volt_end_guoya",
+      "label": "过压3 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S5_volt_start_guoya",
+      "label": "过压3 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S6_test_duration_guoya",
+      "label": "过压4 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S6_volt_end_guoya",
+      "label": "过压4 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S6_volt_start_guoya",
+      "label": "过压4 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S7_test_duration_guoya",
+      "label": "过压5 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S7_volt_end_guoya",
+      "label": "过压5 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S7_volt_start_guoya",
+      "label": "过压5 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S8_test_duration_guoya",
+      "label": "过压6 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S8_volt_end_guoya",
+      "label": "过压6 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S8_volt_start_guoya",
+      "label": "过压6 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S9_test_duration_guoya",
+      "label": "过压7 数据采集",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S9_volt_end_guoya",
+      "label": "过压7 终点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S9_volt_start_guoya",
+      "label": "过压7 起点(V)",
+      "type": "text",
+      "group": "step3_ov",
+      "default": null,
+      "options": []
+    },
+    {
       "name": "textEdit_VoltageLadder_guoya",
-      "label": "过压阶梯 (V@s)",
+      "label": "过压 list (V@s)",
       "type": "text",
       "group": "step3_ov",
       "default": "230-253@30\n253-230@30",
+      "options": []
+    },
+    {
+      "name": "checkBox_S12",
+      "label": "启用欠压1",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S12_RATE",
+      "label": "欠压1 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S13",
+      "label": "启用欠压2",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S13_RATE",
+      "label": "欠压2 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S14",
+      "label": "启用欠压3",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S14_RATE",
+      "label": "欠压3 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S15",
+      "label": "启用欠压4",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S15_RATE",
+      "label": "欠压4 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S16",
+      "label": "启用欠压5",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S16_RATE",
+      "label": "欠压5 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S17",
+      "label": "启用欠压6",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S17_RATE",
+      "label": "欠压6 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S18",
+      "label": "启用欠压7",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S18_RATE",
+      "label": "欠压7 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S19",
+      "label": "启用欠压8",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S19_RATE",
+      "label": "欠压8 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S20",
+      "label": "启用欠压9",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S20_RATE",
+      "label": "欠压9 更新率",
+      "type": "checkbox",
+      "group": "step4_uv",
+      "default": true,
       "options": []
     },
     {
@@ -1153,8 +2001,332 @@
       "options": []
     },
     {
+      "name": "comboBox_S12_test_time_unit_qianya",
+      "label": "欠压1 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S13_test_time_unit_qianya",
+      "label": "欠压2 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S14_test_time_unit_qianya",
+      "label": "欠压3 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S15_test_time_unit_qianya",
+      "label": "欠压4 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S16_test_time_unit_qianya",
+      "label": "欠压5 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S17_test_time_unit_qianya",
+      "label": "欠压6 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S18_test_time_unit_qianya",
+      "label": "欠压7 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S19_test_time_unit_qianya",
+      "label": "欠压8 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "comboBox_S20_test_time_unit_qianya",
+      "label": "欠压9 单位",
+      "type": "select",
+      "group": "step4_uv",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "小时"
+      ]
+    },
+    {
+      "name": "textEdit_S12_test_duration_qianya",
+      "label": "欠压1 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": "30",
+      "options": []
+    },
+    {
+      "name": "textEdit_S12_volt_end_qianya",
+      "label": "欠压1 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": "195",
+      "options": []
+    },
+    {
+      "name": "textEdit_S12_volt_start_qianya",
+      "label": "欠压1 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "textEdit_S13_test_duration_qianya",
+      "label": "欠压2 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S13_volt_end_qianya",
+      "label": "欠压2 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S13_volt_start_qianya",
+      "label": "欠压2 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S14_test_duration_qianya",
+      "label": "欠压3 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S14_volt_end_qianya",
+      "label": "欠压3 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S14_volt_start_qianya",
+      "label": "欠压3 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S15_test_duration_qianya",
+      "label": "欠压4 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S15_volt_end_qianya",
+      "label": "欠压4 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S15_volt_start_qianya",
+      "label": "欠压4 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S16_test_duration_qianya",
+      "label": "欠压5 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S16_volt_end_qianya",
+      "label": "欠压5 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S16_volt_start_qianya",
+      "label": "欠压5 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S17_test_duration_qianya",
+      "label": "欠压6 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S17_volt_end_qianya",
+      "label": "欠压6 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S17_volt_start_qianya",
+      "label": "欠压6 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S18_test_duration_qianya",
+      "label": "欠压7 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S18_volt_end_qianya",
+      "label": "欠压7 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S18_volt_start_qianya",
+      "label": "欠压7 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S19_test_duration_qianya",
+      "label": "欠压8 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S19_volt_end_qianya",
+      "label": "欠压8 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S19_volt_start_qianya",
+      "label": "欠压8 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S20_test_duration_qianya",
+      "label": "欠压9 数据采集",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S20_volt_end_qianya",
+      "label": "欠压9 终点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S20_volt_start_qianya",
+      "label": "欠压9 起点(V)",
+      "type": "text",
+      "group": "step4_uv",
+      "default": null,
+      "options": []
+    },
+    {
       "name": "textEdit_VoltageLadder_qianya",
-      "label": "欠压阶梯 (V@s)",
+      "label": "欠压 list (V@s)",
       "type": "text",
       "group": "step4_uv",
       "default": "",
@@ -1169,11 +2341,87 @@
       "options": []
     },
     {
+      "name": "checkBox_S_End_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step5_off",
-      "default": null,
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC1",
+      "label": "直流电源1关机",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC2",
+      "label": "直流电源2关机",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC3",
+      "label": "直流电源3关机",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC4",
+      "label": "直流电源4关机",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
       "options": [
         "关闭",
         "开启"

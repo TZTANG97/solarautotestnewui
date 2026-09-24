@@ -87,21 +87,64 @@
     },
     {
       "name": "comboBox_S1_AC",
-      "label": "comboBox_S1_AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "开启",
       "options": [
         "开启",
         "关闭"
       ]
     },
     {
-      "name": "comboBox_S1_ACWaitTIME",
-      "label": "comboBox_S1_ACWaitTIME",
+      "name": "comboBox_S1_AC_2",
+      "label": "相数",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "单相",
+      "options": [
+        "单相",
+        "三相"
+      ]
+    },
+    {
+      "name": "textEdit_S1_AC_VOLT",
+      "label": "交流电压1",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_AC_VOLT_2",
+      "label": "交流电压2",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_AC_VOLT_3",
+      "label": "交流电压3",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "230",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_AC_FR",
+      "label": "交流频率",
+      "type": "text",
+      "group": "step1_ac",
+      "default": "50",
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_ACWaitTIME",
+      "label": "等待时间单位",
+      "type": "select",
+      "group": "step1_ac",
+      "default": "秒",
       "options": [
         "秒",
         "分钟",
@@ -109,22 +152,11 @@
       ]
     },
     {
-      "name": "comboBox_S1_AC_2",
-      "label": "comboBox_S1_AC_2",
-      "type": "select",
-      "group": "step1_ac",
-      "default": null,
-      "options": [
-        "单相",
-        "三相"
-      ]
-    },
-    {
       "name": "comboBox_S1_TIME",
-      "label": "comboBox_S1_TIME",
+      "label": "启机时间单位",
       "type": "select",
       "group": "step1_ac",
-      "default": null,
+      "default": "分钟",
       "options": [
         "分钟",
         "秒",
@@ -133,51 +165,95 @@
     },
     {
       "name": "textEdit_S1_ACWaitTIME",
-      "label": "textEdit_S1_ACWaitTIME",
+      "label": "等待时间",
       "type": "text",
       "group": "step1_ac",
       "default": "3",
       "options": []
     },
     {
-      "name": "textEdit_S1_AC_FR",
-      "label": "textEdit_S1_AC_FR",
-      "type": "text",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_AC_VOLT",
-      "label": "textEdit_S1_AC_VOLT",
-      "type": "text",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_AC_VOLT_2",
-      "label": "textEdit_S1_AC_VOLT_2",
-      "type": "text",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_AC_VOLT_3",
-      "label": "textEdit_S1_AC_VOLT_3",
-      "type": "text",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
       "name": "textEdit_S1_TIME",
-      "label": "textEdit_S1_TIME",
+      "label": "启机时间",
       "type": "text",
       "group": "step1_ac",
-      "default": "5",
+      "default": "1",
       "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step1_dc",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "comboBox_S1_DC1",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC2",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC3",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
+    },
+    {
+      "name": "comboBox_S1_DC4",
+      "label": "开关",
+      "type": "select",
+      "group": "step1_dc",
+      "default": "开启",
+      "options": [
+        "开启",
+        "关闭"
+      ]
     },
     {
       "name": "radio_dewetron",
@@ -189,7 +265,7 @@
     },
     {
       "name": "checkBox_S2",
-      "label": "启用步骤2 功率分析仪",
+      "label": "启用功率分析仪",
       "type": "checkbox",
       "group": "step2_wt",
       "default": true,
@@ -1393,7 +1469,7 @@
       "label": "阶跃1 终点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "207",
       "options": []
     },
     {
@@ -1401,7 +1477,7 @@
       "label": "阶跃1 起点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
@@ -1425,7 +1501,7 @@
       "label": "阶跃2 终点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "253",
       "options": []
     },
     {
@@ -1433,7 +1509,7 @@
       "label": "阶跃2 起点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
@@ -1457,7 +1533,7 @@
       "label": "阶跃3 终点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "184",
       "options": []
     },
     {
@@ -1465,7 +1541,7 @@
       "label": "阶跃3 起点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
@@ -1489,7 +1565,7 @@
       "label": "阶跃4 终点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "276",
       "options": []
     },
     {
@@ -1497,7 +1573,7 @@
       "label": "阶跃4 起点(V)",
       "type": "text",
       "group": "step3_rvc",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
@@ -1573,15 +1649,251 @@
       "options": []
     },
     {
+      "name": "checkBox_S_End_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step4_off",
-      "default": null,
+      "default": "关闭",
       "options": [
         "关闭",
         "开启"
       ]
+    },
+    {
+      "name": "comboBox_S_End_DC1",
+      "label": "直流电源1关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC2",
+      "label": "直流电源2关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC3",
+      "label": "直流电源3关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC4",
+      "label": "直流电源4关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC1_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC2_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC3_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_VOLT",
+      "label": "Vmp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_CURR",
+      "label": "Imp",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Voc",
+      "label": "Voc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_Isc",
+      "label": "Isc",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC4_PF",
+      "label": "功率%",
+      "type": "text",
+      "group": "step1_dc",
+      "default": null,
+      "options": []
     }
   ],
   "jobFlags": {

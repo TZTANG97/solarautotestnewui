@@ -25,7 +25,7 @@
     },
     {
       "id": "step3_harm",
-      "title": "③ 谐波工况"
+      "title": "③ 谐波设置"
     },
     {
       "id": "step4_off",
@@ -58,184 +58,8 @@
       "options": []
     },
     {
-      "name": "checkBox_S1_DC1_10",
-      "label": "checkBox_S1_DC1_10",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_11",
-      "label": "checkBox_S1_DC1_11",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_12",
-      "label": "checkBox_S1_DC1_12",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_2",
-      "label": "checkBox_S1_DC1_2",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_3",
-      "label": "checkBox_S1_DC1_3",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_4",
-      "label": "checkBox_S1_DC1_4",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_5",
-      "label": "checkBox_S1_DC1_5",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_6",
-      "label": "checkBox_S1_DC1_6",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_7",
-      "label": "checkBox_S1_DC1_7",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_8",
-      "label": "checkBox_S1_DC1_8",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC1_9",
-      "label": "checkBox_S1_DC1_9",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
       "name": "checkBox_S1_DC2",
       "label": "启用直流电源2",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_10",
-      "label": "checkBox_S1_DC2_10",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_11",
-      "label": "checkBox_S1_DC2_11",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_12",
-      "label": "checkBox_S1_DC2_12",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_2",
-      "label": "checkBox_S1_DC2_2",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_3",
-      "label": "checkBox_S1_DC2_3",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_4",
-      "label": "checkBox_S1_DC2_4",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_5",
-      "label": "checkBox_S1_DC2_5",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_6",
-      "label": "checkBox_S1_DC2_6",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_7",
-      "label": "checkBox_S1_DC2_7",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_8",
-      "label": "checkBox_S1_DC2_8",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC2_9",
-      "label": "checkBox_S1_DC2_9",
       "type": "checkbox",
       "group": "step1_ac",
       "default": null,
@@ -250,184 +74,8 @@
       "options": []
     },
     {
-      "name": "checkBox_S1_DC3_10",
-      "label": "checkBox_S1_DC3_10",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_11",
-      "label": "checkBox_S1_DC3_11",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_12",
-      "label": "checkBox_S1_DC3_12",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_13",
-      "label": "checkBox_S1_DC3_13",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_14",
-      "label": "checkBox_S1_DC3_14",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_15",
-      "label": "checkBox_S1_DC3_15",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_16",
-      "label": "checkBox_S1_DC3_16",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_17",
-      "label": "checkBox_S1_DC3_17",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_2",
-      "label": "checkBox_S1_DC3_2",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_3",
-      "label": "checkBox_S1_DC3_3",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_4",
-      "label": "checkBox_S1_DC3_4",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_5",
-      "label": "checkBox_S1_DC3_5",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_6",
-      "label": "checkBox_S1_DC3_6",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_7",
-      "label": "checkBox_S1_DC3_7",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_8",
-      "label": "checkBox_S1_DC3_8",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC3_9",
-      "label": "checkBox_S1_DC3_9",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
       "name": "checkBox_S1_DC4",
       "label": "启用直流电源4",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC4_2",
-      "label": "checkBox_S1_DC4_2",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC4_3",
-      "label": "checkBox_S1_DC4_3",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC4_4",
-      "label": "checkBox_S1_DC4_4",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC4_5",
-      "label": "checkBox_S1_DC4_5",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC4_6",
-      "label": "checkBox_S1_DC4_6",
-      "type": "checkbox",
-      "group": "step1_ac",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "checkBox_S1_DC4_7",
-      "label": "checkBox_S1_DC4_7",
       "type": "checkbox",
       "group": "step1_ac",
       "default": null,
@@ -533,94 +181,6 @@
       "name": "comboBox_S1_DC4",
       "label": "直流4 开关",
       "type": "select",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_10",
-      "label": "textEdit_S1_DC1_PF_10",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_11",
-      "label": "textEdit_S1_DC1_PF_11",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_12",
-      "label": "textEdit_S1_DC1_PF_12",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_2",
-      "label": "textEdit_S1_DC1_PF_2",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_3",
-      "label": "textEdit_S1_DC1_PF_3",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_4",
-      "label": "textEdit_S1_DC1_PF_4",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_5",
-      "label": "textEdit_S1_DC1_PF_5",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_6",
-      "label": "textEdit_S1_DC1_PF_6",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_7",
-      "label": "textEdit_S1_DC1_PF_7",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_8",
-      "label": "textEdit_S1_DC1_PF_8",
-      "type": "text",
-      "group": "step1_dc",
-      "default": null,
-      "options": []
-    },
-    {
-      "name": "textEdit_S1_DC1_PF_9",
-      "label": "textEdit_S1_DC1_PF_9",
-      "type": "text",
       "group": "step1_dc",
       "default": null,
       "options": []
@@ -1738,8 +1298,360 @@
       "uiHint": "wt_cfg"
     },
     {
+      "name": "checkBox_S1_DC1_10",
+      "label": "谐波 6次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_11",
+      "label": "谐波 7次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_12",
+      "label": "谐波 11次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_2",
+      "label": "谐波 1次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_3",
+      "label": "谐波 2次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_4",
+      "label": "谐波 3次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_5",
+      "label": "谐波 4次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_6",
+      "label": "谐波 5次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_7",
+      "label": "谐波 8次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_8",
+      "label": "谐波 10次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC1_9",
+      "label": "谐波 9次·直流电源1",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_10",
+      "label": "谐波 9次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_11",
+      "label": "谐波 6次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_12",
+      "label": "谐波 11次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_2",
+      "label": "谐波 1次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_3",
+      "label": "谐波 2次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_4",
+      "label": "谐波 3次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_5",
+      "label": "谐波 4次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_6",
+      "label": "谐波 5次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_7",
+      "label": "谐波 10次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_8",
+      "label": "谐波 7次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC2_9",
+      "label": "谐波 8次·直流电源2",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_10",
+      "label": "谐波 6次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_11",
+      "label": "谐波 7次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_12",
+      "label": "谐波 11次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_13",
+      "label": "谐波 11次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_14",
+      "label": "谐波 8次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_15",
+      "label": "谐波 7次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_16",
+      "label": "谐波 9次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_17",
+      "label": "谐波 10次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_2",
+      "label": "谐波 1次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_3",
+      "label": "谐波 2次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_4",
+      "label": "谐波 3次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_5",
+      "label": "谐波 4次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_6",
+      "label": "谐波 5次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_7",
+      "label": "谐波 10次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_8",
+      "label": "谐波 8次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC3_9",
+      "label": "谐波 9次·直流电源3",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_2",
+      "label": "谐波 1次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_3",
+      "label": "谐波 2次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_4",
+      "label": "谐波 3次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_5",
+      "label": "谐波 4次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_6",
+      "label": "谐波 5次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S1_DC4_7",
+      "label": "谐波 6次·直流电源4",
+      "type": "checkbox",
+      "group": "step3_harm",
+      "default": false,
+      "options": []
+    },
+    {
       "name": "checkBox_S3",
-      "label": "checkBox_S3",
+      "label": "谐波 1次",
       "type": "checkbox",
       "group": "step3_harm",
       "default": true,
@@ -1747,122 +1659,221 @@
     },
     {
       "name": "checkBox_S3_10",
-      "label": "checkBox_S3_10",
+      "label": "谐波 6次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_11",
-      "label": "checkBox_S3_11",
+      "label": "谐波 11次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_2",
-      "label": "checkBox_S3_2",
+      "label": "谐波 2次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_3",
-      "label": "checkBox_S3_3",
+      "label": "谐波 3次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_4",
-      "label": "checkBox_S3_4",
+      "label": "谐波 4次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_5",
-      "label": "checkBox_S3_5",
+      "label": "谐波 5次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_6",
-      "label": "checkBox_S3_6",
+      "label": "谐波 7次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_7",
-      "label": "checkBox_S3_7",
+      "label": "谐波 8次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_8",
-      "label": "checkBox_S3_8",
+      "label": "谐波 10次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "checkBox_S3_9",
-      "label": "checkBox_S3_9",
+      "label": "谐波 9次",
       "type": "checkbox",
       "group": "step3_harm",
-      "default": null,
+      "default": true,
       "options": []
     },
     {
       "name": "comboBox_S3_TIME_2",
-      "label": "comboBox_S3_TIME_2",
+      "label": "数据采集单位",
       "type": "select",
       "group": "step3_harm",
-      "default": null,
-      "options": []
+      "default": "分钟",
+      "options": [
+        "分钟",
+        "秒",
+        "毫秒"
+      ]
     },
     {
       "name": "comboBox_S3_TIME_3",
-      "label": "comboBox_S3_TIME_3",
+      "label": "等待时间单位",
       "type": "select",
       "group": "step3_harm",
-      "default": null,
-      "options": []
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "毫秒"
+      ]
     },
     {
       "name": "comboBox_S3_record_mode",
-      "label": "录波模式",
+      "label": "录波方式",
       "type": "select",
       "group": "step3_harm",
-      "default": null,
+      "default": "分开录（多文件/逐点存盘）",
+      "options": [
+        "一条线连续录（单文件）",
+        "分开录（多文件/逐点存盘）"
+      ]
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_10",
+      "label": "谐波 6次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_11",
+      "label": "谐波 9次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_12",
+      "label": "谐波 11次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_2",
+      "label": "谐波 1次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_3",
+      "label": "谐波 2次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_4",
+      "label": "谐波 3次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_5",
+      "label": "谐波 4次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_6",
+      "label": "谐波 5次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_7",
+      "label": "谐波 8次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_8",
+      "label": "谐波 10次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
+      "options": []
+    },
+    {
+      "name": "textEdit_S1_DC1_PF_9",
+      "label": "谐波 7次·功率%",
+      "type": "text",
+      "group": "step3_harm",
+      "default": "100",
       "options": []
     },
     {
       "name": "textEdit_S3_TIME_2",
-      "label": "textEdit_S3_TIME_2",
+      "label": "数据采集",
       "type": "text",
       "group": "step3_harm",
-      "default": null,
+      "default": "10",
       "options": []
     },
     {
       "name": "textEdit_S3_TIME_3",
-      "label": "textEdit_S3_TIME_3",
+      "label": "等待时间",
       "type": "text",
       "group": "step3_harm",
-      "default": null,
+      "default": "1",
       "options": []
     },
     {
@@ -1870,16 +1881,95 @@
       "label": "启用关机",
       "type": "checkbox",
       "group": "step4_off",
-      "default": null,
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S5_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S5_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S5_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": false,
+      "options": []
+    },
+    {
+      "name": "checkBox_S5_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step4_off",
+      "default": false,
       "options": []
     },
     {
       "name": "comboBox_S5_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
       "type": "select",
       "group": "step4_off",
-      "default": null,
-      "options": []
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S5_DC1",
+      "label": "直流1关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S5_DC2",
+      "label": "直流2关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S5_DC3",
+      "label": "直流3关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S5_DC4",
+      "label": "直流4关机",
+      "type": "select",
+      "group": "step4_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
     }
   ],
   "jobFlags": {

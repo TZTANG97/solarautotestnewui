@@ -55,7 +55,7 @@
     },
     {
       "name": "comboBox_S1_AC",
-      "label": "AC 开关",
+      "label": "交流电源",
       "type": "select",
       "group": "step1_ac",
       "default": "开启",
@@ -78,7 +78,7 @@
     },
     {
       "name": "comboBox_S1_AC_2",
-      "label": "AC 单相/三相",
+      "label": "相数",
       "type": "select",
       "group": "step1_ac",
       "default": "单相",
@@ -97,34 +97,34 @@
     },
     {
       "name": "textEdit_S1_AC_FR",
-      "label": "AC 频率(Hz)",
+      "label": "频率",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "50",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT",
-      "label": "A相电压(V)",
+      "label": "交流电压1",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT_2",
-      "label": "B相电压(V)",
+      "label": "交流电压2",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
       "name": "textEdit_S1_AC_VOLT_3",
-      "label": "C相电压(V)",
+      "label": "交流电压3",
       "type": "text",
       "group": "step1_ac",
-      "default": null,
+      "default": "230",
       "options": []
     },
     {
@@ -1132,7 +1132,7 @@
     },
     {
       "name": "comboBox_S3_TIME",
-      "label": "过压保护 时长单位",
+      "label": "数据采集单位",
       "type": "select",
       "group": "step3_protect",
       "default": "分钟",
@@ -1144,7 +1144,7 @@
     },
     {
       "name": "textEdit_S3_AC_VOLT",
-      "label": "过压保护 L1 电压(V/%)",
+      "label": "交流电压L1",
       "type": "text",
       "group": "step3_protect",
       "default": "230",
@@ -1152,7 +1152,7 @@
     },
     {
       "name": "textEdit_S3_AC_VOLT_2",
-      "label": "过压保护 L2 电压(V/%)",
+      "label": "交流电压L2",
       "type": "text",
       "group": "step3_protect",
       "default": "230",
@@ -1160,7 +1160,7 @@
     },
     {
       "name": "textEdit_S3_AC_VOLT_3",
-      "label": "过压保护 L3 电压(V/%)",
+      "label": "交流电压L3",
       "type": "text",
       "group": "step3_protect",
       "default": "230",
@@ -1168,7 +1168,7 @@
     },
     {
       "name": "textEdit_S3_TIME",
-      "label": "过压保护 采集时长",
+      "label": "数据采集",
       "type": "text",
       "group": "step3_protect",
       "default": "10",
@@ -1184,7 +1184,7 @@
     },
     {
       "name": "comboBox_S4_TIME",
-      "label": "恢复 时长单位",
+      "label": "数据采集单位",
       "type": "select",
       "group": "step4_recover",
       "default": "分钟",
@@ -1196,7 +1196,7 @@
     },
     {
       "name": "textEdit_S4_AC_VOLT",
-      "label": "恢复 L1 电压(V/%)",
+      "label": "交流电压L1",
       "type": "text",
       "group": "step4_recover",
       "default": "230",
@@ -1204,7 +1204,7 @@
     },
     {
       "name": "textEdit_S4_AC_VOLT_2",
-      "label": "恢复 L2 电压(V/%)",
+      "label": "交流电压L2",
       "type": "text",
       "group": "step4_recover",
       "default": "230",
@@ -1212,7 +1212,7 @@
     },
     {
       "name": "textEdit_S4_AC_VOLT_3",
-      "label": "恢复 L3 电压(V/%)",
+      "label": "交流电压L3",
       "type": "text",
       "group": "step4_recover",
       "default": "230",
@@ -1220,7 +1220,7 @@
     },
     {
       "name": "textEdit_S4_TIME",
-      "label": "恢复 采集时长",
+      "label": "数据采集",
       "type": "text",
       "group": "step4_recover",
       "default": "3",
@@ -1235,8 +1235,84 @@
       "options": []
     },
     {
+      "name": "checkBox_S_End_DC1",
+      "label": "直流电源1",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC2",
+      "label": "直流电源2",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC3",
+      "label": "直流电源3",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
+      "name": "checkBox_S_End_DC4",
+      "label": "直流电源4",
+      "type": "checkbox",
+      "group": "step5_off",
+      "default": true,
+      "options": []
+    },
+    {
       "name": "comboBox_S_End_AC",
-      "label": "关机 AC",
+      "label": "交流电源",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC1",
+      "label": "直流电源1关机",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC2",
+      "label": "直流电源2关机",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC3",
+      "label": "直流电源3关机",
+      "type": "select",
+      "group": "step5_off",
+      "default": "关闭",
+      "options": [
+        "关闭",
+        "开启"
+      ]
+    },
+    {
+      "name": "comboBox_S_End_DC4",
+      "label": "直流电源4关机",
       "type": "select",
       "group": "step5_off",
       "default": "关闭",
