@@ -1003,26 +1003,25 @@ def _toggle_connection_button(connected_button_name, connected):
         btn.setText("取消连接" if connected else "连接设备")
 
 
-def _save_device_status(device_name, connected, resource=""):
+def _save_device_status(device_name, connected, resource="", extra=None):
     """更新 status.json 中的设备连接状态，刷新首页显示。"""
     import json
     import os
-    from datetime import datetime
+    from utils.status_json_devices import apply_device_connection, empty_status_payload
+
     _status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
     try:
         with open(_status_file, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception:
-        data = {"devices": [], "project": {}}
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    for dev in data.get("devices", []):
-        if dev["name"] == device_name:
-            dev["connected"] = connected
-            if resource:
-                dev["resource"] = resource
-            if connected:
-                dev["last_connected"] = now_str
-            break
+        data = empty_status_payload()
+    data = apply_device_connection(
+        data,
+        device_name=device_name,
+        connected=bool(connected),
+        resource=resource or "",
+        extra=extra if isinstance(extra, dict) else None,
+    )
     with open(_status_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     # 刷新首页
@@ -1030,6 +1029,15 @@ def _save_device_status(device_name, connected, resource=""):
         ui.stackedWidget.widget(0).update() if hasattr(ui.stackedWidget.widget(0), 'update') else None
         _reload_home_status(data)
 
+
+def _dewetron_status_extra():
+    """桌面德威创页当前参数，写入 status.json 供 Web 回填。"""
+    try:
+        from utils.status_json_devices import read_dewetron_ui_snapshot
+
+        return read_dewetron_ui_snapshot(globals().get("uiDewetronSetting"))
+    except Exception:
+        return {"brand": "dewetron", "widgets": {}}
 
 def _update_project_status(project_name, status):
     """更新 status.json 中的测试项目状态。"""
@@ -2615,7 +2623,7 @@ def ConnectEQUDEWETRON():
         _remove_equ_from_combo_boxes(tcp_addr)
         _toggle_connection_button("pushButton_ConnectEQUDEWETRON", True)
         ui.pushButton_ConnectEQUDEWETRON.setText("取消连接")
-        _save_device_status("DEWETRON", True, tcp_addr)
+        _save_device_status("DEWETRON", True, tcp_addr, extra=_dewetron_status_extra())
         # 创建采集器（数据库已在启动时初始化）
         global dewetron_collector
         if dewetron_collector is None:

@@ -66,6 +66,40 @@ def test_connected_device_reported_online(tmp_path: Path, monkeypatch):
     assert out[0]["source"] == "agent_status"
 
 
+def test_dew_widgets_and_default_brand_reported(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(snap, "_cache", [])
+    monkeypatch.setattr(snap, "_cache_at", 0.0)
+    status = tmp_path / "status.json"
+    status.write_text(
+        json.dumps(
+            {
+                "devices": [
+                    {
+                        "name": "DEWETRON",
+                        "connected": True,
+                        "resource": "192.168.40.24:10001",
+                        "last_connected": "2026-09-23 22:00:00",
+                        "widgets": {
+                            "comboBox_DEW_MaxRefreshRate": "200",
+                            "comboBox_downsampling": "Auto",
+                            "dew_wiring_type": 0,
+                        },
+                    }
+                ],
+                "project": {},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    out = snap.collect_instruments_snapshot(status_json_path=str(status), force=True)
+    assert len(out) == 1
+    assert out[0]["slot"] == "dew"
+    assert out[0]["brand"] == "dewetron"
+    assert out[0]["widgets"]["comboBox_DEW_MaxRefreshRate"] == "200"
+    assert out[0]["widgets"]["dew_wiring_type"] == 0
+
+
 def test_disconnected_but_was_connected_reports_offline(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(snap, "_cache", [])
     monkeypatch.setattr(snap, "_cache_at", 0.0)

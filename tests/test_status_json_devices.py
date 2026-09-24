@@ -1,0 +1,92 @@
+# -*- coding: utf-8 -*-
+"""status.json 设备行 upsert（供 Agent 心跳）。"""
+from __future__ import annotations
+
+from utils.status_json_devices import (
+    apply_device_connection,
+    empty_status_payload,
+    ensure_device_rows,
+)
+
+
+def test_empty_payload_has_all_slots():
+    data = empty_status_payload()
+    names = [d["name"] for d in data["devices"]]
+    assert "交流电源" in names and "WT3000" in names and "DEWETRON" in names
+
+
+def test_apply_upserts_when_devices_empty():
+    data = apply_device_connection(
+        {"devices": [], "project": {}},
+        device_name="交流电源",
+        connected=True,
+        resource="192.168.1.10:502",
+    )
+    ac = next(d for d in data["devices"] if d["name"] == "交流电源")
+    assert ac["connected"] is True
+    assert ac["resource"] == "192.168.1.10:502"
+    assert ac["last_connected"]
+
+
+def test_ensure_preserves_existing_resource():
+    raw = {
+        "devices": [
+            {
+                "name": "交流电源",
+                "connected": True,
+                "resource": "10.0.0.1:502",
+                "last_connected": "2026-01-01 00:00:00",
+            }
+        ]
+    }
+    data = ensure_device_rows(raw)
+    ac = next(d for d in data["devices"] if d["name"] == "交流电源")
+    assert ac["resource"] == "10.0.0.1:502"
+    assert len(data["devices"]) >= 8
+
+
+def test_apply_extra_widgets_for_dew():
+    data = apply_device_connection(
+        empty_status_payload(),
+        device_name="DEWETRON",
+        connected=True,
+        resource="192.168.40.24:10001",
+        extra={
+            "brand": "dewetron",
+            "widgets": {"comboBox_DEW_MaxRefreshRate": "200", "dew_wiring_type": 0},
+        },
+    )
+    dew = next(d for d in data["devices"] if d["name"] == "DEWETRON")
+    assert dew["brand"] == "dewetron"
+    assert dew["widgets"]["comboBox_DEW_MaxRefreshRate"] == "200"
+
+
+class _FakeCombo:
+    def __init__(self, text):
+        self._text = text
+
+    def currentText(self):
+        return self._text
+
+
+class _FakeBtn:
+    def __init__(self, checked):
+        self._checked = checked
+
+    def isChecked(self):
+        return self._checked
+
+
+def test_read_dewetron_ui_snapshot():
+    from utils.status_json_devices import read_dewetron_ui_snapshot
+
+    class FakeUi:
+        comboBox_maxRefreshRate = _FakeCombo("200")
+        comboBox_downsampling = _FakeCombo("Auto")
+        comboBox_frequencyChannel = _FakeCombo("AI 1/U1")
+        _wiring_buttons = [(0, _FakeBtn(True)), (1, _FakeBtn(False))]
+
+    snap = read_dewetron_ui_snapshot(FakeUi())
+    assert snap["brand"] == "dewetron"
+    assert snap["widgets"]["comboBox_DEW_MaxRefreshRate"] == "200"
+    assert snap["widgets"]["dew_wiring_type"] == 0

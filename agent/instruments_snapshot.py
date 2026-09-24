@@ -105,8 +105,10 @@ def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         b, m, _s = parse_scpi_idn(idn)
         brand = brand or b
         model = model or m
+    if kind == "dew" and not brand:
+        brand = "dewetron"
 
-    return {
+    item: Dict[str, Any] = {
         "kind": kind,
         "slot": slot,
         "resource": resource,
@@ -122,6 +124,10 @@ def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "source": "agent_status",
         "name": name,
     }
+    widgets = row.get("widgets")
+    if isinstance(widgets, dict) and widgets:
+        item["widgets"] = dict(widgets)
+    return item
 
 
 def collect_instruments_snapshot(
