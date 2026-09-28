@@ -1,0 +1,21 @@
+{
+  "export_fields": [
+    "U1_tRMS",
+    "U2_tRMS",
+    "U3_tRMS",
+    "I1_tRMS",
+    "I2_tRMS",
+    "I3_tRMS",
+    "P1_t",
+    "P2_t",
+    "P3_t",
+    "P_t",
+    "Q_t",
+    "S_t",
+    "PF_t",
+    "F_fund"
+  ],
+  "rate_text": "100",
+  "decimal_places": 3,
+  "realtime_waveform": false
+}

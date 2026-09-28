@@ -2,6 +2,7 @@
 """Headless tests for the shared DEWETRON AutoTest foundation."""
 
 import os
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -44,6 +45,14 @@ def qapp():
     return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 
+@pytest.fixture(autouse=True)
+def _isolate_dew_presets(tmp_path, monkeypatch):
+    """Avoid cross-test contamination from export-field preset files."""
+    preset_dir = tmp_path / "dew_presets"
+    preset_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SOLARAUTOTEST_DEW_PRESET_DIR", str(preset_dir))
+
+
 POWER_GROUP_XML = """
 noise-before-xml
 <MeasurementConfig>
@@ -57,12 +66,17 @@ noise-before-xml
         <Channel Name="F_fund"/>
         <ChannelGroup Type="Advanced">
           <Channel Name="hidden"/>
+          <Channel Name="F_fund"/>
         </ChannelGroup>
       </ChannelGroup>
       <ChannelGroup Type="Current (I)">
         <ChannelGroup Type="Total RMS">
           <Channel Name="I1_tRMS"/>
         </ChannelGroup>
+      </ChannelGroup>
+      <ChannelGroup Type="Advanced">
+        <Channel Name="noise_adv"/>
+        <Channel Name="Freq"/>
       </ChannelGroup>
     </Channel>
   </ChannelGroup>
@@ -81,6 +95,7 @@ def test_project_specs_are_stable_and_exclude_ineligible_projects():
         "无功注入",
         "无功精度",
         "有功调度",
+        "防逆流测试",
         "Test_PU",
         "静态Cos(φ)",
         "动态Cos(φ)",
@@ -260,15 +275,52 @@ def test_power_group_parser_does_not_depend_on_flicker_dialog():
     assert tree == {
         "Voltage (U)": {
             "Total RMS": ["U1_tRMS", "U2_tRMS"],
-            "_default_": ["F_fund"],
         },
         "Current (I)": {"Total RMS": ["I1_tRMS"]},
+        "Frequency (F)": {
+            "Fundamental": ["F_fund", "Freq"],
+        },
     }
     assert parse_power_group_tree("<MeasurementConfig/>") is None
     assert parse_power_group_tree("not xml") is None
 
 
-def test_panel_pending_field_restoration_and_signals(qapp):
+def test_power_group_parser_picks_ffund_sibling_of_groups():
+    """真机：F_fund 与 Voltage/Current 同级，直接挂在 POWER/0 下。"""
+    from components.dewetron_autotest_panel import _is_frequency_channel
+
+    xml = """
+    <MeasurementConfig>
+      <ChannelGroup Type="Power Groups">
+        <Channel Name="POWER/0">
+          <ChannelGroup Type="Voltage (U)">
+            <ChannelGroup Type="Total RMS">
+              <Channel Name="U1_tRMS"/>
+            </ChannelGroup>
+          </ChannelGroup>
+          <ChannelGroup Type="Current (I)">
+            <ChannelGroup Type="Total RMS">
+              <Channel Name="I1_tRMS"/>
+            </ChannelGroup>
+          </ChannelGroup>
+          <Channel Name="F_fund"/>
+          <Channel Name="f__fund"/>
+        </Channel>
+      </ChannelGroup>
+    </MeasurementConfig>
+    """
+    tree = parse_power_group_tree(xml)
+    assert tree is not None
+    assert "Frequency (F)" in tree
+    fund = tree["Frequency (F)"]["Fundamental"]
+    assert "F_fund" in fund
+    assert "f__fund" in fund
+    assert _is_frequency_channel("f__fund")
+    assert _is_frequency_channel("F_fund [Hz]")
+    assert not _is_frequency_channel("PF_fund")
+
+
+def test_panel_pending_field_restoration_and_signals(qapp, tmp_path, monkeypatch):
     panel = DewetronAutoTestPanel()
     panel.set_config(DewetronUiConfig("20", 2, True, ["U2_tRMS", "I1_tRMS"]))
     assert panel.get_checked_export_fields() == ["U2_tRMS", "I1_tRMS"]
@@ -277,7 +329,11 @@ def test_panel_pending_field_restoration_and_signals(qapp):
     assert panel.get_checked_export_fields() == ["U2_tRMS", "I1_tRMS"]
     assert panel.unavailable_export_fields() == []
     assert panel.get_config() == DewetronUiConfig(
-        "20", 2, True, ["U2_tRMS", "I1_tRMS"]
+        "20",
+        2,
+        True,
+        ["U2_tRMS", "I1_tRMS"],
+        save_dir=panel.lineEdit_DEW_SaveDir.text().strip(),
     )
     assert panel.validate_config() == []
 
@@ -299,16 +355,30 @@ def test_panel_pending_field_restoration_and_signals(qapp):
     assert panel.get_checked_export_fields() == ["U1_tRMS"]
     assert panel.unavailable_export_fields() == ["missing_saved_field"]
 
-    # A genuinely fresh panel has no saved selection and follows the legacy
-    # convention of selecting every available leaf.
+    # Apply auto-saves preset into the shared test dir; use a clean dir for
+    # the "no preset → all unchecked" default.
+    empty_dir = tmp_path / "empty_presets"
+    empty_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SOLARAUTOTEST_DEW_PRESET_DIR", str(empty_dir))
     fresh = DewetronAutoTestPanel()
     fresh.refresh_power_groups(POWER_GROUP_XML)
-    assert fresh.get_checked_export_fields() == [
-        "U1_tRMS",
-        "U2_tRMS",
-        "F_fund",
-        "I1_tRMS",
-    ]
+    assert fresh.get_checked_export_fields() == []
+
+
+def test_export_preset_save_and_autoload(qapp, tmp_path, monkeypatch):
+    """第一次勾选并保存后，下次打开自动恢复勾选。"""
+    monkeypatch.setenv("SOLARAUTOTEST_DEW_PRESET_DIR", str(tmp_path / "presets"))
+    panel = DewetronAutoTestPanel()
+    panel.refresh_power_groups(POWER_GROUP_XML)
+    panel.set_checked_export_fields(["U1_tRMS", "F_fund"])
+    panel.rate_combo.setCurrentText("20")
+    path = panel.save_export_preset(silent=True)
+    assert path and Path(path).is_file()
+
+    again = DewetronAutoTestPanel()
+    again.refresh_power_groups(POWER_GROUP_XML)
+    assert again.get_checked_export_fields() == ["U1_tRMS", "F_fund"]
+    assert again.get_config().rate_text == "20"
 
 
 def test_analyzer_mode_section_moves_checkbox_stacks_pages_and_links_enabled(qapp):
@@ -358,9 +428,11 @@ def test_coordinator_registry_snapshot_restore_validate_and_append_fingerprint(q
     assert second.previous_fingerprint == first.fingerprint
 
     coordinator.restore_config(DewetronUiConfig("100", 1, True, ["I1_tRMS"]))
-    assert coordinator.snapshot_config() == DewetronUiConfig(
-        "100", 1, True, ["I1_tRMS"]
-    )
+    snap = coordinator.snapshot_config()
+    assert snap.rate_text == "100"
+    assert snap.decimal_places == 1
+    assert snap.realtime_waveform is True
+    assert snap.export_fields == ["I1_tRMS"]
     normalized = coordinator.normalize_segment(
         [["Upper_WT_Config"], ["AC", "query", "*IDN?"]],
         start_index=0,

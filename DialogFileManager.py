@@ -356,8 +356,14 @@ class FileManagerDialog(QtWidgets.QDialog):
         tabs.addTab(cmd_tab, "自动化命令")
 
         # Tab 2: DEWETRON 配置
-        dew_dir = os.path.join(os.path.dirname(__file__),
-                               "command_save_files", "dewetron_data")
+        try:
+            from utils.wt_save_path import ensure_dewetron_save_dir
+
+            dew_dir = ensure_dewetron_save_dir()
+        except Exception:
+            dew_dir = os.path.join(
+                os.path.dirname(__file__), "command_save_files", "dewetron_data"
+            )
         dew_tab = FileListWidget(
             directory=dew_dir,
             file_filter=('*.xml',),

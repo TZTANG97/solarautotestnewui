@@ -120,12 +120,29 @@ def build_solar_equs(
         resource = str(item.get("resource") or "").strip()
         if not resource or resource.lower().startswith("pending:"):
             continue
-        brand = str(item.get("brand") or "").strip() or "未知厂商"
-        model = str(item.get("model") or "").strip()
         kind = str(item.get("kind") or "unknown").strip().lower()
+        from utils.instrument_identity import infer_brand, infer_serial
+
+        brand = infer_brand(
+            kind=kind,
+            resource=resource,
+            brand=str(item.get("brand") or ""),
+            idn=str(item.get("idn") or ""),
+            model=str(item.get("model") or ""),
+        ) or "未知厂商"
+        model = str(item.get("model") or "").strip()
         if not model:
             model = kind_fallback.get(kind, kind.upper() or "Instrument")
-        serial = str(item.get("serial") or "").strip() or resource[:64]
+        serial = infer_serial(
+            kind=kind,
+            resource=resource,
+            serial=str(item.get("serial") or ""),
+            idn=str(item.get("idn") or ""),
+            slot=str(item.get("slot") or ""),
+            host_name=host,
+            machine_id=mid,
+            python_id=pid,
+        )
         name = f"{brand} {model}".strip()
         out.append(
             {
@@ -483,6 +500,12 @@ _presence = SolarWsPresence()
 
 
 def start_presence(*, iot_base: str, pythonid: str, machine_id: str = "", host_name: str = "") -> bool:
+    try:
+        from agent.instruments_snapshot import set_identity
+
+        set_identity(host_name=host_name, machine_id=machine_id, python_id=pythonid)
+    except Exception:
+        pass
     return _presence.start(
         iot_base=iot_base, pythonid=pythonid, machine_id=machine_id, host_name=host_name
     )

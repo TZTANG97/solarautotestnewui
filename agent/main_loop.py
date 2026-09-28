@@ -134,6 +134,15 @@ def _do_heartbeat(
 ) -> Optional[dict]:
     rid, probe_results = _consume_probe_payload()
     ctrl_rid, ctrl_result = _consume_control_payload()
+    run_snapshot = None
+    try:
+        from utils.iot_run_snapshot import build_run_snapshot_from_status, snapshot_implies_busy
+
+        run_snapshot = build_run_snapshot_from_status(status_json_path)
+        if snapshot_implies_busy(run_snapshot):
+            busy = True
+    except Exception:
+        run_snapshot = None
     try:
         hb = client.heartbeat(
             agent_version=agent_version,
@@ -145,6 +154,7 @@ def _do_heartbeat(
             probe_request_id=rid,
             control_result=ctrl_result,
             control_request_id=ctrl_rid,
+            run_snapshot=run_snapshot,
         )
     except Exception:
         # 回传失败时把结果塞回去，下一轮再试
@@ -164,6 +174,33 @@ def _do_heartbeat(
         if data_hb.get("pythonid"):
             client.pythonid = str(data_hb.get("pythonid") or "")
         _handle_pending_actions(data_hb)
+    # 有关联 job 时额外打一枪 progress（任务详情页即时性更好）
+    try:
+        jid = int((run_snapshot or {}).get("jobId") or 0)
+        if jid > 0 and run_snapshot:
+            client.progress(
+                jid,
+                progress_percent=int(run_snapshot.get("progress") or 0),
+                progress_text=str(
+                    run_snapshot.get("remain_text")
+                    or run_snapshot.get("current_detail")
+                    or ""
+                )[:255],
+                current_step=str(
+                    run_snapshot.get("current_detail")
+                    or run_snapshot.get("current_test")
+                    or ""
+                )[:128],
+            )
+    except Exception:
+        pass
+    # HTTPS 心跳成功后顺便经 WS 推一帧串口/仪器，供网页即时刷新
+    try:
+        from agent import ws_gateway
+
+        ws_gateway.push_instrument_status()
+    except Exception:
+        pass
     return data_hb if isinstance(data_hb, dict) else None
 
 
@@ -276,21 +313,44 @@ def run_once_job(
             runner.set_abort_check(_cloud_abort_check)
 
         def on_progress(percent: int, text: str, step: str) -> None:
+            # 进度：MQTT 为主；失败则 HTTPS 兜底（避免实验管理无上报）
+            mqtt_ok = False
             try:
-                client.progress(
-                    job_id,
-                    progress_percent=percent,
-                    progress_text=text,
-                    current_step=step,
+                from agent.mqtt_publish import publish_experdata
+
+                params = job.get("params") if isinstance(job.get("params"), dict) else {}
+                exper_ref = ""
+                if isinstance(params, dict):
+                    exper_ref = str(params.get("experId") or params.get("experid") or "")
+                mqtt_ok = bool(
+                    publish_experdata(
+                        pythonid=str(client.pythonid or job.get("pythonid") or ""),
+                        job_id=job_id,
+                        progress_percent=percent,
+                        progress_text=text,
+                        current_step=step,
+                        exper_id=exper_ref,
+                    )
                 )
             except Exception as exc:
-                logger.warning("progress 上报失败: %s", exc)
+                logger.warning("MQTT progress 失败: %s", exc)
+            if not mqtt_ok:
+                try:
+                    client.progress(
+                        job_id,
+                        progress_percent=percent,
+                        progress_text=text,
+                        current_step=step,
+                    )
+                except Exception as exc:
+                    logger.warning("HTTPS progress 兜底失败: %s", exc)
+            # WS 仅作本机网关即时推 web（非主通道）
             try:
                 from agent import ws_gateway
 
                 ws_gateway.send_json(
                     {
-                        "type": "experdata",
+                        "type": "SolarEquipment_experdata_return",
                         "experid": str(job_id),
                         "time": "1",
                         "equs": [
@@ -299,6 +359,7 @@ def run_once_job(
                                 "progress_percent": int(percent),
                                 "progress_text": text,
                                 "current_step": step,
+                                "channel": "solar",
                             }
                         ],
                     }
@@ -312,13 +373,52 @@ def run_once_job(
 
         root = _Path(repo_root) if repo_root else _agent_repo_root()
         result = runner.run(job, on_progress)
-        client.done(
-            job_id,
-            status=result.get("status") or "failed",
-            fail_reason=result.get("fail_reason") or "",
-            result_summary=result.get("result_summary"),
-            report_meta=None,
-        )
+        # 结案状态：MQTT auto_end 为主；HTTPS done 仅兜底/补报告
+        mqtt_end_ok = False
+        try:
+            from agent.mqtt_publish import publish_exper_auto_end
+
+            proto_status = {
+                "success": "OK",
+                "aborted": "NG",
+                "failed": "FAIL",
+            }.get(str(result.get("status") or "").lower(), "FAIL")
+            mqtt_end_ok = bool(
+                publish_exper_auto_end(
+                    pythonid=str(client.pythonid or job.get("pythonid") or ""),
+                    job_id=job_id,
+                    status=proto_status,
+                    fail_reason=str(result.get("fail_reason") or ""),
+                    result_summary=result.get("result_summary")
+                    if isinstance(result.get("result_summary"), dict)
+                    else None,
+                )
+            )
+        except Exception as exc:
+            logger.debug("MQTT auto_end 跳过: %s", exc)
+        if not mqtt_end_ok:
+            try:
+                client.done(
+                    job_id,
+                    status=result.get("status") or "failed",
+                    fail_reason=result.get("fail_reason") or "",
+                    result_summary=result.get("result_summary"),
+                    report_meta=None,
+                )
+            except Exception as exc:
+                logger.warning("HTTPS done 兜底失败: %s", exc)
+        else:
+            # MQTT 已结案：仍尝试 HTTPS done 幂等补报告元数据（失败忽略）
+            try:
+                client.done(
+                    job_id,
+                    status=result.get("status") or "failed",
+                    fail_reason=result.get("fail_reason") or "",
+                    result_summary=result.get("result_summary"),
+                    report_meta=None,
+                )
+            except Exception:
+                pass
         try:
             from agent import ws_gateway
 
@@ -329,11 +429,12 @@ def run_once_job(
             }.get(str(result.get("status") or "").lower(), "FAIL")
             ws_gateway.send_json(
                 {
-                    "type": "exper_auto_end",
+                    "type": "SolarEquipment_experautoend_return",
                     "experid": str(job_id),
                     "status": proto_status,
                     "fail_reason": result.get("fail_reason") or "",
                     "result_summary": result.get("result_summary") or {},
+                    "channel": "solar",
                 }
             )
         except Exception:
@@ -349,7 +450,7 @@ def run_once_job(
                     logger.warning("上传报告失败 %s: %s", path, exc)
         except Exception as exc:
             logger.warning("收集报告失败: %s", exc)
-        logger.info("任务 %s 结案: %s", job_id, result.get("status"))
+        logger.info("任务 %s 结案: %s mqtt_end=%s", job_id, result.get("status"), mqtt_end_ok)
     except Exception as exc:
         logger.error("任务 %s 异常: %s\n%s", job_id, exc, traceback.format_exc())
         try:
@@ -376,6 +477,13 @@ def main(argv: Optional[list] = None) -> int:
         logger.error("%s", exc)
         return 2
 
+    try:
+        from agent.mqtt_publish import configure as configure_mqtt
+
+        configure_mqtt(cfg.mqtt)
+    except Exception as exc:
+        logger.warning("MQTT 配置加载失败: %s", exc)
+
     host = socket.gethostname()
     pythonid = ""
     machine_id = ""
@@ -387,6 +495,13 @@ def main(argv: Optional[list] = None) -> int:
         raw = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
         pythonid = str(raw.get("pythonid") or "").strip()
         machine_id = str(raw.get("machine_id") or "").strip()
+    except Exception:
+        pass
+
+    try:
+        from agent.instruments_snapshot import set_identity
+
+        set_identity(host_name=host, machine_id=machine_id, python_id=pythonid)
     except Exception:
         pass
 
@@ -404,6 +519,15 @@ def main(argv: Optional[list] = None) -> int:
             logger.info("WebSocket 上线 pythonid=%s", pythonid)
     except Exception as exc:
         logger.warning("WebSocket 上线失败: %s", exc)
+
+    # MQTT 订阅开测命令（WS 离线时仍可收 startexper）
+    try:
+        from agent.mqtt_subscribe import start_subscriber
+
+        if pythonid:
+            start_subscriber(pythonid=pythonid, cfg=cfg.mqtt)
+    except Exception as exc:
+        logger.warning("MQTT 订阅启动失败: %s", exc)
 
     if not cfg.agent_token or cfg.agent_token.startswith("请填写"):
         logger.info("尚无 agent_token，进入等待「添加设备」领取令牌…")
@@ -484,14 +608,43 @@ def main(argv: Optional[list] = None) -> int:
 
         try:
             job = None
+            via = ""
             try:
                 from agent import ws_gateway
 
                 job = ws_gateway.pop_pending_job()
+                if job:
+                    via = "ws"
             except Exception:
                 job = None
             if not job:
+                try:
+                    from agent import mqtt_subscribe
+
+                    job = mqtt_subscribe.pop_pending_job()
+                    if job:
+                        via = "mqtt"
+                except Exception:
+                    job = None
+            # WS/MQTT 任一在线：不轮询 HTTPS claim（对齐温箱）
+            realtime_ok = False
+            try:
+                from agent import ws_gateway
+
+                realtime_ok = bool(ws_gateway.presence_running())
+            except Exception:
+                pass
+            if not realtime_ok:
+                try:
+                    from agent import mqtt_subscribe
+
+                    realtime_ok = bool(mqtt_subscribe.subscriber_running())
+                except Exception:
+                    pass
+            if not job and not realtime_ok:
                 job = client.claim_next()
+                if job:
+                    via = "http-fallback"
         except Exception as exc:
             logger.warning("领任务失败: %s", exc)
             time.sleep(interval)
@@ -503,7 +656,7 @@ def main(argv: Optional[list] = None) -> int:
                 job.get("experid") or job.get("id"),
                 job.get("testType"),
                 job.get("title"),
-                "ws" if job.get("type") == "startexper" else "http",
+                via or ("ws" if job.get("type") == "startexper" else "http"),
             )
             # WS 下发的 startexper 可能尚未 HTTP claim；用 id 跑即可
             if job.get("commands") and isinstance(job.get("commands"), dict) and not job.get("testType"):

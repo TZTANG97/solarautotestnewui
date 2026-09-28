@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
   Install SolarAutoTest to this PC (local copy + uv + venv).
@@ -6,14 +6,19 @@
 [CmdletBinding()]
 param(
     [string]$InstallDir = "",
+    [string]$DataDir = "",
+    [string]$RuntimeDir = "",
     [switch]$SkipShortcut,
     [switch]$SkipSync,
     [switch]$SkipVerify,
-    [switch]$Quiet
+    [switch]$Quiet,
+    [switch]$NoPrompt
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+
+. (Join-Path $PSScriptRoot "Install-PathHelpers.ps1")
 
 function Write-Step([string]$Message) {
     Write-Host ""
@@ -118,11 +123,25 @@ function Install-PortableUv([string]$InstallRoot) {
     }
 
     Write-Step "Downloading portable uv (network required)"
-    $zipUrl = "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip"
+    $zipUrls = @(
+        "https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip",
+        "https://ghproxy.net/https://github.com/astral-sh/uv/releases/latest/download/uv-x86_64-pc-windows-msvc.zip"
+    )
     $tmpZip = Join-Path $env:TEMP ("uv-win-" + [guid]::NewGuid().ToString() + ".zip")
     $tmpDir = Join-Path $env:TEMP ("uv-extract-" + [guid]::NewGuid().ToString())
+    $downloaded = $false
     try {
-        Invoke-WebRequest -Uri $zipUrl -OutFile $tmpZip -UseBasicParsing
+        foreach ($zipUrl in $zipUrls) {
+            try {
+                Write-Host ("  try: " + $zipUrl)
+                Invoke-WebRequest -Uri $zipUrl -OutFile $tmpZip -UseBasicParsing
+                $downloaded = $true
+                break
+            } catch {
+                Write-WarnLine ("uv zip failed: " + $_.Exception.Message)
+            }
+        }
+        if (-not $downloaded) { throw "all uv zip mirrors failed" }
         Ensure-Directory $tmpDir
         Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
         $found = Get-ChildItem -Path $tmpDir -Filter "uv.exe" -Recurse | Select-Object -First 1
@@ -132,7 +151,7 @@ function Install-PortableUv([string]$InstallRoot) {
         return $target
     }
     catch {
-        Write-WarnLine ("GitHub download failed: " + $_.Exception.Message)
+        Write-WarnLine ("uv download failed: " + $_.Exception.Message)
         Write-Step "Trying official install script"
         $installPs1 = Join-Path $env:TEMP ("uv-install-" + [guid]::NewGuid().ToString() + ".ps1")
         Invoke-WebRequest -Uri "https://astral.sh/uv/install.ps1" -OutFile $installPs1 -UseBasicParsing
@@ -196,13 +215,20 @@ function Write-Launcher([string]$InstallRoot) {
         '    )',
         ')',
         '',
-        'REM Split path: avoid mid-upgrade bat rewrite eating LOCAL_ROOT',
-        'set "LOCAL_ROOT=%LOCALAPPDATA%"',
-        'if not defined LOCAL_ROOT set "LOCAL_ROOT=%USERPROFILE%\AppData\Local"',
-        'set "LOCAL_ROOT=%LOCAL_ROOT%\SolarAutoTestRuntime"',
+        'REM Runtime root: runtime_root.txt in install dir, else LOCALAPPDATA',
+        'set "LOCAL_ROOT="',
+        'if exist "%~dp0runtime_root.txt" set /p LOCAL_ROOT=<"%~dp0runtime_root.txt"',
+        'if not defined LOCAL_ROOT (',
+        '    set "LOCAL_ROOT=%LOCALAPPDATA%"',
+        '    if not defined LOCAL_ROOT set "LOCAL_ROOT=%USERPROFILE%\AppData\Local"',
+        '    set "LOCAL_ROOT=%LOCAL_ROOT%\SolarAutoTestRuntime"',
+        ')',
         'set "UV_PROJECT_ENVIRONMENT=%LOCAL_ROOT%\.venv"',
         'set "UV_PYTHON_INSTALL_DIR=%LOCAL_ROOT%\python"',
         'set "UV_CACHE_DIR=%LOCAL_ROOT%\uv-cache"',
+        'REM China-friendly mirrors (override by setting these before launch)',
+        'if not defined UV_DEFAULT_INDEX set "UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/"',
+        'if not defined UV_PYTHON_INSTALL_MIRROR set "UV_PYTHON_INSTALL_MIRROR=https://cdn.npmmirror.com/binaries/python-build-standalone"',
         'if not exist "%LOCAL_ROOT%" mkdir "%LOCAL_ROOT%" >nul 2>&1',
         '',
         'set "UV_EXE=%~dp0tools\uv.exe"',
@@ -286,9 +312,21 @@ function New-AppShortcut([string]$TargetBat, [string]$InstallRoot) {
     }
 }
 
-function Invoke-UvSync([string]$InstallRoot, [string]$UvExe) {
+function Invoke-UvSync([string]$InstallRoot, [string]$UvExe, [string]$RuntimeRoot = "") {
     Write-Step "Syncing Python environment (first run may take several minutes)"
-    $runtime = Join-Path $env:LOCALAPPDATA "SolarAutoTestRuntime"
+    Set-UvDownloadMirrors
+    Write-Host ("  UV_DEFAULT_INDEX=" + $env:UV_DEFAULT_INDEX)
+    Write-Host ("  UV_PYTHON_INSTALL_MIRROR=" + $env:UV_PYTHON_INSTALL_MIRROR)
+    $runtime = $RuntimeRoot
+    if (-not $runtime) {
+        $ptr = Join-Path $InstallRoot "runtime_root.txt"
+        if (Test-Path $ptr) {
+            try { $runtime = ((Get-Content -Path $ptr -TotalCount 1) + "").Trim() } catch {}
+        }
+    }
+    if (-not $runtime) {
+        $runtime = Resolve-ClassicRuntime $InstallRoot
+    }
     Ensure-Directory $runtime
     $env:UV_PROJECT_ENVIRONMENT = Join-Path $runtime ".venv"
     $env:UV_PYTHON_INSTALL_DIR = Join-Path $runtime "python"
@@ -338,10 +376,44 @@ function Get-FileHashSafe([string]$Path) {
 $packageRoot = Get-PackageRoot
 $source = Get-SourceAppDir
 
+$script:ResolvedDataDir = $DataDir
+$script:ResolvedRuntimeDir = $RuntimeDir
+
 if (-not $InstallDir) {
-    $InstallDir = Join-Path $env:LOCALAPPDATA "SolarAutoTest"
+    $defaultInstall = Get-DefaultInstallDir
+    $defaultData = Join-Path $defaultInstall "data"
+    $defaultRuntime = Join-Path $defaultInstall "runtime"
+    $existingLocal = Join-Path $env:LOCALAPPDATA "SolarAutoTest"
+    if (Test-Path (Join-Path $existingLocal "SCPITestWave.py")) {
+        $prev = Read-ExistingPaths $existingLocal
+        $defaultInstall = $existingLocal
+        if ($prev.DataDir) { $defaultData = $prev.DataDir } else { $defaultData = Resolve-ClassicData $existingLocal }
+        if ($prev.RuntimeDir) { $defaultRuntime = $prev.RuntimeDir } else { $defaultRuntime = Resolve-ClassicRuntime $existingLocal }
+    }
+    if ($Quiet -or $NoPrompt) {
+        $InstallDir = $defaultInstall
+        if (-not $script:ResolvedDataDir) { $script:ResolvedDataDir = $defaultData }
+        if (-not $script:ResolvedRuntimeDir) { $script:ResolvedRuntimeDir = $defaultRuntime }
+    } else {
+        $picked = Prompt-InstallPaths -DefaultInstall $defaultInstall -DefaultData $defaultData -DefaultRuntime $defaultRuntime
+        $InstallDir = $picked.InstallDir
+        if (-not $script:ResolvedDataDir) { $script:ResolvedDataDir = $picked.DataDir }
+        if (-not $script:ResolvedRuntimeDir) { $script:ResolvedRuntimeDir = $picked.RuntimeDir }
+    }
 }
+
 $InstallDir = [System.IO.Path]::GetFullPath($InstallDir)
+$prevPaths = Read-ExistingPaths $InstallDir
+if (-not $script:ResolvedDataDir) {
+    if ($prevPaths.DataDir) { $script:ResolvedDataDir = $prevPaths.DataDir }
+    else { $script:ResolvedDataDir = Resolve-ClassicData $InstallDir }
+}
+if (-not $script:ResolvedRuntimeDir) {
+    if ($prevPaths.RuntimeDir) { $script:ResolvedRuntimeDir = $prevPaths.RuntimeDir }
+    else { $script:ResolvedRuntimeDir = Resolve-ClassicRuntime $InstallDir }
+}
+$script:ResolvedDataDir = [System.IO.Path]::GetFullPath($script:ResolvedDataDir)
+$script:ResolvedRuntimeDir = [System.IO.Path]::GetFullPath($script:ResolvedRuntimeDir)
 
 $newVersion = Get-AppVersion $packageRoot
 if (-not $newVersion) { $newVersion = Get-AppVersion $source }
@@ -353,6 +425,8 @@ if (Test-Path (Join-Path $InstallDir "SCPITestWave.py")) {
 }
 
 Write-Host ("Install dir: " + $InstallDir)
+Write-Host ("Data dir:    " + $script:ResolvedDataDir)
+Write-Host ("Runtime dir: " + $script:ResolvedRuntimeDir)
 Write-Host ("Source dir:  " + $source)
 if ($isUpgrade) {
     if ($oldVersion -and $newVersion) {
@@ -382,8 +456,57 @@ foreach ($name in @("solar_machine_id", "solar_agent.json")) {
         Copy-Item -Force $srcId (Join-Path $identityBackup $name)
     }
 }
+foreach ($name in @("paths.ini", "runtime_root.txt")) {
+    $srcPath = if ($name -eq "paths.ini") {
+        Join-Path $InstallDir "config_files\paths.ini"
+    } else {
+        Join-Path $InstallDir $name
+    }
+    if (Test-Path $srcPath) {
+        Copy-Item -Force $srcPath (Join-Path $identityBackup $name)
+    }
+}
 
 Copy-AppFiles -Source $source -Destination $InstallDir
+
+# Keep previous custom paths on upgrade unless DataDir/RuntimeDir explicitly passed
+$bakPaths = Join-Path $identityBackup "paths.ini"
+$bakRuntime = Join-Path $identityBackup "runtime_root.txt"
+if ((-not $DataDir) -and (Test-Path $bakPaths)) {
+    try {
+        foreach ($line in (Get-Content -Path $bakPaths -ErrorAction Stop)) {
+            if ($line -match '^\s*data_root\s*=\s*(.+)$') {
+                $script:ResolvedDataDir = [System.IO.Path]::GetFullPath($Matches[1].Trim().Trim('"'))
+            }
+            if ((-not $RuntimeDir) -and ($line -match '^\s*runtime_root\s*=\s*(.+)$')) {
+                $script:ResolvedRuntimeDir = [System.IO.Path]::GetFullPath($Matches[1].Trim().Trim('"'))
+            }
+        }
+    } catch {}
+}
+if ((-not $RuntimeDir) -and (Test-Path $bakRuntime)) {
+    try {
+        $line = ((Get-Content -Path $bakRuntime -TotalCount 1) + "").Trim()
+        if ($line) { $script:ResolvedRuntimeDir = [System.IO.Path]::GetFullPath($line) }
+    } catch {}
+}
+Ensure-Directory $script:ResolvedDataDir
+Ensure-Directory $script:ResolvedRuntimeDir
+
+# 目录迁移后常见情况：新 runtime 是空的，但旧盘/旧路径仍有 .venv+uv-cache。
+# 未显式指定 -RuntimeDir 时，自动复用已就绪的 runtime，避免重新从外网拉包。
+if (-not $RuntimeDir) {
+    if (-not (Test-UvRuntimeReady $script:ResolvedRuntimeDir)) {
+        $donor = Find-ReusableUvRuntime $script:ResolvedRuntimeDir
+        if ($donor -and ($donor.ToLowerInvariant() -ne $script:ResolvedRuntimeDir.ToLowerInvariant())) {
+            Write-Ok ("Reusing existing Python runtime (skip re-download): " + $donor)
+            Write-WarnLine "To force a fresh runtime later: delete its .venv or set a new runtime_root in paths.ini"
+            $script:ResolvedRuntimeDir = $donor
+        }
+    }
+}
+
+Write-PathsConfig -InstallRoot $InstallDir -DataRoot $script:ResolvedDataDir -RuntimeRoot $script:ResolvedRuntimeDir
 
 # 正式 IOT 地址：每次安装/升级用安装包内 example 覆盖 iot_bootstrap.json
 $bootPath = Join-Path $configDir "iot_bootstrap.json"
@@ -445,17 +568,25 @@ $uv = Ensure-Uv -InstallRoot $InstallDir
 $launcher = Write-Launcher -InstallRoot $InstallDir
 
 $newLockHash = Get-FileHashSafe (Join-Path $InstallDir "uv.lock")
+$venvReady = Test-UvRuntimeReady $script:ResolvedRuntimeDir
 $skipSyncBecauseSame = $false
-if ($isUpgrade -and $oldLockHash -and $newLockHash -and ($oldLockHash -eq $newLockHash)) {
+if ($venvReady -and $oldLockHash -and $newLockHash -and ($oldLockHash -eq $newLockHash)) {
     $skipSyncBecauseSame = $true
 }
 
 if ($SkipSync) {
     Write-WarnLine "SkipSync requested; dependencies not refreshed"
 } elseif ($skipSyncBecauseSame) {
-    Write-Ok "uv.lock unchanged; skip dependency sync (faster upgrade)"
+    Write-Ok "uv.lock unchanged and runtime ready; skip dependency sync (faster upgrade)"
+} elseif ($venvReady -and (-not $oldLockHash) -and $newLockHash) {
+    # 新装目录但已指向旧 runtime：仍跑一次 sync，有本地 uv-cache 时通常很快
+    Write-Ok "Runtime already has .venv; syncing with local cache + mirrors"
+    Invoke-UvSync -InstallRoot $InstallDir -UvExe $uv -RuntimeRoot $script:ResolvedRuntimeDir
 } else {
-    Invoke-UvSync -InstallRoot $InstallDir -UvExe $uv
+    if (-not $venvReady) {
+        Write-WarnLine ("Runtime not ready yet: " + (Join-Path $script:ResolvedRuntimeDir ".venv"))
+    }
+    Invoke-UvSync -InstallRoot $InstallDir -UvExe $uv -RuntimeRoot $script:ResolvedRuntimeDir
 }
 
 if (-not $SkipShortcut) {
@@ -483,5 +614,8 @@ if ($isUpgrade) {
     Write-Ok ("Install succeeded  version=" + $(if ($newVersion) { $newVersion } else { "unknown" }))
 }
 Write-Host ("App: " + $InstallDir)
+Write-Host ("Data: " + $script:ResolvedDataDir)
+Write-Host ("Runtime: " + $script:ResolvedRuntimeDir)
 Write-Host ("Start: " + $launcher)
+Write-Host "To move disks later: re-run install.bat or edit config_files\paths.ini and runtime_root.txt"
 exit 0

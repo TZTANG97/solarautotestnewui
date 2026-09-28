@@ -73,7 +73,19 @@ class DeviceFinderDialog(QDialog):
     ):
         super().__init__(parent)
         self.setWindowTitle("扫描并连接设备")
-        self.resize(920, 520)
+        try:
+            from utils.window_fit import fit_window_to_screen
+
+            fit_window_to_screen(
+                self,
+                design_w=920,
+                design_h=520,
+                min_w=720,
+                min_h=420,
+                margin=40,
+            )
+        except Exception:
+            self.resize(920, 520)
         self._rm = visa_rm
         self._last = list(last_resources or [])
         self._skip = list(skip_resources or [])
@@ -216,8 +228,29 @@ class DeviceFinderDialog(QDialog):
             for sid, label in SLOT_CHOICES:
                 combo.addItem(label, sid)
             combo.setCurrentIndex(0)
+            preferred_slot = ""
             if prev and prev[1]:
-                idx = combo.findData(prev[1])
+                preferred_slot = prev[1]
+            else:
+                preferred_slot = str((dev.extra or {}).get("last_slot") or "")
+                if not preferred_slot:
+                    try:
+                        from utils.iot_auto_connect import load_slot_map
+
+                        slot_map = load_slot_map()
+                        preferred_slot = (
+                            slot_map.get(dev.resource)
+                            or slot_map.get(
+                                f"{dev.host}:{dev.port}"
+                                if dev.host and dev.port
+                                else ""
+                            )
+                            or ""
+                        )
+                    except Exception:
+                        preferred_slot = ""
+            if preferred_slot:
+                idx = combo.findData(preferred_slot)
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
             self._table.setCellWidget(row, 4, combo)

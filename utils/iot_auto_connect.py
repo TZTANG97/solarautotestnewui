@@ -7,9 +7,12 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from utils.device_discovery import (
     FoundDevice,
+    devices_from_last_resources,
+    devices_from_status_json,
     enrich_device,
     last_known_resources,
-    devices_from_last_resources,
+    list_visa_resources,
+    load_success_device_map,
 )
 from utils.device_finder_connect import build_connect_jobs
 
@@ -53,6 +56,7 @@ def _default_slot_for_kind(kind: str) -> Optional[str]:
 
 def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDevice]]:
     slot_map = load_slot_map()
+    success = load_success_device_map()
     online = [d for d in devices if not (d.extra or {}).get("offline")]
     by_kind: Dict[str, List[FoundDevice]] = {}
     for d in online:
@@ -62,10 +66,22 @@ def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDe
     used_slots = set()
     jobs: List[Tuple[str, FoundDevice]] = []
 
+    def _slot_for(dev: FoundDevice) -> str:
+        res = getattr(dev, "resource", "") or ""
+        slot = slot_map.get(res) or ""
+        if not slot and getattr(dev, "host", None) and getattr(dev, "port", None):
+            slot = slot_map.get(f"{dev.host}:{dev.port}") or ""
+        if not slot:
+            slot = str((dev.extra or {}).get("last_slot") or "").strip().lower()
+        if not slot:
+            snap = success.get(res) or {}
+            if not snap and getattr(dev, "host", None) and getattr(dev, "port", None):
+                snap = success.get(f"{dev.host}:{dev.port}") or {}
+            slot = str(snap.get("slot") or "").strip().lower()
+        return slot
+
     for d in online:
-        slot = slot_map.get(d.resource) or ""
-        if not slot and d.host and d.port:
-            slot = slot_map.get(f"{d.host}:{d.port}") or ""
+        slot = _slot_for(d)
         if slot and slot not in used_slots:
             jobs.append((slot, d))
             used_slots.add(slot)
@@ -76,9 +92,15 @@ def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDe
         if not remain:
             continue
         if kind == "dc":
-            if len(remain) == 1 and "dc1" not in used_slots:
-                jobs.append(("dc1", remain[0]))
-                used_slots.add("dc1")
+            # 多台直流无记忆槽位时不强行占槽，避免 USB/网口错位
+            if len(remain) == 1:
+                free = next(
+                    (f"dc{i}" for i in range(1, 5) if f"dc{i}" not in used_slots),
+                    None,
+                )
+                if free:
+                    jobs.append((free, remain[0]))
+                    used_slots.add(free)
             continue
         if kind == "modbus":
             continue
@@ -97,10 +119,107 @@ def discover_for_auto_connect(
 ) -> List[FoundDevice]:
     last = last_known_resources(status_json_path)
     base = devices_from_last_resources(last, source="上次")
+    # status.json 带槽位，优先补进列表（USB 直流手动连接后靠它恢复）
+    try:
+        for d in devices_from_status_json(status_json_path):
+            if not any(x.resource == d.resource for x in base):
+                base.append(d)
+            else:
+                for i, x in enumerate(base):
+                    if x.resource != d.resource:
+                        continue
+                    extra = dict(x.extra or {})
+                    if d.extra.get("last_slot") and not extra.get("last_slot"):
+                        extra["last_slot"] = d.extra["last_slot"]
+                    kind = x.kind_hint if x.kind_hint not in ("", "unknown") else d.kind_hint
+                    base[i] = FoundDevice(
+                        resource=x.resource,
+                        host=x.host or d.host,
+                        port=x.port if x.port is not None else d.port,
+                        idn=x.idn,
+                        kind_hint=kind,
+                        brand_hint=x.brand_hint or d.brand_hint,
+                        source=x.source or d.source,
+                        protocol=x.protocol or d.protocol,
+                        extra=extra,
+                    )
+                    break
+    except Exception:
+        pass
+
+    live_set = set()
+    if visa_rm is not None:
+        try:
+            live_set = set(list_visa_resources(visa_rm, include_serial=True))
+        except Exception:
+            live_set = set()
+        known = {d.resource for d in base}
+        success = load_success_device_map()
+        for res in live_set:
+            if res in known:
+                continue
+            # 只并入「以前连过」的 USB/GPIB，避免把无关 USB 仪表误挂到直流槽
+            if res not in success and res not in set(last):
+                continue
+            base.append(
+                FoundDevice(
+                    resource=res,
+                    source="VISA",
+                    protocol="visa",
+                    kind_hint=str((success.get(res) or {}).get("kind_hint") or "unknown"),
+                    brand_hint=str((success.get(res) or {}).get("brand_hint") or ""),
+                    extra={
+                        "last_slot": str((success.get(res) or {}).get("slot") or ""),
+                    },
+                )
+            )
+
     out: List[FoundDevice] = []
     for d in base:
+        upper = (d.resource or "").upper()
+        known_kind = (d.kind_hint or "").lower() not in ("", "unknown")
+        # USB/GPIB：已有槽位/类型时不要先 *IDN? 占住会话，否则随后正式连接常失败
+        if upper.startswith(("USB", "GPIB")) and (
+            known_kind or (d.extra or {}).get("last_slot")
+        ):
+            if live_set and d.resource not in live_set:
+                extra = dict(d.extra or {})
+                extra["offline"] = True
+                extra["detail"] = "VISA 列表中未找到该 USB/GPIB 资源"
+                out.append(
+                    FoundDevice(
+                        resource=d.resource,
+                        host=d.host,
+                        port=d.port,
+                        idn=f"未响应：{extra['detail']}",
+                        kind_hint="unknown",
+                        brand_hint=d.brand_hint,
+                        source=d.source or "上次",
+                        protocol=d.protocol,
+                        extra=extra,
+                    )
+                )
+            else:
+                out.append(d)
+            continue
         try:
-            out.append(enrich_device(d, rm=visa_rm))
+            enriched = enrich_device(d, rm=visa_rm)
+            if (
+                (enriched.kind_hint or "").lower() in ("", "unknown")
+                and known_kind
+            ):
+                enriched = FoundDevice(
+                    resource=enriched.resource,
+                    host=enriched.host or d.host,
+                    port=enriched.port if enriched.port is not None else d.port,
+                    idn=enriched.idn or d.idn,
+                    kind_hint=d.kind_hint,
+                    brand_hint=enriched.brand_hint or d.brand_hint,
+                    source=enriched.source or d.source,
+                    protocol=enriched.protocol or d.protocol,
+                    extra=dict(d.extra or {}, **(enriched.extra or {})),
+                )
+            out.append(enriched)
         except Exception:
             out.append(d)
     return out

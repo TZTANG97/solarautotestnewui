@@ -154,26 +154,30 @@ def render_trip_period_png(
 
 
 def build_trip_period_path(save_path: str, *, stamp: Optional[str] = None) -> str:
+    from utils.wt_save_path import ensure_dewetron_save_dir
+
     stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
     base = (save_path or "").strip()
     if base:
-        folder = os.path.dirname(os.path.abspath(base)) or os.path.join("command_save_files", "dewetron_data")
+        folder = os.path.dirname(os.path.abspath(base)) or ensure_dewetron_save_dir()
         stem = os.path.splitext(os.path.basename(base))[0] or "dewetron"
     else:
-        folder = os.path.join("command_save_files", "dewetron_data")
+        folder = ensure_dewetron_save_dir()
         stem = "dewetron"
     os.makedirs(folder, exist_ok=True)
     return os.path.join(folder, f"{stem}_trip_period_{stamp}.png")
 
 
 def build_trip_oxygen_path(save_path: str, *, stamp: Optional[str] = None) -> str:
+    from utils.wt_save_path import ensure_dewetron_save_dir
+
     stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
     base = (save_path or "").strip()
     if base:
-        folder = os.path.dirname(os.path.abspath(base)) or os.path.join("command_save_files", "dewetron_data")
+        folder = os.path.dirname(os.path.abspath(base)) or ensure_dewetron_save_dir()
         stem = os.path.splitext(os.path.basename(base))[0] or "dewetron"
     else:
-        folder = os.path.join("command_save_files", "dewetron_data")
+        folder = ensure_dewetron_save_dir()
         stem = "dewetron"
     os.makedirs(folder, exist_ok=True)
     return os.path.join(folder, f"{stem}_trip_oxygen_{stamp}.png")

@@ -17,6 +17,11 @@ def pid_file() -> Path:
     return repo_root() / ".solar_agent.pid"
 
 
+def log_file() -> Path:
+    """Agent 标准输出/错误落盘路径（供桌面「Agent 日志」页查看）。"""
+    return repo_root() / ".solar_agent.log"
+
+
 def config_file() -> Path:
     return repo_root() / "config" / "solar_agent.json"
 
@@ -92,11 +97,124 @@ def status_text() -> str:
     return "未运行"
 
 
+def _mask_token(token: str) -> str:
+    t = (token or "").strip()
+    if not t:
+        return "（无）"
+    if t.startswith("请填写"):
+        return "（待填写）"
+    if len(t) <= 10:
+        return t[:2] + "…"
+    return f"{t[:8]}…{t[-4:]}"
+
+
+def read_agent_comm_info() -> dict:
+    """IOT 通信摘要：设备号 / 地址 / 令牌掩码等（不泄露完整 token）。"""
+    info = {
+        "status": status_text(),
+        "running": is_running(),
+        "pid": _read_pid(),
+        "pythonid": "",
+        "machine_id": "",
+        "iot_base": "",
+        "agent_token_masked": "（无）",
+        "agent_version": "",
+        "execution_mode": "",
+        "poll_interval_sec": "",
+        "heartbeat_interval_sec": "",
+        "config_path": str(config_file()),
+        "log_path": str(log_file()),
+    }
+    cfg_path = config_file()
+    if not cfg_path.is_file():
+        return info
+    try:
+        import json
+
+        data = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except Exception:
+        return info
+    if not isinstance(data, dict):
+        return info
+    info["pythonid"] = str(data.get("pythonid") or data.get("pythonId") or "").strip()
+    info["machine_id"] = str(data.get("machine_id") or data.get("machineId") or "").strip()
+    info["iot_base"] = str(data.get("iot_base") or "").strip()
+    info["agent_token_masked"] = _mask_token(str(data.get("agent_token") or ""))
+    info["agent_version"] = str(data.get("agent_version") or "").strip()
+    info["execution_mode"] = str(data.get("execution_mode") or "").strip()
+    info["poll_interval_sec"] = str(data.get("poll_interval_sec") or "")
+    info["heartbeat_interval_sec"] = str(data.get("heartbeat_interval_sec") or "")
+    if not info["machine_id"]:
+        try:
+            mid_path = repo_root() / "config" / "solar_machine_id"
+            if mid_path.is_file():
+                info["machine_id"] = mid_path.read_text(encoding="utf-8").strip().splitlines()[0]
+        except Exception:
+            pass
+    return info
+
+
+def tail_agent_log(*, max_bytes: int = 240_000) -> str:
+    """读取 Agent 日志尾部；文件不存在时返回提示。"""
+    path = log_file()
+    if not path.is_file():
+        return "（尚无 Agent 日志。启动 Agent 后会写入 .solar_agent.log）"
+    try:
+        size = path.stat().st_size
+        with open(path, "rb") as f:
+            if size > max_bytes:
+                f.seek(-max_bytes, os.SEEK_END)
+            raw = f.read()
+        text = raw.decode("utf-8", errors="replace")
+        if size > max_bytes:
+            text = "…（仅显示末尾）\n" + text
+        return text
+    except OSError as exc:
+        return f"（读取日志失败: {exc}）"
+
+
+_agent_log_fp = None  # keep open for child process lifetime
+
+
+def _ensure_agent_log_fp():
+    """Append log file for agent stdout/stderr; rotate when oversized."""
+    global _agent_log_fp
+    path = log_file()
+    try:
+        if path.is_file() and path.stat().st_size > 8_000_000:
+            bak = path.with_suffix(".log.1")
+            try:
+                if bak.is_file():
+                    bak.unlink()
+                path.replace(bak)
+            except OSError:
+                pass
+        if _agent_log_fp is not None:
+            try:
+                if not _agent_log_fp.closed:
+                    _agent_log_fp.flush()
+                    return _agent_log_fp
+            except Exception:
+                _agent_log_fp = None
+        _agent_log_fp = open(path, "a", encoding="utf-8", errors="replace", buffering=1)
+        try:
+            _agent_log_fp.write(
+                f"\n----- agent launch {__import__('datetime').datetime.now().isoformat(timespec='seconds')} -----\n"
+            )
+            _agent_log_fp.flush()
+        except Exception:
+            pass
+        return _agent_log_fp
+    except OSError:
+        return subprocess.DEVNULL
+
+
 def _hidden_popen_kwargs():
     """Windows 下后台启动时隐藏控制台（避免多出一个黑窗/Windows Terminal）。"""
+    log_target = _ensure_agent_log_fp()
     kwargs = {
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
+        "stdout": log_target,
+        "stderr": subprocess.STDOUT if log_target is not subprocess.DEVNULL else subprocess.DEVNULL,
         "stdin": subprocess.DEVNULL,
     }
     if os.name != "nt":
@@ -257,19 +375,33 @@ def _iter_repo_agent_pids() -> list:
 
 
 def stop_agent() -> Tuple[bool, str]:
+    """停止 Agent：先按 pid 文件杀进程树，再清理同仓库残留 ``python -m agent``。"""
+    msgs: list = []
     pid = _read_pid()
     if pid is None or not _pid_alive(pid):
         try:
             pid_file().unlink(missing_ok=True)
         except Exception:
             pass
-        return True, "Agent 未在运行"
-    _terminate_process_tree(pid)
-    try:
-        pid_file().unlink(missing_ok=True)
-    except Exception:
-        pass
-    return True, f"已停止 Agent (pid={pid})"
+        msgs.append("Agent 未在运行（pid 文件）")
+    else:
+        _terminate_process_tree(pid)
+        try:
+            pid_file().unlink(missing_ok=True)
+        except Exception:
+            pass
+        msgs.append(f"已停止 Agent (pid={pid})")
+    # 用户点「停止」时也清残留，避免看似没停
+    orphans = _iter_repo_agent_pids()
+    cleaned = 0
+    for opid in orphans:
+        if not _pid_alive(opid):
+            continue
+        _terminate_process_tree(opid)
+        cleaned += 1
+    if cleaned:
+        msgs.append(f"已清理残留 Agent {cleaned} 个")
+    return True, "; ".join(msgs)
 
 
 def stop_agent_for_app_exit() -> Tuple[bool, str]:

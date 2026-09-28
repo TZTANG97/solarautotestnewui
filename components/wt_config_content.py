@@ -7,28 +7,50 @@
 
 from PyQt5 import QtWidgets
 
-# ── 样式常量（与 Dialog_thaiWT3000E.py 一致）──────────────────────────────
+from components import ui_theme as theme
+
+
+def _px(n: float) -> int:
+    return theme.px(n)
+
+
+def _scale() -> float:
+    return float(theme.ui_scale() or 1.0)
+
+
+def _apply_design_qss(widget: QtWidgets.QWidget, design_ss: str) -> None:
+    """Keep design QSS as source of truth; paint scaled copy for current ui_scale."""
+    widget.setProperty("_ui_ss_orig", design_ss)
+    try:
+        from utils.ui_scale import scale_qss_metrics
+
+        widget.setStyleSheet(scale_qss_metrics(design_ss, _scale()))
+    except Exception:
+        widget.setStyleSheet(design_ss)
+
+
+# ── 样式常量（设计稿尺寸；字号/高度由 ui_scale 放大）──────────────────────
 _COMBO_STYLE = (
-    "QComboBox { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; "
-    "font-size: 12px; background: white; min-height: 24px; }"
-    "QComboBox::drop-down { border: none; width: 20px; }"
+    "QComboBox { border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; "
+    "font-size: 13px; background: white; min-height: 32px; }"
+    "QComboBox::drop-down { border: none; width: 24px; }"
     "QComboBox::down-arrow { image: none; border-left: 5px solid transparent; "
     "border-right: 5px solid transparent; border-top: 6px solid #64748b; margin-right: 6px; }"
     "QComboBox QAbstractItemView { border: 1px solid #cbd5e1; selection-background-color: #ede9fe; "
     "selection-color: #1e1b4b; }"
 )
 _TEXTEDIT_STYLE = (
-    "QTextEdit { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px; "
-    "font-size: 12px; background: white; }"
+    "QTextEdit { border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 10px; "
+    "font-size: 13px; background: white; }"
 )
 _GROUPBOX_STYLE = (
     "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; "
     "font-weight: bold; font-size: 13px; margin-top: 6px; }"
     "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }"
 )
-_LABEL_STYLE = "font-size: 12px; color: #475569;"
+_LABEL_STYLE = "font-size: 13px; color: #475569;"
 _CHECKBOX_STYLE = (
-    "QCheckBox { spacing: 6px; font-size: 12px; }"
+    "QCheckBox { spacing: 6px; font-size: 13px; }"
     "QCheckBox::indicator { width: 16px; height: 16px; border: 2px solid #cbd5e1; border-radius: 3px; }"
     "QCheckBox::indicator:checked { background-color: #8b5cf6; border-color: #8b5cf6; }"
 )
@@ -39,7 +61,7 @@ def _make_cb(parent, name, text, checked=False):
     cb = QtWidgets.QCheckBox(text)
     cb.setChecked(checked)
     cb.setObjectName(name)
-    cb.setStyleSheet(_CHECKBOX_STYLE)
+    _apply_design_qss(cb, _CHECKBOX_STYLE)
     setattr(parent, name, cb)
     return cb
 
@@ -49,19 +71,51 @@ def _make_combo(parent, name, items, width=120):
     combo = QtWidgets.QComboBox()
     combo.setObjectName(name)
     combo.addItems(items)
-    combo.setFixedWidth(width)
-    combo.setStyleSheet(_COMBO_STYLE)
+    combo.setProperty("_ui_design_w", int(width))
+    combo.setFixedWidth(_px(width))
+    _apply_design_qss(combo, _COMBO_STYLE)
     setattr(parent, name, combo)
     return combo
 
 
-def _make_te(parent, name, html_text="", max_h=36):
-    """创建 QTextEdit 并 setattr 到 parent。"""
+def _make_te(parent, name, html_text="", max_h=44, min_h=None, plain_text=None, min_w=None):
+    """创建 QTextEdit 并 setattr 到 parent。
+
+    Compact fields (max_h<=56) get matching min/max height so scaled fonts
+    cannot clip. Prefer plain_text over HTML with hardcoded font-size.
+    """
     te = QtWidgets.QTextEdit()
     te.setObjectName(name)
-    te.setStyleSheet(_TEXTEDIT_STYLE)
-    te.setMaximumHeight(max_h)
-    if html_text:
+    _apply_design_qss(te, _TEXTEDIT_STYLE)
+    design_max = int(max_h)
+    if min_h is None:
+        design_min = 40 if design_max <= 56 else min(64, max(44, design_max // 2))
+    else:
+        design_min = int(min_h)
+    te.setProperty("_ui_design_max_h", design_max)
+    te.setProperty("_ui_design_min_h", design_min)
+    te.setMinimumHeight(_px(design_min))
+    te.setMaximumHeight(_px(design_max))
+    if min_w is not None:
+        te.setProperty("_ui_design_min_w", int(min_w))
+        te.setMinimumWidth(_px(min_w))
+    try:
+        if te.document() is not None:
+            te.document().setDocumentMargin(2)
+    except Exception:
+        pass
+    if design_max <= 56:
+        from PyQt5.QtCore import Qt
+
+        te.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        te.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        try:
+            te.setTabChangesFocus(True)
+        except Exception:
+            pass
+    if plain_text is not None:
+        te.setPlainText(plain_text)
+    elif html_text:
         te.setHtml(html_text)
     setattr(parent, name, te)
     return te
@@ -70,8 +124,31 @@ def _make_te(parent, name, html_text="", max_h=36):
 def _make_lbl(text):
     """创建 QLabel。"""
     lbl = QtWidgets.QLabel(text)
-    lbl.setStyleSheet(_LABEL_STYLE)
+    _apply_design_qss(lbl, _LABEL_STYLE)
     return lbl
+
+
+def _default_save_path_text() -> str:
+    try:
+        from utils.wt_save_path import default_wt_save_path, ensure_wt_save_dir
+
+        return ensure_wt_save_dir(default_wt_save_path())
+    except Exception:
+        return r"D:\EnergyTest\wt_file_save_path"
+
+
+def _finish_save_grid(sg: QtWidgets.QGridLayout) -> None:
+    """保存设置三列随窗口变宽，字体/控件高度保持设计尺寸。"""
+    sg.setColumnStretch(0, 1)
+    sg.setColumnStretch(1, 2)
+    sg.setColumnStretch(2, 2)
+
+
+def _finish_measure_grid(grid: QtWidgets.QGridLayout, cols: int = 8) -> None:
+    """测量勾选横向铺开，避免挤在左侧一大片空白。"""
+    grid.setColumnStretch(0, 0)
+    for c in range(1, max(2, cols)):
+        grid.setColumnStretch(c, 1)
 
 
 def _default_continuous_filename_text(parent) -> str:
@@ -122,7 +199,7 @@ def _add_filename_list_box(parent, sg, col=2):
         rec._shared_names_connected = True
     g7l.addWidget(rec)
     g7l.addWidget(_make_lbl("文件名列表:"))
-    _make_te(parent, "textEdit_FileNameList", "", max_h=120)
+    _make_te(parent, "textEdit_FileNameList", max_h=140, min_h=64)
     parent.textEdit_FileNameList.setPlainText(single)
     g7l.addWidget(parent.textEdit_FileNameList)
     sg.addWidget(g7, 0, col)
@@ -189,7 +266,7 @@ def build_wt3000_content(parent):
 
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")
-    basicGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(basicGrp, _GROUPBOX_STYLE)
     bl = QtWidgets.QHBoxLayout(basicGrp)
     bl.setSpacing(12)
     bl.setContentsMargins(12, 12, 12, 12)
@@ -259,7 +336,7 @@ def build_wt3000_content(parent):
 
     # ── 保存设置 ──
     saveGrp = QtWidgets.QGroupBox("保存设置")
-    saveGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(saveGrp, _GROUPBOX_STYLE)
     sg = QtWidgets.QGridLayout(saveGrp)
     sg.setSpacing(8)
     sg.setContentsMargins(12, 12, 12, 12)
@@ -271,12 +348,12 @@ def build_wt3000_content(parent):
     g6l.setSpacing(4)
     g6l.setContentsMargins(8, 8, 8, 8)
     g6l.addWidget(_make_lbl("自动保存:"), 0, 0)
-    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"])
+    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"], width=140)
     # 旧独立弹窗默认「自动保存」且曾被禁用；内嵌后需可改，并默认开启以免测量不落盘
     parent.comboBox_AutoSave.setCurrentIndex(1)
     g6l.addWidget(parent.comboBox_AutoSave, 0, 1)
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
-    _make_te(parent, "textEdit_StopTime", '<p align="center"><span style="font-size:9pt;">00:05:00</span></p>')
+    _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
     sg.addWidget(g6, 0, 0)
 
@@ -288,27 +365,28 @@ def build_wt3000_content(parent):
     g15l.setContentsMargins(8, 8, 8, 8)
     pr = QtWidgets.QHBoxLayout()
     pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", '<p><span style="font-size:9pt;">D:\\EnergyTest\\wt_file_save_path</span></p>')
-    pr.addWidget(parent.textEdit_SavePath)
+    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
+    pr.addWidget(parent.textEdit_SavePath, 1)
     g15l.addLayout(pr)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)
     cb_auto.setCheckable(False)
     cb_auto.setChecked(False)
-    cb_auto.setStyleSheet(_CHECKBOX_STYLE)
+    _apply_design_qss(cb_auto, _CHECKBOX_STYLE)
     setattr(parent, "checkBox_AutoName", cb_auto)
     g15l.addWidget(cb_auto)
     sg.addWidget(g15, 0, 1)
 
     # 文件名列表
     _add_filename_list_box(parent, sg)
+    _finish_save_grid(sg)
 
     cl.addWidget(saveGrp)
 
     # ── 测量项目 - 基本量 ──
     bmGrp = QtWidgets.QGroupBox("测量项目 - 基本量")
-    bmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(bmGrp, _GROUPBOX_STYLE)
     bm = QtWidgets.QGridLayout(bmGrp)
     bm.setSpacing(6)
     bm.setContentsMargins(12, 12, 12, 12)
@@ -355,11 +433,12 @@ def build_wt3000_content(parent):
         _make_cb(parent, name, name.replace("checkBox_Set", ""))
         bm.addWidget(getattr(parent, name), 6, i + 1)
 
+    _finish_measure_grid(bm, 8)
     cl.addWidget(bmGrp)
 
     # ── 测量项目 - 功率/能量/效率 ──
     peGrp = QtWidgets.QGroupBox("测量项目 - 功率/能量/效率")
-    peGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(peGrp, _GROUPBOX_STYLE)
     pe = QtWidgets.QGridLayout(peGrp)
     pe.setSpacing(6)
     pe.setContentsMargins(12, 12, 12, 12)
@@ -388,11 +467,12 @@ def build_wt3000_content(parent):
         _make_cb(parent, f"checkBox_SetEta{i}", f"Eta{i}")
         pe.addWidget(getattr(parent, f"checkBox_SetEta{i}"), 4, i)
 
+    _finish_measure_grid(pe, 8)
     cl.addWidget(peGrp)
 
     # ── 测量项目 - 谐波量 ──
     harmGrp = QtWidgets.QGroupBox("测量项目 - 谐波量")
-    harmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(harmGrp, _GROUPBOX_STYLE)
     hm = QtWidgets.QGridLayout(harmGrp)
     hm.setSpacing(6)
     hm.setContentsMargins(12, 12, 12, 12)
@@ -413,19 +493,20 @@ def build_wt3000_content(parent):
 
     # Start / Stop
     hm.addWidget(_make_lbl("开始阶次:"), 7, 0)
-    _make_te(parent, "textEdit_SetStart", max_h=32)
+    _make_te(parent, "textEdit_SetStart", max_h=36)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStart"), 7, 1)
     hm.addWidget(_make_lbl("结束阶次:"), 7, 2)
-    _make_te(parent, "textEdit_SetStop", max_h=32)
+    _make_te(parent, "textEdit_SetStop", max_h=36)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStop"), 7, 3)
 
+    _finish_measure_grid(hm, 8)
     cl.addWidget(harmGrp)
 
     # ── 测量项目 - THD 及其他 ──
     thdGrp = QtWidgets.QGroupBox("测量项目 - THD 及其他")
-    thdGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(thdGrp, _GROUPBOX_STYLE)
     td = QtWidgets.QGridLayout(thdGrp)
     td.setSpacing(6)
     td.setContentsMargins(12, 12, 12, 12)
@@ -445,11 +526,12 @@ def build_wt3000_content(parent):
             _make_cb(parent, name, name.replace("checkBox_Set", ""))
             td.addWidget(getattr(parent, name), r, c + 1)
 
+    _finish_measure_grid(td, 8)
     cl.addWidget(thdGrp)
 
     # ── F Function ──
     fGrp = QtWidgets.QGroupBox("F Function 选择")
-    fGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(fGrp, _GROUPBOX_STYLE)
     fg = QtWidgets.QGridLayout(fGrp)
     fg.setSpacing(4)
     fg.setContentsMargins(12, 12, 12, 12)
@@ -490,7 +572,7 @@ def build_wt1800_content(parent):
 
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")
-    basicGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(basicGrp, _GROUPBOX_STYLE)
     bl = QtWidgets.QHBoxLayout(basicGrp)
     bl.setSpacing(12)
     bl.setContentsMargins(12, 12, 12, 12)
@@ -550,7 +632,7 @@ def build_wt1800_content(parent):
 
     # ── 保存设置 ──
     saveGrp = QtWidgets.QGroupBox("保存设置")
-    saveGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(saveGrp, _GROUPBOX_STYLE)
     sg = QtWidgets.QGridLayout(saveGrp)
     sg.setSpacing(8)
     sg.setContentsMargins(12, 12, 12, 12)
@@ -561,12 +643,12 @@ def build_wt1800_content(parent):
     g6l.setSpacing(4)
     g6l.setContentsMargins(8, 8, 8, 8)
     g6l.addWidget(_make_lbl("自动保存:"), 0, 0)
-    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"])
+    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"], width=140)
     # 旧独立弹窗默认「自动保存」且曾被禁用；内嵌后需可改，并默认开启以免测量不落盘
     parent.comboBox_AutoSave.setCurrentIndex(1)
     g6l.addWidget(parent.comboBox_AutoSave, 0, 1)
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
-    _make_te(parent, "textEdit_StopTime", '<p align="center"><span style="font-size:9pt;">00:05:00</span></p>')
+    _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
     sg.addWidget(g6, 0, 0)
 
@@ -577,26 +659,27 @@ def build_wt1800_content(parent):
     g15l.setContentsMargins(8, 8, 8, 8)
     pr = QtWidgets.QHBoxLayout()
     pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", '<p><span style="font-size:9pt;">D:\\EnergyTest\\wt_file_save_path</span></p>')
-    pr.addWidget(parent.textEdit_SavePath)
+    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
+    pr.addWidget(parent.textEdit_SavePath, 1)
     g15l.addLayout(pr)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)
     cb_auto.setCheckable(False)
     cb_auto.setChecked(False)
-    cb_auto.setStyleSheet(_CHECKBOX_STYLE)
+    _apply_design_qss(cb_auto, _CHECKBOX_STYLE)
     setattr(parent, "checkBox_AutoName", cb_auto)
     g15l.addWidget(cb_auto)
     sg.addWidget(g15, 0, 1)
 
     _add_filename_list_box(parent, sg)
+    _finish_save_grid(sg)
 
     cl.addWidget(saveGrp)
 
     # ── 测量项目 - 基本量 ──
     bmGrp = QtWidgets.QGroupBox("测量项目 - 基本量")
-    bmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(bmGrp, _GROUPBOX_STYLE)
     bm = QtWidgets.QGridLayout(bmGrp)
     bm.setSpacing(6)
     bm.setContentsMargins(12, 12, 12, 12)
@@ -643,11 +726,12 @@ def build_wt1800_content(parent):
         _make_cb(parent, name, name.replace("checkBox_Set", ""))
         bm.addWidget(getattr(parent, name), 6, i + 1)
 
+    _finish_measure_grid(bm, 8)
     cl.addWidget(bmGrp)
 
     # ── 测量项目 - 功率/能量/效率 ──
     peGrp = QtWidgets.QGroupBox("测量项目 - 功率/能量/效率")
-    peGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(peGrp, _GROUPBOX_STYLE)
     pe = QtWidgets.QGridLayout(peGrp)
     pe.setSpacing(6)
     pe.setContentsMargins(12, 12, 12, 12)
@@ -681,11 +765,12 @@ def build_wt1800_content(parent):
         _make_cb(parent, f"checkBox_SetEvent{i}", f"Event{i}")
         pe.addWidget(getattr(parent, f"checkBox_SetEvent{i}"), 5, i)
 
+    _finish_measure_grid(pe, 8)
     cl.addWidget(peGrp)
 
     # ── 测量项目 - 谐波量 ──
     harmGrp = QtWidgets.QGroupBox("测量项目 - 谐波量")
-    harmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(harmGrp, _GROUPBOX_STYLE)
     hm = QtWidgets.QGridLayout(harmGrp)
     hm.setSpacing(6)
     hm.setContentsMargins(12, 12, 12, 12)
@@ -706,19 +791,20 @@ def build_wt1800_content(parent):
 
     # Start / Stop
     hm.addWidget(_make_lbl("开始阶次:"), 7, 0)
-    _make_te(parent, "textEdit_SetStart", max_h=32)
+    _make_te(parent, "textEdit_SetStart", max_h=36)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStart"), 7, 1)
     hm.addWidget(_make_lbl("结束阶次:"), 7, 2)
-    _make_te(parent, "textEdit_SetStop", max_h=32)
+    _make_te(parent, "textEdit_SetStop", max_h=36)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStop"), 7, 3)
 
+    _finish_measure_grid(hm, 8)
     cl.addWidget(harmGrp)
 
     # ── 测量项目 - THD 及其他 ──
     thdGrp = QtWidgets.QGroupBox("测量项目 - THD 及其他")
-    thdGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(thdGrp, _GROUPBOX_STYLE)
     td = QtWidgets.QGridLayout(thdGrp)
     td.setSpacing(6)
     td.setContentsMargins(12, 12, 12, 12)
@@ -742,11 +828,12 @@ def build_wt1800_content(parent):
             _make_cb(parent, name, name.replace("checkBox_Set", ""))
             td.addWidget(getattr(parent, name), r, c + 1)
 
+    _finish_measure_grid(td, 8)
     cl.addWidget(thdGrp)
 
     # ── F Function ──
     fGrp = QtWidgets.QGroupBox("F Function 选择")
-    fGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(fGrp, _GROUPBOX_STYLE)
     fg = QtWidgets.QGridLayout(fGrp)
     fg.setSpacing(4)
     fg.setContentsMargins(12, 12, 12, 12)
@@ -787,7 +874,7 @@ def build_wt1806e_content(parent):
 
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")
-    basicGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(basicGrp, _GROUPBOX_STYLE)
     bl = QtWidgets.QHBoxLayout(basicGrp)
     bl.setSpacing(12)
     bl.setContentsMargins(12, 12, 12, 12)
@@ -844,7 +931,7 @@ def build_wt1806e_content(parent):
 
     # ── 保存设置（同 WT1800）──
     saveGrp = QtWidgets.QGroupBox("保存设置")
-    saveGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(saveGrp, _GROUPBOX_STYLE)
     sg = QtWidgets.QGridLayout(saveGrp)
     sg.setSpacing(8)
     sg.setContentsMargins(12, 12, 12, 12)
@@ -855,12 +942,12 @@ def build_wt1806e_content(parent):
     g6l.setSpacing(4)
     g6l.setContentsMargins(8, 8, 8, 8)
     g6l.addWidget(_make_lbl("自动保存:"), 0, 0)
-    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"])
+    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"], width=140)
     # 旧独立弹窗默认「自动保存」且曾被禁用；内嵌后需可改，并默认开启以免测量不落盘
     parent.comboBox_AutoSave.setCurrentIndex(1)
     g6l.addWidget(parent.comboBox_AutoSave, 0, 1)
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
-    _make_te(parent, "textEdit_StopTime", '<p align="center"><span style="font-size:9pt;">00:05:00</span></p>')
+    _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
     sg.addWidget(g6, 0, 0)
 
@@ -871,26 +958,27 @@ def build_wt1806e_content(parent):
     g15l.setContentsMargins(8, 8, 8, 8)
     pr = QtWidgets.QHBoxLayout()
     pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", '<p><span style="font-size:9pt;">D:\\EnergyTest\\wt_file_save_path</span></p>')
-    pr.addWidget(parent.textEdit_SavePath)
+    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
+    pr.addWidget(parent.textEdit_SavePath, 1)
     g15l.addLayout(pr)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)
     cb_auto.setCheckable(False)
     cb_auto.setChecked(False)
-    cb_auto.setStyleSheet(_CHECKBOX_STYLE)
+    _apply_design_qss(cb_auto, _CHECKBOX_STYLE)
     setattr(parent, "checkBox_AutoName", cb_auto)
     g15l.addWidget(cb_auto)
     sg.addWidget(g15, 0, 1)
 
     _add_filename_list_box(parent, sg)
+    _finish_save_grid(sg)
 
     cl.addWidget(saveGrp)
 
     # ── 测量项目（同 WT1800 结构）──
     bmGrp = QtWidgets.QGroupBox("测量项目 - 基本量")
-    bmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(bmGrp, _GROUPBOX_STYLE)
     bm = QtWidgets.QGridLayout(bmGrp)
     bm.setSpacing(6)
     bm.setContentsMargins(12, 12, 12, 12)
@@ -930,11 +1018,12 @@ def build_wt1806e_content(parent):
         _make_cb(parent, name, name.replace("checkBox_Set", ""))
         bm.addWidget(getattr(parent, name), 6, i + 1)
 
+    _finish_measure_grid(bm, 8)
     cl.addWidget(bmGrp)
 
     # ── 测量项目 - 功率/能量/效率 ──
     peGrp = QtWidgets.QGroupBox("测量项目 - 功率/能量/效率")
-    peGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(peGrp, _GROUPBOX_STYLE)
     pe = QtWidgets.QGridLayout(peGrp)
     pe.setSpacing(6)
     pe.setContentsMargins(12, 12, 12, 12)
@@ -968,11 +1057,12 @@ def build_wt1806e_content(parent):
         _make_cb(parent, f"checkBox_SetEvent{i}", f"Event{i}")
         pe.addWidget(getattr(parent, f"checkBox_SetEvent{i}"), 5, i)
 
+    _finish_measure_grid(pe, 8)
     cl.addWidget(peGrp)
 
     # ── 测量项目 - 谐波量 ──
     harmGrp = QtWidgets.QGroupBox("测量项目 - 谐波量")
-    harmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(harmGrp, _GROUPBOX_STYLE)
     hm = QtWidgets.QGridLayout(harmGrp)
     hm.setSpacing(6)
     hm.setContentsMargins(12, 12, 12, 12)
@@ -993,19 +1083,20 @@ def build_wt1806e_content(parent):
 
     # Start / Stop
     hm.addWidget(_make_lbl("开始阶次:"), 7, 0)
-    _make_te(parent, "textEdit_SetStart", max_h=32)
+    _make_te(parent, "textEdit_SetStart", max_h=36)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStart"), 7, 1)
     hm.addWidget(_make_lbl("结束阶次:"), 7, 2)
-    _make_te(parent, "textEdit_SetStop", max_h=32)
+    _make_te(parent, "textEdit_SetStop", max_h=36)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     hm.addWidget(getattr(parent, "textEdit_SetStop"), 7, 3)
 
+    _finish_measure_grid(hm, 8)
     cl.addWidget(harmGrp)
 
     # ── 测量项目 - THD 及其他 ──
     thdGrp = QtWidgets.QGroupBox("测量项目 - THD 及其他")
-    thdGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(thdGrp, _GROUPBOX_STYLE)
     td = QtWidgets.QGridLayout(thdGrp)
     td.setSpacing(6)
     td.setContentsMargins(12, 12, 12, 12)
@@ -1029,11 +1120,12 @@ def build_wt1806e_content(parent):
             _make_cb(parent, name, name.replace("checkBox_Set", ""))
             td.addWidget(getattr(parent, name), r, c + 1)
 
+    _finish_measure_grid(td, 8)
     cl.addWidget(thdGrp)
 
     # ── F Function ──
     fGrp = QtWidgets.QGroupBox("F Function 选择")
-    fGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(fGrp, _GROUPBOX_STYLE)
     fg = QtWidgets.QGridLayout(fGrp)
     fg.setSpacing(4)
     fg.setContentsMargins(12, 12, 12, 12)
@@ -1074,7 +1166,7 @@ def build_wt5000_content(parent):
 
     # ── 基本设置 ──
     basicGrp = QtWidgets.QGroupBox("基本设置")
-    basicGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(basicGrp, _GROUPBOX_STYLE)
     bl = QtWidgets.QHBoxLayout(basicGrp)
     bl.setSpacing(12)
     bl.setContentsMargins(12, 12, 12, 12)
@@ -1127,7 +1219,7 @@ def build_wt5000_content(parent):
 
     # ── 保存设置 ──
     saveGrp = QtWidgets.QGroupBox("保存设置")
-    saveGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(saveGrp, _GROUPBOX_STYLE)
     sg = QtWidgets.QGridLayout(saveGrp)
     sg.setSpacing(8)
     sg.setContentsMargins(12, 12, 12, 12)
@@ -1138,12 +1230,12 @@ def build_wt5000_content(parent):
     g6l.setSpacing(4)
     g6l.setContentsMargins(8, 8, 8, 8)
     g6l.addWidget(_make_lbl("自动保存:"), 0, 0)
-    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"])
+    _make_combo(parent, "comboBox_AutoSave", ["OFF", "自动保存", "手动保存"], width=140)
     # 旧独立弹窗默认「自动保存」且曾被禁用；内嵌后需可改，并默认开启以免测量不落盘
     parent.comboBox_AutoSave.setCurrentIndex(1)
     g6l.addWidget(parent.comboBox_AutoSave, 0, 1)
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
-    _make_te(parent, "textEdit_StopTime", '<p align="center"><span style="font-size:9pt;">00:05:00</span></p>')
+    _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
     sg.addWidget(g6, 0, 0)
 
@@ -1154,26 +1246,27 @@ def build_wt5000_content(parent):
     g15l.setContentsMargins(8, 8, 8, 8)
     pr = QtWidgets.QHBoxLayout()
     pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", '<p><span style="font-size:9pt;">D:\\EnergyTest\\wt_file_save_path</span></p>')
-    pr.addWidget(parent.textEdit_SavePath)
+    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
+    pr.addWidget(parent.textEdit_SavePath, 1)
     g15l.addLayout(pr)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)
     cb_auto.setCheckable(False)
     cb_auto.setChecked(False)
-    cb_auto.setStyleSheet(_CHECKBOX_STYLE)
+    _apply_design_qss(cb_auto, _CHECKBOX_STYLE)
     setattr(parent, "checkBox_AutoName", cb_auto)
     g15l.addWidget(cb_auto)
     sg.addWidget(g15, 0, 1)
 
     _add_filename_list_box(parent, sg)
+    _finish_save_grid(sg)
 
     cl.addWidget(saveGrp)
 
     # ── 测量项目 - 基本量 ──
     bmGrp = QtWidgets.QGroupBox("测量项目 - 基本量")
-    bmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(bmGrp, _GROUPBOX_STYLE)
     bm = QtWidgets.QGridLayout(bmGrp)
     bm.setSpacing(6)
     bm.setContentsMargins(12, 12, 12, 12)
@@ -1221,19 +1314,20 @@ def build_wt5000_content(parent):
 
     # Start / Stop
     bm.addWidget(_make_lbl("开始阶次:"), 8, 0)
-    _make_te(parent, "textEdit_SetStart", max_h=32)
+    _make_te(parent, "textEdit_SetStart", max_h=36)
     getattr(parent, "textEdit_SetStart").setMaximumWidth(100)
     bm.addWidget(getattr(parent, "textEdit_SetStart"), 8, 1)
     bm.addWidget(_make_lbl("结束阶次:"), 8, 2)
-    _make_te(parent, "textEdit_SetStop", max_h=32)
+    _make_te(parent, "textEdit_SetStop", max_h=36)
     getattr(parent, "textEdit_SetStop").setMaximumWidth(100)
     bm.addWidget(getattr(parent, "textEdit_SetStop"), 8, 3)
 
+    _finish_measure_grid(bm, 8)
     cl.addWidget(bmGrp)
 
     # ── 测量项目 - 功率/能量/效率 ──
     peGrp = QtWidgets.QGroupBox("测量项目 - 功率/能量/效率")
-    peGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(peGrp, _GROUPBOX_STYLE)
     pe = QtWidgets.QGridLayout(peGrp)
     pe.setSpacing(6)
     pe.setContentsMargins(12, 12, 12, 12)
@@ -1267,11 +1361,12 @@ def build_wt5000_content(parent):
         _make_cb(parent, f"checkBox_SetEvent{i}", f"Event{i}")
         pe.addWidget(getattr(parent, f"checkBox_SetEvent{i}"), 5, i)
 
+    _finish_measure_grid(pe, 8)
     cl.addWidget(peGrp)
 
     # ── 测量项目 - 谐波量 ──
     harmGrp = QtWidgets.QGroupBox("测量项目 - 谐波量")
-    harmGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(harmGrp, _GROUPBOX_STYLE)
     hm = QtWidgets.QGridLayout(harmGrp)
     hm.setSpacing(6)
     hm.setContentsMargins(12, 12, 12, 12)
@@ -1290,11 +1385,12 @@ def build_wt5000_content(parent):
             _make_cb(parent, name, name.replace("checkBox_Set", ""))
             hm.addWidget(getattr(parent, name), r, c + 1)
 
+    _finish_measure_grid(hm, 8)
     cl.addWidget(harmGrp)
 
     # ── 测量项目 - THD 及其他 ──
     thdGrp = QtWidgets.QGroupBox("测量项目 - THD 及其他")
-    thdGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(thdGrp, _GROUPBOX_STYLE)
     td = QtWidgets.QGridLayout(thdGrp)
     td.setSpacing(6)
     td.setContentsMargins(12, 12, 12, 12)
@@ -1319,11 +1415,12 @@ def build_wt5000_content(parent):
             _make_cb(parent, name, name.replace("checkBox_Set", ""))
             td.addWidget(getattr(parent, name), r, c + 1)
 
+    _finish_measure_grid(td, 8)
     cl.addWidget(thdGrp)
 
     # ── F Function ──
     fGrp = QtWidgets.QGroupBox("F Function 选择")
-    fGrp.setStyleSheet(_GROUPBOX_STYLE)
+    _apply_design_qss(fGrp, _GROUPBOX_STYLE)
     fg = QtWidgets.QGridLayout(fGrp)
     fg.setSpacing(4)
     fg.setContentsMargins(12, 12, 12, 12)

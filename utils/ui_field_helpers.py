@@ -23,64 +23,61 @@ _ORG = "SolarAutoTest"
 _APP = "FieldMemory"
 _MAX_HISTORY = 16
 
-# objectName 片段 → 记忆键（同键跨页面共享历史）
-_KEY_HINTS = (
-    ("WT3000_IP", "wt.ip"),
-    ("WT3000_Port", "wt.port"),
-    ("itech_AC_IP", "ac.ip"),
-    ("itech_AC_Port", "ac.port"),
-    ("chroma_AC_IP", "chroma.ac.ip"),
-    ("chroma_AC_Port", "chroma.ac.port"),
-    ("bluesight_DC1_IP", "dc.ip"),
-    ("bluesight_DC1_Port", "dc.port"),
-    ("itech_DC1_IP", "itech.dc.ip"),
-    ("itech_DC1_Port", "itech.dc.port"),
-    ("lineEdit_IP", "dewetron.ip"),
-    ("lineEdit_Port", "dewetron.port"),
-    ("textEdit_AC_VOLT", "ac.volt"),
-    ("textEdit_AC_FR", "ac.freq"),
-    ("textEdit_VOLT", "ac.volt"),
-    ("textEdit_FR", "ac.freq"),
-    ("textEdit_Vmp", "dc.vmp"),
-    ("textEdit_Voc", "dc.voc"),
-    ("textEdit_Imp", "dc.imp"),
-    ("textEdit_Isc", "dc.isc"),
-    ("textEdit_PF", "dc.pf"),
-    ("_AC_VOLT", "test.ac.volt"),
-    ("_AC_FR", "test.ac.freq"),
-    ("_DC1_VOLT", "test.dc.vmp"),
-    ("_DC1_CURR", "test.dc.imp"),
-    ("_DC1_Voc", "test.dc.voc"),
-    ("_DC1_Isc", "test.dc.isc"),
-    ("_DC1_PF", "test.dc.pf"),
-    ("_DC2_VOLT", "test.dc.vmp"),
-    ("_DC2_CURR", "test.dc.imp"),
-    ("_DC2_Voc", "test.dc.voc"),
-    ("_DC2_Isc", "test.dc.isc"),
-    ("_DC2_PF", "test.dc.pf"),
-    ("_DC3_VOLT", "test.dc.vmp"),
-    ("_DC3_CURR", "test.dc.imp"),
-    ("_DC3_Voc", "test.dc.voc"),
-    ("_DC3_Isc", "test.dc.isc"),
-    ("_DC3_PF", "test.dc.pf"),
-    ("_DC4_VOLT", "test.dc.vmp"),
-    ("_DC4_CURR", "test.dc.imp"),
-    ("_DC4_Voc", "test.dc.voc"),
-    ("_DC4_Isc", "test.dc.isc"),
-    ("_DC4_PF", "test.dc.pf"),
-)
+# 设备页：必须精确 objectName，禁止子串匹配（否则试验步骤控件会串到 AC/DC 设置）
+_DEVICE_EXACT_KEYS = {
+    "textEdit_AC_VOLT": "ac.volt",
+    "textEdit_AC_FR": "ac.freq",
+    "textEdit_VOLT": "ac.volt",
+    "textEdit_FR": "ac.freq",
+    "textEdit_Vmp": "dc.vmp",
+    "textEdit_Voc": "dc.voc",
+    "textEdit_Imp": "dc.imp",
+    "textEdit_Isc": "dc.isc",
+    "textEdit_PF": "dc.pf",
+    "lineEdit_WT3000_IP": "wt.ip",
+    "lineEdit_WT3000_Port": "wt.port",
+    "lineEdit_itech_AC_IP": "ac.ip",
+    "lineEdit_itech_AC_Port": "ac.port",
+    "lineEdit_chroma_AC_IP": "chroma.ac.ip",
+    "lineEdit_chroma_AC_Port": "chroma.ac.port",
+    "lineEdit_bluesight_DC1_IP": "dc.ip",
+    "lineEdit_bluesight_DC1_Port": "dc.port",
+    "lineEdit_itech_DC1_IP": "itech.dc.ip",
+    "lineEdit_itech_DC1_Port": "itech.dc.port",
+    "lineEdit_IP": "dewetron.ip",
+    "lineEdit_Port": "dewetron.port",
+}
 
 
 def _settings() -> QSettings:
     return QSettings(_ORG, _APP)
 
 
-def history_key_for_object_name(object_name: str) -> Optional[str]:
+def _safe_scope_id(scope: str) -> str:
+    import re
+
+    raw = scope[5:] if scope.startswith("test:") else scope
+    safe = re.sub(r"[^\w\-]+", "_", str(raw or "unknown"), flags=re.UNICODE)
+    return (safe.strip("_") or "unknown")[:120]
+
+
+def history_key_for_object_name(
+    object_name: str, *, memory_scope: str = "device"
+) -> Optional[str]:
+    """Resolve memory key.
+
+    - device scope: exact device-page objectNames only
+    - test:<name> scope: per-test keys ``test.<id>.<objectName>`` (never share with device)
+    """
     name = object_name or ""
-    for hint, key in _KEY_HINTS:
-        if hint in name:
-            return key
-    return None
+    if not name:
+        return None
+    scope = memory_scope or "device"
+    if scope.startswith("test:"):
+        # 试验页：整名隔离，绝不落入 ac.volt / dc.vmp
+        return f"test.{_safe_scope_id(scope)}.{name}"
+    # device / default
+    return _DEVICE_EXACT_KEYS.get(name)
 
 
 def load_history(key: str) -> List[str]:
@@ -105,6 +102,13 @@ def remember_value(key: str, value: str) -> None:
     value = (value or "").strip()
     if not value:
         return
+    # IP 历史只记完整 IPv4，避免「上次」出现 192.10 这类半截输入
+    if str(key).endswith(".ip") or str(key) in {"ac.ip", "dc.ip", "wt.ip", "dewetron.ip", "itech.dc.ip", "chroma.ac.ip"}:
+        from utils.device_discovery import _looks_ipv4, parse_host_port
+
+        host, _port = parse_host_port(value)
+        if not host or not _looks_ipv4(host):
+            return
     items = load_history(key)
     if value in items:
         items.remove(value)
@@ -200,14 +204,16 @@ class _MemoryFocusFilter(QObject):
         return False
 
 
-def enable_field_memory(widget: QWidget, key: Optional[str] = None) -> None:
+def enable_field_memory(
+    widget: QWidget, key: Optional[str] = None, *, memory_scope: str = "device"
+) -> None:
     """为输入框挂历史补全 + 失焦保存；双击或 ▾ 下拉选历史。"""
     if widget is None:
         return
     if getattr(widget, "_field_memory_enabled", False):
         return
     obj_name = widget.objectName() or ""
-    key = key or history_key_for_object_name(obj_name)
+    key = key or history_key_for_object_name(obj_name, memory_scope=memory_scope)
     if not key:
         return
 
@@ -216,6 +222,20 @@ def enable_field_memory(widget: QWidget, key: Optional[str] = None) -> None:
     completer.setCaseSensitivity(Qt.CaseInsensitive)
     completer.setFilterMode(Qt.MatchContains)
     completer.setCompletionMode(QCompleter.PopupCompletion)
+    try:
+        from components import ui_theme as _theme
+
+        _popup = completer.popup()
+        if _popup is not None:
+            _popup.setStyleSheet(
+                f"QListView {{ background-color: {_theme.PANEL}; color: {_theme.INK}; "
+                f"border: 1px solid {_theme.LINE_STRONG}; outline: 0; padding: 2px; }}"
+                f"QListView::item {{ padding: 6px 10px; min-height: 24px; }}"
+                f"QListView::item:selected {{ background-color: {_theme.ACCENT_SOFT}; "
+                f"color: {_theme.INK}; }}"
+            )
+    except Exception:
+        pass
 
     # 工况点功率（_PF_4 等）保持界面默认，不覆盖
     _skip_restore = any(
@@ -244,6 +264,18 @@ def enable_field_memory(widget: QWidget, key: Optional[str] = None) -> None:
         if not items:
             return
         menu = QMenu(widget)
+        try:
+            from components import ui_theme as _theme
+
+            menu.setStyleSheet(
+                f"QMenu {{ background-color: {_theme.PANEL}; color: {_theme.INK}; "
+                f"border: 1px solid {_theme.LINE_STRONG}; padding: 4px; }}"
+                f"QMenu::item {{ padding: 8px 16px; color: {_theme.INK}; }}"
+                f"QMenu::item:selected {{ background-color: {_theme.ACCENT_SOFT}; "
+                f"color: {_theme.INK}; }}"
+            )
+        except Exception:
+            pass
         for it in items:
             act = menu.addAction(it)
             act.triggered.connect(lambda _=False, t=it: _set_widget_text(widget, t))
@@ -330,7 +362,111 @@ def wrap_with_unit(widget: QWidget, unit_text: str) -> QWidget:
     return container
 
 
-def polish_input_widgets(root: QWidget, *, with_memory: bool = True) -> int:
+def _fit_compact_input(widget: QWidget) -> None:
+    """Grow fixed single-line editors with ui_scale; never crush tall multi-line boxes.
+
+    WT FileNameList / similar (design max height > 56) must be skipped — earlier
+    polish forced them to 100×40 and clipped path/filename text.
+    """
+    try:
+        from components import ui_theme as theme
+    except Exception:
+        return
+    if isinstance(widget, QTextEdit) and widget.isReadOnly():
+        return
+
+    design_max = widget.property("_ui_design_max_h")
+    max_h = int(widget.maximumHeight())
+    min_h = int(widget.minimumHeight())
+    # Tall editors (filename list, notes): leave layout-managed size alone
+    if design_max not in (None, "") and int(design_max) > 56:
+        try:
+            if isinstance(widget, QTextEdit) and widget.document() is not None:
+                widget.document().setDocumentMargin(2)
+        except Exception:
+            pass
+        return
+    if 56 < max_h < 16_000_000:
+        return
+
+    fixed_square = min_h > 0 and max_h > 0 and min_h == max_h and min_h <= 72
+    compact = fixed_square or (0 < max_h <= 56)
+    if not compact:
+        return
+
+    scale = float(theme.ui_scale() or 1.0)
+
+    # Prefer props from _make_te / dialog builders
+    if widget.property("_ui_design_max_h") in (None, ""):
+        oh = min_h if fixed_square else 40
+        widget.setProperty("_ui_design_min_h", max(int(oh), 40))
+        widget.setProperty("_ui_design_max_h", max(int(oh), 40))
+    if (
+        widget.property("_ui_design_w") in (None, "")
+        and widget.minimumWidth() == widget.maximumWidth() > 0
+        and widget.minimumWidth() <= 420
+    ):
+        widget.setProperty("_ui_design_w", max(int(widget.minimumWidth()), 100))
+
+    hh = max(36, int(round(int(widget.property("_ui_design_max_h")) * scale)))
+    # Ensure room for font + padding + frame
+    try:
+        fm = widget.fontMetrics()
+        hh = max(hh, int(fm.height()) + 18)
+    except Exception:
+        pass
+
+    design_ss = (
+        f"QTextEdit {{ color: {theme.INK}; background-color: {theme.PANEL}; "
+        f"border: 1px solid {theme.LINE_STRONG}; border-radius: 6px; "
+        f"padding: 4px 8px; }}"
+        if isinstance(widget, QTextEdit)
+        else (
+            f"QLineEdit {{ color: {theme.INK}; background-color: {theme.PANEL}; "
+            f"border: 1px solid {theme.LINE_STRONG}; border-radius: 6px; "
+            f"padding: 4px 8px; }}"
+        )
+    )
+    widget.setProperty("_ui_ss_orig", design_ss)
+    try:
+        from utils.ui_scale import scale_qss_metrics
+
+        widget.setStyleSheet(scale_qss_metrics(design_ss, scale))
+    except Exception:
+        widget.setStyleSheet(design_ss)
+
+    if isinstance(widget, QTextEdit):
+        widget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        try:
+            widget.setTabChangesFocus(True)
+        except Exception:
+            pass
+        try:
+            if widget.document() is not None:
+                widget.document().setDocumentMargin(2)
+        except Exception:
+            pass
+
+    dw = widget.property("_ui_design_w")
+    dmin_w = widget.property("_ui_design_min_w")
+    if dw not in (None, ""):
+        ww = max(48, int(round(int(dw) * scale)))
+        widget.setFixedSize(ww, hh)
+    elif dmin_w not in (None, ""):
+        # Expanding path fields: lock height only, keep min width
+        widget.setMinimumWidth(max(48, int(round(int(dmin_w) * scale))))
+        widget.setMaximumWidth(16777215)
+        widget.setMinimumHeight(hh)
+        widget.setMaximumHeight(hh)
+    else:
+        ww = max(48, int(round(100 * scale)))
+        widget.setFixedSize(ww, hh)
+
+
+def polish_input_widgets(
+    root: QWidget, *, with_memory: bool = True, memory_scope: str = "device"
+) -> int:
     """对 root 下常见输入框启用 Tab 跳转 + 本机历史。返回处理数量。"""
     if root is None:
         return 0
@@ -368,11 +504,26 @@ def polish_input_widgets(root: QWidget, *, with_memory: bool = True) -> int:
             if "ReturnMessage" in obj or obj.startswith("log_"):
                 continue
         enable_tab_changes_focus(w)
-        if with_memory and history_key_for_object_name(obj):
-            enable_field_memory(w)
+        _fit_compact_input(w)
+        # Fixed-width combos (开启/关闭、秒/分) also need to track design width
+        if isinstance(w, QComboBox):
+            try:
+                from components import ui_theme as theme
+
+                min_w, max_w = int(w.minimumWidth()), int(w.maximumWidth())
+                if min_w > 0 and max_w > 0 and min_w == max_w and min_w <= 420:
+                    if w.property("_ui_design_w") in (None, ""):
+                        w.setProperty("_ui_design_w", max(min_w, 100))
+                        w.setProperty("_ui_design_captured", True)
+                    tw = max(40, int(round(int(w.property("_ui_design_w")) * float(theme.ui_scale() or 1.0))))
+                    w.setFixedWidth(tw)
+            except Exception:
+                pass
+        if with_memory and history_key_for_object_name(obj, memory_scope=memory_scope):
+            enable_field_memory(w, memory_scope=memory_scope)
             attach_history_dropdown_button(w)
             n += 1
-        elif isinstance(w, QTextEdit) and w.maximumHeight() <= 48:
+        elif isinstance(w, QTextEdit) and w.maximumHeight() <= 64:
             # 单行高的试验输入框：至少 Tab 跳转
             n += 1
     return n

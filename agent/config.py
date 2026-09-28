@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+from agent.mqtt_publish import MqttPublishConfig, mqtt_config_from_dict
 
 
 def _repo_root() -> Path:
@@ -23,6 +25,7 @@ class AgentConfig:
     execution_mode: str = ""  # dry_run | handoff | live；空则跟 dry_run
     mutex_path: str = ""
     agent_version: str = "0.1.0"
+    mqtt: MqttPublishConfig = field(default_factory=MqttPublishConfig)
 
     @property
     def mutex_file(self) -> Path:
@@ -92,6 +95,25 @@ def load_config(path: Optional[str] = None) -> AgentConfig:
     if os.environ.get("SOLAR_AGENT_DRY_RUN", "").strip() != "":
         dry = os.environ.get("SOLAR_AGENT_DRY_RUN", "1").strip() not in ("0", "false", "False")
 
+    mqtt_cfg = mqtt_config_from_dict(raw)
+    # 环境变量可覆盖 Broker（与温箱共用 EMQX）
+    env_host = (os.environ.get("SOLAR_MQTT_HOST") or "").strip()
+    if env_host:
+        mqtt_cfg.host = env_host
+        mqtt_cfg.enable = True
+    if os.environ.get("SOLAR_MQTT_PORT", "").strip():
+        mqtt_cfg.port = int(os.environ.get("SOLAR_MQTT_PORT") or mqtt_cfg.port)
+    if os.environ.get("SOLAR_MQTT_USERNAME", "").strip() != "":
+        mqtt_cfg.username = os.environ.get("SOLAR_MQTT_USERNAME") or ""
+    if os.environ.get("SOLAR_MQTT_PASSWORD") is not None:
+        mqtt_cfg.password = os.environ.get("SOLAR_MQTT_PASSWORD") or ""
+    if os.environ.get("SOLAR_MQTT_ENABLE", "").strip() != "":
+        mqtt_cfg.enable = os.environ.get("SOLAR_MQTT_ENABLE", "1").strip() not in (
+            "0",
+            "false",
+            "False",
+        )
+
     return AgentConfig(
         iot_base=base,
         agent_token=token,
@@ -101,4 +123,5 @@ def load_config(path: Optional[str] = None) -> AgentConfig:
         execution_mode=str(raw.get("execution_mode") or ""),
         mutex_path=str(raw.get("mutex_path") or ""),
         agent_version=str(raw.get("agent_version") or "0.1.0"),
+        mqtt=mqtt_cfg,
     )

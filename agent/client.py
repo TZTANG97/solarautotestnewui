@@ -52,6 +52,7 @@ class IotSolarClient:
         control_result: Optional[dict] = None,
         control_request_id: str = "",
         local_resources: Optional[list] = None,
+        run_snapshot: Optional[dict] = None,
     ) -> Dict[str, Any]:
         body: Dict[str, Any] = {
             "type": "on",
@@ -74,6 +75,8 @@ class IotSolarClient:
                 body["controlRequestId"] = str(control_request_id)
         if local_resources is not None:
             body["localResources"] = list(local_resources)
+        if run_snapshot is not None:
+            body["runSnapshot"] = dict(run_snapshot)
         return self._request(
             "POST",
             "/api/solar-autotest/agent/heartbeat",
@@ -177,6 +180,19 @@ class IotSolarClient:
             f"/api/solar-autotest/agent/jobs/{job_id}/done",
             body,
         )
+
+    def local_run_start(self, *, test_type: str, title: str = "") -> Dict[str, Any]:
+        """台架本地点开始：向 IOT 登记实验 + RUNNING 任务。"""
+        body: Dict[str, Any] = {
+            "type": "local_run_start",
+            "pythonid": self.pythonid,
+            "clientid": self.clientid,
+            "testType": (test_type or "").strip() or "overload",
+            "title": (title or "").strip(),
+        }
+        res = self._request("POST", "/api/solar-autotest/agent/local-run/start", body)
+        data = res.get("data") if isinstance(res, dict) else None
+        return data if isinstance(data, dict) else (res if isinstance(res, dict) else {})
 
     def reject(self, job_id: int, reason: str) -> Dict[str, Any]:
         return self._request(

@@ -1,0 +1,8 @@
+[paths]
+# Prefer non-system drive on lab PCs, e.g. D:\SolarAutoTest\data
+data_root = auto
+runtime_root = auto
+
+# Or set env:
+#   SOLARAUTOTEST_DATA=D:\SolarData
+#   SOLARAUTOTEST_RUNTIME=D:\SolarRuntime

@@ -175,7 +175,7 @@ def test_send_percent_112_becomes_257_6(qapp, monkeypatch, tmp_path):
 
     sw.thaivoltprotect10minSend()
 
-    # ASYNC_START 应在过压 VOLT 之前（含①额定保持）
+    # ASYNC_START 在启机等待之后、过压 VOLT 之前（并网后再录）
     idxs = []
     for i, r in enumerate(sw.strArrayTest):
         if not r:
@@ -189,6 +189,14 @@ def test_send_percent_112_becomes_257_6(qapp, monkeypatch, tmp_path):
     kinds = {k: i for k, i in idxs}
     assert "start" in kinds and "ov" in kinds and "end" in kinds
     assert kinds["start"] < kinds["ov"] < kinds["end"]
+    # 启机等待行应在 ASYNC_START 之前
+    boot_idxs = [
+        i
+        for i, r in enumerate(sw.strArrayTest)
+        if r and r[0] == "AC" and r[1] == "query" and r[2] == "*IDN?" and r[9] not in ("", None)
+        and (len(r) <= 6 or r[6] in ("", None))
+    ]
+    assert boot_idxs and max(boot_idxs) < kinds["start"]
     volt_cmds = [r[2] for r in sw.strArrayTest if r and r[0] == "AC" and str(r[2]).startswith("VOLT ")]
     assert "VOLT 257.6" in volt_cmds
     assert "VOLT 230" in volt_cmds  # 恢复 100%

@@ -12,6 +12,41 @@ UNUSED_CHANNEL_ID = 18446744073709551615  # 0xFFFFFFFFFFFFFFFF
 _dewetron_io_lock = threading.Lock()
 
 
+def is_visa_timeout(exc) -> bool:
+    """True for VISA/PyVISA read-write timeout (device may still be busy, not dead)."""
+    text = str(exc or "").upper()
+    if not text:
+        return False
+    return "VI_ERROR_TMO" in text or "1073807339" in text or "TIMEOUT" in text
+
+
+def is_visa_conn_lost(exc) -> bool:
+    """True when the TCP/SCPI session is actually gone."""
+    text = str(exc or "").upper()
+    if not text:
+        return False
+    needles = (
+        "CONN_LOST",
+        "1073807194",
+        "VI_ERROR_CONN_LOST",
+        "VI_ERROR_INV_OBJECT",
+        "VI_ERROR_NCIC",
+        "VI_ERROR_NLISTENERS",
+    )
+    return any(token in text for token in needles)
+
+
+def is_visa_session_error(exc) -> bool:
+    """Timeout or lost session (logging / tests). Do not auto-reconnect on timeout."""
+    return is_visa_timeout(exc) or is_visa_conn_lost(exc)
+
+
+def channel_list_has_names(raw) -> bool:
+    """True if :CHANNELLIST:NAMES? looks like a populated Oxygen reply."""
+    text = str(raw or "")
+    return bool(re.search(r'"\d+"\s*,\s*"[^"]+"', text))
+
+
 class DewetronController:
     """DEWETRON 功率分析仪控制器，统一管理连接、断开和命令发送。"""
 
@@ -32,7 +67,7 @@ class DewetronController:
         self._stream_group = 1         # 流组编号
         self._stream_channels = []     # 当前流式传输的通道名列表
 
-    def connect(self, tcp_addr):
+    def connect(self, tcp_addr, silent=False):
         """连接 DEWETRON 设备。
 
         连接参数（参考 DEWETRON 文档）：
@@ -41,6 +76,7 @@ class DewetronController:
         - 编码：ASCII
         - 消息终止符：LF (\\n) 或 CR LF (\\r\\n)
         - 连接限制：只允许 1 个客户端连接
+        silent: 内部重连时不要弹「连接失败」，避免测试生效被误报成连不上。
         """
         # 如果用户输入的是裸 IP（如 192.168.40.11），构造标准 VISA TCPIP 资源字符串
         if tcp_addr and not tcp_addr.upper().startswith('TCPIP'):
@@ -69,7 +105,8 @@ class DewetronController:
         except Exception as e:
             print(f"DEWETRON连接失败: {e}")
             self.logger.info(f"DEWETRON连接失败: {e}")
-            self.show_message("DEWETRON连接失败，请检查设备地址和连线", self.ui)
+            if not silent:
+                self.show_message("DEWETRON连接失败，请检查设备地址和连线", self.ui)
             self.handle = None
             self.connected = False
             self.resource = ''
@@ -94,22 +131,56 @@ class DewetronController:
         self.resource = ''
         return None, '0'
 
+    def _close_handle_quiet(self, handle):
+        """Release a VISA SOCKET so Oxygen can accept the next SCPI client."""
+        if handle is None:
+            return
+        try:
+            handle.close()
+        except Exception:
+            pass
+
     def _reconnect(self):
-        """尝试重新连接 DEWETRON 设备。成功返回 True。"""
+        """尝试重新连接 DEWETRON 设备。成功返回 True。
+
+        Oxygen SCPI 只允许 1 个客户端：必须先关掉旧 SOCKET，否则新 TCP
+        会连上却无应答，表现成「必须手动断开再连」。
+        """
         saved_resource = self.resource
+        old = self.handle
         self.handle = None
         self.connected = False
+        self._close_handle_quiet(old)
         if not saved_resource:
             return False
         print(f"[DEWETRON] 尝试重连: {saved_resource}")
         self.logger.info(f"DEWETRON 尝试重连: {saved_resource}")
-        handle, status = self.connect(saved_resource)
+        handle, status = self.connect(saved_resource, silent=True)
         if status == '1':
             print("[DEWETRON] 重连成功")
             self.logger.info("DEWETRON 重连成功")
             return True
         print("[DEWETRON] 重连失败")
         self.logger.info("DEWETRON 重连失败")
+        return False
+
+    def wait_scpi_ready(self, attempts=6, delay_seconds=0.8, timeout_ms=3000):
+        """Poll :ACQUISITION:STATE? after APPLY. Do not reconnect on timeout.
+
+        Oxygen stays busy after :SETUP:APPLY; CHANNELLIST often times out.
+        Treating that as a dead socket was killing the session and popping
+        「连接失败」 on 测试生效.
+        """
+        delay = max(0.1, float(delay_seconds or 0.1))
+        for attempt in range(max(1, int(attempts))):
+            if not self.connected or self.handle is None:
+                return False
+            state = self.query_command(":ACQUISITION:STATE?", timeout_ms=timeout_ms)
+            if state:
+                print(f"[DEWETRON] SCPI 就绪 (STATE={state!r}, attempt={attempt + 1})")
+                return True
+            print(f"[DEWETRON] SCPI 未就绪 attempt={attempt + 1}/{attempts}")
+            time.sleep(delay)
         return False
 
     @staticmethod
@@ -160,11 +231,20 @@ class DewetronController:
             try:
                 self._write_with_timeout(self.handle, command, timeout_ms)
             except Exception as e:
-                err_str = str(e)
-                if 'CONN_LOST' in err_str or '1073807194' in err_str:
-                    print(f"[DEWETRON] 连接丢失: {e}")
-                    self.logger.info(f"DEWETRON 连接丢失: {e}")
+                if is_visa_timeout(e):
+                    print(f"[DEWETRON] 发送超时（会话保留）: {e}")
+                    self.logger.info(f"DEWETRON 发送超时: {e}")
+                    return False
+                if is_visa_conn_lost(e):
+                    print(f"[DEWETRON] 发送连接丢失: {e}")
+                    self.logger.info(f"DEWETRON 发送连接丢失: {e}")
                     self.connected = False
+                    cmd_u = str(command or "").upper()
+                    if ":SETUP:APPLY" in cmd_u:
+                        old = self.handle
+                        self.handle = None
+                        self._close_handle_quiet(old)
+                        return False
                     if self._reconnect():
                         try:
                             self._write_with_timeout(self.handle, command, timeout_ms)
@@ -224,8 +304,11 @@ class DewetronController:
                     print(f"[DEWETRON] query: {command} -> {resp[:50] if resp else 'None'}")
                 return resp.strip()
             except Exception as e:
-                err_str = str(e)
-                if 'CONN_LOST' in err_str or '1073807194' in err_str:
+                if is_visa_timeout(e):
+                    print(f"[DEWETRON] query 超时（会话保留）: {e}")
+                    self.logger.info(f"DEWETRON query 超时: {e}")
+                    return None
+                if is_visa_conn_lost(e):
                     print(f"[DEWETRON] query 连接丢失: {e}")
                     self.logger.info(f"DEWETRON query 连接丢失: {e}")
                     self.connected = False
@@ -313,7 +396,16 @@ class DewetronController:
             full_cmd = f":SETUP:APPLY #{num_digits}{xml_len}" + xml_string
             print(f"[DEWETRON] 发送 :SETUP:APPLY (XML: {xml_len} 字节, header: #{num_digits}{xml_len})")
             # 大文件写入需要更长超时（默认 10s 对 750K+ 数据不够）
-            return self._send(full_cmd, "[DEWETRON] :SETUP:APPLY 发送完成", "DEWETRON :SETUP:APPLY", timeout_ms=60000)
+            ok = self._send(
+                full_cmd,
+                "[DEWETRON] :SETUP:APPLY 发送完成",
+                "DEWETRON :SETUP:APPLY",
+                timeout_ms=60000,
+            )
+            if ok:
+                # Oxygen 正在重载工程，立刻 query 会超时；等一会再交还调用方。
+                time.sleep(2.0)
+            return ok
         except Exception as e:
             strtimenow = self.now_to_datenow()
             print(f'{strtimenow} DEWETRON :SETUP:APPLY error: {e}')

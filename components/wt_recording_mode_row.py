@@ -32,7 +32,13 @@ class WtRecordingModeRow(QtWidgets.QWidget):
         self.comboBox_recording_mode.setObjectName("comboBox_recording_mode")
         self.comboBox_recording_mode.addItem(MODE_LABELS[MODE_CONTINUOUS], MODE_CONTINUOUS)
         self.comboBox_recording_mode.addItem(MODE_LABELS[MODE_SPLIT], MODE_SPLIT)
-        self.comboBox_recording_mode.setMinimumWidth(220)
+        self.comboBox_recording_mode.setProperty("_ui_design_min_w", 260)
+        try:
+            from components import ui_theme as theme
+
+            self.comboBox_recording_mode.setMinimumWidth(theme.px(260))
+        except Exception:
+            self.comboBox_recording_mode.setMinimumWidth(260)
         layout.addWidget(self.comboBox_recording_mode)
 
         self.pushButton_fill_recommended_names = QtWidgets.QPushButton("填充推荐文件名")

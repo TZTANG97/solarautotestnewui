@@ -174,6 +174,31 @@ class _DeviceIoBridge(QtCore.QObject):
 
     finished = QtCore.pyqtSignal(str, object)  # job_id, {"result"|"error"}
     ui_message = QtCore.pyqtSignal(str)
+    log_line = QtCore.pyqtSignal(str)  # 操作日志：采集线程等勿直接 append Qt 控件
+
+
+def _append_return_message_ui(msg):
+    """主线程写入操作日志。"""
+    try:
+        ui.textEdit_ReturnMessage.append(str(msg or ""))
+    except Exception:
+        pass
+
+
+def _append_return_message(msg):
+    """线程安全写入操作日志（采集/设备工作线程必须走信号）。"""
+    app = QApplication.instance()
+    try:
+        on_ui = app is None or QThread.currentThread() == app.thread()
+    except Exception:
+        on_ui = True
+    if on_ui:
+        _append_return_message_ui(msg)
+        return
+    try:
+        _ensure_device_io_bridge().log_line.emit(str(msg or ""))
+    except Exception:
+        print(str(msg or ""))
 
 
 def _ensure_device_io_bridge():
@@ -183,6 +208,7 @@ def _ensure_device_io_bridge():
         _device_io_bridge.ui_message.connect(
             lambda msg: _show_connect_message_ui(msg, None)
         )
+        _device_io_bridge.log_line.connect(_append_return_message_ui)
     return _device_io_bridge
 
 
@@ -745,11 +771,11 @@ def SaveDEWETRONConfig():
                                                  frequency_channel=frequency_channel)
     _log(f"XML已修改: {len(modified_xml)} 字符")
 
-    # 4. 保存到 command_save_files/dewetron_data/（按小时命名）
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # 4. 保存到本机德威创目录（按小时命名）
+    from utils.wt_save_path import ensure_dewetron_save_dir
+
     now = datetime.now()
-    save_dir = os.path.join(base_dir, 'command_save_files', 'dewetron_data')
-    os.makedirs(save_dir, exist_ok=True)
+    save_dir = ensure_dewetron_save_dir()
     filename = now.strftime("dewetron_%Y%m%d_%H.xml")
     save_path = os.path.join(save_dir, filename)
     with open(save_path, 'w', encoding='utf-8') as f:
@@ -1039,6 +1065,7 @@ def _dewetron_status_extra():
     except Exception:
         return {"brand": "dewetron", "widgets": {}}
 
+
 def _update_project_status(project_name, status):
     """更新 status.json 中的测试项目状态。"""
     import json
@@ -1134,6 +1161,7 @@ def _reload_home_status(data):
 class _RunProgressBridge(QtCore.QObject):
     """把后台线程的进度快照投递到 UI 线程。"""
     snapshot = QtCore.pyqtSignal(object)
+    operator_pause = QtCore.pyqtSignal(str)
 
 
 _run_progress_bridge = None
@@ -1149,6 +1177,9 @@ _run_progress_state = {
     "started_at": 0.0,  # time.time()；0=未开始
     "planned_seconds": 0.0,
     "current_detail": "",
+    "queue": [],
+    "current_test": "",
+    "operator_pause": False,
 }
 
 
@@ -1157,6 +1188,7 @@ def _ensure_progress_bridge():
     if _run_progress_bridge is None:
         _run_progress_bridge = _RunProgressBridge()
         _run_progress_bridge.snapshot.connect(_apply_run_progress_ui)
+        _run_progress_bridge.operator_pause.connect(_show_operator_pause_dialog)
     return _run_progress_bridge
 
 
@@ -1181,6 +1213,58 @@ def _compute_run_progress_percent(state):
     return int(state.get("progress") or 0)
 
 
+_operator_pause_box = None
+
+
+def _set_continue_test_visible(paused):
+    try:
+        from components.continue_test_button import sync_continue_test_button
+
+        sync_continue_test_button(ui, paused=bool(paused))
+    except Exception:
+        pass
+
+
+def _close_operator_pause_dialog():
+    global _operator_pause_box
+    box = _operator_pause_box
+    _operator_pause_box = None
+    if box is None:
+        return
+    try:
+        box.close()
+    except Exception:
+        pass
+
+
+def _show_operator_pause_dialog(project_name=""):
+    """非模态提示：试验线程在等「继续试验」，不能用模态框卡住主界面。"""
+    global _operator_pause_box
+    try:
+        from PyQt5.QtCore import Qt
+        from PyQt5.QtWidgets import QMessageBox
+
+        _set_continue_test_visible(True)
+        _close_operator_pause_dialog()
+        name = (project_name or "").strip() or "当前试验"
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Information)
+        box.setWindowTitle("等待人工设置")
+        box.setText(
+            f"「{name}」已跑完。\n请调整逆变器 / 上位机参数后，点绿色「继续试验」。"
+        )
+        box.setInformativeText("本提示不挡住主界面。改完务必点「继续试验」，后面追加的项目才会开始。")
+        box.setWindowModality(Qt.NonModal)
+        box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
+        cont = box.addButton("继续试验", QMessageBox.AcceptRole)
+        box.addButton("先去改设置", QMessageBox.RejectRole)
+        cont.clicked.connect(ConProjectPush)
+        box.show()
+        _operator_pause_box = box
+    except Exception:
+        pass
+
+
 def _persist_run_progress(state):
     """把进度写回 status.json（不改变 start/end 语义）。"""
     import json
@@ -1199,12 +1283,48 @@ def _persist_run_progress(state):
     data["project"]["progress"] = int(state.get("progress") or 0)
     data["project"]["current_round"] = int(state.get("current_round") or 0)
     data["project"]["total_rounds"] = int(state.get("total_rounds") or 0)
+    data["project"]["cmd_index"] = int(state.get("cmd_index") or 0)
+    data["project"]["cmd_total"] = int(state.get("cmd_total") or 0)
+    data["project"]["planned_seconds"] = float(state.get("planned_seconds") or 0.0)
+    data["project"]["elapsed_s"] = float(state.get("elapsed_s") or 0.0)
+    data["project"]["remain_s"] = float(state.get("remain_s") or 0.0)
+    data["project"]["eta_total_s"] = float(state.get("eta_total_s") or 0.0)
     if state.get("remain_text"):
         data["project"]["remain_text"] = state.get("remain_text")
     if state.get("eta_total_text"):
         data["project"]["eta_total_text"] = state.get("eta_total_text")
     if state.get("elapsed_text"):
         data["project"]["elapsed_text"] = state.get("elapsed_text")
+    if state.get("planned_text"):
+        data["project"]["planned_text"] = state.get("planned_text")
+    if state.get("current_detail") is not None:
+        data["project"]["current_detail"] = str(state.get("current_detail") or "")[:500]
+    if state.get("current_test") is not None:
+        data["project"]["current_test"] = str(state.get("current_test") or "")[:128]
+    # 始终写入 queue/rounds（含空列表），便于 Agent 心跳上报
+    data["project"]["queue"] = list(state.get("queue") or [])
+    data["project"]["rounds"] = [
+        {
+            "index": r.get("index"),
+            "filename": r.get("filename") or r.get("name") or "",
+            "status": r.get("status") or "",
+            "note": r.get("note") or "",
+        }
+        for r in (state.get("rounds") or [])
+        if isinstance(r, dict)
+    ]
+    data["project"]["operator_pause"] = bool(state.get("operator_pause"))
+    # 关联 IOT 任务 id（本地登记 / handoff）
+    try:
+        from utils.iot_run_snapshot import _resolve_job_ids
+
+        ids = _resolve_job_ids()
+        if ids.get("jobId"):
+            data["project"]["jobId"] = ids["jobId"]
+        if ids.get("experId"):
+            data["project"]["experId"] = ids["experId"]
+    except Exception:
+        pass
     try:
         with open(_status_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -1242,6 +1362,21 @@ def _apply_run_progress_ui(state):
     if hasattr(ui, "label_run_progress"):
         ui.label_run_progress.setWordWrap(True)
         ui.label_run_progress.setText(summary)
+        ui.label_run_progress.setMinimumHeight(96)
+
+    banner = getattr(ui, "label_operator_pause", None)
+    operator_pause = bool(state.get("operator_pause"))
+    paused = operator_pause or status == "暂停"
+    _set_continue_test_visible(paused)
+    if banner is not None:
+        if operator_pause:
+            banner.setVisible(True)
+            banner.setText(
+                "人工暂停：请改逆变器/上位机设置，然后点绿色「继续试验」。"
+            )
+        else:
+            banner.setVisible(False)
+
     if hasattr(ui, "progressBar_run"):
         ui.progressBar_run.setValue(progress)
         remain = state.get("remain_text") or ""
@@ -1251,6 +1386,43 @@ def _apply_run_progress_ui(state):
             ui.progressBar_run.setFormat(f"%p%  用时{str(state.get('elapsed_text')).replace('约 ', '')}")
         else:
             ui.progressBar_run.setFormat("%p%")
+
+    qtable = getattr(ui, "tableWidget_test_queue", None)
+    if qtable is not None:
+        from PyQt5.QtWidgets import QTableWidgetItem
+        from PyQt5.QtGui import QColor, QBrush
+        from utils.run_progress_eta import format_duration
+
+        queue = state.get("queue") or []
+        qtable.setRowCount(len(queue))
+        qcolor = {
+            "等待": QColor("#6b7280"),
+            "进行中": QColor("#2563eb"),
+            "完成": QColor("#16a34a"),
+            "暂停": QColor("#d97706"),
+            "中止": QColor("#dc2626"),
+        }
+        for row, item in enumerate(queue):
+            planned = format_duration(float(item.get("planned_seconds") or 0))
+            pause_txt = "是（改逆变器后继续）" if item.get("pause_after") else "否"
+            vals = [
+                str(item.get("index", row + 1)),
+                str(item.get("name", "")),
+                str(item.get("status", "等待")),
+                planned,
+                pause_txt,
+            ]
+            for col, text in enumerate(vals):
+                cell = qtable.item(row, col)
+                if cell is None:
+                    cell = QTableWidgetItem(text)
+                    qtable.setItem(row, col, cell)
+                else:
+                    cell.setText(text)
+                if col == 2:
+                    cell.setForeground(QBrush(qcolor.get(vals[2], QColor("#6b7280"))))
+            if item.get("status") in ("进行中", "暂停"):
+                qtable.selectRow(row)
 
     table = getattr(ui, "tableWidget_run_progress", None)
     if table is not None:
@@ -1288,11 +1460,19 @@ def _apply_run_progress_ui(state):
     if hasattr(ui, "home_project_name") and project:
         ui.home_project_name.setText(project)
     if hasattr(ui, "home_status"):
-        color_map2 = {"未开始": "#9ca3af", "进行中": "#3b82f6", "已结束": "#22c55e", "已中止": "#ef4444"}
+        color_map2 = {
+            "未开始": "#9ca3af",
+            "进行中": "#3b82f6",
+            "暂停": "#d97706",
+            "已结束": "#22c55e",
+            "已中止": "#ef4444",
+        }
         remain = state.get("remain_text") or ""
         home_txt = status
         if status == "进行中" and remain:
             home_txt = f"{status} · 剩{str(remain).replace('约 ', '')}"
+        elif status == "暂停":
+            home_txt = "暂停 · 点继续试验" if state.get("operator_pause") else "已暂停"
         ui.home_status.setText(home_txt)
         ui.home_status.setStyleSheet(
             f"font-size: 12px; font-weight: bold; color: {color_map2.get(status, '#9ca3af')}; background: transparent;"
@@ -1351,6 +1531,9 @@ def _emit_run_progress(persist=True, **kwargs):
         "started_at": float(state.get("started_at") or 0.0),
         "planned_seconds": float(state.get("planned_seconds") or 0.0),
         "current_detail": str(state.get("current_detail") or ""),
+        "queue": [dict(q) for q in (state.get("queue") or [])],
+        "current_test": str(state.get("current_test") or ""),
+        "operator_pause": bool(state.get("operator_pause")),
         **eta,
     }
     try:
@@ -1444,6 +1627,7 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
         rounds.append({"index": i + 1, "filename": fn, "status": "等待", "note": ""})
     cmd_total = 0
     planned = 0.0
+    cmds = []
     try:
         cmds = globals().get("strArrayTest") or []
         cmd_total = len(cmds)
@@ -1453,7 +1637,27 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
     except Exception:
         cmd_total = 0
         planned = 0.0
+        cmds = globals().get("strArrayTest") or []
     started_at = time.time() if status == "进行中" else 0.0
+    queue = []
+    try:
+        from utils.test_queue_markers import parse_queue_segments
+
+        segs = parse_queue_segments(cmds, fallback_name=project)
+        for i, seg in enumerate(segs):
+            queue.append(
+                {
+                    "index": i + 1,
+                    "name": seg.get("name") or f"试验{i + 1}",
+                    "status": "等待",
+                    "pause_after": bool(seg.get("pause_after")),
+                    "planned_seconds": float(seg.get("planned_seconds") or 0),
+                    "cmd_start": int(seg.get("cmd_start") or 0),
+                    "cmd_end": int(seg.get("cmd_end") or 0),
+                }
+            )
+    except Exception:
+        queue = []
     _emit_run_progress(
         project=project,
         status=status,
@@ -1466,6 +1670,9 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
         started_at=started_at,
         planned_seconds=planned,
         current_detail="",
+        queue=queue,
+        current_test=(queue[0]["name"] if queue else project),
+        operator_pause=False,
         persist=True,
     )
 
@@ -1495,6 +1702,71 @@ def _set_run_progress_round(round_index_0based, status, note=None):
     )
 
 
+def _sync_queue_for_cmd(cmd_index_1based, *, status_override=None):
+    """按当前命令刷新试验队列行状态。"""
+    queue = [dict(q) for q in (_run_progress_state.get("queue") or [])]
+    if not queue:
+        return None
+    idx0 = max(0, int(cmd_index_1based or 1) - 1)
+    current_name = ""
+    for item in queue:
+        start = int(item.get("cmd_start") or 0)
+        end = int(item.get("cmd_end") or 0)
+        if end <= start:
+            continue
+        if idx0 < start:
+            if item.get("status") not in ("完成", "中止"):
+                item["status"] = "等待"
+        elif start <= idx0 < end:
+            item["status"] = status_override or "进行中"
+            current_name = str(item.get("name") or "")
+        else:
+            if item.get("status") not in ("中止",):
+                item["status"] = "完成"
+    _emit_run_progress(queue=queue, current_test=current_name or _run_progress_state.get("current_test"), persist=False)
+    return current_name
+
+
+def _wait_operator_after_test(project_name, pause_after):
+    """本试验命令结束：可选暂停等人工改逆变器。"""
+    global strTestStatusFlag
+    name = (project_name or "").strip() or "当前试验"
+    queue = [dict(q) for q in (_run_progress_state.get("queue") or [])]
+    for item in queue:
+        if str(item.get("name") or "") == name:
+            item["status"] = "暂停" if pause_after else "完成"
+    if queue:
+        _emit_run_progress(queue=queue, persist=False)
+    if not pause_after:
+        _append_return_message(f"[队列] 「{name}」已结束，继续下一项")
+        return
+    strTestStatusFlag = "暂停"
+    detail = f"「{name}」已结束，请调整逆变器/上位机后点「继续试验」"
+    _emit_run_progress(
+        status="暂停",
+        current_detail=detail,
+        current_test=name,
+        operator_pause=True,
+        persist=True,
+    )
+    _append_return_message(f"[人工暂停] {detail}")
+    try:
+        _ensure_progress_bridge().operator_pause.emit(name)
+    except Exception:
+        pass
+    while strTestStatusFlag == "暂停":
+        time.sleep(0.15)
+    if strTestStatusFlag == "结束":
+        return
+    _emit_run_progress(
+        status="进行中",
+        operator_pause=False,
+        current_detail="继续后续试验",
+        persist=True,
+    )
+    _append_return_message("[人工暂停] 已继续后续试验")
+
+
 def _finish_run_progress(aborted=False):
     """试验结束：未完成轮次标中止，或全部完成。"""
     rounds = [dict(r) for r in (_run_progress_state.get("rounds") or [])]
@@ -1502,14 +1774,20 @@ def _finish_run_progress(aborted=False):
         for r in rounds:
             if r.get("status") in ("等待", "进行中"):
                 r["status"] = "中止"
-        _emit_run_progress(rounds=rounds, status="已中止", persist=True)
+        _emit_run_progress(rounds=rounds, status="已中止", operator_pause=False, persist=True)
     else:
         for r in rounds:
             if r.get("status") == "进行中":
                 r["status"] = "完成"
             elif r.get("status") == "等待":
                 r["status"] = "完成"
-        _emit_run_progress(rounds=rounds, status="已结束", progress=100, persist=True)
+        _emit_run_progress(rounds=rounds, status="已结束", progress=100, operator_pause=False, persist=True)
+    try:
+        from utils.iot_local_run import notify_local_run_finished
+
+        notify_local_run_finished(aborted=bool(aborted))
+    except Exception as _iot_done_exc:
+        print(f"[finish] IOT 本地结案跳过: {_iot_done_exc}", flush=True)
 
 
 def _safe_close_handle(handle):
@@ -2231,6 +2509,36 @@ def _set_dc_factor_from_idn(dc_index, handle, fallback=None, modbus_client=None)
     print(f"DC{int(dc_index)+1} 厂家识别结果: {per_dc_factor.get(str(dc_index), '')}")
 
 
+def _remember_manual_device_slot(slot: str, resource: str, *, kind_hint: str = "", brand_hint: str = "") -> None:
+    """手动点「连接设备」成功后记住资源→槽位，供下次启动自动连（含 USB）。"""
+    res = (resource or "").strip()
+    sl = (slot or "").strip().lower()
+    if not res or not sl:
+        return
+    try:
+        from utils.device_discovery import FoundDevice, remember_successful_device
+        from utils.iot_auto_connect import remember_slot_for_resource
+
+        remember_slot_for_resource(res, sl)
+        kind = kind_hint or ("dc" if sl.startswith("dc") else sl)
+        proto = "visa"
+        upper = res.upper()
+        if not upper.startswith(("USB", "GPIB", "ASRL", "COM", "TCPIP")):
+            proto = "scpi_tcp"
+        remember_successful_device(
+            sl,
+            FoundDevice(
+                resource=res,
+                kind_hint=kind,
+                brand_hint=brand_hint or "",
+                protocol=proto,
+                source="manual",
+            ),
+        )
+    except Exception:
+        pass
+
+
 @_with_device_ui_busy("ConnectEQUDC1")
 def ConnectEQUDC1():
     """连接 DC1。"""
@@ -2285,6 +2593,12 @@ def ConnectEQUDC1():
         print("直流电源1连接成功")
         _sync_dc1_connect_buttons()
         _save_device_status("直流电源1", True, tcp_addr)
+        _remember_manual_device_slot(
+            "dc1",
+            tcp_addr,
+            kind_hint="dc",
+            brand_hint=str(per_dc_factor.get("0") or _dc1_device_type or ""),
+        )
         _reapply_dc1_setpoints_to_device(reason="连接后恢复设定", show_errors=False)
     else:
         ui.textEdit_ReturnMessage.append(f"[DC1] 连接失败 ({device_type}) {tcp_addr}")
@@ -2348,6 +2662,12 @@ def ConnectEQUDC2():
         print("直流电源2连接成功")
         ui.pushButton_ConnectEQUDC2.setText("取消连接")
         _save_device_status("直流电源2", True, tcp_addr)
+        _remember_manual_device_slot(
+            "dc2",
+            tcp_addr,
+            kind_hint="dc",
+            brand_hint=str(per_dc_factor.get("1") or _dc2_device_type or ""),
+        )
 
 
 @_with_device_ui_busy("ConnectEQUDC3")
@@ -2404,6 +2724,12 @@ def ConnectEQUDC3():
         print("直流电源3连接成功")
         ui.pushButton_ConnectEQUDC3.setText("取消连接")
         _save_device_status("直流电源3", True, tcp_addr)
+        _remember_manual_device_slot(
+            "dc3",
+            tcp_addr,
+            kind_hint="dc",
+            brand_hint=str(per_dc_factor.get("2") or _dc3_device_type or ""),
+        )
 
 
 @_with_device_ui_busy("ConnectEQUDC4")
@@ -2460,6 +2786,12 @@ def ConnectEQUDC4():
         print("直流电源4连接成功")
         ui.pushButton_ConnectEQUDC4.setText("取消连接")
         _save_device_status("直流电源4", True, tcp_addr)
+        _remember_manual_device_slot(
+            "dc4",
+            tcp_addr,
+            kind_hint="dc",
+            brand_hint=str(per_dc_factor.get("3") or _dc4_device_type or ""),
+        )
 
 @_with_device_ui_busy("ConnectEQUDL850")
 def ConnectEQUDL850():
@@ -2610,8 +2942,34 @@ def ConnectEQUDEWETRON():
         dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
 
     def _work():
+        # DEWETRON SCPI 仅允许 1 客户端；自动连上后偶发 TCP 通但命令无应答，
+        # 探测失败则断线重连一次，避免「首次失败、手动重连才好」。
         dewetron_controller.connect(tcp_addr)
-        return bool(dewetron_controller.connected)
+        if not dewetron_controller.connected:
+            return False
+
+        def _probe():
+            try:
+                return bool(
+                    dewetron_controller.query_command(
+                        ":ACQUISITION:STATE?", timeout_ms=8000
+                    )
+                )
+            except Exception as exc:
+                print(f"[DEWETRON] 连接探测异常: {exc}")
+                return False
+
+        if _probe():
+            return True
+        print("[DEWETRON] 连接后探测失败，自动重连一次…")
+        try:
+            dewetron_controller.disconnect(_safe_close_handle)
+        except Exception:
+            pass
+        dewetron_controller.connect(tcp_addr)
+        if not dewetron_controller.connected:
+            return False
+        return _probe()
 
     try:
         ok = _run_device_io("ConnectEQUDEWETRON", _work)
@@ -2632,14 +2990,9 @@ def ConnectEQUDEWETRON():
             logger.info("DEWETRON 数据采集器已启动")
             print("DEWETRON 数据采集器已启动")
         try:
-            # 与「数据已导出」相同：命令线程直接 append（QTimer 跨线程经常丢）
-            def _dew_ui_notify(message):
-                try:
-                    ui.textEdit_ReturnMessage.append(str(message or ""))
-                except Exception:
-                    pass
-
-            dewetron_collector.set_ui_notify(_dew_ui_notify)
+            # 必须走信号回主线程；采集线程直接 append Qt 控件会导致假死/闪退
+            _ensure_device_io_bridge()
+            dewetron_collector.set_ui_notify(_append_return_message)
         except Exception as exc:
             logger.info(f"DEWETRON UI 通知绑定失败: {exc}")
         dewetron_coordinator.set_collector(dewetron_collector)
@@ -2648,7 +3001,13 @@ def ConnectEQUDEWETRON():
         ctx.dewetron_collector = dewetron_collector
         ctx.dewetron_coordinator = dewetron_coordinator
     else:
-        QMessageBox.warning(None, "连接失败", "DEWETRON连接失败，请检查IP地址和网络连接")
+        QMessageBox.warning(
+            None,
+            "连接失败",
+            "DEWETRON连接失败或SCPI无应答。\n\n"
+            "请确认 OXYGEN 未另开 SCPI 占用（仅允许 1 客户端），"
+            "再检查 IP/网线后重连。",
+        )
 
 def is_ip_address_format(addr):
     """判断输入是否为IPv4地址，支持可选端口（如 192.168.40.1:5000）。"""
@@ -2716,6 +3075,10 @@ def ConnectEQUWT3000():
         ui.pushButton_ConnectEQUWT3000.setText("取消连接")
         _save_device_status("WT3000", True, tcp_addr)
  
+# 启动期后台加载 VISA RM，避免打开窗口前卡在 dll/驱动初始化
+_VISA_RM_BOOT = {"rm": None, "done": False, "error": None}
+
+
 def _create_visa_resource_manager(local_file_path):
     """创建 VISA ResourceManager。
 
@@ -2740,6 +3103,46 @@ def _create_visa_resource_manager(local_file_path):
         except Exception as exc:
             last_error = exc
     raise RuntimeError(f'无法创建 VISA ResourceManager: {last_error}') from last_error
+
+
+def _start_visa_rm_boot(local_file_path) -> None:
+    """后台创建 ResourceManager，不阻塞主窗口出现。"""
+    global rm
+
+    def _worker():
+        global rm
+        try:
+            created = _create_visa_resource_manager(local_file_path)
+            rm = created
+            _VISA_RM_BOOT["rm"] = created
+            print("[DEBUG_STARTUP]    background VISA ResourceManager ready", flush=True)
+        except Exception as exc:
+            _VISA_RM_BOOT["error"] = exc
+            print(f"[DEBUG_STARTUP]    background VISA RM fail: {exc}", flush=True)
+        finally:
+            _VISA_RM_BOOT["done"] = True
+
+    if _VISA_RM_BOOT.get("done") and _VISA_RM_BOOT.get("rm") is not None:
+        return
+    _VISA_RM_BOOT["done"] = False
+    _VISA_RM_BOOT["error"] = None
+    threading.Thread(target=_worker, name="visa-rm-boot", daemon=True).start()
+
+
+def _wait_visa_rm_boot(*, timeout_s: float = 15.0):
+    """后台线程里等待 RM；超时返回 None。"""
+    deadline = time.time() + max(0.5, float(timeout_s))
+    while time.time() < deadline:
+        if _VISA_RM_BOOT.get("done"):
+            break
+        got = _VISA_RM_BOOT.get("rm")
+        if got is not None:
+            return got
+        cur = globals().get("rm")
+        if cur is not None:
+            return cur
+        time.sleep(0.05)
+    return _VISA_RM_BOOT.get("rm") or globals().get("rm")
 
 
 def _finder_set_combo(combo_name: str, text: str) -> None:
@@ -2774,6 +3177,24 @@ def _iot_slot_session_ok(slot: str) -> bool:
 
 def _reconcile_status_json_with_sessions() -> None:
     """启动时按真实控制器纠偏 status.json，避免假已连接被 Agent 上报上去。"""
+    import json
+    import os
+
+    from utils.status_json_devices import ensure_device_rows, empty_status_payload
+
+    status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+    try:
+        with open(status_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = empty_status_payload()
+    data = ensure_device_rows(data)
+    try:
+        with open(status_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
     mapping = (
         ("交流电源", "ac"),
         ("直流电源1", "dc1"),
@@ -2786,7 +3207,8 @@ def _reconcile_status_json_with_sessions() -> None:
     )
     for name, slot in mapping:
         try:
-            _save_device_status(name, bool(_iot_slot_session_ok(slot)))
+            extra = _dewetron_status_extra() if slot == "dew" and _iot_slot_session_ok(slot) else None
+            _save_device_status(name, bool(_iot_slot_session_ok(slot)), extra=extra)
         except Exception:
             pass
 
@@ -3137,21 +3559,29 @@ def _read_dewetron_xml_with_retry(attempts=3, delay_seconds=2):
 
 
 @_with_device_ui_busy("ApplyDEWETRONConfig")
-def _apply_shared_dewetron_config(project_name):
+def _apply_shared_dewetron_config(project_name, show_dialogs=True):
     """Apply generic AutoTest collection/export settings to DEWETRON."""
     if dewetron_controller is None or not dewetron_controller.connected:
-        QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
+        if show_dialogs:
+            QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
+        else:
+            _append_return_message("[DEWETRON] 未连接，无法自动应用配置")
         return False
     section = _get_dewetron_section(project_name)
     spec = get_project_spec(project_name)
     if section is None or spec is None:
-        QMessageBox.warning(None, "配置错误", f"{project_name}未注册DEWETRON模式")
+        if show_dialogs:
+            QMessageBox.warning(None, "配置错误", f"{project_name}未注册DEWETRON模式")
         return False
 
     config = section.get_dewetron_config()
     errors = config.validation_errors(require_export_fields=True)
     if errors:
-        QMessageBox.warning(None, "参数不完整", "\n".join(errors))
+        if show_dialogs:
+            QMessageBox.warning(None, "参数不完整", "\n".join(errors))
+        else:
+            for error in errors:
+                _append_return_message(f"[DEWETRON] {error}")
         return False
 
     def _work():
@@ -3170,25 +3600,34 @@ def _apply_shared_dewetron_config(project_name):
         )
         if not dewetron_controller.send_apply_config(xml_string):
             return {"ok": False, "stage": "apply"}
-        # Do NOT query :SYSTEM:ERROR:ALL? right after a large :SETUP:APPLY.
-        # OXYGEN can stay busy; the VISA SOCKET read has been observed to hang
-        # past the nominal timeout and freeze「测试生效」(holding the DEW IO
-        # lock). APPLY write success is enough to treat the config as applied.
+        # APPLY 写成功即视为测试生效。不要在此处查 CHANNELLIST/STATE：
+        # Oxygen 重载期间 query 超时曾被当成断线，弹「连接失败」并把会话掐死。
         return {"ok": True, "error_queue": None}
 
     try:
         result = _run_device_io("ApplyDEWETRONConfig", _work)
     except Exception as exc:
-        QMessageBox.warning(None, "应用失败", f"DEWETRON配置异常: {exc}")
+        if show_dialogs:
+            QMessageBox.warning(None, "应用失败", f"DEWETRON配置异常: {exc}")
+        else:
+            _append_return_message(f"[DEWETRON] 配置异常: {exc}")
         return False
     if not result:
+        if show_dialogs:
+            QMessageBox.information(None, "请稍候", "DEWETRON 正在应用配置，请勿重复点击测试生效")
         return False
     if not result.get("ok"):
         stage = result.get("stage")
         if stage == "read":
-            QMessageBox.warning(None, "读取失败", "无法从设备读取当前配置")
+            if show_dialogs:
+                QMessageBox.warning(None, "读取失败", "无法从设备读取当前配置")
+            else:
+                _append_return_message("[DEWETRON] 无法从设备读取当前配置")
         else:
-            QMessageBox.warning(None, "应用失败", "DEWETRON配置发送失败")
+            if show_dialogs:
+                QMessageBox.warning(None, "应用失败", "DEWETRON配置发送失败")
+            else:
+                _append_return_message("[DEWETRON] 配置发送失败")
         return False
 
     # APPLY already succeeded — skip post-APPLY error-queue hard-fail.
@@ -3197,11 +3636,36 @@ def _apply_shared_dewetron_config(project_name):
     )
     section._dew_applied_fingerprint = fingerprint
     section._dew_config_dirty = False
-    ui.textEdit_ReturnMessage.append(
+    _append_return_message(
         f"[{project_name}] DEWETRON配置已应用: {len(config.export_fields)}个字段, {config.rate_text}ms"
     )
-    QMessageBox.information(None, "测试生效", f"{project_name} DEWETRON配置已应用")
+    if show_dialogs:
+        QMessageBox.information(None, "测试生效", f"{project_name} DEWETRON配置已应用")
     return True
+
+
+def _ensure_dewetron_config_applied(project_name, *, silent=True):
+    """德威创模式：配置脏则自动「测试生效」一次，避免追加/开跑被拦。"""
+    if not _is_dewetron_project_mode(project_name):
+        return True
+    section = _get_dewetron_section(project_name)
+    spec = get_project_spec(project_name)
+    if section is None or spec is None:
+        return False
+    config = section.get_dewetron_config()
+    fingerprint = config_fingerprint(
+        config, test_type=spec.test_type, profile=spec.profile
+    )
+    dirty = (
+        getattr(section, "_dew_config_dirty", True)
+        or getattr(section, "_dew_applied_fingerprint", None) != fingerprint
+    )
+    if not dirty:
+        return True
+    _append_return_message(
+        f"[DEWETRON] {project_name} 配置尚未应用，自动执行测试生效…"
+    )
+    return bool(_apply_shared_dewetron_config(project_name, show_dialogs=not silent))
 
 
 def _refresh_shared_dewetron_fields(project_name):
@@ -3370,11 +3834,26 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
         getattr(section, '_dew_config_dirty', True)
         or getattr(section, '_dew_applied_fingerprint', None) != fingerprint
     ):
-        ui.textEdit_ReturnMessage.append("[DEWETRON] 配置已变更，请先点击测试生效")
-        del strArrayTest[snapshot['segment_start']:]
-        del test_program[snapshot['program_start']:]
-        strSettingTestFlag = snapshot['previous_setting_flag']
-        return False
+        if not _ensure_dewetron_config_applied(project_name, silent=True):
+            ui.textEdit_ReturnMessage.append("[DEWETRON] 配置已变更，请先点击测试生效")
+            del strArrayTest[snapshot['segment_start']:]
+            del test_program[snapshot['program_start']:]
+            strSettingTestFlag = snapshot['previous_setting_flag']
+            return False
+        fingerprint = config_fingerprint(
+            config,
+            test_type=get_project_spec(project_name).test_type,
+            profile=get_project_spec(project_name).profile,
+        )
+        if (
+            getattr(section, '_dew_config_dirty', True)
+            or getattr(section, '_dew_applied_fingerprint', None) != fingerprint
+        ):
+            ui.textEdit_ReturnMessage.append("[DEWETRON] 配置已变更，请先点击测试生效")
+            del strArrayTest[snapshot['segment_start']:]
+            del test_program[snapshot['program_start']:]
+            strSettingTestFlag = snapshot['previous_setting_flag']
+            return False
     remembered = getattr(section, '_dew_append_fingerprint', None)
     if remembered is not None and remembered != fingerprint:
         ui.textEdit_ReturnMessage.append("[DEWETRON] 追加配置已变化，请重置计数后重新追加")
@@ -3385,6 +3864,8 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
 
     generated = [coerce_command_row(row) for row in strArrayTest[snapshot['segment_start']:]]
     normalized = []
+    from utils.dewetron_recording import make_acq_start_row, make_acq_stop_row
+
     for row in generated:
         device = str(row[0]).strip().upper()
         if device in WT_ONLY_DEVICES:
@@ -3402,6 +3883,22 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             # This row exists only to switch WTViewer projects between appends.
             continue
         clean = list(row)
+        marker = ""
+        if len(clean) > 6 and clean[6] not in ('', None):
+            marker = str(clean[6]).strip().upper()
+        # 与 WT 连续录对齐：ASYNC_START/WAIT_END → 德威创 START/STOP（勿整段最前插入）
+        if marker in ("ASYNC_START", "WT_ASYNC_START"):
+            for column in COMMAND_WT_TRIGGER_COLUMNS:
+                if column < len(clean):
+                    clean[column] = ''
+            normalized.append(make_acq_start_row())
+            continue
+        if marker == "WAIT_END":
+            for column in COMMAND_WT_TRIGGER_COLUMNS:
+                if column < len(clean):
+                    clean[column] = ''
+            normalized.append(make_acq_stop_row())
+            continue
         trigger_waits = []
         for column in COMMAND_WT_TRIGGER_COLUMNS:
             if clean[column] not in ('', None):
@@ -3473,13 +3970,35 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
     normalized = apply_dewetron_recording_boundaries(
         normalized, continuous=continuous
     )
+    # 兜底：规范化后仍缺启停则强制补齐（防止空 CSV）
+    from utils.dewetron_recording import ensure_dewetron_acq_boundaries
+
+    before_n = len(normalized)
+    normalized = ensure_dewetron_acq_boundaries(normalized)
+    if len(normalized) != before_n:
+        ui.textEdit_ReturnMessage.append(
+            f"[{project_name}] DEWETRON 已补齐缺失的 START/STOP 边界"
+        )
     spec = get_project_spec(project_name)
     test_type = spec.test_type if spec else project_name
     file_names = _finalize_recording_file_names(file_names)
+    dew_save_dir = ""
+    try:
+        dew_save_dir = str(getattr(config, "save_dir", "") or "").strip()
+    except Exception:
+        dew_save_dir = ""
+    if not dew_save_dir:
+        try:
+            dew_save_dir = str(
+                section.dewetron_panel.get_config().save_dir or ""
+            ).strip()
+        except Exception:
+            dew_save_dir = ""
     save_paths = resolve_dewetron_save_paths(
         test_type=str(test_type or "dewetron"),
         continuous=continuous,
         file_names=file_names,
+        base_dir=dew_save_dir or None,
     )
     section._dew_record_continuous = continuous
     section._dew_save_paths = list(save_paths)
@@ -4409,7 +4928,12 @@ def thaidianyashanbianSend():
     fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
 
     # ── 验证每组闪变时间是否超过 600s (10分钟) ──
-    if uiThaiDianYaShanBian.checkBox_S2.isChecked():
+    _step2_for_validate = (
+        uiThaiDianYaShanBian.checkBox_S2_DEW.isChecked()
+        if is_dewetron and hasattr(uiThaiDianYaShanBian, "checkBox_S2_DEW")
+        else uiThaiDianYaShanBian.checkBox_S2.isChecked()
+    )
+    if _step2_for_validate:
         S3_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_TIME.toPlainText().strip()
         S3_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S3_TIME.currentText()
         fS3SetTime = 0.0 if S3_TIME_VALUE == "" else float(S3_TIME_VALUE)
@@ -4752,17 +5276,20 @@ def thaidianyashanbianSend():
 
         strArrayTestStep.append(strArrayTestStepSingle)
 
-    # step2
-    if uiThaiDianYaShanBian.checkBox_S2.isChecked():
+    # step2（德威创模式看 S2_DEW，WT 模式看 S2——两套勾选容易不同步）
+    if is_dewetron and hasattr(uiThaiDianYaShanBian, "checkBox_S2_DEW"):
+        _step2_on = bool(uiThaiDianYaShanBian.checkBox_S2_DEW.isChecked())
+    else:
+        _step2_on = bool(uiThaiDianYaShanBian.checkBox_S2.isChecked())
+    if _step2_on:
         strArrayTestStepSingle = []
-        # 每组闪变次数
-        S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentText()
-
-        # 每组首次闪变时刻
-        S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText()
-        S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
-        fS2SetTime = float(S2_TIME_VALUE)
-        fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
+        # WT 模式在本段重读 step2；德威创已在函数前部读过 DEW 字段，勿覆盖
+        if not is_dewetron:
+            S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentText()
+            S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText()
+            S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
+            fS2SetTime = float(S2_TIME_VALUE)
+            fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
         S2_FLICKER_COUNT = "12"
         if uiThaiDianYaShanBian.checkBox_S3.isChecked():
             S3_CYCLE_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText().strip()
@@ -4908,6 +5435,22 @@ def thaidianyashanbianSend():
         # strArrayTest.append(strArraySingle)
         # strArrayTestStepSingle.append(strArraySingle)
         # strArrayTestStep.append(strArrayTestStepSingle)
+
+    # ── 德威创：step2 未勾时也要有 START，否则跑完只导出空表头 CSV ──
+    if is_dewetron:
+        has_start = any(
+            str(r[0]).upper() == "DEWETRON"
+            and ":ACQUISITION:START" in str(r[2]).upper()
+            for r in strArrayTest
+            if isinstance(r, (list, tuple)) and len(r) > 2
+        )
+        if not has_start:
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
+            strArrayTest.append(s)
+            ui.textEdit_ReturnMessage.append(
+                "[闪变] 德威创模式：已自动补上 :ACQUISITION:START（避免无采集却导出空 CSV）"
+            )
 
     if uiThaiDianYaShanBian.checkBox_S3.isChecked():
         if S2_PER_FLICK_COUNT == '3':
@@ -6187,7 +6730,14 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
     # ── 德威创模式 Step4 结束：停止录制 + 停止采集（在 step5 关机之前）──
-    if is_dewetron and uiThaiDianYaShanBian.checkBox_S4.isChecked():
+    if is_dewetron:
+        if hasattr(uiThaiDianYaShanBian, "checkBox_S4_DEW"):
+            _step4_on = bool(uiThaiDianYaShanBian.checkBox_S4_DEW.isChecked())
+        else:
+            _step4_on = bool(uiThaiDianYaShanBian.checkBox_S4.isChecked())
+    else:
+        _step4_on = bool(uiThaiDianYaShanBian.checkBox_S4.isChecked())
+    if is_dewetron and _step4_on:
         # 读取等待时间参数
         long_flicker_val = uiThaiDianYaShanBian.textEdit_DEW_LongFlickerTime.toPlainText().strip()
         long_minutes = float(long_flicker_val) if long_flicker_val else 120
@@ -6333,31 +6883,38 @@ def thaidianyashanbianSend():
         strSettingTestFlag = "1"
         reset_wt_automation_state()
 
-        # 保存命令到 SQLite 数据库
-        if dewetron_collector is not None:
-            # 如果批次已结束或不存在，开始新批次
-            if not dewetron_collector._batch_id:
-                dewetron_collector.start_batch()
-            # 如果还没有 run_id，先创建一个
-            if not dewetron_collector._run_id:
-                dewetron_collector._insert_test_run()
-            dewetron_collector.save_commands(strArrayTest)
-            ui.textEdit_ReturnMessage.append(f"[闪变] 命令已保存到数据库，共{len(strArrayTest)}条，"
-                                           f"批次: {dewetron_collector.get_batch_uid()}, "
-                                           f"run_id={dewetron_collector._run_id}")
+        # 保存命令到 SQLite 数据库（勿在追加阶段强行建 batch/run：
+        # 那时还没有 prepare 的字段表头，会留下空 run，开测导出易成空 CSV）
+        if dewetron_collector is not None and getattr(dewetron_collector, "_run_id", None):
+            try:
+                dewetron_collector.save_commands(strArrayTest)
+                ui.textEdit_ReturnMessage.append(
+                    f"[闪变] 命令已保存到数据库，共{len(strArrayTest)}条，"
+                    f"批次: {dewetron_collector.get_batch_uid()}, "
+                    f"run_id={dewetron_collector._run_id}"
+                )
+            except Exception as exc:
+                ui.textEdit_ReturnMessage.append(f"[闪变] 命令入库跳过: {exc}")
         else:
-            # 兼容旧模式：保存到 CSV 文件
-            now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
-            commands_file_name = f'dianyashanbian_commands{now_time}.csv'
-            directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
-            if directory1[0] != '':
-                file_mode = 'a+' if strAddTestFlag == "1" else 'w+'
-                out = open(directory1[0], file_mode, newline='')
-                csv_write = csv.writer(out, dialect="excel")
-                for i in range(len(strArrayTest)):
-                    csv_write.writerow(strArrayTest[i])
-                out.close()
-                ui.textEdit_ReturnMessage.append(f"[闪变] 命令生成完成，共{len(strArrayTest)}条，已写入 {commands_file_name}")
+            # 兼容旧模式：保存到 CSV 文件；德威创正式入库改在开测 prepare 后
+            if dewetron_collector is not None:
+                ui.textEdit_ReturnMessage.append(
+                    f"[闪变] 命令已生成共{len(strArrayTest)}条（开测时再写入采集库）"
+                )
+            else:
+                now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+                commands_file_name = f'dianyashanbian_commands{now_time}.csv'
+                directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+                if directory1[0] != '':
+                    file_mode = 'a+' if strAddTestFlag == "1" else 'w+'
+                    out = open(directory1[0], file_mode, newline='')
+                    csv_write = csv.writer(out, dialect="excel")
+                    for i in range(len(strArrayTest)):
+                        csv_write.writerow(strArrayTest[i])
+                    out.close()
+                    ui.textEdit_ReturnMessage.append(
+                        f"[闪变] 命令生成完成，共{len(strArrayTest)}条，已写入 {commands_file_name}"
+                    )
         # print(strArrayTest)
         if 'flicker_append_count' not in globals():
             flicker_append_count = 0
@@ -7193,6 +7750,7 @@ def thaixiebodianliuSend():
 
     # ── DEWETRON 模式 Step2：NUMERIC 配置 + 启动采集 ──
     # CSV 导出通过 collector 的 NUMERIC query 实现，不需要 :STORE: 命令
+    # 谐波 step2 是共用 checkBox_S2（包住 WT/DEW 栈）；未勾时后面仍兜底补 START
     if is_dewetron and uiThaiXieBoDianLiu.checkBox_S2.isChecked():
         s = ["" for _ in range(10)]
         s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
@@ -8404,29 +8962,45 @@ def thaixiebodianliuSend():
         strArrayTestStep.append(strArrayTestStepSingle)
 
     # ── 德威创模式 Step2 结束：停止采集（在 step14 关机之前）──
-    if is_dewetron and uiThaiXieBoDianLiu.checkBox_S2.isChecked():
-        harmonic_step_cbs = [
-            'checkBox_S3', 'checkBox_S3_2', 'checkBox_S3_3', 'checkBox_S3_4', 'checkBox_S3_5',
-            'checkBox_S3_10', 'checkBox_S3_6', 'checkBox_S3_7', 'checkBox_S3_9', 'checkBox_S3_8',
-            'checkBox_S3_11',
-        ]
-        enabled_harmonic_steps = sum(
-            1 for cb_name in harmonic_step_cbs
-            if getattr(uiThaiXieBoDianLiu, cb_name).isChecked()
+    if is_dewetron:
+        has_start = any(
+            str(r[0]).upper() == "DEWETRON"
+            and ":ACQUISITION:START" in str(r[2]).upper()
+            for r in strArrayTest
+            if isinstance(r, (list, tuple)) and len(r) > 2
         )
-        dew_wait_seconds = int(fS3SetTime * max(enabled_harmonic_steps, 1))
+        if not has_start:
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:START"
+            # 插到测量段前：当前列表末尾通常已是启机后，补 START 仍可采到后半段
+            strArrayTest.append(s)
+            ui.textEdit_ReturnMessage.append(
+                "[谐波] 德威创模式：已自动补上 :ACQUISITION:START（避免无采集却导出空 CSV）"
+            )
+            has_start = True
+        if has_start:
+            harmonic_step_cbs = [
+                'checkBox_S3', 'checkBox_S3_2', 'checkBox_S3_3', 'checkBox_S3_4', 'checkBox_S3_5',
+                'checkBox_S3_10', 'checkBox_S3_6', 'checkBox_S3_7', 'checkBox_S3_9', 'checkBox_S3_8',
+                'checkBox_S3_11',
+            ]
+            enabled_harmonic_steps = sum(
+                1 for cb_name in harmonic_step_cbs
+                if getattr(uiThaiXieBoDianLiu, cb_name).isChecked()
+            )
+            dew_wait_seconds = int(fS3SetTime * max(enabled_harmonic_steps, 1))
 
-        s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "AC", "query", "*IDN?"
-        s[8] = dew_wait_seconds * 10
-        strArrayTest.append(s)
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "AC", "query", "*IDN?"
+            s[8] = dew_wait_seconds * 10
+            strArrayTest.append(s)
 
-        s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
-        strArrayTest.append(s)
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
+            strArrayTest.append(s)
 
-        ui.textEdit_ReturnMessage.append(
-            f"[谐波] 德威创模式：采集完成，等待 {dew_wait_seconds}s，停止录制")
+            ui.textEdit_ReturnMessage.append(
+                f"[谐波] 德威创模式：采集完成，等待 {dew_wait_seconds}s，停止录制")
 
     try:
         from utils.wt_recording_mode import (
@@ -8589,17 +9163,22 @@ def thaixiebodianliuSend():
                 if len(cmd) > 7:
                     cmd[7] = ''
 
-        # 保存命令到 SQLite 数据库（德威创模式）
-        if is_dewetron and dewetron_collector is not None:
-            if not dewetron_collector._batch_id:
-                dewetron_collector.start_batch()
-            if not dewetron_collector._run_id:
-                dewetron_collector._insert_test_run()
-            dewetron_collector.save_commands(strArrayTest)
+        # 保存命令到 SQLite（勿追加阶段强行建空 run；正式入库在开测 prepare）
+        if is_dewetron and dewetron_collector is not None and getattr(
+            dewetron_collector, "_run_id", None
+        ):
+            try:
+                dewetron_collector.save_commands(strArrayTest)
+                ui.textEdit_ReturnMessage.append(
+                    f"[谐波] 命令已保存到数据库，共{len(strArrayTest)}条，"
+                    f"批次: {dewetron_collector.get_batch_uid()}, "
+                    f"run_id={dewetron_collector._run_id}")
+            except Exception as exc:
+                ui.textEdit_ReturnMessage.append(f"[谐波] 命令入库跳过: {exc}")
+        elif is_dewetron and dewetron_collector is not None:
             ui.textEdit_ReturnMessage.append(
-                f"[谐波] 命令已保存到数据库，共{len(strArrayTest)}条，"
-                f"批次: {dewetron_collector.get_batch_uid()}, "
-                f"run_id={dewetron_collector._run_id}")
+                f"[谐波] 命令已生成共{len(strArrayTest)}条（开测时再写入采集库）"
+            )
         else:
             now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
             commands_file_name = f'xiebodianliu_commands{now_time}.csv'
@@ -9440,7 +10019,13 @@ def thai_fixedpf_wt_change():
 def thaifixedpf_ui_init():
     global uiThaiFixedPF
     global config
-    wt_file_save_path = config['PATH']['wt_file_save_path']
+    from utils.wt_save_path import resolve_config_wt_save_path
+
+    try:
+        raw = config.get("PATH", "wt_file_save_path", fallback="")
+    except Exception:
+        raw = ""
+    wt_file_save_path = resolve_config_wt_save_path(raw)
     if hasattr(uiThaiFixedPF, "_wtStacked"):
         for i in range(uiThaiFixedPF._wtStacked.count()):
             page = uiThaiFixedPF._wtStacked.widget(i)
@@ -13463,10 +14048,10 @@ def thaistaticcosPhiSend():
                     row[4]["comboBox_AutoSave"] = 1
                 # 分开录：多轮临时文件测完合并；连续录单文件无需 merge
                 if not wt_continuous:
-                    save_path = str(row[4].get("textEdit_SavePath") or "").strip()
-                    if not save_path or not os.path.isdir(save_path):
-                        save_path = os.path.abspath(".")
-                        row[4]["textEdit_SavePath"] = save_path
+                    from utils.wt_save_path import ensure_wt_save_dir
+
+                    save_path = ensure_wt_save_dir(str(row[4].get("textEdit_SavePath") or "").strip())
+                    row[4]["textEdit_SavePath"] = save_path
                     from datetime import datetime as _dt
                     merge_name = f"staticcosPhi_{_dt.now().strftime('%Y%m%d_%H%M%S')}.CSV"
                     merge_path = os.path.join(save_path, merge_name)
@@ -15186,7 +15771,16 @@ def thaivoltprotect10minSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        # 抬压前就开始录：先 ASYNC_START，再进入①启机/额定保持（标准 a/b 的 Un×600s）
+        # 启机/并网等待结束后再开录，避免 AC/DC 上电未并网就采到空电流
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[9] = fS1SetTime
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
+
         if (uiThaiVoltProtect10min.checkBox_S2.isChecked()
                 and (uiThaiVoltProtect10min.checkBox_S3.isChecked()
                      or uiThaiVoltProtect10min.checkBox_S4.isChecked())):
@@ -15199,17 +15793,8 @@ def thaivoltprotect10minSend():
             strArrayTestStepSingle.append(row)
             use_ov_continuous = True
             ui.textEdit_ReturnMessage.append(
-                "[10min过压保护] 连续录已启动：含①额定保持（抬压前）+过压+恢复"
+                "[10min过压保护] 连续录：启机/并网等待结束后开始，覆盖过压+恢复"
             )
-
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = fS1SetTime
-        strArrayTest.append(strArraySingle)
-        strArrayTestStepSingle.append(strArraySingle)
 
         strArrayTestStep.append(strArrayTestStepSingle)
 
@@ -15436,7 +16021,8 @@ def thaivoltprotect10minSend():
             f"含①额定保持+过压+恢复，WT停机 {stop_str}"
         )
 
-    # step_end：先 DC 后 AC，蓝点缓降后再关 AC（禁止 AC/DC 贴着关）
+    # step_end：勾选关机步时，按组合框「关闭/开启」决定是否 OUTP OFF
+    # 「开启」= 保持输出（追加中间轮不关断）；「关闭」= 先 DC 后 AC 关断
     if uiThaiVoltProtect10min.checkBox_S_End.isChecked():
         dc_channels = append_ui_forced_shutdown_step(
             strArrayTest,
@@ -22853,6 +23439,7 @@ def _prepare_dewetron_collector(project_name):
     rate_text = 'Default'
     save_path = ''
     test_type = ''  # SQLite 测试类型
+    decimal_places = 4
 
     if project_name == '电压闪变':
         print("[_prepare_dewetron_collector] 项目: 电压闪变")
@@ -22864,9 +23451,15 @@ def _prepare_dewetron_collector(project_name):
         else:
             print(f"[{_prepare_dewetron_collector.__name__}] uiThaiDianYaShanBian 没有 get_checked_export_fields 方法")
         rate_text = uiThaiDianYaShanBian.comboBox_DEW_MaxRefreshRate.currentText()
+        spin = getattr(uiThaiDianYaShanBian, 'spinBox_DEW_DecimalPlaces', None)
+        if spin is not None:
+            decimal_places = spin.value()
         # 数据直接入 db，导出时再选择路径，这里生成默认路径供参考
-        save_path = os.path.join('command_save_files', 'dewetron_data',
-                                 f'flicker_{time.strftime("%Y%m%d_%H%M%S")}.csv')
+        from utils.dewetron_recording import resolve_dewetron_save_paths
+
+        save_path = resolve_dewetron_save_paths(
+            test_type="flicker", continuous=True
+        )[0]
         print(f"[{_prepare_dewetron_collector.__name__}] rate_text={rate_text}")
 
     elif project_name == '谐波电流':
@@ -22877,9 +23470,15 @@ def _prepare_dewetron_collector(project_name):
             fields = uiThaiXieBoDianLiu.get_checked_export_fields()
         if hasattr(uiThaiXieBoDianLiu, 'comboBox_DEW_MaxRefreshRate'):
             rate_text = uiThaiXieBoDianLiu.comboBox_DEW_MaxRefreshRate.currentText()
+        spin = getattr(uiThaiXieBoDianLiu, 'spinBox_DEW_DecimalPlaces', None)
+        if spin is not None:
+            decimal_places = spin.value()
         # 数据直接入 db，导出时再选择路径
-        save_path = os.path.join('command_save_files', 'dewetron_data',
-                                 f'harmonic_{time.strftime("%Y%m%d_%H%M%S")}.csv')
+        from utils.dewetron_recording import resolve_dewetron_save_paths
+
+        save_path = resolve_dewetron_save_paths(
+            test_type="harmonic", continuous=True
+        )[0]
 
     else:
         section = _get_dewetron_section(project_name)
@@ -22897,24 +23496,41 @@ def _prepare_dewetron_collector(project_name):
             getattr(section, '_dew_config_dirty', True)
             or getattr(section, '_dew_applied_fingerprint', None) != current_fingerprint
         ):
-            errors.append("DEWETRON配置尚未应用，请先点击测试生效")
+            if not _ensure_dewetron_config_applied(project_name, silent=True):
+                errors.append("DEWETRON配置尚未应用，请先点击测试生效")
+            else:
+                current_fingerprint = config_fingerprint(
+                    config, test_type=spec.test_type, profile=spec.profile
+                )
+                if (
+                    getattr(section, '_dew_config_dirty', True)
+                    or getattr(section, '_dew_applied_fingerprint', None)
+                    != current_fingerprint
+                ):
+                    errors.append("DEWETRON配置尚未应用，请先点击测试生效")
         if errors:
             for error in errors:
                 ui.textEdit_ReturnMessage.append(f"[DEWETRON] {error}")
             return False
         fields = config.export_fields
         rate_text = config.rate_text
+        decimal_places = getattr(config, 'decimal_places', 4)
         test_type = spec.test_type
         paths = list(getattr(section, "_dew_save_paths", None) or [])
         if paths:
             save_path = paths[0]
             section._dew_save_index = 0
         else:
-            save_path = os.path.join(
-                'command_save_files', 'dewetron_data',
-                f'{test_type}_{time.strftime("%Y%m%d_%H%M%S")}.csv',
+            from utils.dewetron_recording import resolve_dewetron_save_paths
+
+            dew_base = str(getattr(config, "save_dir", "") or "").strip() or None
+            paths = resolve_dewetron_save_paths(
+                test_type=str(test_type or "dewetron"),
+                continuous=True,
+                base_dir=dew_base,
             )
-            section._dew_save_paths = [save_path]
+            save_path = paths[0]
+            section._dew_save_paths = list(paths)
             section._dew_save_index = 0
 
     print(f"[_prepare_dewetron_collector] fields={fields}")
@@ -22926,8 +23542,20 @@ def _prepare_dewetron_collector(project_name):
 
     # 2. 调用采集器的 prepare 方法（校验字段、映射 RATE、初始化 SQLite）
     print(f"[_prepare_dewetron_collector] 调用 prepare: fields={len(fields)} 个, rate={rate_text}, "
-          f"test_type={test_type}, path={save_path}")
-    result = dewetron_collector.prepare(fields, rate_text, test_type, save_path)
+          f"test_type={test_type}, path={save_path}, decimal_places={decimal_places}")
+    def _prepare_work():
+        return dewetron_collector.prepare(
+            fields, rate_text, test_type, save_path, decimal_places=decimal_places
+        )
+
+    try:
+        result = _run_device_io("DewetronPrepare", _prepare_work)
+    except Exception as exc:
+        ui.textEdit_ReturnMessage.append(f"[DEWETRON] 采集准备异常: {exc}")
+        return False
+    if result is None:
+        ui.textEdit_ReturnMessage.append("[DEWETRON] 采集准备进行中，请稍候再开始")
+        return False
     valid_fields, warnings = result
 
     # 3. 显示校验结果；失败时不创建批次，也不放行执行线程
@@ -23050,6 +23678,12 @@ def RunProjectPush():
         )
         _update_project_status(currentSecond, "进行中")
         strTestFlag = "1"
+        try:
+            from utils.iot_local_run import notify_local_run_started
+
+            notify_local_run_started(currentSecond)
+        except Exception as _iot_reg_exc:
+            print(f"[RunProject] IOT 本地登记跳过: {_iot_reg_exc}", flush=True)
 
 #暂停按钮按下
 def PauseProjectPush():
@@ -23060,6 +23694,10 @@ def PauseProjectPush():
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    暂停试验!")
         print(strtimenow + "    暂停试验!")
+        try:
+            _emit_run_progress(status="暂停", persist=True)
+        except Exception:
+            pass
 
 def _finish_dewetron_session(reason, send_stop=True):
     """Idempotently stop DEWETRON collection and close its current batch."""
@@ -23076,11 +23714,11 @@ def _finish_dewetron_session(reason, send_stop=True):
     if send_stop and was_collecting and dewetron_controller is not None and dewetron_controller.connected:
         if not dewetron_controller.stop_acquisition():
             logger.error(f"DEWETRON STOP失败，结束原因: {reason}")
-            ui.textEdit_ReturnMessage.append("[DEWETRON] STOP发送失败，设备采集状态未知")
+            _append_return_message("[DEWETRON] STOP发送失败，设备采集状态未知")
 
     csv_path = dewetron_collector.export_to_csv()
     if csv_path:
-        ui.textEdit_ReturnMessage.append(f"[DEWETRON] 数据已导出: {csv_path}")
+        _append_return_message(f"[DEWETRON] 数据已导出: {csv_path}")
     dewetron_collector.finish_batch()
     _dewetron_active_project = None
 
@@ -23247,49 +23885,6 @@ def EndProjectPush(*, force=False, silent_if_idle=False, off_reason="manual"):
             QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
 
 
-def SoftwareEstopPush():
-    """软件急停：确认后先关输出，再强制中止试验（并通知 IOT handoff）。"""
-    from utils.iot_software_estop import ESTOP_CONFIRM_ZH, ESTOP_FAIL_REASON_ZH, estop_software
-
-    reply = QMessageBox.question(
-        None,
-        "软件急停",
-        ESTOP_CONFIRM_ZH,
-        QMessageBox.Yes | QMessageBox.No,
-        QMessageBox.No,
-    )
-    if reply != QMessageBox.Yes:
-        return
-
-    def _log_estop(msg: str):
-        try:
-            logger.info(msg)
-        except Exception:
-            pass
-        print(msg, flush=True)
-        try:
-            if ui is not None:
-                ui.textEdit_ReturnMessage.append(msg)
-        except Exception:
-            pass
-
-    def _notify_handoff():
-        svc = globals().get("_iot_ui_handoff_svc")
-        if svc is None:
-            return
-        abort = getattr(svc, "abort_awaiting_job", None)
-        if callable(abort):
-            abort(ESTOP_FAIL_REASON_ZH)
-
-    estop_software(
-        force_off=lambda: _force_hardware_safe_off("software_estop"),
-        end_project=lambda: EndProjectPush(
-            force=True, silent_if_idle=True, off_reason="software_estop"
-        ),
-        notify_handoff=_notify_handoff,
-        log=_log_estop,
-    )
-
 #继续试验按钮按下
 def ConProjectPush():
     global strTestStatusFlag
@@ -23299,6 +23894,12 @@ def ConProjectPush():
         strtimenow = now_to_datenow()
         logger.info(strtimenow + "    继续试验!")
         print(strtimenow + "    继续试验!")
+        try:
+            _close_operator_pause_dialog()
+            _set_continue_test_visible(False)
+            _emit_run_progress(status="进行中", operator_pause=False, persist=True)
+        except Exception:
+            pass
 
 def _reconnect_ac_for_run(max_attempts=2) -> bool:
     """试验中 AC 断线后静默重连（爱科 Modbus / Chroma TCP / VISA）。成功返回 True。"""
@@ -24064,13 +24665,25 @@ def RunProject():
                 logger.info(f"试验已结束（等待设备 UI 后），跳过剩余命令（自第{i+1}条起）")
                 print(f"试验已结束（等待设备 UI 后），跳过剩余命令（自第{i+1}条起）")
                 break
+            try:
+                from utils.test_queue_markers import is_queue_end_row, row_pause_after, row_project_name
+
+                if is_queue_end_row(strArrayTest[i]):
+                    _wait_operator_after_test(
+                        row_project_name(strArrayTest[i]),
+                        row_pause_after(strArrayTest[i]),
+                    )
+                    continue
+            except Exception:
+                pass
             print(f'正在解析第{i+1}条命令')
             _dev = strArrayTest[i][0] if len(strArrayTest[i]) > 0 else ""
             _op = strArrayTest[i][1] if len(strArrayTest[i]) > 1 else ""
             _scpi = strArrayTest[i][2] if len(strArrayTest[i]) > 2 else ""
-            ui.textEdit_ReturnMessage.append(f"[执行] {i+1}. [{_dev}] {_op} {_scpi}")
+            _append_return_message(f"[执行] {i+1}. [{_dev}] {_op} {_scpi}")
             try:
                 _detail = f"[{_dev}] {_op} {str(_scpi)[:80]}".strip()
+                _sync_queue_for_cmd(i + 1)
                 _emit_run_progress(
                     status="进行中",
                     cmd_index=i + 1,
@@ -24430,6 +25043,18 @@ def RunProject():
                             config_dict = {}
                     else:
                         config_dict = {}
+                if isinstance(config_dict, dict):
+                    try:
+                        from utils.wt_save_path import ensure_wt_save_dir
+                        import os as _os_sp
+
+                        _sp = ensure_wt_save_dir(
+                            _os_sp.path.expandvars(str(config_dict.get("textEdit_SavePath") or ""))
+                        )
+                        config_dict["textEdit_SavePath"] = _sp
+                        strArrayTest[i][4] = config_dict
+                    except Exception as _sp_exc:
+                        _append_debug_log(f"[Upper_WT_Config][warn] ensure save dir: {_sp_exc}")
                 # SCPI 命令模式：跳过 WTViewer 宏配置，直接准备 NUMERIC 采集
                 try:
                     from utils.wt_acquire_mode import is_scpi_mode
@@ -24745,9 +25370,7 @@ def RunProject():
                             if not dewetron_collector.on_acquisition_started():
                                 dewetron_controller.stop_acquisition()
                                 raise RuntimeError("DEWETRON未进入Started状态")
-                            ui.textEdit_ReturnMessage.append(
-                                "[DEWETRON] 采集已开始；断流时自动记录跳脱值（U/F），无需截图"
-                            )
+                            _append_return_message("[DEWETRON] 采集已开始")
                         elif DEWETRON_STOP_COMMAND in cmd_upper or ':STORE:STOP' in cmd_upper:
                             dewetron_collector.stop_gathering()
                             sent = dewetron_controller.stop_acquisition()
@@ -24765,32 +25388,7 @@ def RunProject():
                                 export_path = paths[min(idx, len(paths) - 1)]
                             csv_path = dewetron_collector.export_to_csv(export_path)
                             if csv_path:
-                                ui.textEdit_ReturnMessage.append(f"[DEWETRON] 数据已导出: {csv_path}")
-                            trip_n = int(
-                                getattr(dewetron_collector, "_trip_event_count", 0) or 0
-                            )
-                            if trip_n:
-                                summaries = []
-                                for ev in list(
-                                    getattr(dewetron_collector, "_trip_events", None) or []
-                                )[-5:]:
-                                    tv = ev.get("trip_values") or {}
-                                    bits = []
-                                    if tv.get("u_v") is not None:
-                                        bits.append(f"U={float(tv['u_v']):.3f}V")
-                                    if tv.get("f_hz") is not None:
-                                        bits.append(f"F={float(tv['f_hz']):.3f}Hz")
-                                    label = " ".join(bits) if bits else "值未取到"
-                                    summaries.append(
-                                        f"{ev.get('wall_clock', '?')} {label}"
-                                    )
-                                ui.textEdit_ReturnMessage.append(
-                                    f"[DEWETRON] 本段跳脱 {trip_n} 次：{'；'.join(summaries)}"
-                                )
-                            else:
-                                ui.textEdit_ReturnMessage.append(
-                                    "[DEWETRON] 本段未检测到电流跳脱（交流电流需先≥2A再掉到近0）"
-                                )
+                                _append_return_message(f"[DEWETRON] 数据已导出: {csv_path}")
                             if section is not None:
                                 names = list(getattr(section, "_dew_file_names", None) or [])
                                 label = names[idx] if idx < len(names) else f"轮次{idx + 1}"
@@ -24814,7 +25412,7 @@ def RunProject():
                         print(strtimenow + " DEWETRON " + command)
                     except Exception as e:
                         logger.error(f"DEWETRON命令失败: {e}")
-                        ui.textEdit_ReturnMessage.append(f"[DEWETRON][失败] {e}")
+                        _append_return_message(f"[DEWETRON][失败] {e}")
                         _finish_dewetron_session("error", send_stop=True)
                         strTestStatusFlag = "结束"
                         _update_project_status(ui.comboBox_PS.currentText(), "失败")
@@ -26154,7 +26752,7 @@ def get_enumwindows():
 def _get_wt_exe_path():
     """从 config.ini 读取 WTViewerEfree 路径（新 UI 已无 lE_wt_path）。"""
     try:
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         config.read('config_files/config.ini', encoding='utf-8')
         if config.has_section('PATH') and config.has_option('PATH', 'wt_exe'):
             return config['PATH']['wt_exe']
@@ -26548,7 +27146,7 @@ def auto_config():
     # 主逻辑
     if not wt_running:
         # 创建配置解析器对象
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         # 读取INI文件（文件路径可以是相对路径或绝对路径）
         config.read('config_files/config.ini', encoding='utf-8')
         if config.has_section('PATH'):
@@ -28899,16 +29497,16 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
     except Exception:
         pass
 
-    parent = None
-    try:
-        parent = main_window
-    except Exception:
-        parent = None
-
+    parent = QtWidgets.QApplication.instance()
     class _BootBridge(QObject):
         prepared = pyqtSignal(object, object, object)  # equ_list, jobs, devices
 
     bridge = _BootBridge(parent)
+    try:
+        # Keep alive until boot finishes (local refs can be GC'd)
+        ui._startup_boot_bridge = bridge
+    except Exception:
+        pass
 
     def _on_prepared(equ_list, jobs, devices):
         global EQUList
@@ -28931,11 +29529,25 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
         try:
             _rm = visa_rm
             if _rm is None:
+                _rm = _wait_visa_rm_boot(timeout_s=15.0)
+            if _rm is None:
                 try:
                     _rm = rm
                 except Exception:
                     _rm = None
             if _rm is not None:
+                try:
+                    globals()["rm"] = _rm
+                except Exception:
+                    pass
+                try:
+                    from app.context import get_app_context
+
+                    _ctx = get_app_context()
+                    if _ctx is not None:
+                        _ctx.rm = _rm
+                except Exception:
+                    pass
                 try:
                     str1 = _rm.list_resources()
                     equ_list = list(str1) if str1 else []
@@ -28943,8 +29555,11 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
                     print(f"[DEBUG_STARTUP]    boot list_resources fail: {exc}", flush=True)
             from utils.iot_auto_connect import prepare_auto_connect_jobs
 
+            _status_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "status.json"
+            )
             jobs, devices = prepare_auto_connect_jobs(
-                visa_rm=_rm, status_json_path=None, scan_lan=False
+                visa_rm=_rm, status_json_path=_status_path, scan_lan=False
             )
         except Exception as exc:
             print(f"[DEBUG_STARTUP]    boot prepare fail: {exc}", flush=True)
@@ -29467,28 +30082,26 @@ if __name__ == "__main__":
             flagstopwave = 1
             projectlist = ['请选择项目', 'Auto_Test']
             projectSecondList = ['']
-            print("[DEBUG_STARTUP] 4/9 VISA ResourceManager...", flush=True)
-            # rm = visa.ResourceManager(local_file_path + '/visa32.dll')
-            rm = _create_visa_resource_manager(local_file_path)
-            # Do NOT list_resources() on the UI startup path — NI-VISA LAN/USB scan
-            # can freeze the process for several seconds before the window appears.
+            print("[DEBUG_STARTUP] 4/9 VISA ResourceManager (background)...", flush=True)
+            # 后台加载 VISA RM + 延后 list_resources，避免打开前卡数秒
+            rm = None
             EQUList = ['未发现可连接设备']
-            print("[DEBUG_STARTUP]    list_resources deferred (non-blocking startup)", flush=True)
+            _start_visa_rm_boot(local_file_path)
+            print(
+                "[DEBUG_STARTUP]    VISA RM boot thread started (non-blocking)",
+                flush=True,
+            )
 
             print("[DEBUG_STARTUP] 5/9 QApplication...", flush=True)
             # printingwave()
             app = QApplication(sys.argv)
             try:
                 from components.ui_theme import apply_app_theme
-                from utils.ui_scale import scale_for_size
-                from utils.window_fit import clamp_window_size
 
-                # Theme once at the size we'll open with — never again on maximize
-                _sw, _sh = clamp_window_size(1600, 900, min_w=1100, min_h=700, margin=48)
-                _s0 = scale_for_size(_sw, _sh)
-                apply_app_theme(app, scale=_s0)
+                # 固定设计稿尺寸：不随窗口放大字体/输入框（避免各页不协调）
+                apply_app_theme(app, scale=1.0)
                 print(
-                    f"[DEBUG_STARTUP]    theme applied scale={_s0:.2f} for {_sw}x{_sh}",
+                    "[DEBUG_STARTUP]    theme applied scale=1.00 (fixed, no live resize scale)",
                     flush=True,
                 )
             except Exception as _theme_exc:
@@ -29523,14 +30136,11 @@ if __name__ == "__main__":
             except Exception as _fit_exc:
                 print(f"[DEBUG_STARTUP]    window fit skip: {_fit_exc}", flush=True)
             try:
-                from utils.ui_scale import apply_startup_ui_scale, install_ui_scale_watcher
+                from utils.ui_scale import apply_startup_ui_scale
 
                 _sc = apply_startup_ui_scale(main_window, design_w=1600, design_h=900)
-                install_ui_scale_watcher(
-                    main_window, design_w=1600, design_h=900, apply_immediately=True
-                )
                 print(
-                    f"[DEBUG_STARTUP]    ui font-scale locked={_sc:.2f} + live font watcher",
+                    f"[DEBUG_STARTUP]    ui scale fixed={_sc:.2f} (no live font/input watcher)",
                     flush=True,
                 )
             except Exception as _scale_exc:
@@ -29673,7 +30283,7 @@ if __name__ == "__main__":
                 {"title": "单条命令测试", "widgets": ["pushButton_SendMessage"]},
                 {"title": "操作日志",   "widgets": "__log__"},
             ]
-            # 直流电源1：设备连接 → 参数设置 → 功率设置 → 输出控制 → 发送IV曲线 → 单条命令查询 → 日志
+            # 直流电源1：手动填写 Vmp/Voc/Imp/Isc + 功率%
             _DC1_GRID = [
                 {"title": "设备连接",     "widgets": "__connect_clean__"},
                 {"title": "参数设置",     "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
@@ -30527,7 +31137,7 @@ if __name__ == "__main__":
 
             # 构建 Bluesight 页面
             _bs_dc1 = _build_bluesight_dc1_content()
-            # 构建 Itech 页面
+            # 构建 Itech 页面（手动填写 IV，不自动推算）
             _itech_dc1 = _build_itech_dc1_content()
             _dc1_breadcrumb_ref = None
             _dc1_bs_ref = None      # Bluesight 页面控件引用
@@ -31020,13 +31630,6 @@ if __name__ == "__main__":
                     from utils.ui_field_helpers import polish_input_widgets as _polish_test
 
                     _polish_test(real_ui, memory_scope=f"test:{test_name}")
-                    # Re-apply live font/size scale so newly embedded fixed boxes grow
-                    try:
-                        _watcher = getattr(main_window, "_ui_scale_watcher", None)
-                        if _watcher is not None:
-                            _watcher.apply_now()
-                    except Exception:
-                        pass
                     from utils.test_ui_preset import apply_test_preset
 
                     if apply_test_preset(test_name, real_ui):
@@ -31142,11 +31745,69 @@ if __name__ == "__main__":
                     except Exception:
                         print(f"[IOT-Agent] {msg}", flush=True)
                     _refresh_iot_agent_status()
+                    try:
+                        page = getattr(ui, "iotAgentLogPage", None)
+                        if page is not None:
+                            page.refresh_from_agent()
+                    except Exception:
+                        pass
                 except Exception as _e:
                     try:
                         ui.textEdit_ReturnMessage.append(f"[IOT-Agent] 停止异常: {_e}")
                     except Exception:
                         pass
+
+            def _start_iot_agent_manual():
+                """日志页「启动 Agent」：后台 ensure，不堵界面。"""
+                from PyQt5.QtCore import QObject, pyqtSignal
+
+                class _StartBridge(QObject):
+                    finished = pyqtSignal(str)
+
+                bridge = _StartBridge(main_window)
+
+                def _on_done(msg: str):
+                    try:
+                        ui.textEdit_ReturnMessage.append(f"[IOT-Agent] {msg}")
+                    except Exception:
+                        print(f"[IOT-Agent] {msg}", flush=True)
+                    _refresh_iot_agent_status()
+                    try:
+                        page = getattr(ui, "iotAgentLogPage", None)
+                        if page is not None:
+                            page.refresh_from_agent()
+                    except Exception:
+                        pass
+
+                bridge.finished.connect(_on_done)
+
+                def _worker():
+                    msg = ""
+                    try:
+                        from agent.process_control import ensure_agent_running
+
+                        _ok, msg = ensure_agent_running(silent=True)
+                    except Exception as _e:
+                        msg = f"启动异常: {_e}"
+                    try:
+                        bridge.finished.emit(str(msg or ""))
+                    except Exception:
+                        print(f"[IOT-Agent] {msg}", flush=True)
+
+                import threading
+
+                threading.Thread(target=_worker, name="iot-agent-start", daemon=True).start()
+
+            def _open_iot_agent_log_page():
+                try:
+                    ui.stackedWidget.setCurrentIndex(12)
+                    if hasattr(ui, "set_nav_active_by_key"):
+                        ui.set_nav_active_by_key("Agent 日志")
+                    page = getattr(ui, "iotAgentLogPage", None)
+                    if page is not None:
+                        page.refresh_from_agent()
+                except Exception as _e:
+                    print(f"[IOT-Agent] 打开日志页失败: {_e}", flush=True)
 
             def _stop_iot_agent_on_exit():
                 """关主界面 / 退出进程时同步停掉 Agent，避免仍 WS 上线显示待机。"""
@@ -31208,6 +31869,21 @@ if __name__ == "__main__":
                     ui.pushButton_FindDevices.clicked.connect(OpenDeviceFinderDialog)
                 if hasattr(ui, "pushButton_FindDevicesSidebar"):
                     ui.pushButton_FindDevicesSidebar.clicked.connect(OpenDeviceFinderDialog)
+                if hasattr(ui, "pushButton_OpenIotAgentLog"):
+                    ui.pushButton_OpenIotAgentLog.clicked.connect(_open_iot_agent_log_page)
+                try:
+                    from components.iot_agent_log_panel import wire_iot_agent_log_page
+
+                    _agent_log_page = getattr(ui, "iotAgentLogPage", None)
+                    if _agent_log_page is not None:
+                        ui._iot_agent_log_timer = wire_iot_agent_log_page(
+                            _agent_log_page,
+                            on_start=_start_iot_agent_manual,
+                            on_stop=_stop_iot_agent,
+                            parent_for_timer=main_window,
+                        )
+                except Exception as _log_page_exc:
+                    print(f"[WARN] Agent 日志页绑定失败: {_log_page_exc}", flush=True)
                 _refresh_iot_agent_status()
                 from PyQt5.QtCore import QTimer as _QTimerIot
 
@@ -31260,8 +31936,6 @@ if __name__ == "__main__":
             # 初始化多轮进度桥接（必须在主线程创建，供后台 Timer 发信号）
             _ensure_progress_bridge()
             ui.pushButton_EndTest.clicked.connect(EndProjectPush)
-            if hasattr(ui, "pushButton_SoftwareEstop"):
-                ui.pushButton_SoftwareEstop.clicked.connect(SoftwareEstopPush)
             ui.pushButton_StopTest.clicked.connect(PauseProjectPush)
             ui.pushButton_ConTest.clicked.connect(ConProjectPush)
 
@@ -32165,58 +32839,85 @@ if __name__ == "__main__":
                 pass
 
             def _deferred_polish_and_db():
-                try:
-                    from utils.ui_field_helpers import polish_input_widgets
+                """分片 polish，避免一次扫全树卡顿；DB 进后台线程。"""
+                from PyQt5.QtCore import QTimer as _QT
 
-                    _n = polish_input_widgets(main_window)
-                    _wt3000_page = ui.stackedWidget.widget(7)
-                    for _extra in getattr(
-                        _wt3000_page, "_extra_widgets_comboBox_WT3000", {}
-                    ).values():
-                        polish_input_widgets(_extra)
-                    for _name in (
-                        "uiACSetting",
-                        "uiDC1Setting",
-                        "uiDC2Setting",
-                        "uiDC3Setting",
-                        "uiDC4Setting",
-                        "uiDL850Setting",
-                        "uiDewetronSetting",
-                    ):
-                        _f = globals().get(_name)
-                        if _f is None:
-                            continue
-                        try:
-                            for _attr in dir(_f):
-                                if _attr.startswith("textEdit_") or _attr.startswith(
-                                    "lineEdit_"
-                                ):
-                                    _w = getattr(_f, _attr, None)
-                                    if _w is not None:
-                                        polish_input_widgets(_w)
-                        except Exception as _pe:
-                            print(f"[UI] polish skip {_name}: {_pe}", flush=True)
-                    print(
-                        f"[DEBUG_STARTUP]    deferred polish_input_widgets done (~{_n})",
-                        flush=True,
-                    )
-                except Exception as _polish_exc:
-                    print(
-                        f"[DEBUG_STARTUP]    deferred polish failed: {_polish_exc}",
-                        flush=True,
-                    )
-                try:
-                    print("[DEBUG_STARTUP]    deferred init DEWETRON database...", flush=True)
-                    init_database()
-                except Exception as _db_exc:
-                    print(f"[DEBUG_STARTUP]    deferred init_database fail: {_db_exc}", flush=True)
+                def _polish_main():
+                    try:
+                        from utils.ui_field_helpers import polish_input_widgets
+
+                        _n = polish_input_widgets(main_window)
+                        print(
+                            f"[DEBUG_STARTUP]    deferred polish main done (~{_n})",
+                            flush=True,
+                        )
+                    except Exception as _polish_exc:
+                        print(
+                            f"[DEBUG_STARTUP]    deferred polish main fail: {_polish_exc}",
+                            flush=True,
+                        )
+                    _QT.singleShot(50, _polish_extras)
+
+                def _polish_extras():
+                    try:
+                        from utils.ui_field_helpers import polish_input_widgets
+
+                        _wt3000_page = ui.stackedWidget.widget(7)
+                        for _extra in getattr(
+                            _wt3000_page, "_extra_widgets_comboBox_WT3000", {}
+                        ).values():
+                            polish_input_widgets(_extra)
+                        for _name in (
+                            "uiACSetting",
+                            "uiDC1Setting",
+                            "uiDC2Setting",
+                            "uiDC3Setting",
+                            "uiDC4Setting",
+                            "uiDL850Setting",
+                            "uiDewetronSetting",
+                        ):
+                            _f = globals().get(_name)
+                            if _f is None:
+                                continue
+                            try:
+                                for _attr in dir(_f):
+                                    if _attr.startswith("textEdit_") or _attr.startswith(
+                                        "lineEdit_"
+                                    ):
+                                        _w = getattr(_f, _attr, None)
+                                        if _w is not None:
+                                            polish_input_widgets(_w)
+                            except Exception as _pe:
+                                print(f"[UI] polish skip {_name}: {_pe}", flush=True)
+                        print("[DEBUG_STARTUP]    deferred polish extras done", flush=True)
+                    except Exception as _polish_exc:
+                        print(
+                            f"[DEBUG_STARTUP]    deferred polish extras fail: {_polish_exc}",
+                            flush=True,
+                        )
+
+                def _db_worker():
+                    try:
+                        print("[DEBUG_STARTUP]    deferred init DEWETRON database...", flush=True)
+                        init_database()
+                    except Exception as _db_exc:
+                        print(
+                            f"[DEBUG_STARTUP]    deferred init_database fail: {_db_exc}",
+                            flush=True,
+                        )
+
+                _QT.singleShot(0, _polish_main)
+                threading.Thread(
+                    target=_db_worker, name="startup-init-db", daemon=True
+                ).start()
 
             # 打开软件后：VISA 扫描 + 准备任务在后台；连接按槽位排队，不堵界面
             try:
                 from PyQt5.QtCore import QTimer
 
-                QTimer.singleShot(0, _deferred_polish_and_db)
-                QTimer.singleShot(600, lambda: _schedule_startup_auto_connect(visa_rm=rm))
+                QTimer.singleShot(300, _deferred_polish_and_db)
+                # 不传本地闭包 rm（可能仍为 None）；后台线程自己等 RM boot
+                QTimer.singleShot(500, lambda: _schedule_startup_auto_connect(visa_rm=None))
             except Exception as _ac_exc:
                 print(f"[DEBUG_STARTUP]    启动自动连接调度失败: {_ac_exc}", flush=True)
             # IOT 云任务 handoff：监视 pending → Append/开始 → 等结束写 results
@@ -32333,11 +33034,20 @@ if __name__ == "__main__":
                         st = _run_progress_state or {}
                         detail = str(st.get("current_detail") or "").strip()
                         status = str(st.get("status") or "")
-                        text = f"{status} {detail}".strip() if detail else status
+                        remain = str(st.get("remain_text") or "").strip()
+                        cur = str(st.get("current_test") or "").strip()
+                        qn = len(st.get("queue") or [])
+                        parts = [x for x in (status, cur, remain, detail) if x]
+                        if qn:
+                            parts.append(f"共{qn}项")
+                        if st.get("operator_pause"):
+                            parts.append("等人工改逆变器后点继续试验")
+                        text = " | ".join(parts).strip()
+                        step = (detail or cur or status or "running")[:128]
                         return {
                             "percent": int(st.get("progress") or 0),
-                            "text": text or "进行中",
-                            "step": status or "running",
+                            "text": (text or "进行中")[:255],
+                            "step": step,
                         }
                     except Exception:
                         return {"percent": 0, "text": "", "step": ""}
@@ -32649,6 +33359,23 @@ if __name__ == "__main__":
                         _iot_log(f"德威创参数写入: {exc}")
                     try:
                         BuildDEWETRONTestPageWithLoading()
+                        try:
+                            # 构造后把桌面当前接线/刷新率回写，供 Web 回填
+                            res = ""
+                            dew_ui = globals().get("uiDewetronSetting")
+                            if dew_ui is not None:
+                                ip = getattr(dew_ui, "lineEdit_deviceIP", None)
+                                port = getattr(dew_ui, "lineEdit_port", None)
+                                host = ip.text().strip() if ip is not None else ""
+                                p = port.text().strip() if port is not None else "10001"
+                                if host:
+                                    res = f"{host}:{p or '10001'}"
+                            if dewetron_controller is not None and dewetron_controller.connected:
+                                _save_device_status(
+                                    "DEWETRON", True, res or "", extra=_dewetron_status_extra()
+                                )
+                        except Exception as sync_exc:
+                            _iot_log(f"德威创回填同步: {sync_exc}")
                         return {"ok": True, "message": "德威创测试界面构造已执行（桌面页参数已同步）"}
                     except Exception as exc:
                         return {"ok": False, "message": f"构造失败: {exc}"}

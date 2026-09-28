@@ -4,6 +4,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from components.timeline import TimelineWidget
 from components.wt_config_content import build_wt3000_content, build_wt1800_content, build_wt1806e_content, build_wt5000_content
+from components.dewetron_autotest_panel import DEFAULT_RATE_OPTIONS, HARMONIC_RATE_OPTION
 from Dialog_thaiguodianyashanbian import parse_power_group_tree
 
 # 12 个谐波步骤的 widget objectName 规格（保持原有命名不变）
@@ -535,11 +536,15 @@ class Ui_Dialog_thaixiebodianliu(object):
         self.comboBox_DEW_GroupingType.setFixedWidth(250)
         formLayout.addRow("Grouping type:", self.comboBox_DEW_GroupingType)
 
-        # 最大刷新率
+        # 最大刷新率（与共用 Dewetron 面板一致，含 200/500/1000 + SYNC）
         self.comboBox_DEW_MaxRefreshRate = QtWidgets.QComboBox()
         self.comboBox_DEW_MaxRefreshRate.setObjectName("comboBox_DEW_MaxRefreshRate")
-        self.comboBox_DEW_MaxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1", "SYNC to HARMONIC"])
-        self.comboBox_DEW_MaxRefreshRate.setCurrentText("SYNC to HARMONIC")
+        _rate_opts = list(DEFAULT_RATE_OPTIONS)
+        if HARMONIC_RATE_OPTION not in _rate_opts:
+            _rate_opts.append(HARMONIC_RATE_OPTION)
+        self.comboBox_DEW_MaxRefreshRate.addItems(_rate_opts)
+        self.comboBox_DEW_MaxRefreshRate.setCurrentText(HARMONIC_RATE_OPTION)
+        self.comboBox_DEW_MaxRefreshRate.setEditable(True)
         self.comboBox_DEW_MaxRefreshRate.setFixedWidth(200)
         formLayout.addRow("最大刷新率:", self.comboBox_DEW_MaxRefreshRate)
 

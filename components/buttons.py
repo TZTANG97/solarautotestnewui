@@ -1,5 +1,7 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from components import ui_theme as theme
+
 
 class ButtonStyle:
     DEFAULT = "default"
@@ -12,52 +14,52 @@ class ButtonStyle:
 
 _STYLES = {
     ButtonStyle.DEFAULT: {
-        "normal_bg": "#ffffff",
-        "normal_border": "#dee2e6",
-        "normal_color": "#212529",
-        "hover_bg": "#e9ecef",
-        "hover_border": "#adb5bd",
-        "pressed_bg": "#dee2e6",
+        "normal_bg": theme.PANEL,
+        "normal_border": theme.LINE_STRONG,
+        "normal_color": theme.INK,
+        "hover_bg": theme.NEUTRAL,
+        "hover_border": theme.MUTED,
+        "pressed_bg": theme.NEUTRAL_HOVER,
     },
     ButtonStyle.PRIMARY: {
-        "normal_bg": "#0d6efd",
-        "normal_border": "#0d6efd",
+        "normal_bg": theme.ACCENT,
+        "normal_border": theme.ACCENT,
         "normal_color": "#ffffff",
-        "hover_bg": "#0b5ed7",
-        "hover_border": "#0a58ca",
-        "pressed_bg": "#0a58ca",
+        "hover_bg": theme.ACCENT_HOVER,
+        "hover_border": theme.ACCENT_HOVER,
+        "pressed_bg": theme.ACCENT_PRESSED,
     },
     ButtonStyle.SUCCESS: {
-        "normal_bg": "#198754",
-        "normal_border": "#198754",
+        "normal_bg": theme.SUCCESS,
+        "normal_border": theme.SUCCESS,
         "normal_color": "#ffffff",
-        "hover_bg": "#157347",
-        "hover_border": "#146c43",
-        "pressed_bg": "#146c43",
+        "hover_bg": theme.SUCCESS_HOVER,
+        "hover_border": theme.SUCCESS_HOVER,
+        "pressed_bg": theme.SUCCESS_HOVER,
     },
     ButtonStyle.INFO: {
-        "normal_bg": "#6c757d",
-        "normal_border": "#6c757d",
+        "normal_bg": "#475569",
+        "normal_border": "#475569",
         "normal_color": "#ffffff",
-        "hover_bg": "#5c636a",
-        "hover_border": "#565e64",
-        "pressed_bg": "#565e64",
+        "hover_bg": "#334155",
+        "hover_border": "#334155",
+        "pressed_bg": "#1e293b",
     },
     ButtonStyle.WARNING: {
-        "normal_bg": "#ffc107",
-        "normal_border": "#ffc107",
-        "normal_color": "#212529",
-        "hover_bg": "#ffca2c",
-        "hover_border": "#ffbf36",
-        "pressed_bg": "#ffbf36",
+        "normal_bg": theme.WARNING,
+        "normal_border": theme.WARNING,
+        "normal_color": "#ffffff",
+        "hover_bg": "#b45309",
+        "hover_border": "#b45309",
+        "pressed_bg": "#92400e",
     },
     ButtonStyle.DANGER: {
-        "normal_bg": "#dc3545",
-        "normal_border": "#dc3545",
+        "normal_bg": theme.DANGER,
+        "normal_border": theme.DANGER,
         "normal_color": "#ffffff",
-        "hover_bg": "#bb2d3b",
-        "hover_border": "#b02a37",
-        "pressed_bg": "#b02a37",
+        "hover_bg": theme.DANGER_HOVER,
+        "hover_border": theme.DANGER_HOVER,
+        "pressed_bg": theme.DANGER_HOVER,
     },
 }
 
@@ -65,6 +67,17 @@ _STYLES = {
 def apply_button_style(button, style, font_size=14, padding="6px 16px",
                        min_width=60):
     """将预设样式应用到已有的 QPushButton 上（不替换控件，保留信号连接）。"""
+    try:
+        from components import ui_theme as theme
+
+        scale = theme.ui_scale()
+        font_size = max(8, int(round(font_size * scale)))
+        min_width = max(40, int(round(min_width * scale)))
+        # Scale "6px 16px" style paddings when given in the default form
+        if padding == "6px 16px":
+            padding = f"{theme.px(6)}px {theme.px(16)}px"
+    except Exception:
+        pass
     button.setStyleSheet(
         _build_qss(_STYLES[style], font_size=font_size,
                    padding=padding, min_width=min_width)
@@ -79,10 +92,11 @@ def _build_qss(s: dict, font_size: int = 14, padding: str = "6px 16px",
         background-color: {s['normal_bg']};
         color: {s['normal_color']};
         border: 1px solid {s['normal_border']};
-        border-radius: 4px;
+        border-radius: 8px;
         padding: {padding};
         font-size: {font_size}px;
         min-width: {min_width}px;
+        font-weight: 600;
     }}
     QPushButton:hover {{
         background-color: {s['hover_bg']};

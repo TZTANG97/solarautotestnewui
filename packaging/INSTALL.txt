@@ -11,10 +11,12 @@ Install steps (first time)
 --------------------------
 1. Unzip SolarAutoTest-Setup-YYYYMMDD.zip to a local folder.
 2. Double-click install.bat
-3. Wait for copy + uv sync + verify
-4. Edit %LOCALAPPDATA%\SolarAutoTest\config_files\config.ini  [update] section
+3. Choose install / data / runtime directories when prompted
+   (Enter=default; type a path; or B=browse). Prefer D:/E: if available.
+4. Wait for copy + uv sync + verify
+5. Edit <InstallDir>\config_files\config.ini  [update] section
    (see Aliyun / LAN channel below)
-5. Use desktop shortcut "SolarAutoTest"
+6. Use desktop shortcut "SolarAutoTest"
 6. IOT cloud (optional): edit config\iot_bootstrap.json → set iot_base
    to your IOT URL (e.g. http://iot-host:port/nss). First launch
    announces this PC (pythonid appears under 台架管理 → 从发现添加).
@@ -86,9 +88,33 @@ Unzip new package and run install.bat again.
 
 Folders
 -------
-- App:     %LOCALAPPDATA%\SolarAutoTest
-- Runtime: %LOCALAPPDATA%\SolarAutoTestRuntime
-- Version: %LOCALAPPDATA%\SolarAutoTest\VERSION
+- App:     chosen at install (default prefers D:\SolarAutoTest if D: exists,
+           else %LOCALAPPDATA%\SolarAutoTest)
+- Data:    <InstallDir>\data  or config_files\paths.ini data_root=
+- Runtime: <InstallDir>\runtime or runtime_root.txt (venv / uv cache)
+- Version: <InstallDir>\VERSION
+
+Change disks later
+------------------
+1. Re-run install.bat and pick new folders, or
+2. Edit <InstallDir>\config_files\paths.ini and runtime_root.txt, then restart.
+Env overrides: SOLARAUTOTEST_DATA / SOLARAUTOTEST_RUNTIME / SOLARAUTOTEST_HOME
+
+Avoid re-downloading Python deps after moving folders
+----------------------------------------------------
+Runtime (.venv + uv-cache) is separate from the app folder.
+If you only moved the app and updates started a slow uv sync:
+
+1. Find the OLD runtime that still has .venv\Scripts\python.exe
+   (common: D:\SolarAutoTest\runtime  or  %LOCALAPPDATA%\SolarAutoTestRuntime)
+2. Edit config_files\paths.ini:
+     runtime_root = <that old path>
+   and put the same path in runtime_root.txt (one line).
+3. Restart. Installer will reuse it; no need to wait for PyPI.
+
+New installs also set China-friendly mirrors:
+  UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/
+  UV_PYTHON_INSTALL_MIRROR=https://cdn.npmmirror.com/binaries/python-build-standalone
 
 Notes
 -----

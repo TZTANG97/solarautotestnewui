@@ -1,42 +1,39 @@
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                              QGridLayout, QScrollArea)
-from components.buttons import apply_button_style
+# -*- coding: utf-8 -*-
+"""Vertical step timeline used by device setup pages (AC/DC/WT/…)."""
 
-# ── 样式常量 ──
-
-_BTN_QSS = """
-    QPushButton { color: #1e293b; background-color: #d1d5db; border: 1px solid #9ca3af;
-        border-radius: 4px; padding: 6px 14px; font-size: 13px; }
-    QPushButton:hover { background-color: #bcc3ce; }
-"""
-_INPUT_QSS = """
-    QTextEdit { color: #1e293b; background-color: #ffffff;
-        border: 1px solid #d1d5db; border-radius: 4px; padding: 4px; font-size: 13px; }
-    QComboBox { color: #1e293b; background-color: #ffffff;
-        border: 1px solid #9ca3af; border-radius: 4px; padding: 4px 24px 4px 8px;
-        font-size: 13px; }
-    QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right;
-        width: 24px; border: none; }
-    QComboBox::down-arrow { image: none; border-left: 5px solid transparent;
-        border-right: 5px solid transparent; border-top: 6px solid #374151; }
-    QComboBox QAbstractItemView { background-color: #ffffff; color: #111827;
-        border: 2px solid #3b82f6; selection-background-color: #3b82f6;
-        selection-color: #ffffff; outline: none; }
-    QComboBox QAbstractItemView::item { padding: 6px 12px; min-height: 28px;
-        border-bottom: 1px solid #e5e7eb; }
-"""
-_CONNECT_BTN_QSS = """
-    QPushButton { color: #1e293b; background-color: #d1d5db; border: 1px solid #9ca3af;
-        border-radius: 4px; padding: 6px 14px; font-size: 13px; }
-    QPushButton:hover { background-color: #bcc3ce; }
-"""
-_LABEL_QSS = "color: #1e293b; font-size: 13px; background: transparent;"
-
-_LOG_QSS = (
-    "QTextEdit { background-color: #1e293b; color: #a0aec0; "
-    "border: 1px solid #4a5568; border-radius: 4px; "
-    "font-family: Consolas; font-size: 12px; padding: 4px; }"
+from PyQt5.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QSizePolicy,
 )
+from components.buttons import apply_button_style
+from components import ui_theme as theme
+
+# ── 样式常量（与全局主题对齐；保留 _ 前缀供 SCPITestWave / 抓图脚本导入）──
+
+_BTN_QSS = theme.BTN_QSS
+_INPUT_QSS = theme.INPUT_QSS
+_CONNECT_BTN_QSS = theme.CONNECT_BTN_QSS
+_LABEL_QSS = theme.LABEL_QSS
+_LOG_QSS = theme.LOG_QSS
+
+_LABEL_QSS_LOCAL = (
+    f"color: {theme.INK}; font-size: 13px; font-weight: 500; background: transparent;"
+)
+_STEP_TITLE_QSS = (
+    f"font-size: 13px; font-weight: 600; color: {theme.INK}; background: transparent;"
+)
+_STEP_CARD_QSS = f"""
+    QWidget#timelineStepCard {{
+        background-color: {theme.PANEL};
+        border: 1px solid {theme.LINE};
+        border-radius: 12px;
+    }}
+"""
+_DOT_COLOR = theme.ACCENT
+_LINE_COLOR = "#cbd5e1"
 
 
 # ── 内部 widget ──
@@ -57,45 +54,48 @@ class _TimelineDot(QWidget):
     def paintEvent(self, event):
         from PyQt5.QtGui import QPainter, QPen, QBrush, QColor
         from PyQt5.QtCore import Qt
+
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        dot_r = 5
+        dot_r = 6
         cx = 14
         if not self._is_last:
-            p.setPen(QPen(QColor('#b0b8c4'), 2))
-            p.drawLine(cx, dot_r * 2 + 4, cx, self.height())
-        p.setBrush(QBrush(QColor('#10b981')))
+            p.setPen(QPen(QColor(_LINE_COLOR), 2))
+            p.drawLine(cx, dot_r * 2 + 6, cx, self.height())
+        # soft outer ring
+        p.setBrush(QBrush(QColor(theme.ACCENT_SOFT)))
         p.setPen(Qt.NoPen)
-        p.drawEllipse(cx - dot_r, 6, dot_r * 2, dot_r * 2)
+        p.drawEllipse(cx - dot_r - 3, 4, (dot_r + 3) * 2, (dot_r + 3) * 2)
+        p.setBrush(QBrush(QColor(_DOT_COLOR)))
+        p.drawEllipse(cx - dot_r, 7, dot_r * 2, dot_r * 2)
 
 
 class _TimelineStep(QWidget):
-    """一个步骤：左列(圆点+线) + 右列(标题+内容)。"""
+    """一个步骤：左列(圆点+线) + 右列卡片(标题+内容)。"""
 
     def __init__(self, title, content_widget, is_last=False, stretch=False, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background: transparent;")
         outer = QHBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 16)
+        outer.setContentsMargins(0, 0, 0, 12)
         outer.setSpacing(0)
 
         self._dot = _TimelineDot(is_last)
         outer.addWidget(self._dot)
 
-        right = QWidget()
-        right.setStyleSheet("background: transparent;")
-        right_lay = QVBoxLayout(right)
-        right_lay.setContentsMargins(8, 4, 0, 0)
-        right_lay.setSpacing(4)
+        card = QWidget()
+        card.setObjectName("timelineStepCard")
+        card.setStyleSheet(_STEP_CARD_QSS)
+        card_lay = QVBoxLayout(card)
+        card_lay.setContentsMargins(14, 12, 14, 12)
+        card_lay.setSpacing(8)
 
         title_lbl = QLabel(title)
-        title_lbl.setStyleSheet(
-            "font-size: 14px; font-weight: bold; color: #1e293b; background: transparent;"
-        )
-        right_lay.addWidget(title_lbl)
-        right_lay.addWidget(content_widget, 1 if stretch else 0)
+        title_lbl.setStyleSheet(_STEP_TITLE_QSS)
+        card_lay.addWidget(title_lbl)
+        card_lay.addWidget(content_widget, 1 if stretch else 0)
 
-        outer.addWidget(right, 1)
+        outer.addWidget(card, 1)
 
 
 # ── 公开 API ──
@@ -107,7 +107,7 @@ class TimelineWidget(QWidget):
         super().__init__(parent)
         self.setStyleSheet("background: transparent;")
         self._lay = QVBoxLayout(self)
-        self._lay.setContentsMargins(0, 0, 0, 0)
+        self._lay.setContentsMargins(0, 4, 0, 4)
         self._lay.setSpacing(0)
         self._steps = []
 
@@ -124,14 +124,64 @@ class TimelineWidget(QWidget):
 def _style_widget(w):
     """对单个控件应用标准 QSS 样式。"""
     from PyQt5 import QtCore
+
     cls = type(w).__name__
-    if cls == 'QPushButton':
+    if cls == "QPushButton":
         w.setStyleSheet(_BTN_QSS)
         w.setCursor(QtCore.Qt.PointingHandCursor)
-    elif cls in ('QTextEdit', 'QComboBox', 'QLineEdit'):
+    elif cls in ("QTextEdit", "QComboBox", "QLineEdit"):
         w.setStyleSheet(_INPUT_QSS)
-    elif cls == 'QLabel':
-        w.setStyleSheet(_LABEL_QSS)
+        if cls == "QLineEdit":
+            w.setMinimumHeight(theme.px(32))
+            w.setMinimumWidth(theme.px(72))
+        elif cls == "QComboBox":
+            w.setMinimumHeight(theme.px(32))
+            w.setMinimumWidth(theme.px(100))
+        elif cls == "QTextEdit":
+            w.setMinimumHeight(theme.px(32))
+            w.setMaximumHeight(theme.px(36))
+            w.setMinimumWidth(theme.px(72))
+    elif cls == "QLabel":
+        w.setStyleSheet(_LABEL_QSS_LOCAL)
+
+
+def _is_unit_field(name: str, w) -> bool:
+    """「%」「V」等单位框，禁止拉宽。"""
+    n = (name or "").lower()
+    if n in ("lineedit_2", "lineedit_unit", "lineedit_percent"):
+        return True
+    cls = type(w).__name__
+    if cls == "QLineEdit":
+        t = (w.text() or "").strip()
+        if t in ("%", "V", "A", "Hz", "W", "kW", "var", "°", "s", "ms"):
+            return True
+        if w.isReadOnly() and len(t) <= 3:
+            return True
+    return False
+
+
+def _should_expand_field(name: str, w) -> bool:
+    """仅长命令/地址可略宽；端口下拉与按钮绝不拉满整行。"""
+    if _is_unit_field(name, w):
+        return False
+    n = name or ""
+    compact_keys = (
+        "Vmp", "Voc", "Imp", "Isc", "_PF", "textEdit_PF",
+        "_VOLT", "_CURR", "_FR", "BaudRate",
+        "comboBox_AC", "comboBox_DC", "comboBox_DL", "comboBox_WT",
+        "comboBox_DEW", "comboBox_Baud",
+    )
+    if any(k in n for k in compact_keys):
+        return False
+    expand_keys = (
+        "SendMessage", "SendQuery", "lineEdit_WT",
+        "Address", "Host", "textEdit_SavePath", "FileNameList",
+    )
+    if any(k in n for k in expand_keys):
+        return True
+    if n in ("lineEdit", "lineEdit_cmd") or n.startswith("lineEdit_Send"):
+        return True
+    return False
 
 
 def param_row(fields):
@@ -151,21 +201,26 @@ def param_row(fields):
     row.setStyleSheet("background: transparent;")
     lay = QHBoxLayout(row)
     lay.setContentsMargins(0, 0, 0, 0)
-    lay.setSpacing(8)
+    lay.setSpacing(10)
     for item in fields:
         lbl_text = item[0]
         widget = item[1]
         unit_text = item[2] if len(item) > 2 else None
         lbl = QLabel(lbl_text)
-        lbl.setStyleSheet(_LABEL_QSS)
+        lbl.setStyleSheet(_LABEL_QSS_LOCAL)
+        lbl.setMinimumWidth(40)
         lay.addWidget(lbl)
         _style_widget(widget)
-        if type(widget).__name__ == 'QTextEdit':
+        if type(widget).__name__ == "QTextEdit":
             widget.setMaximumHeight(36)
+            widget.setMaximumWidth(theme.px(120))
+            widget.setMinimumWidth(theme.px(80))
         lay.addWidget(widget)
         if unit_text:
             ulbl = QLabel(unit_text)
-            ulbl.setStyleSheet(_LABEL_QSS)
+            ulbl.setStyleSheet(
+                f"color: {theme.MUTED}; font-size: 12px; font-weight: 500; background: transparent;"
+            )
             lay.addWidget(ulbl)
     lay.addStretch(1)
     return row
@@ -226,15 +281,37 @@ def build_timeline(
 
         if widgets_spec in ("__connect__", "__connect_clean__") and connect_widgets is not None:
             combo, connectBtn, setBtn = connect_widgets
-            interfaceLabel = QLabel("接口:")
-            interfaceLabel.setStyleSheet(_LABEL_QSS)
+            interfaceLabel = QLabel("接口")
+            interfaceLabel.setObjectName("timelineConnectIfaceLabel")
+            interfaceLabel.setStyleSheet(_LABEL_QSS_LOCAL)
             content_lay.addWidget(interfaceLabel)
             combo.setStyleSheet(_INPUT_QSS)
-            content_lay.addWidget(combo, 1)
+            combo.setMinimumHeight(32)
+            combo.setMinimumWidth(160)
+            combo.setMaximumWidth(360)
+            combo.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+            content_lay.addWidget(combo)
+            content_lay.addStretch(1)
             connectBtn.setStyleSheet(_CONNECT_BTN_QSS)
             connectBtn.setCursor(Qt.PointingHandCursor)
+            connectBtn.setMinimumHeight(32)
+            try:
+                connectBtn.setMinimumWidth(
+                    max(int(connectBtn.minimumWidth() or 0), int(connectBtn.sizeHint().width()) + 20)
+                )
+            except Exception:
+                connectBtn.setMinimumWidth(108)
+            connectBtn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
             content_lay.addWidget(connectBtn)
             if widgets_spec == "__connect__":
+                if setBtn is not None:
+                    try:
+                        setBtn.setMinimumWidth(
+                            max(int(setBtn.minimumWidth() or 0), int(setBtn.sizeHint().width()) + 16)
+                        )
+                    except Exception:
+                        pass
+                    setBtn.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
                 content_lay.addWidget(setBtn)
         elif widgets_spec == "__log__":
             content_lay.addWidget(log_widget, 1)
@@ -251,14 +328,39 @@ def build_timeline(
                 w = all_widgets.get(name)
                 if w is not None and w is not log_widget and w is not _log_widget_ref:
                     _style_widget(w)
-                    if type(w).__name__ == 'QTextEdit':
-                        w.setMaximumHeight(36)
-                    content_lay.addWidget(w)
+                    cls = type(w).__name__
+                    if cls == "QTextEdit":
+                        w.setMaximumHeight(theme.px(36))
+                    if cls == "QPushButton":
+                        w.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
+                        content_lay.addWidget(w)
+                    elif _is_unit_field(name, w):
+                        try:
+                            w.setReadOnly(True)
+                        except Exception:
+                            pass
+                        w.setFixedWidth(theme.px(28))
+                        w.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+                        content_lay.addWidget(w)
+                    elif _should_expand_field(name, w):
+                        # 命令框可宽一点，但有上限，避免整行被撑满
+                        w.setMinimumWidth(theme.px(120))
+                        w.setMaximumWidth(theme.px(420))
+                        w.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                        content_lay.addWidget(w)
+                    elif cls in ("QTextEdit", "QLineEdit", "QComboBox"):
+                        w.setMaximumWidth(theme.px(160))
+                        w.setMinimumWidth(theme.px(72))
+                        w.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                        content_lay.addWidget(w)
+                    else:
+                        content_lay.addWidget(w)
             if not has_log:
                 content_lay.addStretch(1)
 
-        is_log = (widgets_spec in ("__log__", "__log_widget__") or
-                  (isinstance(widgets_spec, list) and "__log__" in widgets_spec))
+        is_log = widgets_spec in ("__log__", "__log_widget__") or (
+            isinstance(widgets_spec, list) and "__log__" in widgets_spec
+        )
         timeline.addStep(title, content, stretch=is_log)
 
     # 按钮样式

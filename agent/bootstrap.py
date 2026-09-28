@@ -189,9 +189,22 @@ def write_agent_config(
             "execution_mode": "handoff",
             "mutex_path": data.get("mutex_path") or "",
             "agent_version": data.get("agent_version") or "0.1.0",
-            "comment": "正式环境；勿提交 Git。换机勿拷贝。令牌由添加设备后自动领取。",
+            "comment": "正式环境；进度走 MQTT（对齐温箱）。勿提交 Git。换机勿拷贝。令牌由添加设备后自动领取。",
         }
     )
+    # 保留已有 mqtt 段；若无则写入默认（与温箱 EMQX 同机）
+    if not isinstance(data.get("mqtt"), dict) or not str((data.get("mqtt") or {}).get("host") or "").strip():
+        data["mqtt"] = {
+            "enable": True,
+            "host": "10.144.144.3",
+            "port": 1883,
+            "username": "mqtt_ops",
+            "password": "",
+            "topic_prefix": "/EquMessage",
+            "qos": 1,
+            "use_ssl": False,
+            "client_id": "solar_agent_pub",
+        }
     if agent_token is not None:
         data["agent_token"] = agent_token
     elif "agent_token" not in data:

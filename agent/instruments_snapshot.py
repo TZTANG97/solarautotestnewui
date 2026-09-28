@@ -16,6 +16,16 @@ logger = logging.getLogger(__name__)
 
 _cache: List[Dict[str, Any]] = []
 _cache_at: float = 0.0
+_identity_ctx: Dict[str, str] = {"host_name": "", "machine_id": "", "python_id": ""}
+
+
+def set_identity(*, host_name: str = "", machine_id: str = "", python_id: str = "") -> None:
+    if host_name:
+        _identity_ctx["host_name"] = str(host_name).strip()
+    if machine_id:
+        _identity_ctx["machine_id"] = str(machine_id).strip()
+    if python_id:
+        _identity_ctx["python_id"] = str(python_id).strip()
 
 # 首页 status.json 设备名 → (kind, slot)
 _STATUS_NAME_MAP: Dict[str, Tuple[str, str]] = {
@@ -81,6 +91,8 @@ def _load_status_devices(status_json_path: Optional[str]) -> List[Dict[str, Any]
 
 def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """仅：有地址，且当前已连接或曾经连成功过。"""
+    from utils.instrument_identity import infer_brand, infer_serial
+
     name = str(row.get("name") or "").strip()
     resource = str(row.get("resource") or "").strip()
     if not resource or resource in ("未配置", "-"):
@@ -105,8 +117,17 @@ def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         b, m, _s = parse_scpi_idn(idn)
         brand = brand or b
         model = model or m
-    if kind == "dew" and not brand:
-        brand = "dewetron"
+    brand = infer_brand(kind=kind, resource=resource, brand=brand, idn=idn, model=model)
+    serial = infer_serial(
+        kind=kind,
+        resource=resource,
+        serial=str(row.get("serial") or ""),
+        idn=idn,
+        slot=slot,
+        host_name=str(_identity_ctx.get("host_name") or ""),
+        machine_id=str(_identity_ctx.get("machine_id") or ""),
+        python_id=str(_identity_ctx.get("python_id") or ""),
+    )
 
     item: Dict[str, Any] = {
         "kind": kind,
@@ -116,7 +137,7 @@ def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "port": port,
         "brand": brand,
         "model": model,
-        "serial": "",
+        "serial": serial,
         "idn": idn,
         # 以软件真实连接态为准：未连成功绝不为 online
         "online": connected_now,

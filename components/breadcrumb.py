@@ -8,24 +8,33 @@ from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QHBoxLayout, QLabel, QWidget
 
+from components import ui_theme as theme
+
 
 class BreadcrumbWidget(QWidget):
     """水平面包屑导航，点击切换页面。"""
 
     indexChanged = pyqtSignal(int)
 
-    _SEP_QSS = "color: #94a3b8; font-size: 13px; background: transparent; padding: 0 4px;"
-    _ACTIVE_QSS = "color: #1e293b; font-size: 13px; background: transparent;"
-    _INACTIVE_QSS = "color: #64748b; font-size: 13px; background: transparent;"
+    _SEP_QSS = f"color: {theme.MUTED}; font-size: 13px; background: transparent; padding: 0 6px;"
+    _ACTIVE_QSS = (
+        f"color: {theme.ACCENT_HOVER}; font-size: 13px; font-weight: 700; "
+        f"background: transparent; padding: 4px 2px; "
+        f"border-bottom: 2px solid {theme.ACCENT};"
+    )
+    _INACTIVE_QSS = (
+        f"color: {theme.MUTED}; font-size: 13px; background: transparent; "
+        f"padding: 4px 2px; border-bottom: 2px solid transparent;"
+    )
 
-    def __init__(self, labels: list[str], parent=None):
+    def __init__(self, labels, parent=None):
         super().__init__(parent)
         self._labels = labels
         self._current = 0
-        self._items: list[QLabel] = []
+        self._items = []
 
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 6)
+        lay.setContentsMargins(4, 4, 4, 10)
         lay.setSpacing(0)
 
         for i, text in enumerate(labels):
@@ -48,14 +57,14 @@ class BreadcrumbWidget(QWidget):
         lay.addStretch(1)
         self._apply_style()
 
-    def setIndex(self, idx: int):
+    def setIndex(self, idx):
         if idx == self._current or idx < 0 or idx >= len(self._items):
             return
         self._current = idx
         self._apply_style()
         self.indexChanged.emit(idx)
 
-    def index(self) -> int:
+    def index(self):
         return self._current
 
     def _apply_style(self):

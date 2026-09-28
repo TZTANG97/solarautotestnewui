@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Sequence
+import math
+from typing import Any, List, Optional, Sequence, Tuple
 
 from dewetron_autotest import (
     DEWETRON_DEVICE,
@@ -48,6 +49,42 @@ def make_acq_stop_row() -> List[Any]:
     return make_command_row(DEWETRON_DEVICE, "write", DEWETRON_STOP_COMMAND)
 
 
+def _is_dew_start_row(row: Sequence[Any]) -> bool:
+    if not row or len(row) < 3:
+        return False
+    if str(row[0]).strip().upper() != DEWETRON_DEVICE:
+        return False
+    cmd = str(row[2] or "").strip().upper()
+    return DEWETRON_START_COMMAND.upper() in cmd or cmd.endswith("ACQUISITION:START")
+
+
+def _is_dew_stop_row(row: Sequence[Any]) -> bool:
+    if not row or len(row) < 3:
+        return False
+    if str(row[0]).strip().upper() != DEWETRON_DEVICE:
+        return False
+    cmd = str(row[2] or "").strip().upper()
+    return DEWETRON_STOP_COMMAND.upper() in cmd or cmd.endswith("ACQUISITION:STOP")
+
+
+def ensure_dewetron_acq_boundaries(
+    rows: Sequence[Sequence[Any]],
+    *,
+    force_start: bool = True,
+    force_stop: bool = True,
+) -> List[List[Any]]:
+    """兼容路径（闪变/谐波）兜底：缺 START/STOP 时补上，避免空 CSV。"""
+    out = [list(row) for row in rows]
+    has_start = any(_is_dew_start_row(r) for r in out)
+    has_stop = any(_is_dew_stop_row(r) for r in out)
+    if force_start and not has_start:
+        out.insert(0, make_acq_start_row())
+        has_start = True
+    if force_stop and not has_stop:
+        out.append(make_acq_stop_row())
+    return out
+
+
 def apply_dewetron_recording_boundaries(
     rows: Sequence[Sequence[Any]],
     *,
@@ -56,7 +93,8 @@ def apply_dewetron_recording_boundaries(
 ) -> List[List[Any]]:
     """Insert DEWETRON START/STOP according to continuous vs split recording.
 
-    - continuous: one START at head, one STOP at tail (whole segment).
+    - continuous: prefer existing START/STOP (from ASYNC_START/WAIT_END 对齐);
+      otherwise one START at head and one STOP at tail.
     - split: START/STOP around each measure wait row; if none found, fall back
       to continuous wrapping so the segment still records.
     """
@@ -64,6 +102,13 @@ def apply_dewetron_recording_boundaries(
     start_row = make_acq_start_row()
     stop_row = make_acq_stop_row()
     if continuous or not source:
+        has_start = any(_is_dew_start_row(r) for r in source)
+        has_stop = any(_is_dew_stop_row(r) for r in source)
+        if has_start:
+            out = list(source)
+            if not has_stop:
+                out.append(list(stop_row))
+            return out
         return [start_row, *source, stop_row]
 
     out: List[List[Any]] = []
@@ -81,19 +126,81 @@ def apply_dewetron_recording_boundaries(
     return out
 
 
+
+
+def _is_nan_number(value: Any) -> bool:
+    try:
+        return math.isnan(float(value))
+    except (TypeError, ValueError):
+        text = str(value or "").strip().lower()
+        return text in {"nan", "null", "none", ""}
+
+
+def row_values_all_nan(values: Sequence[Any]) -> bool:
+    """True when every channel value is missing/NaN (leading empty Dewetron samples)."""
+    if not values:
+        return True
+    return all(_is_nan_number(v) for v in values)
+
+
+def trim_leading_all_nan_samples(
+    rows: Sequence[Tuple[Any, Sequence[Any]]],
+    *,
+    rebase_time: bool = True,
+) -> List[Tuple[float, List[float]]]:
+    """Drop leading rows where all channels are NaN; optionally rebase time to 0 at first keep.
+
+    Dewetron often emits ~0.3–0.5s of empty samples right after ACQUISITION:START.
+    """
+    source = list(rows or [])
+    start = 0
+    while start < len(source):
+        _t, vals = source[start]
+        if not row_values_all_nan(vals or []):
+            break
+        start += 1
+    kept = source[start:]
+    out: List[Tuple[float, List[float]]] = []
+    if not kept:
+        return out
+    # Only rebase when we actually dropped leading empties (preserve absolute t otherwise).
+    t0 = 0.0
+    if rebase_time and start > 0:
+        try:
+            t0 = float(kept[0][0])
+        except (TypeError, ValueError):
+            t0 = 0.0
+    for raw_t, vals in kept:
+        try:
+            tt = float(raw_t) - t0
+        except (TypeError, ValueError):
+            tt = 0.0
+        nums: List[float] = []
+        for v in list(vals or []):
+            try:
+                nums.append(float(v))
+            except (TypeError, ValueError):
+                nums.append(float("nan"))
+        out.append((tt, nums))
+    return out
+
+
 def resolve_dewetron_save_paths(
     *,
     test_type: str,
     continuous: bool,
     file_names: Optional[Sequence[str]] = None,
     stamp: Optional[str] = None,
+    base_dir: Optional[str] = None,
 ) -> List[str]:
-    """Build CSV paths under command_save_files/dewetron_data."""
+    """Build CSV paths under the configured DEWETRON save directory."""
     import os
     import time
 
+    from utils.wt_save_path import ensure_dewetron_save_dir
+
     stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
-    base = os.path.join("command_save_files", "dewetron_data")
+    base = ensure_dewetron_save_dir(base_dir)
     names = [str(n).strip() for n in (file_names or []) if str(n).strip()]
     if continuous or not names:
         safe = (names[0] if names else test_type or "dewetron").replace("/", "_")

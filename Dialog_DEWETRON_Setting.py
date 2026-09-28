@@ -117,7 +117,10 @@ class WiringDiagramCanvas(QWidget):
         super().__init__(parent)
         self._wiring_type = 0
         self._images = {}  # type_id → QPixmap
-        self.setMinimumSize(700, 500)
+        self.setMinimumSize(320, 280)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
 
     def set_wiring_type(self, type_id):
         self._wiring_type = type_id
@@ -142,7 +145,17 @@ class WiringDiagramCanvas(QWidget):
 
         pixmap = self._images.get(self._wiring_type)
         if pixmap and not pixmap.isNull():
-            scaled = pixmap.scaled(self.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+            # 尽量铺满画布，留少量边距
+            target = self.size()
+            margin = 8
+            avail_w = max(1, target.width() - margin * 2)
+            avail_h = max(1, target.height() - margin * 2)
+            scaled = pixmap.scaled(
+                avail_w,
+                avail_h,
+                QtCore.Qt.KeepAspectRatio,
+                QtCore.Qt.SmoothTransformation,
+            )
             x = (self.width() - scaled.width()) // 2
             y = (self.height() - scaled.height()) // 2
             painter.drawPixmap(x, y, scaled)
@@ -161,7 +174,8 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
     def setupUi(self, Dialog_DEWETRON_Setting):
         Dialog_DEWETRON_Setting.setObjectName("Dialog_DEWETRON_Setting")
-        Dialog_DEWETRON_Setting.setFixedSize(1400, 900)
+        # 嵌入主窗口时随页面伸缩；勿写死 1400×900
+        Dialog_DEWETRON_Setting.setMinimumSize(960, 640)
         Dialog_DEWETRON_Setting.setWindowTitle("DEWETRON 设置")
 
         # ============================================================
@@ -303,8 +317,10 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         self.treeWidget_channels = QtWidgets.QTreeWidget()
         self.treeWidget_channels.setHeaderLabel("通道列表")
-        self.treeWidget_channels.setMinimumWidth(160)
-        self.treeWidget_channels.setMaximumWidth(220)
+        self.treeWidget_channels.setMinimumWidth(220)
+        self.treeWidget_channels.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
         self.treeWidget_channels.setStyleSheet(
             "QTreeWidget { color: #1e293b; background: #ffffff; border: 1px solid #d1d5db; }"
             "QTreeWidget::item:selected { background: #3b82f6; color: #ffffff; }"
@@ -349,7 +365,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.checkBox_ch_u4.setVisible(False)
         left_panel.addWidget(self.checkBox_ch_l1)
 
-        main_area.addLayout(left_panel)
+        main_area.addLayout(left_panel, 2)
 
         # -- 中间：接线图画布 + 输入框叠加 --
         center_panel = QVBoxLayout()
@@ -359,7 +375,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
         center_panel.addWidget(diagram_title)
 
         self.wiringDiagramCanvas = WiringDiagramCanvas(self.tab_wiring)
-        self.wiringDiagramCanvas.setMinimumHeight(500)
+        self.wiringDiagramCanvas.setMinimumHeight(280)
         center_panel.addWidget(self.wiringDiagramCanvas, 1)
 
         self._slot_list_layout = QHBoxLayout()
@@ -367,7 +383,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self._slot_input_widgets = {}
         center_panel.addLayout(self._slot_list_layout)
 
-        main_area.addLayout(center_panel, 1)
+        main_area.addLayout(center_panel, 5)
 
         # -- 右列：输出标签 (L1/L2/L3/N + N/A) --
         right_panel = QVBoxLayout()
@@ -410,7 +426,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self._update_mapping_display()
 
         left_side.addLayout(bottom_layout)
-        content_area.addLayout(left_side, 1)
+        content_area.addLayout(left_side, 4)
 
         # ============================================================
         # 右侧：设备参数 + 日志
@@ -419,42 +435,71 @@ class Ui_Dialog_DEWETRON_Setting(object):
         right_side = QVBoxLayout(right_side_widget)
         right_side.setSpacing(6)
         right_side.setContentsMargins(0, 0, 0, 0)
-        right_side_widget.setMaximumWidth(320)
+        right_side_widget.setMinimumWidth(300)
+        right_side_widget.setMaximumWidth(480)
+        right_side_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding
+        )
 
         # -- 设备参数 --
         params_group = QtWidgets.QGroupBox("设备参数")
         params_layout = QtWidgets.QFormLayout(params_group)
         params_layout.setSpacing(8)
+        params_layout.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.ExpandingFieldsGrow
+        )
+        params_layout.setRowWrapPolicy(QtWidgets.QFormLayout.WrapLongRows)
 
         ip_row = QtWidgets.QHBoxLayout()
         self.lineEdit_deviceIP = QtWidgets.QLineEdit("192.168.40.21")
-        self.lineEdit_deviceIP.setMaximumWidth(160)
-        ip_row.addWidget(self.lineEdit_deviceIP)
-        port_lbl = QtWidgets.QLabel("  端口:")
-        port_lbl.setFont(QtGui.QFont("Arial", 9))
-        ip_row.addWidget(port_lbl)
-        self.lineEdit_port = QtWidgets.QLineEdit("10001")
-        self.lineEdit_port.setMaximumWidth(80)
-        ip_row.addWidget(self.lineEdit_port)
-        ip_row.addStretch()
+        self.lineEdit_deviceIP.setMinimumWidth(160)
+        self.lineEdit_deviceIP.setMinimumHeight(28)
+        self.lineEdit_deviceIP.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
+        ip_row.addWidget(self.lineEdit_deviceIP, 1)
         params_layout.addRow("设备IP:", ip_row)
+
+        port_row = QtWidgets.QHBoxLayout()
+        self.lineEdit_port = QtWidgets.QLineEdit("10001")
+        self.lineEdit_port.setMinimumWidth(90)
+        self.lineEdit_port.setMaximumWidth(140)
+        self.lineEdit_port.setMinimumHeight(28)
+        port_row.addWidget(self.lineEdit_port)
+        port_row.addStretch(1)
+        params_layout.addRow("端口:", port_row)
 
         self.comboBox_frequencyChannel = QtWidgets.QComboBox()
         self.comboBox_frequencyChannel.addItems(["AI 1/U1", "AI 1/U2", "AI 1/U3", "AI 1/U4"])
         self.comboBox_frequencyChannel.setCurrentText("AI 1/U1")
-        self.comboBox_frequencyChannel.setMaximumWidth(200)
+        self.comboBox_frequencyChannel.setMinimumWidth(140)
+        self.comboBox_frequencyChannel.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         params_layout.addRow("输入通道:", self.comboBox_frequencyChannel)
 
         self.comboBox_maxRefreshRate = QtWidgets.QComboBox()
-        self.comboBox_maxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1"])
+        self.comboBox_maxRefreshRate.setEditable(True)
+        self.comboBox_maxRefreshRate.addItems(
+            ["Default", "1000", "500", "200", "100", "50", "20", "10", "5", "2", "1"]
+        )
         self.comboBox_maxRefreshRate.setCurrentText("Default")
-        self.comboBox_maxRefreshRate.setMaximumWidth(150)
+        self.comboBox_maxRefreshRate.setMinimumWidth(120)
+        self.comboBox_maxRefreshRate.setToolTip(
+            "最大刷新率（ms）。10min 过压等长试验可选 200/500/1000；也可直接输入数值。"
+        )
+        self.comboBox_maxRefreshRate.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         params_layout.addRow("最大刷新率:", self.comboBox_maxRefreshRate)
 
         self.comboBox_downsampling = QtWidgets.QComboBox()
         self.comboBox_downsampling.addItems(["Auto", "关", "2", "3", "4", "5"])
         self.comboBox_downsampling.setCurrentText("Auto")
-        self.comboBox_downsampling.setMaximumWidth(150)
+        self.comboBox_downsampling.setMinimumWidth(120)
+        self.comboBox_downsampling.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
         params_layout.addRow("通道二次采样:", self.comboBox_downsampling)
 
         right_side.addWidget(params_group)
@@ -493,7 +538,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         right_side.addStretch()
 
-        content_area.addWidget(right_side_widget)
+        content_area.addWidget(right_side_widget, 1)
         tab1_layout.addLayout(content_area, 1)
 
         # -- 日志（底部） --
@@ -505,9 +550,16 @@ class Ui_Dialog_DEWETRON_Setting(object):
         self.textEdit_log.setFont(QtGui.QFont("Consolas", 9))
         self.textEdit_log.setStyleSheet("QTextEdit { background: #1e1e1e; color: #d4d4d4; }")
         self.textEdit_log.setMinimumHeight(80)
-        self.textEdit_log.setMaximumHeight(120)
+        self.textEdit_log.setMaximumHeight(200)
+        self.textEdit_log.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred
+        )
         log_layout.addWidget(self.textEdit_log)
         tab1_layout.addWidget(log_group)
+
+        self.tab_wiring.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
 
         # ============================================================
         # 信号连接
@@ -796,8 +848,9 @@ class Ui_Dialog_DEWETRON_Setting(object):
         """弹出配置文件列表，选择后加载到 UI。"""
         import os, re
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        save_dir = os.path.join(base_dir, 'command_save_files', 'dewetron_data')
+        from utils.wt_save_path import ensure_dewetron_save_dir
+
+        save_dir = ensure_dewetron_save_dir()
 
         # 获取配置文件列表（排除 verify_ 文件）
         if not os.path.isdir(save_dir):

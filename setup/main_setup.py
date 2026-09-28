@@ -113,6 +113,12 @@ class LazyDialog:
             self._real_ui = self._ui_cls()
             self._real_ui.setupUi(self._real_dialog)
             try:
+                from components.pause_after_test import install_pause_after_checkbox
+
+                install_pause_after_checkbox(self._real_ui)
+            except Exception as exc:
+                print(f"[WARN] pause_after_checkbox({self._name}): {exc}", flush=True)
+            try:
                 from utils.ui_field_helpers import polish_input_widgets
 
                 polish_input_widgets(self._real_dialog)
@@ -279,31 +285,24 @@ class MainSetup(BaseSetup):
                 log_widget_name=log_widget_name,
                 btn_styles=_btn_styles,
             )
-            # 无日志步骤时，时间线不撑满（WT3000 等少步骤页面）
-            _has_log = any(
-                s.get("widgets") in ("__log__", "__log_widget__") or
-                (isinstance(s.get("widgets"), list) and "__log__" in s.get("widgets"))
-                for s in layout_rows
-            )
             scroll = QScrollArea()
             scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-            if _has_log:
-                scroll.setWidgetResizable(True)
-            else:
-                from PyQt5.QtWidgets import QSizePolicy
-                scroll.setWidgetResizable(False)
-                timeline.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+            scroll.setWidgetResizable(True)
+            from PyQt5.QtWidgets import QSizePolicy
+            timeline.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
             scroll.setWidget(timeline)
             grid_layout.addWidget(scroll, 0, 0)
+            grid_layout.setColumnStretch(0, 1)
+            grid_layout.setRowStretch(0, 1)
 
-            if not _has_log:
-                parent_layout = grid_container.parent().layout()
-                if parent_layout is not None:
-                    for i in range(parent_layout.count()):
-                        item = parent_layout.itemAt(i)
-                        if item and item.widget() is grid_container:
-                            parent_layout.setStretchFactor(grid_container, 0)
-                            break
+            # 始终让网格占满页面剩余高度，避免右侧大片空白
+            parent_layout = grid_container.parent().layout()
+            if parent_layout is not None:
+                for i in range(parent_layout.count()):
+                    item = parent_layout.itemAt(i)
+                    if item and item.widget() is grid_container:
+                        parent_layout.setStretchFactor(grid_container, 1)
+                        break
             return
 
         # ── Scroll 模式 ──
@@ -390,8 +389,20 @@ class MainSetup(BaseSetup):
                 return widgets
 
             all_widgets = _extract_all_widgets(dlg_layout)
+            from PyQt5.QtWidgets import QSizePolicy
             for w in all_widgets:
-                target_layout.addWidget(w)
+                try:
+                    w.setMinimumSize(0, 0)
+                    w.setMaximumSize(16777215, 16777215)
+                    w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                except Exception:
+                    pass
+                target_layout.addWidget(w, 1)
+            try:
+                dialog.setMinimumSize(0, 0)
+                dialog.setMaximumSize(16777215, 16777215)
+            except Exception:
+                pass
             return
 
         scroll = QScrollArea()

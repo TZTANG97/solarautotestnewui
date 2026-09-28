@@ -1,30 +1,32 @@
 # -*- coding: utf-8 -*-
 
-# V1.1 工业风格侧边栏布局
+# V1.2 深色导航 + 现代工作台壳层
 # 手动编写（非 pyuic5 生成），保留所有原始 widget 名称以兼容 SCPITestWave.py
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
+from components import ui_theme as theme
 
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
         Dialog.setEnabled(True)
-        Dialog.setFixedSize(1600, 900)
+        # 不再 setFixedSize：实验室各机分辨率不同，启动后由 fit_window_to_screen 适配
+        Dialog.setMinimumSize(1100, 700)
+        Dialog.resize(1600, 900)
         import os as _os_icon
         _icon_path = _os_icon.path.join(_os_icon.path.dirname(_os_icon.path.abspath(__file__)), "logo.jpg")
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_icon_path), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Dialog.setWindowIcon(icon)
 
-        # ── 全局样式 ──
-        Dialog.setStyleSheet("""
-            QMainWindow { background-color: #e2e5ea; }
-            QWidget#centralWidget { background-color: #e2e5ea; }
-        """)
+        # ── 全局样式（壳层）──
+        Dialog.setStyleSheet(theme.app_shell_qss())
 
         # ── 主布局 ──
         centralWidget = QtWidgets.QWidget(Dialog)
+        centralWidget.setObjectName("centralWidget")
         Dialog.setCentralWidget(centralWidget)
         mainLayout = QtWidgets.QHBoxLayout(centralWidget)
         mainLayout.setContentsMargins(0, 0, 0, 0)
@@ -34,73 +36,48 @@ class Ui_Dialog(object):
         # 左侧边栏 — 两级可折叠菜单
         # ══════════════════════════════════════
         sidebar = QtWidgets.QWidget()
-        sidebar.setFixedWidth(220)
-        sidebar.setStyleSheet("""
-            QWidget#sidebar {
-                background-color: #e2e5ea;
-                border-right: 1px solid #e2e8f0;
-            }
-        """)
+        sidebar.setFixedWidth(theme.px(280))
+        sidebar.setStyleSheet(theme.sidebar_qss())
         sidebar.setObjectName("sidebar")
+        sidebar.setProperty("collapsed", False)
         sidebarLayout = QtWidgets.QVBoxLayout(sidebar)
         sidebarLayout.setContentsMargins(0, 0, 0, 0)
         sidebarLayout.setSpacing(0)
+        self._sidebar = sidebar
+        self._sidebar_expanded = True
 
-        # ── 样式常量 ──
-        _HEADER_STYLE = """
-            QPushButton {
-                background-color: #e5e7eb; color: #374151; border: none;
-                border-bottom: 1px solid #d1d5db;
-                text-align: left; padding: 10px 12px;
-                font-size: 12px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #d1d5db; color: #1f2937; }
-        """
-        _SUBHEADER_STYLE = """
-            QPushButton {
-                background-color: #e8eaee; color: #4b5563; border: none;
-                border-bottom: 1px solid #d8dde5;
-                text-align: left; padding: 7px 8px 7px 16px;
-                font-size: 11px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #dbe0e8; color: #1f2937; }
-        """
-        _ITEM_STYLE = """
-            QPushButton {
-                background-color: #e2e5ea; color: #374151; border: none;
-                border-left: 3px solid transparent;
-                text-align: left; padding: 9px 12px 9px 20px;
-                font-size: 13px;
-            }
-            QPushButton:hover { background-color: #e5e7eb; color: #1f2937; }
-        """
-        _ITEM_ACTIVE_STYLE = """
-            QPushButton {
-                background-color: #dbeafe; color: #1d4ed8; border: none;
-                border-left: 3px solid #2563eb;
-                text-align: left; padding: 9px 12px 9px 20px;
-                font-size: 13px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #bfdbfe; color: #1e40af; }
-        """
-        _NESTED_ITEM_STYLE = """
-            QPushButton {
-                background-color: #e2e5ea; color: #374151; border: none;
-                border-left: 3px solid transparent;
-                text-align: left; padding: 8px 10px 8px 28px;
-                font-size: 12px;
-            }
-            QPushButton:hover { background-color: #e5e7eb; color: #1f2937; }
-        """
-        _NESTED_ITEM_ACTIVE_STYLE = """
-            QPushButton {
-                background-color: #dbeafe; color: #1d4ed8; border: none;
-                border-left: 3px solid #2563eb;
-                text-align: left; padding: 8px 10px 8px 28px;
-                font-size: 12px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #bfdbfe; color: #1e40af; }
-        """
+        # Brand strip
+        _brand = QtWidgets.QWidget()
+        _brand.setObjectName("sidebarBrand")
+        _brand.setStyleSheet(
+            f"QWidget#sidebarBrand {{ background-color: {theme.SIDEBAR}; "
+            f"border-bottom: 1px solid {theme.SIDEBAR_ELEVATED}; }}"
+        )
+        _brand_lay = QtWidgets.QVBoxLayout(_brand)
+        _brand_lay.setContentsMargins(16, 18, 16, 16)
+        _brand_lay.setSpacing(2)
+        _brand_title = QtWidgets.QLabel("SolarAutoTest")
+        _brand_title.setStyleSheet(
+            "color: #f8fafc; font-size: 16px; font-weight: 700; background: transparent;"
+        )
+        _brand_sub = QtWidgets.QLabel("光伏并网试验台架")
+        _brand_sub.setStyleSheet(
+            f"color: {theme.NAV_MUTED}; font-size: 11px; background: transparent;"
+        )
+        _brand_lay.addWidget(_brand_title)
+        _brand_lay.addWidget(_brand_sub)
+        sidebarLayout.addWidget(_brand)
+        self._sidebar_brand = _brand
+        self._sidebar_brand_title = _brand_title
+        self._sidebar_brand_sub = _brand_sub
+
+        # ── 样式常量（深色导航）──
+        _HEADER_STYLE = theme.HEADER_STYLE
+        _SUBHEADER_STYLE = theme.SUBHEADER_STYLE
+        _ITEM_STYLE = theme.ITEM_STYLE
+        _ITEM_ACTIVE_STYLE = theme.ITEM_ACTIVE_STYLE
+        _NESTED_ITEM_STYLE = theme.NESTED_ITEM_STYLE
+        _NESTED_ITEM_ACTIVE_STYLE = theme.NESTED_ITEM_ACTIVE_STYLE
 
         # 侧栏选中态（首页/设备/Auto_Test/其他 共用）
         self._nav_buttons = []
@@ -111,15 +88,30 @@ class Ui_Dialog(object):
             if btn is None:
                 return
             for b in self._nav_buttons:
-                base = getattr(b, "_nav_base_style", _ITEM_STYLE)
+                kind = b.property("navKind") or "item"
                 if b is btn:
-                    b.setStyleSheet(getattr(b, "_nav_active_style", _ITEM_ACTIVE_STYLE))
+                    b.setStyleSheet(
+                        theme.NESTED_ITEM_ACTIVE_STYLE
+                        if kind == "nested"
+                        else theme.ITEM_ACTIVE_STYLE
+                    )
+                    b.setProperty("navActive", True)
                 else:
-                    b.setStyleSheet(base)
+                    b.setStyleSheet(
+                        theme.NESTED_ITEM_STYLE if kind == "nested" else theme.ITEM_STYLE
+                    )
+                    b.setProperty("navActive", False)
 
-        def _register_nav(btn, key=None, base_style=None, active_style=None):
-            btn._nav_base_style = base_style or _ITEM_STYLE
-            btn._nav_active_style = active_style or _ITEM_ACTIVE_STYLE
+        def _register_nav(btn, key=None, base_style=None, active_style=None, *, kind="item"):
+            btn.setProperty("navKind", kind)
+            btn.setProperty("navActive", False)
+            btn.setProperty("navRole", "nested" if kind == "nested" else "item")
+            btn._nav_base_style = base_style or (
+                theme.NESTED_ITEM_STYLE if kind == "nested" else theme.ITEM_STYLE
+            )
+            btn._nav_active_style = active_style or (
+                theme.NESTED_ITEM_ACTIVE_STYLE if kind == "nested" else theme.ITEM_ACTIVE_STYLE
+            )
             self._nav_buttons.append(btn)
             if key:
                 self._nav_by_key[key] = btn
@@ -131,19 +123,20 @@ class Ui_Dialog(object):
         # ── 辅助函数 ──
         def _make_header(text, icon_name=None):
             btn = QtWidgets.QPushButton(f"  ▾  {text}")
-            btn.setStyleSheet(_HEADER_STYLE)
+            btn.setProperty("navRole", "header")
+            btn.setStyleSheet(theme.HEADER_STYLE)
             btn.setCursor(QtCore.Qt.PointingHandCursor)
             if icon_name:
                 _icon = btn.style().standardIcon(getattr(QtWidgets.QStyle, icon_name))
                 btn.setIcon(_icon)
-                btn.setIconSize(QtCore.QSize(16, 16))
+                btn.setIconSize(QtCore.QSize(theme.px(16), theme.px(16)))
             return btn
 
         def _make_item(text, page_index, *, key=None):
             btn = QtWidgets.QPushButton(f"      {text}")
-            btn.setStyleSheet(_ITEM_STYLE)
+            btn.setStyleSheet(theme.ITEM_STYLE)
             btn.setCursor(QtCore.Qt.PointingHandCursor)
-            _register_nav(btn, key=key or text)
+            _register_nav(btn, key=key or text, kind="item")
 
             def _on_click(_checked=False, idx=page_index, b=btn):
                 self.stackedWidget.setCurrentIndex(idx)
@@ -160,14 +153,14 @@ class Ui_Dialog(object):
             lay.setSpacing(0)
             return w, lay
 
-        def _bind_toggle(header, container, default_text, *, style=_HEADER_STYLE, indent="  "):
+        def _bind_toggle(header, container, default_text, *, style=None, indent="  "):
             def toggle():
                 vis = container.isVisible()
                 container.setVisible(not vis)
                 arrow = "▾" if not vis else "▸"
                 header.setText(f"{indent}{arrow}  {default_text}")
             header.clicked.connect(toggle)
-            header.setStyleSheet(style)
+            header.setStyleSheet(style or theme.HEADER_STYLE)
 
         # ══════════════════════════════════════
         # 可滚动菜单区
@@ -175,19 +168,9 @@ class Ui_Dialog(object):
         _scrollArea = QtWidgets.QScrollArea()
         _scrollArea.setWidgetResizable(True)
         _scrollArea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        _scrollArea.setStyleSheet("""
-            QScrollArea { border: none; background: #e2e5ea; }
-            QScrollBar:vertical {
-                background: #e2e5ea; width: 8px; margin: 0;
-            }
-            QScrollBar::handle:vertical {
-                background: #c1c9d2; border-radius: 4px; min-height: 30px;
-            }
-            QScrollBar::handle:vertical:hover { background: #9ca3af; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-        """)
+        _scrollArea.setStyleSheet(theme.sidebar_scroll_qss())
         _scrollContent = QtWidgets.QWidget()
-        _scrollContent.setStyleSheet("background: #e2e5ea;")
+        _scrollContent.setStyleSheet(f"background: {theme.SIDEBAR};")
         _scrollLayout = QtWidgets.QVBoxLayout(_scrollContent)
         _scrollLayout.setContentsMargins(0, 0, 0, 0)
         _scrollLayout.setSpacing(0)
@@ -206,6 +189,16 @@ class Ui_Dialog(object):
         _progress_item.setIcon(_progress_icon)
         _progress_item.setIconSize(QtCore.QSize(16, 16))
         _scrollLayout.addWidget(_progress_item)
+
+        # ── Agent 日志（页 12）──
+        _agent_log_item = _make_item("Agent 日志", 12, key="Agent 日志")
+        _agent_log_icon = _agent_log_item.style().standardIcon(
+            QtWidgets.QStyle.SP_FileDialogDetailedView
+        )
+        _agent_log_item.setIcon(_agent_log_icon)
+        _agent_log_item.setIconSize(QtCore.QSize(16, 16))
+        _agent_log_item.setToolTip("IOT Agent 通信信息与运行日志")
+        _scrollLayout.addWidget(_agent_log_item)
 
         # ── 一级菜单: 设备管理 ──
         _sec_dev = _make_header("设备管理", "SP_ComputerIcon")
@@ -231,12 +224,13 @@ class Ui_Dialog(object):
             if category in self._auto_test_categories:
                 return self._auto_test_categories[category]["layout"]
             header = QtWidgets.QPushButton(f"    ▾  {category}")
-            header.setStyleSheet(_SUBHEADER_STYLE)
+            header.setProperty("navRole", "subheader")
+            header.setStyleSheet(theme.SUBHEADER_STYLE)
             header.setCursor(QtCore.Qt.PointingHandCursor)
             cat_w, cat_lay = _make_container()
             _auto_layout.addWidget(header)
             _auto_layout.addWidget(cat_w)
-            _bind_toggle(header, cat_w, category, style=_SUBHEADER_STYLE, indent="    ")
+            _bind_toggle(header, cat_w, category, style=theme.SUBHEADER_STYLE, indent="    ")
             self._auto_test_categories[category] = {
                 "header": header,
                 "container": cat_w,
@@ -246,21 +240,21 @@ class Ui_Dialog(object):
 
         def _add_auto_test_item(text, page_index=9, setting_key=None, category=None):
             parent_layout = _auto_layout
-            base_style = _ITEM_STYLE
-            active_style = _ITEM_ACTIVE_STYLE
+            kind = "item"
             label = f"      {text}"
             if category:
                 parent_layout = _add_auto_test_category(category)
-                base_style = _NESTED_ITEM_STYLE
-                active_style = _NESTED_ITEM_ACTIVE_STYLE
+                kind = "nested"
                 label = f"        {text}"
 
             item = QtWidgets.QPushButton(label)
-            item.setStyleSheet(base_style)
+            item.setStyleSheet(
+                theme.NESTED_ITEM_STYLE if kind == "nested" else theme.ITEM_STYLE
+            )
             item.setCursor(QtCore.Qt.PointingHandCursor)
             tip = f"{category} / {text}" if category else text
             item.setToolTip(tip)
-            _register_nav(item, key=text, base_style=base_style, active_style=active_style)
+            _register_nav(item, key=text, kind=kind)
 
             def _on_click(_checked=False, b=item, proj=text, sk=setting_key, idx=page_index):
                 self.stackedWidget.setCurrentIndex(idx)
@@ -296,20 +290,37 @@ class Ui_Dialog(object):
         _scrollLayout.addStretch(1)
         _scrollArea.setWidget(_scrollContent)
         sidebarLayout.addWidget(_scrollArea, 1)
+        self._sidebar_scroll = _scrollArea
 
         # ══════════════════════════════════════
         # 底部固定区（分隔线 + 刷新按钮）
         # ══════════════════════════════════════
         _sep = QtWidgets.QFrame()
         _sep.setFrameShape(QtWidgets.QFrame.HLine)
-        _sep.setStyleSheet("color: #d1d5db; max-height: 1px; margin: 0 12px;")
+        _sep.setStyleSheet(
+            f"color: {theme.SIDEBAR_ELEVATED}; background: {theme.SIDEBAR_ELEVATED}; "
+            f"max-height: 1px; margin: 0 12px;"
+        )
         sidebarLayout.addWidget(_sep)
 
         bottomBar = QtWidgets.QWidget()
         bottomBar.setStyleSheet("background: transparent;")
         bottomLayout = QtWidgets.QHBoxLayout(bottomBar)
-        bottomLayout.setContentsMargins(16, 8, 16, 12)
+        bottomLayout.setContentsMargins(12, 8, 12, 12)
         bottomLayout.setSpacing(8)
+
+        self.pushButton_ToggleSidebar = QtWidgets.QPushButton("«")
+        self.pushButton_ToggleSidebar.setObjectName("pushButton_ToggleSidebar")
+        self.pushButton_ToggleSidebar.setFixedSize(36, 36)
+        self.pushButton_ToggleSidebar.setToolTip("收起 / 展开导航栏")
+        self.pushButton_ToggleSidebar.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.SIDEBAR_ELEVATED}; color: {theme.NAV_TEXT};
+                border: 1px solid #334155; border-radius: 8px; font-size: 16px; font-weight: 700;
+            }}
+            QPushButton:hover {{ background-color: #334155; color: #f8fafc; }}
+        """)
+        bottomLayout.addWidget(self.pushButton_ToggleSidebar)
 
         self.pushButton_ReConnectEQU = QtWidgets.QPushButton()
         self.pushButton_ReConnectEQU.setFixedSize(36, 36)
@@ -319,12 +330,12 @@ class Ui_Dialog(object):
             QtWidgets.QStyle.SP_BrowserReload)
         self.pushButton_ReConnectEQU.setIcon(_refresh_icon)
         self.pushButton_ReConnectEQU.setIconSize(QtCore.QSize(20, 20))
-        self.pushButton_ReConnectEQU.setStyleSheet("""
-            QPushButton {
-                background-color: #e5e7eb; color: #374151; border: 1px solid #d1d5db;
-                border-radius: 6px;
-            }
-            QPushButton:hover { background-color: #d1d5db; color: #1f2937; }
+        self.pushButton_ReConnectEQU.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.SIDEBAR_ELEVATED}; color: {theme.NAV_TEXT};
+                border: 1px solid #334155; border-radius: 8px;
+            }}
+            QPushButton:hover {{ background-color: #334155; color: #f8fafc; }}
         """)
         bottomLayout.addWidget(self.pushButton_ReConnectEQU)
         self.pushButton_FindDevicesSidebar = QtWidgets.QPushButton()
@@ -335,73 +346,121 @@ class Ui_Dialog(object):
             QtWidgets.QStyle.SP_FileDialogContentsView)
         self.pushButton_FindDevicesSidebar.setIcon(_find_icon)
         self.pushButton_FindDevicesSidebar.setIconSize(QtCore.QSize(20, 20))
-        self.pushButton_FindDevicesSidebar.setStyleSheet("""
-            QPushButton {
-                background-color: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;
-                border-radius: 6px;
-            }
-            QPushButton:hover { background-color: #a7f3d0; color: #064e3b; }
+        self.pushButton_FindDevicesSidebar.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #134e4a; color: #99f6e4;
+                border: 1px solid {theme.ACCENT}; border-radius: 8px;
+            }}
+            QPushButton:hover {{ background-color: #115e59; color: #ccfbf1; }}
         """)
         bottomLayout.addWidget(self.pushButton_FindDevicesSidebar)
+        bottomLayout.addStretch(1)
 
         sidebarLayout.addWidget(bottomBar)
+        self._sidebar_bottom = bottomBar
         mainLayout.addWidget(sidebar)
+
+        def _apply_sidebar_collapsed(collapsed: bool) -> None:
+            self._sidebar_expanded = not collapsed
+            sidebar.setProperty("collapsed", bool(collapsed))
+            if collapsed:
+                sidebar.setFixedWidth(theme.px(64))
+                _brand_title.setText("S")
+                _brand_sub.setVisible(False)
+                _brand_lay.setContentsMargins(8, 12, 8, 8)
+                for btn in self._nav_buttons:
+                    tip = btn.toolTip() or (btn.property("_nav_full_text") or btn.text() or "").strip()
+                    if tip:
+                        btn.setToolTip(str(tip).lstrip("▾▸ "))
+                    t = (btn.text() or "").strip()
+                    if t:
+                        btn.setProperty("_nav_full_text", t)
+                    btn.setText("")
+                    btn.setFixedHeight(theme.px(40))
+                for header in sidebar.findChildren(QtWidgets.QPushButton):
+                    role = header.property("navRole")
+                    if role in ("header", "subheader"):
+                        ht = (header.text() or "").strip()
+                        if ht:
+                            header.setProperty("_nav_full_text", ht)
+                        header.setText("")
+                        header.setFixedHeight(theme.px(28))
+                self.pushButton_ToggleSidebar.setText("»")
+                self.pushButton_ToggleSidebar.setToolTip("展开导航栏")
+                # 窄栏时竖排底部按钮，避免挤出
+                while bottomLayout.count():
+                    item = bottomLayout.takeAt(0)
+                    if item.widget():
+                        item.widget().setParent(None)
+                bottom_v = getattr(self, "_sidebar_bottom_v", None)
+                if bottom_v is None:
+                    wrap = QtWidgets.QWidget()
+                    wrap.setStyleSheet("background: transparent;")
+                    bottom_v = QtWidgets.QVBoxLayout(wrap)
+                    bottom_v.setContentsMargins(0, 0, 0, 0)
+                    bottom_v.setSpacing(6)
+                    self._sidebar_bottom_v = bottom_v
+                    self._sidebar_bottom_wrap = wrap
+                for b in (
+                    self.pushButton_ToggleSidebar,
+                    self.pushButton_ReConnectEQU,
+                    self.pushButton_FindDevicesSidebar,
+                ):
+                    bottom_v.addWidget(b)
+                bottomLayout.setContentsMargins(10, 8, 10, 12)
+                bottomLayout.addWidget(self._sidebar_bottom_wrap)
+            else:
+                sidebar.setFixedWidth(theme.px(280))
+                _brand_title.setText("SolarAutoTest")
+                _brand_sub.setVisible(True)
+                _brand_lay.setContentsMargins(16, 18, 16, 16)
+                for btn in sidebar.findChildren(QtWidgets.QPushButton):
+                    full = btn.property("_nav_full_text")
+                    if full:
+                        btn.setText(str(full))
+                    btn.setMinimumHeight(0)
+                    btn.setMaximumHeight(16777215)
+                self.pushButton_ToggleSidebar.setText("«")
+                self.pushButton_ToggleSidebar.setToolTip("收起导航栏")
+                # 恢复横排
+                wrap = getattr(self, "_sidebar_bottom_wrap", None)
+                if wrap is not None:
+                    bottomLayout.removeWidget(wrap)
+                    wrap.setParent(None)
+                while bottomLayout.count():
+                    item = bottomLayout.takeAt(0)
+                    if item.widget():
+                        item.widget().setParent(None)
+                bottomLayout.setContentsMargins(12, 8, 12, 12)
+                bottomLayout.addWidget(self.pushButton_ToggleSidebar)
+                bottomLayout.addWidget(self.pushButton_ReConnectEQU)
+                bottomLayout.addWidget(self.pushButton_FindDevicesSidebar)
+                bottomLayout.addStretch(1)
+
+        def _toggle_sidebar():
+            _apply_sidebar_collapsed(self._sidebar_expanded)
+
+        self.pushButton_ToggleSidebar.clicked.connect(_toggle_sidebar)
+        self.set_sidebar_collapsed = _apply_sidebar_collapsed
 
         # ══════════════════════════════════════
         # 右侧内容区
         # ══════════════════════════════════════
         rightPanel = QtWidgets.QWidget()
-        rightPanel.setStyleSheet("background-color: #e2e5ea;")
+        rightPanel.setStyleSheet(f"background-color: {theme.BG};")
         rightLayout = QtWidgets.QVBoxLayout(rightPanel)
         rightLayout.setContentsMargins(0, 0, 0, 0)
         rightLayout.setSpacing(0)
 
         # -- QStackedWidget --
         self.stackedWidget = QtWidgets.QStackedWidget()
-        self.stackedWidget.setStyleSheet("""
-            QStackedWidget { background-color: #e2e5ea; border: none; }
-        """)
+        self.stackedWidget.setStyleSheet(
+            f"QStackedWidget {{ background-color: {theme.BG}; border: none; }}"
+        )
 
-        _pageStyle = """
-            QWidget { background-color: #e2e5ea; }
-            QLabel { color: #374151; font-size: 13px; background: transparent; }
-            QPushButton {
-                background-color: #3b82f6; color: white; border: none;
-                border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #2563eb; }
-            QPushButton:pressed { background-color: #1d4ed8; }
-            QPushButton:disabled { background-color: #94a3b8; color: #e2e8f0; }
-            QComboBox {
-                background-color: #ffffff; border: 1px solid #9ca3af; border-radius: 4px;
-                padding: 4px 24px 4px 8px; font-size: 13px; color: #1e293b;
-            }
-            QComboBox:hover { border-color: #3b82f6; }
-            QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right;
-                width: 24px; border: none; }
-            QComboBox::down-arrow { image: none; border-left: 5px solid transparent;
-                border-right: 5px solid transparent; border-top: 6px solid #374151; }
-            QComboBox QAbstractItemView {
-                background-color: #ffffff; color: #111827;
-                border: 2px solid #3b82f6; selection-background-color: #3b82f6;
-                selection-color: #ffffff; outline: none;
-            }
-            QComboBox QAbstractItemView::item { padding: 6px 12px; min-height: 28px;
-                border-bottom: 1px solid #e5e7eb; }
-        """
-        _cardStyle = """
-            QWidget#card {
-                background-color: #eaecf0; border: 1px solid #d5d8de;
-                border-radius: 10px; padding: 16px;
-            }
-        """
-        _logStyle = """
-            QTextEdit {
-                background-color: #1e293b; color: #e2e8f0;
-                border: 1px solid #334155; border-radius: 6px;
-                font-family: Consolas, monospace; font-size: 12px; padding: 8px;
-            }
-        """
+        _pageStyle = theme.PAGE_STYLE
+        _cardStyle = theme.CARD_STYLE
+        _logStyle = theme.LOG_STYLE
 
         def _make_device_page(label_text, connect_btn_name, set_btn_name=None,
                               combo_name=None, has_editable=True, use_grid=False,
@@ -420,7 +479,9 @@ class Ui_Dialog(object):
 
             # 标题
             lbl = QtWidgets.QLabel(label_text)
-            lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
+            lbl.setStyleSheet(
+                f"font-size: 18px; font-weight: 700; color: {theme.INK}; background: transparent;"
+            )
             layout.addWidget(lbl)
 
             # 创建连接控件
@@ -450,17 +511,24 @@ class Ui_Dialog(object):
 
             connectBtn = QtWidgets.QPushButton("连接设备")
             connectBtn.setObjectName(connect_btn_name)
-            connectBtn.setFixedWidth(90)
+            connectBtn.setMinimumWidth(theme.px(108))
+            connectBtn.setSizePolicy(
+                QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+            )
             setattr(self, connect_btn_name, connectBtn)
 
             setBtn = None
             if set_btn_name:
                 setBtn = QtWidgets.QPushButton("设定")
                 setBtn.setObjectName(set_btn_name)
-                setBtn.setFixedWidth(90)
-                setBtn.setStyleSheet("""
-                    QPushButton { background-color: #10b981; color: white; }
-                    QPushButton:hover { background-color: #059669; }
+                setBtn.setMinimumWidth(theme.px(100))
+                setBtn.setSizePolicy(
+                    QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+                )
+                setBtn.setStyleSheet(f"""
+                    QPushButton {{ background-color: {theme.SUCCESS}; color: white; border: none;
+                        border-radius: 8px; font-weight: 700; padding: 6px 12px; }}
+                    QPushButton:hover {{ background-color: {theme.SUCCESS_HOVER}; }}
                 """)
                 setattr(self, set_btn_name, setBtn)
 
@@ -523,18 +591,16 @@ class Ui_Dialog(object):
                 layout.addWidget(_settings_area, 1)
 
                 log_label = QtWidgets.QLabel("操作日志:")
-                log_label.setStyleSheet("font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;")
+                log_label.setStyleSheet(
+                    f"font-size: 13px; font-weight: 700; color: {theme.INK}; background: transparent;"
+                )
                 layout.addWidget(log_label)
 
                 log_edit = QtWidgets.QTextEdit()
                 log_edit.setObjectName(f"log_{combo_name}")
                 log_edit.setReadOnly(True)
                 log_edit.setMaximumHeight(120)
-                log_edit.setStyleSheet(
-                    "QTextEdit { background-color: #1e293b; color: #a0aec0; "
-                    "border: 1px solid #4a5568; border-radius: 4px; "
-                    "font-family: Consolas; font-size: 12px; padding: 4px; }"
-                )
+                log_edit.setStyleSheet(theme.LOG_QSS)
                 _log_key = combo_name if combo_name else "comboBox_DEWETRON"
                 setattr(page, f"_log_{_log_key}", log_edit)
                 layout.addWidget(log_edit)
@@ -548,52 +614,67 @@ class Ui_Dialog(object):
         homeLayout.setContentsMargins(24, 16, 24, 16)
         homeLayout.setSpacing(12)
 
-        homeTitle = QtWidgets.QLabel("首页")
-        homeTitle.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
+        homeTitle = QtWidgets.QLabel("工作台")
+        homeTitle.setStyleSheet(
+            f"font-size: 22px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
         homeLayout.addWidget(homeTitle)
+        homeSub = QtWidgets.QLabel("设备连接 · 试验项目 · 运行状态")
+        homeSub.setStyleSheet(
+            f"font-size: 12px; color: {theme.MUTED}; background: transparent; margin-bottom: 4px;"
+        )
+        homeLayout.addWidget(homeSub)
 
         # IOT Agent：软件启动后静默拉起；首页仅显示状态（可停止）
         _iotRow = QtWidgets.QHBoxLayout()
         _iotRow.setSpacing(8)
         self.label_IotAgentStatus = QtWidgets.QLabel("IOT Agent: —")
         self.label_IotAgentStatus.setObjectName("label_IotAgentStatus")
-        self.label_IotAgentStatus.setStyleSheet("font-size: 12px; color: #64748b; background: transparent;")
+        self.label_IotAgentStatus.setStyleSheet(
+            f"font-size: 12px; color: {theme.MUTED}; background: transparent;"
+        )
         _iotRow.addWidget(self.label_IotAgentStatus)
         self.pushButton_StopIotAgent = QtWidgets.QPushButton("停止 Agent")
         self.pushButton_StopIotAgent.setObjectName("pushButton_StopIotAgent")
-        self.pushButton_StopIotAgent.setFixedHeight(28)
+        self.pushButton_StopIotAgent.setFixedHeight(32)
         self.pushButton_StopIotAgent.setToolTip("一般无需操作；Agent 会在软件启动时后台自动拉起")
         self.pushButton_StopIotAgent.setStyleSheet(
-            "QPushButton { background:#e2e8f0; color:#334155; border:none; border-radius:4px; padding:0 10px; font-size:11px; }"
-            "QPushButton:hover { background:#cbd5e1; }"
+            f"QPushButton {{ background:{theme.PANEL}; color:{theme.INK}; border:1px solid {theme.LINE_STRONG}; "
+            f"border-radius:8px; padding:0 12px; font-size:12px; }}"
+            f"QPushButton:hover {{ background:{theme.NEUTRAL}; }}"
         )
         _iotRow.addWidget(self.pushButton_StopIotAgent)
         self.pushButton_FindDevices = QtWidgets.QPushButton("扫描并连接设备")
         self.pushButton_FindDevices.setObjectName("pushButton_FindDevices")
-        self.pushButton_FindDevices.setFixedHeight(32)
+        self.pushButton_FindDevices.setFixedHeight(34)
         self.pushButton_FindDevices.setToolTip("扫描局域网/上次地址，勾选后连接电源、示波器、功率分析仪、德威创")
         self.pushButton_FindDevices.setStyleSheet(
-            "QPushButton { background:#059669; color:white; border:none; border-radius:4px; padding:0 14px; font-size:12px; }"
-            "QPushButton:hover { background:#047857; }"
+            f"QPushButton {{ background:{theme.ACCENT}; color:white; border:none; border-radius:8px; "
+            f"padding:0 16px; font-size:13px; font-weight:700; }}"
+            f"QPushButton:hover {{ background:{theme.ACCENT_HOVER}; }}"
         )
         _iotRow.addWidget(self.pushButton_FindDevices)
+        self.pushButton_OpenIotAgentLog = QtWidgets.QPushButton("Agent 日志")
+        self.pushButton_OpenIotAgentLog.setObjectName("pushButton_OpenIotAgentLog")
+        self.pushButton_OpenIotAgentLog.setFixedHeight(32)
+        self.pushButton_OpenIotAgentLog.setToolTip("查看设备号、通信参数与 Agent 运行日志")
+        self.pushButton_OpenIotAgentLog.setStyleSheet(
+            f"QPushButton {{ background:{theme.PANEL}; color:{theme.INK}; border:1px solid {theme.LINE_STRONG}; "
+            f"border-radius:8px; padding:0 12px; font-size:12px; }}"
+            f"QPushButton:hover {{ background:{theme.NEUTRAL}; }}"
+        )
+        _iotRow.addWidget(self.pushButton_OpenIotAgentLog)
         _iotRow.addStretch(1)
         homeLayout.addLayout(_iotRow)
 
         # -- 设备状态网格 (2x4，8个设备写死) --
         _devGridTitle = QtWidgets.QLabel("设备状态")
-        _devGridTitle.setStyleSheet("font-size: 14px; font-weight: bold; color: #1e293b; background: transparent;")
+        _devGridTitle.setStyleSheet(
+            f"font-size: 14px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
         homeLayout.addWidget(_devGridTitle)
 
-        _CARD_QSS = """
-            QWidget#deviceCard {
-                background-color: #eaecf0; border: 1px solid #d5d8de;
-                border-radius: 8px;
-            }
-            QWidget#deviceCard:hover {
-                background-color: #eff6ff; border-color: #3b82f6;
-            }
-        """
+        _CARD_QSS = theme.CARD_STYLE
         # 设备名 → 对应页面索引
         _dev_page_map = {
             "交流电源": 1, "直流电源1": 2, "直流电源2": 3, "直流电源3": 4,
@@ -628,22 +709,34 @@ class Ui_Dialog(object):
             _tr = QtWidgets.QHBoxLayout()
             _tr.setSpacing(6)
             _nl = QtWidgets.QLabel(_dev_name)
-            _nl.setStyleSheet("font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;")
+            _nl.setStyleSheet(
+                f"font-size: 13px; font-weight: 700; color: {theme.INK}; background: transparent;"
+            )
             _tr.addWidget(_nl)
             _tr.addStretch(1)
-            _dot = QtWidgets.QLabel()
-            _dot.setFixedSize(10, 10)
-            _dot.setStyleSheet("background-color: #ef4444; border-radius: 5px;")
+            # Connection status: text badge (not a 10×10 color block — those got
+            # mistaken for compact inputs and blown into huge red rectangles).
+            _dot = QtWidgets.QLabel("未连接")
+            _dot.setObjectName("deviceStatusBadge")
+            _dot.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+            _dot.setStyleSheet(
+                f"color: {theme.DANGER}; font-size: 11px; font-weight: 700; "
+                f"background: transparent; padding: 0;"
+            )
             _tr.addWidget(_dot)
             _cl.addLayout(_tr)
             # 第二行：资源地址
             _rl = QtWidgets.QLabel("未配置")
-            _rl.setStyleSheet("font-size: 10px; color: #9ca3af; background: transparent;")
+            _rl.setStyleSheet(
+                f"font-size: 11px; color: {theme.MUTED}; background: transparent;"
+            )
             _rl.setWordWrap(True)
             _cl.addWidget(_rl)
             # 第三行：上次连接时间
             _tl = QtWidgets.QLabel("")
-            _tl.setStyleSheet("font-size: 9px; color: #9ca3af; background: transparent;")
+            _tl.setStyleSheet(
+                f"font-size: 10px; color: {theme.MUTED}; background: transparent;"
+            )
             _cl.addWidget(_tl)
             _cl.addStretch()
             self.home_device_cards.addWidget(_card, _r, _c)
@@ -660,18 +753,26 @@ class Ui_Dialog(object):
         _testCardLayout.setContentsMargins(16, 12, 16, 12)
         _testCardLayout.setSpacing(8)
         _testCardTitle = QtWidgets.QLabel("当前测试项目")
-        _testCardTitle.setStyleSheet("font-size: 14px; font-weight: bold; color: #1e293b; background: transparent;")
+        _testCardTitle.setStyleSheet(
+            f"font-size: 14px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
         _testCardLayout.addWidget(_testCardTitle)
         self.home_project_name = QtWidgets.QLabel("暂无测试项目")
-        self.home_project_name.setStyleSheet("font-size: 13px; color: #6b7280; background: transparent;")
+        self.home_project_name.setStyleSheet(
+            f"font-size: 13px; color: {theme.MUTED}; background: transparent;"
+        )
         _testCardLayout.addWidget(self.home_project_name)
         _statusRow = QtWidgets.QHBoxLayout()
         _statusRow.setSpacing(12)
         _statusLabel = QtWidgets.QLabel("状态:")
-        _statusLabel.setStyleSheet("font-size: 12px; color: #6b7280; background: transparent;")
+        _statusLabel.setStyleSheet(
+            f"font-size: 12px; color: {theme.MUTED}; background: transparent;"
+        )
         _statusRow.addWidget(_statusLabel)
         self.home_status = QtWidgets.QLabel("未开始")
-        self.home_status.setStyleSheet("font-size: 12px; font-weight: bold; color: #9ca3af; background: transparent;")
+        self.home_status.setStyleSheet(
+            f"font-size: 12px; font-weight: 700; color: {theme.MUTED}; background: transparent;"
+        )
         _statusRow.addWidget(self.home_status)
         _statusRow.addStretch(1)
         _testCardLayout.addLayout(_statusRow)
@@ -679,24 +780,35 @@ class Ui_Dialog(object):
         self.home_progress.setRange(0, 100)
         self.home_progress.setValue(0)
         self.home_progress.setFixedHeight(18)
-        self.home_progress.setStyleSheet("""
-            QProgressBar { border: 1px solid #d1d5db; border-radius: 4px; background: #dde0e5; text-align: center; font-size: 11px; }
-            QProgressBar::chunk { background-color: #3b82f6; border-radius: 3px; }
+        self.home_progress.setStyleSheet(f"""
+            QProgressBar {{
+                border: 1px solid {theme.LINE}; border-radius: 8px;
+                background: #eef2f7; text-align: center; font-size: 11px; color: {theme.INK};
+            }}
+            QProgressBar::chunk {{ background-color: {theme.ACCENT}; border-radius: 7px; }}
         """)
         _testCardLayout.addWidget(self.home_progress)
         _timeRow = QtWidgets.QHBoxLayout()
         _timeRow.setSpacing(24)
         _startLabel = QtWidgets.QLabel("开始时间:")
-        _startLabel.setStyleSheet("font-size: 12px; color: #6b7280; background: transparent;")
+        _startLabel.setStyleSheet(
+            f"font-size: 12px; color: {theme.MUTED}; background: transparent;"
+        )
         _timeRow.addWidget(_startLabel)
         self.home_start_time = QtWidgets.QLabel("--")
-        self.home_start_time.setStyleSheet("font-size: 12px; color: #6b7280; background: transparent;")
+        self.home_start_time.setStyleSheet(
+            f"font-size: 12px; color: {theme.MUTED}; background: transparent;"
+        )
         _timeRow.addWidget(self.home_start_time)
         _endLabel = QtWidgets.QLabel("预估结束:")
-        _endLabel.setStyleSheet("font-size: 12px; color: #6b7280; background: transparent;")
+        _endLabel.setStyleSheet(
+            f"font-size: 12px; color: {theme.MUTED}; background: transparent;"
+        )
         _timeRow.addWidget(_endLabel)
         self.home_estimated_end_time = QtWidgets.QLabel("--")
-        self.home_estimated_end_time.setStyleSheet("font-size: 12px; color: #6b7280; background: transparent;")
+        self.home_estimated_end_time.setStyleSheet(
+            f"font-size: 12px; color: {theme.MUTED}; background: transparent;"
+        )
         _timeRow.addWidget(self.home_estimated_end_time)
         _timeRow.addStretch(1)
         _testCardLayout.addLayout(_timeRow)
@@ -718,9 +830,14 @@ class Ui_Dialog(object):
             for _dev in _data.get("devices", []):
                 _name = _dev["name"]
                 if _name in self._home_dots:
-                    _color = "#22c55e" if _dev.get("connected") else "#ef4444"
+                    _ok = bool(_dev.get("connected"))
+                    _color = theme.SUCCESS if _ok else theme.DANGER
+                    _text = "已连接" if _ok else "未连接"
+                    self._home_dots[_name].setText(_text)
                     self._home_dots[_name].setStyleSheet(
-                        f"background-color: {_color}; border-radius: 5px;")
+                        f"color: {_color}; font-size: 11px; font-weight: 700; "
+                        f"background: transparent; padding: 0;"
+                    )
                 if _name in self._home_res_labels:
                     _res = _dev.get("resource", "") or "未配置"
                     self._home_res_labels[_name].setText(_res)
@@ -731,11 +848,20 @@ class Ui_Dialog(object):
             _proj = _data.get("project", {})
             if _proj:
                 self.home_project_name.setText(_proj.get("name", "暂无测试项目"))
-                self.home_project_name.setStyleSheet("font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;")
+                self.home_project_name.setStyleSheet(
+                    f"font-size: 13px; font-weight: 700; color: {theme.INK}; background: transparent;"
+                )
                 _status = _proj.get("status", "未开始")
-                _color_map = {"未开始": "#9ca3af", "进行中": "#3b82f6", "已结束": "#22c55e"}
+                _color_map = {
+                    "未开始": theme.MUTED,
+                    "进行中": theme.ACCENT,
+                    "已结束": theme.SUCCESS,
+                }
                 self.home_status.setText(_status)
-                self.home_status.setStyleSheet(f"font-size: 12px; font-weight: bold; color: {_color_map.get(_status, '#9ca3af')}; background: transparent;")
+                self.home_status.setStyleSheet(
+                    f"font-size: 12px; font-weight: 700; color: {_color_map.get(_status, theme.MUTED)}; "
+                    f"background: transparent;"
+                )
                 self.home_progress.setValue(_proj.get("progress", 0))
                 self.home_start_time.setText(_proj.get("start_time", "--"))
                 self.home_estimated_end_time.setText(_proj.get("estimated_end_time", "--"))
@@ -779,7 +905,9 @@ class Ui_Dialog(object):
         projectPageLayout.setSpacing(12)
 
         projTitle = QtWidgets.QLabel("项目配置")
-        projTitle.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
+        projTitle.setStyleSheet(
+            f"font-size: 18px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
         projectPageLayout.addWidget(projTitle)
 
         # 保留comboBox定义但隐藏（供其他代码引用）
@@ -817,24 +945,26 @@ class Ui_Dialog(object):
         self.pushButton_StopTest.setObjectName("pushButton_StopTest")
         self.pushButton_StopTest.setVisible(False)
         testBtnLayout.addWidget(self.pushButton_StopTest)
-        self.pushButton_ConTest = QtWidgets.QPushButton("继续运行试验")
+        self.pushButton_ConTest = QtWidgets.QPushButton("继续试验")
         self.pushButton_ConTest.setObjectName("pushButton_ConTest")
         self.pushButton_ConTest.setVisible(False)
+        self.pushButton_ConTest.setToolTip(
+            "本项试验结束后若勾选了「后续试验暂停」，改完逆变器/上位机后点此继续下一项。"
+        )
+        self.pushButton_ConTest.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {theme.SUCCESS}; color: white; border: none;
+                border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 700;
+            }}
+            QPushButton:hover {{ background-color: {theme.SUCCESS_HOVER}; }}
+        """)
         testBtnLayout.addWidget(self.pushButton_ConTest)
         self.pushButton_EndTest = QtWidgets.QPushButton("结束试验")
         self.pushButton_EndTest.setObjectName("pushButton_EndTest")
+        self.pushButton_EndTest.setToolTip(
+            "结束当前试验：停止流程，并按规则关闭电源输出。"
+        )
         testBtnLayout.addWidget(self.pushButton_EndTest)
-        self.pushButton_SoftwareEstop = QtWidgets.QPushButton("软件急停")
-        self.pushButton_SoftwareEstop.setObjectName("pushButton_SoftwareEstop")
-        self.pushButton_SoftwareEstop.setStyleSheet("""
-            QPushButton {
-                background-color: #dc2626; color: white; border: none;
-                border-radius: 6px; padding: 8px 18px; font-size: 14px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #b91c1c; }
-            QPushButton:pressed { background-color: #991b1b; }
-        """)
-        testBtnLayout.addWidget(self.pushButton_SoftwareEstop)
         self.pushButton_ShowMultiSettingDetail = QtWidgets.QPushButton("测试追加")
         self.pushButton_ShowMultiSettingDetail.setObjectName("pushButton_ShowMultiSettingDetail")
         self.pushButton_ShowMultiSettingDetail.setVisible(False)
@@ -865,9 +995,9 @@ class Ui_Dialog(object):
         self.pushButton_ClearMessage = QtWidgets.QPushButton("清空消息")
         self.pushButton_ClearMessage.setObjectName("pushButton_ClearMessage")
         self.pushButton_ClearMessage.setFixedWidth(90)
-        self.pushButton_ClearMessage.setStyleSheet("""
-            QPushButton { background-color: #6b7280; color: white; }
-            QPushButton:hover { background-color: #4b5563; }
+        self.pushButton_ClearMessage.setStyleSheet(f"""
+            QPushButton {{ background-color: #475569; color: white; border: none; border-radius: 8px; }}
+            QPushButton:hover {{ background-color: #334155; }}
         """)
         projectPageLayout.addWidget(self.pushButton_ClearMessage, 0, QtCore.Qt.AlignRight)
 
@@ -882,7 +1012,9 @@ class Ui_Dialog(object):
         cmdPageLayout.setContentsMargins(24, 16, 24, 16)
         cmdPageLayout.setSpacing(12)
         cmdTitle = QtWidgets.QLabel("命令文件")
-        cmdTitle.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;")
+        cmdTitle.setStyleSheet(
+            f"font-size: 18px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
         cmdPageLayout.addWidget(cmdTitle)
         _cmdTabs = QtWidgets.QTabWidget()
         _cmd_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
@@ -907,7 +1039,7 @@ class Ui_Dialog(object):
 
         progressTitle = QtWidgets.QLabel("测试进度")
         progressTitle.setStyleSheet(
-            "font-size: 16px; font-weight: bold; color: #1e293b; background: transparent;"
+            f"font-size: 18px; font-weight: 700; color: {theme.INK}; background: transparent;"
         )
         progressPageLayout.addWidget(progressTitle)
 
@@ -921,12 +1053,22 @@ class Ui_Dialog(object):
         self.label_run_progress = QtWidgets.QLabel("试验进度：未开始")
         self.label_run_progress.setObjectName("label_run_progress")
         self.label_run_progress.setWordWrap(True)
-        self.label_run_progress.setMinimumHeight(52)
+        self.label_run_progress.setMinimumHeight(96)
         self.label_run_progress.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.label_run_progress.setStyleSheet(
-            "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
+            f"font-size: 13px; font-weight: 700; color: {theme.INK}; background: transparent;"
         )
         progressLayout.addWidget(self.label_run_progress)
+
+        self.label_operator_pause = QtWidgets.QLabel("")
+        self.label_operator_pause.setObjectName("label_operator_pause")
+        self.label_operator_pause.setWordWrap(True)
+        self.label_operator_pause.setVisible(False)
+        self.label_operator_pause.setStyleSheet(
+            "QLabel { color: #92400e; background: #fef3c7; border: 1px solid #f59e0b; "
+            "border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 700; }"
+        )
+        progressLayout.addWidget(self.label_operator_pause)
 
         self.progressBar_run = QtWidgets.QProgressBar()
         self.progressBar_run.setObjectName("progressBar_run")
@@ -935,12 +1077,54 @@ class Ui_Dialog(object):
         self.progressBar_run.setFixedHeight(22)
         self.progressBar_run.setFormat("%p%")
         self.progressBar_run.setToolTip("进度百分比；运行中会显示估算剩余时间")
-        self.progressBar_run.setStyleSheet("""
-            QProgressBar { border: 1px solid #d1d5db; border-radius: 4px; background: #dde0e5;
-                           text-align: center; font-size: 12px; }
-            QProgressBar::chunk { background-color: #3b82f6; border-radius: 3px; }
+        self.progressBar_run.setStyleSheet(f"""
+            QProgressBar {{
+                border: 1px solid {theme.LINE}; border-radius: 8px; background: #eef2f7;
+                text-align: center; font-size: 12px; color: {theme.INK};
+            }}
+            QProgressBar::chunk {{ background-color: {theme.ACCENT}; border-radius: 7px; }}
         """)
         progressLayout.addWidget(self.progressBar_run)
+
+        queueTitle = QtWidgets.QLabel("试验队列（多项追加）")
+        queueTitle.setStyleSheet(
+            f"font-size: 13px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
+        progressLayout.addWidget(queueTitle)
+
+        self.tableWidget_test_queue = QtWidgets.QTableWidget(0, 5)
+        self.tableWidget_test_queue.setObjectName("tableWidget_test_queue")
+        self.tableWidget_test_queue.setHorizontalHeaderLabels(
+            ["序号", "试验项目", "状态", "预估时长", "结束后暂停"]
+        )
+        self.tableWidget_test_queue.horizontalHeader().setStretchLastSection(True)
+        self.tableWidget_test_queue.horizontalHeader().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.tableWidget_test_queue.horizontalHeader().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.Stretch
+        )
+        self.tableWidget_test_queue.horizontalHeader().setSectionResizeMode(
+            2, QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.tableWidget_test_queue.verticalHeader().setVisible(False)
+        self.tableWidget_test_queue.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.tableWidget_test_queue.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tableWidget_test_queue.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self.tableWidget_test_queue.setAlternatingRowColors(True)
+        self.tableWidget_test_queue.setMaximumHeight(220)
+        self.tableWidget_test_queue.setStyleSheet("""
+            QTableWidget { background: #ffffff; border: 1px solid #e2e8f0; font-size: 13px; }
+            QHeaderView::section { background: #f1f5f9; padding: 6px; border: none;
+                                   border-bottom: 1px solid #e2e8f0; font-weight: bold; }
+        """)
+        progressLayout.addWidget(self.tableWidget_test_queue)
+
+        recTitle = QtWidgets.QLabel("录波轮次")
+        recTitle.setStyleSheet(
+            f"font-size: 13px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
+        progressLayout.addWidget(recTitle)
 
         self.tableWidget_run_progress = QtWidgets.QTableWidget(0, 4)
         self.tableWidget_run_progress.setObjectName("tableWidget_run_progress")
@@ -970,6 +1154,12 @@ class Ui_Dialog(object):
         progressLayout.addWidget(self.tableWidget_run_progress, 1)
         progressPageLayout.addWidget(progressCard, 1)
         self.stackedWidget.addWidget(progressPage)
+
+        # ── 页面 12: IOT Agent 日志 ──
+        from components.iot_agent_log_panel import IotAgentLogPage
+
+        self.iotAgentLogPage = IotAgentLogPage()
+        self.stackedWidget.addWidget(self.iotAgentLogPage)
 
         rightLayout.addWidget(self.stackedWidget, 1)
         mainLayout.addWidget(rightPanel, 1)
@@ -1035,7 +1225,6 @@ class Ui_Dialog(object):
         self.pushButton_StartTest.setText(_translate("Dialog", "开始试验"))
         self.pushButton_StopTest.setText(_translate("Dialog", "暂停试验"))
         self.pushButton_EndTest.setText(_translate("Dialog", "结束试验"))
-        self.pushButton_SoftwareEstop.setText(_translate("Dialog", "软件急停"))
-        self.pushButton_ConTest.setText(_translate("Dialog", "继续运行试验"))
+        self.pushButton_ConTest.setText(_translate("Dialog", "继续试验"))
         self.pushButton_ClearMessage.setText(_translate("Dialog", "清空消息"))
         self.btn_test.setText(_translate("Dialog", "test"))

@@ -22,6 +22,19 @@ def test_find_current_indices_phase():
     assert abs(mean_current([230, 10, 11, 12, 7000], phase, total) - 11.0) < 1e-6
 
 
+def test_find_current_indices_csv_header_with_unit():
+    names = [
+        "U1_tRMS [V]@POWER/0",
+        "I1_tRMS [A]@POWER/0",
+        "I2_tRMS [A]@POWER/0",
+        "I3_tRMS [A]@POWER/0",
+        "I_tRMS [A]@POWER/0",
+    ]
+    phase, total = find_current_indices(names)
+    assert phase == [1, 2, 3]
+    assert total == 4
+
+
 def test_find_current_indices_ai_style():
     names = ["AI 1/U1", "AI 1/I1", "AI 1/I2", "AI 1/I3"]
     phase, total = find_current_indices(names)
@@ -38,6 +51,8 @@ def test_trip_monitor_matches_csv_drop():
         floor_a=0.5,
         confirm_samples=2,
         cooldown_s=8.0,
+        startup_ignore_s=0.0,
+        arm_hold_s=0.0,
     )
     t0 = 1000.0
     # 填满窗口
@@ -52,6 +67,35 @@ def test_trip_monitor_matches_csv_drop():
     assert ev.prev_mean > 5.0
     # 冷却内不再触发
     assert mon.feed([0.0, 0.0, 0.0], now_mono=t0 + 2.0) is None
+
+
+def test_trip_monitor_ignores_startup_and_requires_arm_hold():
+    mon = TripMonitor(
+        phase_indices=[0],
+        window=3,
+        confirm_samples=1,
+        cooldown_s=1.0,
+        startup_ignore_s=5.0,
+        arm_hold_s=2.0,
+        floor_a=0.5,
+        armed_min_a=2.0,
+    )
+    t0 = 2000.0
+    # 启机噪声：短暂有电流再掉零，应忽略
+    for i in range(3):
+        assert mon.feed([5.0], now_mono=t0 + i * 0.1, elapsed_s=0.5 + i * 0.1) is None
+    assert mon.feed([0.0], now_mono=t0 + 0.5, elapsed_s=1.0) is None
+
+    # 过了启机窗，但武装未满 hold
+    for i in range(4):
+        assert mon.feed([8.0], now_mono=t0 + 10 + i * 0.2, elapsed_s=10 + i * 0.2) is None
+    assert mon.feed([0.0], now_mono=t0 + 11.0, elapsed_s=11.0) is None  # hold 未满
+
+    # 持续武装超过 hold 后再掉零 → 跳脱
+    for i in range(8):
+        assert mon.feed([8.0], now_mono=t0 + 20 + i * 0.3, elapsed_s=20 + i * 0.3) is None
+    ev = mon.feed([0.0], now_mono=t0 + 23.0, elapsed_s=23.0)
+    assert ev is not None
 
 
 def test_trip_monitor_no_false_on_noise():

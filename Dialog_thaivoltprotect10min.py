@@ -687,6 +687,9 @@ class Ui_Dialog_thaivoltprotect10min(object):
         self.comboBox_S_End_AC = QtWidgets.QComboBox()
         self.comboBox_S_End_AC.setObjectName("comboBox_S_End_AC")
         self.comboBox_S_End_AC.addItems(["关闭", "开启"])
+        self.comboBox_S_End_AC.setToolTip(
+            "关闭=本轮结束关交流输出；开启=保持输出（追加中间轮选开启，最后一轮再选关闭）"
+        )
         self.comboBox_S_End_AC.setFixedWidth(120)
         g11Layout.addWidget(self.comboBox_S_End_AC, 0, 2)
 

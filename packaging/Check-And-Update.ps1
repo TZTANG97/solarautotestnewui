@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Check update channel (LAN folder or HTTP/GitLab Package) and upgrade before launch.
@@ -26,6 +26,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Avoid IWR console progress spam; we drive a dedicated UI window instead.
 $ProgressPreference = "SilentlyContinue"
 
 try {
@@ -37,6 +38,360 @@ try {
 function Info([string]$m) { if (-not $Quiet) { Write-Host $m } }
 function Warn([string]$m) { Write-Host ("[WARN] " + $m) -ForegroundColor Yellow }
 function Ok([string]$m) { Write-Host ("[OK] " + $m) -ForegroundColor Green }
+
+# Visible top-most progress window (works even when launched with -WindowStyle Hidden)
+$script:updForm = $null
+$script:updLabel = $null
+$script:updDetail = $null
+$script:updPctLabel = $null
+$script:updBar = $null
+$script:updTrack = $null
+$script:updFill = $null
+$script:updTimer = $null
+$script:updMode = "marquee"   # marquee | continuous
+$script:updPulse = 0
+$script:updPercent = 0
+$script:updColorBg = $null
+$script:updColorCard = $null
+$script:updColorInk = $null
+$script:updColorMuted = $null
+$script:updColorAccent = $null
+$script:updColorTrack = $null
+$script:updColorSoft = $null
+
+function Init-UpdateUiColors {
+    if ($script:updColorAccent -ne $null) { return }
+    Add-Type -AssemblyName System.Windows.Forms | Out-Null
+    Add-Type -AssemblyName System.Drawing | Out-Null
+    # Match main app theme (components/ui_theme.py)
+    $script:updColorBg = [System.Drawing.Color]::FromArgb(244, 246, 249)      # #f4f6f9
+    $script:updColorCard = [System.Drawing.Color]::White
+    $script:updColorInk = [System.Drawing.Color]::FromArgb(15, 23, 42)         # #0f172a
+    $script:updColorMuted = [System.Drawing.Color]::FromArgb(100, 116, 139)    # #64748b
+    $script:updColorAccent = [System.Drawing.Color]::FromArgb(13, 148, 136)    # #0d9488
+    $script:updColorTrack = [System.Drawing.Color]::FromArgb(226, 232, 240)    # #e2e8f0
+    $script:updColorSoft = [System.Drawing.Color]::FromArgb(204, 251, 241)     # #ccfbf1
+}
+
+function Get-UpdateUiIconPath {
+    $cands = @()
+    if ($PSScriptRoot) {
+        $cands += (Join-Path $PSScriptRoot "..\ui_files\logo.ico")
+        $cands += (Join-Path $PSScriptRoot "logo.ico")
+    }
+    if ($InstallDir) {
+        $cands += (Join-Path $InstallDir "ui_files\logo.ico")
+        $cands += (Join-Path $InstallDir "logo.ico")
+        $cands += (Join-Path $InstallDir "app\ui_files\logo.ico")
+    }
+    foreach ($p in $cands) {
+        try {
+            $full = [System.IO.Path]::GetFullPath($p)
+            if (Test-Path -LiteralPath $full) { return $full }
+        } catch {}
+    }
+    return $null
+}
+
+function Set-UpdateFillWidth([int]$Percent) {
+    if ($script:updTrack -eq $null -or $script:updFill -eq $null) { return }
+    $pct = [Math]::Max(0, [Math]::Min(100, $Percent))
+    $tw = [Math]::Max(0, $script:updTrack.ClientSize.Width)
+    $fw = [int][Math]::Round($tw * $pct / 100.0)
+    if ($fw -lt 0) { $fw = 0 }
+    if ($fw -gt $tw) { $fw = $tw }
+    $script:updFill.Width = $fw
+    $script:updFill.Height = $script:updTrack.ClientSize.Height
+    $script:updFill.Left = 0
+    $script:updFill.Top = 0
+}
+
+function Ensure-UpdateUi {
+    if ($Quiet) { return }
+    if ($script:updForm -ne $null) { return }
+    try {
+        Init-UpdateUiColors
+        try { [System.Windows.Forms.Application]::EnableVisualStyles() } catch {}
+        try { [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false) } catch {}
+
+        $f = New-Object System.Windows.Forms.Form
+        $f.Text = "SolarAutoTest"
+        $f.Size = New-Object System.Drawing.Size(560, 220)
+        $f.MinimumSize = New-Object System.Drawing.Size(520, 200)
+        $f.StartPosition = "CenterScreen"
+        $f.TopMost = $true
+        $f.FormBorderStyle = "FixedDialog"
+        $f.MaximizeBox = $false
+        $f.MinimizeBox = $false
+        $f.ShowInTaskbar = $true
+        $f.ControlBox = $false
+        $f.BackColor = $script:updColorBg
+        $f.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
+        $iconPath = Get-UpdateUiIconPath
+        if ($iconPath) {
+            try { $f.Icon = New-Object System.Drawing.Icon($iconPath) } catch {}
+        }
+
+        # Card panel
+        $card = New-Object System.Windows.Forms.Panel
+        $card.Location = New-Object System.Drawing.Point(16, 16)
+        $card.Size = New-Object System.Drawing.Size(512, 152)
+        $card.BackColor = $script:updColorCard
+        $card.Anchor = "Top,Left,Right"
+
+        # Accent strip on left
+        $strip = New-Object System.Windows.Forms.Panel
+        $strip.Location = New-Object System.Drawing.Point(0, 0)
+        $strip.Size = New-Object System.Drawing.Size(4, 152)
+        $strip.BackColor = $script:updColorAccent
+        $strip.Anchor = "Top,Bottom,Left"
+        $card.Controls.Add($strip)
+
+        # Brand
+        $brand = New-Object System.Windows.Forms.Label
+        $brand.AutoSize = $false
+        $brand.Location = New-Object System.Drawing.Point(20, 14)
+        $brand.Size = New-Object System.Drawing.Size(360, 22)
+        $brand.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 11, [System.Drawing.FontStyle]::Bold)
+        $brand.ForeColor = $script:updColorInk
+        $brand.Text = "SolarAutoTest"
+        $brand.BackColor = $script:updColorCard
+
+        # Step badge
+        $badge = New-Object System.Windows.Forms.Label
+        $badge.AutoSize = $false
+        $badge.Location = New-Object System.Drawing.Point(390, 14)
+        $badge.Size = New-Object System.Drawing.Size(106, 22)
+        $badge.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 8, [System.Drawing.FontStyle]::Bold)
+        $badge.ForeColor = $script:updColorAccent
+        $badge.BackColor = $script:updColorSoft
+        $badge.TextAlign = "MiddleCenter"
+        $badge.Text = "自动更新"
+        $badge.Anchor = "Top,Right"
+
+        # Status
+        $lbl = New-Object System.Windows.Forms.Label
+        $lbl.AutoSize = $false
+        $lbl.Location = New-Object System.Drawing.Point(20, 46)
+        $lbl.Size = New-Object System.Drawing.Size(400, 28)
+        $lbl.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
+        $lbl.ForeColor = $script:updColorInk
+        $lbl.BackColor = $script:updColorCard
+        $lbl.Text = "正在启动..."
+        $lbl.Anchor = "Top,Left,Right"
+
+        # Percent
+        $pct = New-Object System.Windows.Forms.Label
+        $pct.AutoSize = $false
+        $pct.Location = New-Object System.Drawing.Point(420, 46)
+        $pct.Size = New-Object System.Drawing.Size(76, 28)
+        $pct.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10, [System.Drawing.FontStyle]::Bold)
+        $pct.ForeColor = $script:updColorAccent
+        $pct.BackColor = $script:updColorCard
+        $pct.TextAlign = "MiddleRight"
+        $pct.Text = ""
+        $pct.Anchor = "Top,Right"
+
+        # Detail / hint
+        $det = New-Object System.Windows.Forms.Label
+        $det.AutoSize = $false
+        $det.Location = New-Object System.Drawing.Point(20, 76)
+        $det.Size = New-Object System.Drawing.Size(476, 20)
+        $det.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 8.25)
+        $det.ForeColor = $script:updColorMuted
+        $det.BackColor = $script:updColorCard
+        $det.Text = "请勿关闭此窗口"
+        $det.Anchor = "Top,Left,Right"
+
+        # Custom progress track + fill (flat modern, not classic WinForms bar)
+        $track = New-Object System.Windows.Forms.Panel
+        $track.Location = New-Object System.Drawing.Point(20, 110)
+        $track.Size = New-Object System.Drawing.Size(476, 10)
+        $track.BackColor = $script:updColorTrack
+        $track.Anchor = "Top,Left,Right"
+
+        $fill = New-Object System.Windows.Forms.Panel
+        $fill.Location = New-Object System.Drawing.Point(0, 0)
+        $fill.Size = New-Object System.Drawing.Size(40, 10)
+        $fill.BackColor = $script:updColorAccent
+        $track.Controls.Add($fill)
+
+        $card.Controls.Add($brand)
+        $card.Controls.Add($badge)
+        $card.Controls.Add($lbl)
+        $card.Controls.Add($pct)
+        $card.Controls.Add($det)
+        $card.Controls.Add($track)
+        $f.Controls.Add($card)
+
+        # Marquee pulse timer
+        $timer = New-Object System.Windows.Forms.Timer
+        $timer.Interval = 40
+        $timer.Add_Tick({
+            try {
+                if ($script:updMode -ne "marquee") { return }
+                if ($script:updTrack -eq $null -or $script:updFill -eq $null) { return }
+                $script:updPulse = ($script:updPulse + 3) % 200
+                $tw = [Math]::Max(1, $script:updTrack.ClientSize.Width)
+                $block = [Math]::Max(48, [int]($tw * 0.28))
+                # 0..100 go right, 100..200 go left
+                $phase = $script:updPulse
+                if ($phase -le 100) {
+                    $t = $phase / 100.0
+                } else {
+                    $t = (200 - $phase) / 100.0
+                }
+                $maxL = [Math]::Max(0, $tw - $block)
+                $left = [int][Math]::Round($maxL * $t)
+                $script:updFill.Width = $block
+                $script:updFill.Height = $script:updTrack.ClientSize.Height
+                $script:updFill.Left = $left
+                $script:updFill.Top = 0
+                if ($script:updPctLabel -ne $null) {
+                    $script:updPctLabel.Text = ""
+                }
+            } catch {}
+        })
+
+        $f.Show()
+        $f.Activate()
+        [System.Windows.Forms.Application]::DoEvents()
+        $timer.Start()
+
+        $script:updForm = $f
+        $script:updLabel = $lbl
+        $script:updDetail = $det
+        $script:updPctLabel = $pct
+        $script:updTrack = $track
+        $script:updFill = $fill
+        $script:updBar = $fill   # compat alias for old callers
+        $script:updTimer = $timer
+        $script:updMode = "marquee"
+        $script:updPulse = 0
+    } catch {
+        # Forms unavailable - fall back to console only
+    }
+}
+
+function Split-UpdateMessage([string]$msg) {
+    $main = $msg
+    $detail = "请勿关闭此窗口"
+    if (-not $msg) { return @{ Main = "正在处理..."; Detail = $detail } }
+    # Long path / version trail → subtitle
+    if ($msg -match '^(.*?)\s{2,}(.+)$') {
+        $main = $Matches[1].Trim()
+        $detail = $Matches[2].Trim()
+    } elseif ($msg -match '^(正在安装到本机)\.\.\.\s*(.+)$') {
+        $main = $Matches[1] + "... 请稍候"
+        $p = $Matches[2].Trim()
+        if ($p -and $p -ne "请稍候") { $detail = $p }
+    } elseif ($msg -match '^(发现新版本)\s+(.+)$') {
+        $main = $Matches[1]
+        $detail = $Matches[2]
+    } elseif ($msg -match '^(已是最新版)\s+(\S+)(.*)$') {
+        $main = $Matches[1] + " " + $Matches[2]
+        $detail = if ($Matches[3]) { $Matches[3].Trim(" ，,") } else { "正在打开软件..." }
+    } elseif ($msg -match '^(升级完成)\s+(\S+)(.*)$') {
+        $main = $Matches[1] + " " + $Matches[2]
+        $detail = if ($Matches[3]) { $Matches[3].Trim(" ，,") } else { "即将重新启动" }
+    } elseif ($msg -match '^(正在下载)\s+(.+)$') {
+        $main = $Matches[1] + "..."
+        $detail = $Matches[2]
+    } elseif ($msg.Length -gt 42) {
+        $main = $msg.Substring(0, 40) + "..."
+        $detail = $msg
+    }
+    return @{ Main = $main; Detail = $detail }
+}
+
+function Set-UpdateUi([string]$msg) {
+    Info $msg
+    if ($Quiet) { return }
+    Ensure-UpdateUi
+    try {
+        $parts = Split-UpdateMessage $msg
+        if ($script:updLabel -ne $null) {
+            $script:updLabel.Text = [string]$parts.Main
+        }
+        if ($script:updDetail -ne $null) {
+            $script:updDetail.Text = [string]$parts.Detail
+        }
+        $script:updMode = "marquee"
+        if ($script:updPctLabel -ne $null) {
+            $script:updPctLabel.Text = ""
+        }
+        if ($script:updTimer -ne $null -and -not $script:updTimer.Enabled) {
+            $script:updTimer.Start()
+        }
+        if ($script:updForm -ne $null) {
+            $script:updForm.Activate()
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+    } catch {}
+}
+
+function Pump-UpdateUi {
+    try {
+        if ($script:updForm -ne $null) {
+            [System.Windows.Forms.Application]::DoEvents()
+        }
+    } catch {}
+}
+
+function Set-UpdateProgress([int]$Percent, [string]$msg) {
+    if (-not $Quiet) {
+        Ensure-UpdateUi
+        try {
+            $script:updMode = "continuous"
+            if ($script:updTimer -ne $null -and $script:updTimer.Enabled) {
+                # keep timer running for DoEvents friendliness but skip marquee paint
+            }
+            $pct = [Math]::Max(0, [Math]::Min(100, $Percent))
+            $script:updPercent = $pct
+            Set-UpdateFillWidth $pct
+            if ($script:updPctLabel -ne $null) {
+                $script:updPctLabel.Text = ("{0}%" -f $pct)
+            }
+            if ($msg) {
+                $parts = Split-UpdateMessage $msg
+                if ($script:updLabel -ne $null) {
+                    $script:updLabel.Text = [string]$parts.Main
+                }
+                if ($script:updDetail -ne $null) {
+                    $script:updDetail.Text = [string]$parts.Detail
+                }
+            }
+            Pump-UpdateUi
+        } catch {}
+    }
+    if ($msg) { Info $msg }
+}
+
+function Close-UpdateUi {
+    try {
+        if ($script:updTimer -ne $null) {
+            $script:updTimer.Stop()
+            $script:updTimer.Dispose()
+        }
+    } catch {}
+    try {
+        if ($script:updForm -ne $null) {
+            $script:updForm.Close()
+            $script:updForm.Dispose()
+        }
+    } catch {}
+    $script:updForm = $null
+    $script:updLabel = $null
+    $script:updDetail = $null
+    $script:updPctLabel = $null
+    $script:updBar = $null
+    $script:updTrack = $null
+    $script:updFill = $null
+    $script:updTimer = $null
+    $script:updMode = "marquee"
+    $script:updPulse = 0
+    $script:updPercent = 0
+}
 
 function Get-IniValue([string]$Path, [string]$Section, [string]$Key) {
     if (-not (Test-Path $Path)) { return $null }
@@ -101,8 +456,8 @@ function New-HttpHeaders([string]$Token) {
         "Accept" = "application/json, application/octet-stream, */*"
     }
     if (-not $Token) { return $h }
-    # Deploy Token / Personal / Project Access → PRIVATE-TOKEN
-    # CI Job Token → JOB-TOKEN
+    # Deploy Token / Personal / Project Access -> PRIVATE-TOKEN
+    # CI Job Token -> JOB-TOKEN
     if ($env:CI_JOB_TOKEN -and ($Token -eq $env:CI_JOB_TOKEN)) {
         $h["JOB-TOKEN"] = $Token
     } else {
@@ -214,16 +569,64 @@ function Get-ZipToTemp($Source, [string]$Token, [string]$WorkDir) {
             throw ("Zip not found: " + $Source.Path)
         }
         Info ("Copying package (" + $Source.Name + ") ...")
+        Set-UpdateUi ("正在复制安装包 " + $Source.Name + "...")
         Copy-Item -Force $Source.Path $localZip
         return $localZip
     }
     Info ("Downloading package (" + $Source.Name + ") ...")
     Info ("  " + $Source.Uri)
-    $headers = New-HttpHeaders $Token
-    Invoke-WebRequest -Uri $Source.Uri -Headers $headers -OutFile $localZip -UseBasicParsing -TimeoutSec 600
+    Set-UpdateProgress 0 ("正在下载 " + $Source.Name + " 0%")
+
+    # Background download so the progress window keeps painting (IWR blocks UI thread).
+    $job = Start-Job -ScriptBlock {
+        param($Uri, $OutFile, $Token)
+        $ProgressPreference = "SilentlyContinue"
+        $hdr = @{
+            "Accept" = "application/json, application/octet-stream, */*"
+        }
+        if ($Token) {
+            $hdr["PRIVATE-TOKEN"] = [string]$Token
+        }
+        Invoke-WebRequest -Uri $Uri -Headers $hdr -OutFile $OutFile -UseBasicParsing -TimeoutSec 900
+        if (-not (Test-Path $OutFile) -or ((Get-Item $OutFile).Length -lt 1000)) {
+            throw "Downloaded zip looks empty/invalid"
+        }
+    } -ArgumentList @($Source.Uri, $localZip, $Token)
+
+    $lastMb = -1.0
+    while ($true) {
+        $state = $job.State
+        if ($state -eq "Completed" -or $state -eq "Failed" -or $state -eq "Stopped") {
+            break
+        }
+        $mb = 0.0
+        if (Test-Path $localZip) {
+            try { $mb = [Math]::Round(((Get-Item $localZip).Length) / 1MB, 1) } catch { $mb = 0.0 }
+        }
+        if ($mb -ne $lastMb) {
+            $lastMb = $mb
+            # OSS zip is ~160MB; show soft percent capped at 95 until job finishes
+            $soft = [int][Math]::Min(95, [Math]::Floor(($mb / 160.0) * 100))
+            Set-UpdateProgress $soft ("正在下载 " + $Source.Name + "  " + $mb + " MB (请勿关闭)")
+        } else {
+            Pump-UpdateUi
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    try {
+        Receive-Job -Job $job -ErrorAction Stop | Out-Null
+    } catch {
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+        throw ("Download failed: " + $_.Exception.Message)
+    } finally {
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+    }
+
     if (-not (Test-Path $localZip) -or ((Get-Item $localZip).Length -lt 1000)) {
         throw "Downloaded zip looks empty/invalid"
     }
+    Set-UpdateProgress 100 ("下载完成 " + [Math]::Round(((Get-Item $localZip).Length) / 1MB, 1) + " MB")
     return $localZip
 }
 
@@ -250,14 +653,17 @@ if ($channel -match 'YOUR-SERVER|CHANGE_ME|example\.com|YOUR-GITLAB') {
 $token = Resolve-UpdateToken $InstallDir
 
 try {
+    Set-UpdateUi "正在检查更新，请稍候..."
     $manifest = Get-RemoteManifest $channel $token
 } catch {
+    Close-UpdateUi
     Warn $_.Exception.Message
     exit 0
 }
 
 $remoteVer = [string]$manifest.version
 if (-not $remoteVer) {
+    Close-UpdateUi
     Warn "latest.json missing version"
     exit 0
 }
@@ -266,6 +672,9 @@ $localVer = Read-LocalVersion $InstallDir
 if (-not $localVer) { $localVer = "0" }
 
 if ((Compare-VersionTag $remoteVer $localVer) -le 0) {
+    Set-UpdateUi ("已是最新版 " + $localVer + "，正在打开软件...")
+    Start-Sleep -Milliseconds 600
+    Close-UpdateUi
     Info ("Up to date. local=" + $localVer + " remote=" + $remoteVer)
     exit 0
 }
@@ -275,14 +684,17 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ("  New version available: " + $localVer + "  ->  " + $remoteVer) -ForegroundColor Cyan
 Write-Host ("  Channel: " + $channel) -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
+Set-UpdateUi ("发现新版本 " + $localVer + " -> " + $remoteVer + "，准备升级...")
 
 $doInstall = Is-AutoInstall $InstallDir
 if (-not $doInstall) {
+    Close-UpdateUi
     $ans = Read-Host "Upgrade now? [Y/n]"
     if ($ans -and $ans.Trim().ToLowerInvariant().StartsWith("n")) {
         Info "Skipped upgrade."
         exit 0
     }
+    Ensure-UpdateUi
 }
 
 $work = Join-Path $env:TEMP ("SolarAutoTest-update-" + [guid]::NewGuid().ToString("N"))
@@ -290,8 +702,10 @@ New-Item -ItemType Directory -Path $work -Force | Out-Null
 
 try {
     $src = Resolve-ZipSource $channel $manifest
+    Set-UpdateUi ("正在下载新版本 " + $remoteVer + "...（窗口勿关）")
     $localZip = Get-ZipToTemp $src $token $work
 
+    Set-UpdateUi "正在解压安装包..."
     Info "Extracting ..."
     Expand-Archive -Path $localZip -DestinationPath $work -Force
 
@@ -309,25 +723,36 @@ try {
         throw "Install-SolarAutoTest.ps1 not found inside zip"
     }
 
+    Set-UpdateUi ("正在安装到本机...  " + $InstallDir)
     Info ("Installing into " + $InstallDir + " ...")
     $args = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", $installPs1,
         "-InstallDir", $InstallDir,
+        "-Quiet",
         "-SkipVerify"
     )
+    # Do not -Wait on UI thread; pump the progress window while installer runs.
     $p = Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
-        -ArgumentList $args -Wait -PassThru -NoNewWindow
+        -ArgumentList $args -PassThru -NoNewWindow
+    while (-not $p.HasExited) {
+        Pump-UpdateUi
+        Start-Sleep -Milliseconds 120
+    }
     if ($p.ExitCode -ne 0) {
         throw ("Installer exit code " + $p.ExitCode)
     }
 
+    Set-UpdateUi ("升级完成 " + $remoteVer + "，即将重新启动软件...")
     Ok ("Upgraded to " + $remoteVer)
+    Start-Sleep -Milliseconds 800
+    Close-UpdateUi
     # 10 = 已升级；父级 Start-SolarAutoTest.bat 必须重启自身，
     # 否则 cmd 按行号继续读已被重写的 bat，会错位（出现 'OOT'、LOCAL_ROOT 丢失）。
     exit 10
 }
 catch {
+    Close-UpdateUi
     Warn ("Upgrade failed: " + $_.Exception.Message)
     if (Is-HttpChannel $channel -and -not $token) {
         Warn "If the project is private, enable Package Registry public pull in GitLab,"

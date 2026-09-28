@@ -61,9 +61,11 @@ def estimate_planned_seconds(commands: Optional[Sequence[Sequence[Any]]]) -> flo
             + _cell_wait_tenths(row, 8)
             + _cell_wait_tenths(row, 9)
         )
+        dev = str(row[0] or "")
+        if dev.strip().upper() == "QUEUE":
+            continue
         total += wait_tenths * 0.1
         total += _CMD_OVERHEAD_S
-        dev = str(row[0] or "")
         if dev == "Upper_WT_Config":
             total += _UPPER_WT_CONFIG_S
         elif dev == "WT":
@@ -147,16 +149,30 @@ def build_progress_summary(
     cmd_total = int(state.get("cmd_total") or 0)
     progress = int(state.get("progress") or 0)
     detail = str(state.get("current_detail") or "").strip()
+    queue = list(state.get("queue") or [])
+    current_test = str(state.get("current_test") or "").strip()
 
     line1 = f"试验进度：{project} | {status} | {progress}%"
+    if current_test and current_test != project:
+        line1 += f" | 当前项 {current_test}"
+    if queue:
+        line1 += f" | 共 {len(queue)} 项试验"
     if total_rounds > 0:
-        line1 += f" | 第 {current_round}/{total_rounds} 轮"
+        line1 += f" | 录波 {current_round}/{total_rounds} 轮"
     if cmd_total > 0:
         line1 += f" | 命令 {cmd_index}/{cmd_total}"
 
     lines = [line1]
     if detail:
-        lines.append(f"当前：{detail}")
+        lines.append(f"当前步骤：{detail}")
+    if queue:
+        names = []
+        for i, item in enumerate(queue):
+            st = str(item.get("status") or "等待")
+            nm = str(item.get("name") or f"试验{i + 1}")
+            extra = " ·结束后暂停" if item.get("pause_after") else ""
+            names.append(f"{i + 1}.{nm}({st}{extra})")
+        lines.append("队列：" + " → ".join(names))
 
     if eta and status in ("进行中", "暂停", "待开始"):
         lines.append(

@@ -46,14 +46,38 @@ def test_parse_does_not_split_serial_resources():
     assert parse_host_port("TCPIP0::192.168.40.10::INSTR")[0] == "192.168.40.10"
 
 
-def test_classify_port_dew_and_modbus():
-    kind, brand, proto = classify_port(10001)
-    assert kind == "dew" and proto == "dew_socket"
-    kind, brand, proto = classify_port(8080)
-    assert kind == "modbus" and brand == "itech"
-    from utils.device_discovery import ALL_PROBE_PORTS
+def test_is_valid_finder_resource_rejects_partial_ip():
+    from utils.device_discovery import is_valid_finder_resource
 
-    assert 23 not in ALL_PROBE_PORTS
+    assert not is_valid_finder_resource("192.10")
+    assert not is_valid_finder_resource("192.1")
+    assert is_valid_finder_resource("192.168.40.210:502")
+    assert is_valid_finder_resource("10.0.0.5")
+
+
+def test_devices_from_last_resources_skips_junk_and_restores_success(monkeypatch):
+    from utils import device_discovery as dd
+
+    monkeypatch.setattr(
+        dd,
+        "load_success_device_map",
+        lambda: {
+            "192.168.0.162:8080": {
+                "idn": "ITECH,IT6010C",
+                "kind_hint": "modbus",
+                "brand_hint": "itech",
+                "slot": "ac",
+                "protocol": "modbus",
+            }
+        },
+    )
+    devices = dd.devices_from_last_resources(
+        ["192.10", "192.1", "192.168.0.162:8080"], source="上次"
+    )
+    assert len(devices) == 1
+    assert devices[0].resource == "192.168.0.162:8080"
+    assert "ITECH" in devices[0].idn
+    assert devices[0].extra.get("last_slot") == "ac"
 
 
 def test_validate_assignments_requires_human_slot():

@@ -175,6 +175,22 @@ def _looks_ipv4(text: str) -> bool:
         return False
 
 
+def is_valid_finder_resource(resource: str) -> bool:
+    """可用于「上次」列表的地址：完整 IPv4[:port] 或 VISA 资源串。"""
+    text = (resource or "").strip()
+    if not text:
+        return False
+    upper = text.upper()
+    if upper.startswith(("TCPIP", "ASRL", "USB", "GPIB", "COM")):
+        return True
+    host, port = parse_host_port(text)
+    if host and _looks_ipv4(host):
+        if port is None:
+            return True
+        return 1 <= int(port) <= 65535
+    return False
+
+
 def validate_assignments(rows: Sequence[Tuple[bool, str, FoundDevice]]) -> Optional[str]:
     """rows: (checked, slot_id, device)。勾选必须人手指定槽位，槽位不可重复。"""
     used = {}
@@ -193,8 +209,77 @@ def validate_assignments(rows: Sequence[Tuple[bool, str, FoundDevice]]) -> Optio
     return None
 
 
+def devices_from_status_json(status_json_path: Optional[str] = None) -> List[FoundDevice]:
+    """从 status.json 恢复「上次槽位 + 资源」，USB/网口直流都能带上槽位。"""
+    path = (status_json_path or "").strip()
+    if not path or not os.path.isfile(path):
+        return []
+    name_to_slot = {label: slot for slot, label in SLOT_CHOICES if slot}
+    # status.json 历史命名与 SLOT_CHOICES 中文不完全一致
+    name_to_slot.update(
+        {
+            "DL850": "scope",
+            "示波器": "scope",
+            "WT3000": "wt",
+            "功率分析仪": "wt",
+            "DEWETRON": "dew",
+            "德威创": "dew",
+        }
+    )
+    slot_to_kind = {
+        "ac": "ac",
+        "dc1": "dc",
+        "dc2": "dc",
+        "dc3": "dc",
+        "dc4": "dc",
+        "scope": "scope",
+        "wt": "wt",
+        "dew": "dew",
+    }
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return []
+    out: List[FoundDevice] = []
+    for row in data.get("devices") or []:
+        if not isinstance(row, dict):
+            continue
+        res = str(row.get("resource") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not res or not is_valid_finder_resource(res):
+            continue
+        slot = name_to_slot.get(name) or ""
+        host, port = parse_host_port(res)
+        kind = slot_to_kind.get(slot, "unknown")
+        proto = "visa"
+        upper = res.upper()
+        if host and port:
+            _k, _b, proto = classify_port(port)
+            if kind == "unknown":
+                kind = _k
+        elif not upper.startswith(("USB", "GPIB", "ASRL", "COM", "TCPIP")):
+            proto = "scpi_tcp"
+        out.append(
+            FoundDevice(
+                resource=res,
+                host=host or "",
+                port=port,
+                kind_hint=kind,
+                brand_hint="",
+                source="status",
+                protocol=proto,
+                extra={"last_slot": slot} if slot else {},
+            )
+        )
+    return out
+
+
 def last_known_resources(status_json_path: Optional[str] = None) -> List[str]:
-    """本机上次连过的地址：字段记忆 + 发现历史 + status.json。裸 IP 会拼上记忆端口。"""
+    """本机上次连过的地址：字段记忆 + 发现历史 + status.json。裸 IP 会拼上记忆端口。
+
+    只保留合法 IPv4[:port] / VISA 资源，丢掉半截输入（如 192.10）。
+    """
     out: List[str] = []
     try:
         from utils.ui_field_helpers import last_value, load_history
@@ -203,16 +288,20 @@ def last_known_resources(status_json_path: Optional[str] = None) -> List[str]:
         for ip_key, port_key, default_port in _IP_PORT_KEYS:
             port_text = last_value(port_key, str(default_port)) or str(default_port)
             try:
-                port_num = int(str(port_text).strip()) if str(port_text).strip().isdigit() else int(default_port)
+                port_num = (
+                    int(str(port_text).strip())
+                    if str(port_text).strip().isdigit()
+                    else int(default_port)
+                )
             except ValueError:
                 port_num = int(default_port)
             for item in load_history(ip_key):
                 host, existing = parse_host_port(item)
-                if host and existing:
+                if host and existing and _looks_ipv4(host):
                     out.append(f"{host}:{existing}")
-                elif host:
+                elif host and _looks_ipv4(host):
                     out.append(f"{host}:{port_num}")
-                elif item:
+                elif item and is_valid_finder_resource(item):
                     out.append(item)
     except Exception:
         pass
@@ -226,11 +315,17 @@ def last_known_resources(status_json_path: Optional[str] = None) -> List[str]:
                     out.append(res)
         except Exception:
             pass
+    try:
+        out.extend(load_success_device_map().keys())
+    except Exception:
+        pass
     seen = set()
     unique: List[str] = []
     for item in out:
         item = str(item).strip()
         if not item or item in seen:
+            continue
+        if not is_valid_finder_resource(item):
             continue
         seen.add(item)
         unique.append(item)
@@ -238,12 +333,65 @@ def last_known_resources(status_json_path: Optional[str] = None) -> List[str]:
 
 
 def remember_found_resource(resource: str) -> None:
-    if not (resource or "").strip():
+    text = (resource or "").strip()
+    if not text or not is_valid_finder_resource(text):
         return
     try:
         from utils.ui_field_helpers import remember_value
 
-        remember_value(_FINDER_HISTORY_KEY, resource.strip())
+        remember_value(_FINDER_HISTORY_KEY, text)
+    except Exception:
+        pass
+
+
+_SUCCESS_MAP_KEY = "device.finder.success_map"
+
+
+def load_success_device_map() -> Dict[str, dict]:
+    """上次成功连接快照：resource → {idn, kind_hint, brand_hint, slot, ...}。"""
+    try:
+        from utils.ui_field_helpers import last_value
+
+        raw = last_value(_SUCCESS_MAP_KEY, "") or ""
+        if not raw.strip():
+            return {}
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return {}
+        out: Dict[str, dict] = {}
+        for k, v in data.items():
+            key = str(k).strip()
+            if not key or not isinstance(v, dict):
+                continue
+            out[key] = dict(v)
+        return out
+    except Exception:
+        return {}
+
+
+def remember_successful_device(slot: str, dev: FoundDevice) -> None:
+    """连接成功后记住识别信息与槽位，下次「上次」列表直接带出。"""
+    res = (getattr(dev, "resource", "") or "").strip()
+    if not res or not is_valid_finder_resource(res):
+        return
+    try:
+        from utils.ui_field_helpers import remember_value
+
+        m = load_success_device_map()
+        entry = {
+            "idn": str(getattr(dev, "idn", "") or ""),
+            "kind_hint": str(getattr(dev, "kind_hint", "") or "unknown"),
+            "brand_hint": str(getattr(dev, "brand_hint", "") or ""),
+            "protocol": str(getattr(dev, "protocol", "") or ""),
+            "slot": str(slot or "").strip().lower(),
+            "host": str(getattr(dev, "host", "") or ""),
+            "port": getattr(dev, "port", None),
+        }
+        m[res] = entry
+        if getattr(dev, "host", None) and getattr(dev, "port", None):
+            m[f"{dev.host}:{dev.port}"] = entry
+        remember_value(_SUCCESS_MAP_KEY, json.dumps(m, ensure_ascii=False))
+        remember_found_resource(res)
     except Exception:
         pass
 
@@ -444,15 +592,35 @@ def probe_visa_idn(rm, resource: str, timeout_ms: int = 400) -> str:
 
 
 def devices_from_last_resources(resources: Iterable[str], source: str = "上次") -> List[FoundDevice]:
+    success = load_success_device_map()
     found: List[FoundDevice] = []
     for res in resources:
         res = str(res).strip()
-        if not res:
+        if not res or not is_valid_finder_resource(res):
             continue
         host, port = parse_host_port(res)
         kind, brand = "unknown", ""
         proto = "visa"
-        if host and port:
+        idn = ""
+        snap = success.get(res) or (
+            success.get(f"{host}:{port}") if host and port else None
+        )
+        extra: dict = {}
+        if isinstance(snap, dict):
+            idn = str(snap.get("idn") or "")
+            kind = str(snap.get("kind_hint") or kind)
+            brand = str(snap.get("brand_hint") or brand)
+            proto = str(snap.get("protocol") or proto)
+            if snap.get("slot"):
+                extra["last_slot"] = str(snap.get("slot") or "")
+            if not host:
+                host = str(snap.get("host") or "")
+            if port is None and snap.get("port") is not None:
+                try:
+                    port = int(snap.get("port"))
+                except (TypeError, ValueError):
+                    port = None
+        elif host and port:
             p_kind, p_brand, proto = classify_port(port)
             kind, brand = p_kind, p_brand
         elif host:
@@ -462,11 +630,12 @@ def devices_from_last_resources(resources: Iterable[str], source: str = "上次"
                 resource=res if not (host and port) else f"{host}:{port}",
                 host=host,
                 port=port,
-                idn="",
-                kind_hint=kind,
+                idn=idn,
+                kind_hint=kind or "unknown",
                 brand_hint=brand,
                 source=source,
                 protocol=proto,
+                extra=extra,
             )
         )
     return found

@@ -7,5 +7,16 @@
   "execution_mode": "handoff",
   "mutex_path": "",
   "agent_version": "0.1.0",
-  "comment": "正式环境默认 handoff。打开软件会上线到「添加设备」；添加后自动领令牌。勿把本文件拷到别的电脑。"
+  "mqtt": {
+    "enable": true,
+    "host": "10.144.144.3",
+    "port": 1883,
+    "username": "mqtt_ops",
+    "password": "",
+    "topic_prefix": "/EquMessage",
+    "qos": 1,
+    "use_ssl": false,
+    "client_id": "solar_agent_pub"
+  },
+  "comment": "正式环境默认 handoff。进度走 MQTT（对齐温箱 /EquMessage）。打开软件会上线到「添加设备」；添加后自动领令牌。勿把本文件拷到别的电脑。"
 }

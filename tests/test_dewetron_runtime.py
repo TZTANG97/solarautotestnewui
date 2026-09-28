@@ -37,9 +37,13 @@ class FakeHandle:
         self.timeout = 1234
         self.writes = []
         self.responses = {}
+        self.closed = False
 
     def write(self, command):
         self.writes.append(command)
+
+    def close(self):
+        self.closed = True
 
     def query(self, command):
         response = self.responses.get(command, "")
@@ -137,6 +141,84 @@ def test_controller_public_start_stop_and_timeout_restore():
     handle.responses[':RATE?'] = '100ms\r\n'
     assert controller.query_command(':RATE?', timeout_ms=4000) == '100ms'
     assert handle.timeout == 1234
+
+
+def test_visa_session_error_and_reconnect_closes_socket():
+    from devices.dewetron_controller import is_visa_session_error
+
+    assert is_visa_session_error("VI_ERROR_TMO (-1073807339)")
+    assert is_visa_session_error("VI_ERROR_CONN_LOST")
+    assert not is_visa_session_error("syntax error")
+
+    from devices.dewetron_controller import is_visa_conn_lost, is_visa_timeout
+
+    assert is_visa_timeout("VI_ERROR_TMO")
+    assert not is_visa_conn_lost("VI_ERROR_TMO")
+    assert is_visa_conn_lost("VI_ERROR_CONN_LOST")
+
+    logger = FakeLogger()
+    controller = DewetronController(logger, lambda *_: None, lambda: "")
+    old = FakeHandle()
+    controller.handle = old
+    controller.connected = True
+    controller.resource = "TCPIP0::192.168.40.23::10001::SOCKET"
+    new = FakeHandle()
+
+    def _fake_connect(tcp_addr, silent=False):
+        controller.handle = new
+        controller.connected = True
+        controller.resource = tcp_addr
+        return new, "1"
+
+    controller.connect = _fake_connect
+    assert controller._reconnect()
+    assert old.closed is True
+    assert controller.handle is new
+
+
+def test_query_timeout_does_not_reconnect_or_mark_disconnected():
+    logger = FakeLogger()
+    popped = []
+    controller = DewetronController(logger, lambda msg, *_: popped.append(msg), lambda: "")
+    handle = FakeHandle()
+    handle.responses[":CHANNELLIST:NAMES?"] = Exception("VI_ERROR_TMO (-1073807339)")
+    controller.handle = handle
+    controller.connected = True
+    controller.resource = "TCPIP0::192.168.40.23::10001::SOCKET"
+    reconnects = []
+    controller.connect = lambda *a, **k: reconnects.append((a, k)) or (None, "0")
+    assert controller.query_command(":CHANNELLIST:NAMES?", timeout_ms=1000) is None
+    assert controller.connected is True
+    assert handle.closed is False
+    assert reconnects == []
+    assert popped == []
+
+
+def test_prepare_retries_empty_channellist(tmp_path, monkeypatch):
+    class DelayedNames(FakeController):
+        def __init__(self):
+            super().__init__(channels=["U1_tRMS@AC"])
+            self.lookups = 0
+
+        def wait_scpi_ready(self, attempts=8, delay_seconds=1.0, timeout_ms=5000):
+            return True
+
+        def query_command(self, command, timeout_ms=30000):
+            if command == ":CHANNELLIST:NAMES?":
+                self.lookups += 1
+                if self.lookups < 3:
+                    return ""
+            return super().query_command(command, timeout_ms=timeout_ms)
+
+    monkeypatch.setattr("devices.dewetron_data_collector.time.sleep", lambda *_a, **_k: None)
+    ctrl = DelayedNames()
+    collector = DewetronDataCollector(
+        ctrl, FakeLogger(), db_path=str(tmp_path / "retry.sqlite")
+    )
+    result = collector.prepare(["U1_tRMS"], "100", "staticqu", str(tmp_path / "a.csv"))
+    assert result.success
+    assert ctrl.lookups >= 3
+    collector.stop()
 
 
 def test_prepare_failures_and_iterable_success(tmp_path):
@@ -259,7 +341,38 @@ def test_public_data_apis_and_csv_export(runtime, tmp_path):
     assert collector.export_to_csv(str(legacy_output)) == str(legacy_output)
     with open(output, encoding='utf-8-sig', newline='') as source:
         rows = list(csv.reader(source))
-    assert rows == [['Time [s]', 'U1_tRMS [V]@AC'], ['0.2500', '12.5000000']]
+    assert rows == [['Time [s]', 'U1_tRMS [V]@AC'], ['0.2500', '12.5000']]
+
+
+def test_csv_export_respects_decimal_places(runtime, tmp_path):
+    _controller, collector = runtime
+    collector.begin_batch()
+    run_id = collector.begin_run()
+    with collector._db_lock:
+        collector._conn.execute(
+            'INSERT INTO de_data (run_id, seq, time, channel_values) VALUES (?, ?, ?, ?)',
+            (run_id, 0, 0.25, '[12.5]'),
+        )
+        collector._conn.commit()
+
+    collector.set_csv_decimal_places(2)
+    output = tmp_path / 'export_2dp.csv'
+    assert collector.export_run_to_csv(run_id, str(output)) == str(output)
+    with open(output, encoding='utf-8-sig', newline='') as source:
+        rows = list(csv.reader(source))
+    assert rows == [['Time [s]', 'U1_tRMS [V]@AC'], ['0.2500', '12.50']]
+
+    collector.set_csv_decimal_places(0)
+    output0 = tmp_path / 'export_0dp.csv'
+    assert collector.export_run_to_csv(run_id, str(output0)) == str(output0)
+    with open(output0, encoding='utf-8-sig', newline='') as source:
+        rows0 = list(csv.reader(source))
+    assert rows0 == [['Time [s]', 'U1_tRMS [V]@AC'], ['0.2500', '12']]
+
+    assert collector.set_csv_decimal_places(99) == 6
+    assert collector.set_csv_decimal_places(-1) == 0
+    collector.prepare(['U1_tRMS'], '100', 'flicker', '', decimal_places=2)
+    assert collector._csv_decimal_places == 2
 
 
 def test_save_load_commands_raw_row_round_trip_and_replace(runtime):
@@ -404,4 +517,121 @@ def test_non_destructive_migration_adds_missing_columns(tmp_path):
         'SELECT batch_uid FROM de_test_batch WHERE id = 1'
     ).fetchone()[0] == 'keep'
     assert collector._conn.execute('PRAGMA busy_timeout').fetchone()[0] == 5000
+    collector.stop()
+
+
+def test_parse_value_strips_scpi_prefix_not_timestamp_space(tmp_path):
+    collector = DewetronDataCollector(
+        FakeController(), FakeLogger(), str(tmp_path / 'parse.sqlite')
+    )
+    assert collector._parse_value(
+        ':NUM:NORM:VALue? "2026-09-21 14:17:38",230.0,10.5,7000.0'
+    ) == [230.0, 10.5, 7000.0]
+    assert collector._parse_value('"14:17:38.1",1.0,2.0') == [1.0, 2.0]
+    collector.stop()
+
+
+def test_align_numeric_row_truncates_overflow(tmp_path):
+    controller = FakeController(channels=['U1_tRMS@AC', 'I1_tRMS@AC'])
+    collector = DewetronDataCollector(
+        controller, FakeLogger(), str(tmp_path / 'align.sqlite')
+    )
+    assert collector.prepare(
+        ['U1_tRMS', 'I1_tRMS'], '100', 'flicker', str(tmp_path / 'a.csv')
+    ).success
+    assert collector._fields == ['U1_tRMS@AC', 'I1_tRMS@AC']
+    # 模拟设备多返回谐波桶，应对齐到 2 列
+    aligned = collector._align_numeric_row([230.0, 10.0, 0.1, 0.2, 0.3])
+    assert aligned == [230.0, 10.0]
+    padded = collector._align_numeric_row([230.0])
+    assert len(padded) == 2 and padded[0] == 230.0
+    assert padded[1] != padded[1]  # NaN
+    collector.stop()
+
+
+def test_export_truncates_values_to_header(tmp_path):
+    controller = FakeController(channels=['U1_tRMS@AC'])
+    collector = DewetronDataCollector(
+        controller, FakeLogger(), str(tmp_path / 'ex.sqlite')
+    )
+    assert collector.prepare(
+        ['U1_tRMS'], '100', 'flicker', str(tmp_path / 'e.csv')
+    ).success
+    run_id = collector.begin_run()
+    with collector._db_lock:
+        collector._conn.execute(
+            'INSERT INTO de_data (run_id, seq, time, channel_values) VALUES (?, ?, ?, ?)',
+            (run_id, 0, 1.0, '[12.5, 99.0, 88.0]'),
+        )
+        collector._conn.commit()
+    out = tmp_path / 'trunc.csv'
+    assert collector.export_run_to_csv(run_id, str(out))
+    with open(out, encoding='utf-8-sig', newline='') as source:
+        rows = list(csv.reader(source))
+    assert rows[0] == ['Time [s]', 'U1_tRMS [V]@AC']
+    assert rows[1] == ['1.0000', '12.5000000']
+    collector.stop()
+
+
+def test_scpi_poll_follows_configured_rate():
+    from devices.dewetron_data_collector import scpi_poll_interval_s
+
+    assert scpi_poll_interval_s(200) == pytest.approx(0.2)
+    assert scpi_poll_interval_s(100) == pytest.approx(0.1)
+    assert scpi_poll_interval_s(2000) == pytest.approx(2.0)
+    assert scpi_poll_interval_s(0) == pytest.approx(0.1)
+
+
+def test_channel_values_json_roundtrip_with_nan():
+    """历史 bug：json.dumps(nan) 无法被 json.loads 读回 → 导出空 CSV。"""
+    import math
+
+    from devices.dewetron_data_collector import dumps_channel_values, loads_channel_values
+
+    raw = dumps_channel_values([230.1, float("nan"), 10.5])
+    assert "NaN" not in raw
+    assert "null" in raw
+    got = loads_channel_values(raw)
+    assert got[0] == pytest.approx(230.1)
+    assert math.isnan(got[1])
+    assert got[2] == pytest.approx(10.5)
+
+    # 兼容库里已有的非标准 NaN 文本
+    legacy = loads_channel_values("[1.0, NaN, 2.0]")
+    assert legacy[0] == pytest.approx(1.0)
+    assert math.isnan(legacy[1])
+    assert legacy[2] == pytest.approx(2.0)
+
+
+def test_export_keeps_rows_that_contain_nan(tmp_path):
+    import math
+
+    controller = FakeController(channels=["U1_tRMS@AC", "I1_tRMS@AC"])
+    collector = DewetronDataCollector(
+        controller, FakeLogger(), str(tmp_path / "nan_export.sqlite")
+    )
+    assert collector.prepare(
+        ["U1_tRMS", "I1_tRMS"], "100", "flicker", str(tmp_path / "n.csv")
+    ).success
+    run_id = collector.begin_run()
+    with collector._db_lock:
+        from devices.dewetron_data_collector import dumps_channel_values
+
+        collector._conn.execute(
+            "INSERT INTO de_data (run_id, seq, time, channel_values) VALUES (?, ?, ?, ?)",
+            (run_id, 0, 0.2, dumps_channel_values([230.0, float("nan")])),
+        )
+        # 模拟旧版写入
+        collector._conn.execute(
+            "INSERT INTO de_data (run_id, seq, time, channel_values) VALUES (?, ?, ?, ?)",
+            (run_id, 1, 0.4, "[231.0, NaN]"),
+        )
+        collector._conn.commit()
+    out = tmp_path / "with_nan.csv"
+    assert collector.export_run_to_csv(run_id, str(out))
+    with open(out, encoding="utf-8-sig", newline="") as source:
+        rows = list(csv.reader(source))
+    assert len(rows) == 3  # header + 2 data
+    assert rows[1][1] == "230.0000000"
+    assert rows[2][1] == "231.0000000"
     collector.stop()

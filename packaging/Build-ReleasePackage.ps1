@@ -54,6 +54,7 @@ New-Item -ItemType Directory -Path (Join-Path $stage "bundled") -Force | Out-Nul
 # Copy installer scripts to stage root (keep UTF-8 BOM — PS 5.1 misparses Chinese without it)
 $ps1Files = @(
     "Install-SolarAutoTest.ps1",
+    "Install-PathHelpers.ps1",
     "Check-And-Update.ps1",
     "Verify-Install.ps1"
 )

@@ -7,6 +7,8 @@ cd /d "%~dp0"
 echo ============================================================
 echo  SolarAutoTest Installer
 echo ============================================================
+echo  You can choose App / Data / Runtime folders (not only C:).
+echo  Tip: install.bat -InstallDir D:\SolarAutoTest -Quiet
 echo.
 
 set "PS_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"

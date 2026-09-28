@@ -19,6 +19,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 DEFAULT_RATE_OPTIONS: Tuple[str, ...] = (
     "Default",
+    "1000",
+    "500",
+    "200",
     "100",
     "50",
     "20",
@@ -55,6 +58,7 @@ class DewetronUiConfig:
     decimal_places: int
     realtime_waveform: bool
     export_fields: List[str]
+    save_dir: str
 
     def __init__(
         self,
@@ -62,6 +66,7 @@ class DewetronUiConfig:
         decimal_places: int = 3,
         realtime_waveform: bool = False,
         export_fields: Optional[Iterable[Any]] = None,
+        save_dir: str = "",
         **aliases: Any,
     ) -> None:
         if "rate" in aliases:
@@ -72,6 +77,8 @@ class DewetronUiConfig:
             realtime_waveform = aliases.pop("waveform")
         if "fields" in aliases:
             export_fields = aliases.pop("fields")
+        if "save_path" in aliases:
+            save_dir = aliases.pop("save_path")
         if aliases:
             unknown = ", ".join(sorted(aliases))
             raise TypeError(f"Unknown DewetronUiConfig arguments: {unknown}")
@@ -80,6 +87,7 @@ class DewetronUiConfig:
         self.decimal_places = int(decimal_places)
         self.realtime_waveform = bool(realtime_waveform)
         self.export_fields = _normalise_fields(export_fields)
+        self.save_dir = str(save_dir or "").strip()
 
     @property
     def rate(self) -> str:
@@ -119,6 +127,7 @@ class DewetronUiConfig:
             "decimal_places": self.decimal_places,
             "realtime_waveform": self.realtime_waveform,
             "export_fields": list(self.export_fields),
+            "save_dir": self.save_dir,
         }
 
     @classmethod
@@ -136,6 +145,7 @@ class DewetronUiConfig:
                 "realtime_waveform", data.get("waveform", False)
             ),
             export_fields=data.get("export_fields", data.get("fields", ())),
+            save_dir=data.get("save_dir", data.get("save_path", "")),
         )
 
     @classmethod
@@ -259,37 +269,74 @@ def _channel_name(channel: ElementTree.Element) -> str:
     return ""
 
 
+def _is_frequency_channel(name: str) -> bool:
+    """True for Dewetron frequency channels (F_fund / f__fund / Freq …).
+
+    Oxygen 导出名偶发双下划线 ``f__fund``；勿把 ``PF_fund`` 当成频率。
+    """
+    text = str(name or "").strip()
+    if not text:
+        return False
+    # 去掉单位/后缀：F_fund [Hz] / F_fund@POWER/0
+    base = text.split("@", 1)[0].split("[", 1)[0].strip()
+    low = base.casefold().replace(" ", "")
+    # 折叠连续下划线：f__fund → f_fund
+    while "__" in low:
+        low = low.replace("__", "_")
+    if low in {"f_fund", "freq", "frequency", "f"}:
+        return True
+    if low.startswith("f_fund") or low.startswith("freq"):
+        return True
+    return False
+
+
 def parse_power_group_tree(xml_string: str) -> Optional[PowerGroupTree]:
     """Parse DEWETRON ``Power Groups`` XML into category/subcategory leaves.
 
     The returned structure is ``{category: {subcategory: [field, ...]}}``.
-    ``Advanced`` groups are intentionally omitted, matching the export choices
-    presented by the existing DEWETRON dialogs.  ``None`` means no valid Power
-    Groups section was found.
+    ``Advanced`` groups are omitted except frequency channels (``F_fund`` 等)，
+    避免频率被藏在 Advanced 里导致勾选树看不到。
+
+    真机 XML 中 ``F_fund`` 常作为 ``POWER/0`` 的直接子 Channel（与 Voltage/Current
+    分组同级），必须单独收集，否则测量项目树没有频率项。
+    ``None`` means no valid Power Groups section was found.
     """
     root = _find_power_group_element(xml_string)
     if root is None:
         return None
 
     result: PowerGroupTree = {}
+    freq_names: List[str] = []
 
-    # Firmware normally nests categories below POWER/0 Channel nodes.  Iterate
-    # their direct ChannelGroup children first, while also tolerating a direct
-    # category layout used by small test fixtures.
     category_groups: List[ElementTree.Element] = []
     for child in list(root):
         if _local_name(child.tag) == "Channel":
-            category_groups.extend(
-                item
-                for item in list(child)
-                if _local_name(item.tag) == "ChannelGroup"
-            )
+            # POWER/0（或其它功率组）下：分组 + 直接挂着的频率通道
+            for item in list(child):
+                tag = _local_name(item.tag)
+                if tag == "ChannelGroup":
+                    category_groups.append(item)
+                elif tag == "Channel":
+                    name = _channel_name(item)
+                    if name and _is_frequency_channel(name) and name not in freq_names:
+                        freq_names.append(name)
         elif _local_name(child.tag) == "ChannelGroup":
             category_groups.append(child)
 
+    def _collect_freq(node: ElementTree.Element) -> None:
+        for channel in node.iter():
+            if _local_name(channel.tag) != "Channel":
+                continue
+            name = _channel_name(channel)
+            if name and _is_frequency_channel(name) and name not in freq_names:
+                freq_names.append(name)
+
     for category in category_groups:
         category_name = (category.get("Type") or category.get("Name") or "").strip()
-        if not category_name or category_name == "Advanced":
+        if not category_name:
+            continue
+        if category_name == "Advanced":
+            _collect_freq(category)
             continue
         subcategories = result.setdefault(category_name, {})
 
@@ -298,13 +345,20 @@ def parse_power_group_tree(xml_string: str) -> Optional[PowerGroupTree]:
             if tag == "Channel":
                 name = _channel_name(child)
                 if name:
-                    subcategories.setdefault("_default_", []).append(name)
+                    if _is_frequency_channel(name):
+                        if name not in freq_names:
+                            freq_names.append(name)
+                    else:
+                        subcategories.setdefault("_default_", []).append(name)
                 continue
             if tag != "ChannelGroup":
                 continue
 
             sub_name = (child.get("Type") or child.get("Name") or "").strip()
-            if not sub_name or sub_name == "Advanced":
+            if not sub_name:
+                continue
+            if sub_name == "Advanced":
+                _collect_freq(child)
                 continue
             names = [
                 _channel_name(channel)
@@ -312,12 +366,27 @@ def parse_power_group_tree(xml_string: str) -> Optional[PowerGroupTree]:
                 if _local_name(channel.tag) == "Channel"
             ]
             names = _normalise_fields(names)
-            if names:
+            # Advanced 外也可能夹着频率通道
+            plain = []
+            for name in names:
+                if _is_frequency_channel(name):
+                    if name not in freq_names:
+                        freq_names.append(name)
+                else:
+                    plain.append(name)
+            if plain:
                 existing = subcategories.setdefault(sub_name, [])
-                existing.extend(name for name in names if name not in existing)
+                existing.extend(name for name in plain if name not in existing)
 
         if not subcategories:
             result.pop(category_name, None)
+
+    if freq_names:
+        freq_cat = result.setdefault("Frequency (F)", {})
+        bucket = freq_cat.setdefault("Fundamental", [])
+        for name in freq_names:
+            if name not in bucket:
+                bucket.append(name)
 
     return result or None
 
@@ -351,6 +420,7 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self._building_tree = False
         self._desired_export_fields: Optional[List[str]] = None
         self._unavailable_export_fields: List[str] = []
+        self._preset_name = "default"
         self._rate_options = list(rate_options or DEFAULT_RATE_OPTIONS)
         if HARMONIC_RATE_OPTION in self._rate_options:
             pass
@@ -369,9 +439,9 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self._build_ui()
         self.set_config(initial)
         if not has_explicit_config:
-            # ``None`` means no saved selection exists yet; on the first device
-            # refresh follow the established dialogs and select every field.
-            self._desired_export_fields = None
+            # 无显式配置：尝试加载上次保存的勾选；没有则全部不勾选
+            self._desired_export_fields = []
+            self._try_load_export_preset(apply_rate=True)
         self._connect_signals()
 
     def _build_ui(self) -> None:
@@ -392,6 +462,9 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         )
         self.comboBox_DEW_MaxRefreshRate.setEditable(True)
         self.comboBox_DEW_MaxRefreshRate.addItems(self._rate_options)
+        self.comboBox_DEW_MaxRefreshRate.setToolTip(
+            "最大刷新率（ms）。10min 过压等长试验可选 200/500/1000；也可直接输入数值。"
+        )
         form.addRow("最大刷新率 (ms):", self.comboBox_DEW_MaxRefreshRate)
 
         self.spinBox_DEW_DecimalPlaces = QtWidgets.QSpinBox()
@@ -408,6 +481,28 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
             "checkBox_DEW_RealtimeWaveform"
         )
         form.addRow("实时波形:", self.checkBox_DEW_RealtimeWaveform)
+
+        path_row = QtWidgets.QHBoxLayout()
+        self.lineEdit_DEW_SaveDir = QtWidgets.QLineEdit()
+        self.lineEdit_DEW_SaveDir.setObjectName("lineEdit_DEW_SaveDir")
+        try:
+            from utils.wt_save_path import ensure_dewetron_save_dir
+
+            self.lineEdit_DEW_SaveDir.setText(ensure_dewetron_save_dir())
+        except Exception:
+            self.lineEdit_DEW_SaveDir.setText("")
+        self.lineEdit_DEW_SaveDir.setPlaceholderText(
+            r"%LOCALAPPDATA%\SolarAutoTest\dewetron_save"
+        )
+        self.lineEdit_DEW_SaveDir.setToolTip(
+            "德威创 CSV / 录波保存目录。目录不存在会自动创建。"
+        )
+        path_row.addWidget(self.lineEdit_DEW_SaveDir, 1)
+        self.pushButton_DEW_BrowseSaveDir = QtWidgets.QPushButton("浏览…")
+        self.pushButton_DEW_BrowseSaveDir.setObjectName("pushButton_DEW_BrowseSaveDir")
+        self.pushButton_DEW_BrowseSaveDir.clicked.connect(self._browse_save_dir)
+        path_row.addWidget(self.pushButton_DEW_BrowseSaveDir)
+        form.addRow("保存路径:", path_row)
         group_layout.addLayout(form)
 
         # Action buttons sit above the tree so they stay visible even when the
@@ -431,6 +526,29 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         tree_header = QtWidgets.QHBoxLayout()
         tree_header.addWidget(QtWidgets.QLabel("导出字段选择"))
         tree_header.addStretch()
+        self.comboBox_DEW_Presets = QtWidgets.QComboBox()
+        self.comboBox_DEW_Presets.setObjectName("comboBox_DEW_Presets")
+        self.comboBox_DEW_Presets.setMinimumWidth(120)
+        self.comboBox_DEW_Presets.setToolTip(
+            "本机已保存的测量勾选配置；选中后点「加载勾选」应用"
+        )
+        tree_header.addWidget(self.comboBox_DEW_Presets)
+        self.pushButton_DEW_SaveFields = QtWidgets.QPushButton("保存勾选")
+        self.pushButton_DEW_SaveFields.setObjectName("pushButton_DEW_SaveFields")
+        self.pushButton_DEW_SaveFields.setToolTip(
+            "把当前勾选保存到当前配置名（下次打开该试验自动加载）"
+        )
+        tree_header.addWidget(self.pushButton_DEW_SaveFields)
+        self.pushButton_DEW_SaveFieldsAs = QtWidgets.QPushButton("另存为…")
+        self.pushButton_DEW_SaveFieldsAs.setObjectName("pushButton_DEW_SaveFieldsAs")
+        self.pushButton_DEW_SaveFieldsAs.setToolTip(
+            "另存为一套命名配置，之后可从下拉框选用"
+        )
+        tree_header.addWidget(self.pushButton_DEW_SaveFieldsAs)
+        self.pushButton_DEW_LoadFields = QtWidgets.QPushButton("加载勾选")
+        self.pushButton_DEW_LoadFields.setObjectName("pushButton_DEW_LoadFields")
+        self.pushButton_DEW_LoadFields.setToolTip("加载下拉框选中的配置到勾选树")
+        tree_header.addWidget(self.pushButton_DEW_LoadFields)
         self.pushButton_DEW_RefreshFields = QtWidgets.QPushButton("刷新字段")
         self.pushButton_DEW_RefreshFields.setObjectName(
             "pushButton_DEW_RefreshFields"
@@ -460,12 +578,33 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.apply_button = self.pushButton_DEW_TestApply
         self.refresh_button = self.pushButton_DEW_RefreshFields
         self.viewer_button = self.pushButton_DEW_DataViewer
+        self.save_dir_edit = self.lineEdit_DEW_SaveDir
+
+    def _browse_save_dir(self) -> None:
+        start = (self.lineEdit_DEW_SaveDir.text() or "").strip()
+        chosen = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "选择德威创保存目录", start or ""
+        )
+        if not chosen:
+            return
+        try:
+            from utils.wt_save_path import ensure_dewetron_save_dir
+
+            chosen = ensure_dewetron_save_dir(chosen)
+        except Exception:
+            pass
+        self.lineEdit_DEW_SaveDir.setText(chosen)
+        self._emit_config_changed()
 
     def _connect_signals(self) -> None:
         self.pushButton_DEW_TestApply.clicked.connect(self._request_apply)
         self.pushButton_DEW_RefreshFields.clicked.connect(
             self.refresh_requested.emit
         )
+        self.pushButton_DEW_SaveFields.clicked.connect(self.save_export_preset)
+        self.pushButton_DEW_SaveFieldsAs.clicked.connect(self.save_export_preset_as)
+        self.pushButton_DEW_LoadFields.clicked.connect(self._load_selected_preset)
+        self._reload_preset_combo()
         self.pushButton_DEW_DataViewer.clicked.connect(self.viewer_requested.emit)
         self.comboBox_DEW_MaxRefreshRate.currentTextChanged.connect(
             self._emit_config_changed
@@ -476,14 +615,191 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.checkBox_DEW_RealtimeWaveform.toggled.connect(
             self._emit_config_changed
         )
+        self.lineEdit_DEW_SaveDir.textChanged.connect(self._emit_config_changed)
         self.treeWidget_DEW_ExportFields.itemChanged.connect(
             self._on_tree_item_changed
         )
 
     def _request_apply(self) -> None:
         config = self.get_config()
+        # 测试生效时顺便记住勾选，下次默认带上
+        try:
+            self.save_export_preset(silent=True)
+        except Exception:
+            pass
         self.apply_requested.emit()
         self.apply_config_requested.emit(config)
+
+    def set_preset_name(self, name: str) -> None:
+        """Bind Dewetron export preset to a test project (isolates勾选 across trials)."""
+        self._preset_name = (str(name or "").strip() or "default")
+        self._reload_preset_combo(select=self._preset_name)
+
+    def preset_name(self) -> str:
+        return getattr(self, "_preset_name", None) or "default"
+
+    def _reload_preset_combo(self, select: Optional[str] = None) -> None:
+        combo = getattr(self, "comboBox_DEW_Presets", None)
+        if combo is None:
+            return
+        from utils.dewetron_export_preset import list_export_presets
+
+        want = (select or self.preset_name() or "default").strip() or "default"
+        names = list_export_presets()
+        if want not in names:
+            names = [want] + [n for n in names if n != want]
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItems(names)
+        idx = combo.findText(want)
+        combo.setCurrentIndex(idx if idx >= 0 else 0)
+        combo.blockSignals(False)
+
+    def _selected_preset_name(self) -> str:
+        combo = getattr(self, "comboBox_DEW_Presets", None)
+        if combo is not None and combo.currentText().strip():
+            return combo.currentText().strip()
+        return self.preset_name()
+
+    def _load_selected_preset(self) -> None:
+        name = self._selected_preset_name()
+        self.set_preset_name(name)
+        self.load_export_preset(show_message=True)
+
+    def save_export_preset_as(self) -> None:
+        """弹窗输入配置名后另存。"""
+        name, ok = QtWidgets.QInputDialog.getText(
+            self,
+            "另存测量勾选配置",
+            "配置名称（本机保存，可在下拉框选用）：",
+            text=self._selected_preset_name() or "my_fields",
+        )
+        if not ok:
+            return
+        name = (name or "").strip()
+        if not name:
+            QtWidgets.QMessageBox.warning(self, "无效名称", "请输入配置名称。")
+            return
+        self.set_preset_name(name)
+        self.save_export_preset(silent=False)
+        self._reload_preset_combo(select=name)
+
+    def save_export_preset(self, silent: bool = False) -> str:
+        """保存当前勾选为该试验的配置。"""
+        from utils.dewetron_export_preset import save_export_preset
+
+        # 若下拉框有选中名，优先用它（便于覆盖某套命名配置）
+        if not silent:
+            picked = self._selected_preset_name()
+            if picked:
+                self._preset_name = picked
+
+        cfg = self.get_config()
+        path = save_export_preset(
+            export_fields=cfg.export_fields,
+            rate_text=cfg.rate_text,
+            decimal_places=cfg.decimal_places,
+            realtime_waveform=cfg.realtime_waveform,
+            preset_name=self.preset_name(),
+        )
+        self._desired_export_fields = list(cfg.export_fields)
+        # Also mirror into per-test UI preset bundle when name is a real trial
+        try:
+            from utils.test_ui_preset import save_test_preset
+
+            if self.preset_name() != "default":
+                save_test_preset(
+                    self.preset_name(),
+                    dew_export={
+                        "export_fields": list(cfg.export_fields),
+                        "rate_text": str(cfg.rate_text or "Default"),
+                        "decimal_places": int(cfg.decimal_places or 4),
+                        "realtime_waveform": bool(cfg.realtime_waveform),
+                    },
+                )
+        except Exception:
+            pass
+        self._reload_preset_combo(select=self.preset_name())
+        if not silent:
+            QtWidgets.QMessageBox.information(
+                self,
+                "已保存",
+                f"勾选配置已保存为「{self.preset_name()}」，下次可从下拉框选用。\n{path}",
+            )
+        return path
+
+    def load_export_preset(self, show_message: bool = False) -> bool:
+        """加载该试验的勾选配置到树。"""
+        ok = self._try_load_export_preset(apply_rate=True)
+        if show_message:
+            if ok:
+                QtWidgets.QMessageBox.information(
+                    self, "已加载", f"已加载「{self.preset_name()}」的勾选配置。"
+                )
+            else:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "无配置",
+                    "还没有这套勾选配置，请先勾选后点「保存勾选」或「另存为…」。",
+                )
+        return ok
+
+    def _try_load_export_preset(self, *, apply_rate: bool = False) -> bool:
+        from utils.dewetron_export_preset import load_export_preset
+
+        data = load_export_preset(self.preset_name())
+        # Fallback: legacy shared default once, then caller should re-save per test
+        if not data and self.preset_name() != "default":
+            data = load_export_preset("default")
+        if not data:
+            return False
+        fields = list(data.get("export_fields") or [])
+        self._desired_export_fields = fields
+        if apply_rate:
+            rate = str(data.get("rate_text") or "").strip()
+            if rate:
+                idx = self.comboBox_DEW_MaxRefreshRate.findText(rate)
+                if idx >= 0:
+                    self.comboBox_DEW_MaxRefreshRate.setCurrentIndex(idx)
+                else:
+                    self.comboBox_DEW_MaxRefreshRate.setEditText(rate)
+            try:
+                self.spinBox_DEW_DecimalPlaces.setValue(
+                    int(data.get("decimal_places") or 4)
+                )
+            except (TypeError, ValueError):
+                pass
+            self.checkBox_DEW_RealtimeWaveform.setChecked(
+                bool(data.get("realtime_waveform"))
+            )
+        # 若字段树已有数据，立刻重刷勾选
+        tree_data = self._current_tree_data()
+        if tree_data:
+            self._build_export_field_tree(tree_data, fields)
+        return True
+
+    def _current_tree_data(self) -> Optional[PowerGroupTree]:
+        """从当前树反推 category 结构（仅用于重刷勾选）。"""
+        tree = self.treeWidget_DEW_ExportFields
+        result: PowerGroupTree = {}
+        for i in range(tree.topLevelItemCount()):
+            cat_item = tree.topLevelItem(i)
+            cat_name = cat_item.text(0)
+            subs = result.setdefault(cat_name, {})
+            for j in range(cat_item.childCount()):
+                sub_item = cat_item.child(j)
+                sub_name = sub_item.text(0)
+                if sub_name == "其他":
+                    sub_name = "_default_"
+                names = []
+                for k in range(sub_item.childCount()):
+                    leaf = sub_item.child(k)
+                    field = leaf.data(0, self.FIELD_ROLE)
+                    if field:
+                        names.append(str(field))
+                if names:
+                    subs[sub_name] = names
+        return result or None
 
     def _emit_config_changed(self, *_args: Any) -> None:
         if not self._building_tree:
@@ -538,10 +854,16 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
                         | QtCore.Qt.ItemIsAutoTristate
                     )
                     for field in _normalise_fields(fields):
-                        leaf = QtWidgets.QTreeWidgetItem(sub_item, [field])
+                        display = (
+                            f"{field}（频率）"
+                            if _is_frequency_channel(field)
+                            else field
+                        )
+                        leaf = QtWidgets.QTreeWidgetItem(sub_item, [display])
                         leaf.setData(0, self.FIELD_ROLE, field)
                         leaf.setFlags(leaf.flags() | QtCore.Qt.ItemIsUserCheckable)
-                        checked = desired_set is None or field in desired_set
+                        # None/空：默认不勾选；有列表：只勾选列表内
+                        checked = bool(desired_set) and field in desired_set
                         leaf.setCheckState(
                             0, QtCore.Qt.Checked if checked else QtCore.Qt.Unchecked
                         )
@@ -684,6 +1006,7 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
             decimal_places=self.spinBox_DEW_DecimalPlaces.value(),
             realtime_waveform=self.checkBox_DEW_RealtimeWaveform.isChecked(),
             export_fields=self.get_checked_export_fields(),
+            save_dir=(self.lineEdit_DEW_SaveDir.text() or "").strip(),
         )
 
     # Common short aliases used by coordinator and persistence helpers.
@@ -699,6 +1022,15 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.comboBox_DEW_MaxRefreshRate.setCurrentText(rate)
         self.spinBox_DEW_DecimalPlaces.setValue(value.decimal_places)
         self.checkBox_DEW_RealtimeWaveform.setChecked(value.realtime_waveform)
+        if value.save_dir:
+            try:
+                from utils.wt_save_path import ensure_dewetron_save_dir
+
+                self.lineEdit_DEW_SaveDir.setText(
+                    ensure_dewetron_save_dir(value.save_dir)
+                )
+            except Exception:
+                self.lineEdit_DEW_SaveDir.setText(value.save_dir)
         self.set_checked_export_fields(value.export_fields)
 
     restore_config = set_config

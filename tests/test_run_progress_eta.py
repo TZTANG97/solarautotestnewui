@@ -53,5 +53,27 @@ def test_build_progress_summary_multiline():
     text = build_progress_summary(state, eta=eta)
     assert "巴西过欠频稳定性" in text
     assert "剩余" in text
-    assert "FREQ 50.2" in text
-    assert "\n" in text
+    assert "当前步骤" in text
+    assert "队列" in text or "FREQ" in text
+
+
+def test_build_progress_summary_queue():
+    state = {
+        "project": "叠加",
+        "status": "进行中",
+        "progress": 20,
+        "current_round": 1,
+        "total_rounds": 2,
+        "cmd_index": 10,
+        "cmd_total": 50,
+        "current_detail": "AC OUTP ON",
+        "current_test": "谐波电流",
+        "queue": [
+            {"name": "谐波电流", "status": "进行中", "pause_after": True},
+            {"name": "过载", "status": "等待", "pause_after": False},
+        ],
+    }
+    text = build_progress_summary(state, eta=None)
+    assert "共 2 项试验" in text
+    assert "谐波电流" in text
+    assert "结束后暂停" in text

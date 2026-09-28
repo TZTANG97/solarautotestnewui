@@ -95,7 +95,9 @@ def test_dew_widgets_and_default_brand_reported(tmp_path: Path, monkeypatch):
     out = snap.collect_instruments_snapshot(status_json_path=str(status), force=True)
     assert len(out) == 1
     assert out[0]["slot"] == "dew"
-    assert out[0]["brand"] == "dewetron"
+    assert out[0]["brand"] == "DEWETRON"
+    assert out[0]["serial"].startswith("SAT-DEW-")
+    assert "::" not in out[0]["serial"]
     assert out[0]["widgets"]["comboBox_DEW_MaxRefreshRate"] == "200"
     assert out[0]["widgets"]["dew_wiring_type"] == 0
 
@@ -151,3 +153,31 @@ def test_resource_without_ever_connected_skipped(tmp_path: Path, monkeypatch):
     )
     out = snap.collect_instruments_snapshot(status_json_path=str(status), force=True)
     assert out == []
+
+
+def test_usb_dc_itech_serial_from_visa(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(snap, "_cache", [])
+    monkeypatch.setattr(snap, "_cache_at", 0.0)
+    status = tmp_path / "status.json"
+    status.write_text(
+        json.dumps(
+            {
+                "devices": [
+                    {
+                        "name": "直流电源1",
+                        "connected": True,
+                        "resource": "USB0::0x0A69::0x084B::S50000002314::INSTR",
+                        "last_connected": "2026-09-28 09:00:00",
+                    }
+                ],
+                "project": {},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    out = snap.collect_instruments_snapshot(status_json_path=str(status), force=True)
+    assert len(out) == 1
+    assert out[0]["brand"] == "ITECH"
+    assert out[0]["serial"] == "S50000002314"
+    assert out[0]["slot"] == "dc1"

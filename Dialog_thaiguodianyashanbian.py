@@ -5,72 +5,10 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import re as _re
 from xml.etree import ElementTree as _ET
 
-
-def parse_power_group_tree(xml_string):
-    """从 DEWETRON XML 中解析电力组通道树。
-
-    Returns:
-        nested dict: {category: {sub_category: [channel_name, ...]}}
-        或 None 如果找不到 Power Groups
-    """
-    if not xml_string:
-        return None
-
-    start = xml_string.find('<ChannelGroup Type="Power Groups"')
-    if start < 0:
-        return None
-
-    # 计算嵌套深度，找到对应的结束标签
-    depth = 0
-    pos = start
-    end = start
-    while pos < len(xml_string):
-        next_open = xml_string.find('<ChannelGroup', pos)
-        next_close = xml_string.find('</ChannelGroup>', pos)
-        if next_close < 0:
-            break
-        if next_open >= 0 and next_open < next_close:
-            depth += 1
-            pos = next_open + 13
-        else:
-            depth -= 1
-            pos = next_close + 15
-            if depth <= 0:
-                end = pos
-                break
-
-    try:
-        root = _ET.fromstring(xml_string[start:end])
-    except _ET.ParseError:
-        return None
-
-    tree = {}
-    # 结构: ChannelGroup(Power Groups) → Channel(POWER/0) → ChannelGroup(类别) → ChannelGroup(子类别) → Channel
-    for power_ch in root.findall('Channel'):
-        for cat_group in power_ch.findall('ChannelGroup'):
-            cat_name = cat_group.get('Type', '')
-            if cat_name in ('Advanced',):
-                continue
-            tree[cat_name] = {}
-            for sub_group in cat_group.findall('ChannelGroup'):
-                sub_name = sub_group.get('Type', '')
-                if sub_name in ('Advanced',):
-                    continue
-                channels = []
-                for ch in sub_group.findall('Channel'):
-                    ch_name = ch.get('Name', '')
-                    if ch_name:
-                        channels.append(ch_name)
-                if channels:
-                    tree[cat_name][sub_name] = channels
-            # 处理直接挂在类别下的通道（如 F_fund）
-            for ch in cat_group.findall('Channel'):
-                ch_name = ch.get('Name', '')
-                if ch_name:
-                    if '_default_' not in tree[cat_name]:
-                        tree[cat_name]['_default_'] = []
-                    tree[cat_name]['_default_'].append(ch_name)
-    return tree
+from components.dewetron_autotest_panel import (
+    DEFAULT_RATE_OPTIONS,
+    parse_power_group_tree,  # noqa: F401 — SCPITestWave / 谐波 Dialog 从此处导入
+)
 
 
 class Ui_Dialog_thaiguodianyashanbian(object):
@@ -723,8 +661,13 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         self.comboBox_DEW_MaxRefreshRate = QtWidgets.QComboBox()
         self.comboBox_DEW_MaxRefreshRate.setObjectName("comboBox_DEW_MaxRefreshRate")
-        self.comboBox_DEW_MaxRefreshRate.addItems(["Default", "100", "50", "20", "10", "5", "2", "1"])
+        # 与共用 Dewetron 面板一致：含 200/500/1000ms（原先闪变页只有 100）
+        self.comboBox_DEW_MaxRefreshRate.addItems(list(DEFAULT_RATE_OPTIONS))
         self.comboBox_DEW_MaxRefreshRate.setCurrentText("Default")
+        self.comboBox_DEW_MaxRefreshRate.setEditable(True)
+        self.comboBox_DEW_MaxRefreshRate.setToolTip(
+            "最大刷新率（ms）。可选 100/200/500/1000；也可直接输入数值。"
+        )
         self.comboBox_DEW_MaxRefreshRate.setFixedWidth(200)
         formLayout.addRow("最大刷新率:", self.comboBox_DEW_MaxRefreshRate)
 

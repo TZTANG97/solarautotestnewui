@@ -80,7 +80,48 @@ def test_forced_shutdown_is_dc_then_bluesight_wait_then_ac():
     )
 
 
-def test_append_ui_forced_shutdown_step_forces_off_and_orders_dc_before_ac():
+def test_append_ui_forced_shutdown_step_forces_off_when_requested():
+    ui = SimpleNamespace(
+        checkBox_S1_DC1=_CheckBox(True),
+        checkBox_S1_DC2=_CheckBox(False),
+        checkBox_S1_DC3=_CheckBox(False),
+        checkBox_S1_DC4=_CheckBox(False),
+        checkBox_S_End_DC1=_CheckBox(True),
+        checkBox_S_End_DC2=_CheckBox(False),
+        checkBox_S_End_DC3=_CheckBox(False),
+        checkBox_S_End_DC4=_CheckBox(False),
+        comboBox_S_End_AC=_ComboBox("开启"),
+        comboBox_S_End_DC1=_ComboBox("开启"),
+        comboBox_S_End_DC2=_ComboBox("关闭"),
+        comboBox_S_End_DC3=_ComboBox("关闭"),
+        comboBox_S_End_DC4=_ComboBox("关闭"),
+    )
+    commands: list = []
+    steps: list = []
+    logs: list = []
+
+    channels = append_ui_forced_shutdown_step(
+        commands,
+        steps,
+        ui,
+        per_dc_factor={"0": "Bluesight"},
+        log=logs.append,
+        tag="10min过压保护",
+        respect_keep_on=False,
+    )
+
+    assert channels == [1]
+    assert ui.comboBox_S_End_AC.currentText() == "关闭"
+    assert ui.comboBox_S_End_DC1.currentText() == "关闭"
+    writes = [(r[0], r[2]) for r in commands if r[1] == "write"]
+    assert writes == [("DC1", "OUTP OFF"), ("AC", "OUTP OFF")]
+    assert any("强制改为关闭" in m for m in logs)
+    assert steps and steps[0] is not commands
+    assert len(steps[0]) == len(commands)
+
+
+def test_append_ui_keeps_output_when_combos_on():
+    """追加中间轮：关机步设「开启」则不写 OUTP OFF。"""
     ui = SimpleNamespace(
         checkBox_S1_DC1=_CheckBox(True),
         checkBox_S1_DC2=_CheckBox(False),
@@ -109,15 +150,37 @@ def test_append_ui_forced_shutdown_step_forces_off_and_orders_dc_before_ac():
         tag="10min过压保护",
     )
 
+    assert channels == []
+    assert commands == []
+    assert steps == []
+    assert ui.comboBox_S_End_AC.currentText() == "开启"
+    assert ui.comboBox_S_End_DC1.currentText() == "开启"
+    assert any("保持输出不关断" in m for m in logs)
+
+
+def test_append_ui_shuts_down_only_channels_set_to_off():
+    ui = SimpleNamespace(
+        checkBox_S1_DC1=_CheckBox(True),
+        checkBox_S1_DC2=_CheckBox(True),
+        checkBox_S1_DC3=_CheckBox(False),
+        checkBox_S1_DC4=_CheckBox(False),
+        checkBox_S_End_DC1=_CheckBox(True),
+        checkBox_S_End_DC2=_CheckBox(True),
+        checkBox_S_End_DC3=_CheckBox(False),
+        checkBox_S_End_DC4=_CheckBox(False),
+        comboBox_S_End_AC=_ComboBox("关闭"),
+        comboBox_S_End_DC1=_ComboBox("关闭"),
+        comboBox_S_End_DC2=_ComboBox("开启"),
+        comboBox_S_End_DC3=_ComboBox("关闭"),
+        comboBox_S_End_DC4=_ComboBox("关闭"),
+    )
+    commands: list = []
+    steps: list = []
+
+    channels = append_ui_forced_shutdown_step(commands, steps, ui)
     assert channels == [1]
-    assert ui.comboBox_S_End_AC.currentText() == "关闭"
-    assert ui.comboBox_S_End_DC1.currentText() == "关闭"
     writes = [(r[0], r[2]) for r in commands if r[1] == "write"]
     assert writes == [("DC1", "OUTP OFF"), ("AC", "OUTP OFF")]
-    assert writes[0][0].startswith("DC")
-    assert any("强制改为关闭" in m for m in logs)
-    assert steps and steps[0] is not commands
-    assert len(steps[0]) == len(commands)
 
 
 def test_bluesight_wait_has_hard_minimum_and_only_for_selected_channel():

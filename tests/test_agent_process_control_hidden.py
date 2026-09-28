@@ -26,9 +26,11 @@ def test_hidden_popen_kwargs_hide_console_on_windows():
     from agent import process_control as pc
 
     kwargs = pc._hidden_popen_kwargs()
-    assert kwargs["stdout"] is subprocess.DEVNULL
-    assert kwargs["stderr"] is subprocess.DEVNULL
     assert kwargs["stdin"] is subprocess.DEVNULL
+    # stdout 落到日志文件（或 DEVNULL 兜底），不再丢弃到空
+    assert kwargs["stdout"] is not None
+    if kwargs["stdout"] is not subprocess.DEVNULL:
+        assert kwargs["stderr"] is subprocess.STDOUT
     if os.name == "nt":
         assert kwargs.get("creationflags", 0) & getattr(subprocess, "CREATE_NO_WINDOW", 0)
         assert "startupinfo" in kwargs
@@ -46,6 +48,7 @@ def test_start_agent_uses_hidden_kwargs(tmp_path, monkeypatch):
     monkeypatch.setattr(pc, "is_running", lambda: False)
     monkeypatch.setattr(pc, "pid_file", lambda: tmp_path / "agent.pid")
     monkeypatch.setattr(pc, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(pc, "log_file", lambda: tmp_path / "agent.log")
 
     seen = {}
 
@@ -62,11 +65,64 @@ def test_start_agent_uses_hidden_kwargs(tmp_path, monkeypatch):
     assert ok, msg
     assert seen["cmd"][0] != "uv"
     assert "-m" in seen["cmd"] and "agent" in seen["cmd"]
-    assert seen["kwargs"]["stdout"] is subprocess.DEVNULL
+    assert seen["kwargs"]["stdout"] is not None
     if os.name == "nt":
         assert seen["kwargs"].get("creationflags", 0) & getattr(
             subprocess, "CREATE_NO_WINDOW", 0
         )
+
+
+def test_read_agent_comm_info_masks_token(tmp_path, monkeypatch):
+    from agent import process_control as pc
+
+    cfg = tmp_path / "solar_agent.json"
+    cfg.write_text(
+        '{"agent_token":"sat_abcdef1234567890","pythonid":"PY-9","iot_base":"http://x",'
+        '"machine_id":"mid-1","execution_mode":"handoff","agent_version":"0.1.0"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(pc, "config_file", lambda: cfg)
+    monkeypatch.setattr(pc, "is_running", lambda: False)
+    monkeypatch.setattr(pc, "log_file", lambda: tmp_path / "a.log")
+    monkeypatch.setattr(pc, "status_text", lambda: "未运行")
+
+    info = pc.read_agent_comm_info()
+    assert info["pythonid"] == "PY-9"
+    assert info["machine_id"] == "mid-1"
+    assert info["iot_base"] == "http://x"
+    assert "sat_abcd" in info["agent_token_masked"]
+    assert "7890" in info["agent_token_masked"]
+    assert "sat_abcdef1234567890" not in info["agent_token_masked"]
+
+
+def test_tail_agent_log_missing(tmp_path, monkeypatch):
+    from agent import process_control as pc
+
+    monkeypatch.setattr(pc, "log_file", lambda: tmp_path / "missing.log")
+    text = pc.tail_agent_log()
+    assert "尚无" in text or "日志" in text
+
+
+def test_stop_agent_cleans_orphans(tmp_path, monkeypatch):
+    from agent import process_control as pc
+
+    seen = []
+    pid_path = tmp_path / "agent.pid"
+    pid_path.write_text("7777\n", encoding="utf-8")
+
+    def fake_tree(pid, *, timeout_sec=5.0):
+        seen.append(pid)
+
+    monkeypatch.setattr(pc, "pid_file", lambda: pid_path)
+    monkeypatch.setattr(pc, "_pid_alive", lambda pid: pid in (7777, 8888))
+    monkeypatch.setattr(pc, "_terminate_process_tree", fake_tree)
+    monkeypatch.setattr(pc, "_iter_repo_agent_pids", lambda: [8888])
+
+    ok, msg = pc.stop_agent()
+    assert ok
+    assert 7777 in seen
+    assert 8888 in seen
+    assert "残留" in msg
 
 
 def test_stop_agent_for_app_exit_clears_pid_file(tmp_path, monkeypatch):

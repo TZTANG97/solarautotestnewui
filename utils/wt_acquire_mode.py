@@ -144,6 +144,16 @@ def resolve_csv_path(config: Optional[Mapping], file_index: int = 0) -> str:
     if not isinstance(config, Mapping):
         return ""
     folder = str(config.get("textEdit_SavePath") or "").strip()
+    try:
+        from utils.wt_save_path import ensure_wt_save_dir
+
+        folder = ensure_wt_save_dir(folder)
+    except Exception:
+        if folder:
+            try:
+                os.makedirs(folder, exist_ok=True)
+            except Exception:
+                pass
     names_raw = str(config.get("textEdit_FileNameList") or "").strip()
     names = [n.strip() for n in names_raw.replace("，", ",").split(",") if n.strip()]
     if not names:
