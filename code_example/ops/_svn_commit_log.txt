@@ -1,0 +1,29 @@
+sheets=['svn', '途哲svn']
+==svn
+svn!R4C5=https://10.144.144.3/svn/taicangtuzhe
+svn!R12C5=https://10.144.144.3/svn/factory
+svn!R23C2=备注
+svn!R23C3=苏州途哲 SVN：https://10.144.144.2/svn/    太仓实验室 SVN：https://10.144.144.3/svn/
+svn!R24C3=说明：途哲svn 工作表对应苏州途哲（10.144.144.2）；svn 工作表为太仓实验室（10.144.144.3）。主机名 DESKTOP-JPK251E 与 10.144.144.2 为同一途哲入口时可互换。
+svn R2: ['SVN权限', None, None, None]
+svn R3: ['用户名', '群组', '地址', '权限']
+svn R4: ['douyujian', 'chuneng', 'https://10.144.144.3/svn/taicangtuzhe', '读写']
+svn R5: ['luyujie', None, None, None]
+svn R6: ['niujiale', None, None, None]
+svn R7: ['pengguangming', None, None, None]
+==途哲svn
+途哲svn!R2C3=途哲SVN（苏州）
+途哲svn!R4C5=https://10.144.144.2/svn/GFTestData/光伏实验室文件
+途哲svn!R13C5=https://10.144.144.2/svn/GFTestData/化分实验室文件
+途哲svn!R17C5=https://10.144.144.2/svn/GFTestData/软件部门文件
+途哲svn!R19C5=https://10.144.144.2/svn/GFTestData/光伏实验室文件/10.光伏自动化项目
+途哲svn!R20C5=https://10.144.144.2/svn/GFTestData/光伏实验室文件/10.光伏自动化项目
+途哲svn!R24C2=备注
+途哲svn!R24C3=苏州途哲 SVN：https://10.144.144.2/svn/    太仓实验室 SVN：https://10.144.144.3/svn/
+途哲svn!R25C3=说明：途哲svn 工作表对应苏州途哲（10.144.144.2）；svn 工作表为太仓实验室（10.144.144.3）。主机名 DESKTOP-JPK251E 与 10.144.144.2 为同一途哲入口时可互换。
+途哲svn R2: ['途哲SVN（苏州）', None, None, None]
+途哲svn R3: ['用户名', '群组', '地址', '权限']
+途哲svn R4: ['lukai', 'guangfu', 'https://10.144.144.2/svn/GFTestData/光伏实验室文件', '读写']
+途哲svn R5: ['zhouchangzhou', None, None, None]
+途哲svn R6: ['zhufan', None, None, None]
+途哲svn R7: ['zhoufeng', None, None, None]

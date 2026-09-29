@@ -67,10 +67,24 @@ Agent（独立进程）── HTTPS 令牌/心跳/报告；MQTT 进度结案
 
 ---
 
+## 目录怎么分（别再全堆根目录）
+
+完整地图见 [`docs/project_layout.md`](docs/project_layout.md)。摘要：
+
+| 位置 | 职责 |
+|------|------|
+| `devices/` `utils/` `components/` `agent/` | 设备 / 纯逻辑 / 控件 / IOT Agent |
+| `Dialog_*.py` | 试验对话框（暂留根目录；改到再迁 `dialogs/`） |
+| `tests/` | 正式单测 |
+| `code_example/patches\|audits\|smoke\|ops/` | 一次性补丁 / 审计 / 冒烟 / 运维脚本 |
+| `docs/` | 说明文档 |
+
+**禁止**：再往仓库根加 `_tmp*`、一次性 `test_*.py`；正式逻辑禁止继续堆进巨型 `SCPITestWave.py`。
+
 ## 开发与迁移约定
 
 - 启动：`uv run python SCPITestWave.py`（或上述 bat）。  
-- 增量迁移（Boy Scout）：动到的 `xxxSend`/`xxxAppend` → `sends/`；纯函数 → `utils/`；共用控件 → `components/`；一次性脚本 → `code_example/`。说明见 `docs/incremental_migration.md`（若有）。  
+- 增量迁移（Boy Scout）：动到的 `xxxSend`/`xxxAppend` → `sends/`；纯函数 → `utils/`；共用控件 → `components/`；一次性脚本 → `code_example/` 对应子目录。见 [`docs/incremental_migration.md`](docs/incremental_migration.md)、[`docs/project_layout.md`](docs/project_layout.md)。  
 - 单测示例：`uv run python -m pytest tests/test_iot_output_limits.py tests/test_run_progress_eta.py -q`（需 `PYTHONPATH` 指向仓库根）。
 
 ---

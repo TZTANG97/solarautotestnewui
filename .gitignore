@@ -38,6 +38,8 @@ tools/uv.exe
 
 # 运行时状态（首页/Agent 读写，勿提交本机状态）
 status.json
+.solar_agent.log
+log.txt
 
 # Solar Agent 本地配置与运行产物（含令牌，勿提交）
 config/solar_agent.json
@@ -47,3 +49,10 @@ config/iot_bootstrap.json
 .solar_agent_mutex_e2e
 .solar_agent.pid
 iot_job_inbox/
+
+# 台架临时 dump / 审计产物（正式样例请放 docs 并点名提交）
+docs/*_*.csv
+code_example/audits/*_dump.txt
+code_example/audits/*_audit.txt
+code_example/**/_tmp*/
+code_example/media/_dew_chain_tmp/
