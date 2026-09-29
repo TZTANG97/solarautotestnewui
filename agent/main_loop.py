@@ -250,10 +250,10 @@ def run_once_job(
     holder = mutex.is_held_by_other("agent")
     if holder:
         logger.warning("本机锁被 %s 占用，拒绝任务 %s", holder, job_id)
-        client.reject(job_id, reason=f"busy_local:{holder}")
+        client.reject(job_id, reason="本机试验进行中，已拒收云端任务")
         return
     if not mutex.acquire("agent", meta=f"job:{job_id}"):
-        client.reject(job_id, reason="busy_local")
+        client.reject(job_id, reason="本机试验进行中，已拒收云端任务")
         return
     released_early = {"ok": False}
     _current_job_id = job_id

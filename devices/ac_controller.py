@@ -149,6 +149,12 @@ class ACController:
         """连接后根据 *IDN? 判断是否为 Chroma 61800 系列。"""
         return _is_chroma_61800_idn(self._idn)
 
+    def query_output_limits(self, brand=None):
+        """读回保护类输出上限（OVP/OCP/OPP）；失败返回 {_unread, detail}。"""
+        from utils.iot_brand_limit_read import read_ac_output_limits
+
+        return read_ac_output_limits(self, brand=brand)
+
     def show_setting(self, dialog_windowACSetting):
         """设置已嵌入设备页面，无需弹窗。"""
         pass

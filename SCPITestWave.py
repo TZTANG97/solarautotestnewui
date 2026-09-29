@@ -1180,6 +1180,8 @@ _run_progress_state = {
     "queue": [],
     "current_test": "",
     "operator_pause": False,
+    "pause_accumulated_s": 0.0,  # 已结束的人工暂停累计秒
+    "pause_started_at": 0.0,  # 当前暂停起点；0=未在暂停
 }
 
 
@@ -1297,6 +1299,19 @@ def _persist_run_progress(state):
         data["project"]["elapsed_text"] = state.get("elapsed_text")
     if state.get("planned_text"):
         data["project"]["planned_text"] = state.get("planned_text")
+    # 首页「预估结束」：优先用快照已算好的时钟；否则由 remain 推导
+    if "estimated_end_time" in state:
+        data["project"]["estimated_end_time"] = str(state.get("estimated_end_time") or "")
+    else:
+        try:
+            from utils.run_progress_eta import format_estimated_end_time
+
+            data["project"]["estimated_end_time"] = format_estimated_end_time(
+                float(state.get("remain_s") or 0.0),
+                status=str(state.get("status") or ""),
+            )
+        except Exception:
+            data["project"]["estimated_end_time"] = ""
     if state.get("current_detail") is not None:
         data["project"]["current_detail"] = str(state.get("current_detail") or "")[:500]
     if state.get("current_test") is not None:
@@ -1314,6 +1329,7 @@ def _persist_run_progress(state):
         if isinstance(r, dict)
     ]
     data["project"]["operator_pause"] = bool(state.get("operator_pause"))
+    data["project"]["pause_accumulated_s"] = float(state.get("pause_accumulated_s") or 0.0)
     # 关联 IOT 任务 id（本地登记 / handoff）
     try:
         from utils.iot_run_snapshot import _resolve_job_ids
@@ -1479,26 +1495,59 @@ def _apply_run_progress_ui(state):
         )
 
 
+def _sync_operator_pause_clock(state, *, now_ts, next_pause=None):
+    """维护人工暂停累计秒；next_pause 为即将写入的 operator_pause（None=不改）。"""
+    was = bool(state.get("operator_pause"))
+    will = was if next_pause is None else bool(next_pause)
+    pause_started = float(state.get("pause_started_at") or 0.0)
+    acc = float(state.get("pause_accumulated_s") or 0.0)
+    if will and not was:
+        state["pause_started_at"] = now_ts
+    elif was and not will:
+        if pause_started > 0:
+            acc += max(0.0, now_ts - pause_started)
+        state["pause_accumulated_s"] = acc
+        state["pause_started_at"] = 0.0
+    elif not will:
+        state["pause_started_at"] = 0.0
+    state["pause_accumulated_s"] = float(state.get("pause_accumulated_s") or 0.0)
+    return will
+
+
+def _active_pause_seconds(state, *, now_ts):
+    """已累计暂停 + 当前仍在暂停的秒数。"""
+    acc = float(state.get("pause_accumulated_s") or 0.0)
+    started = float(state.get("pause_started_at") or 0.0)
+    if bool(state.get("operator_pause")) and started > 0:
+        acc += max(0.0, now_ts - started)
+    return max(0.0, acc)
+
+
 def _emit_run_progress(persist=True, **kwargs):
     """更新进度状态并投递到 UI（任意线程可调用）。"""
     state = _run_progress_state
+    now_ts = time.time()
+    if "operator_pause" in kwargs and kwargs.get("operator_pause") is not None:
+        _sync_operator_pause_clock(state, now_ts=now_ts, next_pause=kwargs.get("operator_pause"))
     for key, value in kwargs.items():
         if value is not None:
             state[key] = value
     if "progress" not in kwargs or kwargs.get("progress") is None:
         state["progress"] = _compute_run_progress_percent(state)
 
-    # 时长估算
-    now_ts = time.time()
+    # 时长估算（墙钟扣除人工暂停）
     started = float(state.get("started_at") or 0.0)
     if state.get("status") == "进行中" and started <= 0:
         state["started_at"] = now_ts
         started = now_ts
-    elapsed = (now_ts - started) if started > 0 else 0.0
+    pause_s = _active_pause_seconds(state, now_ts=now_ts)
+    elapsed = max(0.0, (now_ts - started) - pause_s) if started > 0 else 0.0
     if state.get("status") in ("未开始", "待开始"):
         elapsed = 0.0
+    cmds = globals().get("strArrayTest") or []
+    freeze = bool(state.get("operator_pause")) or state.get("status") == "暂停"
     try:
-        from utils.run_progress_eta import compute_eta
+        from utils.run_progress_eta import compute_eta, format_estimated_end_time
 
         eta = compute_eta(
             elapsed_s=elapsed,
@@ -1506,6 +1555,12 @@ def _emit_run_progress(persist=True, **kwargs):
             planned_total_s=float(state.get("planned_seconds") or 0.0),
             cmd_index=int(state.get("cmd_index") or 0),
             cmd_total=int(state.get("cmd_total") or 0),
+            commands=cmds,
+            freeze_remain=freeze,
+        )
+        est_end = format_estimated_end_time(
+            float(eta.get("remain_s") or 0.0),
+            status=str(state.get("status") or ""),
         )
     except Exception:
         eta = {
@@ -1518,6 +1573,7 @@ def _emit_run_progress(persist=True, **kwargs):
             "remain_text": "约 —",
             "eta_total_text": "约 —",
         }
+        est_end = ""
 
     snapshot = {
         "project": state.get("project", ""),
@@ -1534,6 +1590,9 @@ def _emit_run_progress(persist=True, **kwargs):
         "queue": [dict(q) for q in (state.get("queue") or [])],
         "current_test": str(state.get("current_test") or ""),
         "operator_pause": bool(state.get("operator_pause")),
+        "pause_accumulated_s": float(state.get("pause_accumulated_s") or 0.0),
+        "pause_started_at": float(state.get("pause_started_at") or 0.0),
+        "estimated_end_time": est_end,
         **eta,
     }
     try:
@@ -1673,6 +1732,8 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
         queue=queue,
         current_test=(queue[0]["name"] if queue else project),
         operator_pause=False,
+        pause_accumulated_s=0.0,
+        pause_started_at=0.0,
         persist=True,
     )
 
@@ -23635,6 +23696,57 @@ def RunProjectPush():
             box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
             box.exec_()
             return
+
+        # 云端 handoff 占用本台架时拦截本机开测（双开测并存互斥）
+        try:
+            from utils.iot_local_run import handoff_has_awaiting_job
+
+            if handoff_has_awaiting_job():
+                msg = "云端任务占用本台架，请先结束/中止云端任务后再本机开测"
+                ui.textEdit_ReturnMessage.append("[开始试验] " + msg)
+                logger.info(msg)
+                box = QMessageBox(None)
+                box.setIcon(QMessageBox.Warning)
+                box.setWindowTitle("台架占用")
+                box.setText(msg)
+                box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
+                box.exec_()
+                return
+        except Exception as _iot_mutex_exc:
+            print(f"[RunProject] IOT 互斥检查跳过: {_iot_mutex_exc}", flush=True)
+
+        # 输出上限门禁（与 IOT handoff 共用；期望全 null 则跳过）
+        try:
+            from utils.iot_output_limits import (
+                evaluate_controllers_output_limits_gate,
+                map_per_dc_factor_to_brands,
+            )
+
+            _ok_lim, _reason_lim = evaluate_controllers_output_limits_gate(
+                ac_controller=globals().get("ac_controller"),
+                dc_controllers={
+                    "dc1": globals().get("dc1_controller"),
+                    "dc2": globals().get("dc2_controller"),
+                    "dc3": globals().get("dc3_controller"),
+                    "dc4": globals().get("dc4_controller"),
+                },
+                ac_brand=globals().get("_ac_current_brand"),
+                dc_brands=map_per_dc_factor_to_brands(globals().get("per_dc_factor")),
+            )
+            if not _ok_lim:
+                msg = _reason_lim or "输出上限检查未通过"
+                ui.textEdit_ReturnMessage.append("[开始试验] " + msg)
+                logger.info("输出上限门禁拦截: %s", msg)
+                box = QMessageBox(None)
+                box.setIcon(QMessageBox.Warning)
+                box.setWindowTitle("输出上限")
+                box.setText(msg)
+                box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
+                box.exec_()
+                return
+        except Exception as _lim_exc:
+            print(f"[RunProject] 输出上限门禁跳过: {_lim_exc}", flush=True)
+
         ui.textEdit_ReturnMessage.append(f"[开始试验] 设备校验通过，开始执行「{currentSecond}」...")
         # 第一次（及之后）成功启动：把本试验 UI 参数落到本地，与设备页隔离
         try:
@@ -33108,10 +33220,8 @@ if __name__ == "__main__":
                         required_dc_slots_from_ui,
                     )
                     from utils.iot_output_limits import (
-                        check_output_limits_gate,
-                        default_limits_path,
-                        load_expected_limits,
-                        read_limits_from_controllers,
+                        evaluate_controllers_output_limits_gate,
+                        map_per_dc_factor_to_brands,
                     )
 
                     slots = required_dc_slots_from_ui(ui_obj)
@@ -33131,24 +33241,16 @@ if __name__ == "__main__":
                     if not ok:
                         return ok, format_ready_fail_reason(reasons)
 
-                    # 强制读上限门禁：配置缺失或期望全 null 则跳过，不打扰未配台上架
-                    limits_path = default_limits_path()
-                    if limits_path.is_file():
-                        try:
-                            expected_limits = load_expected_limits(limits_path)
-                        except Exception as lim_exc:
-                            return False, "输出上限配置读取失败：%s" % lim_exc
-                        if bool(expected_limits.get("enforce", True)):
-                            actual_limits = read_limits_from_controllers(
-                                ac_controller=globals().get("ac_controller"),
-                                dc_controllers=dc_controllers,
-                            )
-                            ok_lim, reason_lim = check_output_limits_gate(
-                                expected=expected_limits,
-                                actual=actual_limits,
-                            )
-                            if not ok_lim:
-                                return False, reason_lim
+                    ok_lim, reason_lim = evaluate_controllers_output_limits_gate(
+                        ac_controller=globals().get("ac_controller"),
+                        dc_controllers=dc_controllers,
+                        ac_brand=globals().get("_ac_current_brand"),
+                        dc_brands=map_per_dc_factor_to_brands(
+                            globals().get("per_dc_factor")
+                        ),
+                    )
+                    if not ok_lim:
+                        return False, reason_lim
                     return True, ""
 
                 def _iot_remote_stop_test():

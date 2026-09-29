@@ -29,6 +29,12 @@ class DCController:
         """设置已嵌入设备页面，无需弹窗。"""
         pass
 
+    def query_output_limits(self, brand=None):
+        """读回保护类输出上限（OVP/OCP/OPP）；失败返回 {_unread, detail}。"""
+        from utils.iot_brand_limit_read import read_dc_output_limits
+
+        return read_dc_output_limits(self, brand=brand)
+
     def _write_modbus_output_register(self, label, logger, is_on):
         """蓝点等 Modbus TCP：保持寄存器 0x0BB8 控制输出（与 BluesightTranslator 一致）。"""
         if self.client is None:

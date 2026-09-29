@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
+
 from utils.run_progress_eta import (
     build_progress_summary,
     compute_eta,
     estimate_planned_seconds,
     format_duration,
+    format_estimated_end_time,
 )
 
 
@@ -23,17 +26,81 @@ def test_estimate_planned_from_wait_cols():
     assert secs >= 1.0 + 2.0 + 75.0
 
 
-def test_compute_eta_blends_plan_and_progress():
+def test_estimate_planned_start_index_skips_done_rows():
+    cmds = [
+        ["AC", "write", "A", "", "", "", "", "", 10, ""],  # 1s
+        ["AC", "write", "B", "", "", "", "", "", "", 100],  # 10s
+        ["AC", "write", "C", "", "", "", "", "", "", 200],  # 20s
+    ]
+    total = estimate_planned_seconds(cmds)
+    remain = estimate_planned_seconds(cmds, start_index=1)
+    # 后半（10+20）应远大于前半（1），且 remain ≈ total - first_row
+    first = estimate_planned_seconds(cmds[:1])
+    assert remain + first == total or abs((remain + first) - total) < 0.01
+    assert remain > first * 5
+
+
+def test_estimate_planned_includes_dewetron_io_overhead():
+    cmds = [["DEWETRON", "write", "ACQUISITION:START", "", "", "", "", "", "", ""]]
+    assert estimate_planned_seconds(cmds) >= 2.0
+
+
+def test_compute_eta_uses_remaining_command_waits_not_linear():
+    # 前 50 条几乎无等待，后 50 条很长 → 中点剩余应接近后半，而不是总计划一半
+    cmds = []
+    for _ in range(50):
+        cmds.append(["AC", "write", "FAST", "", "", "", "", "", "", 1])  # 0.1s
+    for _ in range(50):
+        cmds.append(["AC", "write", "SLOW", "", "", "", "", "", "", 100])  # 10s
+    planned = estimate_planned_seconds(cmds)
     eta = compute_eta(
-        elapsed_s=60,
+        elapsed_s=10,
         progress_pct=50,
-        planned_total_s=200,
+        planned_total_s=planned,
         cmd_index=50,
         cmd_total=100,
+        commands=cmds,
     )
-    assert eta["remain_s"] > 0
-    assert "remain_text" in eta
-    assert eta["elapsed_s"] == 60
+    remain_tail = estimate_planned_seconds(cmds, start_index=50)
+    # 线性一半会远小于后半等待和
+    linear_half = planned * 0.5
+    assert remain_tail > linear_half
+    assert abs(eta["remain_s"] - remain_tail) / remain_tail < 0.05
+
+
+def test_compute_eta_freeze_remain_skips_progress_blend():
+    cmds = [["AC", "write", "X", "", "", "", "", "", "", 100]] * 10
+    planned = estimate_planned_seconds(cmds)
+    eta_run = compute_eta(
+        elapsed_s=1000,
+        progress_pct=50,
+        planned_total_s=planned,
+        cmd_index=5,
+        cmd_total=10,
+        commands=cmds,
+        freeze_remain=False,
+    )
+    eta_pause = compute_eta(
+        elapsed_s=1000,
+        progress_pct=50,
+        planned_total_s=planned,
+        cmd_index=5,
+        cmd_total=10,
+        commands=cmds,
+        freeze_remain=True,
+    )
+    plan_remain = estimate_planned_seconds(cmds, start_index=5)
+    assert abs(eta_pause["remain_s"] - plan_remain) < 0.01
+    # 暂停冻结后不应被超大 elapsed/进度外推拉飞
+    assert eta_pause["remain_s"] <= eta_run["remain_s"] + 1.0
+
+
+def test_format_estimated_end_time():
+    now = datetime(2026, 9, 29, 10, 0, 0)
+    text = format_estimated_end_time(90, now=now, status="进行中")
+    assert text == "2026-09-29 10:01:30"
+    assert format_estimated_end_time(90, now=now, status="已结束") == ""
+    assert format_estimated_end_time(0, now=now, status="进行中") == ""
 
 
 def test_build_progress_summary_multiline():

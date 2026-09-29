@@ -1,5 +1,5 @@
 {
-  "_note": "台架期望输出上限；连接后读回对比，超限禁止开跑。数值填仪器面板应设的上限；null 表示不检查该项。enforce=false 时仅记录告警仍允许开跑。各品牌读回接口后续按厂家补齐，未实现时该槽位标记未读回。",
+  "_note": "台架期望保护上限（OVP/OCP/OPP，与仪器面板保护档对齐）。连接后软件读回对比；超限或未能读回且 enforce=true 时禁止开跑（本机开始与云端 handoff 共用门禁）。数值填仪器面板应设的保护上限；null 表示不检查该项。enforce=false 时仅记录告警仍允许开跑。Chroma 走 SCPI 保护查询；爱科/蓝点须在 scpi_to_modbustcp 填入 REG_PROT_* 后才可读回，未确认前标记未读回。",
   "ac": {"volt_max": null, "curr_max": null, "pow_max": null},
   "dc1": {"volt_max": null, "curr_max": null, "pow_max": null},
   "dc2": {"volt_max": null, "curr_max": null, "pow_max": null},

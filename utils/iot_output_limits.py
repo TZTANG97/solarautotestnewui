@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""IOT 台架输出上限读回与开跑门禁（骨架；品牌读回待补）。"""
+"""IOT 台架输出上限读回与开跑门禁（保护 OVP/OCP/OPP；品牌读回见 iot_brand_limit_read）。"""
 from __future__ import annotations
 
 import json
@@ -76,12 +76,12 @@ def has_any_expected_limits(expected: Optional[dict]) -> bool:
     return False
 
 
-def _try_call(obj: Any, name: str) -> Any:
+def _try_call(obj: Any, name: str, *args, **kwargs) -> Any:
     if obj is None or not hasattr(obj, name):
         return None
     attr = getattr(obj, name)
     try:
-        return attr() if callable(attr) else attr
+        return attr(*args, **kwargs) if callable(attr) else attr
     except Exception:
         return None
 
@@ -89,12 +89,16 @@ def _try_call(obj: Any, name: str) -> Any:
 def _normalize_limits_dict(raw: Any) -> Optional[Dict[str, Any]]:
     if not isinstance(raw, dict):
         return None
+    if raw.get("_unread"):
+        return {
+            "_unread": True,
+            "detail": str(raw.get("detail") or "未实现读回"),
+        }
     out: Dict[str, Any] = {}
     for key in _LIMIT_KEYS:
         if key in raw:
             out[key] = raw.get(key)
         else:
-            # 兼容常见别名
             aliases = {
                 "volt_max": ("voltage_max", "v_max", "volt"),
                 "curr_max": ("current_max", "i_max", "curr", "amp_max"),
@@ -104,17 +108,24 @@ def _normalize_limits_dict(raw: Any) -> Optional[Dict[str, Any]]:
                 if alt in raw:
                     out[key] = raw.get(alt)
                     break
-    if not out:
+    for meta in ("_source", "_detail", "detail"):
+        if meta in raw:
+            out[meta] = raw.get(meta)
+    if not any(k in out for k in _LIMIT_KEYS) and not out.get("_unread"):
         return None
     return out
 
 
-def _read_one_controller(ctrl: Any) -> Dict[str, Any]:
+def _read_one_controller(ctrl: Any, brand: Any = None) -> Dict[str, Any]:
     if ctrl is None:
-        return {"_unread": True, "detail": "未实现读回"}
+        return {"_unread": True, "detail": "未连接"}
 
     for method_name in ("query_output_limits", "get_output_limits", "read_output_limits"):
-        raw = _try_call(ctrl, method_name)
+        raw = None
+        if brand is not None:
+            raw = _try_call(ctrl, method_name, brand)
+        if raw is None:
+            raw = _try_call(ctrl, method_name)
         normalized = _normalize_limits_dict(raw)
         if normalized is not None:
             return normalized
@@ -124,7 +135,6 @@ def _read_one_controller(ctrl: Any) -> Dict[str, Any]:
     if normalized is not None:
         return normalized
 
-    # 单字段属性 / 无参方法（不发明 SCPI 字符串）
     collected: Dict[str, Any] = {}
     for key in _LIMIT_KEYS:
         val = None
@@ -144,15 +154,26 @@ def _read_one_controller(ctrl: Any) -> Dict[str, Any]:
     return {"_unread": True, "detail": "未实现读回"}
 
 
-def read_limits_from_controllers(ac_controller=None, dc_controllers=None) -> dict:
-    """尽最大努力从控制器读回上限；不可用则标记 _unread。"""
+def read_limits_from_controllers(
+    ac_controller=None,
+    dc_controllers=None,
+    *,
+    ac_brand=None,
+    dc_brands=None,
+) -> dict:
+    """尽最大努力从控制器读回上限；不可用则标记 _unread。
+
+    ac_brand / dc_brands（如 {"dc1": "bluesight"}）用于品牌分发。
+    """
     dc_map = dc_controllers or {}
+    brands = dc_brands if isinstance(dc_brands, dict) else {}
     result: Dict[str, Any] = {
-        "ac": _read_one_controller(ac_controller),
+        "ac": _read_one_controller(ac_controller, ac_brand),
     }
     for slot in ("dc1", "dc2", "dc3", "dc4"):
         ctrl = dc_map.get(slot) or dc_map.get(slot.upper())
-        result[slot] = _read_one_controller(ctrl)
+        brand = brands.get(slot) or brands.get(slot.upper()) or brands.get(slot.lower())
+        result[slot] = _read_one_controller(ctrl, brand)
     return result
 
 
@@ -252,3 +273,65 @@ def check_output_limits_gate(
     if ok:
         return True, ""
     return False, format_limit_fail_reason(reasons)
+
+
+def evaluate_controllers_output_limits_gate(
+    *,
+    ac_controller=None,
+    dc_controllers=None,
+    ac_brand=None,
+    dc_brands=None,
+    path=None,
+    expected=None,
+) -> Tuple[bool, str]:
+    """从活控制器读回保护上限并做门禁（本机开测与 handoff 共用）。
+
+    配置缺失或期望全 null → 放行；enforce=true 时未读回/超限禁止开跑。
+    enforce=false 时仍可读回，告警文案放在第二返回值但不拦截。
+    """
+    limits_path = Path(path) if path is not None else default_limits_path()
+    exp = expected
+    if exp is None:
+        if not limits_path.is_file():
+            return True, ""
+        try:
+            exp = load_expected_limits(limits_path)
+        except Exception as exc:
+            return False, "输出上限配置读取失败：%s" % exc
+
+    if not isinstance(exp, dict):
+        return True, ""
+
+    if not has_any_expected_limits(exp):
+        return True, ""
+
+    actual = read_limits_from_controllers(
+        ac_controller=ac_controller,
+        dc_controllers=dc_controllers,
+        ac_brand=ac_brand,
+        dc_brands=dc_brands,
+    )
+    return check_output_limits_gate(expected=exp, actual=actual)
+
+
+def map_per_dc_factor_to_brands(per_dc_factor=None) -> Dict[str, str]:
+    """将 per_dc_factor（键多为 \"0\"..\"3\" 或 dc1）转为 {\"dc1\": \"Chroma\", ...}。"""
+    out: Dict[str, str] = {}
+    if not isinstance(per_dc_factor, dict):
+        return out
+    for k, v in per_dc_factor.items():
+        if v is None or str(v).strip() == "":
+            continue
+        key = str(k or "").strip().lower()
+        slot = ""
+        if key.startswith("dc") and len(key) >= 3 and key[2:].isdigit():
+            slot = "dc%s" % key[2:]
+        elif key.isdigit():
+            idx = int(key)
+            if 0 <= idx <= 3:
+                slot = "dc%d" % (idx + 1)
+            elif 1 <= idx <= 4:
+                slot = "dc%d" % idx
+        if slot:
+            out[slot] = str(v).strip()
+    return out

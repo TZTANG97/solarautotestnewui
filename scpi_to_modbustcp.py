@@ -42,6 +42,13 @@ class ItechTranslator:
     REG_VOLT_C = 0x0C04       # C相电压
     REG_FREQ = 0x0C0F         # 频率
 
+    # 保护上限读回（OVP/OCP/OPP）：台架按厂家手册确认前保持 None，禁止瞎编地址。
+    # 确认后填入保持寄存器地址；读值 × PROT_SCALE → 工程单位（V/A/W 或 kW，与 iot_output_limits 一致）。
+    REG_PROT_VOLT = None
+    REG_PROT_CURR = None
+    REG_PROT_POW = None
+    PROT_SCALE = 0.01
+
     # 控制命令值
     CMD_OFF = 0x0001          # 关机
     CMD_ON = 0x0002           # 开机
@@ -422,6 +429,12 @@ class BluesightTranslator:
     REG_IDN_MODEL_ALT = 0x104C
     REG_FW_STRING_BLOCK = 0x0A15
     REG_FW_STRING_COUNT = 0x4B  # 75
+
+    # 保护上限读回（OVP/OCP/OPP）：台架按厂家手册确认前保持 None。
+    REG_PROT_VOLT = None
+    REG_PROT_CURR = None
+    REG_PROT_POW = None
+    PROT_SCALE = 0.01
 
     def __init__(self, client: Any, *, device_id: int = 1):
         self.client = client

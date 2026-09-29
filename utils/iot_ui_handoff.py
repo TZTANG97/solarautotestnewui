@@ -1300,6 +1300,27 @@ class IotUiHandoffService(QObject):
         test_type = str(job.get("testType") or "").strip().lower()
         self._log(f"处理任务 id={job_id} type={test_type}")
 
+        # 本机已在跑试验时拒收云端任务（双开测并存互斥）
+        local_status = self._read_run_status()
+        if local_status in ("进行中", "暂停", "人工等待"):
+            reason = "本机试验进行中，已拒收云端任务"
+            self._log(reason + f"（status={local_status}）")
+            self._write_result_all(
+                pending_path,
+                job_id,
+                {
+                    "status": "failed",
+                    "fail_reason": reason,
+                    "result_summary": {
+                        "handoff": True,
+                        "rejected": True,
+                        "local_status": local_status,
+                    },
+                },
+            )
+            self._move_pending_done(pending_path)
+            return
+
         if not ui_try_acquire(meta=f"handoff:{job_id}", repo_root=self.repo_root):
             self._log("无法占本机 UI 锁（可能 Agent 仍占用），本轮跳过")
             return

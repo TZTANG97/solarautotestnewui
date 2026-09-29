@@ -100,19 +100,36 @@ def build_run_snapshot_from_status(status_json_path: Optional[str] = None) -> Di
 
                     now_ts = time.time()
                     started = float(mem.get("started_at") or 0.0)
-                    elapsed = (now_ts - started) if started > 0 else 0.0
+                    pause_acc = float(mem.get("pause_accumulated_s") or 0.0)
+                    pause_started = float(mem.get("pause_started_at") or 0.0)
+                    if bool(mem.get("operator_pause")) and pause_started > 0:
+                        pause_acc += max(0.0, now_ts - pause_started)
+                    elapsed = max(0.0, (now_ts - started) - pause_acc) if started > 0 else 0.0
                     if mem.get("status") in ("未开始", "待开始"):
                         elapsed = 0.0
                     pct = int(mem.get("progress") or project.get("progress") or 0)
+                    cmds = getattr(sw, "strArrayTest", None) or []
+                    freeze = bool(mem.get("operator_pause")) or str(mem.get("status") or "") == "暂停"
                     eta = compute_eta(
                         elapsed_s=elapsed,
                         progress_pct=pct,
                         planned_total_s=float(mem.get("planned_seconds") or 0.0),
                         cmd_index=int(mem.get("cmd_index") or 0),
                         cmd_total=int(mem.get("cmd_total") or 0),
+                        commands=cmds,
+                        freeze_remain=freeze,
                     )
                     mem.update(eta)
                     mem["progress"] = pct
+                    try:
+                        from utils.run_progress_eta import format_estimated_end_time
+
+                        mem["estimated_end_time"] = format_estimated_end_time(
+                            float(eta.get("remain_s") or 0.0),
+                            status=str(mem.get("status") or ""),
+                        )
+                    except Exception:
+                        pass
                 except Exception:
                     pass
     except Exception:
