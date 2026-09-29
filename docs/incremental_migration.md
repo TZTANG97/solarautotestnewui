@@ -26,6 +26,6 @@
 | 录波/文件名/命令构造纯函数 | `utils/` |
 | WT/录波 UI 行 | `components/` |
 | 设备读写 | `devices/` |
-| Dialog UI | 暂留根目录；整文件大改时可迁 `dialogs/` 并保留兼容导入 |
+| Dialog UI | `dialogs/`（根目录保留同名兼容导入） |
 | 正式测试 | `tests/` |
 | 一次性补丁/台架冒烟 | `code_example/` 分筐子目录 |

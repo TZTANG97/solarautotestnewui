@@ -10,7 +10,8 @@
 | 目录 / 入口 | 放什么 | 不要放什么 |
 |-------------|--------|------------|
 | `SCPITestWave.py` + `start_SolarAutoTest.bat` | 主程序入口（薄；业务继续外迁） | 新增大段试验逻辑 |
-| `Dialog_*.py` | 试验/设备对话框 UI（暂留根目录） | 新 Dialog 可逐步迁 `dialogs/` 并保留兼容导入 |
+| `Dialog_*.py`（根） | **兼容 re-export**；实现已在 `dialogs/` | 勿再往根目录写新 Dialog 实现 |
+| `dialogs/` | 试验/设备对话框 UI 实现 | — |
 | `devices/` | 仪器连接与读写（AC/DC/WT/德威创…） | UI、试验编排 |
 | `components/` | 共用 UI 控件 | 单试验专用大 Dialog |
 | `utils/` | 纯函数、IOT handoff/门禁/ETA 等 | Qt 大界面 |
@@ -24,7 +25,7 @@
 | `packaging/` / `setup/` | 打包安装 | — |
 | `iot_job_inbox/` | 运行时 handoff（gitignore） | 勿提交 |
 
-根目录仍堆着大量 `Dialog_thai*.py`：历史形态，**本期不整包搬进 `dialogs/`**（易断 `SCPITestWave` 导入）。以后改某个 Dialog 时再顺手迁。
+根目录 `Dialog_*.py` 现为 **一行兼容导入**；实现在 `dialogs/`。新增对话框请直接写在 `dialogs/`，并在根目录补同名 shim（或改调用方 `from dialogs.xxx import`）。
 
 ---
 
