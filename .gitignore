@@ -56,3 +56,7 @@ code_example/audits/*_dump.txt
 code_example/audits/*_audit.txt
 code_example/**/_tmp*/
 code_example/media/_dew_chain_tmp/
+
+# 本机巨型 WIP 备份勿入库
+code_example/**/_scpi_wip_backup.py
+code_example/**/*_wip_backup.py
