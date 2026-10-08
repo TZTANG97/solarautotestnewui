@@ -1,0 +1,62 @@
+# -*- coding: utf-8 -*-
+"""WT 切换闪变显示页（DISPLAY:MODE FLICker）。
+
+WT3000 / WT3004E 等同系列共用该 SCPI；优先用已连接的 wt3000_controller。
+"""
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+
+FLICKER_MODE_CMDS = (
+    "DISPLAY:MODE FLICker",
+    ":DISPLAY:MODE FLICker",
+)
+
+
+def _controller():
+    try:
+        from utils.wt_scpi_session import _get_controller
+
+        return _get_controller()
+    except Exception:
+        return None
+
+
+def switch_wt_flicker_display(instrument: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """切换仪表到闪变页面。instrument 可带 resource/model，仅用于文案。"""
+    inst = instrument if isinstance(instrument, dict) else {}
+    model = str(inst.get("model") or "").strip() or "WT"
+    resource = str(inst.get("resource") or inst.get("addr") or "").strip()
+
+    ctrl = _controller()
+    if ctrl is None or not getattr(ctrl, "connected", False):
+        hint = f"（目标 {model}"
+        if resource:
+            hint += f" {resource}"
+        hint += "）"
+        return {
+            "ok": False,
+            "message": f"WT 未连接{hint}，请先在仪器面板连接功率分析仪后再切闪变页",
+        }
+
+    handle = getattr(ctrl, "handle", None)
+    if handle is None or not hasattr(handle, "write"):
+        return {"ok": False, "message": "WT 会话无写通道，请断开后重新连接"}
+
+    last_exc: Optional[BaseException] = None
+    for cmd in FLICKER_MODE_CMDS:
+        try:
+            handle.write(cmd)
+            return {
+                "ok": True,
+                "message": f"已切换到闪变页面（{model} {cmd}）",
+                "command": cmd,
+            }
+        except Exception as exc:  # noqa: BLE001 — 汇总后返回
+            last_exc = exc
+
+    return {
+        "ok": False,
+        "message": f"切换闪变页面失败: {last_exc}",
+    }

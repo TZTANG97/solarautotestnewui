@@ -30593,14 +30593,17 @@ if __name__ == "__main__":
             _flicker_btn.setMinimumWidth(120)
 
             def _switch_wt3000_flicker():
-                if wt3000_controller is None or not wt3000_controller.connected:
-                    logger.warning("WT3000 未连接，无法发送闪变命令")
-                    print("WT3000 未连接，无法发送闪变命令")
-                    return
                 try:
-                    wt3000_controller.handle.write("DISPLAY:MODE FLICker")
-                    logger.info("WT3000 已切换到闪变页面")
-                    print("WT3000 已切换到闪变页面")
+                    from utils.wt_flicker_display import switch_wt_flicker_display
+
+                    result = switch_wt_flicker_display({"model": "WT3000/WT3004E"})
+                    msg = str((result or {}).get("message") or "")
+                    if (result or {}).get("ok"):
+                        logger.info("%s", msg)
+                        print(msg)
+                    else:
+                        logger.warning("%s", msg)
+                        print(msg)
                 except Exception as e:
                     logger.error(f"WT3000 切换闪变页面失败: {e}")
                     print(f"WT3000 切换闪变页面失败: {e}")
@@ -33665,22 +33668,33 @@ if __name__ == "__main__":
                         return {"ok": False, "message": f"构造失败: {exc}"}
 
                 def _iot_device_switch_flicker(instrument):
-                    """与桌面「切换闪变页面」同命令：DISPLAY:MODE FLICker。"""
+                    """与桌面「切换闪变页面」同命令；WT3000/WT3004E 等走 DISPLAY:MODE FLICker。"""
                     try:
                         # 顺带切到 WT 设备页，方便试验员对照
                         try:
                             ui.stackedWidget.setCurrentIndex(7)
                         except Exception:
                             pass
-                        ctrl = globals().get("wt3000_controller")
-                        if ctrl is None or not getattr(ctrl, "connected", False):
-                            return {"ok": False, "message": "WT 未连接，无法切换闪变页面"}
-                        handle = getattr(ctrl, "handle", None)
-                        if handle is None or not hasattr(handle, "write"):
-                            return {"ok": False, "message": "WT 会话无写通道"}
-                        handle.write("DISPLAY:MODE FLICker")
-                        _iot_log("WT 已切换到闪变页面 DISPLAY:MODE FLICker")
-                        return {"ok": True, "message": "已切换到闪变页面"}
+                        # 保持全局控制器引用与 app_ctx 同步（物联网连接后偶发 globals 未刷新）
+                        global wt3000_controller
+                        try:
+                            from utils.app_context import get_app_context
+
+                            ctx = get_app_context()
+                            ctx_ctrl = getattr(ctx, "wt3000_controller", None)
+                            if ctx_ctrl is not None:
+                                wt3000_controller = ctx_ctrl
+                        except Exception:
+                            pass
+                        from utils.wt_flicker_display import switch_wt_flicker_display
+
+                        result = switch_wt_flicker_display(instrument if isinstance(instrument, dict) else {})
+                        msg = str((result or {}).get("message") or "")
+                        if (result or {}).get("ok"):
+                            _iot_log(f"WT 已切换到闪变页面: {msg}")
+                        else:
+                            _iot_log(f"WT 切换闪变页面失败: {msg}")
+                        return result
                     except Exception as exc:
                         return {"ok": False, "message": f"切换闪变页面失败: {exc}"}
 
