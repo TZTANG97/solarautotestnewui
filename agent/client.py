@@ -127,23 +127,27 @@ class IotSolarClient:
         progress_percent: Optional[int] = None,
         progress_text: str = "",
         current_step: str = "",
+        measures: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         pct = 0 if progress_percent is None else int(progress_percent)
+        equ: Dict[str, Any] = {
+            "equ_id": f"SOLAR-JOB-{job_id}",
+            "progress_percent": pct,
+            "progress_text": progress_text,
+            "current_step": current_step,
+        }
+        if isinstance(measures, dict) and measures:
+            equ["measures"] = dict(measures)
         body: Dict[str, Any] = {
             "type": "experdata",
             "pythonid": self.pythonid,
             "clientid": self.clientid,
             "experid": str(job_id),
             "time": "1",
-            "equs": [
-                {
-                    "equ_id": f"SOLAR-JOB-{job_id}",
-                    "progress_percent": pct,
-                    "progress_text": progress_text,
-                    "current_step": current_step,
-                }
-            ],
+            "equs": [equ],
         }
+        if isinstance(measures, dict) and measures:
+            body["measures"] = dict(measures)
         return self._request("POST", f"/api/solar-autotest/agent/jobs/{job_id}/progress", body)
 
     def done(

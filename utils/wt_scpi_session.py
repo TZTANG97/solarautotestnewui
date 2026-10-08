@@ -37,6 +37,17 @@ def is_active() -> bool:
     return _active
 
 
+def latest_cloud_measures() -> Optional[dict]:
+    """供 Agent progress 附带 U/I/P；无采集器或无数据时返回 None。"""
+    collector = _collector
+    if collector is None:
+        return None
+    try:
+        return collector.latest_cloud_measures()
+    except Exception:
+        return None
+
+
 def last_csv() -> str:
     return _last_csv
 

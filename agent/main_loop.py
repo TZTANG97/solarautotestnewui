@@ -314,6 +314,13 @@ def run_once_job(
 
         def on_progress(percent: int, text: str, step: str) -> None:
             # 进度：MQTT 为主；失败则 HTTPS 兜底（避免实验管理无上报）
+            measures = None
+            try:
+                from utils.wt_scpi_session import latest_cloud_measures
+
+                measures = latest_cloud_measures()
+            except Exception:
+                measures = None
             mqtt_ok = False
             try:
                 from agent.mqtt_publish import publish_experdata
@@ -330,6 +337,7 @@ def run_once_job(
                         progress_text=text,
                         current_step=step,
                         exper_id=exper_ref,
+                        measures=measures,
                     )
                 )
             except Exception as exc:
@@ -341,6 +349,7 @@ def run_once_job(
                         progress_percent=percent,
                         progress_text=text,
                         current_step=step,
+                        measures=measures,
                     )
                 except Exception as exc:
                     logger.warning("HTTPS progress 兜底失败: %s", exc)
@@ -348,22 +357,23 @@ def run_once_job(
             try:
                 from agent import ws_gateway
 
-                ws_gateway.send_json(
-                    {
-                        "type": "SolarEquipment_experdata_return",
-                        "experid": str(job_id),
-                        "time": "1",
-                        "equs": [
-                            {
-                                "equ_id": f"SOLAR-JOB-{job_id}",
-                                "progress_percent": int(percent),
-                                "progress_text": text,
-                                "current_step": step,
-                                "channel": "solar",
-                            }
-                        ],
-                    }
-                )
+                equ: dict = {
+                    "equ_id": f"SOLAR-JOB-{job_id}",
+                    "progress_percent": int(percent),
+                    "progress_text": text,
+                    "current_step": step,
+                    "channel": "solar",
+                }
+                ws_body: dict = {
+                    "type": "SolarEquipment_experdata_return",
+                    "experid": str(job_id),
+                    "time": "1",
+                    "equs": [equ],
+                }
+                if isinstance(measures, dict) and measures:
+                    equ["measures"] = dict(measures)
+                    ws_body["measures"] = dict(measures)
+                ws_gateway.send_json(ws_body)
             except Exception:
                 pass
 

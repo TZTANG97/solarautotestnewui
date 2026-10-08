@@ -77,25 +77,30 @@ def build_experdata_payload(
     progress_text: str = "",
     current_step: str = "",
     exper_id: str = "",
+    measures: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """协议字段名对齐数据通信原则；type 用 Solar 前缀，避免与温箱 TH/TS 串道。"""
     pct = max(0, min(100, int(progress_percent)))
-    return {
+    equ: Dict[str, Any] = {
+        "equ_id": f"SOLAR-JOB-{job_id}",
+        "progress_percent": pct,
+        "progress_text": str(progress_text or "")[:255],
+        "current_step": str(current_step or "")[:64],
+        "experId": str(exper_id or ""),
+        "channel": "solar",
+    }
+    if isinstance(measures, dict) and measures:
+        equ["measures"] = dict(measures)
+    payload: Dict[str, Any] = {
         "type": "SolarEquipment_experdata_return",
         "pythonid": (pythonid or "").strip(),
         "experid": str(job_id),
         "time": "1",
-        "equs": [
-            {
-                "equ_id": f"SOLAR-JOB-{job_id}",
-                "progress_percent": pct,
-                "progress_text": str(progress_text or "")[:255],
-                "current_step": str(current_step or "")[:64],
-                "experId": str(exper_id or ""),
-                "channel": "solar",
-            }
-        ],
+        "equs": [equ],
     }
+    if isinstance(measures, dict) and measures:
+        payload["measures"] = dict(measures)
+    return payload
 
 
 def build_exper_auto_end_payload(
@@ -186,6 +191,7 @@ def publish_experdata(
     progress_text: str = "",
     current_step: str = "",
     exper_id: str = "",
+    measures: Optional[Dict[str, Any]] = None,
 ) -> bool:
     cfg = get_config()
     payload = build_experdata_payload(
@@ -195,6 +201,7 @@ def publish_experdata(
         progress_text=progress_text,
         current_step=current_step,
         exper_id=exper_id,
+        measures=measures,
     )
     return publish_json(cfg, pythonid=pythonid, payload=payload)
 

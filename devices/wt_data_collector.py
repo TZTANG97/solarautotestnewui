@@ -11,7 +11,7 @@ import os
 import re
 import threading
 import time
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from devices.wt_scpi_rate import (
     is_serial_resource,
@@ -149,6 +149,67 @@ class WtScpiCollector:
     def get_rows(self) -> List[Tuple[float, List[float]]]:
         with self._rows_lock:
             return list(self._rows)
+
+    def latest_row(self) -> Optional[Tuple[float, List[float]]]:
+        with self._rows_lock:
+            if not self._rows:
+                return None
+            return self._rows[-1]
+
+    def latest_item_map(self) -> Dict[str, float]:
+        """最新一行按 NUMERIC item 名映射（如 URMS,1）。"""
+        row = self.latest_row()
+        if not row:
+            return {}
+        _t, values = row
+        items = list(self._items or [])
+        out: Dict[str, float] = {}
+        for i, token in enumerate(items):
+            if i >= len(values):
+                break
+            v = values[i]
+            if v != v:  # NaN
+                continue
+            out[str(token).strip().upper()] = float(v)
+        return out
+
+    def latest_cloud_measures(self) -> Optional[Dict[str, float]]:
+        """映射为云端曲线字段 u_rms / i_rms / p / freq。"""
+        m = self.latest_item_map()
+        if not m:
+            return None
+
+        def _avg(prefix: str) -> Optional[float]:
+            vals = []
+            for k, v in m.items():
+                if k.startswith(prefix + ",") and not k.endswith(",SIGMA"):
+                    vals.append(v)
+            if not vals:
+                return None
+            return sum(vals) / len(vals)
+
+        u = _avg("URMS")
+        if u is None and "URMS,1" in m:
+            u = m["URMS,1"]
+        i = _avg("IRMS")
+        if i is None and "IRMS,1" in m:
+            i = m["IRMS,1"]
+        p = m.get("P,SIGMA")
+        if p is None:
+            p_vals = [v for k, v in m.items() if k.startswith("P,") and k != "P,SIGMA"]
+            if p_vals:
+                p = sum(p_vals)
+        freq = m.get("FU,1") or m.get("FREQ,1") or m.get("F,1")
+        out: Dict[str, float] = {}
+        if u is not None:
+            out["u_rms"] = round(float(u), 4)
+        if i is not None:
+            out["i_rms"] = round(float(i), 4)
+        if p is not None:
+            out["p"] = round(float(p), 4)
+        if freq is not None:
+            out["freq"] = round(float(freq), 4)
+        return out or None
 
     def sample_interval_stats(self) -> dict:
         """Measure spacing between PC receive timestamps of stored rows."""
