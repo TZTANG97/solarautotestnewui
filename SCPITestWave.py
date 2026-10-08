@@ -25727,19 +25727,92 @@ def RunProject():
                         )
                         logger.info(wt_debug_msg)
                         print(wt_debug_msg)
-                        wt3000_controller.handle.write(command)
-                        strtimenow = now_to_datenow()
-                        logger.info(strtimenow + "WT3000 " + command)
-                        print(strtimenow + "WT3000 " + command)
 
-                        # 闪变/长耗时命令后不要立刻追加查询，避免串口被设备忙状态阻塞
-                        # 如需确认设备状态，统一通过显式查询命令执行
-                        if command.upper().startswith("FLICKER:"):
-                            time.sleep(0.2)
+                        # 闪变关键命令：失败必须中止，禁止静默后空等十余小时
+                        _cmd_u = command.upper()
+                        if _cmd_u.startswith("FLICKER:") or _cmd_u.startswith("DISPLAY:MODE"):
+                            from utils.wt_flicker_scpi import (
+                                should_hard_fail_flicker_cmd,
+                                verify_after_flicker_start,
+                                write_flicker_command,
+                            )
+
+                            # INITIALIZE/START 后再查错误队列；其余只校验连接+写入
+                            # （串口在闪变忙时立刻 query 易阻塞）
+                            _check_err = _cmd_u.startswith("FLICKER:START")
+                            ok, msg = write_flicker_command(
+                                command,
+                                ctrl=wt3000_controller,
+                                check_error=_check_err,
+                            )
+                            strtimenow = now_to_datenow()
+                            logger.info(f"{strtimenow} WT3000 {msg}")
+                            print(f"{strtimenow} WT3000 {msg}")
+                            _append_return_message(f"[WT闪变] {msg}")
+                            if not ok and (
+                                should_hard_fail_flicker_cmd(command)
+                                or _cmd_u.startswith("DISPLAY:MODE")
+                            ):
+                                _append_return_message(
+                                    f"[WT闪变] 中止：{msg}（避免仪器无倒计时却继续空等）"
+                                )
+                                logger.error(f"闪变 WT 命令失败，中止试验: {msg}")
+                                strTestStatusFlag = "结束"
+                                try:
+                                    _emit_run_progress(
+                                        status="已中止",
+                                        current_detail=f"WT闪变失败: {msg}"[:200],
+                                        persist=True,
+                                    )
+                                except Exception:
+                                    pass
+                                break
+                            if ok and _cmd_u.startswith("FLICKER:START"):
+                                time.sleep(0.5)
+                                vok, vmsg = verify_after_flicker_start(ctrl=wt3000_controller)
+                                _append_return_message(f"[WT闪变] {vmsg}")
+                                if not vok:
+                                    _append_return_message(
+                                        f"[WT闪变] 中止：{vmsg}（面板应无倒计时）"
+                                    )
+                                    strTestStatusFlag = "结束"
+                                    try:
+                                        _emit_run_progress(
+                                            status="已中止",
+                                            current_detail=f"WT闪变失败: {vmsg}"[:200],
+                                            persist=True,
+                                        )
+                                    except Exception:
+                                        pass
+                                    break
+                            elif _cmd_u.startswith("FLICKER:"):
+                                time.sleep(0.2)
+                        else:
+                            if wt3000_controller is None or wt3000_controller.handle is None:
+                                raise RuntimeError("WT3000 未连接，无法发送命令")
+                            wt3000_controller.handle.write(command)
+                            strtimenow = now_to_datenow()
+                            logger.info(strtimenow + "WT3000 " + command)
+                            print(strtimenow + "WT3000 " + command)
 
                     except Exception as e:
                         print(e)
+                        _append_return_message(f"[WT] 写命令异常: {e}")
+                        # 闪变试验中任何 WT 写失败都中止，避免空等
+                        try:
+                            if globals().get("flicker_is_test") == "1":
+                                strTestStatusFlag = "结束"
+                                _emit_run_progress(
+                                    status="已中止",
+                                    current_detail=f"WT写失败: {e}"[:200],
+                                    persist=True,
+                                )
+                                break
+                        except Exception:
+                            pass
                     else:
+                        if strTestStatusFlag == "结束":
+                            break
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
                             iTestTime = int(fTestTime)
