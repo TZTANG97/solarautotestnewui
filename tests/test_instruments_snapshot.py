@@ -155,7 +155,7 @@ def test_resource_without_ever_connected_skipped(tmp_path: Path, monkeypatch):
     assert out == []
 
 
-def test_usb_dc_itech_serial_from_visa(tmp_path: Path, monkeypatch):
+def test_usb_dc_chroma_serial_from_visa(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(snap, "_cache", [])
     monkeypatch.setattr(snap, "_cache_at", 0.0)
     status = tmp_path / "status.json"
@@ -178,6 +178,6 @@ def test_usb_dc_itech_serial_from_visa(tmp_path: Path, monkeypatch):
     )
     out = snap.collect_instruments_snapshot(status_json_path=str(status), force=True)
     assert len(out) == 1
-    assert out[0]["brand"] == "ITECH"
+    assert out[0]["brand"] == "CHROMA"
     assert out[0]["serial"] == "S50000002314"
     assert out[0]["slot"] == "dc1"

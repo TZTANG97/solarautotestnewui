@@ -465,6 +465,9 @@ class ACController:
 
         setpoints: 可选 (volt, freq, phase)。提供时会在开输出前（爱科在 RUN 之后）
         重新下发设定，避免设备重启/待机后参数回到出厂值。
+
+        返回 True/False。IOT 侧用 bool(结果) 判断成败；勿再 void 返回 None
+        （bool(None) 会被当成打开失败）。
         """
         if self.handle is not None:
             if self._itech is not None:
@@ -494,34 +497,35 @@ class ACController:
                         time.sleep(_AC_CONTROL_REG_INTER_CMD_DELAY_SEC)
                 if not all_ok and self.ui_setting is not None:
                     self.show_message('交流电源输出开启失败（Modbus）', self.ui_setting)
-            else:
-                # Chroma 等纯 SCPI：仅 OUTP ON。SYST:RUN 是爱科寄存器语义，
-                # 发给 61800 会进 -102 Syntax error，面板/日志像“非法字符/语法错”。
-                if setpoints is not None:
-                    volt, freq, phase = setpoints
-                    self.apply_setpoints(volt, freq, phase)
-                    time.sleep(0.2)
-                strArraySetting = 'OUTP ON'
-                try:
-                    self.handle.write(strArraySetting)
-                except Exception as e:
-                    strtimenow = self.now_to_datenow()
-                    self.logger.info(f'AC OUTP ON error--1: {e}')
-                    print(f'{strtimenow} AC OUTP ON error--1: {e}')
-                    if self.ui_setting is not None:
-                        self.show_message(f'交流电源输出开启失败：{e}', self.ui_setting)
-                else:
-                    strtimenow = self.now_to_datenow()
-                    self.logger.info(strArraySetting)
-                    print(f'{strtimenow} {strArraySetting}')
-                    self._clear_syst_err_queue()
-        else:
+                return bool(all_ok)
+            # Chroma 等纯 SCPI：仅 OUTP ON。SYST:RUN 是爱科寄存器语义，
+            # 发给 61800 会进 -102 Syntax error，面板/日志像“非法字符/语法错”。
+            if setpoints is not None:
+                volt, freq, phase = setpoints
+                self.apply_setpoints(volt, freq, phase)
+                time.sleep(0.2)
+            strArraySetting = 'OUTP ON'
+            try:
+                self.handle.write(strArraySetting)
+            except Exception as e:
+                strtimenow = self.now_to_datenow()
+                self.logger.info(f'AC OUTP ON error--1: {e}')
+                print(f'{strtimenow} AC OUTP ON error--1: {e}')
+                if self.ui_setting is not None:
+                    self.show_message(f'交流电源输出开启失败：{e}', self.ui_setting)
+                return False
             strtimenow = self.now_to_datenow()
-            self.logger.info('AC Not Connect')
-            print(f'{strtimenow} AC Not Connect')
-            if self.ui_setting is not None:
-                self.show_message('交流电源未连接，请先连接AC设备', self.ui_setting)
-                self.show_message('交流电源未连接，请先连接AC设备')
+            self.logger.info(strArraySetting)
+            print(f'{strtimenow} {strArraySetting}')
+            self._clear_syst_err_queue()
+            return True
+        strtimenow = self.now_to_datenow()
+        self.logger.info('AC Not Connect')
+        print(f'{strtimenow} AC Not Connect')
+        if self.ui_setting is not None:
+            self.show_message('交流电源未连接，请先连接AC设备', self.ui_setting)
+            self.show_message('交流电源未连接，请先连接AC设备')
+        return False
 
     def send_message(self, uiACSetting):
         """向交流电源发送电压、频率和相位设置命令。"""
@@ -552,7 +556,7 @@ class ACController:
             self.show_message('交流电源未连接，请先连接AC设备', uiACSetting)
 
     def close_output(self):
-        """关闭交流电源输出。"""
+        """关闭交流电源输出。返回 True/False（供 IOT bool 判定，勿 void）。"""
         if self.handle is not None:
             if self._itech is not None:
                 # TCP 半连接时第一条 FC06 常丢失，第二条待机帧反而成功 → 第一次点关不掉、第二次才像生效。
@@ -585,22 +589,23 @@ class ACController:
                         time.sleep(_AC_CONTROL_REG_INTER_CMD_DELAY_SEC)
                 if not all_ok and self.ui_setting is not None:
                     self.show_message('交流电源输出关闭失败（Modbus）', self.ui_setting)
-            else:
-                # Chroma：仅 OUTP OFF（勿发 SYST:STANDBY）
-                strArraySetting = 'OUTP OFF'
-                try:
-                    self.handle.write(strArraySetting)
-                except Exception as e:
-                    strtimenow = self.now_to_datenow()
-                    self.logger.info(f'AC OUTP OFF error--1: {e}')
-                    print(f'{strtimenow} AC OUTP OFF error--1: {e}')
-                else:
-                    strtimenow = self.now_to_datenow()
-                    self.logger.info(strArraySetting)
-                    print(f'{strtimenow} {strArraySetting}')
-        else:
+                return bool(all_ok)
+            # Chroma：仅 OUTP OFF（勿发 SYST:STANDBY）
+            strArraySetting = 'OUTP OFF'
+            try:
+                self.handle.write(strArraySetting)
+            except Exception as e:
+                strtimenow = self.now_to_datenow()
+                self.logger.info(f'AC OUTP OFF error--1: {e}')
+                print(f'{strtimenow} AC OUTP OFF error--1: {e}')
+                return False
             strtimenow = self.now_to_datenow()
-            self.logger.info('AC Not Connect')
-            print(f'{strtimenow} AC Not Connect')
-            if self.ui_setting is not None:
-                self.show_message('交流电源未连接，请先连接AC设备', self.ui_setting)
+            self.logger.info(strArraySetting)
+            print(f'{strtimenow} {strArraySetting}')
+            return True
+        strtimenow = self.now_to_datenow()
+        self.logger.info('AC Not Connect')
+        print(f'{strtimenow} AC Not Connect')
+        if self.ui_setting is not None:
+            self.show_message('交流电源未连接，请先连接AC设备', self.ui_setting)
+        return False

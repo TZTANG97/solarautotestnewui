@@ -5,9 +5,11 @@ from __future__ import annotations
 import re
 from typing import Optional, Tuple
 
+# 官方 usb.ids：0x0A69 = Chroma ate, Inc.；0x2EC7 = ITECH Electronic Co., Ltd.
+# （历史上误把 0A69 标成爱科，会导致致茂 USB 直流源被当成爱科连不上。）
 USB_VID_BRAND = {
-    "0A69": "ITECH",
-    "1698": "CHROMA",
+    "0A69": "CHROMA",
+    "2EC7": "ITECH",
     "0957": "Keysight",
     "2A8D": "Keysight",
 }

@@ -8,13 +8,18 @@ sys.path.insert(0, str(ROOT))
 from utils.instrument_identity import infer_brand, infer_serial, parse_usb_visa
 
 
-def test_usb_itech_vid_and_sn():
+def test_usb_chroma_vid_0a69_and_sn():
+    # 官方 usb.ids：0x0A69 = Chroma ate, Inc.（不是爱科）
     vid, pid, sn = parse_usb_visa("USB0::0x0A69::0x084B::S50000002314::INSTR")
     assert vid == "0A69"
     assert pid == "084B"
     assert sn == "S50000002314"
-    assert infer_brand(kind="dc", resource="USB0::0x0A69::0x084B::S50000002314::INSTR") == "ITECH"
+    assert infer_brand(kind="dc", resource="USB0::0x0A69::0x084B::S50000002314::INSTR") == "CHROMA"
     assert infer_serial(kind="dc", resource="USB0::0x0A69::0x084B::S50000002314::INSTR") == "S50000002314"
+
+
+def test_usb_itech_vid_2ec7():
+    assert infer_brand(kind="dc", resource="USB0::0x2EC7::0x0001::SN1::INSTR") == "ITECH"
 
 
 def test_tcpip_ac_chroma_sat_serial():

@@ -396,6 +396,12 @@ def ShowACSetting():
 @_with_device_ui_busy("OpenACOUTPUTON")
 def OpenACOUTPUTON():
     global ac_controller
+    if ac_controller is None:
+        try:
+            ui.textEdit_ReturnMessage.append("[AC] 未连接，无法打开输出")
+        except Exception:
+            pass
+        return False
     setpoints = _get_active_ac_setpoints()
     if setpoints[0] and setpoints[1]:
         try:
@@ -410,7 +416,9 @@ def OpenACOUTPUTON():
         return ac_controller.open_output(setpoints=sp)
 
     try:
-        return _run_device_io("OpenACOUTPUTON", _work)
+        # _run_device_io 忙冲突时会返回 None；显式 False/True 来自 open_output
+        result = _run_device_io("OpenACOUTPUTON", _work)
+        return bool(result)
     except Exception as exc:
         try:
             ui.textEdit_ReturnMessage.append(f"[AC] 开输出异常: {exc}")
@@ -860,7 +868,13 @@ def BuildDEWETRONTestPage():
 
 def CloseACOUTPUTON():
     global ac_controller
-    return ac_controller.close_output()
+    if ac_controller is None:
+        try:
+            ui.textEdit_ReturnMessage.append("[AC] 未连接，无法关闭输出")
+        except Exception:
+            pass
+        return False
+    return bool(ac_controller.close_output())
 
 
 def _show_bluesight_dc_settings_dialog(dc_slot_index: int, open_fn, close_fn) -> None:

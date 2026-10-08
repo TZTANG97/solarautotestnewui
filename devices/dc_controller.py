@@ -36,54 +36,62 @@ class DCController:
         return read_dc_output_limits(self, brand=brand)
 
     def _write_modbus_output_register(self, label, logger, is_on):
-        """蓝点等 Modbus TCP：保持寄存器 0x0BB8 控制输出（与 BluesightTranslator 一致）。"""
+        """蓝点等 Modbus TCP：保持寄存器 0x0BB8 控制输出（与 BluesightTranslator 一致）。
+
+        返回: True 写成功；False 写失败/未连；None 无 Modbus client（走 SCPI）。
+        """
         if self.client is None:
-            return
+            return None
         try:
             if hasattr(self.client, 'is_connected') and not self.client.is_connected():
-                return
+                return False
             register_value = 0x00AA if is_on else 0x0055
             self.client.write_register(0x0BB8, register_value)
             strtimenow = self.now_to_datenow()
             logger.info(f'{label} MODBUS REG 0x0BB8 <- 0x{register_value:04X}')
             print(strtimenow + f'{label} MODBUS REG 0x0BB8 <- 0x{register_value:04X}')
+            return True
         except Exception as e:
             strtimenow = self.now_to_datenow()
             logger.info(f'{label} MODBUS output register write failed: {e}')
             print(strtimenow + f'{label} MODBUS output register write failed: {e}')
+            return False
 
     def _output_dc(self, label, ui_setting, logger, is_on, *, silent_if_disconnected=False):
+        """开/关直流输出。返回 True/False，供 IOT bool 判定（勿 void→None）。"""
         command = 'OUTP ON' if is_on else 'OUTP OFF'
-        self._write_modbus_output_register(label, logger, is_on)
+        mb_ok = self._write_modbus_output_register(label, logger, is_on)
         # Modbus 路径（ModbusVISA 无 SCPI write）：仅寄存器控制，禁止走 handle.write
         if self.client is not None:
             strtimenow = self.now_to_datenow()
             logger.info(f'{label} {command} (Modbus)')
             print(strtimenow + f'{label} {command} (Modbus)')
-            return
+            return bool(mb_ok)
         if self.handle is not None:
             try:
                 self.handle.write(command)
             except Exception as e:
                 print(e)
                 self.show_message(f'{label}输出{"开启" if is_on else "关闭"}失败：{e}', ui_setting)
-            else:
-                strtimenow = self.now_to_datenow()
-                logger.info(f'{label} {command}')
-                print(strtimenow + f'{label} {command}')
-        else:
+                return False
             strtimenow = self.now_to_datenow()
-            logger.info(f'{label} Not Connect')
-            print(strtimenow + f'{label} Not Connect')
-            # 结束试验强制关断：未连接的 DC2/3/4 静默跳过，避免弹窗打断
-            if not silent_if_disconnected:
-                self.show_message(f'{label}未连接，请先连接{label}设备', ui_setting)
+            logger.info(f'{label} {command}')
+            print(strtimenow + f'{label} {command}')
+            return True
+        strtimenow = self.now_to_datenow()
+        logger.info(f'{label} Not Connect')
+        print(strtimenow + f'{label} Not Connect')
+        # 结束试验强制关断：未连接的 DC2/3/4 静默跳过，避免弹窗打断
+        if not silent_if_disconnected:
+            self.show_message(f'{label}未连接，请先连接{label}设备', ui_setting)
+            return False
+        return True
 
     def open_output(self, label, ui_setting, logger):
-        self._output_dc(label, ui_setting, logger, True)
+        return self._output_dc(label, ui_setting, logger, True)
 
     def close_output(self, label, ui_setting, logger, *, silent_if_disconnected=False):
-        self._output_dc(
+        return self._output_dc(
             label, ui_setting, logger, False, silent_if_disconnected=silent_if_disconnected
         )
 
