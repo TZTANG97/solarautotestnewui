@@ -134,20 +134,35 @@ class IotAgentLogPage(QtWidgets.QWidget):
         row.addStretch(1)
         root.addLayout(row)
 
-        self.textEdit_IotAgentLog = QtWidgets.QTextEdit()
+        self.textEdit_IotAgentLog = QtWidgets.QPlainTextEdit()
         self.textEdit_IotAgentLog.setObjectName("textEdit_IotAgentLog")
         self.textEdit_IotAgentLog.setReadOnly(True)
+        self.textEdit_IotAgentLog.setMaximumBlockCount(2500)
         self.textEdit_IotAgentLog.setStyleSheet(theme.LOG_QSS)
         self.textEdit_IotAgentLog.setPlaceholderText("Agent 日志将显示在这里…")
         root.addWidget(self.textEdit_IotAgentLog, 1)
 
         self._last_log_text = ""
+        self._refreshing = False
 
     def _on_auto_scroll_toggled(self, checked: bool) -> None:
         self._auto_scroll = bool(checked)
+        if checked:
+            cursor = self.textEdit_IotAgentLog.textCursor()
+            cursor.movePosition(cursor.End)
+            self.textEdit_IotAgentLog.setTextCursor(cursor)
 
     def refresh_from_agent(self) -> None:
         """从 process_control 拉取通信信息与日志尾部。"""
+        if self._refreshing:
+            return
+        self._refreshing = True
+        try:
+            self._refresh_from_agent_impl()
+        finally:
+            self._refreshing = False
+
+    def _refresh_from_agent_impl(self) -> None:
         try:
             from agent.process_control import read_agent_comm_info, tail_agent_log
         except Exception as exc:
@@ -174,14 +189,24 @@ class IotAgentLogPage(QtWidgets.QWidget):
         self.label_mode.setText(mode + ((" · " + " ".join(extras)) if extras else ""))
         self.label_log_path.setText(str(info.get("log_path") or ""))
 
-        text = tail_agent_log()
-        if text != self._last_log_text:
-            self._last_log_text = text
+        # 日志页只取较短尾部，避免大段 setPlainText 卡死 UI
+        text = tail_agent_log(max_bytes=80_000)
+        if text == self._last_log_text:
+            return
+        prev = self._last_log_text
+        self._last_log_text = text
+        # 仅追加增量时更轻；滑窗外的尾部变化则整页替换
+        if prev and text.startswith(prev):
+            delta = text[len(prev) :]
+            if delta:
+                self.textEdit_IotAgentLog.appendPlainText(delta.lstrip("\n"))
+        else:
             self.textEdit_IotAgentLog.setPlainText(text)
-            if self._auto_scroll:
-                cursor = self.textEdit_IotAgentLog.textCursor()
-                cursor.movePosition(cursor.End)
-                self.textEdit_IotAgentLog.setTextCursor(cursor)
+        if self._auto_scroll:
+            cursor = self.textEdit_IotAgentLog.textCursor()
+            cursor.movePosition(cursor.End)
+            self.textEdit_IotAgentLog.setTextCursor(cursor)
+            self.textEdit_IotAgentLog.ensureCursorVisible()
 
 
 def wire_iot_agent_log_page(

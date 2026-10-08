@@ -80,3 +80,22 @@ def test_collect_keeps_cache_when_empty(monkeypatch):
 
     items = collect_local_endpoints(force=True)
     assert items[0]["resource"] == "ASRL1::INSTR"
+
+
+def test_serialcomm_missing_key_is_empty_not_error(monkeypatch):
+    """无串口时 SERIALCOMM 键不存在（WinError 2）应视为空列表，不报故障。"""
+    import agent.local_endpoints as mod
+
+    class _FakeWinreg:
+        HKEY_LOCAL_MACHINE = object()
+
+        @staticmethod
+        def OpenKey(_hive, _path):
+            err = OSError(2, "The system cannot find the file specified")
+            err.winerror = 2
+            raise err
+
+    monkeypatch.setitem(__import__("sys").modules, "winreg", _FakeWinreg)
+    items, err = mod._enumerate_winreg()
+    assert items == []
+    assert err is None

@@ -154,7 +154,7 @@ def read_agent_comm_info() -> dict:
     return info
 
 
-def tail_agent_log(*, max_bytes: int = 240_000) -> str:
+def tail_agent_log(*, max_bytes: int = 80_000) -> str:
     """读取 Agent 日志尾部；文件不存在时返回提示。"""
     path = log_file()
     if not path.is_file():

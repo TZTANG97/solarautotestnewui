@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 _cache: List[Dict[str, str]] = []
 _cache_at: float = 0.0
 _last_error: str = ""
+_last_warn_at: float = 0.0
+_last_warn_msg: str = ""
 
 
 def _add(out: List[Dict[str, str]], seen: set, *, kind: str, resource: str, label: str, com: str = "") -> None:
@@ -46,6 +48,11 @@ def _enumerate_winreg() -> Tuple[List[Dict[str, str]], Optional[str]]:
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\SERIALCOMM")
     except OSError as exc:
+        # 本机无串口时该键常不存在（WinError 2），属正常空结果，勿当故障刷屏
+        winerr = getattr(exc, "winerror", None)
+        errno = getattr(exc, "errno", None)
+        if winerr == 2 or errno == 2:
+            return out, None
         return out, f"SERIALCOMM open: {exc}"
     try:
         i = 0
@@ -130,16 +137,28 @@ def collect_local_endpoints(*, min_interval_sec: float = 15.0, force: bool = Fal
             logger.debug("串口枚举部分失败但已有结果: %s", _last_error)
         return list(_cache)
 
+    def _warn_throttled(msg: str) -> None:
+        global _last_warn_at, _last_warn_msg
+        # 同类告警至少隔 5 分钟再打，避免 Agent 日志页被刷爆卡死
+        if msg == _last_warn_msg and (now - _last_warn_at) < 300.0:
+            return
+        _last_warn_at = now
+        _last_warn_msg = msg
+        logger.warning("%s", msg)
+
     # 枚举失败时保留上一帧，避免网页闪成「尚未上报」
     if _cache:
-        logger.warning("串口枚举为空/失败，保留上次 %s 个: %s", len(_cache), "; ".join(errors) or "none")
+        if errors:
+            _warn_throttled(
+                f"串口枚举为空/失败，保留上次 {len(_cache)} 个: {'; '.join(errors)}"
+            )
         _cache_at = now
         return list(_cache)
 
     _cache = []
     _cache_at = now
     if errors:
-        logger.warning("串口枚举失败且无缓存: %s", "; ".join(errors))
+        _warn_throttled(f"串口枚举失败且无缓存: {'; '.join(errors)}")
     return []
 
 

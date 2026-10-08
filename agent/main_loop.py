@@ -626,22 +626,9 @@ def main(argv: Optional[list] = None) -> int:
                         via = "mqtt"
                 except Exception:
                     job = None
-            # WS/MQTT 任一在线：不轮询 HTTPS claim（对齐温箱）
-            realtime_ok = False
-            try:
-                from agent import ws_gateway
-
-                realtime_ok = bool(ws_gateway.presence_running())
-            except Exception:
-                pass
-            if not realtime_ok:
-                try:
-                    from agent import mqtt_subscribe
-
-                    realtime_ok = bool(mqtt_subscribe.subscriber_running())
-                except Exception:
-                    pass
-            if not job and not realtime_ok:
+            # WS/MQTT 优先；仍应用 HTTPS claim 兜底。
+            # 否则「实验开测只入队、推送丢失」时任务会永久停在排队中。
+            if not job:
                 job = client.claim_next()
                 if job:
                     via = "http-fallback"
