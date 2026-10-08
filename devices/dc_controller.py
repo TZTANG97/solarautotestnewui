@@ -177,31 +177,54 @@ class DCController:
             self.show_message(f'{fail_label}连接异常：{e}', ui)
             return None, None, '0'
 
+    @staticmethod
+    def _normalize_visa_resource(addr: str) -> str:
+        """USB/ASRL/GPIB 缺 ::INSTR 时补全，避免 open_resource 失败却只报「会话未建立」。"""
+        text = (addr or "").strip()
+        if not text:
+            return text
+        upper = text.upper()
+        if upper.startswith(("USB", "ASRL", "GPIB")) and not upper.endswith("::INSTR"):
+            if text.endswith("::"):
+                return text + "INSTR"
+            if text.endswith(":"):
+                return text + ":INSTR"
+            return text + "::INSTR"
+        return text
+
     def connect_scpi(self, tcp_addr, ui):
-        try:
-            handle = self.rm.open_resource(tcp_addr)
-        except Exception:
-            print('device not exit')
-            self.logger.info('直流电源 not exit')
-            print('直流电源 not exit')
-            self.show_message('直流电源连接失败，请检查设备地址和连线', ui)
+        addr = self._normalize_visa_resource(tcp_addr)
+        if self.rm is None:
+            msg = "直流电源连接失败：VISA 资源管理器未初始化"
+            self.logger.error(msg)
+            self.show_message(msg, ui)
             self._set_handle(None)
-            return None, '0'
+            return None, "0"
+        try:
+            handle = self.rm.open_resource(addr)
+        except Exception as e:
+            msg = f"直流电源连接失败：open_resource({addr}) → {e}"
+            self.logger.info(msg)
+            print(msg)
+            self.show_message(msg, ui)
+            self._set_handle(None)
+            return None, "0"
         try:
             if self.configure_scpi_resource is not None:
                 self.configure_scpi_resource(handle)
-        except Exception:
-            self.logger.info('直流电源 not exit')
-            print('直流电源 not exit')
-            self.show_message('直流电源连接失败，请检查设备地址和连线', ui)
+        except Exception as e:
+            msg = f"直流电源连接失败：配置会话失败（{addr}）→ {e}"
+            self.logger.info(msg)
+            print(msg)
+            self.show_message(msg, ui)
             release_resource_handle(handle)
             self._set_handle(None)
-            return None, '0'
-        self.logger.info('直流电源连接成功')
-        print('直流电源连接成功')
+            return None, "0"
+        self.logger.info("直流电源连接成功")
+        print("直流电源连接成功")
         self._set_handle(handle)
-        self.resource = tcp_addr
-        return self.handle, '1'
+        self.resource = addr
+        return self.handle, "1"
 
     def disconnect(self, safe_close_handle):
         safe_close_handle(self.handle)

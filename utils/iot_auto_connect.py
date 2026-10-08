@@ -353,11 +353,17 @@ def apply_prepared_connect_jobs(
             apply_plan(slot, plan, dev)
             if session_ok is not None and not session_ok(slot):
                 target = str((plan or {}).get("target") or "")
+                resource = str(getattr(dev, "resource", "") or "")
                 host = str(getattr(dev, "host", "") or "")
                 port = getattr(dev, "port", None)
-                where = f"{host}:{port}" if host and port is not None else str(
-                    getattr(dev, "resource", "") or ""
-                )
+                # USB/ASRL 等优先展示真实 VISA，避免 host 被误拆后变成 …::0
+                res_u = resource.upper()
+                if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
+                    where = resource
+                elif host and port is not None:
+                    where = f"{host}:{port}"
+                else:
+                    where = resource or host
                 hint = f"{target}@{where}" if target else where
                 errors.append(f"{slot}: 桌面连接失败（会话未建立；{hint}）")
                 _log(f"自动连接失败 {slot}: 会话未建立 {hint}")

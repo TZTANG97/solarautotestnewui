@@ -29869,13 +29869,16 @@ def _run_startup_connect_jobs_stepwise(jobs, devices) -> None:
                 _log(f"自动连接 {slot} -> {getattr(dev, 'resource', '')}")
             else:
                 target = str((plan or {}).get("target") or "")
+                resource = str(getattr(dev, "resource", "") or "")
                 host = str(getattr(dev, "host", "") or "")
                 port = getattr(dev, "port", None)
-                where = (
-                    f"{host}:{port}"
-                    if host and port is not None
-                    else str(getattr(dev, "resource", "") or "")
-                )
+                res_u = resource.upper()
+                if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
+                    where = resource
+                elif host and port is not None:
+                    where = f"{host}:{port}"
+                else:
+                    where = resource or host
                 hint = f"{target}@{where}" if target else where
                 err = f"{slot}: 桌面连接失败（会话未建立；{hint}）"
                 state["errors"].append(err)
