@@ -98,6 +98,95 @@ def apply_device_connection(
     return payload
 
 
+
+def _plain_text(widget) -> str:
+    if widget is None:
+        return ""
+    try:
+        if hasattr(widget, "toPlainText"):
+            return str(widget.toPlainText() or "").strip()
+        if hasattr(widget, "text"):
+            return str(widget.text() or "").strip()
+        if hasattr(widget, "currentText"):
+            return str(widget.currentText() or "").strip()
+    except Exception:
+        return ""
+    return ""
+
+
+def read_ac_ui_snapshot(ac_ui: Any) -> Dict[str, Any]:
+    """交流源设置页当前电压/频率 → status.json / Agent 上报。"""
+    out: Dict[str, Any] = {"measures": {}}
+    if ac_ui is None:
+        return out
+    volt = _plain_text(getattr(ac_ui, "textEdit_AC_VOLT", None))
+    freq = _plain_text(getattr(ac_ui, "textEdit_AC_FR", None))
+    measures: Dict[str, Any] = {}
+    if volt:
+        measures["voltage"] = volt
+        out["voltage"] = volt
+    if freq:
+        measures["frequency"] = freq
+        out["frequency"] = freq
+    if measures:
+        out["measures"] = measures
+    return out
+
+
+def read_dc_ui_snapshot(dc_ui: Any, *, slot: str = "dc1") -> Dict[str, Any]:
+    """直流源设置页当前 IV 设定 → status.json / Agent 上报。"""
+    out: Dict[str, Any] = {"measures": {}}
+    if dc_ui is None:
+        return out
+    measures: Dict[str, Any] = {}
+    mapping = (
+        ("textEdit_Vmp", "vmp", "voltage"),
+        ("textEdit_Imp", "imp", "current"),
+        ("textEdit_Voc", "voc", None),
+        ("textEdit_Isc", "isc", None),
+        ("textEdit_PF", "powerPercent", None),
+    )
+    for attr, key, alias in mapping:
+        val = _plain_text(getattr(dc_ui, attr, None))
+        if not val:
+            continue
+        measures[key] = val
+        if alias and alias not in out:
+            out[alias] = val
+    if measures:
+        out["measures"] = measures
+        out["slot"] = str(slot or "dc1").lower()
+    return out
+
+
+
+def update_device_measures(
+    data: Optional[Dict[str, Any]],
+    *,
+    device_name: str,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """只刷新量测/设定字段，不改 connected / resource。"""
+    payload = ensure_device_rows(data)
+    name = (device_name or "").strip()
+    if not name or not isinstance(extra, dict):
+        return payload
+    for dev in payload["devices"]:
+        if str(dev.get("name") or "").strip() != name:
+            continue
+        for key, value in extra.items():
+            if value is None:
+                continue
+            if key == "measures" and isinstance(value, dict):
+                merged = dict(dev.get("measures") or {}) if isinstance(dev.get("measures"), dict) else {}
+                merged.update({str(k): v for k, v in value.items() if v is not None})
+                dev["measures"] = merged
+            else:
+                dev[str(key)] = value
+        break
+    return payload
+
+
 def read_dewetron_ui_snapshot(dew_ui: Any) -> Dict[str, Any]:
     """从桌面德威创设置页读出 Web 需回填的字段。"""
     out: Dict[str, Any] = {

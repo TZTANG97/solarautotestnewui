@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -26,7 +27,10 @@ from utils.device_discovery import (
     FoundDevice,
     SLOT_CHOICES,
     devices_from_last_resources,
+    parse_host_port,
+    remember_found_resource,
     run_discovery,
+    scan_lan,
     summarize_discovery,
     validate_assignments,
 )
@@ -96,6 +100,7 @@ class DeviceFinderDialog(QDialog):
         root = QVBoxLayout(self)
         tip = QLabel(
             "打开后不会自动扫描。默认先列本机上次连过的地址；勾选「扫描局域网」会扫当前网段常见端口。"
+            "WT 等网口仪若扫不到，可在下方「指定 IP」填 192.168.x.x（或 IP:5025）点探测。"
             "只连接勾选行，且必须人手指定槽位（同型号多台不会自动占用 DC1/DC2）。"
             "开测前请先在仪器面板设好电压/电流/功率保护上限（OVP/OCP/OPP；软件本期不代设）。"
             "若配置了 config/iot_output_limits.json 且 enforce=true，本机与 IOT 开跑前会读回比对，超限或未能读回将禁止开跑。"
@@ -116,6 +121,17 @@ class DeviceFinderDialog(QDialog):
         tools.addWidget(self._cancel_btn)
         tools.addWidget(self._status, 1)
         root.addLayout(tools)
+
+        manual = QHBoxLayout()
+        manual.addWidget(QLabel("指定 IP"))
+        self._manual_ip = QLineEdit()
+        self._manual_ip.setPlaceholderText("如 192.168.40.19 或 192.168.40.19:5025")
+        self._manual_ip.setMinimumWidth(220)
+        self._probe_ip_btn = QPushButton("探测此 IP")
+        self._probe_ip_btn.setCursor(Qt.PointingHandCursor)
+        manual.addWidget(self._manual_ip, 1)
+        manual.addWidget(self._probe_ip_btn)
+        root.addLayout(manual)
 
         self._table = QTableWidget(0, 6)
         self._table.setHorizontalHeaderLabels(
@@ -141,6 +157,7 @@ class DeviceFinderDialog(QDialog):
 
         self._scan_btn.clicked.connect(self._start_scan)
         self._cancel_btn.clicked.connect(self._stop_worker)
+        self._probe_ip_btn.clicked.connect(self._probe_manual_ip)
         self._fill_table(devices_from_last_resources(self._last, source="上次"))
 
     def checked_jobs(self) -> List[tuple]:
@@ -164,11 +181,13 @@ class DeviceFinderDialog(QDialog):
 
     def _stop_worker(self):
         if self._worker is not None:
-            self._worker.cancel()
+            if hasattr(self._worker, "cancel"):
+                self._worker.cancel()
             self._status.setText("正在停止扫描…")
             self._worker.wait(2500)
             self._worker = None
         self._scan_btn.setEnabled(True)
+        self._probe_ip_btn.setEnabled(True)
         self._cancel_btn.setEnabled(False)
         self._connect_btn.setEnabled(True)
 
@@ -202,6 +221,81 @@ class DeviceFinderDialog(QDialog):
         self._connect_btn.setEnabled(True)
         self._worker = None
         self._status.setText(f"扫描失败：{message}")
+
+    def _probe_manual_ip(self):
+        """只探测用户填的 IP（WT 等常不在 VISA 列表里，全网扫又慢/漏）。"""
+        if self._worker is not None and self._worker.isRunning():
+            return
+        raw = (self._manual_ip.text() or "").strip()
+        host, port = parse_host_port(raw)
+        if not host:
+            QMessageBox.warning(self, "指定 IP", "请填写 IPv4，如 192.168.40.19 或带端口 192.168.40.19:5025")
+            return
+        self._scan_btn.setEnabled(False)
+        self._probe_ip_btn.setEnabled(False)
+        self._connect_btn.setEnabled(False)
+        self._status.setText(f"正在探测 {host}" + (f":{port}" if port else "") + "…")
+
+        class _IpWorker(QThread):
+            progressed = pyqtSignal(str)
+            finished_ok = pyqtSignal(list)
+            failed = pyqtSignal(str)
+
+            def __init__(self, h, p):
+                super().__init__()
+                self._h = h
+                self._p = p
+
+            def run(self):
+                try:
+                    kwargs = {
+                        "hosts": [self._h],
+                        "timeout": 0.6,
+                        "progress": lambda m: self.progressed.emit(m),
+                    }
+                    if self._p:
+                        kwargs["ports"] = (int(self._p),)
+                    # 未指定端口时用 scan_lan 默认 ALL_PROBE_PORTS（含 5025）
+                    devices = scan_lan(**kwargs)
+                    self.finished_ok.emit(devices)
+                except Exception as exc:
+                    self.failed.emit(str(exc))
+
+        worker = _IpWorker(host, port)
+
+        def _done(devices: list):
+            self._scan_btn.setEnabled(True)
+            self._probe_ip_btn.setEnabled(True)
+            self._connect_btn.setEnabled(True)
+            self._worker = None
+            if not devices:
+                self._status.setText(
+                    f"未探测到 {host}"
+                    + (f":{port}" if port else " 常用端口")
+                    + "。请确认同网段、设备开机，或改端口后再试。"
+                )
+                return
+            for d in devices:
+                remember_found_resource(d.resource)
+            # 与已有列表合并，指定 IP 结果置顶
+            merged = list(devices) + [
+                d for d in self._devices if d.resource not in {x.resource for x in devices}
+            ]
+            self._status.setText(f"指定 IP 探测到 {len(devices)} 台，请勾选并指定槽位。")
+            self._fill_table(merged)
+
+        def _fail(message: str):
+            self._scan_btn.setEnabled(True)
+            self._probe_ip_btn.setEnabled(True)
+            self._connect_btn.setEnabled(True)
+            self._worker = None
+            self._status.setText(f"指定 IP 探测失败：{message}")
+
+        self._worker = worker
+        worker.progressed.connect(self._status.setText)
+        worker.finished_ok.connect(_done)
+        worker.failed.connect(_fail)
+        worker.start()
 
     def _fill_table(self, devices: Sequence[FoundDevice], preserve: Optional[dict] = None):
         preserve = preserve or {}

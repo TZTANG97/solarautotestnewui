@@ -589,6 +589,7 @@ class IotUiHandoffService(QObject):
         self.device_output_on = None
         self.device_output_off = None
         self.device_dew_build = None
+        self.device_switch_flicker = None
 
     def start(self) -> None:
         watched = " ; ".join(str(d / "pending") for d in self._inbox_dirs())
@@ -736,6 +737,7 @@ class IotUiHandoffService(QObject):
                     output_on=self.device_output_on,
                     output_off=self.device_output_off,
                     dew_build=self.device_dew_build,
+                    switch_flicker=self.device_switch_flicker,
                     log=self._log,
                 )
             try:

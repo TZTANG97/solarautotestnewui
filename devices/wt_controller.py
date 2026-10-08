@@ -23,74 +23,118 @@ class WT3000Controller:
         self.last_rate_ms = None
 
     def _candidate_resources(self, tcp_addr):
+        """生成 VISA 候选。横河网口常见 SOCKET(5025) / VXI-11 INSTR，缺一易报 RSRC_NFOUND。"""
         if not tcp_addr:
             return []
+        text = str(tcp_addr).strip()
         resources = []
-        if tcp_addr.startswith("TCPIP") or tcp_addr.startswith("GPIB") or tcp_addr.startswith("ASRL"):
-            resources.append(tcp_addr)
-        if ":" in tcp_addr and not tcp_addr.startswith("TCPIP"):
-            ip, port = tcp_addr.split(":", 1)
-            resources.extend([
-                f"TCPIP0::{ip}::{port}::SOCKET",
-                f"TCPIP::{ip}::{port}::INSTR",
-                f"TCPIP0::{ip}::inst0::INSTR",
-            ])
-        elif tcp_addr.count(".") == 3:
-            ip = tcp_addr
-            resources.extend([
-                f"TCPIP0::{ip}::inst0::INSTR",
-                f"TCPIP::{ip}::INSTR",
-                f"TCPIP0::{ip}::5025::SOCKET",
-                f"TCPIP0::{ip}::10001::SOCKET",
-            ])
-        else:
-            resources.append(tcp_addr)
-        # 去重但保持顺序
+        upper = text.upper()
+        if upper.startswith(("TCPIP", "GPIB", "ASRL", "USB")):
+            resources.append(text)
+
+        ip, port = "", ""
+        if ":" in text and not upper.startswith("TCPIP"):
+            ip, port = text.split(":", 1)
+            ip, port = ip.strip(), port.strip()
+        elif text.count(".") == 3 and not upper.startswith("TCPIP"):
+            ip, port = text.strip(), ""
+
+        if ip:
+            ports = []
+            if port and port.isdigit():
+                ports.append(port)
+            for p in ("5025", "10001", "5024"):
+                if p not in ports:
+                    ports.append(p)
+            # SOCKET 优先（纯 TCP，NI-VISA/pyvisa-py 都较稳）
+            for p in ports:
+                resources.append(f"TCPIP0::{ip}::{p}::SOCKET")
+            # VXI-11 / INSTR（部分固件只认这个）
+            resources.extend(
+                [
+                    f"TCPIP0::{ip}::INSTR",
+                    f"TCPIP0::{ip}::inst0::INSTR",
+                ]
+            )
+            for p in ports:
+                resources.append(f"TCPIP0::{ip}::{p}::INSTR")
+        elif text and text not in resources:
+            resources.append(text)
+
         seen = set()
         ordered = []
         for item in resources:
-            if item not in seen:
+            if item and item not in seen:
                 seen.add(item)
                 ordered.append(item)
         return ordered
+
+    def _try_open(self, rm, resource_string):
+        handle = rm.open_resource(resource_string)
+        _configure_scpi_resource(handle)
+        handle.timeout = 10000
+        try:
+            handle.baud_rate = int(self.baud_rate)
+            handle.data_bits = 8
+            handle.parity = __import__("pyvisa").constants.Parity.none
+            handle.stop_bits = __import__("pyvisa").constants.StopBits.one
+            handle.flow_control = __import__("pyvisa").constants.VI_ASRL_FLOW_NONE
+        except Exception as serial_cfg_err:
+            self.logger.info(f"WT3000串口参数设置失败: {serial_cfg_err}")
+            print(f"WT3000串口参数设置失败: {serial_cfg_err}")
+        return handle
 
     def connect(self, tcp_addr):
         """连接 WT3000，并应用串口参数。"""
         last_error = None
         handle = None
-        for resource_string in self._candidate_resources(tcp_addr):
-            try:
-                self.logger.info(f"WT3000尝试连接: {resource_string}")
-                print(f"WT3000尝试连接: {resource_string}")
-                handle = self.rm.open_resource(resource_string)
-                _configure_scpi_resource(handle)
-                handle.timeout = 10000
+        used_resource = ""
+        managers = [self.rm]
+        # NI-VISA 对未登记的 SOCKET 常直接 RSRC_NFOUND；再试 pyvisa-py
+        try:
+            import pyvisa as visa
+
+            py_rm = visa.ResourceManager("@py")
+            if py_rm is not self.rm:
+                managers.append(py_rm)
+        except Exception as py_exc:
+            self.logger.info(f"WT3000 pyvisa-py 不可用: {py_exc}")
+
+        for rm in managers:
+            backend = getattr(rm, "visalib", None)
+            backend_name = type(backend).__name__ if backend is not None else "default"
+            for resource_string in self._candidate_resources(tcp_addr):
                 try:
-                    handle.baud_rate = int(self.baud_rate)
-                    handle.data_bits = 8
-                    handle.parity = __import__('pyvisa').constants.Parity.none
-                    handle.stop_bits = __import__('pyvisa').constants.StopBits.one
-                    handle.flow_control = __import__('pyvisa').constants.VI_ASRL_FLOW_NONE
-                except Exception as serial_cfg_err:
-                    self.logger.info(f"WT3000串口参数设置失败: {serial_cfg_err}")
-                    print(f"WT3000串口参数设置失败: {serial_cfg_err}")
+                    self.logger.info(f"WT3000尝试连接[{backend_name}]: {resource_string}")
+                    print(f"WT3000尝试连接[{backend_name}]: {resource_string}")
+                    handle = self._try_open(rm, resource_string)
+                    used_resource = resource_string
+                    break
+                except Exception as e:
+                    last_error = e
+                    self.logger.info(f"WT3000 connect error {e}")
+                    print(f"WT3000 connect error {e}")
+                    handle = None
+            if handle is not None:
                 break
-            except Exception as e:
-                last_error = e
-                self.logger.info(f"WT3000 connect error {e}")
-                print(f"WT3000 connect error {e}")
-                handle = None
         if handle is None:
             try:
                 raise last_error if last_error is not None else Exception("WT3000连接失败")
             except Exception as e:
                 self.logger.info(f"WT3000 connect error {e}")
                 print(f"WT3000 connect error {e}")
-                self.show_message(f"WT3000连接失败：{e}", None)
+                hint = ""
+                err_s = str(e)
+                if "RSRC_NFOUND" in err_s or "-1073807343" in err_s:
+                    hint = (
+                        "\n提示：资源未找到。请确认 IP/端口（横河常用 5025），"
+                        "或先在「扫描并连接设备」里用「指定 IP」探测后再连。"
+                    )
+                self.show_message(f"WT3000连接失败：{e}{hint}", None)
                 self.connected = False
                 self.handle = None
-                self.resource = ''
-                return None, '0'
+                self.resource = ""
+                return None, "0"
         try:
             handle.write(":NUMERIC:FORMAT ASCII")
         except Exception as e:
@@ -101,8 +145,8 @@ class WT3000Controller:
             print("WT3000 发送ASCII 命令连接成功")
         self.handle = handle
         self.connected = True
-        self.resource = tcp_addr
-        return self.handle, '1'
+        self.resource = used_resource or tcp_addr
+        return self.handle, "1"
 
     def disconnect(self, safe_close_handle):
         """断开 WT3000 连接。"""

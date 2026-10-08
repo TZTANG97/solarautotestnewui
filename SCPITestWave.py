@@ -455,7 +455,24 @@ def _reapply_ac_setpoints_to_device(reason="恢复设定"):
         )
     except Exception:
         pass
-    return bool(ac_controller.apply_setpoints(volt, freq, phase))
+    ok_sp = bool(ac_controller.apply_setpoints(volt, freq, phase))
+    if ok_sp:
+        try:
+            import json as _json
+            import os as _os
+            from utils.status_json_devices import empty_status_payload, update_device_measures
+            _sf = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "status.json")
+            try:
+                with open(_sf, "r", encoding="utf-8") as _f:
+                    _data = _json.load(_f)
+            except Exception:
+                _data = empty_status_payload()
+            _data = update_device_measures(_data, device_name="交流电源", extra=_ac_status_extra())
+            with open(_sf, "w", encoding="utf-8") as _f:
+                _json.dump(_data, _f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+    return ok_sp
 
 
 def SendACMessage():
@@ -1041,6 +1058,17 @@ def _save_device_status(device_name, connected, resource="", extra=None):
             data = json.load(f)
     except Exception:
         data = empty_status_payload()
+    if not isinstance(extra, dict):
+        try:
+            dn = str(device_name or "").strip()
+            if dn in ("交流电源", "交流源"):
+                extra = _ac_status_extra()
+            elif dn.startswith("直流电源") or dn.startswith("直流源"):
+                extra = _dc_status_extra(dn)
+            elif dn == "DEWETRON":
+                extra = _dewetron_status_extra()
+        except Exception:
+            extra = None
     data = apply_device_connection(
         data,
         device_name=device_name,
@@ -1054,6 +1082,36 @@ def _save_device_status(device_name, connected, resource="", extra=None):
     if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
         ui.stackedWidget.widget(0).update() if hasattr(ui.stackedWidget.widget(0), 'update') else None
         _reload_home_status(data)
+
+
+
+def _ac_status_extra():
+    """交流源当前电压/频率写入 status.json，供 IOT 台架卡片实时展示。"""
+    try:
+        from utils.status_json_devices import read_ac_ui_snapshot
+
+        return read_ac_ui_snapshot(globals().get("uiACSetting"))
+    except Exception:
+        return {"measures": {}}
+
+
+def _dc_status_extra(device_name="直流电源1"):
+    """直流源当前 IV 设定写入 status.json。"""
+    try:
+        from utils.status_json_devices import read_dc_ui_snapshot
+
+        name = str(device_name or "")
+        slot = "dc1"
+        ui_name = "uiDC1Setting"
+        if "2" in name:
+            slot, ui_name = "dc2", "uiDC2Setting"
+        elif "3" in name:
+            slot, ui_name = "dc3", "uiDC3Setting"
+        elif "4" in name:
+            slot, ui_name = "dc4", "uiDC4Setting"
+        return read_dc_ui_snapshot(globals().get(ui_name), slot=slot)
+    except Exception:
+        return {"measures": {}}
 
 
 def _dewetron_status_extra():
@@ -1104,6 +1162,33 @@ def _update_project_status(project_name, status):
 
 def _reload_home_status(data):
     """用已加载的 status 数据刷新首页卡片。"""
+    # refresh connected AC/DC measures from live UI (for IOT bench cards)
+    try:
+        from utils.status_json_devices import update_device_measures
+        changed = False
+        for _dev in list(data.get("devices") or []):
+            if not isinstance(_dev, dict) or not _dev.get("connected"):
+                continue
+            _name = str(_dev.get("name") or "").strip()
+            _extra = None
+            if _name in ("交流电源", "交流源"):
+                _extra = _ac_status_extra()
+            elif _name.startswith("直流电源") or _name.startswith("直流源"):
+                _extra = _dc_status_extra(_name)
+            if isinstance(_extra, dict) and _extra:
+                data = update_device_measures(data, device_name=_name, extra=_extra)
+                changed = True
+        if changed:
+            try:
+                import json as _json
+                import os as _os
+                _sf = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "status.json")
+                with open(_sf, "w", encoding="utf-8") as _f:
+                    _json.dump(data, _f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+    except Exception:
+        pass
     for dev in data.get("devices", []):
         name = dev["name"]
         if name in getattr(ui, '_home_dots', {}):
@@ -3130,11 +3215,26 @@ def ConnectEQUWT3000():
         return
 
     if ok:
+        saved_addr = getattr(wt3000_controller, "resource", None) or tcp_addr
         _remove_equ_from_combo_boxes(tcp_addr)
         _set_equ_combo_locked("comboBox_WT3000", True)
         _toggle_connection_button("pushButton_ConnectEQUWT3000", True)
         ui.pushButton_ConnectEQUWT3000.setText("取消连接")
-        _save_device_status("WT3000", True, tcp_addr)
+        _save_device_status("WT3000", True, saved_addr)
+        # 记住 IP，下次「扫描并连接」能出现在上次地址（不必再手填）
+        try:
+            from utils.device_discovery import remember_found_resource
+            from utils.ui_field_helpers import remember_value
+
+            remember_found_resource(tcp_addr if ":" in tcp_addr else f"{tcp_addr}:5025")
+            host_only = tcp_addr.split(":", 1)[0].strip()
+            if host_only.count(".") == 3:
+                remember_value("wt.ip", host_only)
+                port_part = tcp_addr.split(":", 1)[1].strip() if ":" in tcp_addr else "5025"
+                if port_part.isdigit():
+                    remember_value("wt.port", port_part)
+        except Exception as rem_exc:
+            print(f"[WT3000] 记忆地址失败: {rem_exc}")
  
 # 启动期后台加载 VISA RM，避免打开窗口前卡在 dll/驱动初始化
 _VISA_RM_BOOT = {"rm": None, "done": False, "error": None}
@@ -33345,15 +33445,71 @@ if __name__ == "__main__":
                         prepare_jobs_from_cloud_instruments,
                     )
 
+                    inst = instrument or {}
+                    widgets_in = inst.get("widgets") if isinstance(inst.get("widgets"), dict) else {}
+
+                    # AC：同步 Web 单相/三相/电压/频率到桌面 Dialog_AC_Setting
+                    try:
+                        slot_l = str(inst.get("slot") or "").strip().lower()
+                        if slot_l in ("", "ac") and uiACSetting is not None:
+                            phase = str(widgets_in.get("comboBox_Phase") or "").strip()
+                            if phase in ("单相", "三相"):
+                                idx = uiACSetting.comboBox_Phase.findText(phase)
+                                if idx >= 0:
+                                    uiACSetting.comboBox_Phase.setCurrentIndex(idx)
+                            volt = str(widgets_in.get("textEdit_AC_VOLT") or "").strip()
+                            freq = str(widgets_in.get("textEdit_AC_FR") or "").strip()
+                            if volt:
+                                uiACSetting.textEdit_AC_VOLT.setPlainText(volt)
+                            if freq:
+                                uiACSetting.textEdit_AC_FR.setPlainText(freq)
+                            if phase or volt or freq:
+                                _iot_log(
+                                    f"AC 设置已同步 phase={phase or '-'} volt={volt or '-'} freq={freq or '-'}"
+                                )
+                    except Exception as exc:
+                        _iot_log(f"AC 参数预同步: {exc}")
+
+                    # DC：同步 Web IV 参数到桌面 DC1 设置（当前页/引用）
+                    try:
+                        slot_l = str(inst.get("slot") or "").strip().lower()
+                        if slot_l.startswith("dc"):
+                            vmp = str(widgets_in.get("textEdit_Vmp") or "").strip()
+                            voc = str(widgets_in.get("textEdit_Voc") or "").strip()
+                            imp = str(widgets_in.get("textEdit_Imp") or "").strip()
+                            isc = str(widgets_in.get("textEdit_Isc") or "").strip()
+                            if any((vmp, voc, imp, isc)):
+                                if _dc1_itech_ref is not None:
+                                    if vmp and _dc1_itech_ref.get("textEdit_Vmp"):
+                                        _dc1_itech_ref["textEdit_Vmp"].setPlainText(vmp)
+                                    if voc and _dc1_itech_ref.get("textEdit_Voc"):
+                                        _dc1_itech_ref["textEdit_Voc"].setPlainText(voc)
+                                    if imp and _dc1_itech_ref.get("textEdit_Imp"):
+                                        _dc1_itech_ref["textEdit_Imp"].setPlainText(imp)
+                                    if isc and _dc1_itech_ref.get("textEdit_Isc"):
+                                        _dc1_itech_ref["textEdit_Isc"].setPlainText(isc)
+                                elif uiDC1Setting is not None:
+                                    for name, val in (
+                                        ("textEdit_Vmp", vmp),
+                                        ("textEdit_Voc", voc),
+                                        ("textEdit_Imp", imp),
+                                        ("textEdit_Isc", isc),
+                                    ):
+                                        w = getattr(uiDC1Setting, name, None)
+                                        if w is not None and val:
+                                            w.setPlainText(val)
+                                _iot_log(f"DC IV 已同步 Vmp={vmp} Voc={voc} Imp={imp} Isc={isc}")
+                    except Exception as exc:
+                        _iot_log(f"DC 参数预同步: {exc}")
+
                     # 德威创：先把 Web 下发的 IP/参数写到桌面设置页
                     try:
-                        inst = instrument or {}
                         if str(inst.get("kind") or "").lower() == "dew" or str(
                             inst.get("slot") or ""
                         ).lower() == "dew":
-                            widgets = {}
+                            widgets = dict(widgets_in)
                             res = str(inst.get("resource") or "")
-                            if res and ":" in res and "://" not in res:
+                            if res and ":" in res and "://" not in res and not res.upper().startswith("TCPIP"):
                                 h, _, p = res.partition(":")
                                 widgets["lineEdit_deviceIP"] = h.strip()
                                 widgets["lineEdit_port"] = (p or "10001").strip()
@@ -33361,7 +33517,6 @@ if __name__ == "__main__":
                     except Exception as exc:
                         _iot_log(f"德威创 UI 预同步: {exc}")
 
-                    inst = instrument or {}
                     try:
                         port_chk = inst.get("port")
                         port_i = int(port_chk) if port_chk is not None and str(port_chk).strip() != "" else None
@@ -33392,6 +33547,16 @@ if __name__ == "__main__":
                     connected = summary.get("connected") or []
                     errors = summary.get("errors") or []
                     ok = bool(connected) and not errors
+                    # WT 连接成功后自动切闪变显示（与桌面「切换闪变页面」同命令）
+                    if ok and str(inst.get("slot") or "").strip().lower() == "wt":
+                        try:
+                            flick = _iot_device_switch_flicker(inst)
+                            if not (flick or {}).get("ok"):
+                                _iot_log(
+                                    f"WT 已连接，但自动切闪变页失败: {(flick or {}).get('message')}"
+                                )
+                        except Exception as flick_exc:
+                            _iot_log(f"WT 自动切闪变页异常: {flick_exc}")
                     return {
                         "ok": ok,
                         "message": (
@@ -33482,11 +33647,32 @@ if __name__ == "__main__":
                     except Exception as exc:
                         return {"ok": False, "message": f"构造失败: {exc}"}
 
+                def _iot_device_switch_flicker(instrument):
+                    """与桌面「切换闪变页面」同命令：DISPLAY:MODE FLICker。"""
+                    try:
+                        # 顺带切到 WT 设备页，方便试验员对照
+                        try:
+                            ui.stackedWidget.setCurrentIndex(7)
+                        except Exception:
+                            pass
+                        ctrl = globals().get("wt3000_controller")
+                        if ctrl is None or not getattr(ctrl, "connected", False):
+                            return {"ok": False, "message": "WT 未连接，无法切换闪变页面"}
+                        handle = getattr(ctrl, "handle", None)
+                        if handle is None or not hasattr(handle, "write"):
+                            return {"ok": False, "message": "WT 会话无写通道"}
+                        handle.write("DISPLAY:MODE FLICker")
+                        _iot_log("WT 已切换到闪变页面 DISPLAY:MODE FLICker")
+                        return {"ok": True, "message": "已切换到闪变页面"}
+                    except Exception as exc:
+                        return {"ok": False, "message": f"切换闪变页面失败: {exc}"}
+
                 _iot_ui_handoff_svc.device_apply_connect = _iot_device_connect
                 _iot_ui_handoff_svc.device_apply_disconnect = _iot_device_disconnect
                 _iot_ui_handoff_svc.device_output_on = _iot_device_output_on
                 _iot_ui_handoff_svc.device_output_off = _iot_device_output_off
                 _iot_ui_handoff_svc.device_dew_build = _iot_device_dew_build
+                _iot_ui_handoff_svc.device_switch_flicker = _iot_device_switch_flicker
                 try:
                     _reconcile_status_json_with_sessions()
                 except Exception as _rec_exc:

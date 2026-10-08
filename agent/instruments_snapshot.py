@@ -148,6 +148,30 @@ def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     widgets = row.get("widgets")
     if isinstance(widgets, dict) and widgets:
         item["widgets"] = dict(widgets)
+    # 实时/设定量测（交流 V/Hz、直流 Vmp 等），由 GUI 写入 status.json
+    measures = row.get("measures") if isinstance(row.get("measures"), dict) else {}
+    voltage = row.get("voltage") if row.get("voltage") not in (None, "") else measures.get("voltage") or measures.get("vmp")
+    frequency = row.get("frequency") if row.get("frequency") not in (None, "") else measures.get("frequency")
+    current = row.get("current") if row.get("current") not in (None, "") else measures.get("current") or measures.get("imp")
+    if voltage not in (None, ""):
+        item["voltage"] = str(voltage).strip()[:32]
+    if frequency not in (None, ""):
+        item["frequency"] = str(frequency).strip()[:32]
+    if current not in (None, ""):
+        item["current"] = str(current).strip()[:32]
+    keep_meas = {}
+    for mk, mv in (measures or {}).items():
+        if mv in (None, ""):
+            continue
+        keep_meas[str(mk)[:32]] = str(mv).strip()[:64]
+    if voltage not in (None, "") and "voltage" not in keep_meas:
+        keep_meas["voltage"] = str(voltage).strip()[:64]
+    if frequency not in (None, "") and "frequency" not in keep_meas:
+        keep_meas["frequency"] = str(frequency).strip()[:64]
+    if current not in (None, "") and "current" not in keep_meas:
+        keep_meas["current"] = str(current).strip()[:64]
+    if keep_meas:
+        item["measures"] = keep_meas
     return item
 
 

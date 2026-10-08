@@ -79,6 +79,7 @@ def execute_device_cmd(
     output_on: Optional[Callable[[str], bool]] = None,
     output_off: Optional[Callable[[str], bool]] = None,
     dew_build: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+    switch_flicker: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     log: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """在桌面主线程执行一条控制命令。"""
@@ -92,7 +93,11 @@ def execute_device_cmd(
         if action == "connect":
             if not apply_connect:
                 return {"ok": False, "message": "桌面未注册连接回调"}
-            summary = apply_connect(instrument)
+            # 把 Web 下发的 widgets（如 AC 单相/三相）带进连接回调
+            inst_payload = dict(instrument or {})
+            if widgets:
+                inst_payload["widgets"] = dict(widgets)
+            summary = apply_connect(inst_payload)
             ok = bool((summary or {}).get("ok", True))
             msg = str((summary or {}).get("message") or ("连接成功" if ok else "连接失败"))
             _log(f"[仪器控制] connect {slot}: {msg}")
@@ -136,6 +141,15 @@ def execute_device_cmd(
             ok = bool((summary or {}).get("ok", False))
             msg = str((summary or {}).get("message") or ("构造完成" if ok else "构造失败"))
             _log(f"[仪器控制] dew_build: {msg}")
+            return {"ok": ok, "message": msg, "detail": summary or {}}
+
+        if action == "switch_flicker":
+            if not switch_flicker:
+                return {"ok": False, "message": "桌面未注册切换闪变页面回调（请升级 SolarAutoTest）"}
+            summary = switch_flicker(instrument)
+            ok = bool((summary or {}).get("ok", False))
+            msg = str((summary or {}).get("message") or ("已切换闪变页面" if ok else "切换失败"))
+            _log(f"[仪器控制] switch_flicker: {msg}")
             return {"ok": ok, "message": msg, "detail": summary or {}}
 
         return {"ok": False, "message": f"未知动作: {action}"}
