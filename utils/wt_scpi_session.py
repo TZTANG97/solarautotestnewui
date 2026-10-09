@@ -63,16 +63,22 @@ def request_stop(reason: str = ""):
 
 
 def _get_controller():
-    # SCPITestWave module globals (primary)
+    """取当前已连接的 WT 控制器。
+
+    直接 ``python SCPITestWave.py`` 时模块名是 ``__main__``，不是 ``SCPITestWave``；
+    还必须读到连接后同步的 ``app.context``，否则会出现「按钮已取消连接但判未连接」。
+    """
     import sys
 
-    mod = sys.modules.get("SCPITestWave")
-    if mod is not None:
+    for name in ("SCPITestWave", "__main__"):
+        mod = sys.modules.get(name)
+        if mod is None:
+            continue
         ctrl = getattr(mod, "wt3000_controller", None)
         if ctrl is not None:
             return ctrl
     try:
-        from utils.app_context import get_app_context
+        from app.context import get_app_context
 
         ctx = get_app_context()
         return getattr(ctx, "wt3000_controller", None)

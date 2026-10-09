@@ -2246,6 +2246,11 @@ def DisconnectEQUWT3000():
     if wt3000_controller is None:
         wt3000_controller = WT3000Controller(logger, _show_connect_message, rm, WT3000_baud_rate)
     wt3000_controller.disconnect(_safe_close_handle)
+    try:
+        app_ctx.wt3000_controller = wt3000_controller
+        app_ctx.strConnectWT3000 = "0"
+    except Exception:
+        pass
     _restore_equ_to_combo_boxes(tcp_addr)
     _set_equ_combo_locked("comboBox_WT3000", False)
     _toggle_connection_button("pushButton_ConnectEQUWT3000", False)
@@ -3230,6 +3235,11 @@ def ConnectEQUWT3000():
 
     if ok:
         saved_addr = getattr(wt3000_controller, "resource", None) or tcp_addr
+        try:
+            app_ctx.wt3000_controller = wt3000_controller
+            app_ctx.strConnectWT3000 = "1"
+        except Exception:
+            pass
         _remove_equ_from_combo_boxes(tcp_addr)
         _set_equ_combo_locked("comboBox_WT3000", True)
         _toggle_connection_button("pushButton_ConnectEQUWT3000", True)
@@ -29887,8 +29897,12 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
             _status_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "status.json"
             )
+            # 启动不自动连德威创：多数台架未用，连失败会卡很久；需要时手动点连接即可
             jobs, devices = prepare_auto_connect_jobs(
-                visa_rm=_rm, status_json_path=_status_path, scan_lan=False
+                visa_rm=_rm,
+                status_json_path=_status_path,
+                scan_lan=False,
+                skip_slots=("dew",),
             )
         except Exception as exc:
             print(f"[DEBUG_STARTUP]    boot prepare fail: {exc}", flush=True)

@@ -320,8 +320,12 @@ def prepare_auto_connect_jobs(
     visa_rm=None,
     status_json_path: Optional[str] = None,
     scan_lan: bool = False,
+    skip_slots: Optional[Sequence[str]] = None,
 ) -> Tuple[List[Tuple[str, dict, Any]], List[FoundDevice]]:
-    """仅发现+建议槽位（可在后台线程跑）；不触碰 Qt。"""
+    """仅发现+建议槽位（可在后台线程跑）；不触碰 Qt。
+
+    ``skip_slots``：启动自动连可跳过德威创等慢且多数台架不用的槽位。
+    """
     from utils.device_finder_connect import build_connect_jobs
 
     devices = discover_for_auto_connect(
@@ -330,6 +334,9 @@ def prepare_auto_connect_jobs(
         scan_lan=scan_lan,
     )
     pairs = suggest_auto_jobs(devices)
+    skip = {str(s or "").strip().lower() for s in (skip_slots or ()) if str(s or "").strip()}
+    if skip:
+        pairs = [(slot, dev) for slot, dev in pairs if str(slot or "").strip().lower() not in skip]
     return build_connect_jobs(pairs), devices
 
 

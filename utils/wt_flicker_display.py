@@ -30,6 +30,21 @@ def switch_wt_flicker_display(instrument: Optional[Dict[str, Any]] = None) -> Di
     resource = str(inst.get("resource") or inst.get("addr") or "").strip()
 
     ctrl = _controller()
+    # 二次兜底：部分启动路径只更新了 __main__ 全局，会话模块偶发读不到
+    if ctrl is None or not getattr(ctrl, "connected", False):
+        try:
+            import sys
+
+            for name in ("__main__", "SCPITestWave"):
+                mod = sys.modules.get(name)
+                if mod is None:
+                    continue
+                alt = getattr(mod, "wt3000_controller", None)
+                if alt is not None and getattr(alt, "connected", False):
+                    ctrl = alt
+                    break
+        except Exception:
+            pass
     if ctrl is None or not getattr(ctrl, "connected", False):
         hint = f"（目标 {model}"
         if resource:
@@ -37,7 +52,10 @@ def switch_wt_flicker_display(instrument: Optional[Dict[str, Any]] = None) -> Di
         hint += "）"
         return {
             "ok": False,
-            "message": f"WT 未连接{hint}，请先在仪器面板连接功率分析仪后再切闪变页",
+            "message": (
+                f"WT 未连接{hint}，请先在仪器面板连接功率分析仪后再切闪变页"
+                f"（若按钮已是「取消连接」仍见此提示，请断开后重连一次再试）"
+            ),
         }
 
     handle = getattr(ctrl, "handle", None)

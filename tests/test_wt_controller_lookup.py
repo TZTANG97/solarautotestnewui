@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+"""WT 控制器查找：__main__ / app.context 都能拿到已连接实例。"""
+from __future__ import annotations
+
+import sys
+
+
+def test_get_controller_from_main_module(monkeypatch):
+    import utils.wt_scpi_session as sess
+
+    class _Ctrl:
+        connected = True
+
+    class _Main:
+        wt3000_controller = _Ctrl()
+
+    monkeypatch.setitem(sys.modules, "__main__", _Main())
+    monkeypatch.delitem(sys.modules, "SCPITestWave", raising=False)
+    got = sess._get_controller()
+    assert got is not None
+    assert got.connected is True
+
+
+def test_prepare_skips_dew_slot(monkeypatch):
+    from utils.device_discovery import FoundDevice
+    from utils.iot_auto_connect import prepare_auto_connect_jobs
+
+    devices = [
+        FoundDevice(resource="192.168.40.19:5025", host="192.168.40.19", port=5025, kind_hint="wt"),
+        FoundDevice(resource="192.168.40.50:10001", host="192.168.40.50", port=10001, kind_hint="dew"),
+    ]
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.discover_for_auto_connect",
+        lambda **_k: devices,
+    )
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.suggest_auto_jobs",
+        lambda _devs: [("wt", devices[0]), ("dew", devices[1])],
+    )
+    jobs, _ = prepare_auto_connect_jobs(skip_slots=("dew",))
+    slots = [j[0] for j in jobs]
+    assert "wt" in slots
+    assert "dew" not in slots
