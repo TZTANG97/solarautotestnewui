@@ -18,6 +18,10 @@ def test_is_status_error():
         "STATus:ERRor? 失败: VI_ERROR_TMO (-1073807339): Timeout expired"
     )
     assert not is_status_error("STATus:ERRor? 超时（仪器忙，可忽略）: VI_ERROR_TMO")
+    # 远程锁定提示不是命令失败
+    assert not is_status_error(
+        '85,"In remote control mode, all keys are locked except LOCAL(UTILITY) key"'
+    )
 
 
 def test_should_hard_fail():

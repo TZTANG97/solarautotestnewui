@@ -158,3 +158,34 @@ def test_wt3000_plain_one_still_ok():
     ctrl = _SimCtrl(h)
     ok, msg = ensure_remote(ctrl=ctrl, retries=1)
     assert ok is True, msg
+
+
+def test_initialize_ignores_status_85_remote_lock_message():
+    """现场：INITIALIZE 后 85 远程锁定提示被误杀试验。"""
+    queue = [
+        '85,"In remote control mode, all keys are locked except LOCAL(UTILITY) key"',
+        '0,"No error"',
+    ]
+
+    class _H(_SimHandle):
+        def query(self, cmd: str):
+            u = str(cmd or "").strip().upper().replace(" ", "")
+            if "REMOTE?" in u or "REM?" in u:
+                return ":COMM:REM 1" if self.remote == 1 else ":COMM:REM 0"
+            if "STATUS:ERROR?" in u or "STAT:ERR?" in u:
+                if queue:
+                    return queue.pop(0)
+                return '0,"No error"'
+            raise RuntimeError(cmd)
+
+    h = _H()
+    h.remote = 1
+    ctrl = _SimCtrl(h)
+    ok, msg = write_flicker_command(
+        "FLICKER:INITIALIZE",
+        ctrl=ctrl,
+        check_error=True,
+        ensure_remote_first=False,
+    )
+    assert ok is True, msg
+    assert "忽略" in msg or "已写" in msg

@@ -152,6 +152,11 @@ def ensure_remote(ctrl=None, *, lockout: bool = True, retries: int = 3) -> Tuple
 
         on, raw = query_remote_on(c)
         last_query = raw
+        # REMOTE/LOCK 后常留下 85 提示，先读走，避免 INITIALIZE 被误杀
+        try:
+            drain_status_errors(handle)
+        except Exception:
+            pass
         if on is True:
             return True, f"REMOTE 已确认 ON（{raw}，第{attempt + 1}次）"
         if on is False:
@@ -195,17 +200,60 @@ def _query_status_error(handle) -> Tuple[str, bool]:
     return f"STATus:ERRor? 失败: {last_exc}", False
 
 
+# 横河在 REMOTE/LOCK 后常见提示，不是命令失败
+_BENIGN_STATUS_CODES = frozenset(
+    {
+        85,  # In remote control mode, all keys are locked except LOCAL...
+    }
+)
+
+
+def _status_code(reply: str) -> Optional[int]:
+    s = (reply or "").strip()
+    if not s:
+        return None
+    head = s.split(",", 1)[0].strip().lstrip("+")
+    try:
+        return int(head)
+    except ValueError:
+        return None
+
+
+def is_benign_status_error(reply: str) -> bool:
+    code = _status_code(reply)
+    if code in _BENIGN_STATUS_CODES:
+        return True
+    low = (reply or "").lower()
+    return "in remote control mode" in low and "locked" in low
+
+
 def is_status_error(reply: str) -> bool:
     s = (reply or "").strip()
     if not s:
         return False
     if "失败" in s or "超时" in s or "VI_ERROR_TMO" in s.upper():
         return False
-    head = s.split(",", 1)[0].strip().lstrip("+")
-    try:
-        return int(head) != 0
-    except ValueError:
-        return "no error" not in s.lower()
+    if is_benign_status_error(s):
+        return False
+    code = _status_code(s)
+    if code is not None:
+        return code != 0
+    return "no error" not in s.lower()
+
+
+def drain_status_errors(handle, *, max_n: int = 8) -> list:
+    """读走错误队列直到 No error（含 85 提示），避免下一条命令被旧消息误杀。"""
+    drained = []
+    for _ in range(max(1, int(max_n))):
+        err, ok = _query_status_error(handle)
+        if not ok:
+            break
+        code = _status_code(err)
+        if code == 0 or (err and "no error" in err.lower()):
+            break
+        if err:
+            drained.append(err)
+    return drained
 
 
 def write_flicker_command(
@@ -247,6 +295,12 @@ def write_flicker_command(
     err, query_ok = _query_status_error(handle)
     if not query_ok:
         return True, f"已写 {cmd}（错误队列暂不可读：{err}）"
+    if is_benign_status_error(err):
+        try:
+            drain_status_errors(handle)
+        except Exception:
+            pass
+        return True, f"已写 {cmd}（忽略提示: {err}）"
     if is_status_error(err):
         return False, f"{cmd} 后仪器报错: {err}"
     return True, f"已写 {cmd}"
