@@ -143,14 +143,8 @@ class WT3000Controller:
         else:
             self.logger.info("WT3000 发送ASCII 命令连接成功")
             print("WT3000 发送ASCII 命令连接成功")
-        # 以太网/串口需显式进远程，否则闪变页停在 Reset、START 无反应
-        try:
-            handle.write(":COMMunicate:REMote ON")
-            self.logger.info("WT3000 COMMunicate:REMote ON")
-            print("WT3000 COMMunicate:REMote ON")
-        except Exception as e:
-            self.logger.info(f"WT3000 REMote ON 失败: {e}")
-            print(f"WT3000 REMote ON 失败: {e}")
+        # 连接时不强制 REMote：多数试验走 WTViewer 宏，由上位机接管远程。
+        # 闪变 SCPI 路径在开测序列 / START 前单独发 :COMMunicate:REMote ON。
         self.handle = handle
         self.connected = True
         self.resource = used_resource or tcp_addr
