@@ -25757,8 +25757,11 @@ def RunProject():
                                 ok, msg = ensure_remote(ctrl=wt3000_controller)
                             else:
                                 # INITIALIZE/START 前再强制 REMOTE（step1 等待中可能被按 LOCAL）
-                                # START 后再查错误队列；其余只校验连接+写入
-                                _check_err = _cmd_u.startswith("FLICKER:START")
+                                # START 后查错误队列，但 VI_ERROR_TMO（仪器忙）不当失败
+                                _check_err = (
+                                    _cmd_u.startswith("FLICKER:START")
+                                    or _cmd_u.startswith("FLICKER:INITIALIZE")
+                                )
                                 _need_remote = (
                                     _cmd_u.startswith("DISPLAY:MODE")
                                     or _cmd_u.startswith("FLICKER:INITIALIZE")
@@ -25781,7 +25784,8 @@ def RunProject():
                                 or "COMMUNICATE:REMOTE" in _cmd_u.replace(" ", "")
                             ):
                                 _append_return_message(
-                                    f"[WT闪变] 中止：{msg}（REMOTE 未亮则 START 无效，避免空等）"
+                                    f"[WT闪变] 中止：{msg}（写命令失败或仪器明确报错；"
+                                    f"若仅 STATUS 查询超时不应中止）"
                                 )
                                 logger.error(f"闪变 WT 命令失败，中止试验: {msg}")
                                 strTestStatusFlag = "结束"
@@ -25795,7 +25799,6 @@ def RunProject():
                                     pass
                                 break
                             if ok and _cmd_u.startswith("FLICKER:START"):
-                                time.sleep(0.5)
                                 vok, vmsg = verify_after_flicker_start(ctrl=wt3000_controller)
                                 _append_return_message(f"[WT闪变] {vmsg}")
                                 if not vok:
@@ -30698,15 +30701,35 @@ if __name__ == "__main__":
 
                     result = switch_wt_flicker_display({"model": "WT3000/WT3004E"})
                     msg = str((result or {}).get("message") or "")
-                    if (result or {}).get("ok"):
+                    ok = bool((result or {}).get("ok"))
+                    if ok:
                         logger.info("%s", msg)
                         print(msg)
                     else:
                         logger.warning("%s", msg)
                         print(msg)
+                    try:
+                        _append_return_message(f"[WT闪变页] {msg}")
+                    except Exception:
+                        pass
+                    try:
+                        if ok:
+                            QMessageBox.information(None, "切换闪变页面", msg)
+                        else:
+                            QMessageBox.warning(None, "切换闪变页面", msg)
+                    except Exception:
+                        pass
                 except Exception as e:
                     logger.error(f"WT3000 切换闪变页面失败: {e}")
                     print(f"WT3000 切换闪变页面失败: {e}")
+                    try:
+                        _append_return_message(f"[WT闪变页] 失败: {e}")
+                    except Exception:
+                        pass
+                    try:
+                        QMessageBox.warning(None, "切换闪变页面", f"失败: {e}")
+                    except Exception:
+                        pass
 
             _flicker_btn.clicked.connect(_switch_wt3000_flicker)
 

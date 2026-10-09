@@ -32,6 +32,7 @@ def test_switch_writes_display_mode(monkeypatch):
     monkeypatch.setattr(mod, "_controller", lambda: _Ctrl())
     out = switch_wt_flicker_display({"model": "WT3004E"})
     assert out["ok"] is True
+    assert "闪变" in out["message"]
     assert ":COMMunicate:REMote ON" in writes
     assert "DISPLAY:MODE FLICker" in writes
     assert writes.index(":COMMunicate:REMote ON") < writes.index("DISPLAY:MODE FLICker")

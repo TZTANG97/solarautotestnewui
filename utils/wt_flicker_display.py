@@ -57,9 +57,13 @@ def switch_wt_flicker_display(instrument: Optional[Dict[str, Any]] = None) -> Di
     for cmd in FLICKER_MODE_CMDS:
         try:
             handle.write(cmd)
+            # 已在闪变页时面板可能无视觉变化，仍返回成功并提示看 REMOTE 灯
             return {
                 "ok": True,
-                "message": f"已切换到闪变页面（{model} {cmd}）",
+                "message": (
+                    f"已下发闪变显示（{model} {cmd}）。"
+                    f"请确认面板 REMOTE 灯亮；若本就在闪变页，画面可能不变。"
+                ),
                 "command": cmd,
             }
         except Exception as exc:  # noqa: BLE001 — 汇总后返回

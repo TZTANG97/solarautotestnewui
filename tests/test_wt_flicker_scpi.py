@@ -4,6 +4,7 @@ from utils.wt_flicker_scpi import (
     ensure_remote,
     is_status_error,
     should_hard_fail_flicker_cmd,
+    verify_after_flicker_start,
     write_flicker_command,
 )
 
@@ -12,6 +13,11 @@ def test_is_status_error():
     assert not is_status_error('0,"No error"')
     assert not is_status_error('+0,"No error"')
     assert is_status_error('-113,"Undefined header"')
+    # 查询超时文案不得当仪器报错
+    assert not is_status_error(
+        "STATus:ERRor? 失败: VI_ERROR_TMO (-1073807339): Timeout expired"
+    )
+    assert not is_status_error("STATus:ERRor? 超时（仪器忙，可忽略）: VI_ERROR_TMO")
 
 
 def test_should_hard_fail():
@@ -34,3 +40,55 @@ def test_ensure_remote_fails_when_disconnected():
 
 def test_remote_on_cmds():
     assert any("REMote ON" in c for c in REMOTE_ON_CMDS)
+
+
+class _TimeoutHandle:
+    def write(self, cmd):
+        self.last = cmd
+
+    def query(self, cmd):
+        raise RuntimeError("VI_ERROR_TMO (-1073807339): Timeout expired before operation completed.")
+
+
+class _TimeoutCtrl:
+    connected = True
+    handle = _TimeoutHandle()
+
+
+def test_start_timeout_on_status_error_is_ok():
+    ok, msg = write_flicker_command(
+        "FLICKER:START",
+        ctrl=_TimeoutCtrl(),
+        check_error=True,
+        ensure_remote_first=False,
+    )
+    assert ok is True
+    assert "已写" in msg
+
+
+def test_verify_after_start_tolerates_timeout():
+    ok, msg = verify_after_flicker_start(ctrl=_TimeoutCtrl())
+    assert ok is True
+    assert "继续" in msg or "不可读" in msg
+
+
+def test_real_status_error_still_fails():
+    class _ErrHandle:
+        def write(self, cmd):
+            pass
+
+        def query(self, cmd):
+            return '-113,"Undefined header"'
+
+    class _ErrCtrl:
+        connected = True
+        handle = _ErrHandle()
+
+    ok, msg = write_flicker_command(
+        "FLICKER:START",
+        ctrl=_ErrCtrl(),
+        check_error=True,
+        ensure_remote_first=False,
+    )
+    assert ok is False
+    assert "报错" in msg
