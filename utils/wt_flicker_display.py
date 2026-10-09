@@ -44,6 +44,15 @@ def switch_wt_flicker_display(instrument: Optional[Dict[str, Any]] = None) -> Di
     if handle is None or not hasattr(handle, "write"):
         return {"ok": False, "message": "WT 会话无写通道，请断开后重新连接"}
 
+    try:
+        from utils.wt_flicker_scpi import ensure_remote
+
+        ok_r, msg_r = ensure_remote(ctrl)
+        if not ok_r:
+            return {"ok": False, "message": msg_r}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": f"切换远程模式失败: {exc}"}
+
     last_exc: Optional[BaseException] = None
     for cmd in FLICKER_MODE_CMDS:
         try:

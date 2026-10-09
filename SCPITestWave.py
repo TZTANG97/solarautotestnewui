@@ -5475,6 +5475,15 @@ def thaidianyashanbianSend():
 
         # ── WT3000 命令仅在 WT 模式下生成，DEWETRON 模式跳过 ──
         if not is_dewetron:
+            # 必须先 REMOTE，否则面板停在 Flicker:Reset、倒计时不走
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "WT3000"
+            strArraySingle[1] = "write"
+            strArraySingle[2] = ":COMMunicate:REMote ON"
+            strArraySingle[9] = 5
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
             strArraySingle = ["" for _ in range(10)]
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
@@ -5580,7 +5589,8 @@ def thaidianyashanbianSend():
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
             strArraySingle[2] = "FLICKER:INITIALIZE"
-            strArraySingle[9] = 1000
+            # 原 1000(=100s) 过长：面板长时间停在 Reset 像死机；初始化一般数秒即可
+            strArraySingle[9] = 50
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
@@ -5588,6 +5598,7 @@ def thaidianyashanbianSend():
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
             strArraySingle[2] = "FLICKER:START"
+            strArraySingle[9] = 10
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
@@ -25730,21 +25741,36 @@ def RunProject():
 
                         # 闪变关键命令：失败必须中止，禁止静默后空等十余小时
                         _cmd_u = command.upper()
-                        if _cmd_u.startswith("FLICKER:") or _cmd_u.startswith("DISPLAY:MODE"):
+                        if (
+                            _cmd_u.startswith("FLICKER:")
+                            or _cmd_u.startswith("DISPLAY:MODE")
+                            or "COMMUNICATE:REMOTE" in _cmd_u.replace(" ", "")
+                        ):
                             from utils.wt_flicker_scpi import (
+                                ensure_remote,
                                 should_hard_fail_flicker_cmd,
                                 verify_after_flicker_start,
                                 write_flicker_command,
                             )
 
-                            # INITIALIZE/START 后再查错误队列；其余只校验连接+写入
-                            # （串口在闪变忙时立刻 query 易阻塞）
-                            _check_err = _cmd_u.startswith("FLICKER:START")
-                            ok, msg = write_flicker_command(
-                                command,
-                                ctrl=wt3000_controller,
-                                check_error=_check_err,
-                            )
+                            if "COMMUNICATE:REMOTE" in _cmd_u.replace(" ", ""):
+                                ok, msg = ensure_remote(ctrl=wt3000_controller)
+                            else:
+                                # INITIALIZE/START 前再强制 REMOTE（step1 等待中可能被按 LOCAL）
+                                # START 后再查错误队列；其余只校验连接+写入
+                                _check_err = _cmd_u.startswith("FLICKER:START")
+                                _need_remote = (
+                                    _cmd_u.startswith("DISPLAY:MODE")
+                                    or _cmd_u.startswith("FLICKER:INITIALIZE")
+                                    or _cmd_u.startswith("FLICKER:START")
+                                    or _cmd_u.startswith("FLICKER:RESET")
+                                )
+                                ok, msg = write_flicker_command(
+                                    command,
+                                    ctrl=wt3000_controller,
+                                    check_error=_check_err,
+                                    ensure_remote_first=_need_remote,
+                                )
                             strtimenow = now_to_datenow()
                             logger.info(f"{strtimenow} WT3000 {msg}")
                             print(f"{strtimenow} WT3000 {msg}")
@@ -25752,9 +25778,10 @@ def RunProject():
                             if not ok and (
                                 should_hard_fail_flicker_cmd(command)
                                 or _cmd_u.startswith("DISPLAY:MODE")
+                                or "COMMUNICATE:REMOTE" in _cmd_u.replace(" ", "")
                             ):
                                 _append_return_message(
-                                    f"[WT闪变] 中止：{msg}（避免仪器无倒计时却继续空等）"
+                                    f"[WT闪变] 中止：{msg}（REMOTE 未亮则 START 无效，避免空等）"
                                 )
                                 logger.error(f"闪变 WT 命令失败，中止试验: {msg}")
                                 strTestStatusFlag = "结束"
@@ -25785,7 +25812,7 @@ def RunProject():
                                     except Exception:
                                         pass
                                     break
-                            elif _cmd_u.startswith("FLICKER:"):
+                            elif ok:
                                 time.sleep(0.2)
                         else:
                             if wt3000_controller is None or wt3000_controller.handle is None:

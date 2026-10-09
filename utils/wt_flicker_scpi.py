@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Optional, Tuple
 
+# 闪变序列开头必须进远程，否则面板停在 Flicker:Reset、REMOTE 灯不亮、START 无效
+REMOTE_ON_CMDS = (
+    ":COMMunicate:REMote ON",
+    "COMMunicate:REMote ON",
+)
+
 
 def get_wt_controller():
     try:
@@ -21,6 +27,22 @@ def wt_connected(ctrl=None) -> bool:
     if not getattr(c, "connected", False):
         return False
     return getattr(c, "handle", None) is not None
+
+
+def ensure_remote(ctrl=None) -> Tuple[bool, str]:
+    """强制进入远程模式（点亮 REMOTE）。以太网/串口尤其需要，否则闪变 START 常无反应。"""
+    c = ctrl if ctrl is not None else get_wt_controller()
+    if not wt_connected(c):
+        return False, "WT 未连接，无法切换 REMOTE"
+    handle = c.handle
+    last_exc: Optional[BaseException] = None
+    for cmd in REMOTE_ON_CMDS:
+        try:
+            handle.write(cmd)
+            return True, f"已切换远程模式（{cmd}）"
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+    return False, f"切换远程模式失败: {last_exc}"
 
 
 def _query_status_error(handle) -> str:
@@ -52,6 +74,7 @@ def write_flicker_command(
     *,
     ctrl=None,
     check_error: bool = True,
+    ensure_remote_first: bool = False,
 ) -> Tuple[bool, str]:
     """写一条闪变相关 SCPI。失败返回 (False, message)。"""
     cmd = str(command or "").strip()
@@ -60,6 +83,10 @@ def write_flicker_command(
     c = ctrl if ctrl is not None else get_wt_controller()
     if not wt_connected(c):
         return False, "WT 未连接，无法下发闪变命令（请先在仪器面板连接功率分析仪）"
+    if ensure_remote_first:
+        ok_r, msg_r = ensure_remote(c)
+        if not ok_r:
+            return False, msg_r
     handle = c.handle
     try:
         handle.write(cmd)
