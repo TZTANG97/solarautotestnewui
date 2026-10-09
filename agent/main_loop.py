@@ -515,6 +515,20 @@ def main(argv: Optional[list] = None) -> int:
     except Exception:
         pass
 
+    # 启动时拉取台架参数记忆（仪器/试验上次保存）
+    try:
+        from utils.iot_bench_prefs import pull_from_cloud
+
+        pulled = pull_from_cloud()
+        if pulled:
+            logger.info(
+                "已同步工控机参数记忆 instruments=%s testTypes=%s",
+                len(pulled.get("instruments") or []),
+                len(pulled.get("testParamsByType") or {}),
+            )
+    except Exception as exc:
+        logger.debug("prefs pull skipped: %s", exc)
+
     # 无令牌也可先 WebSocket 上线，便于「添加设备」发现
     try:
         from agent.ws_gateway import start_presence

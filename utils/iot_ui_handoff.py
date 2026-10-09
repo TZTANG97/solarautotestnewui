@@ -1394,6 +1394,8 @@ class IotUiHandoffService(QObject):
                         "experId",
                         "experid",
                         "source",
+                        "useSavedTestParams",
+                        "useSavedInstruments",
                     )
                     and not str(k).startswith("_")
                 }
@@ -1405,6 +1407,39 @@ class IotUiHandoffService(QObject):
                     widgets = merge_widgets(None, widgets if isinstance(widgets, dict) else {})
                 except Exception as exc:
                     self._log(f"过载 schema 默认值合并跳过: {exc}")
+
+            # 工控机上次试验参数：勾选开启时补全云端未填字段
+            try:
+                from utils.iot_bench_prefs import merge_widgets_with_memory, update_and_push
+
+                tt_key = str(handler.get("key") or job.get("testType") or "").strip().lower()
+                widgets = merge_widgets_with_memory(
+                    tt_key,
+                    widgets if isinstance(widgets, dict) else {},
+                    params if isinstance(params, dict) else {},
+                )
+                if isinstance(widgets, dict) and widgets:
+                    update_and_push(
+                        {
+                            "testParamsByType": {
+                                tt_key: {
+                                    "widgets": dict(widgets),
+                                    "auto_append": bool((params or {}).get("auto_append", True))
+                                    if isinstance(params, dict)
+                                    else True,
+                                    "auto_start": bool((params or {}).get("auto_start", True))
+                                    if isinstance(params, dict)
+                                    else True,
+                                    "wait_finish": bool((params or {}).get("wait_finish", True))
+                                    if isinstance(params, dict)
+                                    else True,
+                                }
+                            },
+                            "source": "desktop",
+                        }
+                    )
+            except Exception as exc:
+                self._log(f"工控机参数记忆合并跳过: {exc}")
 
             widgets_for_ui = {
                 k: v

@@ -200,6 +200,38 @@ def collect_instruments_snapshot(
         logger.debug("collect instruments failed: %s", exc)
         return list(_cache)
 
+    prev_sig = getattr(collect_instruments_snapshot, "_prefs_sig", "")
     _cache = out
     _cache_at = now
+    # 槽位连接信息变化时写入工控机参数记忆（本地 + 异步上报）
+    try:
+        if out:
+            slim = []
+            for item in out:
+                if not isinstance(item, dict):
+                    continue
+                slim.append(
+                    {
+                        "kind": item.get("kind"),
+                        "slot": item.get("slot"),
+                        "brand": item.get("brand") or "",
+                        "resource": item.get("resource") or "",
+                        "host": item.get("host") or "",
+                        "port": item.get("port"),
+                        "model": item.get("model") or "",
+                        "widgets": item.get("widgets")
+                        if isinstance(item.get("widgets"), dict)
+                        else {},
+                    }
+                )
+            import json as _json
+
+            sig = _json.dumps(slim, ensure_ascii=False, sort_keys=True)
+            if slim and sig != prev_sig:
+                from utils.iot_bench_prefs import update_and_push
+
+                update_and_push({"instruments": slim, "source": "desktop"})
+                collect_instruments_snapshot._prefs_sig = sig  # type: ignore[attr-defined]
+    except Exception as exc:
+        logger.debug("persist instruments prefs skipped: %s", exc)
     return list(out)

@@ -94,6 +94,24 @@ class IotAgentLogPage(QtWidgets.QWidget):
         info_lay.addLayout(path_box, 3, 0, 1, 2)
         root.addWidget(info_card)
 
+        prefs_row = QtWidgets.QHBoxLayout()
+        prefs_row.setSpacing(16)
+        self.checkBox_UseSavedInstruments = QtWidgets.QCheckBox("使用上次保存的仪器配置")
+        self.checkBox_UseSavedInstruments.setObjectName("checkBox_UseSavedInstruments")
+        self.checkBox_UseSavedInstruments.setStyleSheet(
+            f"color: {theme.INK}; background: transparent;"
+        )
+        self.checkBox_UseSavedTestParams = QtWidgets.QCheckBox("使用上次保存的试验参数")
+        self.checkBox_UseSavedTestParams.setObjectName("checkBox_UseSavedTestParams")
+        self.checkBox_UseSavedTestParams.setStyleSheet(
+            f"color: {theme.INK}; background: transparent;"
+        )
+        prefs_row.addWidget(self.checkBox_UseSavedInstruments)
+        prefs_row.addWidget(self.checkBox_UseSavedTestParams)
+        prefs_row.addStretch(1)
+        root.addLayout(prefs_row)
+        self._bind_prefs_checkboxes()
+
         row = QtWidgets.QHBoxLayout()
         row.setSpacing(8)
         self.pushButton_StartIotAgentPage = QtWidgets.QPushButton("启动 Agent")
@@ -144,6 +162,43 @@ class IotAgentLogPage(QtWidgets.QWidget):
 
         self._last_log_text = ""
         self._refreshing = False
+        self._prefs_binding = False
+
+    def _bind_prefs_checkboxes(self) -> None:
+        try:
+            from utils.iot_bench_prefs import load_local
+
+            prefs = load_local()
+            self._prefs_binding = True
+            self.checkBox_UseSavedInstruments.setChecked(bool(prefs.get("useSavedInstruments", True)))
+            self.checkBox_UseSavedTestParams.setChecked(bool(prefs.get("useSavedTestParams", True)))
+        except Exception:
+            self.checkBox_UseSavedInstruments.setChecked(True)
+            self.checkBox_UseSavedTestParams.setChecked(True)
+        finally:
+            self._prefs_binding = False
+        self.checkBox_UseSavedInstruments.toggled.connect(self._on_use_saved_instruments)
+        self.checkBox_UseSavedTestParams.toggled.connect(self._on_use_saved_test_params)
+
+    def _on_use_saved_instruments(self, checked: bool) -> None:
+        if getattr(self, "_prefs_binding", False):
+            return
+        try:
+            from utils.iot_bench_prefs import update_and_push
+
+            update_and_push({"useSavedInstruments": bool(checked), "source": "desktop"})
+        except Exception:
+            pass
+
+    def _on_use_saved_test_params(self, checked: bool) -> None:
+        if getattr(self, "_prefs_binding", False):
+            return
+        try:
+            from utils.iot_bench_prefs import update_and_push
+
+            update_and_push({"useSavedTestParams": bool(checked), "source": "desktop"})
+        except Exception:
+            pass
 
     def _on_auto_scroll_toggled(self, checked: bool) -> None:
         self._auto_scroll = bool(checked)
@@ -170,6 +225,17 @@ class IotAgentLogPage(QtWidgets.QWidget):
             return
 
         info = read_agent_comm_info()
+        try:
+            from utils.iot_bench_prefs import load_local
+
+            p = load_local()
+            self._prefs_binding = True
+            self.checkBox_UseSavedInstruments.setChecked(bool(p.get("useSavedInstruments", True)))
+            self.checkBox_UseSavedTestParams.setChecked(bool(p.get("useSavedTestParams", True)))
+        except Exception:
+            pass
+        finally:
+            self._prefs_binding = False
         self.label_agent_status.setText(str(info.get("status") or "—"))
         self.label_pythonid.setText(str(info.get("pythonid") or "（未分配）"))
         self.label_machine_id.setText(str(info.get("machine_id") or "（无）"))

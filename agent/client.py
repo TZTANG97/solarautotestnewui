@@ -212,6 +212,12 @@ class IotSolarClient:
             },
         )
 
+    def get_prefs(self) -> Dict[str, Any]:
+        return self._request("GET", "/api/solar-autotest/agent/prefs")
+
+    def put_prefs(self, body: dict) -> Dict[str, Any]:
+        return self._request("PUT", "/api/solar-autotest/agent/prefs", body or {})
+
     def upload_report(self, job_id: int, file_path: str, filename: Optional[str] = None) -> Dict[str, Any]:
         """multipart 上传报告文件到 IOT。"""
         import mimetypes
