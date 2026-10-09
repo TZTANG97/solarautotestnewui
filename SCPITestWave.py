@@ -5599,8 +5599,17 @@ def thaidianyashanbianSend():
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
             strArraySingle[2] = "FLICKER:INITIALIZE"
-            # 原 1000(=100s) 过长：面板长时间停在 Reset 像死机；初始化一般数秒即可
-            strArraySingle[9] = 50
+            # 原 1000(=100s) 过长；WT3004E 初始化约数秒，给足再 START
+            strArraySingle[9] = 80
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
+            # START 前再点一次 REMOTE（INITIALIZE 等待中可能被按 LOCAL）
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "WT3000"
+            strArraySingle[1] = "write"
+            strArraySingle[2] = ":COMMunicate:REMote ON"
+            strArraySingle[9] = 5
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
@@ -5608,7 +5617,7 @@ def thaidianyashanbianSend():
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
             strArraySingle[2] = "FLICKER:START"
-            strArraySingle[9] = 10
+            strArraySingle[9] = 20
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
@@ -25766,7 +25775,7 @@ def RunProject():
                             if "COMMUNICATE:REMOTE" in _cmd_u.replace(" ", ""):
                                 ok, msg = ensure_remote(ctrl=wt3000_controller)
                             else:
-                                # INITIALIZE/START 前再强制 REMOTE（step1 等待中可能被按 LOCAL）
+                                # INITIALIZE/START 前再强制 REMOTE；START 必须确认 REMOTE ON
                                 # START 后查错误队列，但 VI_ERROR_TMO（仪器忙）不当失败
                                 _check_err = (
                                     _cmd_u.startswith("FLICKER:START")
@@ -25783,6 +25792,7 @@ def RunProject():
                                     ctrl=wt3000_controller,
                                     check_error=_check_err,
                                     ensure_remote_first=_need_remote,
+                                    require_remote_on=_cmd_u.startswith("FLICKER:START"),
                                 )
                             strtimenow = now_to_datenow()
                             logger.info(f"{strtimenow} WT3000 {msg}")
