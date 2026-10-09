@@ -49,19 +49,50 @@ def wt_connected(ctrl=None) -> bool:
     return getattr(c, "handle", None) is not None
 
 
-def _remote_reply_is_on(reply: str) -> bool:
+def _remote_state_token(reply: str) -> Optional[str]:
+    """从 REMote? 原文抽出状态 token：'1'/'0'/'ON'/'OFF'；无法识别返回 None。
+
+    横河示例：``1`` / ``ON`` / ``:COMM:REM 1`` / ``:COMMunicate:REMote ON``
+    """
     s = (reply or "").strip().upper().replace('"', "")
     if not s:
-        return False
+        return None
+    # 先取逗号前一段
     head = s.split(",", 1)[0].strip()
-    if head in ("1", "+1", "ON", "TRUE"):
-        return True
-    if head.startswith("ON") or head.startswith("1"):
-        return True
+    # 去掉常见头：:COMM:REM / :COMMUNICATE:REMOTE
+    for prefix in (
+        ":COMMUNICATE:REMOTE",
+        "COMMUNICATE:REMOTE",
+        ":COMM:REM",
+        "COMM:REM",
+        ":REMOTE",
+        "REMOTE",
+    ):
+        if head.startswith(prefix):
+            head = head[len(prefix) :].lstrip(" :=")
+            break
+    token = head.split()[-1].strip().lstrip("+") if head.split() else head.strip().lstrip("+")
+    if token in ("1", "ON", "TRUE"):
+        return "1"
+    if token in ("0", "OFF", "FALSE"):
+        return "0"
     try:
-        return int(head.lstrip("+")) == 1
+        n = int(token)
+        if n == 1:
+            return "1"
+        if n == 0:
+            return "0"
     except ValueError:
-        return False
+        pass
+    return None
+
+
+def _remote_reply_is_on(reply: str) -> bool:
+    return _remote_state_token(reply) == "1"
+
+
+def _remote_reply_is_off(reply: str) -> bool:
+    return _remote_state_token(reply) == "0"
 
 
 def query_remote_on(ctrl=None) -> Tuple[Optional[bool], str]:
@@ -75,7 +106,12 @@ def query_remote_on(ctrl=None) -> Tuple[Optional[bool], str]:
         try:
             raw = str(handle.query(q) or "").strip()
             last = raw
-            return _remote_reply_is_on(raw), raw
+            if _remote_reply_is_on(raw):
+                return True, raw
+            if _remote_reply_is_off(raw):
+                return False, raw
+            # 未知格式：不当 OFF，交给上层软通过
+            return None, raw
         except Exception as exc:  # noqa: BLE001
             last = str(exc)
             if _is_query_timeout(exc):
