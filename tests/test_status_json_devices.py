@@ -6,6 +6,7 @@ from utils.status_json_devices import (
     apply_device_connection,
     empty_status_payload,
     ensure_device_rows,
+    mark_stale_in_flight_project,
 )
 
 
@@ -13,6 +14,36 @@ def test_empty_payload_has_all_slots():
     data = empty_status_payload()
     names = [d["name"] for d in data["devices"]]
     assert "交流电源" in names and "WT3000" in names and "DEWETRON" in names
+
+
+def test_mark_stale_in_flight_project_aborts_running():
+    raw = {
+        "devices": [],
+        "project": {
+            "name": "电压闪变",
+            "status": "进行中",
+            "progress": 42,
+            "rounds": [{"index": 1, "filename": "a", "status": "进行中"}],
+            "queue": [{"name": "电压闪变", "status": "进行中"}],
+            "estimated_end_time": "12:00",
+        },
+    }
+    data, changed = mark_stale_in_flight_project(raw)
+    assert changed is True
+    assert data["project"]["status"] == "已中止"
+    assert data["project"]["name"] == "电压闪变"
+    assert data["project"]["rounds"][0]["status"] == "中止"
+    assert data["project"]["estimated_end_time"] == ""
+
+
+def test_mark_stale_leaves_finished_alone():
+    raw = {
+        "devices": [],
+        "project": {"name": "谐波电流", "status": "已结束", "progress": 100},
+    }
+    data, changed = mark_stale_in_flight_project(raw)
+    assert changed is False
+    assert data["project"]["status"] == "已结束"
 
 
 def test_apply_upserts_when_devices_empty():

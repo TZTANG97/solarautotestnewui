@@ -192,6 +192,33 @@ def _do_heartbeat(
                     or ""
                 )[:128],
             )
+            # 本地开测结案兜底：桌面已写「已结束/已中止」但未调 done 时，实验管理会一直「测试中」
+            st = str(run_snapshot.get("status") or "").strip()
+            if st in ("已结束", "已中止", "失败"):
+                done_st = (
+                    "success"
+                    if st == "已结束"
+                    else ("aborted" if st == "已中止" else "failed")
+                )
+                try:
+                    client.done(
+                        jid,
+                        status=done_st,
+                        fail_reason="" if done_st == "success" else f"台架状态={st}",
+                        result_summary={
+                            "source": "agent_heartbeat_status_json",
+                            "run_status": st,
+                            "progress": int(run_snapshot.get("progress") or 0),
+                        },
+                    )
+                    logger.info(
+                        "心跳结案兜底 job=%s status=%s (status.json=%s)",
+                        jid,
+                        done_st,
+                        st,
+                    )
+                except Exception as exc:
+                    logger.debug("心跳结案兜底跳过 job=%s: %s", jid, exc)
     except Exception:
         pass
     # HTTPS 心跳成功后顺便经 WS 推一帧串口/仪器，供网页即时刷新

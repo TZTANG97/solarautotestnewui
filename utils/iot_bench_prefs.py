@@ -171,8 +171,9 @@ def save_test_params(
     auto_start: bool = True,
     wait_finish: bool = True,
 ) -> Dict[str, Any]:
+    """保存并上报云端，供 IOT 开测表单 / Blockly 种子使用台架实际参数。"""
     key = str(test_type or "").strip().lower() or "overload"
-    return update_local(
+    return update_and_push(
         {
             "testParamsByType": {
                 key: {

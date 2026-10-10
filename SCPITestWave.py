@@ -3365,7 +3365,11 @@ def _reconcile_status_json_with_sessions() -> None:
     import json
     import os
 
-    from utils.status_json_devices import ensure_device_rows, empty_status_payload
+    from utils.status_json_devices import (
+        empty_status_payload,
+        ensure_device_rows,
+        mark_stale_in_flight_project,
+    )
 
     status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
     try:
@@ -3374,11 +3378,31 @@ def _reconcile_status_json_with_sessions() -> None:
     except Exception:
         data = empty_status_payload()
     data = ensure_device_rows(data)
+    data, stale_cleared = mark_stale_in_flight_project(data)
     try:
         with open(status_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+    if stale_cleared:
+        # 同步内存进度条/首页：进程已退出，不能继续显示「进行中」
+        try:
+            proj = data.get("project") or {}
+            _emit_run_progress(
+                project=str(proj.get("name") or ""),
+                status="已中止",
+                progress=int(proj.get("progress") or 0),
+                current_round=int(proj.get("current_round") or 0),
+                total_rounds=int(proj.get("total_rounds") or 0),
+                rounds=list(proj.get("rounds") or []),
+                queue=list(proj.get("queue") or []),
+                current_detail=str(proj.get("current_detail") or ""),
+                operator_pause=False,
+                persist=False,
+            )
+            _reload_home_status(data)
+        except Exception:
+            pass
 
     mapping = (
         ("交流电源", "ac"),
@@ -4366,6 +4390,18 @@ def _sync_start_end_buttons():
         count = dynamicmppt_append_count
     ui.pushButton_StartTest.setEnabled(count >= 1)
     ui.pushButton_EndTest.setEnabled(count >= 1)
+    # 任意实验追加成功：把当前 Dialog 实际参数推到 IOT（不限闪变）
+    if count >= 1:
+        try:
+            from utils.iot_ui_handoff import persist_current_project_prefs
+
+            n_w = persist_current_project_prefs(
+                current, handoff_svc=globals().get("_iot_ui_handoff_svc")
+            )
+            if n_w:
+                print(f"[追加] {current} 已上报实验参数 {n_w} 项 → IOT", flush=True)
+        except Exception as _prefs_exc:
+            print(f"[追加] 实验参数上报跳过: {_prefs_exc}", flush=True)
     # 追加完成后刷新进度表（运行中不重初始化，避免打断当前状态）
     try:
         running = globals().get("strTestStatusFlag") == "运行"
@@ -5599,8 +5635,9 @@ def thaidianyashanbianSend():
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
             strArraySingle[2] = "FLICKER:INITIALIZE"
-            # 原 1000(=100s) 过长；WT3004E 初始化约数秒，给足再 START
-            strArraySingle[9] = 80
+            # 旧版 1000(=100s) 偏长但稳；缩到 8s 后 WT5000 易 821。
+            # 30s 起步 + START 遇 821 再重试，兼顾速度与兼容。
+            strArraySingle[9] = 300
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
@@ -23934,10 +23971,25 @@ def RunProjectPush():
         )
         _update_project_status(currentSecond, "进行中")
         strTestFlag = "1"
+        _local_widgets = None
+        try:
+            # 全实验类型：采集当前 Dialog → prefs + 本地开测登记 Blockly
+            from utils.iot_ui_handoff import (
+                collect_widgets_for_project,
+                persist_current_project_prefs,
+            )
+
+            _svc = globals().get("_iot_ui_handoff_svc")
+            n_w = persist_current_project_prefs(currentSecond, handoff_svc=_svc)
+            _local_widgets = collect_widgets_for_project(currentSecond, handoff_svc=_svc) or None
+            if n_w:
+                print(f"[RunProject] 已上报实验参数 {n_w} 项 → IOT", flush=True)
+        except Exception as _prefs_exc:
+            print(f"[RunProject] 实验参数上报跳过: {_prefs_exc}", flush=True)
         try:
             from utils.iot_local_run import notify_local_run_started
 
-            notify_local_run_started(currentSecond)
+            notify_local_run_started(currentSecond, widgets=_local_widgets)
         except Exception as _iot_reg_exc:
             print(f"[RunProject] IOT 本地登记跳过: {_iot_reg_exc}", flush=True)
 
@@ -25770,21 +25822,20 @@ def RunProject():
                                 should_hard_fail_flicker_cmd,
                                 verify_after_flicker_start,
                                 write_flicker_command,
+                                write_flicker_start,
                             )
 
                             if "COMMUNICATE:REMOTE" in _cmd_u.replace(" ", ""):
                                 ok, msg = ensure_remote(ctrl=wt3000_controller)
+                            elif _cmd_u.startswith("FLICKER:START"):
+                                # 821=初始化未完成：等待重试（恢复旧版「多等一会再 START」）
+                                ok, msg = write_flicker_start(ctrl=wt3000_controller)
                             else:
-                                # INITIALIZE/START 前再强制 REMOTE；START 必须确认 REMOTE ON
-                                # START 后查错误队列，但 VI_ERROR_TMO（仪器忙）不当失败
-                                _check_err = (
-                                    _cmd_u.startswith("FLICKER:START")
-                                    or _cmd_u.startswith("FLICKER:INITIALIZE")
-                                )
+                                # INITIALIZE 前再强制 REMOTE；STATUS 超时不当失败
+                                _check_err = _cmd_u.startswith("FLICKER:INITIALIZE")
                                 _need_remote = (
                                     _cmd_u.startswith("DISPLAY:MODE")
                                     or _cmd_u.startswith("FLICKER:INITIALIZE")
-                                    or _cmd_u.startswith("FLICKER:START")
                                     or _cmd_u.startswith("FLICKER:RESET")
                                 )
                                 ok, msg = write_flicker_command(
@@ -25792,7 +25843,6 @@ def RunProject():
                                     ctrl=wt3000_controller,
                                     check_error=_check_err,
                                     ensure_remote_first=_need_remote,
-                                    require_remote_on=_cmd_u.startswith("FLICKER:START"),
                                 )
                             strtimenow = now_to_datenow()
                             logger.info(f"{strtimenow} WT3000 {msg}")

@@ -59,6 +59,114 @@ def _format_auto_connect_summary(summary: Any) -> str:
     )
 
 
+def collect_widget_values(root_widget) -> Dict[str, Any]:
+    """从 Dialog 根控件按 objectName 读出可序列化参数（供 IOT / prefs）。"""
+    out: Dict[str, Any] = {}
+    if root_widget is None:
+        return out
+    try:
+        widgets = root_widget.findChildren(QWidget) if hasattr(root_widget, "findChildren") else []
+    except Exception:
+        widgets = []
+    # 根自身
+    try:
+        widgets = [root_widget] + list(widgets or [])
+    except Exception:
+        pass
+    for w in widgets:
+        try:
+            name = str(w.objectName() or "").strip()
+        except Exception:
+            continue
+        if not name or name.startswith("qt_"):
+            continue
+        if not name.startswith(
+            ("textEdit_", "comboBox_", "checkBox_", "radio_", "radioButton_", "spinBox_", "doubleSpinBox_")
+        ):
+            continue
+        try:
+            if isinstance(w, (QTextEdit, QPlainTextEdit)):
+                out[name] = w.toPlainText()
+            elif isinstance(w, QLineEdit):
+                out[name] = w.text()
+            elif isinstance(w, QCheckBox):
+                out[name] = bool(w.isChecked())
+            elif isinstance(w, QRadioButton):
+                out[name] = bool(w.isChecked())
+            elif isinstance(w, QComboBox):
+                out[name] = w.currentText()
+            elif hasattr(w, "value") and callable(getattr(w, "value")):
+                out[name] = w.value()
+        except Exception:
+            continue
+    # 时序 / EN50530 整包
+    try:
+        table = getattr(root_widget, "timingProfileTable", None) or getattr(
+            root_widget, "timing_profile_table", None
+        )
+        if table is not None and hasattr(table, "to_json"):
+            raw = table.to_json()
+            if raw:
+                out["TIMING_PROFILE_JSON"] = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
+        panel = getattr(root_widget, "en50530Panel", None)
+        if panel is not None and hasattr(panel, "get_bundle_json"):
+            raw = panel.get_bundle_json()
+            if raw:
+                out["EN50530_BUNDLE_JSON"] = raw if isinstance(raw, str) else json.dumps(raw, ensure_ascii=False)
+    except Exception:
+        pass
+    return out
+
+
+def collect_widgets_for_project(project_name: str, handoff_svc=None) -> Dict[str, Any]:
+    """按项目名解析 Dialog，采集全部实验类型的实际参数（闪变/谐波/过载/…）。"""
+    name = (project_name or "").strip()
+    if not name:
+        return {}
+    try:
+        svc = handoff_svc
+        if svc is None:
+            import SCPITestWave as sw
+
+            svc = getattr(sw, "_iot_ui_handoff_svc", None)
+        if svc is None:
+            return {}
+        handler = svc._resolve_handler(name)
+        if not handler:
+            return {}
+        resolve_ui = handler.get("resolve_ui")
+        ui = resolve_ui() if callable(resolve_ui) else None
+        if ui is None:
+            return {}
+        return collect_widget_values(ui)
+    except Exception:
+        return {}
+
+
+def persist_current_project_prefs(project_name: str, handoff_svc=None) -> int:
+    """追加/开测：把当前 Dialog 参数写入本地并推云端（全实验类型通用）。返回采集字段数。"""
+    name = (project_name or "").strip()
+    if not name:
+        return 0
+    try:
+        svc = handoff_svc
+        if svc is None:
+            import SCPITestWave as sw
+
+            svc = getattr(sw, "_iot_ui_handoff_svc", None)
+        widgets = collect_widgets_for_project(name, handoff_svc=svc)
+        if not widgets:
+            return 0
+        from utils.iot_bench_prefs import save_test_params
+
+        handler = svc._resolve_handler(name) if svc is not None else None
+        tt = str((handler or {}).get("key") or name).strip().lower()
+        save_test_params(tt, widgets=widgets)
+        return len(widgets)
+    except Exception:
+        return 0
+
+
 def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
     """按 objectName 写控件。返回未找到的键列表。
 

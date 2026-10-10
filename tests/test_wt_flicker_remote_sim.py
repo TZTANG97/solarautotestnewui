@@ -10,6 +10,7 @@ from utils.wt_flicker_scpi import (
     ensure_remote,
     verify_after_flicker_start,
     write_flicker_command,
+    write_flicker_start,
 )
 
 
@@ -189,3 +190,38 @@ def test_initialize_ignores_status_85_remote_lock_message():
     )
     assert ok is True, msg
     assert "忽略" in msg or "已写" in msg
+
+
+def test_wt5000_start_retries_when_init_not_finished(monkeypatch):
+    """现场：INITIALIZE 后立刻 START → 821，应重试成功。"""
+    monkeypatch.setattr("utils.wt_flicker_scpi.time.sleep", lambda s: None)
+    start_count = {"n": 0}
+
+    class _H(_SimHandle):
+        def write(self, cmd: str):
+            super().write(cmd)
+            c = str(cmd or "").strip().upper().replace(" ", "")
+            if c.startswith("FLICKER:START"):
+                start_count["n"] += 1
+
+        def query(self, cmd: str):
+            u = str(cmd or "").strip().upper().replace(" ", "")
+            if "REMOTE?" in u or "REM?" in u:
+                return ":COMM:REM 1" if self.remote == 1 else ":COMM:REM 0"
+            if "STATUS:ERROR?" in u or "STAT:ERR?" in u:
+                # 前两次 START 报 821，第三次 OK
+                if self.started and start_count["n"] < 3:
+                    return (
+                        '821,"Attempt made to start flicker measurement while '
+                        'flicker initialization is not finished;FLICKER:START"'
+                    )
+                return '0,"No error"'
+            raise RuntimeError(cmd)
+
+    h = _H(status_timeout_after_start=False)
+    h.remote = 1
+    ctrl = _SimCtrl(h)
+    ok, msg = write_flicker_start(ctrl=ctrl, retries=5, retry_wait_sec=1.0)
+    assert ok is True, msg
+    assert start_count["n"] == 3
+    assert h.started is True

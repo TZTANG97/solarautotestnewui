@@ -28,6 +28,60 @@ def empty_status_payload() -> Dict[str, Any]:
     }
 
 
+# 进程退出后不可能仍在跑的状态（内存试验线程已没了）
+_STALE_IN_FLIGHT_STATUSES = frozenset({"进行中", "暂停", "待开始"})
+
+
+def mark_stale_in_flight_project(data: Optional[Dict[str, Any]]) -> tuple[Dict[str, Any], bool]:
+    """
+    软件冷启动时：若 status.json 仍写着「进行中/暂停」，改为「已中止」。
+    试验进度会落盘供 Agent/首页展示，但重启后线程已不在，不能继续显示进行中。
+    返回 (payload, changed)。
+    """
+    payload = ensure_device_rows(data)
+    proj = payload.get("project")
+    if not isinstance(proj, dict):
+        return payload, False
+    status = str(proj.get("status") or "").strip()
+    if status not in _STALE_IN_FLIGHT_STATUSES:
+        return payload, False
+    proj = dict(proj)
+    proj["status"] = "已中止"
+    proj["operator_pause"] = False
+    proj["estimated_end_time"] = ""
+    proj["remain_text"] = ""
+    proj["remain_s"] = 0.0
+    detail = str(proj.get("current_detail") or "").strip()
+    if not detail or "进程已退出" not in detail:
+        proj["current_detail"] = "软件已重新打开，上次未跑完的试验已标为中止"
+    rounds = []
+    for r in proj.get("rounds") or []:
+        if not isinstance(r, dict):
+            continue
+        item = dict(r)
+        if str(item.get("status") or "") in ("进行中", "等待", "暂停", "待开始"):
+            item["status"] = "中止"
+            note = str(item.get("note") or "").strip()
+            if not note:
+                item["note"] = "软件重启"
+        rounds.append(item)
+    if rounds:
+        proj["rounds"] = rounds
+    queue = []
+    for q in proj.get("queue") or []:
+        if not isinstance(q, dict):
+            continue
+        item = dict(q)
+        if str(item.get("status") or "") in ("进行中", "等待", "暂停", "待开始"):
+            item["status"] = "中止"
+        queue.append(item)
+    if "queue" in proj:
+        proj["queue"] = queue
+    payload = dict(payload)
+    payload["project"] = proj
+    return payload, True
+
+
 def ensure_device_rows(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """补齐缺失的设备占位行（不覆盖已有 resource / last_connected）。"""
     if not isinstance(data, dict):

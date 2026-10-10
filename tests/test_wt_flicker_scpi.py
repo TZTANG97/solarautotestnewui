@@ -2,11 +2,13 @@
 from utils.wt_flicker_scpi import (
     REMOTE_ON_CMDS,
     ensure_remote,
+    is_init_not_finished_error,
     is_status_error,
     query_remote_on,
     should_hard_fail_flicker_cmd,
     verify_after_flicker_start,
     write_flicker_command,
+    write_flicker_start,
 )
 
 
@@ -174,3 +176,94 @@ def test_query_remote_on_parses():
     on, raw = query_remote_on(ctrl=_C())
     assert on is True
     assert raw == "ON"
+
+
+def test_is_init_not_finished_error():
+    assert is_init_not_finished_error(
+        '821,"Attempt made to start flicker measurement while flicker initialization is not finished;FLICKER:START"'
+    )
+    assert is_init_not_finished_error("在闪变初始化未完成时尝试进行闪变测量。")
+    assert not is_init_not_finished_error('0,"No error"')
+    assert not is_init_not_finished_error(
+        '85,"In remote control mode, all keys are locked except LOCAL(UTILITY) key"'
+    )
+
+
+def test_write_flicker_start_retries_on_821(monkeypatch):
+    """现场 WT5000：START 过早 → 821，应等待重试而非立刻中止。"""
+    sleeps = []
+    monkeypatch.setattr("utils.wt_flicker_scpi.time.sleep", lambda s: sleeps.append(s))
+    start_n = {"n": 0}
+
+    class _H:
+        def write(self, cmd):
+            if str(cmd).upper().replace(" ", "").startswith("FLICKER:START"):
+                start_n["n"] += 1
+
+        def query(self, cmd):
+            u = str(cmd or "").upper().replace(" ", "")
+            if "REM" in u and "?" in u:
+                return ":COMM:REM 1"
+            if "STATUS:ERROR" in u or "STAT:ERR" in u:
+                if start_n["n"] < 3:
+                    return (
+                        '821,"Attempt made to start flicker measurement while '
+                        'flicker initialization is not finished;FLICKER:START"'
+                    )
+                return '0,"No error"'
+            raise RuntimeError(cmd)
+
+    class _C:
+        connected = True
+        handle = _H()
+
+    ok, msg = write_flicker_start(ctrl=_C(), retries=5, retry_wait_sec=2.0)
+    assert ok is True, msg
+    assert start_n["n"] == 3
+    assert any(s >= 2.0 for s in sleeps)
+    assert "重试" in msg or "已写" in msg
+
+
+def test_write_flicker_start_gives_up_after_retries(monkeypatch):
+    monkeypatch.setattr("utils.wt_flicker_scpi.time.sleep", lambda s: None)
+
+    class _H:
+        def write(self, cmd):
+            pass
+
+        def query(self, cmd):
+            u = str(cmd or "").upper().replace(" ", "")
+            if "REM" in u and "?" in u:
+                return "1"
+            return (
+                '821,"Attempt made to start flicker measurement while '
+                'flicker initialization is not finished;FLICKER:START"'
+            )
+
+    class _C:
+        connected = True
+        handle = _H()
+
+    ok, msg = write_flicker_start(ctrl=_C(), retries=3, retry_wait_sec=1.0)
+    assert ok is False
+    assert "821" in msg or "初始化未完成" in msg
+
+
+def test_verify_after_start_fails_on_821():
+    class _H:
+        def query(self, cmd):
+            u = str(cmd or "").upper().replace(" ", "")
+            if "REM" in u and "?" in u:
+                return "1"
+            return (
+                '821,"Attempt made to start flicker measurement while '
+                'flicker initialization is not finished;FLICKER:START"'
+            )
+
+    class _C:
+        connected = True
+        handle = _H()
+
+    ok, msg = verify_after_flicker_start(ctrl=_C())
+    assert ok is False
+    assert "821" in msg

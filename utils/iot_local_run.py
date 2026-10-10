@@ -57,6 +57,45 @@ def current_local_job_id() -> Optional[int]:
         return None
 
 
+def _job_id_from_status_json() -> Optional[int]:
+    """内存态丢失时，从 status.json.project.jobId 找回本地任务。"""
+    try:
+        path = _repo_root() / "status.json"
+        if not path.is_file():
+            return None
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        proj = raw.get("project") if isinstance(raw, dict) else None
+        if not isinstance(proj, dict):
+            return None
+        jid = int(proj.get("jobId") or 0)
+        return jid if jid > 0 else None
+    except Exception:
+        return None
+
+
+def _persist_local_job_ids(job_id: int, exper_id: Optional[int] = None) -> None:
+    """把本地登记的 job/exper 写入 status.json，供 Agent 心跳与结案兜底。"""
+    try:
+        path = _repo_root() / "status.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+        except Exception:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        proj = data.get("project")
+        if not isinstance(proj, dict):
+            proj = {}
+        proj = dict(proj)
+        proj["jobId"] = int(job_id)
+        if exper_id:
+            proj["experId"] = int(exper_id)
+        data["project"] = proj
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        logger.debug("写入 status.json jobId 失败", exc_info=True)
+
+
 def _build_client():
     from agent.client import IotSolarClient
     from agent.config import load_config
@@ -81,10 +120,12 @@ def _ui_log(msg: str) -> None:
     print(msg, flush=True)
 
 
-def _do_start(test_name: str) -> None:
+def _do_start(test_name: str, widgets: Optional[Dict[str, Any]] = None) -> None:
     try:
         client = _build_client()
-        data = client.local_run_start(test_type=test_name, title=test_name)
+        data = client.local_run_start(
+            test_type=test_name, title=test_name, widgets=widgets
+        )
         job_id = int(data.get("jobId") or data.get("id") or 0)
         exper_id = int(data.get("experimentId") or data.get("experid") or 0)
         if job_id <= 0:
@@ -92,6 +133,7 @@ def _do_start(test_name: str) -> None:
         with _lock:
             _state["job_id"] = job_id
             _state["exper_id"] = exper_id or None
+        _persist_local_job_ids(job_id, exper_id or None)
         msg = (
             f"[IOT] 本地开测已登记实验 #{exper_id} / 任务 #{job_id}"
             if exper_id
@@ -122,7 +164,9 @@ def _do_done(job_id: int, aborted: bool) -> None:
                 _state["exper_id"] = None
 
 
-def notify_local_run_started(test_name: str) -> None:
+def notify_local_run_started(
+    test_name: str, widgets: Optional[Dict[str, Any]] = None
+) -> None:
     """UI 线程调用：后台登记；handoff 占用时跳过。"""
     if handoff_has_awaiting_job():
         logger.info("[iot_local_run] handoff 任务进行中，跳过本地登记")
@@ -131,10 +175,11 @@ def notify_local_run_started(test_name: str) -> None:
         if _state.get("job_id"):
             # 上一局未结案又开新测：仍报新 start，服务端会中止上一局 local_ui
             pass
-    name = (test_name or "").strip() or "本地试验"
+    name = (test_name or "").strip() or "本地实验"
+    w = dict(widgets) if isinstance(widgets, dict) else None
     threading.Thread(
         target=_do_start,
-        args=(name,),
+        args=(name, w),
         daemon=True,
         name="iot-local-run-start",
     ).start()
@@ -144,6 +189,12 @@ def notify_local_run_finished(*, aborted: bool = False) -> None:
     """试验正常结束或中止时结案；无登记则静默。"""
     with _lock:
         jid = _state.get("job_id")
+    if not jid:
+        # 进程重启或登记线程竞态时，内存可能空，但 status.json 仍有 jobId
+        jid = _job_id_from_status_json()
+        if jid:
+            with _lock:
+                _state["job_id"] = jid
     if not jid:
         return
     try:

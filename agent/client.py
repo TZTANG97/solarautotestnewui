@@ -185,7 +185,9 @@ class IotSolarClient:
             body,
         )
 
-    def local_run_start(self, *, test_type: str, title: str = "") -> Dict[str, Any]:
+    def local_run_start(
+        self, *, test_type: str, title: str = "", widgets: Optional[dict] = None
+    ) -> Dict[str, Any]:
         """台架本地点开始：向 IOT 登记实验 + RUNNING 任务。"""
         body: Dict[str, Any] = {
             "type": "local_run_start",
@@ -194,6 +196,8 @@ class IotSolarClient:
             "testType": (test_type or "").strip() or "overload",
             "title": (title or "").strip(),
         }
+        if isinstance(widgets, dict) and widgets:
+            body["widgets"] = widgets
         res = self._request("POST", "/api/solar-autotest/agent/local-run/start", body)
         data = res.get("data") if isinstance(res, dict) else None
         return data if isinstance(data, dict) else (res if isinstance(res, dict) else {})

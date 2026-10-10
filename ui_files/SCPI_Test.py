@@ -826,6 +826,16 @@ class Ui_Dialog(object):
                     _data = _json.load(f)
             except Exception:
                 return
+            # 冷启动：上次「进行中」已无试验线程，先标中止再展示（避免首页残留进度）
+            try:
+                from utils.status_json_devices import mark_stale_in_flight_project
+
+                _data, _stale = mark_stale_in_flight_project(_data)
+                if _stale:
+                    with open(_status_file, "w", encoding="utf-8") as f:
+                        _json.dump(_data, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
             # 更新设备卡片
             for _dev in _data.get("devices", []):
                 _name = _dev["name"]
@@ -856,6 +866,7 @@ class Ui_Dialog(object):
                     "未开始": theme.MUTED,
                     "进行中": theme.ACCENT,
                     "已结束": theme.SUCCESS,
+                    "已中止": theme.DANGER,
                 }
                 self.home_status.setText(_status)
                 self.home_status.setStyleSheet(

@@ -57,7 +57,7 @@ def test_handoff_no_awaiting_allows_start(monkeypatch):
 
     called = []
 
-    def _capture(name):
+    def _capture(name, widgets=None):
         called.append(name)
 
     monkeypatch.setattr(mod, "_do_start", _capture)
@@ -89,6 +89,35 @@ def test_notify_finished_noop_without_job(monkeypatch):
         called.append(1)
 
     monkeypatch.setattr(mod, "_do_done", _boom)
+    monkeypatch.setattr(mod, "_job_id_from_status_json", lambda: None)
     notify_local_run_finished(aborted=False)
     assert called == []
     assert current_local_job_id() is None
+
+
+def test_notify_finished_falls_back_to_status_json(monkeypatch):
+    import utils.iot_local_run as mod
+
+    with mod._lock:
+        mod._state["job_id"] = None
+        mod._state["exper_id"] = None
+    called = []
+
+    def _capture(job_id, aborted):
+        called.append((job_id, aborted))
+
+    class _ImmediateThread:
+        def __init__(self, target=None, args=(), kwargs=None, daemon=None, name=None):
+            self._target = target
+            self._args = args or ()
+
+        def start(self):
+            if self._target:
+                self._target(*self._args)
+
+    monkeypatch.setattr(mod, "_do_done", _capture)
+    monkeypatch.setattr(mod, "_job_id_from_status_json", lambda: 26)
+    monkeypatch.setattr(mod.threading, "Thread", _ImmediateThread)
+    notify_local_run_finished(aborted=False)
+    assert called == [(26, False)]
+    assert current_local_job_id() == 26

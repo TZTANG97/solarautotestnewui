@@ -256,6 +256,19 @@ def drain_status_errors(handle, *, max_n: int = 8) -> list:
     return drained
 
 
+def is_init_not_finished_error(reply: str) -> bool:
+    """错误 821：初始化未完成就 START（WT5000/WT3000E 常见）。"""
+    code = _status_code(reply)
+    if code == 821:
+        return True
+    low = (reply or "").lower()
+    return (
+        "initialization is not finished" in low
+        or "初始化未完成" in low
+        or "flicker initialization" in low
+    )
+
+
 def write_flicker_command(
     command: str,
     *,
@@ -306,8 +319,47 @@ def write_flicker_command(
     return True, f"已写 {cmd}"
 
 
+def write_flicker_start(
+    ctrl=None,
+    *,
+    retries: int = 8,
+    retry_wait_sec: float = 5.0,
+) -> Tuple[bool, str]:
+    """FLICKER:START：若 821（初始化未完成）则等待重试，对齐旧版长时间等 INITIALIZE 的行为。"""
+    c = ctrl if ctrl is not None else get_wt_controller()
+    notes: list = []
+    attempts = max(1, int(retries))
+    wait_s = max(1.0, float(retry_wait_sec))
+    for i in range(attempts):
+        ok, msg = write_flicker_command(
+            "FLICKER:START",
+            ctrl=c,
+            check_error=True,
+            ensure_remote_first=True,
+            require_remote_on=True,
+        )
+        if ok:
+            if notes:
+                return True, f"{msg}（曾遇初始化未完成，已重试 {i} 次）"
+            return True, msg
+        if is_init_not_finished_error(msg) or "821" in msg:
+            try:
+                if wt_connected(c):
+                    drain_status_errors(c.handle)
+            except Exception:
+                pass
+            notes.append(msg)
+            if i + 1 >= attempts:
+                break
+            time.sleep(wait_s)
+            continue
+        return False, msg
+    detail = notes[-1] if notes else "未知"
+    return False, f"FLICKER:START 仍失败（初始化未完成，已重试 {attempts} 次）: {detail}"
+
+
 def verify_after_flicker_start(ctrl=None) -> Tuple[bool, str]:
-    """START 后确认：优先查 REMOTE 仍亮；STATUS 超时不当失败。"""
+    """START 后确认：优先查 REMOTE 仍亮；STATUS 超时不当失败；821 不当最终成功。"""
     c = ctrl if ctrl is not None else get_wt_controller()
     if not wt_connected(c):
         return False, "WT 未连接，FLICKER:START 无法确认"
@@ -319,6 +371,10 @@ def verify_after_flicker_start(ctrl=None) -> Tuple[bool, str]:
     if not query_ok:
         rem = f"REMOTE={raw}" if raw else "REMOTE 未查询到"
         return True, f"FLICKER:START 已下发（{rem}；错误队列暂不可读，请看面板是否离开 Reset）"
+    if is_init_not_finished_error(err):
+        return False, f"FLICKER:START 后仪器报错: {err}"
+    if is_benign_status_error(err):
+        return True, f"FLICKER:START 已下发（忽略提示: {err}）"
     if is_status_error(err):
         return False, f"FLICKER:START 后仪器报错: {err}"
     rem = f"REMOTE ON（{raw}）" if on is True else "REMOTE 未确认"

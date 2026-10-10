@@ -56,3 +56,39 @@ def test_loads_prefs_roundtrip(tmp_prefs):
     prefs.save_local(body)
     raw = json.loads(tmp_prefs.read_text(encoding="utf-8"))
     assert raw["instruments"][0]["slot"] == "wt"
+
+
+def test_persist_prefs_all_experiment_types(tmp_prefs, monkeypatch):
+    """闪变/谐波/过载等：persist_current_project_prefs 按 handler.key 落盘。"""
+    from utils import iot_ui_handoff as handoff
+
+    samples = {
+        "电压闪变": ("flicker", {"textEdit_S1_AC_VOLT": "230"}),
+        "谐波电流": ("harmonic", {"textEdit_S1_AC_VOLT": "220"}),
+        "过载能力测试": ("overload", {"textEdit_S1_AC_VOLT": "240"}),
+        "固定PF=1": ("fixedpf", {"textEdit_S1_AC_VOLT": "230"}),
+        "直流分量": ("dccomponent", {"textEdit_S1_AC_VOLT": "230"}),
+    }
+
+    class _Svc:
+        def _resolve_handler(self, name: str):
+            row = samples.get(name)
+            if not row:
+                return None
+            key, widgets = row
+            return {
+                "key": key,
+                "resolve_ui": lambda w=widgets: type("UI", (), {"_w": w})(),
+            }
+
+    monkeypatch.setattr(
+        handoff,
+        "collect_widget_values",
+        lambda ui: dict(getattr(ui, "_w", {}) or {}),
+    )
+    svc = _Svc()
+    for project, (key, widgets) in samples.items():
+        n = handoff.persist_current_project_prefs(project, handoff_svc=svc)
+        assert n == len(widgets), project
+        got = prefs.load_local()["testParamsByType"][key]["widgets"]
+        assert got["textEdit_S1_AC_VOLT"] == widgets["textEdit_S1_AC_VOLT"]
