@@ -88,6 +88,30 @@ class Ui_Dialog_thaizhiliufenliang(object):
         """)
         topLayout.addWidget(self.pushButton_ResetCount)
 
+        # 国家标准（默认泰国=现行；切换才改功率点/频率，不碰 WT/德威创）
+        stdLabel = QtWidgets.QLabel("国家标准")
+        stdLabel.setStyleSheet(
+            "font-size: 12px; color: #475569; background: transparent; border: none;"
+        )
+        topLayout.addWidget(stdLabel)
+        self.comboBox_SolarStandard = QtWidgets.QComboBox()
+        self.comboBox_SolarStandard.setObjectName("comboBox_SolarStandard")
+        self.comboBox_SolarStandard.setFixedWidth(168)
+        self.comboBox_SolarStandard.setStyleSheet(
+            "QComboBox { font-size: 12px; padding: 2px 6px; background: white; }"
+        )
+        try:
+            from utils.iot_dccomponent_standard import list_dccomponent_standard_options
+
+            for opt in list_dccomponent_standard_options():
+                self.comboBox_SolarStandard.addItem(str(opt["label"]), str(opt["id"]))
+        except Exception:
+            self.comboBox_SolarStandard.addItem("泰国 PEA/MEA（现行）", "thai")
+        self.comboBox_SolarStandard.setCurrentIndex(0)
+        self._solar_standard = "thai"
+        self.comboBox_SolarStandard.currentIndexChanged.connect(self._on_solar_standard_changed)
+        topLayout.addWidget(self.comboBox_SolarStandard)
+
         topLayout.addStretch()
 
         # 横向步骤指示器
@@ -141,6 +165,27 @@ class Ui_Dialog_thaizhiliufenliang(object):
 
         self.retranslateUi(Dialog_thaizhiliufenliang)
         QtCore.QMetaObject.connectSlotsByName(Dialog_thaizhiliufenliang)
+
+    def set_solar_standard(self, standard_id, *, apply_defaults=False):
+        """外部（IOT handoff）同步标准；默认不重写已填控件。"""
+        try:
+            from utils.iot_dccomponent_standard import apply_dccomponent_standard_to_ui
+
+            apply_dccomponent_standard_to_ui(
+                self,
+                standard_id,
+                force=True,
+                apply_defaults=bool(apply_defaults),
+            )
+        except Exception:
+            self._solar_standard = str(standard_id or "thai").strip() or "thai"
+
+    def _on_solar_standard_changed(self, index):
+        """用户切换国家标准：回填功率点/频率等（不改 WT/德威创模式）。"""
+        sid = self.comboBox_SolarStandard.itemData(index)
+        if sid is None:
+            sid = "thai"
+        self.set_solar_standard(str(sid), apply_defaults=True)
 
     def _switch_step(self, index):
         self.stackedWidget.setCurrentIndex(index)
