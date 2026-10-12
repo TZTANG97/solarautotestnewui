@@ -1549,10 +1549,33 @@ class IotUiHandoffService(QObject):
             except Exception as exc:
                 self._log(f"工控机参数记忆合并跳过: {exc}")
 
+            # 闪变：认 job/widgets.solarStandard，按泰/欧等标准补全默认工况
+            flicker_sid = ""
+            if (handler.get("key") or "") == "flicker":
+                try:
+                    from utils.iot_flicker_standard import (
+                        apply_flicker_standard_to_widgets,
+                        resolve_flicker_standard_id,
+                    )
+
+                    flicker_sid = resolve_flicker_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_flicker_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        flicker_sid,
+                        force=False,
+                    )
+                    self._log(f"闪变标准 solarStandard={flicker_sid}")
+                except Exception as exc:
+                    self._log(f"闪变标准默认合并跳过: {exc}")
+
             widgets_for_ui = {
                 k: v
                 for k, v in (widgets or {}).items()
-                if k not in ("dew_export_fields",)
+                if k not in ("dew_export_fields", "solarStandard", "solar_standard", "standard")
+                and not str(k).startswith("_")
             }
             # 闪变/谐波/固定PF/直流分量 Dialog 用 radio_wt3000；线上表单写 radio_wt
             if (handler.get("key") or "") in (
@@ -1591,6 +1614,23 @@ class IotUiHandoffService(QObject):
             missing = apply_widget_values(real_ui, widgets_for_ui)
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
+
+            # 闪变：把标准 id / 周期挂到 Dialog，供 thaidianyashanbianSend 读取
+            if (handler.get("key") or "") == "flicker" and real_ui is not None:
+                try:
+                    from utils.iot_flicker_standard import flicker_cycle_seconds
+
+                    sid = flicker_sid or "thai"
+                    setattr(real_ui, "_solar_standard", sid)
+                    setattr(
+                        real_ui,
+                        "_flicker_cycle_sec",
+                        flicker_cycle_seconds(
+                            sid, widgets if isinstance(widgets, dict) else {}
+                        ),
+                    )
+                except Exception as exc:
+                    self._log(f"闪变标准挂载 Dialog 跳过: {exc}")
 
             # 德威创导出字段：不在标准控件树里，单独写入面板
             try:

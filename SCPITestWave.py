@@ -5108,6 +5108,21 @@ def thaidianyashanbianSend():
             str_array_single[8] = int(remain_seconds * 10)
             strArrayTest.append(str_array_single)
             step_commands.append(str_array_single)
+
+    # IOT handoff 写入的国家标准（泰/欧等）；影响周期补齐与日志
+    _flicker_std = str(getattr(uiThaiDianYaShanBian, "_solar_standard", "") or "").strip()
+    _flicker_cycle = getattr(uiThaiDianYaShanBian, "_flicker_cycle_sec", None)
+    try:
+        _flicker_cycle = int(_flicker_cycle) if _flicker_cycle not in (None, "") else 600
+    except (TypeError, ValueError):
+        _flicker_cycle = 600
+    if _flicker_std:
+        try:
+            ui.textEdit_ReturnMessage.append(
+                f"[闪变] 国家标准 solarStandard={_flicker_std}，周期补齐={_flicker_cycle}s"
+            )
+        except Exception:
+            pass
     strShowErrorMessageBoxFlag = "0"
     if strAddTestFlag == "0":
         strArrayTest = []
@@ -6243,7 +6258,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # N=3：不需要额外的组间等待，直接补齐到周期时间
-            _append_cycle_padding(strArrayTestStepSingle, 600)
+            _append_cycle_padding(strArrayTestStepSingle, _flicker_cycle)
 
             if Int_S3_CYCLETIME >1:
                 # 总组数应严格等于 UI 的循环次数
@@ -6628,7 +6643,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # N=2：不需要额外的组间等待，直接补齐到周期时间
-            _append_cycle_padding(strArrayTestStepSingle, 600)
+            _append_cycle_padding(strArrayTestStepSingle, _flicker_cycle)
 
             if Int_S3_CYCLETIME >1:
                 for xxx in range(Int_S3_CYCLETIME-1):
@@ -6783,7 +6798,7 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
             # N=1：不需要后续闪变间隔，直接补齐到周期时间
-            _append_cycle_padding(strArrayTestStepSingle, 600)
+            _append_cycle_padding(strArrayTestStepSingle, _flicker_cycle)
 
             if Int_S3_CYCLETIME > 1:
                 for xxx in range(Int_S3_CYCLETIME - 1):
