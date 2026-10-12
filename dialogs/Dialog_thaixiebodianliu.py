@@ -130,6 +130,30 @@ class Ui_Dialog_thaixiebodianliu(object):
         self._radio_group.addButton(self.radio_dewetron, 1)
         topLayout.addWidget(self.radio_dewetron)
 
+        # 国家标准（默认泰国=现行；切换才改功率点/频率，不碰 WT/德威创）
+        stdLabel = QtWidgets.QLabel("国家标准")
+        stdLabel.setStyleSheet(
+            "font-size: 12px; color: #475569; background: transparent; border: none;"
+        )
+        topLayout.addWidget(stdLabel)
+        self.comboBox_SolarStandard = QtWidgets.QComboBox()
+        self.comboBox_SolarStandard.setObjectName("comboBox_SolarStandard")
+        self.comboBox_SolarStandard.setFixedWidth(168)
+        self.comboBox_SolarStandard.setStyleSheet(
+            "QComboBox { font-size: 12px; padding: 2px 6px; background: white; }"
+        )
+        try:
+            from utils.iot_harmonic_standard import list_harmonic_standard_options
+
+            for opt in list_harmonic_standard_options():
+                self.comboBox_SolarStandard.addItem(str(opt["label"]), str(opt["id"]))
+        except Exception:
+            self.comboBox_SolarStandard.addItem("泰国 PEA/MEA（现行）", "thai")
+        self.comboBox_SolarStandard.setCurrentIndex(0)
+        self._solar_standard = "thai"
+        self.comboBox_SolarStandard.currentIndexChanged.connect(self._on_solar_standard_changed)
+        topLayout.addWidget(self.comboBox_SolarStandard)
+
         topLayout.addStretch()
 
         self._step_labels = []
@@ -798,6 +822,27 @@ class Ui_Dialog_thaixiebodianliu(object):
         tg.addWidget(tip, 2, 0, 1, 6)
 
         return grp
+
+    def set_solar_standard(self, standard_id, *, apply_defaults=False):
+        """外部（IOT handoff）同步标准；默认不重写已填控件。"""
+        try:
+            from utils.iot_harmonic_standard import apply_harmonic_standard_to_ui
+
+            apply_harmonic_standard_to_ui(
+                self,
+                standard_id,
+                force=True,
+                apply_defaults=bool(apply_defaults),
+            )
+        except Exception:
+            self._solar_standard = str(standard_id or "thai").strip() or "thai"
+
+    def _on_solar_standard_changed(self, index):
+        """用户切换国家标准：回填功率点/频率等（不改 WT/德威创模式）。"""
+        sid = self.comboBox_SolarStandard.itemData(index)
+        if sid is None:
+            sid = "thai"
+        self.set_solar_standard(str(sid), apply_defaults=True)
 
     def _apply_harmonic_order_defaults(self):
         """谐波试验 WT 默认：阶次 DC～50；SigmaA 接线；勾选 U/I/P（有 A 无 W 常见因接线是 ---）。"""
