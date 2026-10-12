@@ -41,6 +41,8 @@ arrayRow1 = ['Style',
     "treeWidget_DEW_ExportFields",
     "textEdit_DEW_S2_TIME", "comboBox_DEW_S2_TIME",
     "comboBox_DEW_S2_PER_FLICK_COUNT",
+    # 国家标准（追加在末尾，旧 CSV 无此列仍可读）
+    "comboBox_SolarStandard",
     ]
 
 #泰国电压闪变保存设定
@@ -391,6 +393,11 @@ def Save_File_Thaidianyashanbian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
         arrayRow2.append(uiThaiDianYaShanBian.textEdit_DEW_S2_TIME.toPlainText())
         arrayRow2.append(uiThaiDianYaShanBian.comboBox_DEW_S2_TIME.currentIndex())
         arrayRow2.append(uiThaiDianYaShanBian.comboBox_DEW_S2_PER_FLICK_COUNT.currentIndex())
+        # 国家标准 id（旧文件无列时读取会跳过）
+        _sid = str(getattr(uiThaiDianYaShanBian, "_solar_standard", "") or "").strip()
+        if not _sid and hasattr(uiThaiDianYaShanBian, "comboBox_SolarStandard"):
+            _sid = str(uiThaiDianYaShanBian.comboBox_SolarStandard.currentData() or "")
+        arrayRow2.append(_sid or "thai")
 
         out = open(directory1[0], 'w+', newline='', encoding='utf-8-sig')
         csv_write = csv.writer(out, dialect="excel")
@@ -1134,6 +1141,14 @@ def Open_File_ThaiDianYaShanBian(dialog_windowTdianyashanbian, uiThaiDianYaShanB
                 if strFlag == "0" and len(arrayRow1) > 97:
                     if arrayRow1[97] in i:
                         uiThaiDianYaShanBian.comboBox_DEW_S2_PER_FLICK_COUNT.setCurrentIndex(int(i[arrayRow1[97]]))
+
+                # 国家标准（新列；旧 CSV 无此字段则保持 Dialog 默认泰国）
+                if strFlag == "0" and len(arrayRow1) > 98:
+                    if arrayRow1[98] in i:
+                        sid = str(i.get(arrayRow1[98], "") or "").strip() or "thai"
+                        if hasattr(uiThaiDianYaShanBian, "set_solar_standard"):
+                            # 控件值已从 CSV 各列还原，只同步下拉与 _solar_standard
+                            uiThaiDianYaShanBian.set_solar_standard(sid, apply_defaults=False)
 
         QMessageBox.information(None, "实验设定提示信息", "电压闪变文件读取完成", QMessageBox.Ok, QMessageBox.Ok)
 

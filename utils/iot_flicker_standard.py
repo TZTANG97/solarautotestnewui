@@ -232,3 +232,115 @@ def apply_flicker_standard_to_widgets(
         if cur is None or cur == "":
             out[k] = v
     return out
+
+
+# 桌面 Dialog 下拉：与 IOT 目录一致；默认 thai = 现行台架
+FLICKER_STANDARD_OPTIONS = (
+    {"id": "thai", "label": "泰国 PEA/MEA（现行）"},
+    {"id": "de_vde", "label": "德国 VDE"},
+    {"id": "br_ord140", "label": "巴西 Ordinance 140"},
+    {"id": "en50549", "label": "欧洲 EN 50549"},
+    {"id": "as_nzs", "label": "澳洲 AS/NZS"},
+    {"id": "it_cei", "label": "意大利 CEI"},
+    {"id": "uk_g99", "label": "英国 G99/G98"},
+    {"id": "iec61727", "label": "IEC 61727"},
+)
+
+
+def list_flicker_standard_options() -> list:
+    return [dict(x) for x in FLICKER_STANDARD_OPTIONS]
+
+
+def _set_ui_control_value(ctrl: Any, value: Any) -> bool:
+    """按控件类型写值；不依赖 handoff，避免循环导入。"""
+    if ctrl is None:
+        return False
+    try:
+        from PyQt5.QtWidgets import QCheckBox, QComboBox, QLineEdit, QTextEdit
+    except Exception:
+        return False
+    if isinstance(ctrl, QCheckBox):
+        ctrl.setChecked(
+            value in (True, "1", 1, "true", "True", "on", "ON", "yes", "YES")
+        )
+        return True
+    if isinstance(ctrl, QComboBox):
+        text = str(value)
+        idx = ctrl.findText(text)
+        if idx >= 0:
+            ctrl.setCurrentIndex(idx)
+            return True
+        # 数字项如 "1"/"2"/"3"
+        for i in range(ctrl.count()):
+            if str(ctrl.itemText(i)).strip() == text.strip():
+                ctrl.setCurrentIndex(i)
+                return True
+        return False
+    if isinstance(ctrl, QTextEdit):
+        ctrl.setPlainText(str(value))
+        return True
+    if isinstance(ctrl, QLineEdit):
+        ctrl.setText(str(value))
+        return True
+    if hasattr(ctrl, "setPlainText"):
+        ctrl.setPlainText(str(value))
+        return True
+    if hasattr(ctrl, "setText"):
+        ctrl.setText(str(value))
+        return True
+    return False
+
+
+def apply_flicker_standard_to_ui(
+    ui: Any,
+    standard_id: str,
+    *,
+    force: bool = True,
+    apply_defaults: bool = True,
+) -> str:
+    """
+    把国家标准挂到闪变 Dialog，并（可选）回填默认工况。
+    不改 WT/德威创模式单选；_ 元数据只写到 ui 属性。
+    返回归一化 standard id。
+    """
+    sid = normalize_flicker_standard_id(standard_id) or "thai"
+    setattr(ui, "_solar_standard", sid)
+    setattr(ui, "_flicker_cycle_sec", flicker_cycle_seconds(sid))
+    combo = getattr(ui, "comboBox_SolarStandard", None)
+    if combo is not None and hasattr(combo, "findData"):
+        idx = combo.findData(sid)
+        if idx < 0:
+            # 兼容无 userData 的旧项：按文案含 id
+            for i in range(combo.count()):
+                if combo.itemData(i) == sid:
+                    idx = i
+                    break
+        if idx >= 0 and combo.currentIndex() != idx:
+            blocked = combo.blockSignals(True)
+            try:
+                combo.setCurrentIndex(idx)
+            finally:
+                combo.blockSignals(blocked)
+    if not apply_defaults:
+        return sid
+    defaults = apply_flicker_standard_to_widgets({}, sid, force=True)
+    for key, val in defaults.items():
+        sk = str(key)
+        if sk.startswith("_") or sk in ("solarStandard", "solar_standard", "standard"):
+            continue
+        ctrl = getattr(ui, sk, None)
+        if ctrl is None:
+            continue
+        if not force:
+            # 非 force：已有非空文本则跳过
+            try:
+                if hasattr(ctrl, "toPlainText") and str(ctrl.toPlainText() or "").strip():
+                    continue
+                if hasattr(ctrl, "text") and not hasattr(ctrl, "currentText"):
+                    t = ctrl.text() if callable(ctrl.text) else ""
+                    if str(t or "").strip():
+                        continue
+            except Exception:
+                pass
+        _set_ui_control_value(ctrl, val)
+    return sid

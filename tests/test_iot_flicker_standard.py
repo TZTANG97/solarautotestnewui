@@ -47,6 +47,40 @@ def test_au_it_uk_and_all_eight_distinct():
             assert a != b
 
 
+def test_list_flicker_standard_options_desktop_catalog():
+    from utils.iot_flicker_standard import list_flicker_standard_options
+
+    opts = list_flicker_standard_options()
+    assert len(opts) == 8
+    assert opts[0]["id"] == "thai"
+    assert "现行" in opts[0]["label"]
+    ids = [o["id"] for o in opts]
+    assert ids == [
+        "thai",
+        "de_vde",
+        "br_ord140",
+        "en50549",
+        "as_nzs",
+        "it_cei",
+        "uk_g99",
+        "iec61727",
+    ]
+
+
+def test_apply_flicker_standard_to_ui_meta_only():
+    """无 Qt 控件时仍可挂 _solar_standard / 周期（handoff 兼容）。"""
+    from utils.iot_flicker_standard import apply_flicker_standard_to_ui
+
+    class _Stub:
+        pass
+
+    ui = _Stub()
+    sid = apply_flicker_standard_to_ui(ui, "uk_g99", apply_defaults=True)
+    assert sid == "uk_g99"
+    assert ui._solar_standard == "uk_g99"
+    assert int(ui._flicker_cycle_sec) == 7200
+
+
 def test_force_false_keeps_user_value():
     w = apply_flicker_standard_to_widgets(
         {"textEdit_S2_TIME": "99", "solarStandard": "en50549"},

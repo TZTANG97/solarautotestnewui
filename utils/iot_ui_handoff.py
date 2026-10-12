@@ -1615,20 +1615,23 @@ class IotUiHandoffService(QObject):
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
 
-            # 闪变：把标准 id / 周期挂到 Dialog，供 thaidianyashanbianSend 读取
+            # 闪变：把标准 id / 周期挂到 Dialog，并同步下拉（不重写已填 widgets）
             if (handler.get("key") or "") == "flicker" and real_ui is not None:
                 try:
                     from utils.iot_flicker_standard import flicker_cycle_seconds
 
                     sid = flicker_sid or "thai"
-                    setattr(real_ui, "_solar_standard", sid)
-                    setattr(
-                        real_ui,
-                        "_flicker_cycle_sec",
-                        flicker_cycle_seconds(
-                            sid, widgets if isinstance(widgets, dict) else {}
-                        ),
-                    )
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                        setattr(
+                            real_ui,
+                            "_flicker_cycle_sec",
+                            flicker_cycle_seconds(
+                                sid, widgets if isinstance(widgets, dict) else {}
+                            ),
+                        )
                 except Exception as exc:
                     self._log(f"闪变标准挂载 Dialog 跳过: {exc}")
 

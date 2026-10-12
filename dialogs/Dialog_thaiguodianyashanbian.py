@@ -121,6 +121,31 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self._radio_group.addButton(self.radio_dewetron, 1)
         topLayout.addWidget(self.radio_dewetron)
 
+        # 国家标准（默认泰国=现行台架；切换才改工况，不碰 WT/德威创模式）
+        stdLabel = QtWidgets.QLabel("国家标准")
+        stdLabel.setStyleSheet(
+            "font-size: 12px; color: #475569; background: transparent; border: none;"
+        )
+        topLayout.addWidget(stdLabel)
+        self.comboBox_SolarStandard = QtWidgets.QComboBox()
+        self.comboBox_SolarStandard.setObjectName("comboBox_SolarStandard")
+        self.comboBox_SolarStandard.setFixedWidth(168)
+        self.comboBox_SolarStandard.setStyleSheet(
+            "QComboBox { font-size: 12px; padding: 2px 6px; background: white; }"
+        )
+        try:
+            from utils.iot_flicker_standard import list_flicker_standard_options
+
+            for opt in list_flicker_standard_options():
+                self.comboBox_SolarStandard.addItem(str(opt["label"]), str(opt["id"]))
+        except Exception:
+            self.comboBox_SolarStandard.addItem("泰国 PEA/MEA（现行）", "thai")
+        self.comboBox_SolarStandard.setCurrentIndex(0)
+        self._solar_standard = "thai"
+        self._flicker_cycle_sec = 600
+        self.comboBox_SolarStandard.currentIndexChanged.connect(self._on_solar_standard_changed)
+        topLayout.addWidget(self.comboBox_SolarStandard)
+
         sep2 = QtWidgets.QFrame()
         sep2.setFrameShape(QtWidgets.QFrame.VLine)
         sep2.setStyleSheet("color: #cbd5e1; border: none; max-width: 1px;")
@@ -1255,6 +1280,29 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         h.addWidget(lbl)
         h.addStretch()
         return container
+
+    def set_solar_standard(self, standard_id, *, apply_defaults=False):
+        """外部（IOT handoff）同步标准；默认不重写已填控件，避免冲掉下发 widgets。"""
+        try:
+            from utils.iot_flicker_standard import apply_flicker_standard_to_ui
+
+            apply_flicker_standard_to_ui(
+                self,
+                standard_id,
+                force=True,
+                apply_defaults=bool(apply_defaults),
+            )
+        except Exception:
+            sid = str(standard_id or "thai").strip() or "thai"
+            self._solar_standard = sid
+
+    def _on_solar_standard_changed(self, index):
+        """用户手动切换国家标准：回填该标准默认工况（不改 WT/德威创模式）。"""
+        sid = self.comboBox_SolarStandard.itemData(index)
+        if sid is None:
+            sid = "thai"
+        # 泰国且首次等同现行控件默认：仍走 apply，保证与 profiles 一致
+        self.set_solar_standard(str(sid), apply_defaults=True)
 
     def _on_mode_changed(self, button, checked):
         """模式切换回调（WT3000闪变 / 德威创模式）。切换 step2 和 step4 内容。"""
