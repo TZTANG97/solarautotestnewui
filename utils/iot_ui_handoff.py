@@ -1549,10 +1549,11 @@ class IotUiHandoffService(QObject):
             except Exception as exc:
                 self._log(f"工控机参数记忆合并跳过: {exc}")
 
-            # 闪变/谐波/直流分量：认 job/widgets.solarStandard，按标准补全空字段默认工况
+            # 闪变/谐波/直流分量/固定PF：认 job/widgets.solarStandard，按标准补全空字段默认工况
             flicker_sid = ""
             harmonic_sid = ""
             dccomponent_sid = ""
+            fixedpf_sid = ""
             if (handler.get("key") or "") == "flicker":
                 try:
                     from utils.iot_flicker_standard import (
@@ -1610,6 +1611,25 @@ class IotUiHandoffService(QObject):
                     self._log(f"直流分量标准 solarStandard={dccomponent_sid}")
                 except Exception as exc:
                     self._log(f"直流分量标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "fixedpf":
+                try:
+                    from utils.iot_fixedpf_standard import (
+                        apply_fixedpf_standard_to_widgets,
+                        resolve_fixedpf_standard_id,
+                    )
+
+                    fixedpf_sid = resolve_fixedpf_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_fixedpf_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        fixedpf_sid,
+                        force=False,
+                    )
+                    self._log(f"固定PF标准 solarStandard={fixedpf_sid}")
+                except Exception as exc:
+                    self._log(f"固定PF标准默认合并跳过: {exc}")
 
             widgets_for_ui = {
                 k: v
@@ -1655,7 +1675,7 @@ class IotUiHandoffService(QObject):
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
 
-            # 闪变/谐波/直流分量：挂标准到 Dialog 并同步下拉（不重写已填 widgets）
+            # 闪变/谐波/直流分量/固定PF：挂标准到 Dialog 并同步下拉（不重写已填 widgets）
             if (handler.get("key") or "") == "flicker" and real_ui is not None:
                 try:
                     from utils.iot_flicker_standard import flicker_cycle_seconds
@@ -1692,6 +1712,15 @@ class IotUiHandoffService(QObject):
                         setattr(real_ui, "_solar_standard", sid)
                 except Exception as exc:
                     self._log(f"直流分量标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "fixedpf" and real_ui is not None:
+                try:
+                    sid = fixedpf_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"固定PF标准挂载 Dialog 跳过: {exc}")
 
             # 德威创导出字段：不在标准控件树里，单独写入面板
             try:
