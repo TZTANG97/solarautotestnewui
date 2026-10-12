@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """闪变国家标准 → Dialog widgets 默认（与 IOT solar_standard_profiles 对齐）。
 
-桌面 handoff / Send 认 solarStandard：泰/欧/德/巴/IEC 已拉开工况默认；
-澳/意/英暂同泰，待规程限值表再拆。
+桌面 handoff / Send 认 solarStandard：闪变 8 套标准均已拉开可验收工况默认。
 """
 from __future__ import annotations
 
@@ -112,11 +111,67 @@ FLICKER_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "_flickerPstLimit": "1.0",
         "_flickerPltLimit": "0.65",
     },
+    "as_nzs": {
+        **_FLICKER_DEW_230_50,
+        "checkBox_DEW_FlickerStandard": True,
+        "textEdit_S1_AC_FR": "50",
+        "textEdit_S2_TIME": "10",
+        "comboBox_S2_TIME": "分钟",
+        "comboBox_S2_PER_FLICK_COUNT": "1",
+        "textEdit_DEW_S2_TIME": "10",
+        "comboBox_DEW_S2_TIME": "分钟",
+        "comboBox_DEW_S2_PER_FLICK_COUNT": "1",
+        "textEdit_DEW_ShortFlickerTime": "10",
+        "textEdit_DEW_LongFlickerTime": "120",
+        "textEdit_S3_TIME": "10",
+        "textEdit_S3_TIME_2": "4",
+        "textEdit_S3_CYCLE_TIME": "10",
+        "comboBox_S2_WT": "单相",
+        "_flickerCycleSec": "600",
+        "_flickerPstLimit": "1.0",
+        "_flickerPltLimit": "0.65",
+    },
+    "it_cei": {
+        **_FLICKER_DEW_230_50,
+        "checkBox_DEW_FlickerStandard": True,
+        "textEdit_S1_AC_FR": "50",
+        "textEdit_S2_TIME": "10",
+        "comboBox_S2_TIME": "分钟",
+        "comboBox_S2_PER_FLICK_COUNT": "3",
+        "textEdit_DEW_S2_TIME": "10",
+        "comboBox_DEW_S2_TIME": "分钟",
+        "comboBox_DEW_S2_PER_FLICK_COUNT": "3",
+        "textEdit_DEW_ShortFlickerTime": "10",
+        "textEdit_DEW_LongFlickerTime": "120",
+        "textEdit_S3_TIME": "8",
+        "textEdit_S3_TIME_2": "4",
+        "textEdit_S3_CYCLE_TIME": "12",
+        "comboBox_S2_WT": "单相",
+        "_flickerCycleSec": "600",
+        "_flickerPstLimit": "1.0",
+        "_flickerPltLimit": "0.65",
+    },
+    "uk_g99": {
+        **_FLICKER_DEW_230_50,
+        "checkBox_DEW_FlickerStandard": True,
+        "textEdit_S1_AC_FR": "50",
+        "textEdit_S2_TIME": "10",
+        "comboBox_S2_TIME": "分钟",
+        "comboBox_S2_PER_FLICK_COUNT": "1",
+        "textEdit_DEW_S2_TIME": "10",
+        "comboBox_DEW_S2_TIME": "分钟",
+        "comboBox_DEW_S2_PER_FLICK_COUNT": "1",
+        "textEdit_DEW_ShortFlickerTime": "10",
+        "textEdit_DEW_LongFlickerTime": "120",
+        "textEdit_S3_TIME": "15",
+        "textEdit_S3_TIME_2": "2",
+        "textEdit_S3_CYCLE_TIME": "12",
+        "comboBox_S2_WT": "单相",
+        "_flickerCycleSec": "7200",
+        "_flickerPstLimit": "1.0",
+        "_flickerPltLimit": "0.65",
+    },
 }
-
-# 尚未单独建规程表的标准：执行同泰
-for _sid in ("as_nzs", "it_cei", "uk_g99"):
-    FLICKER_STANDARD_DEFAULTS[_sid] = dict(FLICKER_STANDARD_DEFAULTS["thai"])
 
 
 def normalize_flicker_standard_id(raw: Optional[str]) -> str:

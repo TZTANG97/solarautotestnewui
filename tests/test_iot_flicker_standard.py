@@ -29,6 +29,24 @@ def test_de_br_iec_defaults_diverge():
     assert resolve_flicker_standard_id(widgets={"solarStandard": "br_ord140"}) == "br_ord140"
 
 
+def test_au_it_uk_and_all_eight_distinct():
+    from utils.iot_flicker_standard import FLICKER_STANDARD_DEFAULTS
+
+    au = apply_flicker_standard_to_widgets({}, "as_nzs", force=True)
+    it = apply_flicker_standard_to_widgets({}, "it_cei", force=True)
+    uk = apply_flicker_standard_to_widgets({}, "uk_g99", force=True)
+    assert au["comboBox_S2_WT"] == "单相"
+    assert it["comboBox_S2_PER_FLICK_COUNT"] == "3"
+    assert it["textEdit_S3_TIME"] == "8"
+    assert flicker_cycle_seconds("uk_g99", uk) == 7200
+    ids = sorted(FLICKER_STANDARD_DEFAULTS)
+    assert len(ids) == 8
+    rows = [apply_flicker_standard_to_widgets({}, sid, force=True) for sid in ids]
+    for i, a in enumerate(rows):
+        for b in rows[i + 1 :]:
+            assert a != b
+
+
 def test_force_false_keeps_user_value():
     w = apply_flicker_standard_to_widgets(
         {"textEdit_S2_TIME": "99", "solarStandard": "en50549"},
