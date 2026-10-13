@@ -1549,11 +1549,38 @@ class IotUiHandoffService(QObject):
             except Exception as exc:
                 self._log(f"工控机参数记忆合并跳过: {exc}")
 
-            # 闪变/谐波/直流分量/固定PF：认 job/widgets.solarStandard，按标准补全空字段默认工况
+            # 闪变/谐波/直流分量/固定PF/过载/重连/过欠压_过欠频：认 job/widgets.solarStandard，按标准补全空字段默认工况
             flicker_sid = ""
             harmonic_sid = ""
             dccomponent_sid = ""
             fixedpf_sid = ""
+            overload_sid = ""
+            reconnect_sid = ""
+            ovuf_sid = ""
+            guopinjiangzai_sid = ""
+            cosphibrazil_sid = ""
+            dynamiccosphi_sid = ""
+            staticcosphi_sid = ""
+            testpu_sid = ""
+            dynamicqu_sid = ""
+            staticqu_sid = ""
+            activep_sid = ""
+            reactiveqacc_sid = ""
+            reactiveqin_sid = ""
+            fixedq_sid = ""
+            reactiveqcap_sid = ""
+            dynamicmppt_sid = ""
+            staticmppt_sid = ""
+            phasejump_sid = ""
+            lvrt_sid = ""
+            rapidvolt_sid = ""
+            guoqianpin_immun_sid = ""
+            rocof_sid = ""
+            frequencyadaptability_sid = ""
+            qianpinshengzai_sid = ""
+            voltageadaptability_sid = ""
+            voltprotect10min_sid = ""
+            antibackflow_sid = ""
             if (handler.get("key") or "") == "flicker":
                 try:
                     from utils.iot_flicker_standard import (
@@ -1630,6 +1657,578 @@ class IotUiHandoffService(QObject):
                     self._log(f"固定PF标准 solarStandard={fixedpf_sid}")
                 except Exception as exc:
                     self._log(f"固定PF标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "overload":
+                try:
+                    from utils.iot_overload_standard import (
+                        apply_overload_standard_to_widgets,
+                        resolve_overload_standard_id,
+                    )
+
+                    overload_sid = resolve_overload_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_overload_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        overload_sid,
+                        force=False,
+                    )
+                    self._log(f"过载标准 solarStandard={overload_sid}")
+                except Exception as exc:
+                    self._log(f"过载标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "reconnect":
+                try:
+                    from utils.iot_reconnect_standard import (
+                        apply_reconnect_standard_to_widgets,
+                        resolve_reconnect_standard_id,
+                    )
+
+                    reconnect_sid = resolve_reconnect_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_reconnect_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        reconnect_sid,
+                        force=False,
+                    )
+                    self._log(f"重连标准 solarStandard={reconnect_sid}")
+                except Exception as exc:
+                    self._log(f"重连标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "ovuf":
+                try:
+                    from utils.iot_ovuf_standard import (
+                        apply_ovuf_standard_to_widgets,
+                        resolve_ovuf_standard_id,
+                    )
+
+                    ovuf_sid = resolve_ovuf_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_ovuf_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        ovuf_sid,
+                        force=False,
+                    )
+                    self._log(f"过欠压_过欠频标准 solarStandard={ovuf_sid}")
+                except Exception as exc:
+                    self._log(f"过欠压_过欠频标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "guopinjiangzai":
+                try:
+                    from utils.iot_guopinjiangzai_standard import (
+                        apply_guopinjiangzai_standard_to_widgets,
+                        resolve_guopinjiangzai_standard_id,
+                    )
+
+                    guopinjiangzai_sid = resolve_guopinjiangzai_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_guopinjiangzai_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        guopinjiangzai_sid,
+                        force=False,
+                    )
+                    self._log(f"过频降载标准 solarStandard={guopinjiangzai_sid}")
+                except Exception as exc:
+                    self._log(f"过频降载标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "qianpinshengzai":
+                try:
+                    from utils.iot_qianpinshengzai_standard import (
+                        apply_qianpinshengzai_standard_to_widgets,
+                        resolve_qianpinshengzai_standard_id,
+                    )
+
+                    qianpinshengzai_sid = resolve_qianpinshengzai_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_qianpinshengzai_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        qianpinshengzai_sid,
+                        force=False,
+                    )
+                    self._log(f"欠频升载标准 solarStandard={qianpinshengzai_sid}")
+                except Exception as exc:
+                    self._log(f"欠频升载标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "voltageadaptability":
+                try:
+                    from utils.iot_voltageadaptability_standard import (
+                        apply_voltageadaptability_standard_to_widgets,
+                        resolve_voltageadaptability_standard_id,
+                    )
+
+                    voltageadaptability_sid = resolve_voltageadaptability_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_voltageadaptability_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        voltageadaptability_sid,
+                        force=False,
+                    )
+                    self._log(f"电压适应性标准 solarStandard={voltageadaptability_sid}")
+                except Exception as exc:
+                    self._log(f"电压适应性标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "voltprotect10min":
+                try:
+                    from utils.iot_voltprotect10min_standard import (
+                        apply_voltprotect10min_standard_to_widgets,
+                        resolve_voltprotect10min_standard_id,
+                    )
+
+                    voltprotect10min_sid = resolve_voltprotect10min_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_voltprotect10min_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        voltprotect10min_sid,
+                        force=False,
+                    )
+                    self._log(f"10min过压保护标准 solarStandard={voltprotect10min_sid}")
+                except Exception as exc:
+                    self._log(f"10min过压保护标准默认合并跳过: {exc}")
+            elif (handler.get("key") or "") == "antibackflow":
+                try:
+                    from utils.iot_antibackflow_standard import (
+                        apply_antibackflow_standard_to_widgets,
+                        resolve_antibackflow_standard_id,
+                    )
+
+                    antibackflow_sid = resolve_antibackflow_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_antibackflow_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        antibackflow_sid,
+                        force=False,
+                    )
+                    self._log(f"防逆流标准 solarStandard={antibackflow_sid}")
+                except Exception as exc:
+                    self._log(f"防逆流标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "flicker":
+                try:
+                    from utils.iot_flicker_standard import (
+                        apply_flicker_standard_to_widgets,
+                        resolve_flicker_standard_id,
+                    )
+
+                    flicker_sid = resolve_flicker_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_flicker_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        flicker_sid,
+                        force=False,
+                    )
+                    self._log(f"flicker标准 solarStandard={flicker_sid}")
+                except Exception as exc:
+                    self._log(f"flicker标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "frequencyadaptability":
+                try:
+                    from utils.iot_frequencyadaptability_standard import (
+                        apply_frequencyadaptability_standard_to_widgets,
+                        resolve_frequencyadaptability_standard_id,
+                    )
+
+                    frequencyadaptability_sid = resolve_frequencyadaptability_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_frequencyadaptability_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        frequencyadaptability_sid,
+                        force=False,
+                    )
+                    self._log(f"frequencyadaptability标准 solarStandard={frequencyadaptability_sid}")
+                except Exception as exc:
+                    self._log(f"frequencyadaptability标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "rocof":
+                try:
+                    from utils.iot_rocof_standard import (
+                        apply_rocof_standard_to_widgets,
+                        resolve_rocof_standard_id,
+                    )
+
+                    rocof_sid = resolve_rocof_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_rocof_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        rocof_sid,
+                        force=False,
+                    )
+                    self._log(f"rocof标准 solarStandard={rocof_sid}")
+                except Exception as exc:
+                    self._log(f"rocof标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "guoqianpin_immun":
+                try:
+                    from utils.iot_guoqianpin_immun_standard import (
+                        apply_guoqianpin_immun_standard_to_widgets,
+                        resolve_guoqianpin_immun_standard_id,
+                    )
+
+                    guoqianpin_immun_sid = resolve_guoqianpin_immun_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_guoqianpin_immun_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        guoqianpin_immun_sid,
+                        force=False,
+                    )
+                    self._log(f"guoqianpin_immun标准 solarStandard={guoqianpin_immun_sid}")
+                except Exception as exc:
+                    self._log(f"guoqianpin_immun标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "rapidvolt":
+                try:
+                    from utils.iot_rapidvolt_standard import (
+                        apply_rapidvolt_standard_to_widgets,
+                        resolve_rapidvolt_standard_id,
+                    )
+
+                    rapidvolt_sid = resolve_rapidvolt_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_rapidvolt_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        rapidvolt_sid,
+                        force=False,
+                    )
+                    self._log(f"rapidvolt标准 solarStandard={rapidvolt_sid}")
+                except Exception as exc:
+                    self._log(f"rapidvolt标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "lvrt":
+                try:
+                    from utils.iot_lvrt_standard import (
+                        apply_lvrt_standard_to_widgets,
+                        resolve_lvrt_standard_id,
+                    )
+
+                    lvrt_sid = resolve_lvrt_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_lvrt_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        lvrt_sid,
+                        force=False,
+                    )
+                    self._log(f"lvrt标准 solarStandard={lvrt_sid}")
+                except Exception as exc:
+                    self._log(f"lvrt标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "phasejump":
+                try:
+                    from utils.iot_phasejump_standard import (
+                        apply_phasejump_standard_to_widgets,
+                        resolve_phasejump_standard_id,
+                    )
+
+                    phasejump_sid = resolve_phasejump_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_phasejump_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        phasejump_sid,
+                        force=False,
+                    )
+                    self._log(f"phasejump标准 solarStandard={phasejump_sid}")
+                except Exception as exc:
+                    self._log(f"phasejump标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "staticmppt":
+                try:
+                    from utils.iot_staticmppt_standard import (
+                        apply_staticmppt_standard_to_widgets,
+                        resolve_staticmppt_standard_id,
+                    )
+
+                    staticmppt_sid = resolve_staticmppt_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_staticmppt_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        staticmppt_sid,
+                        force=False,
+                    )
+                    self._log(f"staticmppt标准 solarStandard={staticmppt_sid}")
+                except Exception as exc:
+                    self._log(f"staticmppt标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "dynamicmppt":
+                try:
+                    from utils.iot_dynamicmppt_standard import (
+                        apply_dynamicmppt_standard_to_widgets,
+                        resolve_dynamicmppt_standard_id,
+                    )
+
+                    dynamicmppt_sid = resolve_dynamicmppt_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_dynamicmppt_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        dynamicmppt_sid,
+                        force=False,
+                    )
+                    self._log(f"dynamicmppt标准 solarStandard={dynamicmppt_sid}")
+                except Exception as exc:
+                    self._log(f"dynamicmppt标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "reactiveqcap":
+                try:
+                    from utils.iot_reactiveqcap_standard import (
+                        apply_reactiveqcap_standard_to_widgets,
+                        resolve_reactiveqcap_standard_id,
+                    )
+
+                    reactiveqcap_sid = resolve_reactiveqcap_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_reactiveqcap_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        reactiveqcap_sid,
+                        force=False,
+                    )
+                    self._log(f"reactiveqcap标准 solarStandard={reactiveqcap_sid}")
+                except Exception as exc:
+                    self._log(f"reactiveqcap标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "fixedq":
+                try:
+                    from utils.iot_fixedq_standard import (
+                        apply_fixedq_standard_to_widgets,
+                        resolve_fixedq_standard_id,
+                    )
+
+                    fixedq_sid = resolve_fixedq_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_fixedq_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        fixedq_sid,
+                        force=False,
+                    )
+                    self._log(f"fixedq标准 solarStandard={fixedq_sid}")
+                except Exception as exc:
+                    self._log(f"fixedq标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "reactiveqin":
+                try:
+                    from utils.iot_reactiveqin_standard import (
+                        apply_reactiveqin_standard_to_widgets,
+                        resolve_reactiveqin_standard_id,
+                    )
+
+                    reactiveqin_sid = resolve_reactiveqin_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_reactiveqin_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        reactiveqin_sid,
+                        force=False,
+                    )
+                    self._log(f"reactiveqin标准 solarStandard={reactiveqin_sid}")
+                except Exception as exc:
+                    self._log(f"reactiveqin标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "reactiveqacc":
+                try:
+                    from utils.iot_reactiveqacc_standard import (
+                        apply_reactiveqacc_standard_to_widgets,
+                        resolve_reactiveqacc_standard_id,
+                    )
+
+                    reactiveqacc_sid = resolve_reactiveqacc_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_reactiveqacc_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        reactiveqacc_sid,
+                        force=False,
+                    )
+                    self._log(f"reactiveqacc标准 solarStandard={reactiveqacc_sid}")
+                except Exception as exc:
+                    self._log(f"reactiveqacc标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "activep":
+                try:
+                    from utils.iot_activep_standard import (
+                        apply_activep_standard_to_widgets,
+                        resolve_activep_standard_id,
+                    )
+
+                    activep_sid = resolve_activep_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_activep_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        activep_sid,
+                        force=False,
+                    )
+                    self._log(f"activep标准 solarStandard={activep_sid}")
+                except Exception as exc:
+                    self._log(f"activep标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "staticqu":
+                try:
+                    from utils.iot_staticqu_standard import (
+                        apply_staticqu_standard_to_widgets,
+                        resolve_staticqu_standard_id,
+                    )
+
+                    staticqu_sid = resolve_staticqu_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_staticqu_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        staticqu_sid,
+                        force=False,
+                    )
+                    self._log(f"staticqu标准 solarStandard={staticqu_sid}")
+                except Exception as exc:
+                    self._log(f"staticqu标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "dynamicqu":
+                try:
+                    from utils.iot_dynamicqu_standard import (
+                        apply_dynamicqu_standard_to_widgets,
+                        resolve_dynamicqu_standard_id,
+                    )
+
+                    dynamicqu_sid = resolve_dynamicqu_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_dynamicqu_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        dynamicqu_sid,
+                        force=False,
+                    )
+                    self._log(f"dynamicqu标准 solarStandard={dynamicqu_sid}")
+                except Exception as exc:
+                    self._log(f"dynamicqu标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "testpu":
+                try:
+                    from utils.iot_testpu_standard import (
+                        apply_testpu_standard_to_widgets,
+                        resolve_testpu_standard_id,
+                    )
+
+                    testpu_sid = resolve_testpu_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_testpu_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        testpu_sid,
+                        force=False,
+                    )
+                    self._log(f"testpu标准 solarStandard={testpu_sid}")
+                except Exception as exc:
+                    self._log(f"testpu标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "staticcosphi":
+                try:
+                    from utils.iot_staticcosphi_standard import (
+                        apply_staticcosphi_standard_to_widgets,
+                        resolve_staticcosphi_standard_id,
+                    )
+
+                    staticcosphi_sid = resolve_staticcosphi_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_staticcosphi_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        staticcosphi_sid,
+                        force=False,
+                    )
+                    self._log(f"staticcosphi标准 solarStandard={staticcosphi_sid}")
+                except Exception as exc:
+                    self._log(f"staticcosphi标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "dynamiccosphi":
+                try:
+                    from utils.iot_dynamiccosphi_standard import (
+                        apply_dynamiccosphi_standard_to_widgets,
+                        resolve_dynamiccosphi_standard_id,
+                    )
+
+                    dynamiccosphi_sid = resolve_dynamiccosphi_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_dynamiccosphi_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        dynamiccosphi_sid,
+                        force=False,
+                    )
+                    self._log(f"dynamiccosphi标准 solarStandard={dynamiccosphi_sid}")
+                except Exception as exc:
+                    self._log(f"dynamiccosphi标准默认合并跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "cosphibrazil":
+                try:
+                    from utils.iot_cosphibrazil_standard import (
+                        apply_cosphibrazil_standard_to_widgets,
+                        resolve_cosphibrazil_standard_id,
+                    )
+
+                    cosphibrazil_sid = resolve_cosphibrazil_standard_id(
+                        params=params if isinstance(params, dict) else {},
+                        widgets=widgets if isinstance(widgets, dict) else {},
+                    )
+                    widgets = apply_cosphibrazil_standard_to_widgets(
+                        widgets if isinstance(widgets, dict) else {},
+                        cosphibrazil_sid,
+                        force=False,
+                    )
+                    self._log(f"cosphibrazil标准 solarStandard={cosphibrazil_sid}")
+                except Exception as exc:
+                    self._log(f"cosphibrazil标准默认合并跳过: {exc}")
 
             widgets_for_ui = {
                 k: v
@@ -1637,17 +2236,19 @@ class IotUiHandoffService(QObject):
                 if k not in ("dew_export_fields", "solarStandard", "solar_standard", "standard")
                 and not str(k).startswith("_")
             }
-            # 闪变/谐波/固定PF/直流分量 Dialog 用 radio_wt3000；线上表单写 radio_wt
+            # 闪变/谐波/固定PF/直流分量/过载/重连/过欠压_过欠频/过频降载 Dialog 用 radio_wt3000；线上表单写 radio_wt
             if (handler.get("key") or "") in (
                 "flicker",
                 "harmonic",
                 "fixedpf",
                 "dccomponent",
+                "overload",
                 "reconnect",
                 "ovuf",
                 "guopinjiangzai",
                 "qianpinshengzai",
                 "voltprotect10min",
+                "antibackflow",
                 "guoqianpin_immun",
                 "staticmppt",
                 "frequencyadaptability",
@@ -1675,7 +2276,7 @@ class IotUiHandoffService(QObject):
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
 
-            # 闪变/谐波/直流分量/固定PF：挂标准到 Dialog 并同步下拉（不重写已填 widgets）
+            # 闪变/谐波/直流分量/固定PF/过载/重连/过欠压_过欠频/过频降载/欠频升载：挂标准到 Dialog 并同步下拉（不重写已填 widgets）
             if (handler.get("key") or "") == "flicker" and real_ui is not None:
                 try:
                     from utils.iot_flicker_standard import flicker_cycle_seconds
@@ -1721,6 +2322,298 @@ class IotUiHandoffService(QObject):
                         setattr(real_ui, "_solar_standard", sid)
                 except Exception as exc:
                     self._log(f"固定PF标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "overload" and real_ui is not None:
+                try:
+                    sid = overload_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"过载标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "reconnect" and real_ui is not None:
+                try:
+                    sid = reconnect_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"重连标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "ovuf" and real_ui is not None:
+                try:
+                    sid = ovuf_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"过欠压_过欠频标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "guopinjiangzai" and real_ui is not None:
+                try:
+                    sid = guopinjiangzai_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"过频降载标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "qianpinshengzai" and real_ui is not None:
+                try:
+                    sid = qianpinshengzai_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"欠频升载标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "voltageadaptability" and real_ui is not None:
+                try:
+                    sid = voltageadaptability_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"电压适应性标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "voltprotect10min" and real_ui is not None:
+                try:
+                    sid = voltprotect10min_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"10min过压保护标准挂载 Dialog 跳过: {exc}")
+            elif (handler.get("key") or "") == "antibackflow" and real_ui is not None:
+                try:
+                    sid = antibackflow_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"防逆流标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "flicker" and real_ui is not None:
+                try:
+                    sid = flicker_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"flicker标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "frequencyadaptability" and real_ui is not None:
+                try:
+                    sid = frequencyadaptability_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"frequencyadaptability标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "rocof" and real_ui is not None:
+                try:
+                    sid = rocof_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"rocof标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "guoqianpin_immun" and real_ui is not None:
+                try:
+                    sid = guoqianpin_immun_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"guoqianpin_immun标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "rapidvolt" and real_ui is not None:
+                try:
+                    sid = rapidvolt_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"rapidvolt标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "lvrt" and real_ui is not None:
+                try:
+                    sid = lvrt_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"lvrt标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "phasejump" and real_ui is not None:
+                try:
+                    sid = phasejump_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"phasejump标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "staticmppt" and real_ui is not None:
+                try:
+                    sid = staticmppt_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"staticmppt标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "dynamicmppt" and real_ui is not None:
+                try:
+                    sid = dynamicmppt_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"dynamicmppt标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "reactiveqcap" and real_ui is not None:
+                try:
+                    sid = reactiveqcap_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"reactiveqcap标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "fixedq" and real_ui is not None:
+                try:
+                    sid = fixedq_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"fixedq标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "reactiveqin" and real_ui is not None:
+                try:
+                    sid = reactiveqin_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"reactiveqin标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "reactiveqacc" and real_ui is not None:
+                try:
+                    sid = reactiveqacc_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"reactiveqacc标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "activep" and real_ui is not None:
+                try:
+                    sid = activep_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"activep标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "staticqu" and real_ui is not None:
+                try:
+                    sid = staticqu_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"staticqu标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "dynamicqu" and real_ui is not None:
+                try:
+                    sid = dynamicqu_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"dynamicqu标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "testpu" and real_ui is not None:
+                try:
+                    sid = testpu_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"testpu标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "staticcosphi" and real_ui is not None:
+                try:
+                    sid = staticcosphi_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"staticcosphi标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "dynamiccosphi" and real_ui is not None:
+                try:
+                    sid = dynamiccosphi_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"dynamiccosphi标准挂载 Dialog 跳过: {exc}")
+
+
+            elif (handler.get("key") or "") == "cosphibrazil" and real_ui is not None:
+                try:
+                    sid = cosphibrazil_sid or "thai"
+                    if hasattr(real_ui, "set_solar_standard"):
+                        real_ui.set_solar_standard(sid, apply_defaults=False)
+                    else:
+                        setattr(real_ui, "_solar_standard", sid)
+                except Exception as exc:
+                    self._log(f"cosphibrazil标准挂载 Dialog 跳过: {exc}")
 
             # 德威创导出字段：不在标准控件树里，单独写入面板
             try:

@@ -7,6 +7,7 @@ from utils.timing_profile import PHASE_JUMP_SCHEMA
 
 class Ui_Dialog_thaiphasejump(_BaseTimingProfileDialogUi):
     OBJECT_NAME = "Dialog_thaiphasejump"
+    SOLAR_STANDARD_TT = "phasejump"
     WINDOW_TITLE = "相角突变项目配置"
     PROFILE_TITLE = "Chroma 三相相位差突变时序"
     SCHEMA = PHASE_JUMP_SCHEMA

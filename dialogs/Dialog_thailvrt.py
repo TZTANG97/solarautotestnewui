@@ -33,6 +33,8 @@ class _BaseTimingProfileDialogUi(object):
     PROFILE_TITLE = "时序工况"
     SCHEMA = LVRT_SCHEMA
     DEFAULT_PROFILE: Sequence[Dict[str, Any]] = ()
+    # 子类填写后启用顶部「国家标准」下拉（与 IOT solar_standard_profiles 对齐）
+    SOLAR_STANDARD_TT = ""
 
     def setupUi(self, dialog: QtWidgets.QDialog) -> None:
         dialog.setObjectName(self.OBJECT_NAME)
@@ -114,6 +116,7 @@ class _BaseTimingProfileDialogUi(object):
         )
         layout.addWidget(self.label_append_count)
         layout.addWidget(self.pushButton_ResetCount)
+        self._install_solar_standard_combo(layout)
         layout.addStretch()
 
         self._step_labels: List[QtWidgets.QLabel] = []
@@ -144,6 +147,58 @@ class _BaseTimingProfileDialogUi(object):
             " padding:6px 13px;font-size:12px;}" % color
         )
         return button
+
+    def _install_solar_standard_combo(self, layout: QtWidgets.QHBoxLayout) -> None:
+        tt = str(getattr(self, "SOLAR_STANDARD_TT", "") or "").strip()
+        if not tt:
+            return
+        std_label = QtWidgets.QLabel("国家标准")
+        std_label.setStyleSheet(
+            "font-size: 12px; color: #475569; background: transparent; border: none;"
+        )
+        layout.addWidget(std_label)
+        self.comboBox_SolarStandard = QtWidgets.QComboBox()
+        self.comboBox_SolarStandard.setObjectName("comboBox_SolarStandard")
+        self.comboBox_SolarStandard.setFixedWidth(168)
+        self.comboBox_SolarStandard.setStyleSheet(
+            "QComboBox { font-size: 12px; padding: 2px 6px; background: white; }"
+        )
+        try:
+            mod = __import__(f"utils.iot_{tt}_standard", fromlist=["*"])
+            list_fn = getattr(mod, f"list_{tt}_standard_options")
+            for opt in list_fn():
+                self.comboBox_SolarStandard.addItem(str(opt["label"]), str(opt["id"]))
+        except Exception:
+            self.comboBox_SolarStandard.addItem("泰国 PEA/MEA（现行）", "thai")
+        self.comboBox_SolarStandard.setCurrentIndex(0)
+        self._solar_standard = "thai"
+        self.comboBox_SolarStandard.currentIndexChanged.connect(
+            self._on_solar_standard_changed
+        )
+        layout.addWidget(self.comboBox_SolarStandard)
+
+    def set_solar_standard(self, standard_id, *, apply_defaults=False):
+        tt = str(getattr(self, "SOLAR_STANDARD_TT", "") or "").strip()
+        if not tt:
+            self._solar_standard = str(standard_id or "thai").strip() or "thai"
+            return
+        try:
+            mod = __import__(f"utils.iot_{tt}_standard", fromlist=["*"])
+            apply_fn = getattr(mod, f"apply_{tt}_standard_to_ui")
+            apply_fn(
+                self,
+                standard_id,
+                force=True,
+                apply_defaults=bool(apply_defaults),
+            )
+        except Exception:
+            self._solar_standard = str(standard_id or "thai").strip() or "thai"
+
+    def _on_solar_standard_changed(self, index):
+        sid = self.comboBox_SolarStandard.itemData(index)
+        if sid is None:
+            sid = "thai"
+        self.set_solar_standard(str(sid), apply_defaults=True)
 
     def _switch_step(self, index: int) -> None:
         self.stackedWidget.setCurrentIndex(index)
@@ -472,6 +527,7 @@ class Ui_Dialog_thailvrt(_BaseTimingProfileDialogUi):
     OBJECT_NAME = "Dialog_thailvrt"
     WINDOW_TITLE = "低电压穿越（LVRT）项目配置"
     PROFILE_TITLE = "LVRT 电压阶跃时序"
+    SOLAR_STANDARD_TT = "lvrt"
     SCHEMA = LVRT_SCHEMA
     DEFAULT_PROFILE = (
         {

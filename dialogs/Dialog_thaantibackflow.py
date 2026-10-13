@@ -95,6 +95,29 @@ class Ui_Dialog_thaantibackflow(object):
         """)
         topLayout.addWidget(self.pushButton_ResetCount)
 
+        stdLabel = QtWidgets.QLabel("国家标准")
+        stdLabel.setStyleSheet(
+            "font-size: 12px; color: #475569; background: transparent; border: none;"
+        )
+        topLayout.addWidget(stdLabel)
+        self.comboBox_SolarStandard = QtWidgets.QComboBox()
+        self.comboBox_SolarStandard.setObjectName("comboBox_SolarStandard")
+        self.comboBox_SolarStandard.setFixedWidth(168)
+        self.comboBox_SolarStandard.setStyleSheet(
+            "QComboBox { font-size: 12px; padding: 2px 6px; background: white; }"
+        )
+        try:
+            from utils.iot_antibackflow_standard import list_antibackflow_standard_options
+
+            for opt in list_antibackflow_standard_options():
+                self.comboBox_SolarStandard.addItem(str(opt["label"]), str(opt["id"]))
+        except Exception:
+            self.comboBox_SolarStandard.addItem("泰国 PEA/MEA（现行）", "thai")
+        self.comboBox_SolarStandard.setCurrentIndex(0)
+        self._solar_standard = "thai"
+        self.comboBox_SolarStandard.currentIndexChanged.connect(self._on_solar_standard_changed)
+        topLayout.addWidget(self.comboBox_SolarStandard)
+
         topLayout.addStretch()
 
         self._step_labels = []
@@ -141,6 +164,25 @@ class Ui_Dialog_thaantibackflow(object):
 
         self.retranslateUi(Dialog_thaantibackflow)
         QtCore.QMetaObject.connectSlotsByName(Dialog_thaantibackflow)
+
+    def set_solar_standard(self, standard_id, *, apply_defaults=False):
+        try:
+            from utils.iot_antibackflow_standard import apply_antibackflow_standard_to_ui
+
+            apply_antibackflow_standard_to_ui(
+                self,
+                standard_id,
+                force=True,
+                apply_defaults=bool(apply_defaults),
+            )
+        except Exception:
+            self._solar_standard = str(standard_id or "thai").strip() or "thai"
+
+    def _on_solar_standard_changed(self, index):
+        sid = self.comboBox_SolarStandard.itemData(index)
+        if sid is None:
+            sid = "thai"
+        self.set_solar_standard(str(sid), apply_defaults=True)
 
     def _switch_step(self, index):
         self.stackedWidget.setCurrentIndex(index)

@@ -11,6 +11,7 @@ from utils.timing_profile import DYNAMIC_MPPT_SCHEMA
 
 class Ui_Dialog_thaidynamicmppt(_BaseTimingProfileDialogUi):
     OBJECT_NAME = "Dialog_thaidynamicmppt"
+    SOLAR_STANDARD_TT = "dynamicmppt"
     WINDOW_TITLE = "动态 MPPT 项目配置"
     PROFILE_TITLE = "EN50530 & CGC/GF004"
     SCHEMA = DYNAMIC_MPPT_SCHEMA

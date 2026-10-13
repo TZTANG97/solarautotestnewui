@@ -104,6 +104,8 @@ def list_dccomponent_standard_options() -> List[Dict[str, str]]:
 
 def normalize_dccomponent_standard_id(raw: Optional[str]) -> str:
     s = str(raw or "").strip().lower().replace("-", "_").replace(" ", "")
+    aliases = {"iec": "iec61727", "cn_gb": "en50549"}
+    s = aliases.get(s, s)
     if s in DCCOMPONENT_STANDARD_DEFAULTS:
         return s
     return ""
