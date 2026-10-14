@@ -476,6 +476,35 @@ def run_once_job(
             )
         except Exception:
             pass
+        # 先收集原始产出，再跑过载试点数据处理，最后统一上传
+        try:
+            from agent.reports import collect_report_files
+            from utils.iot_data_analysis_bridge import (
+                remember_analysis_input_dir,
+                run_analysis_after_job,
+            )
+
+            # 预填 report_files，便于分析侧定位 CSV
+            pre = collect_report_files(root, job_id, result)
+            summary = result.get("result_summary")
+            if not isinstance(summary, dict):
+                summary = {}
+                result["result_summary"] = summary
+            listed = list(summary.get("report_files") or [])
+            have = {
+                str(x.get("path") if isinstance(x, dict) else x)
+                for x in listed
+            }
+            for p in pre:
+                s = str(p)
+                if s not in have:
+                    listed.append({"path": s, "name": p.name})
+                    have.add(s)
+            summary["report_files"] = listed
+            remember_analysis_input_dir(result, root)
+            run_analysis_after_job(repo_root=root, job=job, result=result)
+        except Exception as exc:
+            logger.warning("结案数据处理跳过: %s", exc)
         try:
             from agent.reports import collect_report_files
 

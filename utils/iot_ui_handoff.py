@@ -1283,8 +1283,51 @@ class IotUiHandoffService(QObject):
         try:
             self._attach_report_files(result, job_id)
         except Exception:
-            for root in self._write_roots_for(pending_path):
+            pass
+        try:
+            from utils.iot_data_analysis_bridge import remember_analysis_input_dir
+
+            remember_analysis_input_dir(result, self.repo_root)
+        except Exception:
+            pass
+        # 结案自动数据处理（台架本机）；失败不阻断写回
+        try:
+            from utils.iot_data_analysis_bridge import run_analysis_after_job
+
+            aw = self._awaiting if isinstance(self._awaiting, dict) else {}
+            summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
+            # 把试验类型/标准写入摘要，便于 Agent 侧二次结案也能映射
+            if aw.get("test_type") and not summary.get("testType"):
+                summary["testType"] = aw.get("test_type")
+            if aw.get("handler_key") and not summary.get("handler_key"):
+                summary["handler_key"] = aw.get("handler_key")
+            if aw.get("widgets") and not summary.get("widgets"):
+                summary["widgets"] = aw.get("widgets")
+            result["result_summary"] = summary
+            job_snap = {
+                "id": job_id,
+                "testType": aw.get("test_type")
+                or summary.get("testType")
+                or summary.get("handler_key")
+                or "",
+                "widgets": aw.get("widgets") or summary.get("widgets") or {},
+                "params": aw.get("params") or {},
+            }
+            ana = run_analysis_after_job(
+                repo_root=self.repo_root, job=job_snap, result=result
+            )
+            if ana.get("ran") or ana.get("reason"):
+                self._log(
+                    f"数据处理 {'OK' if ana.get('success') else 'skip'}: "
+                    f"{ana.get('reason') or ana.get('target')}"
+                )
+        except Exception as exc:
+            self._log(f"数据处理跳过: {exc}")
+        for root in self._write_roots_for(pending_path):
+            try:
                 write_result(root, job_id, result)
+            except Exception:
+                pass
         self._log(f"任务 {job_id} 已写回 results status={result.get('status')}")
         if pending_path is not None:
             self._move_pending_done(pending_path)
@@ -2970,6 +3013,10 @@ class IotUiHandoffService(QObject):
                     "timeout_sec": float(max(30, wait_finish_timeout)),
                     "start_grace_sec": float(max(0, start_grace)),
                     "seen_running": False,
+                    "test_type": test_type,
+                    "handler_key": str((handler or {}).get("key") or test_type),
+                    "widgets": dict(widgets) if isinstance(widgets, dict) else {},
+                    "params": dict(params) if isinstance(params, dict) else {},
                 }
                 self._emit_progress(job_id, force=True)
                 self._log(

@@ -13,10 +13,11 @@ _MAX_FILES = 8
 _RECENT_GLOBS = (
     "command_save_files/command_data/**/*.*",
     "command_save_files/dewetron_data/**/*.*",
+    "command_save_files/analysis_reports/**/*.*",
     "data_logs/**/*.log",
     "data_logs/**/*.csv",
 )
-_RECENT_SUFFIXES = {".csv", ".xlsx", ".xls", ".txt", ".log", ".json"}
+_RECENT_SUFFIXES = {".csv", ".xlsx", ".xls", ".docx", ".pdf", ".txt", ".log", ".json"}
 
 
 def _as_paths(items: Iterable[Any], repo_root: Path) -> List[Path]:
