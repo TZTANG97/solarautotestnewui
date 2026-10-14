@@ -476,7 +476,7 @@ def run_once_job(
             )
         except Exception:
             pass
-        # 先收集原始产出，再跑过载试点数据处理，最后统一上传
+        # 先收集原始产出，再跑结案分析，最后统一上传（收集失败不阻断分析）
         try:
             from agent.reports import collect_report_files
             from utils.iot_data_analysis_bridge import (
@@ -484,25 +484,43 @@ def run_once_job(
                 run_analysis_after_job,
             )
 
-            # 预填 report_files，便于分析侧定位 CSV
-            pre = collect_report_files(root, job_id, result)
             summary = result.get("result_summary")
             if not isinstance(summary, dict):
                 summary = {}
                 result["result_summary"] = summary
-            listed = list(summary.get("report_files") or [])
-            have = {
-                str(x.get("path") if isinstance(x, dict) else x)
-                for x in listed
-            }
-            for p in pre:
-                s = str(p)
-                if s not in have:
-                    listed.append({"path": s, "name": p.name})
-                    have.add(s)
-            summary["report_files"] = listed
+            try:
+                pre = collect_report_files(root, job_id, result)
+                listed = list(summary.get("report_files") or [])
+                have = {
+                    str(x.get("path") if isinstance(x, dict) else x)
+                    for x in listed
+                }
+                for p in pre:
+                    s = str(p)
+                    if s not in have:
+                        listed.append({"path": s, "name": p.name})
+                        have.add(s)
+                summary["report_files"] = listed
+            except Exception as exc:
+                logger.warning("预收集报告失败（继续分析）: %s", exc)
             remember_analysis_input_dir(result, root)
             run_analysis_after_job(repo_root=root, job=job, result=result)
+            da = (result.get("result_summary") or {}).get("data_analysis") or {}
+            if da.get("skipped"):
+                logger.warning("结案分析跳过: %s", da.get("reason") or "")
+            elif da.get("ran") and not da.get("success"):
+                logger.warning("结案分析失败: %s", da.get("reason") or "")
+            elif da.get("success"):
+                logger.info(
+                    "结案分析成功 files=%s",
+                    len(da.get("output_files") or []),
+                )
+            try:
+                from agent.job_inbox import write_result
+
+                write_result(root, int(job_id), result)
+            except Exception:
+                pass
         except Exception as exc:
             logger.warning("结案数据处理跳过: %s", exc)
         try:
@@ -510,10 +528,19 @@ def run_once_job(
 
             for path in collect_report_files(root, job_id, result):
                 try:
+                    size_mb = path.stat().st_size / (1024 * 1024)
                     client.upload_report(job_id, str(path))
-                    logger.info("已上传报告 %s", path.name)
+                    logger.info("已上传报告 %s (%.2f MB)", path.name, size_mb)
                 except Exception as exc:
-                    logger.warning("上传报告失败 %s: %s", path, exc)
+                    msg = str(exc)
+                    if "413" in msg:
+                        logger.warning(
+                            "上传报告失败 %s (%.2f MB)：网关 413 体积超限，请调大 nginx client_max_body_size",
+                            path.name,
+                            path.stat().st_size / (1024 * 1024),
+                        )
+                    else:
+                        logger.warning("上传报告失败 %s: %s", path.name, exc)
         except Exception as exc:
             logger.warning("收集报告失败: %s", exc)
         logger.info("任务 %s 结案: %s mqtt_end=%s", job_id, result.get("status"), mqtt_end_ok)

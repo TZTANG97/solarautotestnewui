@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List
 from agent.job_inbox import result_path
 
 _MAX_BYTES = 20 * 1024 * 1024
-_MAX_FILES = 8
+_MAX_FILES = 24
 _RECENT_GLOBS = (
     "command_save_files/command_data/**/*.*",
     "command_save_files/dewetron_data/**/*.*",
@@ -18,6 +18,17 @@ _RECENT_GLOBS = (
     "data_logs/**/*.csv",
 )
 _RECENT_SUFFIXES = {".csv", ".xlsx", ".xls", ".docx", ".pdf", ".txt", ".log", ".json"}
+
+
+def _job_scoped_globs(job_id: int) -> tuple[str, ...]:
+    """优先只扫本任务目录，避免把别的 sim_job 的过载 CSV 误收进来。"""
+    jid = int(job_id)
+    return (
+        f"command_save_files/command_data/sim_job_{jid}/**/*.*",
+        f"command_save_files/command_data/job_{jid}/**/*.*",
+        f"command_save_files/analysis_reports/job_{jid}*/**/*.*",
+        f"command_save_files/dewetron_data/**/job_{jid}*/**/*.*",
+    )
 
 
 def _as_paths(items: Iterable[Any], repo_root: Path) -> List[Path]:
@@ -59,19 +70,49 @@ def _job_time_window(result: Dict[str, Any], result_file: Path) -> tuple[float, 
     return since, until + 60.0
 
 
-def _recent_output_files(repo_root: Path, since_ts: float, until_ts: float) -> List[Path]:
+def _match_recent_file(path: Path, since_ts: float, until_ts: float) -> bool:
+    if not path.is_file():
+        return False
+    if path.suffix.lower() not in _RECENT_SUFFIXES and "dewetron" not in str(path).lower():
+        return False
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return False
+    return since_ts <= mtime <= until_ts
+
+
+def _recent_output_files(
+    repo_root: Path,
+    since_ts: float,
+    until_ts: float,
+    *,
+    job_id: int | None = None,
+    prefer_dir: Path | None = None,
+) -> List[Path]:
     found: List[Path] = []
-    for pattern in _RECENT_GLOBS:
-        for path in repo_root.glob(pattern):
-            if not path.is_file():
-                continue
-            if path.suffix.lower() not in _RECENT_SUFFIXES and "dewetron" not in str(path).lower():
-                continue
-            try:
-                mtime = path.stat().st_mtime
-            except OSError:
-                continue
-            if since_ts <= mtime <= until_ts:
+    # Path.glob 不接受绝对模式；prefer_dir 单独扫
+    if prefer_dir is not None and prefer_dir.is_dir():
+        for path in prefer_dir.glob("**/*.*"):
+            if _match_recent_file(path, since_ts, until_ts):
+                found.append(path)
+    patterns: List[str] = []
+    if job_id is not None:
+        # 只扫本任务目录，避免把其它 job 的报告一起上传
+        patterns.extend(_job_scoped_globs(job_id))
+    elif prefer_dir is None:
+        patterns.extend(_RECENT_GLOBS)
+    seen_pat = set()
+    root = Path(repo_root)
+    for pattern in patterns:
+        if pattern in seen_pat:
+            continue
+        seen_pat.add(pattern)
+        # 仅相对模式交给 repo_root.glob
+        if Path(pattern).is_absolute():
+            continue
+        for path in root.glob(pattern):
+            if _match_recent_file(path, since_ts, until_ts):
                 found.append(path)
     found.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return found
@@ -104,7 +145,22 @@ def collect_report_files(
     candidates.extend(_as_paths(listed, root))
 
     since_ts, until_ts = _job_time_window(result, rp if rp.is_file() else root)
-    candidates.extend(_recent_output_files(root, since_ts, until_ts))
+    prefer_raw = summary.get("analysis_input_dir") or summary.get("analysisInputDir")
+    prefer_dir = Path(str(prefer_raw)) if prefer_raw else None
+    if prefer_dir and not prefer_dir.is_absolute():
+        prefer_dir = root / prefer_dir
+    candidates.extend(
+        _recent_output_files(
+            root,
+            since_ts,
+            until_ts,
+            job_id=int(job_id) if job_id is not None else None,
+            prefer_dir=prefer_dir if prefer_dir and prefer_dir.exists() else None,
+        )
+    )
+
+    tt = str(summary.get("testType") or summary.get("test_type") or "").lower()
+    drop_overload = tt in ("harmonic", "harmonics", "harmonic_current", "谐波", "谐波电流", "谐波电流测试")
 
     seen = set()
     files: List[Path] = []
@@ -114,6 +170,11 @@ def collect_report_files(
         except OSError:
             continue
         if resolved in seen or not resolved.is_file():
+            continue
+        name_l = resolved.name.lower()
+        if drop_overload and (
+            name_l.startswith("sample_overload") or name_l == "sim_plan.json"
+        ):
             continue
         try:
             size = resolved.stat().st_size

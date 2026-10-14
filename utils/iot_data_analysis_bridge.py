@@ -94,14 +94,35 @@ def _job_solar_standard(job: Dict[str, Any], result: Dict[str, Any]) -> str:
 
 
 def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
-    """从 job.params / widgets（含 params.widgets）抽额定参数。"""
+    """从 job.params / widgets（含 params.widgets）抽额定参数 + 南德 Word 元数据。"""
     out: Dict[str, Any] = {}
     params = _job_params(job)
     widgets = _job_widgets(job)
     nested = params.get("analysisParams") or params.get("analysis_params") or {}
     if isinstance(nested, dict):
         out.update(nested)
-    for key in ("Pn", "Un", "In", "SeMax", "PeMax", "Srated", "reconnect_time", "rated_power"):
+    for key in (
+        "Pn",
+        "Un",
+        "In",
+        "SeMax",
+        "PeMax",
+        "Srated",
+        "reconnect_time",
+        "rated_power",
+        # 南德总体报告页眉页脚
+        "project_no",
+        "ProjectNo",
+        "model_no",
+        "ModelNo",
+        "model",
+        "sample_no",
+        "SampleNo",
+        "tested_by",
+        "Tester",
+        "test_date",
+        "TestDate",
+    ):
         if key in params and params[key] not in (None, ""):
             out[key] = params[key]
         elif key in widgets and widgets[key] not in (None, ""):
@@ -120,6 +141,11 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "analysis_SeMax": "SeMax",
         "analysisPn": "Pn",
         "analysisSeMax": "SeMax",
+        "analysis_Model": "model_no",
+        "analysis_ProjectNo": "project_no",
+        "analysis_SampleNo": "sample_no",
+        "analysis_Tester": "tested_by",
+        "analysis_TestDate": "test_date",
     }
     for src_k, dst_k in alias.items():
         if dst_k not in out and widgets.get(src_k) not in (None, ""):
@@ -136,8 +162,27 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
             ev = str(os.environ.get(env_k) or "").strip()
             if ev:
                 out[k] = ev
-    # 数值化
+    # 标题里偶有型号线索时作兜底（不覆盖已填）
+    title = str(job.get("title") or "").strip()
+    if title and not out.get("project_no") and not out.get("ProjectNo"):
+        out["project_no"] = title[:80]
+    # 数值化（跳过元数据字符串）
+    skip_num = {
+        "project_no",
+        "ProjectNo",
+        "model_no",
+        "ModelNo",
+        "model",
+        "sample_no",
+        "SampleNo",
+        "tested_by",
+        "Tester",
+        "test_date",
+        "TestDate",
+    }
     for k, v in list(out.items()):
+        if k in skip_num:
+            continue
         try:
             if isinstance(v, str) and v.strip():
                 out[k] = float(v) if ("." in v or "e" in v.lower()) else int(v)
@@ -257,6 +302,24 @@ def _append_report_files(result: Dict[str, Any], paths: List[Path]) -> None:
     summary["report_files"] = listed
 
 
+def _parse_trailing_json(text: str) -> Dict[str, Any]:
+    """从混有日志的 stdout 中提取最后一段完整 JSON 对象。"""
+    raw = (text or "").strip()
+    if not raw:
+        return {}
+    # 优先：最后一个以 { 开头的多行块（避免 rfind 命中内部 {}）
+    starts = [i for i, ch in enumerate(raw) if ch == "{"]
+    for start in reversed(starts):
+        chunk = raw[start:]
+        try:
+            obj = json.loads(chunk)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    return {}
+
+
 def run_analysis_after_job(
     *,
     repo_root: Path,
@@ -308,13 +371,49 @@ def run_analysis_after_job(
         return info
 
     params = _collect_analysis_params(job)
-    # 巴西过载缺 Pn 则跳过（避免空跑）
-    if target["standard_pack"] == "BRAZIL_140" and target["test_code"] == "5.4.2":
-        if not params.get("Pn"):
-            info["reason"] = "过载分析缺少 Pn（widgets/params/SOLAR_ANALYSIS_PN）"
-            _store_analysis_meta(result, info)
+    summary0 = (
+        result.get("result_summary")
+        if isinstance(result.get("result_summary"), dict)
+        else {}
+    )
+    is_sim = bool(summary0.get("sim_bench") or summary0.get("dry_run"))
+    defaults_applied: List[str] = []
+
+    def _ensure_param(name: str, default: Any, *, reason: str) -> bool:
+        if params.get(name) not in (None, ""):
+            return True
+        if is_sim:
+            params[name] = default
+            defaults_applied.append(f"{name}={default}")
+            return True
+        info["reason"] = reason
+        logger.warning("结案分析跳过: %s", info["reason"])
+        _store_analysis_meta(result, info)
+        return False
+
+    # 巴西 Ordinance：多数条款要 Pn；直流/谐波/闪变/重连另要 Un
+    if target["standard_pack"] == "BRAZIL_140":
+        br_need_pn = target["test_code"] in {
+            "5.4.2",
+            "5.9",
+            "5.10",
+            "5.4.11",
+            "5.4.13",
+            "5.4.15",
+            "5.4.16",
+            "5.4.22",
+            "5.24",
+        }
+        br_need_un = target["test_code"] in {"5.9", "5.10", "5.4.16", "5.4.22", "5.4.14"}
+        if br_need_pn and not _ensure_param(
+            "Pn", 10000, reason=f"巴西 {target['test_code']} 缺少 Pn（analysis_Pn）"
+        ):
             return info
-        if not params.get("SeMax"):
+        if br_need_un and not _ensure_param(
+            "Un", 230, reason=f"巴西 {target['test_code']} 缺少 Un（analysis_Un）"
+        ):
+            return info
+        if target["test_code"] == "5.4.2" and not params.get("SeMax"):
             params["SeMax"] = params["Pn"]
     # 南德多数条款需要 Pn；谐波/直流注入另需 Un
     if target["standard_pack"] == "CEI_Nbis_NanDe":
@@ -326,23 +425,25 @@ def run_analysis_after_job(
             "active.power.control",
         }
         need_un = target["test_code"] in {"harmonic", "dc.injection"}
-        if need_pn and not params.get("Pn"):
-            info["reason"] = f"南德 {target['test_code']} 缺少 Pn（analysis_Pn）"
-            _store_analysis_meta(result, info)
+        if need_pn and not _ensure_param(
+            "Pn", 10000, reason=f"南德 {target['test_code']} 缺少 Pn（analysis_Pn）"
+        ):
             return info
-        if need_un and not params.get("Un"):
-            # 尝试从交流电压字段已在 _collect 里兜底；仍缺则跳过
-            info["reason"] = f"南德 {target['test_code']} 缺少 Un（analysis_Un / 交流电压）"
-            _store_analysis_meta(result, info)
+        if need_un and not _ensure_param(
+            "Un", 230, reason=f"南德 {target['test_code']} 缺少 Un（analysis_Un / 交流电压）"
+        ):
             return info
-        # 南德谐波处理器按 kW 读 Pn：网页填 10000(W) 时自动换算
-        if target["test_code"] == "harmonic" and params.get("Pn") is not None:
+        # 南德处理器普遍按 kW 读 Pn：网页填 10000(W) 时自动换算
+        if need_pn and params.get("Pn") is not None:
             try:
                 pn_v = float(params["Pn"])
                 if pn_v >= 200:
                     params["Pn"] = pn_v / 1000.0
             except (TypeError, ValueError):
                 pass
+    if defaults_applied:
+        info["defaults_applied"] = defaults_applied
+        logger.info("分析使用默认额定参数: %s", ",".join(defaults_applied))
     # 把 testType 写入 summary，便于选 CSV 时不要误偏 overload
     summary = result.get("result_summary")
     if not isinstance(summary, dict):
@@ -350,8 +451,16 @@ def run_analysis_after_job(
         result["result_summary"] = summary
     summary.setdefault("testType", tt)
 
-    out_dir = Path(repo_root) / "command_save_files" / "analysis_reports" / f"job_{job.get('id') or job.get('jobId') or 'x'}_{int(time.time())}"
+    out_dir = (
+        Path(repo_root).resolve()
+        / "command_save_files"
+        / "analysis_reports"
+        / f"job_{job.get('id') or job.get('jobId') or 'x'}_{int(time.time())}"
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
+    # subprocess cwd 在分析项目 CEI/ 下，必须用绝对路径，否则报告落到错误目录
+    input_dir = Path(input_dir).resolve()
+    out_dir = out_dir.resolve()
 
     py = _analysis_python(root)
     script = root / "CEI" / "run_headless.py"
@@ -418,11 +527,9 @@ def run_analysis_after_job(
     if not payload:
         stdout = (proc.stdout or "").strip()
         if stdout:
-            try:
-                start = stdout.rfind("{")
-                if start >= 0:
-                    payload = json.loads(stdout[start:])
-            except json.JSONDecodeError:
+            # 日志后可能跟一段 JSON；勿用 rfind('{')（会命中 calculated_values: {}）
+            payload = _parse_trailing_json(stdout)
+            if not payload:
                 payload = {
                     "success": False,
                     "message": "无法解析无头输出",

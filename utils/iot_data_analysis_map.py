@@ -22,6 +22,7 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("overload", "BRAZIL_140"): "5.4.2",
     ("overload", "CEI_Nbis_BeiDe"): "A.4.9",
     ("overload", "CEI_Nbis_DeKai"): "A.4.9",
+    ("flicker", "BRAZIL_140"): "5.4.16",
     ("flicker", "CEI_Nbis_NanDe"): "voltage.fluctuation",
     ("flicker", "CEI_Nbis_BeiDe"): "21.3",
     ("flicker", "CEI_Nbis_DeKai"): "21.3",
@@ -31,9 +32,12 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("dccomponent", "CEI_Nbis_NanDe"): "dc.injection",
     ("fixedpf", "BRAZIL_140"): "5.4.11",
     ("fixedpf", "CEI_Nbis_NanDe"): "fixed.displacement.factor",
+    ("reconnect", "BRAZIL_140"): "5.4.22",
     ("reconnect", "CEI_Nbis_NanDe"): "response.to.utility.recover",
     ("ovuf", "BRAZIL_140"): "5.4.15",
     ("ovuf", "CEI_Nbis_NanDe"): "under.over.frequency",
+    ("reactiveqin", "BRAZIL_140"): "5.4.13",
+    ("reactiveqin", "CEI_Nbis_NanDe"): "reactive.power",
     ("rocof", "CEI_Nbis_BeiDe"): "A.4.3.4",
     ("rocof", "CEI_Nbis_DeKai"): "A.4.3.4",
 }
@@ -46,10 +50,11 @@ DEFAULT_TEST_CODE: Dict[str, str] = {
     "fixedpf": "fixed.displacement.factor",
     "reconnect": "response.to.utility.recover",
     "ovuf": "under.over.frequency",
+    "reactiveqin": "reactive.power",
     "rocof": "A.4.3.4",
 }
 
-# 结案自动处理：巴西过载正式 Excel + 南德有完整模板的试验
+# 结案自动处理：巴西 Ordinance + 南德有完整模板的试验
 PHASE1_AUTO_TESTS = frozenset(
     {
         "overload",
@@ -59,6 +64,7 @@ PHASE1_AUTO_TESTS = frozenset(
         "fixedpf",
         "reconnect",
         "ovuf",
+        "reactiveqin",
     }
 )
 # 仅这些分析标准包会真跑（避免北德过渡映射误触发）
