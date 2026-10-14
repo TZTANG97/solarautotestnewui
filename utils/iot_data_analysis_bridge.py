@@ -62,9 +62,12 @@ def _job_widgets(job: Dict[str, Any]) -> Dict[str, Any]:
     return top or nested
 
 
-def _job_test_type(job: Dict[str, Any]) -> str:
+def _job_test_type(job: Dict[str, Any], result: Optional[Dict[str, Any]] = None) -> str:
     params = _job_params(job)
-    for src in (job, params):
+    summary = {}
+    if isinstance(result, dict):
+        summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
+    for src in (job, params, summary):
         if not isinstance(src, dict):
             continue
         for k in ("testType", "test_type"):
@@ -161,7 +164,16 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
                 p = repo_root / p
             if p.exists():
                 return p if p.is_dir() else p.parent
-    # report_files 里找 CSV 父目录（优先文件名含 overload/过载）
+    # report_files 里找 CSV 父目录（按试验关键词优先，勿永远偏向 overload）
+    prefer_keys = summary.get("analysis_csv_prefer_keys") or ()
+    if not prefer_keys:
+        tt = str(summary.get("testType") or summary.get("test_type") or "").lower()
+        if tt in ("harmonic", "harmonics", "谐波", "谐波电流"):
+            prefer_keys = ("33%", "66%", "100%", "harmonic", "voltage")
+        elif tt in ("overload", "overloads", "过载"):
+            prefer_keys = ("overload", "过载", "542", "5.4.2")
+        else:
+            prefer_keys = (tt,) if tt else ()
     files = summary.get("report_files") or summary.get("reportFiles") or []
     csv_parents: List[Path] = []
     preferred: List[Path] = []
@@ -176,7 +188,7 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
         name_l = p.name.lower()
         if p.is_file() and p.suffix.lower() == ".csv":
             csv_parents.append(p.parent)
-            if any(k in name_l for k in ("overload", "过载", "542", "5.4.2")):
+            if prefer_keys and any(k.lower() in name_l for k in prefer_keys):
                 preferred.append(p.parent)
         elif p.is_dir() and _dir_has_csv(p):
             return p
@@ -262,7 +274,7 @@ def run_analysis_after_job(
         _store_analysis_meta(result, info)
         return info
 
-    tt = _job_test_type(job)
+    tt = _job_test_type(job, result)
     if tt not in PHASE1_AUTO_TESTS:
         info["reason"] = f"testType={tt or '(空)'} 不在一期自动处理列表"
         _store_analysis_meta(result, info)
@@ -323,6 +335,20 @@ def run_analysis_after_job(
             info["reason"] = f"南德 {target['test_code']} 缺少 Un（analysis_Un / 交流电压）"
             _store_analysis_meta(result, info)
             return info
+        # 南德谐波处理器按 kW 读 Pn：网页填 10000(W) 时自动换算
+        if target["test_code"] == "harmonic" and params.get("Pn") is not None:
+            try:
+                pn_v = float(params["Pn"])
+                if pn_v >= 200:
+                    params["Pn"] = pn_v / 1000.0
+            except (TypeError, ValueError):
+                pass
+    # 把 testType 写入 summary，便于选 CSV 时不要误偏 overload
+    summary = result.get("result_summary")
+    if not isinstance(summary, dict):
+        summary = {}
+        result["result_summary"] = summary
+    summary.setdefault("testType", tt)
 
     out_dir = Path(repo_root) / "command_save_files" / "analysis_reports" / f"job_{job.get('id') or job.get('jobId') or 'x'}_{int(time.time())}"
     out_dir.mkdir(parents=True, exist_ok=True)
