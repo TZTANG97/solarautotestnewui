@@ -13,7 +13,10 @@
 | reconnect | response.to.utility.recover | Excel 模板报告 |
 | ovuf | under.over.frequency | Excel 模板报告 |
 
-多条款 Excel 齐备后，可用分析仓 `CEI_Nbis_NanDe/services/generate_report.py` 套 TDS 模板生成 **总体报告.docx**（完整 Word）。
+结案成功后 `run_headless.py` 会自动：
+
+1. 跑南德条款处理器 → 正式 **Excel**
+2. 套 TDS 模板 → **`总体报告.docx`**（本条款写入对应章节；未跑条款留空）
 
 过载 + 巴西 `br_ord140` → `BRAZIL_140/5.4.2` 正式 RTQ Excel 仍保留。
 
