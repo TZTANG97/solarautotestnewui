@@ -38,6 +38,34 @@ def test_phase1_set():
     assert "overload" in PHASE1_AUTO_TESTS
     assert "harmonic" in PHASE1_AUTO_TESTS
     assert "flicker" in PHASE1_AUTO_TESTS
+    # 二期巴西扩面
+    assert "activep" in PHASE1_AUTO_TESTS
+    assert "voltageadaptability" in PHASE1_AUTO_TESTS
+    assert "staticmppt" in PHASE1_AUTO_TESTS
+
+
+def test_map_brazil_phase2_codes():
+    assert resolve_analysis_target(test_type="activep", solar_standard="br_ord140")[
+        "test_code"
+    ] == "5.4.23"
+    assert resolve_analysis_target(
+        test_type="voltageadaptability", solar_standard="br_ord140"
+    )["test_code"] == "5.4.21"
+    assert resolve_analysis_target(
+        test_type="frequencyadaptability", solar_standard="br_ord140"
+    )["test_code"] == "5.4.20"
+    assert resolve_analysis_target(test_type="fixedq", solar_standard="br_ord140")[
+        "test_code"
+    ] == "5.24"
+    assert resolve_analysis_target(test_type="cosphibrazil", solar_standard="br_ord140")[
+        "test_code"
+    ] == "5.4.12"
+    assert resolve_analysis_target(test_type="staticmppt", solar_standard="br_ord140")[
+        "test_code"
+    ] == "5.4.26"
+    assert resolve_analysis_target(
+        test_type="guopinjiangzai", solar_standard="br_ord140"
+    )["test_code"] == "5.4.19"
 
 
 def test_collect_params_from_job():

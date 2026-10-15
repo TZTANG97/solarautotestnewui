@@ -88,26 +88,10 @@ class IotSolarClient:
         data = res.get("data")
         if not data:
             return None
-        # 协议 startexper：id=solar_jobs 主键（HTTPS）；experid 可为实验 id
-        if "id" not in data and "experid" in data:
-            try:
-                data = dict(data)
-                data["id"] = int(data["experid"])
-            except (TypeError, ValueError):
-                pass
-        # commands.command 内嵌 JSON 时可还原 params
-        cmds = data.get("commands") if isinstance(data, dict) else None
-        if isinstance(cmds, dict) and not data.get("params"):
-            raw = cmds.get("command")
-            if isinstance(raw, str) and raw.strip().startswith("{"):
-                try:
-                    nested = json.loads(raw)
-                    if isinstance(nested, dict):
-                        data.setdefault("testType", nested.get("testType") or "")
-                        data.setdefault("title", nested.get("title") or "")
-                        data.setdefault("params", nested.get("params") or {})
-                except json.JSONDecodeError:
-                    pass
+        # 协议 startexper：id=solar_jobs 主键；experid 可为 experiments.id
+        from agent.job_normalize import normalize_startexper_job
+
+        data = normalize_startexper_job(data if isinstance(data, dict) else {})
         if self.pythonid == "" and isinstance(data, dict):
             self.pythonid = str(data.get("pythonid") or "")
         return data

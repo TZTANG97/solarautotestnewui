@@ -462,19 +462,36 @@ class SolarWsPresence:
 
     def _handle_startexper(self, data: Dict[str, Any]) -> None:
         client_id = str(data.get("clientid") or "").strip()
-        job = dict(data)
-        # 保证有 id（solar_jobs 主键）
-        if "id" not in job:
-            try:
-                job["id"] = int(job.get("experid") or 0)
-            except (TypeError, ValueError):
-                job["id"] = 0
+        from agent.job_normalize import normalize_startexper_job
+
+        job = normalize_startexper_job(data if isinstance(data, dict) else {})
         logger.info(
             "WS 收到 startexper id=%s experid=%s type=%s",
             job.get("id"),
             job.get("experid"),
             job.get("testType"),
         )
+        jid = int(job.get("id") or 0)
+        if not jid:
+            logger.warning(
+                "startexper 缺少 solar_jobs.id（experid=%s），拒收入队",
+                job.get("experid"),
+            )
+            self.send_json(
+                {
+                    "type": TYPE_START_RETURN,
+                    "pythonid": self.pythonid,
+                    "clientid": client_id,
+                    "experid": str(job.get("experid") or ""),
+                    "id": 0,
+                    "status": "NG",
+                    "message": "缺少任务 id，请检查下发 envelope",
+                }
+            )
+            return
+        from agent.job_dedupe import remember_job
+
+        first_seen = remember_job(jid)
         self.send_json(
             {
                 "type": TYPE_START_RETURN,
@@ -483,9 +500,12 @@ class SolarWsPresence:
                 "experid": str(job.get("experid") or ""),
                 "id": job.get("id"),
                 "status": "OK",
-                "message": "已接收开测",
+                "message": "已接收开测" if first_seen else "重复开测已忽略",
             }
         )
+        if not first_seen:
+            logger.info("WS startexper 重复 id=%s，跳过入队", jid)
+            return
         if self._job_handler:
             try:
                 self._job_handler(job)
@@ -493,6 +513,10 @@ class SolarWsPresence:
             except Exception as exc:
                 logger.warning("startexper handler 失败: %s", exc)
         with self._jobs_lock:
+            # 去重：同一 solar_jobs.id 只保留一条，避免 WS 重推双跑
+            self._pending_jobs = [
+                x for x in self._pending_jobs if int(x.get("id") or 0) != jid
+            ]
             self._pending_jobs.append(job)
 
 

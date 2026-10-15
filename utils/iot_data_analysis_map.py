@@ -40,6 +40,16 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("reactiveqin", "CEI_Nbis_NanDe"): "reactive.power",
     ("rocof", "CEI_Nbis_BeiDe"): "A.4.3.4",
     ("rocof", "CEI_Nbis_DeKai"): "A.4.3.4",
+    # —— 二期扩面：巴西已有处理器、IOT 已开测的试验 ——
+    ("cosphibrazil", "BRAZIL_140"): "5.4.12",
+    ("fixedq", "BRAZIL_140"): "5.24",
+    ("activep", "BRAZIL_140"): "5.4.23",
+    ("frequencyadaptability", "BRAZIL_140"): "5.4.20",
+    ("voltageadaptability", "BRAZIL_140"): "5.4.21",
+    ("guopinjiangzai", "BRAZIL_140"): "5.4.19",
+    ("guoqianpin_immun", "BRAZIL_140"): "5.4.18",
+    ("qianpinshengzai", "BRAZIL_140"): "5.4.18",
+    ("staticmppt", "BRAZIL_140"): "5.4.26",
 }
 
 DEFAULT_TEST_CODE: Dict[str, str] = {
@@ -52,9 +62,18 @@ DEFAULT_TEST_CODE: Dict[str, str] = {
     "ovuf": "under.over.frequency",
     "reactiveqin": "reactive.power",
     "rocof": "A.4.3.4",
+    "cosphibrazil": "5.4.12",
+    "fixedq": "5.24",
+    "activep": "5.4.23",
+    "frequencyadaptability": "5.4.20",
+    "voltageadaptability": "5.4.21",
+    "guopinjiangzai": "5.4.19",
+    "guoqianpin_immun": "5.4.18",
+    "qianpinshengzai": "5.4.18",
+    "staticmppt": "5.4.26",
 }
 
-# 结案自动处理：巴西 Ordinance + 南德有完整模板的试验
+# 结案自动处理：巴西 Ordinance + 南德有完整模板的试验（含二期扩面）
 PHASE1_AUTO_TESTS = frozenset(
     {
         "overload",
@@ -65,6 +84,16 @@ PHASE1_AUTO_TESTS = frozenset(
         "reconnect",
         "ovuf",
         "reactiveqin",
+        # 二期巴西扩面
+        "cosphibrazil",
+        "fixedq",
+        "activep",
+        "frequencyadaptability",
+        "voltageadaptability",
+        "guopinjiangzai",
+        "guoqianpin_immun",
+        "qianpinshengzai",
+        "staticmppt",
     }
 )
 # 仅这些分析标准包会真跑（避免北德过渡映射误触发）

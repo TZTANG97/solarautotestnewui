@@ -22,6 +22,9 @@ _stop_requested = False
 _deadline_ts = 0.0
 _last_csv = ""
 _last_error = ""
+# 模拟工况机注入的采点（优先于真机 collector）
+_override_cloud_measures: Optional[dict] = None
+_override_lock = threading.Lock()
 
 
 def reset_session_state():
@@ -31,14 +34,30 @@ def reset_session_state():
     _deadline_ts = 0.0
     _last_csv = ""
     _last_error = ""
+    set_cloud_measures_override(None)
 
 
 def is_active() -> bool:
     return _active
 
 
+def set_cloud_measures_override(measures: Optional[dict]) -> None:
+    """sim / 测试注入 U/I/P，供 progress 上报曲线。传 None 清除。"""
+    global _override_cloud_measures
+    with _override_lock:
+        if measures is None:
+            _override_cloud_measures = None
+        elif isinstance(measures, dict) and measures:
+            _override_cloud_measures = dict(measures)
+        else:
+            _override_cloud_measures = None
+
+
 def latest_cloud_measures() -> Optional[dict]:
-    """供 Agent progress 附带 U/I/P；无采集器或无数据时返回 None。"""
+    """供 Agent progress 附带 U/I/P；优先 override，否则真机 collector。"""
+    with _override_lock:
+        if _override_cloud_measures is not None:
+            return dict(_override_cloud_measures)
     collector = _collector
     if collector is None:
         return None

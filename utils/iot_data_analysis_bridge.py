@@ -339,7 +339,7 @@ def run_analysis_after_job(
 
     tt = _job_test_type(job, result)
     if tt not in PHASE1_AUTO_TESTS:
-        info["reason"] = f"testType={tt or '(空)'} 不在一期自动处理列表"
+        info["reason"] = f"testType={tt or '(空)'} 不在结案自动处理列表"
         _store_analysis_meta(result, info)
         return info
 
@@ -352,7 +352,7 @@ def run_analysis_after_job(
 
     if target["standard_pack"] not in PHASE1_AUTO_PACKS:
         info["reason"] = (
-            f"pack={target['standard_pack']} 不在一期自动处理包 "
+            f"pack={target['standard_pack']} 不在自动处理包 "
             f"({', '.join(sorted(PHASE1_AUTO_PACKS))})"
         )
         _store_analysis_meta(result, info)
@@ -391,20 +391,36 @@ def run_analysis_after_job(
         _store_analysis_meta(result, info)
         return False
 
-    # 巴西 Ordinance：多数条款要 Pn；直流/谐波/闪变/重连另要 Un
+    # 巴西 Ordinance：多数条款要 Pn；直流/谐波/闪变/重连/电压适应另要 Un
     if target["standard_pack"] == "BRAZIL_140":
         br_need_pn = target["test_code"] in {
             "5.4.2",
             "5.9",
             "5.10",
             "5.4.11",
+            "5.4.12",
             "5.4.13",
+            "5.4.14",
             "5.4.15",
             "5.4.16",
+            "5.4.18",
+            "5.4.19",
+            "5.4.20",
+            "5.4.21",
             "5.4.22",
+            "5.4.23",
+            "5.4.25",
+            "5.4.26",
             "5.24",
         }
-        br_need_un = target["test_code"] in {"5.9", "5.10", "5.4.16", "5.4.22", "5.4.14"}
+        br_need_un = target["test_code"] in {
+            "5.9",
+            "5.10",
+            "5.4.14",
+            "5.4.16",
+            "5.4.21",
+            "5.4.22",
+        }
         if br_need_pn and not _ensure_param(
             "Pn", 10000, reason=f"巴西 {target['test_code']} 缺少 Pn（analysis_Pn）"
         ):

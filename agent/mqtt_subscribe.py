@@ -45,6 +45,10 @@ def _enqueue_job(job: Dict[str, Any]) -> None:
         except Exception as exc:
             logger.warning("MQTT startexper handler 失败: %s", exc)
     with _lock:
+        jid = int(job.get("id") or 0)
+        global _pending
+        if jid:
+            _pending = [x for x in _pending if int(x.get("id") or 0) != jid]
         _pending.append(job)
 
 
@@ -60,12 +64,22 @@ def _on_message(_client, _userdata, msg) -> None:
     msg_type = str(data.get("type") or "").strip().lower()
     if msg_type not in ("startexper", "solar_startexper"):
         return
-    job = dict(data)
-    if "id" not in job:
-        try:
-            job["id"] = int(job.get("experid") or 0)
-        except (TypeError, ValueError):
-            job["id"] = 0
+    from agent.job_normalize import normalize_startexper_job
+
+    job = normalize_startexper_job(data)
+    jid = int(job.get("id") or 0)
+    if not jid:
+        logger.warning(
+            "MQTT startexper 缺少 solar_jobs.id experid=%s topic=%s，忽略",
+            job.get("experid"),
+            getattr(msg, "topic", ""),
+        )
+        return
+    from agent.job_dedupe import remember_job
+
+    if not remember_job(jid):
+        logger.info("MQTT startexper 重复 id=%s，跳过", jid)
+        return
     logger.info(
         "MQTT 收到 startexper id=%s experid=%s topic=%s",
         job.get("id"),

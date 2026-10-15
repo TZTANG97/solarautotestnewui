@@ -1527,29 +1527,50 @@ class IotUiHandoffService(QObject):
             widgets = params.get("widgets") if isinstance(params, dict) else None
             if not isinstance(widgets, dict):
                 widgets = params if isinstance(params, dict) else {}
-                # 去掉非控件元数据
+            # 去掉非控件元数据（含 Blockly 快照字段，避免误写入 Dialog）
+            _meta_keys = (
+                "e2e",
+                "auto_append",
+                "auto_start",
+                "wait_finish",
+                "wait_finish_timeout_sec",
+                "start_grace_sec",
+                "settings_csv",
+                "widgets",
+                "instruments",
+                "auto_connect_from",
+                "experId",
+                "experid",
+                "source",
+                "useSavedTestParams",
+                "useSavedInstruments",
+                "blocklyCode",
+                "blocklyXml",
+                "blocklyPreserved",
+                "blocklySource",
+                "procedureSteps",
+                "procedureSource",
+                "solarStandard",
+            )
+            if isinstance(widgets, dict):
                 widgets = {
                     k: v
                     for k, v in widgets.items()
-                    if k not in (
-                        "e2e",
-                        "auto_append",
-                        "auto_start",
-                        "wait_finish",
-                        "wait_finish_timeout_sec",
-                        "start_grace_sec",
-                        "settings_csv",
-                        "widgets",
-                        "instruments",
-                        "auto_connect_from",
-                        "experId",
-                        "experid",
-                        "source",
-                        "useSavedTestParams",
-                        "useSavedInstruments",
-                    )
-                    and not str(k).startswith("_")
+                    if k not in _meta_keys and not str(k).startswith("_")
                 }
+            try:
+                steps = params.get("procedureSteps") if isinstance(params, dict) else None
+                n_steps = len(steps) if isinstance(steps, list) else 0
+                src = str((params or {}).get("procedureSource") or "")
+                bsrc = str((params or {}).get("blocklySource") or "")
+                if n_steps or bsrc:
+                    self._log(
+                        f"Blockly 步骤包 steps={n_steps} source={src or '-'} "
+                        f"blockly={bsrc or '-'} "
+                        f"preserved={bool((params or {}).get('blocklyPreserved'))}"
+                    )
+            except Exception:
+                pass
 
             if (handler.get("key") or "") == "overload":
                 try:

@@ -95,6 +95,11 @@ def load_config(path: Optional[str] = None) -> AgentConfig:
     if os.environ.get("SOLAR_AGENT_DRY_RUN", "").strip() != "":
         dry = os.environ.get("SOLAR_AGENT_DRY_RUN", "1").strip() not in ("0", "false", "False")
 
+    exec_mode = str(raw.get("execution_mode") or "")
+    env_mode = (os.environ.get("SOLAR_AGENT_EXECUTION_MODE") or "").strip()
+    if env_mode:
+        exec_mode = env_mode
+
     mqtt_cfg = mqtt_config_from_dict(raw)
     # 环境变量可覆盖 Broker（与温箱共用 EMQX）
     env_host = (os.environ.get("SOLAR_MQTT_HOST") or "").strip()
@@ -120,7 +125,7 @@ def load_config(path: Optional[str] = None) -> AgentConfig:
         poll_interval_sec=float(raw.get("poll_interval_sec") or 15),
         heartbeat_interval_sec=float(raw.get("heartbeat_interval_sec") or 15),
         dry_run=bool(dry),
-        execution_mode=str(raw.get("execution_mode") or ""),
+        execution_mode=str(exec_mode or ""),
         mutex_path=str(raw.get("mutex_path") or ""),
         agent_version=str(raw.get("agent_version") or "0.1.0"),
         mqtt=mqtt_cfg,

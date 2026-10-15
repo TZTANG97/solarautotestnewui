@@ -64,6 +64,30 @@ def test_map_brazil_phase1_codes():
         "test_code"
     ] == "5.4.13"
     assert "reactiveqin" in PHASE1_AUTO_TESTS
+    assert resolve_analysis_target(test_type="activep", solar_standard="br_ord140")[
+        "test_code"
+    ] == "5.4.23"
+    assert "activep" in PHASE1_AUTO_TESTS
+
+
+def test_sim_phase2_brazil_types(tmp_path: Path):
+    base = {"widgets": {"analysis_Pn": 10000, "analysis_Un": 230}}
+    ap = plant_sim_csv_for_job({**base, "testType": "activep"}, tmp_path / "ap")
+    assert (ap / "sample_activep.csv").is_file()
+    assert "P-SIGMA" in (ap / "sample_activep.csv").read_text(encoding="utf-8-sig")
+    assert not (ap / "sample_overload.csv").exists()
+
+    fq = plant_sim_csv_for_job({**base, "testType": "fixedq"}, tmp_path / "fq")
+    assert (fq / "sample_fixedq.csv").is_file()
+
+    va = plant_sim_csv_for_job({**base, "testType": "voltageadaptability"}, tmp_path / "va")
+    assert (va / "sample_voltageadaptability.csv").is_file()
+
+    gp = plant_sim_csv_for_job({**base, "testType": "guopinjiangzai"}, tmp_path / "gp")
+    assert (gp / "sample_guopinjiangzai.csv").is_file()
+
+    sm = plant_sim_csv_for_job({**base, "testType": "staticmppt"}, tmp_path / "sm")
+    assert (sm / "sample_staticmppt.csv").is_file()
 
 
 def test_sim_dc_flicker_fixedpf_reconnect_ovuf(tmp_path: Path):

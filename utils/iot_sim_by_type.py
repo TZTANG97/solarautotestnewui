@@ -160,6 +160,8 @@ def plant_sim_harmonic_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
 
 
 def _write_csv(path: Path, headers: List[str], rows: List[List[Any]]) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     lines = [",".join(headers)]
     for row in rows:
         lines.append(",".join(str(x) for x in row))
@@ -295,6 +297,157 @@ def plant_sim_reactive_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
     return dest_dir
 
 
+def plant_sim_activep_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """有功调度 5.4.23：100%→10%Pn 台阶（供 consecutive_level_segments）。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = ["Time [s]", "P-SIGMA", "Q-SIGMA", "U-SIGMA"]
+    rows: List[List[Any]] = []
+    t = 0.0
+    for pu in (1.0, 0.8, 0.6, 0.4, 0.2, 0.1):
+        for _ in range(20):
+            rows.append([round(t, 3), round(pn_w * pu, 3), 0.0, round(un, 3)])
+            t += 0.5
+    _write_csv(dest_dir / "sample_activep.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_fixedq_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """定无功 5.24：额定 P + 目标 Q 台阶。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    qmax = pn_w * 0.4358
+    headers = ["Time [s]", "P-SIGMA", "Q-SIGMA", "PF-SIGMA", "U-SIGMA"]
+    rows: List[List[Any]] = []
+    t = 0.0
+    for q_pu in (1.0, 0.5, 0.0, -0.5, -1.0):
+        q = qmax * q_pu
+        for _ in range(16):
+            rows.append([round(t, 3), round(pn_w, 3), round(q, 3), 0.9, round(un, 3)])
+            t += 0.5
+    _write_csv(dest_dir / "sample_fixedq.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_cosphi_brazil_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """Cos(φ)_Brazil 5.4.12：稳定 PF≈0.9。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = ["Time [s]", "P-SIGMA", "Q-SIGMA", "PF-SIGMA", "U-SIGMA"]
+    q = round(pn_w * math.tan(math.acos(0.9)), 3)
+    rows = [[i * 0.5, round(pn_w, 3), q, 0.9, round(un, 3)] for i in range(48)]
+    _write_csv(dest_dir / "sample_cosphibrazil.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_freq_adapt_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """频率适应性 5.4.20：扰动后有功回到额定附近。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = ["Time [s]", "P-SIGMA", "FreqU-1", "U-SIGMA"]
+    rows: List[List[Any]] = []
+    t = 0.0
+    for f, p_scale in ((50.0, 1.0), (51.5, 0.95), (50.0, 1.0), (48.5, 0.95), (50.0, 1.0)):
+        for _ in range(12):
+            rows.append([round(t, 3), round(pn_w * p_scale, 3), round(f, 3), round(un, 3)])
+            t += 0.05
+    _write_csv(dest_dir / "sample_frequencyadaptability.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_volt_adapt_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """电压适应性 5.4.21：过/欠压恢复后有功回额定。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = ["Time [s]", "P-SIGMA", "U-SIGMA", "Urms-1"]
+    rows: List[List[Any]] = []
+    t = 0.0
+    for u, p_scale in ((un, 1.0), (un * 1.1, 0.92), (un, 1.0), (un * 0.9, 0.92), (un, 1.0)):
+        for _ in range(12):
+            rows.append([round(t, 3), round(pn_w * p_scale, 3), round(u, 3), round(u, 3)])
+            t += 0.5
+    _write_csv(dest_dir / "sample_voltageadaptability.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_freq_power_ctrl_csv(job: Dict[str, Any], dest_dir: Path, *, over_freq: bool) -> Path:
+    """过频降载 5.4.19 / 欠频抗扰 5.4.18。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = ["Time [s]", "P-SIGMA", "FreqU-1", "U-SIGMA"]
+    rows: List[List[Any]] = []
+    t = 0.0
+    if over_freq:
+        steps = ((50.0, 1.0), (50.2, 0.95), (50.5, 0.85), (51.0, 0.7), (50.0, 1.0))
+        name = "sample_guopinjiangzai.csv"
+    else:
+        steps = ((50.0, 1.0), (49.5, 1.0), (49.0, 0.98), (50.0, 1.0))
+        name = "sample_guoqianpin_immun.csv"
+    for f, p_scale in steps:
+        for _ in range(16):
+            rows.append([round(t, 3), round(pn_w * p_scale, 3), round(f, 3), round(un, 3)])
+            t += 0.2
+    _write_csv(dest_dir / name, headers, rows)
+    return dest_dir
+
+
+def plant_sim_staticmppt_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """静态 MPPT 5.4.26：效率列占位。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, _un = _rated_pn_un(job)
+    headers = ["Time [s]", "P-SIGMA", "Pdc", "eta_mppt", "eta_conv"]
+    rows = []
+    for i, pct in enumerate((1.0, 0.75, 0.5, 0.25)):
+        p = pn_w * pct
+        rows.append([i * 10.0, round(p, 3), round(p / 0.98, 3), 0.98, 0.97])
+    _write_csv(dest_dir / "sample_staticmppt.csv", headers, rows)
+    return dest_dir
+
+
+_PHASE2_SHORT_TYPES = frozenset(
+    {
+        "activep",
+        "active_p",
+        "有功调度",
+        "fixedq",
+        "fixed_q",
+        "定无功",
+        "cosphibrazil",
+        "cos_phi_brazil",
+        "frequencyadaptability",
+        "freqadapt",
+        "频率适应性",
+        "voltageadaptability",
+        "voltadapt",
+        "电压适应性",
+        "guopinjiangzai",
+        "过频降载",
+        "guoqianpin_immun",
+        "qianpinshengzai",
+        "巴西过欠频稳定性",
+        "欠频升载",
+        "staticmppt",
+        "static_mppt",
+        "静态mppt",
+        "静态MPPT测试",
+    }
+)
+
+
 def plant_sim_csv_for_job(job: Dict[str, Any], dest_dir: Path) -> Path:
     """按试验类型落模拟 CSV；未知类型先落过载（兼容旧联调）。"""
     tt = _job_tt(job)
@@ -314,6 +467,22 @@ def plant_sim_csv_for_job(job: Dict[str, Any], dest_dir: Path) -> Path:
         return plant_sim_ovuf_csv(job, dest_dir)
     if tt in ("reactiveqin", "reactive_qin", "无功注入"):
         return plant_sim_reactive_csv(job, dest_dir)
+    if tt in ("activep", "active_p", "有功调度", "有功控制"):
+        return plant_sim_activep_csv(job, dest_dir)
+    if tt in ("fixedq", "fixed_q", "定无功", "固无功"):
+        return plant_sim_fixedq_csv(job, dest_dir)
+    if tt in ("cosphibrazil", "cos_phi_brazil", "cosphibrazil"):
+        return plant_sim_cosphi_brazil_csv(job, dest_dir)
+    if tt in ("frequencyadaptability", "freqadapt", "频率适应性"):
+        return plant_sim_freq_adapt_csv(job, dest_dir)
+    if tt in ("voltageadaptability", "voltadapt", "voltage_adaptability", "电压适应性"):
+        return plant_sim_volt_adapt_csv(job, dest_dir)
+    if tt in ("guopinjiangzai", "过频降载", "of_reduce"):
+        return plant_sim_freq_power_ctrl_csv(job, dest_dir, over_freq=True)
+    if tt in ("guoqianpin_immun", "qianpinshengzai", "巴西过欠频稳定性", "欠频升载"):
+        return plant_sim_freq_power_ctrl_csv(job, dest_dir, over_freq=False)
+    if tt in ("staticmppt", "static_mppt", "静态mppt", "静态MPPT测试", "静态MPPT"):
+        return plant_sim_staticmppt_csv(job, dest_dir)
     csv_path, _plan, _rows = plant_sim_overload_csv(job, dest_dir)
     return Path(csv_path).parent
 
@@ -347,8 +516,23 @@ def run_sim_timeline_for_job(
         "过欠压过欠频": "过欠频造数",
         "reactiveqin": "无功注入造数",
         "无功注入": "无功注入造数",
+        "activep": "有功调度造数",
+        "有功调度": "有功调度造数",
+        "fixedq": "定无功造数",
+        "定无功": "定无功造数",
+        "cosphibrazil": "Cos(φ)_Brazil 造数",
+        "frequencyadaptability": "频率适应性造数",
+        "频率适应性": "频率适应性造数",
+        "voltageadaptability": "电压适应性造数",
+        "电压适应性": "电压适应性造数",
+        "guopinjiangzai": "过频降载造数",
+        "过频降载": "过频降载造数",
+        "guoqianpin_immun": "欠频抗扰造数",
+        "qianpinshengzai": "欠频升载造数",
+        "staticmppt": "静态MPPT造数",
+        "静态MPPT测试": "静态MPPT造数",
     }
-    if tt in short_msgs or tt in (
+    if tt in short_msgs or tt in _PHASE2_SHORT_TYPES or tt in (
         "harmonic",
         "harmonics",
         "harmonic_current",

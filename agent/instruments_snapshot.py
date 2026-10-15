@@ -175,6 +175,50 @@ def _status_row_to_item(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return item
 
 
+def _sim_bench_instruments() -> List[Dict[str, Any]]:
+    """无真机模拟工况机：上报已连接 AC+DC，满足 IOT 开测门禁。"""
+    return [
+        {
+            "kind": "ac",
+            "slot": "ac",
+            "resource": "TCPIP0::127.0.0.1::5025::SOCKET",
+            "host": "127.0.0.1",
+            "port": 5025,
+            "brand": "CHROMA",
+            "model": "SIM-AC",
+            "serial": "SIM-AC-01",
+            "name": "交流电源",
+            "online": True,
+            "connected": True,
+            "source": "sim_bench",
+        },
+        {
+            "kind": "dc",
+            "slot": "dc1",
+            "resource": "TCPIP0::127.0.0.1::5026::SOCKET",
+            "host": "127.0.0.1",
+            "port": 5026,
+            "brand": "CHROMA",
+            "model": "SIM-DC",
+            "serial": "SIM-DC-01",
+            "name": "直流电源1",
+            "online": True,
+            "connected": True,
+            "source": "sim_bench",
+        },
+    ]
+
+
+def _sim_instruments_enabled() -> bool:
+    import os
+
+    mode = (os.environ.get("SOLAR_AGENT_EXECUTION_MODE") or "").strip().lower()
+    if mode in ("sim", "sim_bench", "simulate"):
+        return True
+    flag = (os.environ.get("SOLAR_AGENT_SIM_INSTRUMENTS") or "").strip().lower()
+    return flag in ("1", "true", "yes", "on")
+
+
 def collect_instruments_snapshot(
     *,
     status_json_path: Optional[str] = None,
@@ -186,6 +230,9 @@ def collect_instruments_snapshot(
     禁止再用「输入框字段记忆 / 仅 TCP 通」冒充在线。
     """
     global _cache, _cache_at
+    if _sim_instruments_enabled():
+        return _sim_bench_instruments()
+
     now = time.time()
     if not force and _cache and (now - _cache_at) < float(min_interval_sec):
         return list(_cache)
