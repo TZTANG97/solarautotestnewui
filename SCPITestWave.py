@@ -23987,24 +23987,36 @@ def RunProjectPush():
         _update_project_status(currentSecond, "进行中")
         strTestFlag = "1"
         _local_widgets = None
+        _local_run_cmds = None
         try:
             # 全实验类型：采集当前 Dialog → prefs + 本地开测登记 Blockly
             from utils.iot_ui_handoff import (
                 collect_widgets_for_project,
                 persist_current_project_prefs,
             )
+            from utils.iot_run_upload import snapshot_run_commands
 
             _svc = globals().get("_iot_ui_handoff_svc")
             n_w = persist_current_project_prefs(currentSecond, handoff_svc=_svc)
             _local_widgets = collect_widgets_for_project(currentSecond, handoff_svc=_svc) or None
+            try:
+                _local_run_cmds = snapshot_run_commands(globals().get("strArrayTest") or [])
+            except Exception:
+                _local_run_cmds = None
             if n_w:
                 print(f"[RunProject] 已上报实验参数 {n_w} 项 → IOT", flush=True)
+            if _local_run_cmds:
+                print(f"[RunProject] 本局实际步骤 {len(_local_run_cmds)} 条一并上报", flush=True)
         except Exception as _prefs_exc:
             print(f"[RunProject] 实验参数上报跳过: {_prefs_exc}", flush=True)
         try:
             from utils.iot_local_run import notify_local_run_started
 
-            notify_local_run_started(currentSecond, widgets=_local_widgets)
+            notify_local_run_started(
+                currentSecond,
+                widgets=_local_widgets,
+                run_commands=_local_run_cmds,
+            )
         except Exception as _iot_reg_exc:
             print(f"[RunProject] IOT 本地登记跳过: {_iot_reg_exc}", flush=True)
 

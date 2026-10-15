@@ -186,9 +186,19 @@ class IotSolarClient:
         )
 
     def local_run_start(
-        self, *, test_type: str, title: str = "", widgets: Optional[dict] = None
+        self,
+        *,
+        test_type: str,
+        title: str = "",
+        widgets: Optional[dict] = None,
+        run_commands: Optional[list] = None,
+        blockly_code: str = "",
+        blockly_xml: str = "",
     ) -> Dict[str, Any]:
-        """台架本地点开始：向 IOT 登记实验 + RUNNING 任务。"""
+        """台架本地点开始：向 IOT 登记实验 + RUNNING 任务。
+
+        widgets / runCommands / blockly* 应为本机实际工况与步骤，一并落库。
+        """
         body: Dict[str, Any] = {
             "type": "local_run_start",
             "pythonid": self.pythonid,
@@ -198,6 +208,12 @@ class IotSolarClient:
         }
         if isinstance(widgets, dict) and widgets:
             body["widgets"] = widgets
+        if isinstance(run_commands, list) and run_commands:
+            body["runCommands"] = run_commands
+        if (blockly_code or "").strip():
+            body["blocklyCode"] = blockly_code.strip()
+        if (blockly_xml or "").strip():
+            body["blocklyXml"] = blockly_xml.strip()
         res = self._request("POST", "/api/solar-autotest/agent/local-run/start", body)
         data = res.get("data") if isinstance(res, dict) else None
         return data if isinstance(data, dict) else (res if isinstance(res, dict) else {})
@@ -221,6 +237,20 @@ class IotSolarClient:
 
     def put_prefs(self, body: dict) -> Dict[str, Any]:
         return self._request("PUT", "/api/solar-autotest/agent/prefs", body or {})
+
+    def seed_curve_points(
+        self,
+        job_id: int,
+        points: list,
+        *,
+        replace: bool = False,
+    ) -> Dict[str, Any]:
+        """回填 U/I/P 采点（模拟工况或结案后补曲线）。"""
+        return self._request(
+            "POST",
+            f"/api/solar-autotest/agent/jobs/{int(job_id)}/curve-points",
+            {"points": points or [], "replace": bool(replace)},
+        )
 
     def upload_report(self, job_id: int, file_path: str, filename: Optional[str] = None) -> Dict[str, Any]:
         """multipart 上传报告文件到 IOT。"""

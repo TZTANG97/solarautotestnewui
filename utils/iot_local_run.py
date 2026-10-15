@@ -120,11 +120,22 @@ def _ui_log(msg: str) -> None:
     print(msg, flush=True)
 
 
-def _do_start(test_name: str, widgets: Optional[Dict[str, Any]] = None) -> None:
+def _do_start(
+    test_name: str,
+    widgets: Optional[Dict[str, Any]] = None,
+    run_commands: Optional[list] = None,
+    blockly_code: str = "",
+    blockly_xml: str = "",
+) -> None:
     try:
         client = _build_client()
         data = client.local_run_start(
-            test_type=test_name, title=test_name, widgets=widgets
+            test_type=test_name,
+            title=test_name,
+            widgets=widgets,
+            run_commands=run_commands,
+            blockly_code=blockly_code,
+            blockly_xml=blockly_xml,
         )
         job_id = int(data.get("jobId") or data.get("id") or 0)
         exper_id = int(data.get("experimentId") or data.get("experid") or 0)
@@ -165,9 +176,18 @@ def _do_done(job_id: int, aborted: bool) -> None:
 
 
 def notify_local_run_started(
-    test_name: str, widgets: Optional[Dict[str, Any]] = None
+    test_name: str,
+    widgets: Optional[Dict[str, Any]] = None,
+    *,
+    run_commands: Optional[list] = None,
+    blockly_code: str = "",
+    blockly_xml: str = "",
 ) -> None:
-    """UI 线程调用：后台登记；handoff 占用时跳过。"""
+    """UI 线程调用：后台登记；handoff 占用时跳过。
+
+    widgets / run_commands / blockly_* 应来自本机当前局实际 Dialog 与 strArrayTest，
+    一并上报供 IOT 实验 Blockly 与步骤快照使用。
+    """
     if handoff_has_awaiting_job():
         logger.info("[iot_local_run] handoff 任务进行中，跳过本地登记")
         return
@@ -176,10 +196,18 @@ def notify_local_run_started(
             # 上一局未结案又开新测：仍报新 start，服务端会中止上一局 local_ui
             pass
     name = (test_name or "").strip() or "本地实验"
-    w = dict(widgets) if isinstance(widgets, dict) else None
+    try:
+        from utils.iot_run_upload import enrich_widgets_for_upload
+
+        w = enrich_widgets_for_upload(widgets if isinstance(widgets, dict) else None)
+    except Exception:
+        w = dict(widgets) if isinstance(widgets, dict) else None
+    cmds = list(run_commands) if isinstance(run_commands, list) else None
+    code = (blockly_code or "").strip()
+    xml = (blockly_xml or "").strip()
     threading.Thread(
         target=_do_start,
-        args=(name, w),
+        args=(name, w, cmds, code, xml),
         daemon=True,
         name="iot-local-run-start",
     ).start()

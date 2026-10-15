@@ -57,7 +57,7 @@ def test_handoff_no_awaiting_allows_start(monkeypatch):
 
     called = []
 
-    def _capture(name, widgets=None):
+    def _capture(name, widgets=None, *args, **kwargs):
         called.append(name)
 
     monkeypatch.setattr(mod, "_do_start", _capture)
