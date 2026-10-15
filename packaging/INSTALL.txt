@@ -53,7 +53,9 @@ enabled = 1
 auto_install = 1
 channel = https://qgongye.oss-cn-shanghai.aliyuncs.com/solarautotest/updates
 
-Startup checks latest.json; if newer, downloads zip and reinstalls.
+Startup checks latest.json; if newer:
+  - prefers incremental (only changed files via files-latest.json + blobs/)
+  - falls back to full zip on first install / large change / incremental failure
 
 ============================================================
 LAN auto-update (still works, already E2E OK)

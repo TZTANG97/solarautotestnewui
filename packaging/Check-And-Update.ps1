@@ -562,6 +562,212 @@ function Resolve-ZipSource([string]$Channel, $Manifest) {
     return @{ Mode = "file"; Path = $path; Name = $zipName }
 }
 
+function Get-LocalSha256([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return "" }
+    try {
+        return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+    } catch {
+        return ""
+    }
+}
+
+function Resolve-FilesManifestSource([string]$Channel, $Manifest) {
+    $filesUrl = [string]$Manifest.files_url
+    $filesName = [string]$Manifest.files_name
+    if (-not $filesName) { $filesName = "files-latest.json" }
+    if (Is-HttpChannel $Channel) {
+        if ($filesUrl) {
+            return @{ Mode = "http"; Uri = $filesUrl }
+        }
+        $base = [string]$Manifest.zip_base_url
+        if (-not $base) {
+            $murl = Get-ManifestUrl $Channel
+            $base = $murl.Substring(0, $murl.LastIndexOf('/'))
+        }
+        return @{ Mode = "http"; Uri = ($base.TrimEnd('/') + "/" + $filesName) }
+    }
+    $path = Join-Path $Channel $filesName
+    if (-not (Test-Path $path)) { return $null }
+    return @{ Mode = "file"; Path = $path }
+}
+
+function Get-BlobsBase([string]$Channel, $Manifest) {
+    $blobs = [string]$Manifest.blobs_base_url
+    if ($blobs) { return $blobs.TrimEnd('/') }
+    if (Is-HttpChannel $Channel) {
+        $base = [string]$Manifest.zip_base_url
+        if (-not $base) {
+            $murl = Get-ManifestUrl $Channel
+            $base = $murl.Substring(0, $murl.LastIndexOf('/'))
+        }
+        return ($base.TrimEnd('/') + "/blobs")
+    }
+    return (Join-Path $Channel "blobs")
+}
+
+function Test-ShouldPreserveInstallPath([string]$RelPath) {
+    $n = ($RelPath -replace '\\', '/').TrimStart('/').ToLowerInvariant()
+    $preserve = @(
+        'config/solar_agent.json',
+        'config/solar_machine_id',
+        'config_files/paths.ini',
+        'runtime_root.txt',
+        'status.json'
+    )
+    return ($preserve -contains $n)
+}
+
+function Invoke-IncrementalUpdate {
+    param(
+        [string]$InstallDir,
+        [string]$Channel,
+        $Manifest,
+        [string]$Token,
+        [string]$RemoteVer,
+        [string]$WorkDir
+    )
+
+    $src = Resolve-FilesManifestSource $Channel $Manifest
+    if (-not $src) { throw "No files manifest on channel" }
+
+    Set-UpdateUi ("增量更新：读取文件清单 " + $RemoteVer + "...")
+    if ($src.Mode -eq "http") {
+        $headers = New-HttpHeaders $Token
+        $resp = Invoke-WebRequest -Uri $src.Uri -Headers $headers -UseBasicParsing -TimeoutSec 120
+        $raw = [string]$resp.Content
+    } else {
+        $raw = Get-Content -Path $src.Path -Raw -Encoding UTF8
+    }
+    if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 0xFEFF) {
+        $raw = $raw.Substring(1)
+    }
+    $filesManifest = $raw | ConvertFrom-Json
+    if (-not $filesManifest.files) { throw "files manifest missing files[]" }
+
+    $blobsBase = Get-BlobsBase $Channel $Manifest
+    $need = New-Object System.Collections.ArrayList
+    $needBytes = [long]0
+    foreach ($f in $filesManifest.files) {
+        $rel = [string]$f.path
+        if (-not $rel) { continue }
+        if (Test-ShouldPreserveInstallPath $rel) { continue }
+        $sha = ([string]$f.sha256).ToLowerInvariant()
+        $size = [long]$f.size
+        $localPath = Join-Path $InstallDir ($rel -replace '/', '\')
+        $localSha = Get-LocalSha256 $localPath
+        if ($localSha -and ($localSha -eq $sha)) { continue }
+        [void]$need.Add(@{ path = $rel; sha256 = $sha; size = $size })
+        $needBytes += $size
+    }
+
+    $zipMb = 0.0
+    try { $zipMb = [double]$Manifest.size_mb } catch { $zipMb = 0.0 }
+    $needMb = [math]::Round($needBytes / 1MB, 1)
+    Info ("Incremental: {0} files / {1} MB to download (full zip ~{2} MB)" -f $need.Count, $needMb, $zipMb)
+
+    # If almost everything changed, full zip is simpler / similar cost
+    if ($zipMb -gt 5 -and $needMb -ge ($zipMb * 0.85)) {
+        throw ("Incremental not worth it ({0} MB ~= full zip); use zip" -f $needMb)
+    }
+
+    if ($need.Count -eq 0) {
+        Set-UpdateUi "文件已齐，仅刷新版本号..."
+        $verText = @($RemoteVer, ("built=" + (Get-Date -Format "yyyy-MM-dd HH:mm:ss")), "source=incremental-noop") -join "`r`n"
+        Set-Content -Path (Join-Path $InstallDir "VERSION") -Value $verText -Encoding UTF8
+        return
+    }
+
+    $dlDir = Join-Path $WorkDir "blobs"
+    New-Item -ItemType Directory -Force -Path $dlDir | Out-Null
+    $doneBytes = 0L
+    $i = 0
+    foreach ($f in $need) {
+        $i++
+        $sha = [string]$f.sha256
+        $rel = [string]$f.path
+        $tmp = Join-Path $dlDir $sha
+        Set-UpdateProgress ([int][Math]::Min(95, [Math]::Floor(($doneBytes / [Math]::Max(1, $needBytes)) * 100))) `
+            ("增量下载 $i/$($need.Count)  $($rel)  $([math]::Round($doneBytes/1MB,1))/$needMb MB")
+
+        if (Is-HttpChannel $Channel) {
+            $uri = $blobsBase.TrimEnd('/') + "/" + $sha
+            $headers = New-HttpHeaders $Token
+            Invoke-WebRequest -Uri $uri -Headers $headers -OutFile $tmp -UseBasicParsing -TimeoutSec 600
+        } else {
+            $srcBlob = Join-Path $blobsBase $sha
+            if (-not (Test-Path $srcBlob)) { throw ("Blob missing: " + $srcBlob) }
+            Copy-Item -Force $srcBlob $tmp
+        }
+        $got = Get-LocalSha256 $tmp
+        if ($got -ne $sha) {
+            throw ("Blob hash mismatch for " + $rel + " expected=" + $sha + " got=" + $got)
+        }
+        $doneBytes += [int64]$f.size
+    }
+
+    Set-UpdateUi "正在写入本机文件..."
+    $lockChanged = $false
+    $oldLock = Get-LocalSha256 (Join-Path $InstallDir "uv.lock")
+    foreach ($f in $need) {
+        $rel = [string]$f.path
+        $sha = [string]$f.sha256
+        $dest = Join-Path $InstallDir ($rel -replace '/', '\')
+        $parent = Split-Path $dest -Parent
+        if ($parent -and -not (Test-Path $parent)) {
+            New-Item -ItemType Directory -Force -Path $parent | Out-Null
+        }
+        Copy-Item -Force (Join-Path $dlDir $sha) $dest
+        if ($rel -replace '\\', '/' -eq 'uv.lock') { $lockChanged = $true }
+    }
+
+    # Keep formal IOT bootstrap in sync when example shipped
+    $bootExample = Join-Path $InstallDir "config\iot_bootstrap.example.json"
+    $bootPath = Join-Path $InstallDir "config\iot_bootstrap.json"
+    if (Test-Path $bootExample) {
+        Copy-Item -Force $bootExample $bootPath
+    }
+
+    $verText = @($RemoteVer, ("built=" + (Get-Date -Format "yyyy-MM-dd HH:mm:ss")), "source=incremental") -join "`r`n"
+    Set-Content -Path (Join-Path $InstallDir "VERSION") -Value $verText -Encoding UTF8
+
+    $newLock = Get-LocalSha256 (Join-Path $InstallDir "uv.lock")
+    if ($lockChanged -or ($oldLock -and $newLock -and ($oldLock -ne $newLock))) {
+        $uv = Join-Path $InstallDir "tools\uv.exe"
+        if (-not (Test-Path $uv)) {
+            $cmd = Get-Command uv.exe -ErrorAction SilentlyContinue
+            if ($cmd) { $uv = $cmd.Source }
+        }
+        if (Test-Path $uv) {
+            Set-UpdateUi "依赖有变，正在 uv sync ..."
+            Info "uv.lock changed; running uv sync --frozen"
+            $runtimeRoot = ""
+            $rr = Join-Path $InstallDir "runtime_root.txt"
+            if (Test-Path $rr) {
+                try { $runtimeRoot = ((Get-Content $rr -TotalCount 1) + "").Trim() } catch {}
+            }
+            if (-not $runtimeRoot) {
+                $runtimeRoot = Join-Path $env:LOCALAPPDATA "SolarAutoTestRuntime"
+            }
+            $env:UV_PROJECT_ENVIRONMENT = Join-Path $runtimeRoot ".venv"
+            $env:UV_PYTHON_INSTALL_DIR = Join-Path $runtimeRoot "python"
+            $env:UV_CACHE_DIR = Join-Path $runtimeRoot "uv-cache"
+            Push-Location $InstallDir
+            try {
+                & $uv sync --frozen
+                if ($LASTEXITCODE -ne 0) {
+                    & $uv sync
+                }
+            } finally {
+                Pop-Location
+            }
+        } else {
+            Warn "uv.lock changed but uv.exe missing; launch may sync on next start"
+        }
+    }
+
+    Set-UpdateProgress 100 ("增量升级完成 " + $needMb + " MB / " + $need.Count + " 个文件")
+}
+
 function Get-ZipToTemp($Source, [string]$Token, [string]$WorkDir) {
     $localZip = Join-Path $WorkDir $Source.Name
     if ($Source.Mode -eq "file") {
@@ -701,6 +907,33 @@ $work = Join-Path $env:TEMP ("SolarAutoTest-update-" + [guid]::NewGuid().ToStrin
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 
 try {
+    $usedIncremental = $false
+    $canIncremental = (
+        (Test-Path (Join-Path $InstallDir "SCPITestWave.py")) -and
+        (
+            ([string]$manifest.files_url) -or
+            ([string]$manifest.files_name) -or
+            (([string]$manifest.update_mode) -eq "incremental")
+        )
+    )
+
+    if ($canIncremental) {
+        try {
+            Set-UpdateUi ("发现新版本 " + $localVer + " -> " + $remoteVer + "，增量更新中...")
+            Invoke-IncrementalUpdate -InstallDir $InstallDir -Channel $channel -Manifest $manifest `
+                -Token $token -RemoteVer $remoteVer -WorkDir $work
+            $usedIncremental = $true
+            Set-UpdateUi ("增量升级完成 " + $remoteVer + "，即将重新启动软件...")
+            Ok ("Upgraded to " + $remoteVer + " (incremental)")
+            Start-Sleep -Milliseconds 800
+            Close-UpdateUi
+            exit 10
+        } catch {
+            Warn ("Incremental update failed, falling back to full zip: " + $_.Exception.Message)
+            Set-UpdateUi "增量失败，改为全量下载安装包..."
+        }
+    }
+
     $src = Resolve-ZipSource $channel $manifest
     Set-UpdateUi ("正在下载新版本 " + $remoteVer + "...（窗口勿关）")
     $localZip = Get-ZipToTemp $src $token $work
@@ -744,7 +977,7 @@ try {
     }
 
     Set-UpdateUi ("升级完成 " + $remoteVer + "，即将重新启动软件...")
-    Ok ("Upgraded to " + $remoteVer)
+    Ok ("Upgraded to " + $remoteVer + $(if ($usedIncremental) { " (incremental)" } else { " (full zip)" }))
     Start-Sleep -Milliseconds 800
     Close-UpdateUi
     # 10 = 已升级；父级 Start-SolarAutoTest.bat 必须重启自身，

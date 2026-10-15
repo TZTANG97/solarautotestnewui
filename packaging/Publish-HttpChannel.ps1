@@ -29,6 +29,7 @@ param(
     [string]$HttpBaseUrl = "",
     [string]$OutDir = "",
     [string]$Version = "",
+    [string]$StageRoot = "",
     [string]$OssBucket = "",
     [string]$OssPrefix = "solarautotest/updates",
     [string]$OssEndpoint = "",
@@ -87,6 +88,27 @@ $sizeMb = [math]::Round((Get-Item $destZip).Length / 1MB, 1)
 $zipUrl = $HttpBaseUrl + "/" + $zipName
 $stableZipUrl = $HttpBaseUrl + "/" + $stableZipName
 
+# Ensure incremental file channel exists (blobs + files-latest.json)
+if ($StageRoot -and (Test-Path $StageRoot)) {
+    $mfArgs = @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", (Join-Path $PSScriptRoot "Build-FileManifest.ps1"),
+        "-StageRoot", $StageRoot,
+        "-ChannelDir", $OutDir,
+        "-Version", $Version
+    )
+    if ($HttpBaseUrl) { $mfArgs += @("-HttpBaseUrl", $HttpBaseUrl) }
+    & powershell.exe @mfArgs
+    if ($LASTEXITCODE -ne 0) { throw "Build-FileManifest failed: $LASTEXITCODE" }
+} elseif (-not (Test-Path (Join-Path $OutDir "files-latest.json"))) {
+    Write-Host "[WARN] No StageRoot and no files-latest.json; clients will full-zip update only" -ForegroundColor Yellow
+}
+
+$filesLatestName = "files-latest.json"
+$filesUrl = $HttpBaseUrl + "/" + $filesLatestName
+$blobsBaseUrl = $HttpBaseUrl + "/blobs"
+$hasFiles = Test-Path (Join-Path $OutDir $filesLatestName)
+
 $manifest = [ordered]@{
     version         = $Version
     zip_name        = $zipName
@@ -97,6 +119,13 @@ $manifest = [ordered]@{
     built           = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     size_mb         = $sizeMb
     channel         = "http"
+    update_mode     = $(if ($hasFiles) { "incremental" } else { "zip" })
+}
+if ($hasFiles) {
+    $manifest["files_name"] = $filesLatestName
+    $manifest["files_url"] = $filesUrl
+    $manifest["blobs_base_url"] = $blobsBaseUrl
+    $manifest["files_versioned"] = ("files-" + $Version + ".json")
 }
 $jsonPath = Join-Path $OutDir "latest.json"
 # UTF-8 without BOM (PowerShell 5.1 Set-Content UTF8 writes BOM)

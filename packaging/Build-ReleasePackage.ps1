@@ -92,12 +92,16 @@ $appDest = Join-Path $stage "app"
 $xd = @(
     "/XD", ".git", ".venv", ".idea", ".vscode", ".cursor", ".claude",
     "__pycache__", ".pytest_cache", "packaging", "dist", "data_logs",
-    "uv-cache", "node_modules", "agent-transcripts", "command_save_files"
+    "uv-cache", "node_modules", "agent-transcripts", "command_save_files",
+    # Keep release zip small: local DB / scratch / media never needed on bench PCs
+    "database", "code_example", "screenshots", "recordings", "mindmap",
+    "iot_job_inbox", "wt_file_save_path", "dewetron_media"
 )
 # Never ship local IOT identity into the zip (would make every PC share one pythonid / localhost token)
 $xf = @(
     "/XF", "*.pyc", "*.pyo", "*.log", "log.txt", "*.zip", "*.7z",
-    "solar_agent.json", "solar_machine_id", "iot_bootstrap.json"
+    "solar_agent.json", "solar_machine_id", "iot_bootstrap.json",
+    "db.sqlite", "uv.exe"
 )
 $rcArgs = @($repoRoot, $appDest, "/E", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP", "/R:1", "/W:1") + $xd + $xf
 & robocopy @rcArgs | Out-Null
@@ -202,13 +206,34 @@ if ($PublishEmkuOss -and -not $PublishHttpBaseUrl) {
     if (-not $OssPrefix) { $OssPrefix = "solarautotest/updates" }
 }
 
+# Prepare incremental file channel (blobs + files-*.json) before publish
+$channelPrep = Join-Path $OutDir "update-channel"
+$httpBaseForManifest = ""
+if ($PublishEmkuOss) {
+    $httpBaseForManifest = "https://qgongye.oss-cn-shanghai.aliyuncs.com/solarautotest/updates"
+} elseif ($PublishHttpBaseUrl) {
+    $httpBaseForManifest = $PublishHttpBaseUrl.Trim().TrimEnd('/')
+}
+$mfArgs = @(
+    "-NoProfile", "-ExecutionPolicy", "Bypass",
+    "-File", (Join-Path $PSScriptRoot "Build-FileManifest.ps1"),
+    "-StageRoot", $stage,
+    "-ChannelDir", $channelPrep,
+    "-Version", $pkgVersion
+)
+if ($httpBaseForManifest) { $mfArgs += @("-HttpBaseUrl", $httpBaseForManifest) }
+& powershell.exe @mfArgs
+if ($LASTEXITCODE -ne 0) { throw "Build-FileManifest failed: $LASTEXITCODE" }
+
 if ($PublishHttpBaseUrl -or $PublishEmkuOss) {
     $httpPub = Join-Path $PSScriptRoot "Publish-HttpChannel.ps1"
     $argList = @(
         "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", $httpPub,
         "-ZipPath", $zipPath,
-        "-Version", $pkgVersion
+        "-Version", $pkgVersion,
+        "-OutDir", $channelPrep,
+        "-StageRoot", $stage
     )
     if ($PublishHttpBaseUrl) { $argList += @("-HttpBaseUrl", $PublishHttpBaseUrl) }
     if ($PublishEmkuOss) {
@@ -220,6 +245,31 @@ if ($PublishHttpBaseUrl -or $PublishEmkuOss) {
     }
     & powershell.exe @argList
     if ($LASTEXITCODE -ne 0) { throw "HTTP/OSS publish failed: $LASTEXITCODE" }
+}
+
+# LAN channel: also drop files manifest + blobs next to latest.json
+if ($PublishDir) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "Build-FileManifest.ps1") `
+        -StageRoot $stage -ChannelDir $PublishDir -Version $pkgVersion
+    if ($LASTEXITCODE -ne 0) { throw "LAN Build-FileManifest failed: $LASTEXITCODE" }
+    $lanFiles = Join-Path $PublishDir "files-latest.json"
+    if (Test-Path $lanFiles) {
+        $jsonPath = Join-Path $PublishDir "latest.json"
+        if (Test-Path $jsonPath) {
+            $m = Get-Content -Raw -Encoding UTF8 $jsonPath | ConvertFrom-Json
+            $o = [ordered]@{}
+            $m.PSObject.Properties | ForEach-Object { $o[$_.Name] = $_.Value }
+            $o["files_name"] = "files-latest.json"
+            $o["files_url"] = ""
+            $o["blobs_dir"] = "blobs"
+            $o["update_mode"] = "incremental"
+            [IO.File]::WriteAllText(
+                $jsonPath,
+                ($o | ConvertTo-Json -Depth 6),
+                (New-Object System.Text.UTF8Encoding $false)
+            )
+        }
+    }
 }
 
 if ($PublishDir) {

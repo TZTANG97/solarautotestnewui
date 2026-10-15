@@ -132,9 +132,9 @@ def main() -> int:
     auth = oss2.Auth(ak, sk)
     bucket = oss2.Bucket(auth, ep, bucket_name)
 
-    uploads = [
-        (f"{prefix}/latest.json", json_path),
-        (f"{prefix}/{zip_path.name}", zip_path),
+    uploads: list[tuple[str, Path, bool]] = [
+        (f"{prefix}/latest.json", json_path, False),
+        (f"{prefix}/{zip_path.name}", zip_path, False),
     ]
     # Fixed first-install URL: always overwrite SolarAutoTest-Setup-latest.zip
     stable_name = str(manifest.get("stable_zip_name") or "SolarAutoTest-Setup-latest.zip").strip()
@@ -143,13 +143,45 @@ def main() -> int:
         # Publish-HttpChannel should have copied it; fallback to versioned zip content
         stable_local = zip_path
     if stable_local.is_file():
-        uploads.append((f"{prefix}/{stable_name}", stable_local))
+        uploads.append((f"{prefix}/{stable_name}", stable_local, False))
+
+    # Incremental channel: files manifests (always overwrite) + content-addressed blobs (skip if exists)
+    for name in (
+        str(manifest.get("files_name") or "files-latest.json").strip(),
+        str(manifest.get("files_versioned") or "").strip(),
+    ):
+        if not name:
+            continue
+        p = channel_dir / name
+        if p.is_file():
+            uploads.append((f"{prefix}/{name}", p, False))
+
+    blobs_dir = channel_dir / "blobs"
+    blob_uploads = 0
+    blob_skipped = 0
+    if blobs_dir.is_dir():
+        for blob in sorted(blobs_dir.iterdir()):
+            if not blob.is_file():
+                continue
+            # sha256 hex filenames only
+            if not re.fullmatch(r"[0-9a-fA-F]{64}", blob.name):
+                continue
+            uploads.append((f"{prefix}/blobs/{blob.name}", blob, True))
 
     headers = {}
     if args.public_read:
         headers["x-oss-object-acl"] = "public-read"
 
-    for key, path in uploads:
+    for key, path, skip_if_exists in uploads:
+        if skip_if_exists:
+            try:
+                meta = bucket.head_object(key)
+                if int(meta.content_length) == path.stat().st_size:
+                    blob_skipped += 1
+                    continue
+            except Exception:
+                pass
+            blob_uploads += 1
         print(f"PUT oss://{bucket_name}/{key}  <-  {path}  ({path.stat().st_size} bytes)")
         bucket.put_object_from_file(key, str(path), headers=headers or None)
 
@@ -160,8 +192,13 @@ def main() -> int:
     print(f"  latest  = {public_base}/latest.json")
     print(f"  zip     = {public_base}/{zip_path.name}")
     print(f"  stable  = {public_base}/{stable_name}  (固定下载地址)")
-    # Sanity: HEAD
-    for key, _ in uploads:
+    if (channel_dir / "files-latest.json").is_file():
+        print(f"  files   = {public_base}/files-latest.json  (增量清单)")
+        print(f"  blobs   = {public_base}/blobs/  (+{blob_uploads} new, skip {blob_skipped})")
+    # Sanity: HEAD core objects
+    for key, _, skip_if_exists in uploads:
+        if skip_if_exists:
+            continue
         meta = bucket.head_object(key)
         print(f"  head {key}: {meta.content_length} bytes")
     return 0
