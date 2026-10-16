@@ -32028,7 +32028,8 @@ if __name__ == "__main__":
                 _ph.setStyleSheet("background: #e2e5ea;")
                 _ph_lay = QtWidgets.QVBoxLayout(_ph)
                 _ph_lay.setContentsMargins(0, 0, 0, 0)
-                _ph_lbl = QtWidgets.QLabel("首次打开时加载参数页…")
+                _ph_lbl = QtWidgets.QLabel("试验参数页准备中…")
+                _ph_lbl.setObjectName("_auto_test_placeholder_label")
                 _ph_lbl.setStyleSheet("color: #6b7280; font-size: 13px; background: transparent;")
                 _ph_lbl.setAlignment(QtCore.Qt.AlignCenter)
                 _ph_lay.addStretch(1)
@@ -32103,6 +32104,93 @@ if __name__ == "__main__":
                 _auto_test_embed_done.add(test_name)
 
             ui._ensure_auto_test_page = _ensure_auto_test_page
+
+            def _preload_remaining_auto_test_pages():
+                """主界面显示后，空闲时逐个预热试验页，避免首次点击卡顿。
+
+                安装只拷贝程序文件，不会在安装阶段创建 Qt 页面；预热发生在本机首次启动后。
+                设环境变量 SOLARAUTOTEST_NO_PRELOAD=1 可关闭。
+                """
+                import os as _os_preload
+
+                if str(_os_preload.environ.get("SOLARAUTOTEST_NO_PRELOAD", "")).strip().lower() in (
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
+                ):
+                    print("[DEBUG_STARTUP] Auto_Test preload skipped (SOLARAUTOTEST_NO_PRELOAD)", flush=True)
+                    return
+                from PyQt5.QtCore import QTimer as _PreloadTimer
+                from PyQt5.QtWidgets import QApplication as _PreloadApp
+
+                pending = [n for n in _setting_pages.keys() if n not in _auto_test_embed_done]
+                if not pending:
+                    print("[DEBUG_STARTUP] Auto_Test pages already ready", flush=True)
+                    return
+                print(
+                    f"[DEBUG_STARTUP] Auto_Test preload start: {len(pending)} pages",
+                    flush=True,
+                )
+                try:
+                    ui.textEdit_ReturnMessage.append(
+                        f"[启动] 后台预热试验参数页（共 {len(pending)} 项，可照常操作）…"
+                    )
+                except Exception:
+                    pass
+                for _name in pending:
+                    _scroll = _setting_pages.get(_name)
+                    if _scroll is None:
+                        continue
+                    try:
+                        _ph_w = _scroll.widget()
+                        if _ph_w is None:
+                            continue
+                        _lbl = _ph_w.findChild(QtWidgets.QLabel, "_auto_test_placeholder_label")
+                        if _lbl is not None:
+                            _lbl.setText("后台加载中…")
+                    except Exception:
+                        pass
+
+                _state = {"i": 0, "pending": pending, "ok": 0, "fail": 0}
+
+                def _step():
+                    if _state["i"] >= len(_state["pending"]):
+                        print(
+                            f"[DEBUG_STARTUP] Auto_Test preload done "
+                            f"ok={_state['ok']} fail={_state['fail']} "
+                            f"ready={len(_auto_test_embed_done)}",
+                            flush=True,
+                        )
+                        try:
+                            ui.textEdit_ReturnMessage.append(
+                                f"[启动] 试验参数页已就绪（{_state['ok']} 项）"
+                            )
+                        except Exception:
+                            pass
+                        return
+                    # 正在跑试验时暂停预热，避免与执行抢 UI
+                    if globals().get("strTestStatusFlag") in ("运行", "暂停"):
+                        _PreloadTimer.singleShot(800, _step)
+                        return
+                    _name = _state["pending"][_state["i"]]
+                    _state["i"] += 1
+                    try:
+                        _ensure_auto_test_page(_name)
+                        _state["ok"] += 1
+                    except Exception as _pe:
+                        _state["fail"] += 1
+                        print(f"[WARN] preload Auto_Test page {_name}: {_pe}", flush=True)
+                    try:
+                        _PreloadApp.processEvents()
+                    except Exception:
+                        pass
+                    # 分片加载，保持界面可点
+                    _PreloadTimer.singleShot(40, _step)
+
+                _PreloadTimer.singleShot(0, _step)
+
+            ui._preload_auto_test_pages = _preload_remaining_auto_test_pages
 
             def _on_test_project_changed(index):
                 """当分项选择改变时，按需加载并切换显示对应的设置页"""
@@ -33374,6 +33462,13 @@ if __name__ == "__main__":
                 QTimer.singleShot(300, _deferred_polish_and_db)
                 # 不传本地闭包 rm（可能仍为 None）；后台线程自己等 RM boot
                 QTimer.singleShot(500, lambda: _schedule_startup_auto_connect(visa_rm=None))
+                # 主界面出来后再预热各试验参数页（安装不会创建 Qt UI；点开前先后台建好）
+                def _kick_auto_test_preload():
+                    _fn = getattr(ui, "_preload_auto_test_pages", None)
+                    if callable(_fn):
+                        _fn()
+
+                QTimer.singleShot(1200, _kick_auto_test_preload)
             except Exception as _ac_exc:
                 print(f"[DEBUG_STARTUP]    启动自动连接调度失败: {_ac_exc}", flush=True)
             # IOT 云任务 handoff：监视 pending → Append/开始 → 等结束写 results
