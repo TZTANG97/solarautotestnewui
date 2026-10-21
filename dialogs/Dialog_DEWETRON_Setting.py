@@ -76,6 +76,9 @@ class DraggableInputBox(QLineEdit):
         self._update_style()
         self.channelChanged.emit(self._slot_name, channel_text)
 
+    def get_channel(self):
+        return str(self._channel or self.text() or "").strip()
+
     def clear_channel(self):
         self._channel = ''
         self.clear()

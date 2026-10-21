@@ -3112,9 +3112,34 @@ def _apply_dewetron_widgets_to_setting_ui(widgets: dict) -> None:
                     btn.setChecked(True)
                     if hasattr(dew_ui, "wiringDiagramCanvas"):
                         dew_ui.wiringDiagramCanvas.set_wiring_type(int(wiring_i))
+                    # 程序化 setChecked 不会触发 buttonClicked，需手动重建槽位
+                    if hasattr(dew_ui, "_create_slot_inputs"):
+                        dew_ui._create_slot_inputs(int(wiring_i))
+                    if hasattr(dew_ui, "_update_mapping_display"):
+                        dew_ui._update_mapping_display()
                     break
         except Exception:
             pass
+
+    # Web 通道映射：{'U1': 'AI 1/U1', 'I1': 'AI 1/l1', ...}
+    ch_map = widgets.get("dew_channel_map")
+    if isinstance(ch_map, dict) and hasattr(dew_ui, "_slot_input_widgets"):
+        try:
+            for slot_name, ch_name in ch_map.items():
+                le = dew_ui._slot_input_widgets.get(str(slot_name))
+                if le is None:
+                    continue
+                text = str(ch_name or "").strip()
+                if text and hasattr(le, "set_channel"):
+                    le.set_channel(text)
+                elif hasattr(le, "clear_channel"):
+                    le.clear_channel()
+            if hasattr(dew_ui, "_update_mapping_display"):
+                dew_ui._update_mapping_display()
+            if hasattr(dew_ui, "_highlight_bound_channels"):
+                dew_ui._highlight_bound_channels()
+        except Exception as exc:
+            print(f"[DEWETRON] apply channel_map failed: {exc}", flush=True)
 
 
 @_with_device_ui_busy("ConnectEQUDEWETRON")
@@ -33892,7 +33917,7 @@ if __name__ == "__main__":
                     except Exception as exc:
                         _iot_log(f"AC 参数预同步: {exc}")
 
-                    # DC：同步 Web IV 参数到桌面 DC1 设置（当前页/引用）
+                    # DC：同步 Web IV 到桌面所有 DC1 页（Itech/Chroma），勿只写隐藏页
                     try:
                         slot_l = str(inst.get("slot") or "").strip().lower()
                         if slot_l.startswith("dc"):
@@ -33910,7 +33935,7 @@ if __name__ == "__main__":
                                         _dc1_itech_ref["textEdit_Imp"].setPlainText(imp)
                                     if isc and _dc1_itech_ref.get("textEdit_Isc"):
                                         _dc1_itech_ref["textEdit_Isc"].setPlainText(isc)
-                                elif uiDC1Setting is not None:
+                                if uiDC1Setting is not None:
                                     for name, val in (
                                         ("textEdit_Vmp", vmp),
                                         ("textEdit_Voc", voc),
@@ -33921,6 +33946,16 @@ if __name__ == "__main__":
                                         if w is not None and val:
                                             w.setPlainText(val)
                                 _iot_log(f"DC IV 已同步 Vmp={vmp} Voc={voc} Imp={imp} Isc={isc}")
+                                # 已连接则立刻下发到真机（仅改 UI 不够）
+                                try:
+                                    if slot_l in ("", "dc1", "dc") and dc1_controller is not None and getattr(
+                                        dc1_controller, "connected", False
+                                    ):
+                                        _reapply_dc1_setpoints_to_device(
+                                            reason="IOT Web 下发 IV", show_errors=False
+                                        )
+                                except Exception as send_exc:
+                                    _iot_log(f"DC IV 真机下发: {send_exc}")
                     except Exception as exc:
                         _iot_log(f"DC 参数预同步: {exc}")
 
@@ -34013,8 +34048,42 @@ if __name__ == "__main__":
                         return {"ok": False, "message": f"{sl} 断开后会话仍在"}
                     return {"ok": True, "message": f"{sl} 已断开"}
 
-                def _iot_device_output_on(slot):
+                def _iot_device_output_on(slot, widgets=None):
                     sl = str(slot or "").strip().lower()
+                    # 开输出前若带了 Web IV，先写入界面并下发真机
+                    try:
+                        w_in = widgets if isinstance(widgets, dict) else {}
+                        if sl.startswith("dc") and w_in:
+                            vmp = str(w_in.get("textEdit_Vmp") or "").strip()
+                            voc = str(w_in.get("textEdit_Voc") or "").strip()
+                            imp = str(w_in.get("textEdit_Imp") or "").strip()
+                            isc = str(w_in.get("textEdit_Isc") or "").strip()
+                            if any((vmp, voc, imp, isc)):
+                                if _dc1_itech_ref is not None:
+                                    if vmp and _dc1_itech_ref.get("textEdit_Vmp"):
+                                        _dc1_itech_ref["textEdit_Vmp"].setPlainText(vmp)
+                                    if voc and _dc1_itech_ref.get("textEdit_Voc"):
+                                        _dc1_itech_ref["textEdit_Voc"].setPlainText(voc)
+                                    if imp and _dc1_itech_ref.get("textEdit_Imp"):
+                                        _dc1_itech_ref["textEdit_Imp"].setPlainText(imp)
+                                    if isc and _dc1_itech_ref.get("textEdit_Isc"):
+                                        _dc1_itech_ref["textEdit_Isc"].setPlainText(isc)
+                                if uiDC1Setting is not None:
+                                    for name, val in (
+                                        ("textEdit_Vmp", vmp),
+                                        ("textEdit_Voc", voc),
+                                        ("textEdit_Imp", imp),
+                                        ("textEdit_Isc", isc),
+                                    ):
+                                        ww = getattr(uiDC1Setting, name, None)
+                                        if ww is not None and val:
+                                            ww.setPlainText(val)
+                                if sl in ("", "dc1", "dc"):
+                                    _reapply_dc1_setpoints_to_device(
+                                        reason="IOT 开输出前下发 IV", show_errors=False
+                                    )
+                    except Exception as exc:
+                        _iot_log(f"开输出前 DC IV 同步: {exc}")
                     fn = {
                         "ac": OpenACOUTPUTON,
                         "dc1": OpenDC1OUTPUTON,

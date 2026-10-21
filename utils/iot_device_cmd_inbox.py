@@ -121,7 +121,11 @@ def execute_device_cmd(
         if action == "output_on":
             if not output_on:
                 return {"ok": False, "message": "桌面未注册开输出回调"}
-            ok = bool(output_on(slot))
+            # 兼容旧签名 output_on(slot)；新签名可带 widgets（DC IV 先下发再开输出）
+            try:
+                ok = bool(output_on(slot, widgets))  # type: ignore[call-arg]
+            except TypeError:
+                ok = bool(output_on(slot))
             msg = f"{slot} 打开输出{'成功' if ok else '失败'}"
             _log(f"[仪器控制] {msg}")
             return {"ok": ok, "message": msg}

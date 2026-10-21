@@ -294,5 +294,22 @@ def read_dewetron_ui_snapshot(dew_ui: Any) -> Dict[str, Any]:
                 wiring_i = None
     if wiring_i is not None:
         widgets["dew_wiring_type"] = wiring_i
+    # 槽位通道映射（与 Web dew_channel_map 对称）
+    slot_widgets = getattr(dew_ui, "_slot_input_widgets", None)
+    if isinstance(slot_widgets, dict) and slot_widgets:
+        ch_map: dict = {}
+        for slot_name, le in slot_widgets.items():
+            try:
+                text = ""
+                if hasattr(le, "get_channel"):
+                    text = str(le.get_channel() or "").strip()
+                elif hasattr(le, "text"):
+                    text = str(le.text() or "").strip()
+                if text:
+                    ch_map[str(slot_name)] = text
+            except Exception:
+                continue
+        if ch_map:
+            widgets["dew_channel_map"] = ch_map
     out["widgets"] = widgets
     return out
