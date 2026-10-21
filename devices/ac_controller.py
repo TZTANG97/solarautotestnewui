@@ -367,15 +367,17 @@ class ACController:
                     pass
 
         if self._itech is not None:
+            # 与页面「下发参数」一致：用 INST:PHAS（爱科 Modbus 映射键）
             if ac_phase == '单相':
                 command_list = [
-                    'INST:PHASE SINGLE',
+                    'INST:PHAS SINGLE',
+                    'INST:EDIT ALL',
                     'VOLT ' + ac_voltage,
                     'FREQ ' + ac_frequency,
                 ]
             elif ac_phase == '三相':
                 command_list = [
-                    'INST:PHASE THREE',
+                    'INST:PHAS THREE',
                     'INST:EDIT ALL',
                     'VOLT ' + ac_voltage,
                     'FREQ ' + ac_frequency,

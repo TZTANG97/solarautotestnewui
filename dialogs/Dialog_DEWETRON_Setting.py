@@ -133,10 +133,22 @@ class WiringDiagramCanvas(QWidget):
         filename = self.IMAGE_FILES.get(type_id)
         if not filename:
             return
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        img_path = os.path.join(base_dir, 'dewetron_media', filename)
-        if os.path.exists(img_path):
-            self._images[type_id] = QtGui.QPixmap(img_path)
+        # 安装包/开发树：图片在仓库根 dewetron_media/；旧路径 dialogs/dewetron_media 兼容
+        here = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.dirname(here)
+        candidates = (
+            os.path.join(repo_root, "dewetron_media", filename),
+            os.path.join(here, "dewetron_media", filename),
+            os.path.join(os.getcwd(), "dewetron_media", filename),
+        )
+        for img_path in candidates:
+            if os.path.isfile(img_path):
+                pix = QtGui.QPixmap(img_path)
+                if not pix.isNull():
+                    self._images[type_id] = pix
+                    return
+        # 显式记空，避免反复扫盘；paint 仍显示「待补充」
+        self._images[type_id] = QtGui.QPixmap()
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)

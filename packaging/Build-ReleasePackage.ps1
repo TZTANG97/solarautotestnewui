@@ -94,8 +94,9 @@ $xd = @(
     "__pycache__", ".pytest_cache", "packaging", "dist", "data_logs",
     "uv-cache", "node_modules", "agent-transcripts", "command_save_files",
     # Keep release zip small: local DB / scratch / media never needed on bench PCs
+    # 注意：dewetron_media 必须进包（接线图预览）；勿再排除
     "database", "code_example", "screenshots", "recordings", "mindmap",
-    "iot_job_inbox", "wt_file_save_path", "dewetron_media"
+    "iot_job_inbox", "wt_file_save_path"
 )
 # Never ship local IOT identity into the zip (would make every PC share one pythonid / localhost token)
 $xf = @(

@@ -484,9 +484,16 @@ def _reapply_ac_setpoints_to_device(reason="恢复设定"):
 
 
 def SendACMessage():
+    """已连接时把界面上的电压/频率/单相三相重新下发（不必断开重连）。"""
     global ac_controller
+    if ac_controller is None or not getattr(ac_controller, "connected", False):
+        try:
+            QMessageBox.warning(None, "提示", "交流电源未连接，请先连接")
+        except Exception:
+            pass
+        return
     # 爱科页面有独立输入框：发送时优先用当前品牌页，并同步到 Chroma 控件以免两边不一致
-    if _ac_current_brand == "itech" and _ac_itch_ref is not None and ac_controller is not None:
+    if _ac_current_brand == "itech" and _ac_itch_ref is not None:
         volt, freq, phase = _get_active_ac_setpoints()
         if volt and freq:
             try:
@@ -497,13 +504,18 @@ def SendACMessage():
                     uiACSetting.comboBox_Phase.setCurrentIndex(idx)
             except Exception:
                 pass
-            ok = ac_controller.apply_setpoints(volt, freq, phase)
+            ok = _reapply_ac_setpoints_to_device(reason=f"手动下发({phase})")
             try:
                 (_ac_itch_ref["log_edit"].append(
-                    f"{'OK' if ok else 'SKIP'}: VOLT {volt} FREQ {freq} {phase}"
+                    f"{'OK' if ok else 'FAIL'}: VOLT {volt} FREQ {freq} {phase}"
                 ))
             except Exception:
                 pass
+            if not ok:
+                try:
+                    QMessageBox.warning(None, "下发失败", "交流参数未成功下发，请查看操作日志")
+                except Exception:
+                    pass
             return
     return ac_controller.send_message(uiACSetting)
 
@@ -2527,6 +2539,23 @@ def ConnectEQUAC():
                 pass
         _remove_equ_from_combo_boxes(tcp_addr)
         _set_equ_combo_locked("comboBox_AC", True)
+        # 仅锁地址下拉；电压/频率/单相三相与下发按钮保持可改可发
+        try:
+            for _w in (
+                getattr(uiACSetting, "comboBox_Phase", None),
+                getattr(uiACSetting, "textEdit_AC_VOLT", None),
+                getattr(uiACSetting, "textEdit_AC_FR", None),
+                getattr(uiACSetting, "pushButton_SendMessage", None),
+            ):
+                if _w is not None:
+                    _w.setEnabled(True)
+            if _ac_itch_ref is not None:
+                for _k in ("combo_phase", "textEdit_VOLT", "textEdit_FR", "btn_send"):
+                    _ww = _ac_itch_ref.get(_k)
+                    if _ww is not None:
+                        _ww.setEnabled(True)
+        except Exception:
+            pass
         _sync_ac_connect_buttons()
         _save_device_status("交流电源", True, tcp_addr)
     else:
@@ -2756,6 +2785,32 @@ def ConnectEQUDC1():
         strFlagSendDCCommandInfomation = "1"
         strFlagOfSendDCCommandTestLog = "1"
         print("直流电源1连接成功")
+        # 仅锁地址下拉；IV/模式/下发按钮保持可改可发（不必断开重连）
+        try:
+            for _w in (
+                getattr(uiDC1Setting, "textEdit_Vmp", None),
+                getattr(uiDC1Setting, "textEdit_Voc", None),
+                getattr(uiDC1Setting, "textEdit_Imp", None),
+                getattr(uiDC1Setting, "textEdit_Isc", None),
+                getattr(uiDC1Setting, "textEdit_PF", None),
+                getattr(uiDC1Setting, "pushButton_SendMessage", None),
+                getattr(uiDC1Setting, "comboBox_DC_Select", None),
+            ):
+                if _w is not None:
+                    _w.setEnabled(True)
+            for _ref in (_dc1_bs_ref, _dc1_itech_ref):
+                if not _ref:
+                    continue
+                for _k, _w in _ref.items():
+                    if _k in ("btn_connect", "ip_edit", "port_edit", "log_edit"):
+                        continue
+                    if hasattr(_w, "setEnabled"):
+                        try:
+                            _w.setEnabled(True)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
         _sync_dc1_connect_buttons()
         _save_device_status("直流电源1", True, tcp_addr)
         _remember_manual_device_slot(
@@ -30706,24 +30761,24 @@ if __name__ == "__main__":
             # ── 将设备设置对话框内容嵌入到对映的设备页面中（替代弹窗） ──
             from setup.main_setup import MainSetup as _MS
 
-            # 交流电源 Grid 布局：设备连接 → 相位 → 电压/频率 → 输出控制 → 单条命令 → 日志
+            # 交流电源 Grid 布局：设备连接 → 相位 → 电压/频率 → 输出控制 → 下发参数 → 日志
             _AC_GRID = [
                 {"title": "设备连接",   "widgets": "__connect_clean__"},
-                {"title": "相位选择",   "widgets": ["comboBox_Phase"]},
+                {"title": "相位选择（单相/三相）",   "widgets": ["comboBox_Phase"]},
                 {"title": "电压/频率设置", "widgets": ["label", "textEdit_AC_VOLT", "label_3",
                                                       "label_2", "textEdit_AC_FR", "label_4"]},
                 {"title": "输出控制",   "widgets": ["pushButton_SetACON", "pushButton_SetACOFF"]},
-                {"title": "单条命令测试", "widgets": ["pushButton_SendMessage"]},
+                {"title": "下发参数（已连接可反复下发）", "widgets": ["pushButton_SendMessage"]},
                 {"title": "操作日志",   "widgets": "__log__"},
             ]
-            # 直流电源1：手动填写 Vmp/Voc/Imp/Isc + 功率%
+            # 直流电源1：IV 四点 Vmp/Voc/Imp/Isc + 功率%
             _DC1_GRID = [
                 {"title": "设备连接",     "widgets": "__connect_clean__"},
-                {"title": "参数设置",     "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
+                {"title": "参数设置（IV 四点）", "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
                                                      "label_2", "textEdit_Imp", "label_4", "textEdit_Isc"]},
-                {"title": "功率设置",     "widgets": ["label_5", "textEdit_PF", "lineEdit_2"]},
+                {"title": "功率设置（功率%）",     "widgets": ["label_5", "textEdit_PF", "lineEdit_2"]},
                 {"title": "输出控制",     "widgets": ["pushButton_SetDC1ON", "pushButton_SetDC1OFF"]},
-                {"title": "发送IV曲线",     "widgets": ["comboBox_DC_Select", "pushButton_SendMessage"]},
+                {"title": "下发 IV 曲线（已连接可反复下发）", "widgets": ["comboBox_DC_Select", "pushButton_SendMessage"]},
                 {"title": "单条命令查询",   "widgets": ["lineEdit", "pushButton_SendQueryMessage"]},
                 {"title": "操作日志",     "widgets": "__log_widget__"},
             ]
@@ -31153,53 +31208,35 @@ if __name__ == "__main__":
                     _ac_breadcrumb.setIndex(int(_saved_ac_idx))
 
                 def _itch_ac_send_command():
-                    """Itech 页面的单条命令发送。"""
+                    """已连接时可改电压/频率/单相三相并重新下发（无需断开重连）。"""
                     global ac_controller
                     if ac_controller is None or not ac_controller.connected:
                         QMessageBox.warning(None, "提示", "交流电源未连接")
                         return
-                    _itch_ac["log_edit"].clear()
                     ac_voltage = _itch_ac["textEdit_VOLT"].toPlainText().strip()
                     ac_frequency = _itch_ac["textEdit_FR"].toPlainText().strip()
                     ac_phase = _itch_ac["combo_phase"].currentText()
                     if not ac_voltage or not ac_frequency:
                         QMessageBox.information(None, "错误", "电压或频率输入有误")
                         return
-                    # 与 devices/ac_controller / ac_scpi_commands 一致：三相同压走 EDIT ALL
-                    if ac_phase == "单相":
-                        command_list = [
-                            "INST:PHAS SINGLE",
-                            "INST:EDIT ALL",
-                            "VOLT " + ac_voltage,
-                            "FREQ " + ac_frequency,
-                        ]
-                    elif ac_phase == "三相":
-                        command_list = [
-                            "INST:PHAS THREE",
-                            "INST:EDIT ALL",
-                            "VOLT " + ac_voltage,
-                            "FREQ " + ac_frequency,
-                        ]
-                    else:
-                        command_list = []
-                    for command in command_list:
-                        if ac_controller._itech is not None:
-                            ok, _ = ac_controller._itech.translate(command)
-                            if ok:
-                                _itch_ac["log_edit"].append(f"OK: {command}")
-                                ui.textEdit_ReturnMessage.append(f"[AC Itech] OK: {command}")
-                            else:
-                                _itch_ac["log_edit"].append(f"FAIL: {command} (Modbus)")
-                                ui.textEdit_ReturnMessage.append(f"[AC Itech] FAIL: {command} (Modbus)")
-                        else:
-                            try:
-                                ac_controller.handle.write(command)
-                                _itch_ac["log_edit"].append(f"OK: {command}")
-                                ui.textEdit_ReturnMessage.append(f"[AC Itech] OK: {command}")
-                            except Exception as e:
-                                _itch_ac["log_edit"].append(f"ERROR: {command} - {e}")
-                                ui.textEdit_ReturnMessage.append(f"[AC Itech] ERROR: {command} - {e}")
+                    ok = _reapply_ac_setpoints_to_device(
+                        reason=f"手动下发({ac_phase})"
+                    )
+                    msg = (
+                        f"{'OK' if ok else 'FAIL'}: VOLT {ac_voltage} FREQ {ac_frequency} {ac_phase}"
+                    )
+                    try:
+                        _itch_ac["log_edit"].append(msg)
+                    except Exception:
+                        pass
+                    if not ok:
+                        QMessageBox.warning(
+                            None,
+                            "下发失败",
+                            "参数未成功下发到交流源。请确认已连接，或查看操作日志。",
+                        )
 
+                _itch_ac["btn_send"].setText("下发参数（电压/频率/相位）")
                 _itch_ac["btn_send"].clicked.connect(_itch_ac_send_command)
 
             # ── DC1 面包屑：Chroma / Bluesight 切换 ──
@@ -31300,7 +31337,7 @@ if __name__ == "__main__":
                 sf_lay.addWidget(QLabel("填充因子:"), 1, 0)
                 sf_lay.addWidget(sp_ff, 1, 1)
 
-                btn_send_curve = QPushButton("发送参数到设备（曲线）")
+                btn_send_curve = QPushButton("下发曲线参数（已连接可反复下发）")
                 apply_button_style(btn_send_curve, ButtonStyle.INFO)
                 sf_lay.addWidget(btn_send_curve, 1, 2, 1, 2)
 
@@ -31319,9 +31356,9 @@ if __name__ == "__main__":
                 combo_outmode.setStyleSheet(_INPUT_QSS)
                 combo_outmode.setMinimumWidth(120)
                 outmode_row.addWidget(combo_outmode)
-                btn_apply_outmode = QPushButton("发送参数")
+                btn_apply_outmode = QPushButton("下发负载参数")
                 apply_button_style(btn_apply_outmode, ButtonStyle.PRIMARY)
-                btn_apply_outmode.setMinimumWidth(100)
+                btn_apply_outmode.setMinimumWidth(120)
                 outmode_row.addWidget(btn_apply_outmode)
                 outmode_row.addStretch(1)
                 orig_lay.addLayout(outmode_row)
@@ -31521,24 +31558,28 @@ if __name__ == "__main__":
                 pl.setSpacing(6)
                 lbl_vmp = QLabel("Vmp:")
                 lbl_vmp.setStyleSheet(_LABEL_QSS)
+                lbl_vmp.setToolTip("最大功率点电压 (V) — IV 曲线工作点电压")
                 pl.addWidget(lbl_vmp, 0, 0)
                 pl.addWidget(textEdit_Vmp, 0, 1)
                 lbl_voc = QLabel("Voc:")
                 lbl_voc.setStyleSheet(_LABEL_QSS)
+                lbl_voc.setToolTip("开路电压 (V) — 不带载时电压")
                 pl.addWidget(lbl_voc, 0, 2)
                 pl.addWidget(textEdit_Voc, 0, 3)
                 lbl_imp = QLabel("Imp:")
                 lbl_imp.setStyleSheet(_LABEL_QSS)
+                lbl_imp.setToolTip("最大功率点电流 (A) — 与 Vmp 对应")
                 pl.addWidget(lbl_imp, 1, 0)
                 pl.addWidget(textEdit_Imp, 1, 1)
                 lbl_isc = QLabel("Isc:")
                 lbl_isc.setStyleSheet(_LABEL_QSS)
+                lbl_isc.setToolTip("短路电流 (A) — 输出短路时电流")
                 pl.addWidget(lbl_isc, 1, 2)
                 pl.addWidget(textEdit_Isc, 1, 3)
-                timeline.addStep("参数设置", param_content)
+                timeline.addStep("参数设置（IV 四点）", param_content)
 
-                # ── Step 3: 直流源设置 ──
-                btn_send = QPushButton("直流源设置")
+                # ── Step 3: 下发 IV（已连接可改参后反复下发）──
+                btn_send = QPushButton("下发 IV 参数（已连接可反复下发）")
                 apply_button_style(btn_send, ButtonStyle.PRIMARY)
                 send_content = QWidget()
                 send_content.setStyleSheet("background: transparent;")
@@ -31546,7 +31587,7 @@ if __name__ == "__main__":
                 sl.setContentsMargins(0, 0, 0, 0)
                 sl.addWidget(btn_send)
                 sl.addStretch(1)
-                timeline.addStep("直流源设置", send_content)
+                timeline.addStep("下发 IV 参数", send_content)
 
                 # ── Step 4: 输出控制 ──
                 btn_on = QPushButton("打开输出")
@@ -31682,6 +31723,11 @@ if __name__ == "__main__":
                         QMessageBox.warning(_dc1_page, "提示", "未连接 Modbus，无法发送曲线")
                         return
                     if _bs_dc1["combo_mode"].currentIndex() != 1:
+                        QMessageBox.information(
+                            _dc1_page,
+                            "提示",
+                            "当前不是 SAS 模式。请先选「SAS」并点「应用模式」，再发送曲线参数。",
+                        )
                         return
                     try:
                         pmpp_val = _bs_dc1["sp_pmpp"].value()
@@ -31754,9 +31800,23 @@ if __name__ == "__main__":
                         OpenDC1OUTPUTON()
                     else:
                         CloseDC1OUTPUTON()
-                    _bs_dc1["btn_apply_mode"].setEnabled(not opening)
-                    _bs_dc1["combo_mode"].setEnabled(not opening)
-                    _bs_dc1["combo_outmode"].setEnabled(not opening)
+                    # 输出开着时仍允许改模式/参数并重新下发（不必断开重连）
+                    for _k in (
+                        "btn_apply_mode",
+                        "combo_mode",
+                        "combo_outmode",
+                        "btn_send_curve",
+                        "btn_apply_outmode",
+                        "sp_pmpp",
+                        "sp_umpp",
+                        "sp_ff",
+                    ):
+                        _w = _bs_dc1.get(_k)
+                        if _w is not None:
+                            try:
+                                _w.setEnabled(True)
+                            except Exception:
+                                pass
 
                 _bs_dc1["combo_mode"].currentIndexChanged.connect(lambda: _bs_sync_mode_panel())
                 _bs_dc1["combo_outmode"].currentIndexChanged.connect(lambda: _bs_sync_outmode_page())
@@ -31845,37 +31905,15 @@ if __name__ == "__main__":
                 _itech_dc1["btn_off"].clicked.connect(CloseDC1OUTPUTON)
 
                 def _itech_dc1_send_params():
-                    """发送 Itech SOL:USER 四参数到直流电源1。"""
+                    """已连接时可改 IV 四参数并重新下发（无需断开重连）。"""
                     if dc1_controller is None or not dc1_controller.connected:
                         QMessageBox.warning(None, "提示", "直流电源1未连接")
                         return
-                    vmp = _itech_dc1["textEdit_Vmp"].toPlainText().strip()
-                    voc = _itech_dc1["textEdit_Voc"].toPlainText().strip()
-                    imp = _itech_dc1["textEdit_Imp"].toPlainText().strip()
-                    isc = _itech_dc1["textEdit_Isc"].toPlainText().strip()
-                    if not all([vmp, voc, imp, isc]):
-                        QMessageBox.warning(None, "提示", "Vmp/Voc/Imp/Isc 四个参数不能为空")
+                    ok = _reapply_dc1_setpoints_to_device(
+                        reason="手动下发 IV", show_errors=True
+                    )
+                    if not ok:
                         return
-                    try:
-                        commands = [
-                            f"SOL:USER:VOC {voc}",
-                            f"SOL:USER:IMP {imp}",
-                            f"SOL:USER:VMP {vmp}",
-                            f"SOL:USER:ISC {isc}",
-                        ]
-                        for cmd in commands:
-                            dc1_controller.handle.write(cmd)
-                            time.sleep(0.2)
-                        _itech_dc1["log_edit"].append(
-                            f"[DC1 Itech] 参数已发送: Vmp={vmp}, Voc={voc}, Imp={imp}, Isc={isc}"
-                        )
-                        ui.textEdit_ReturnMessage.append(
-                            f"[DC1 Itech] 参数已发送: Vmp={vmp}, Voc={voc}, Imp={imp}, Isc={isc}"
-                        )
-                    except Exception as e:
-                        _itech_dc1["log_edit"].append(f"[DC1 Itech] 参数发送失败: {e}")
-                        QMessageBox.critical(None, "错误", f"发送失败: {e}")
-                        ui.textEdit_ReturnMessage.append(f"[DC1 Itech] 参数发送失败: {e}")
 
                 _itech_dc1["btn_send"].clicked.connect(_itech_dc1_send_params)
 
@@ -32028,7 +32066,7 @@ if __name__ == "__main__":
                 _ph.setStyleSheet("background: #e2e5ea;")
                 _ph_lay = QtWidgets.QVBoxLayout(_ph)
                 _ph_lay.setContentsMargins(0, 0, 0, 0)
-                _ph_lbl = QtWidgets.QLabel("试验参数页准备中…")
+                _ph_lbl = QtWidgets.QLabel("选择本试验后加载参数页…")
                 _ph_lbl.setObjectName("_auto_test_placeholder_label")
                 _ph_lbl.setStyleSheet("color: #6b7280; font-size: 13px; background: transparent;")
                 _ph_lbl.setAlignment(QtCore.Qt.AlignCenter)
@@ -32106,20 +32144,33 @@ if __name__ == "__main__":
             ui._ensure_auto_test_page = _ensure_auto_test_page
 
             def _preload_remaining_auto_test_pages():
-                """主界面显示后，空闲时逐个预热试验页，避免首次点击卡顿。
+                """可选：空闲时逐个预热试验页（默认关闭）。
 
-                安装只拷贝程序文件，不会在安装阶段创建 Qt 页面；预热发生在本机首次启动后。
-                设环境变量 SOLARAUTOTEST_NO_PRELOAD=1 可关闭。
+                全量预热会在 UI 线程创建全部试验 Dialog，工控机上易卡死数分钟。
+                默认仅按需 `_ensure_auto_test_page`；需要预热时设
+                `SOLARAUTOTEST_PRELOAD=1`（兼容旧开关 `SOLARAUTOTEST_NO_PRELOAD=1` 仍跳过）。
                 """
                 import os as _os_preload
 
-                if str(_os_preload.environ.get("SOLARAUTOTEST_NO_PRELOAD", "")).strip().lower() in (
+                _env = _os_preload.environ
+                _no = str(_env.get("SOLARAUTOTEST_NO_PRELOAD", "")).strip().lower() in (
                     "1",
                     "true",
                     "yes",
                     "on",
-                ):
-                    print("[DEBUG_STARTUP] Auto_Test preload skipped (SOLARAUTOTEST_NO_PRELOAD)", flush=True)
+                )
+                _yes = str(_env.get("SOLARAUTOTEST_PRELOAD", "")).strip().lower() in (
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
+                )
+                if _no or not _yes:
+                    print(
+                        "[DEBUG_STARTUP] Auto_Test preload skipped "
+                        "(default off; set SOLARAUTOTEST_PRELOAD=1 to enable)",
+                        flush=True,
+                    )
                     return
                 from PyQt5.QtCore import QTimer as _PreloadTimer
                 from PyQt5.QtWidgets import QApplication as _PreloadApp
@@ -32185,8 +32236,8 @@ if __name__ == "__main__":
                         _PreloadApp.processEvents()
                     except Exception:
                         pass
-                    # 分片加载，保持界面可点
-                    _PreloadTimer.singleShot(40, _step)
+                    # 分片加载；间隔加长，降低工控机卡顿
+                    _PreloadTimer.singleShot(250, _step)
 
                 _PreloadTimer.singleShot(0, _step)
 
@@ -33289,7 +33340,11 @@ if __name__ == "__main__":
             #关闭AC电源输出
             uiACSetting.pushButton_SetACOFF.clicked.connect(CloseACOUTPUTON)
 
-            # 向AC电源发送命令
+            # 向AC电源下发电压/频率/相位（已连接可反复点，不必断开重连）
+            try:
+                uiACSetting.pushButton_SendMessage.setText("下发参数（电压/频率/相位）")
+            except Exception:
+                pass
             uiACSetting.pushButton_SendMessage.clicked.connect(SendACMessage)
 
             # 打开DC1Setting对话框
@@ -33301,7 +33356,21 @@ if __name__ == "__main__":
             # 关闭DC1电源输出
             uiDC1Setting.pushButton_SetDC1OFF.clicked.connect(CloseDC1OUTPUTON)
 
-            #向DC电源发送命令
+            # 向DC电源下发 IV（已连接可改参后反复点）
+            try:
+                uiDC1Setting.pushButton_SendMessage.setText("下发 IV 曲线")
+                for _lbl_name, _tip in (
+                    ("label", "Vmp：最大功率点电压 (V)"),
+                    ("label_3", "Voc：开路电压 (V)"),
+                    ("label_2", "Imp：最大功率点电流 (A)"),
+                    ("label_4", "Isc：短路电流 (A)"),
+                    ("label_5", "功率%：相对额定功率的比例，用于缩放 IV"),
+                ):
+                    _lbl = getattr(uiDC1Setting, _lbl_name, None)
+                    if _lbl is not None:
+                        _lbl.setToolTip(_tip)
+            except Exception:
+                pass
             uiDC1Setting.pushButton_SendMessage.clicked.connect(SendDCTestMessage)
 
             # 向DC1电源发送IV 测试命令
@@ -33462,8 +33531,22 @@ if __name__ == "__main__":
                 QTimer.singleShot(300, _deferred_polish_and_db)
                 # 不传本地闭包 rm（可能仍为 None）；后台线程自己等 RM boot
                 QTimer.singleShot(500, lambda: _schedule_startup_auto_connect(visa_rm=None))
-                # 主界面出来后再预热各试验参数页（安装不会创建 Qt UI；点开前先后台建好）
+                # 默认不预热全部试验页（工控机会卡死）；仅 SOLARAUTOTEST_PRELOAD=1 时启用
                 def _kick_auto_test_preload():
+                    import os as _os_kick
+
+                    if str(_os_kick.environ.get("SOLARAUTOTEST_PRELOAD", "")).strip().lower() not in (
+                        "1",
+                        "true",
+                        "yes",
+                        "on",
+                    ):
+                        print(
+                            "[DEBUG_STARTUP] Auto_Test preload not scheduled "
+                            "(on-demand only)",
+                            flush=True,
+                        )
+                        return
                     _fn = getattr(ui, "_preload_auto_test_pages", None)
                     if callable(_fn):
                         _fn()
