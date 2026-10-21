@@ -88,6 +88,11 @@ def main() -> int:
     ap.add_argument("--prefix", default=DEFAULT_PREFIX)
     ap.add_argument("--emku-env", default="", help="Optional path to EMKU .env; auto-find ENV*.env under E:\\EMKU")
     ap.add_argument("--public-read", action="store_true", help="Set ACL public-read on uploaded objects")
+    ap.add_argument(
+        "--core-only",
+        action="store_true",
+        help="Skip blobs/ HEAD+upload; only latest.json, zip, files-latest.json",
+    )
     args = ap.parse_args()
 
     try:
@@ -159,7 +164,9 @@ def main() -> int:
     blobs_dir = channel_dir / "blobs"
     blob_uploads = 0
     blob_skipped = 0
-    if blobs_dir.is_dir():
+    # --core-only：只传 latest/zip/manifest，跳过 blobs HEAD（网络不稳时避免卡死）
+    core_only = bool(getattr(args, "core_only", False))
+    if blobs_dir.is_dir() and not core_only:
         for blob in sorted(blobs_dir.iterdir()):
             if not blob.is_file():
                 continue
