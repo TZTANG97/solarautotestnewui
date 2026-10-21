@@ -2773,6 +2773,8 @@ class IotUiHandoffService(QObject):
                 "auto_start": auto_start,
                 "wait_finish": wait_finish,
                 "params": params,
+                # 供 _continue_job_after_connect 写入 _awaiting（该方法不在本作用域）
+                "widgets": dict(widgets) if isinstance(widgets, dict) else {},
             }
 
             # 已连好则跳过扫连，避免主线程卡在 TCP/SCPI 探测
@@ -2936,6 +2938,10 @@ class IotUiHandoffService(QObject):
         auto_start = bool(ctx.get("auto_start", False))
         wait_finish = bool(ctx.get("wait_finish", True))
         params = ctx.get("params") or {}
+        widgets = ctx.get("widgets") if isinstance(ctx.get("widgets"), dict) else {}
+        if not widgets and isinstance(params, dict):
+            raw_w = params.get("widgets")
+            widgets = dict(raw_w) if isinstance(raw_w, dict) else {}
 
         try:
             if self.ensure_ready:
