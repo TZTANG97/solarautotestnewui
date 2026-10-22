@@ -18,10 +18,12 @@ from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QRadioButton,
+    QSpinBox,
     QTextEdit,
     QWidget,
 )
@@ -289,11 +291,46 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
                             active_page = stacked.currentWidget()
                     except Exception:
                         pass
+            elif isinstance(w, (QSpinBox, QDoubleSpinBox)):
+                try:
+                    if val is None or val == "":
+                        continue
+                    w.setValue(int(float(val)))
+                except (TypeError, ValueError):
+                    missing.append(str(name))
             elif isinstance(w, QComboBox):
                 if isinstance(val, int):
                     w.setCurrentIndex(val)
                 else:
-                    idx = w.findText(str(val))
+                    text = str(val)
+                    idx = w.findText(text)
+                    # Blockly / 协议常用 Three|Single；桌面 Dialog 选项是 三相|单相
+                    if idx < 0 and key in ("comboBox_S1_AC_2", "comboBox_Phase"):
+                        try:
+                            from utils.iot_boot_params_sync import phase_combo_aliases
+
+                            for cand in phase_combo_aliases(text):
+                                idx = w.findText(str(cand))
+                                if idx >= 0:
+                                    break
+                        except Exception:
+                            pass
+                    # Web/Blockly 写 ON|OFF|true；Dialog 选项是 开启|关闭
+                    if idx < 0 and (
+                        key.startswith("comboBox_S1_AC")
+                        and not key.endswith("_2")
+                        or key.startswith("comboBox_S1_DC")
+                        or key.startswith("comboBox_S_End")
+                    ):
+                        try:
+                            from utils.iot_boot_params_sync import output_combo_aliases
+
+                            for cand in output_combo_aliases(text):
+                                idx = w.findText(str(cand))
+                                if idx >= 0:
+                                    break
+                        except Exception:
+                            pass
                     if idx >= 0:
                         w.setCurrentIndex(idx)
                     else:
@@ -698,6 +735,8 @@ class IotUiHandoffService(QObject):
         self.device_output_off = None
         self.device_dew_build = None
         self.device_switch_flicker = None
+        # 交接写完 Dialog 后：把 S1 AC/DC 同步到 Soft Panel 并尽量下发真机
+        self.device_sync_boot_params = None
 
     def start(self) -> None:
         watched = " ; ".join(str(d / "pending") for d in self._inbox_dirs())
@@ -2336,9 +2375,23 @@ class IotUiHandoffService(QObject):
             ) and isinstance(widgets_for_ui, dict):
                 if "radio_wt3000" not in widgets_for_ui and "radio_wt" in widgets_for_ui:
                     widgets_for_ui = {**widgets_for_ui, "radio_wt3000": widgets_for_ui.get("radio_wt")}
+                try:
+                    from utils.iot_boot_params_sync import fill_missing_phase_volts
+
+                    widgets_for_ui = fill_missing_phase_volts(widgets_for_ui)
+                except Exception:
+                    pass
             missing = apply_widget_values(real_ui, widgets_for_ui)
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
+
+            # 重连等试验：Dialog 写完后同步 Soft Panel 交流相数/直流 IV（用户看到的主界面）
+            try:
+                sync_fn = getattr(self, "device_sync_boot_params", None)
+                if callable(sync_fn) and isinstance(widgets_for_ui, dict) and widgets_for_ui:
+                    sync_fn(widgets_for_ui)
+            except Exception as sync_exc:
+                self._log(f"Soft Panel 启机参数同步跳过: {sync_exc}")
 
             # 闪变/谐波/直流分量/固定PF/过载/重连/过欠压_过欠频/过频降载/欠频升载：挂标准到 Dialog 并同步下拉（不重写已填 widgets）
             if (handler.get("key") or "") == "flicker" and real_ui is not None:
@@ -2944,6 +2997,15 @@ class IotUiHandoffService(QObject):
             widgets = dict(raw_w) if isinstance(raw_w, dict) else {}
 
         try:
+            # 自动连接后再同步 Soft Panel AC/DC（开输出/下发 IV 才有效）
+            try:
+                sync_fn = getattr(self, "device_sync_boot_params", None)
+                if callable(sync_fn) and isinstance(widgets, dict) and widgets:
+                    sync_fn(widgets)
+                    self._log("连接后已同步 Soft Panel 交流相数/直流 IV")
+            except Exception as sync_exc:
+                self._log(f"连接后 Soft Panel 同步跳过: {sync_exc}")
+
             if self.ensure_ready:
                 try:
                     ready_ok, ready_reason = self.ensure_ready(real_ui, test_type)

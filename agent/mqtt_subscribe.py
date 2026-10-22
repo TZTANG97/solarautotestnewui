@@ -134,13 +134,27 @@ def start_subscriber(*, pythonid: str, cfg: Optional[MqttPublishConfig] = None) 
 
         client.on_connect = _on_connect
         try:
+            # 代理/弱网下阻塞 connect 易 timeout；缩短超时并降级为可忽略（WS 仍可开测）
+            try:
+                client.connect_timeout = 8
+            except Exception:
+                pass
             client.connect(conf.host, int(conf.port or 1883), keepalive=60)
             _client = client
             client.loop_start()
             while not _stop.wait(1.0):
                 pass
         except Exception as exc:
-            logger.warning("MQTT 订阅异常: %s", exc)
+            msg = str(exc) or type(exc).__name__
+            if "timed out" in msg.lower() or "timeout" in msg.lower():
+                logger.info(
+                    "MQTT 订阅超时（可忽略，HTTPS/WS 仍可领任务）host=%s:%s — %s",
+                    conf.host,
+                    conf.port,
+                    msg,
+                )
+            else:
+                logger.warning("MQTT 订阅异常: %s", exc)
         finally:
             try:
                 client.loop_stop()

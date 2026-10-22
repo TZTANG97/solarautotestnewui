@@ -139,7 +139,24 @@ def _do_heartbeat(
         from utils.iot_run_snapshot import build_run_snapshot_from_status, snapshot_implies_busy
 
         run_snapshot = build_run_snapshot_from_status(status_json_path)
-        if snapshot_implies_busy(run_snapshot):
+        # 本机互斥锁无人占用时，勿把陈旧 status.json「进行中」报到云端占坑
+        if snapshot_implies_busy(run_snapshot) and not busy:
+            try:
+                from agent import mutex as _mx
+
+                owner_now = str((_mx._read() or {}).get("owner") or "").strip().lower()
+            except Exception:
+                owner_now = ""
+            if owner_now not in ("ui", "agent"):
+                run_snapshot = dict(run_snapshot or {})
+                run_snapshot["status"] = "已中止"
+                run_snapshot["operator_pause"] = False
+                run_snapshot["remain_text"] = ""
+                run_snapshot["remain_s"] = 0.0
+                run_snapshot["current_detail"] = "本机无试验占用，收口陈旧进行中状态"
+            else:
+                busy = True
+        elif snapshot_implies_busy(run_snapshot):
             busy = True
     except Exception:
         run_snapshot = None
@@ -738,9 +755,31 @@ def main(argv: Optional[list] = None) -> int:
             continue
 
         if owner == "ui":
-            logger.info("本机 UI 占用中，本轮不领任务")
-            time.sleep(interval)
-            continue
+            # 试验已结束但 UI 进程仍开着且未放锁 → 清掉后继续领任务
+            local_st = ""
+            try:
+                from utils.iot_run_snapshot import build_run_snapshot_from_status
+
+                snap_ui = build_run_snapshot_from_status(str(repo_root / "status.json"))
+                local_st = str((snap_ui or {}).get("status") or "").strip()
+            except Exception:
+                local_st = ""
+            if local_st in ("进行中", "暂停"):
+                logger.info("本机 UI 占用中，本轮不领任务（status=%s）", local_st or "-")
+                time.sleep(interval)
+                continue
+            try:
+                mutex.force_clear()
+                logger.info(
+                    "UI 锁残留但本机已非运行态（%s），已清锁并继续领任务",
+                    local_st or "空",
+                )
+            except Exception as clr_exc:
+                logger.warning("清 UI 残留锁失败: %s", clr_exc)
+                time.sleep(interval)
+                continue
+            owner = ""
+            agent_busy = False
 
         if agent_busy:
             time.sleep(interval)

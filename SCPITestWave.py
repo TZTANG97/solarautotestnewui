@@ -3099,6 +3099,19 @@ def _apply_dewetron_widgets_to_setting_ui(widgets: dict) -> None:
                 combo.setCurrentText(text)
         except Exception:
             pass
+    # 试验 Dialog 上的「保留小数位数」；设置页若有同名 spin 一并写
+    dec = widgets.get("spinBox_DEW_DecimalPlaces")
+    if dec is None:
+        dec = widgets.get("decimal_places")
+    if dec is not None and str(dec).strip() != "":
+        try:
+            dec_i = int(float(dec))
+            for obj_name in ("spinBox_DEW_DecimalPlaces", "precision_spin"):
+                spin = getattr(dew_ui, obj_name, None)
+                if spin is not None and hasattr(spin, "setValue"):
+                    spin.setValue(dec_i)
+        except (TypeError, ValueError):
+            pass
     # 接线类型 0..4
     wiring = widgets.get("dew_wiring_type")
     try:
@@ -15943,12 +15956,14 @@ def thaivoltprotect10minSend():
         # 共用 AC 启机（爱科同压: EDIT ALL + 一次 VOLT/FREQ）
         append_ac_startup_from_ui(uiThaiVoltProtect10min, strArrayTest, strArrayTestStepSingle)
         strArraySingle = ["" for _ in range(10)]
-        if S1ACStatus == "开启":
+        from utils.iot_boot_params_sync import is_output_on as _iot_out_on
+
+        if _iot_out_on(S1ACStatus, default=True):
             strArraySingle[0] = "AC"
             strArraySingle[1] = "write"
             strArraySingle[2] = "OUTP ON"
             strArraySingle[9] = fS1ACWaitTime
-        elif S1ACStatus == "关闭":
+        else:
             strArraySingle[0] = "AC"
             strArraySingle[1] = "write"
             strArraySingle[2] = "OUTP OFF"
@@ -24293,11 +24308,22 @@ def EndProjectPush(*, force=False, silent_if_idle=False, off_reason="manual"):
             # reset 会清空 first_test；RunProject 若仍卡在 Upper_WT_Config 返回途中，
             # 必须再置位，避免再次拉起整段 WTViewer 自动配置。
             first_test = "1"
+            # 结束试验必须放 UI 锁，否则 Agent 一直「本机 UI 占用中，本轮不领任务」
         elif not silent_if_idle:
             QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
     except NameError:
         if not silent_if_idle:
             QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
+    finally:
+        # 无论是否在跑，结束按钮都尝试放 UI 锁，避免 Agent 永久跳过领任务
+        try:
+            from pathlib import Path as _Path
+
+            from agent.ui_mutex import ui_release
+
+            ui_release(repo_root=_Path(__file__).resolve().parent)
+        except Exception:
+            pass
 
 
 #继续试验按钮按下
@@ -33885,6 +33911,78 @@ if __name__ == "__main__":
                     parent=main_window,
                 )
 
+                def _iot_sync_boot_params_to_soft_panel(widgets, reason="IOT 交接同步 Soft Panel"):
+                    """把云端 S1_* / Soft Panel 键写到主界面 AC/DC，已连接则下发真机。"""
+                    from utils.iot_boot_params_sync import (
+                        extract_ac_boot_from_widgets,
+                        extract_dc1_iv_from_widgets,
+                    )
+
+                    w_in = widgets if isinstance(widgets, dict) else {}
+                    ac = extract_ac_boot_from_widgets(w_in)
+                    phase, volt, freq = ac.get("phase") or "", ac.get("volt") or "", ac.get("freq") or ""
+                    try:
+                        if uiACSetting is not None and (phase or volt or freq):
+                            if phase:
+                                idx = uiACSetting.comboBox_Phase.findText(phase)
+                                if idx >= 0:
+                                    uiACSetting.comboBox_Phase.setCurrentIndex(idx)
+                            if volt:
+                                uiACSetting.textEdit_AC_VOLT.setPlainText(volt)
+                            if freq:
+                                uiACSetting.textEdit_AC_FR.setPlainText(freq)
+                            _iot_log(
+                                f"AC Soft Panel 已同步 phase={phase or '-'} volt={volt or '-'} freq={freq or '-'}"
+                            )
+                            try:
+                                if ac_controller is not None and getattr(ac_controller, "connected", False):
+                                    _reapply_ac_setpoints_to_device(reason=reason)
+                            except Exception as send_exc:
+                                _iot_log(f"AC Soft Panel 真机下发: {send_exc}")
+                    except Exception as exc:
+                        _iot_log(f"AC Soft Panel 同步: {exc}")
+
+                    dc = extract_dc1_iv_from_widgets(w_in)
+                    vmp, voc, imp, isc, pf = (
+                        dc.get("vmp") or "",
+                        dc.get("voc") or "",
+                        dc.get("imp") or "",
+                        dc.get("isc") or "",
+                        dc.get("pf") or "",
+                    )
+                    try:
+                        if any((vmp, voc, imp, isc, pf)):
+                            if _dc1_itech_ref is not None:
+                                for key, val in (
+                                    ("textEdit_Vmp", vmp),
+                                    ("textEdit_Voc", voc),
+                                    ("textEdit_Imp", imp),
+                                    ("textEdit_Isc", isc),
+                                ):
+                                    if val and _dc1_itech_ref.get(key):
+                                        _dc1_itech_ref[key].setPlainText(val)
+                            if uiDC1Setting is not None:
+                                for name, val in (
+                                    ("textEdit_Vmp", vmp),
+                                    ("textEdit_Voc", voc),
+                                    ("textEdit_Imp", imp),
+                                    ("textEdit_Isc", isc),
+                                    ("textEdit_PF", pf),
+                                ):
+                                    ww = getattr(uiDC1Setting, name, None)
+                                    if ww is not None and val:
+                                        ww.setPlainText(val)
+                            _iot_log(
+                                f"DC Soft Panel 已同步 Vmp={vmp} Voc={voc} Imp={imp} Isc={isc} PF={pf or '-'}"
+                            )
+                            try:
+                                if dc1_controller is not None and getattr(dc1_controller, "connected", False):
+                                    _reapply_dc1_setpoints_to_device(reason=reason, show_errors=False)
+                            except Exception as send_exc:
+                                _iot_log(f"DC Soft Panel 真机下发: {send_exc}")
+                    except Exception as exc:
+                        _iot_log(f"DC Soft Panel 同步: {exc}")
+
                 def _iot_device_connect(instrument):
                     from utils.iot_auto_connect import (
                         apply_prepared_connect_jobs,
@@ -33895,69 +33993,15 @@ if __name__ == "__main__":
                     inst = instrument or {}
                     widgets_in = inst.get("widgets") if isinstance(inst.get("widgets"), dict) else {}
 
-                    # AC：同步 Web 单相/三相/电压/频率到桌面 Dialog_AC_Setting
+                    # AC/DC：兼容 Soft Panel 键与试验 Dialog 的 S1_*（Web 重连表单）
                     try:
                         slot_l = str(inst.get("slot") or "").strip().lower()
-                        if slot_l in ("", "ac") and uiACSetting is not None:
-                            phase = str(widgets_in.get("comboBox_Phase") or "").strip()
-                            if phase in ("单相", "三相"):
-                                idx = uiACSetting.comboBox_Phase.findText(phase)
-                                if idx >= 0:
-                                    uiACSetting.comboBox_Phase.setCurrentIndex(idx)
-                            volt = str(widgets_in.get("textEdit_AC_VOLT") or "").strip()
-                            freq = str(widgets_in.get("textEdit_AC_FR") or "").strip()
-                            if volt:
-                                uiACSetting.textEdit_AC_VOLT.setPlainText(volt)
-                            if freq:
-                                uiACSetting.textEdit_AC_FR.setPlainText(freq)
-                            if phase or volt or freq:
-                                _iot_log(
-                                    f"AC 设置已同步 phase={phase or '-'} volt={volt or '-'} freq={freq or '-'}"
-                                )
+                        if slot_l in ("", "ac") or slot_l.startswith("dc"):
+                            _iot_sync_boot_params_to_soft_panel(
+                                widgets_in, reason="IOT 连接前同步 Soft Panel"
+                            )
                     except Exception as exc:
-                        _iot_log(f"AC 参数预同步: {exc}")
-
-                    # DC：同步 Web IV 到桌面所有 DC1 页（Itech/Chroma），勿只写隐藏页
-                    try:
-                        slot_l = str(inst.get("slot") or "").strip().lower()
-                        if slot_l.startswith("dc"):
-                            vmp = str(widgets_in.get("textEdit_Vmp") or "").strip()
-                            voc = str(widgets_in.get("textEdit_Voc") or "").strip()
-                            imp = str(widgets_in.get("textEdit_Imp") or "").strip()
-                            isc = str(widgets_in.get("textEdit_Isc") or "").strip()
-                            if any((vmp, voc, imp, isc)):
-                                if _dc1_itech_ref is not None:
-                                    if vmp and _dc1_itech_ref.get("textEdit_Vmp"):
-                                        _dc1_itech_ref["textEdit_Vmp"].setPlainText(vmp)
-                                    if voc and _dc1_itech_ref.get("textEdit_Voc"):
-                                        _dc1_itech_ref["textEdit_Voc"].setPlainText(voc)
-                                    if imp and _dc1_itech_ref.get("textEdit_Imp"):
-                                        _dc1_itech_ref["textEdit_Imp"].setPlainText(imp)
-                                    if isc and _dc1_itech_ref.get("textEdit_Isc"):
-                                        _dc1_itech_ref["textEdit_Isc"].setPlainText(isc)
-                                if uiDC1Setting is not None:
-                                    for name, val in (
-                                        ("textEdit_Vmp", vmp),
-                                        ("textEdit_Voc", voc),
-                                        ("textEdit_Imp", imp),
-                                        ("textEdit_Isc", isc),
-                                    ):
-                                        w = getattr(uiDC1Setting, name, None)
-                                        if w is not None and val:
-                                            w.setPlainText(val)
-                                _iot_log(f"DC IV 已同步 Vmp={vmp} Voc={voc} Imp={imp} Isc={isc}")
-                                # 已连接则立刻下发到真机（仅改 UI 不够）
-                                try:
-                                    if slot_l in ("", "dc1", "dc") and dc1_controller is not None and getattr(
-                                        dc1_controller, "connected", False
-                                    ):
-                                        _reapply_dc1_setpoints_to_device(
-                                            reason="IOT Web 下发 IV", show_errors=False
-                                        )
-                                except Exception as send_exc:
-                                    _iot_log(f"DC IV 真机下发: {send_exc}")
-                    except Exception as exc:
-                        _iot_log(f"DC 参数预同步: {exc}")
+                        _iot_log(f"AC/DC 参数预同步: {exc}")
 
                     # 德威创：先把 Web 下发的 IP/参数写到桌面设置页
                     try:
@@ -34050,40 +34094,15 @@ if __name__ == "__main__":
 
                 def _iot_device_output_on(slot, widgets=None):
                     sl = str(slot or "").strip().lower()
-                    # 开输出前若带了 Web IV，先写入界面并下发真机
+                    # 开输出前：Web S1_* / Soft Panel 键写入主界面并下发
                     try:
                         w_in = widgets if isinstance(widgets, dict) else {}
-                        if sl.startswith("dc") and w_in:
-                            vmp = str(w_in.get("textEdit_Vmp") or "").strip()
-                            voc = str(w_in.get("textEdit_Voc") or "").strip()
-                            imp = str(w_in.get("textEdit_Imp") or "").strip()
-                            isc = str(w_in.get("textEdit_Isc") or "").strip()
-                            if any((vmp, voc, imp, isc)):
-                                if _dc1_itech_ref is not None:
-                                    if vmp and _dc1_itech_ref.get("textEdit_Vmp"):
-                                        _dc1_itech_ref["textEdit_Vmp"].setPlainText(vmp)
-                                    if voc and _dc1_itech_ref.get("textEdit_Voc"):
-                                        _dc1_itech_ref["textEdit_Voc"].setPlainText(voc)
-                                    if imp and _dc1_itech_ref.get("textEdit_Imp"):
-                                        _dc1_itech_ref["textEdit_Imp"].setPlainText(imp)
-                                    if isc and _dc1_itech_ref.get("textEdit_Isc"):
-                                        _dc1_itech_ref["textEdit_Isc"].setPlainText(isc)
-                                if uiDC1Setting is not None:
-                                    for name, val in (
-                                        ("textEdit_Vmp", vmp),
-                                        ("textEdit_Voc", voc),
-                                        ("textEdit_Imp", imp),
-                                        ("textEdit_Isc", isc),
-                                    ):
-                                        ww = getattr(uiDC1Setting, name, None)
-                                        if ww is not None and val:
-                                            ww.setPlainText(val)
-                                if sl in ("", "dc1", "dc"):
-                                    _reapply_dc1_setpoints_to_device(
-                                        reason="IOT 开输出前下发 IV", show_errors=False
-                                    )
+                        if w_in and (sl in ("", "ac") or sl.startswith("dc")):
+                            _iot_sync_boot_params_to_soft_panel(
+                                w_in, reason="IOT 开输出前同步 Soft Panel"
+                            )
                     except Exception as exc:
-                        _iot_log(f"开输出前 DC IV 同步: {exc}")
+                        _iot_log(f"开输出前 AC/DC 同步: {exc}")
                     fn = {
                         "ac": OpenACOUTPUTON,
                         "dc1": OpenDC1OUTPUTON,
@@ -34175,6 +34194,7 @@ if __name__ == "__main__":
                 _iot_ui_handoff_svc.device_output_off = _iot_device_output_off
                 _iot_ui_handoff_svc.device_dew_build = _iot_device_dew_build
                 _iot_ui_handoff_svc.device_switch_flicker = _iot_device_switch_flicker
+                _iot_ui_handoff_svc.device_sync_boot_params = _iot_sync_boot_params_to_soft_panel
                 try:
                     _reconcile_status_json_with_sessions()
                 except Exception as _rec_exc:
