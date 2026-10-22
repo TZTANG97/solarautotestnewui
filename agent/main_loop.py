@@ -243,6 +243,12 @@ def _do_heartbeat(
 
 
 def _setup_log() -> None:
+    """控制台/重定向日志统一 UTF-8，避免中文 Windows 按 GBK 落盘后被 UI 读成乱码。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -702,8 +708,19 @@ def main(argv: Optional[list] = None) -> int:
         pythonid or client.pythonid,
     )
 
+    # 启动时清掉「关软件残留」的死锁，否则会永久跳过领任务
+    try:
+        if mutex.clear_if_stale(ttl_sec=0):
+            logger.info("已清理陈旧互斥锁（持有进程已退出）")
+    except Exception:
+        pass
+
     interval = max(3.0, float(cfg.poll_interval_sec))
     while True:
+        try:
+            mutex.clear_if_stale()
+        except Exception:
+            pass
         data = mutex._read()
         owner = str((data or {}).get("owner") or "")
         agent_busy = owner == "agent"

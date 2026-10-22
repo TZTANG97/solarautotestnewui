@@ -103,6 +103,44 @@ def test_tail_agent_log_missing(tmp_path, monkeypatch):
     assert "尚无" in text or "日志" in text
 
 
+def test_tail_agent_log_decodes_gbk_legacy(tmp_path, monkeypatch):
+    from agent import process_control as pc
+
+    log = tmp_path / "agent.log"
+    log.write_bytes("本机 UI 占用中，本轮不领任务\n".encode("gbk"))
+    monkeypatch.setattr(pc, "log_file", lambda: log)
+    text = pc.tail_agent_log()
+    assert "本机 UI 占用" in text
+    assert "不领任务" in text
+
+
+def test_start_agent_forces_utf8_io(tmp_path, monkeypatch):
+    from agent import process_control as pc
+
+    cfg = tmp_path / "solar_agent.json"
+    cfg.write_text('{"agent_token":"tok","iot_base":"https://example.com"}', encoding="utf-8")
+    monkeypatch.setattr(pc, "config_file", lambda: cfg)
+    monkeypatch.setattr(pc, "is_running", lambda: False)
+    monkeypatch.setattr(pc, "pid_file", lambda: tmp_path / "agent.pid")
+    monkeypatch.setattr(pc, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(pc, "log_file", lambda: tmp_path / "agent.log")
+
+    seen = {}
+
+    class FakeProc:
+        pid = 99
+
+    def fake_popen(cmd, **kwargs):
+        seen["env"] = kwargs.get("env") or {}
+        return FakeProc()
+
+    monkeypatch.setattr(pc.subprocess, "Popen", fake_popen)
+    ok, msg = pc.start_agent()
+    assert ok, msg
+    assert seen["env"].get("PYTHONIOENCODING") == "utf-8"
+    assert seen["env"].get("PYTHONUTF8") == "1"
+
+
 def test_stop_agent_cleans_orphans(tmp_path, monkeypatch):
     from agent import process_control as pc
 

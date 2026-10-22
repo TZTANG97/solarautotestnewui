@@ -64,7 +64,7 @@ def main(argv=None) -> int:
                 "heartbeat_interval_sec": int(data.get("heartbeat_interval_sec") or 15),
                 "dry_run": dry,
                 "mutex_path": data.get("mutex_path") or "",
-                "agent_version": data.get("agent_version") or "0.1.0",
+                "agent_version": data.get("agent_version") or "0.1.1",
             }
         )
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -80,7 +80,7 @@ def main(argv=None) -> int:
             "heartbeat_interval_sec": int(data.get("heartbeat_interval_sec") or 15),
             "dry_run": dry,
             "mutex_path": data.get("mutex_path") or "",
-            "agent_version": data.get("agent_version") or "0.1.0",
+            "agent_version": data.get("agent_version") or "0.1.1",
             "comment": "本机私有配置，勿提交 Git。其他电脑请各自运行 setup_SolarAgentConfig.bat",
         }
     )

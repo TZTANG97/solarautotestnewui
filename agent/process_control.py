@@ -154,6 +154,20 @@ def read_agent_comm_info() -> dict:
     return info
 
 
+def _decode_agent_log_bytes(raw: bytes) -> str:
+    """Agent 日志按 UTF-8 优先；旧进程在中文 Windows 上可能落 GBK，做兼容解码。"""
+    if not raw:
+        return ""
+    # 跳过 seek 产生的半截多字节前缀，减少误判
+    raw = raw.lstrip(b"\r\n")
+    for enc in ("utf-8-sig", "utf-8", "gbk", "cp936"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
 def tail_agent_log(*, max_bytes: int = 80_000) -> str:
     """读取 Agent 日志尾部；文件不存在时返回提示。"""
     path = log_file()
@@ -165,7 +179,7 @@ def tail_agent_log(*, max_bytes: int = 80_000) -> str:
             if size > max_bytes:
                 f.seek(-max_bytes, os.SEEK_END)
             raw = f.read()
-        text = raw.decode("utf-8", errors="replace")
+        text = _decode_agent_log_bytes(raw)
         if size > max_bytes:
             text = "…（仅显示末尾）\n" + text
         return text
@@ -177,7 +191,11 @@ _agent_log_fp = None  # keep open for child process lifetime
 
 
 def _ensure_agent_log_fp():
-    """Append log file for agent stdout/stderr; rotate when oversized."""
+    """Append log file for agent stdout/stderr; rotate when oversized.
+
+    用二进制 fd 交给子进程：子进程编码由 PYTHONIOENCODING=utf-8 决定，
+    避免父进程 text 模式 encoding 与子进程 locale(GBK) 混写导致乱码。
+    """
     global _agent_log_fp
     path = log_file()
     try:
@@ -196,11 +214,13 @@ def _ensure_agent_log_fp():
                     return _agent_log_fp
             except Exception:
                 _agent_log_fp = None
-        _agent_log_fp = open(path, "a", encoding="utf-8", errors="replace", buffering=1)
+        _agent_log_fp = open(path, "ab", buffering=0)
         try:
-            _agent_log_fp.write(
-                f"\n----- agent launch {__import__('datetime').datetime.now().isoformat(timespec='seconds')} -----\n"
+            banner = (
+                f"\n----- agent launch "
+                f"{__import__('datetime').datetime.now().isoformat(timespec='seconds')} -----\n"
             )
+            _agent_log_fp.write(banner.encode("utf-8"))
             _agent_log_fp.flush()
         except Exception:
             pass
@@ -263,10 +283,19 @@ def start_agent(*, allow_without_token: bool = False) -> Tuple[bool, str]:
             return False, "config/solar_agent.json 尚无有效令牌"
     except Exception:
         return False, "无法读取 Agent 配置"
+    # 启动前清陈旧互斥，避免上次关软件残留 ui/agent 锁导致永不领任务
+    try:
+        from agent.ui_mutex import ui_force_clear
+
+        ui_force_clear(repo_root=repo_root())
+    except Exception:
+        pass
     root = repo_root()
     env = os.environ.copy()
-    for k in ("PYTHONUNBUFFERED",):
-        env.pop(k, None)
+    # 中文 Windows 默认 GBK：不强制 UTF-8 时日志写入 .solar_agent.log 会被 UI 当 UTF-8 读成乱码
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONUNBUFFERED"] = "1"
     popen_kwargs = _hidden_popen_kwargs()
     last_exc: Optional[BaseException] = None
     proc = None
@@ -401,6 +430,12 @@ def stop_agent() -> Tuple[bool, str]:
         cleaned += 1
     if cleaned:
         msgs.append(f"已清理残留 Agent {cleaned} 个")
+    try:
+        from agent.ui_mutex import ui_force_clear
+
+        ui_force_clear(repo_root=repo_root())
+    except Exception:
+        pass
     return True, "; ".join(msgs)
 
 
@@ -409,6 +444,12 @@ def stop_agent_for_app_exit() -> Tuple[bool, str]:
     msgs: list = []
     ok, msg = stop_agent()
     msgs.append(msg)
+    try:
+        from agent.ui_mutex import ui_force_clear
+
+        ui_force_clear(repo_root=repo_root())
+    except Exception:
+        pass
     orphans = _iter_repo_agent_pids()
     cleaned = 0
     for opid in orphans:

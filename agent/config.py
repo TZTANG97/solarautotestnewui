@@ -24,7 +24,7 @@ class AgentConfig:
     dry_run: bool = True
     execution_mode: str = ""  # dry_run | handoff | live；空则跟 dry_run
     mutex_path: str = ""
-    agent_version: str = "0.1.0"
+    agent_version: str = "0.1.1"
     mqtt: MqttPublishConfig = field(default_factory=MqttPublishConfig)
 
     @property
