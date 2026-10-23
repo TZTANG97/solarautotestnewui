@@ -29,6 +29,7 @@ def empty_prefs() -> Dict[str, Any]:
         "useSavedTestParams": True,
         "instruments": [],
         "testParamsByType": {},
+        "bootParams": {},
         "updatedAt": "",
         "source": "desktop",
     }
@@ -71,6 +72,13 @@ def loads_prefs(raw: Any) -> Dict[str, Any]:
                 "savedAt": str(v.get("savedAt") or "")[:40],
             }
         out["testParamsByType"] = cleaned
+    boot = data.get("bootParams")
+    if isinstance(boot, dict):
+        out["bootParams"] = {
+            str(k)[:80]: v
+            for k, v in list(boot.items())[:120]
+            if k is not None and str(k).strip()
+        }
     out["updatedAt"] = str(data.get("updatedAt") or "")[:40]
     out["source"] = str(data.get("source") or "desktop")[:32]
     return out
@@ -136,6 +144,17 @@ def merge_patch(current: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any
                 "savedAt": str(v.get("savedAt") or datetime.now().isoformat(timespec="seconds"))[:40],
             }
         out["testParamsByType"] = base_map
+    if isinstance(patch.get("bootParams"), dict):
+        base_boot = dict(out.get("bootParams") or {})
+        for k, v in patch["bootParams"].items():
+            key = str(k or "").strip()[:80]
+            if not key:
+                continue
+            if v is None or v == "":
+                base_boot.pop(key, None)
+            else:
+                base_boot[key] = v
+        out["bootParams"] = dict(list(base_boot.items())[:120])
     out["source"] = str(patch.get("source") or out.get("source") or "desktop")[:32]
     return out
 

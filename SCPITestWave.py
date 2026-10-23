@@ -683,8 +683,11 @@ def SaveDEWETRONConfigWithLoading():
         btn.setText("保存")
 
 
-def SaveDEWETRONConfig():
-    """从设备读取当前配置，根据 UI 设置修改，再通过 :SETUP:APPLY 上传到设备。"""
+def SaveDEWETRONConfig(silent=False):
+    """从设备读取当前配置，根据 UI 设置修改，再通过 :SETUP:APPLY 上传到设备。
+
+    silent=True：IOT 下发路径，不弹窗，返回 bool。
+    """
     global dewetron_controller
     global uiDewetronSetting
     from datetime import datetime
@@ -725,8 +728,9 @@ def SaveDEWETRONConfig():
         dewetron_controller = DewetronController(logger, _show_connect_message, now_to_datenow, rm=rm, ui=uiDewetronSetting)
     if not dewetron_controller.connected:
         _log("DEWETRON未连接")
-        _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
-        return
+        if not silent:
+            _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
+        return False
     channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
 
     # 2. 判断设备 XML 是否可用（太小或没有接线方式 → 用本地引导模板）
@@ -745,8 +749,9 @@ def SaveDEWETRONConfig():
             _log(f"已读取引导模板: {len(xml_string)} 字符, {len(channel_id_map)} 个通道ID")
         else:
             _log("引导模板不存在，无法继续")
-            _show_connect_message("无可用配置，请先在 OXYGEN 中配置设备", uiDewetronSetting)
-            return
+            if not silent:
+                _show_connect_message("无可用配置，请先在 OXYGEN 中配置设备", uiDewetronSetting)
+            return False
     else:
         _log(f"从设备读取配置: {len(xml_string)} 字符, {len(channel_id_map)} 个通道ID")
 
@@ -781,8 +786,9 @@ def SaveDEWETRONConfig():
             empty_slots.append(slot_name)
     if empty_slots:
         _log(f"以下通道未填写: {', '.join(empty_slots)}")
-        _show_connect_message(f"请填写所有通道，以下槽位为空: {', '.join(empty_slots)}", uiDewetronSetting)
-        return
+        if not silent:
+            _show_connect_message(f"请填写所有通道，以下槽位为空: {', '.join(empty_slots)}", uiDewetronSetting)
+        return False
 
     # 3. 从设备 XML 中读取 InputChannels 映射
     input_channels = dewetron_controller.read_input_channels(xml_string)
@@ -822,15 +828,18 @@ def SaveDEWETRONConfig():
     # 5. 发送 :SETUP:APPLY
     if dewetron_controller.send_apply_config(modified_xml):
         _log("配置已应用")
-        from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.information(None, "保存成功", "DEWETRON 配置已应用")
-    else:
-        _log("APPLY 发送失败")
+        if not silent:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.information(None, "保存成功", "DEWETRON 配置已应用")
+        return True
+    _log("APPLY 发送失败")
+    if not silent:
         from PyQt5.QtWidgets import QMessageBox
         if dewetron_controller.connected:
             QMessageBox.warning(None, "保存失败", "配置应用失败，可能原因：\n1. 设备处理超时\n2. XML 格式错误\n\n请检查设备状态后重试")
         else:
             QMessageBox.warning(None, "连接丢失", "DEWETRON 连接已断开，重连失败。\n\n请手动断开后重新连接设备")
+    return False
 
 
 def BuildDEWETRONTestPageWithLoading():
@@ -851,31 +860,40 @@ def BuildDEWETRONTestPageWithLoading():
         btn.setText("测试界面构造")
 
 
-def BuildDEWETRONTestPage():
-    """构造 DEWETRON 电力组测试页面（独立补丁，不修改现有逻辑）。"""
+def BuildDEWETRONTestPage(silent=False):
+    """构造 DEWETRON 电力组测试页面。
+
+    silent=True：IOT 下发路径，不弹窗，返回 bool。
+    """
     global dewetron_controller
     from DewetronTestPage import build_test_page_from_device
     from PyQt5.QtWidgets import QMessageBox
     import time
 
     if dewetron_controller is None or not dewetron_controller.connected:
-        _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
-        QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
-        return
+        if not silent:
+            _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
+            QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
+        return False
 
+    log_fn = uiDewetronSetting.log if uiDewetronSetting is not None else None
     # 读取设备 XML，失败时重试（设备可能还在处理配置）
     for attempt in range(3):
         if attempt > 0:
             wait_time = 2 * attempt
-            uiDewetronSetting.log(f"等待 {wait_time} 秒后重试...")
+            if log_fn:
+                log_fn(f"等待 {wait_time} 秒后重试...")
             print(f"[BuildTestPage] 等待 {wait_time} 秒后重试...")
             time.sleep(wait_time)
 
-        if build_test_page_from_device(dewetron_controller, log_fn=uiDewetronSetting.log):
-            QMessageBox.information(None, "构造完成", "测试界面已构造")
-            return
+        if build_test_page_from_device(dewetron_controller, log_fn=log_fn):
+            if not silent:
+                QMessageBox.information(None, "构造完成", "测试界面已构造")
+            return True
 
-    QMessageBox.warning(None, "构造失败", "测试界面构造失败，请检查设备连接")
+    if not silent:
+        QMessageBox.warning(None, "构造失败", "测试界面构造失败，请检查设备连接")
+    return False
 
 
 def CloseACOUTPUTON():
@@ -1122,22 +1140,107 @@ def _ac_status_extra():
 
 
 def _dc_status_extra(device_name="直流电源1"):
-    """直流源当前 IV 设定写入 status.json。"""
+    """直流源当前 IV 设定 + 额定电流上限写入 status.json（供 IOT Isc 校验）。"""
     try:
         from utils.status_json_devices import read_dc_ui_snapshot
 
         name = str(device_name or "")
         slot = "dc1"
         ui_name = "uiDC1Setting"
+        idx = 0
         if "2" in name:
-            slot, ui_name = "dc2", "uiDC2Setting"
+            slot, ui_name, idx = "dc2", "uiDC2Setting", 1
         elif "3" in name:
-            slot, ui_name = "dc3", "uiDC3Setting"
+            slot, ui_name, idx = "dc3", "uiDC3Setting", 2
         elif "4" in name:
-            slot, ui_name = "dc4", "uiDC4Setting"
-        return read_dc_ui_snapshot(globals().get(ui_name), slot=slot)
+            slot, ui_name, idx = "dc4", "uiDC4Setting", 3
+        snap = read_dc_ui_snapshot(globals().get(ui_name), slot=slot)
+        if not isinstance(snap, dict):
+            snap = {"measures": {}}
+        try:
+            arr = globals().get("ArrayfDCCurrValue") or []
+            if idx < len(arr):
+                lim = float(arr[idx])
+                if lim > 0:
+                    measures = dict(snap.get("measures") or {}) if isinstance(snap.get("measures"), dict) else {}
+                    measures["curr_max"] = lim
+                    snap["measures"] = measures
+                    snap["curr_max"] = lim
+        except (TypeError, ValueError, IndexError):
+            pass
+        return snap
     except Exception:
         return {"measures": {}}
+
+
+def _refresh_dc_curr_max_status(dc_index=None):
+    """ArrayfDCCurrValue 变更后刷新 status.json，供 Agent/IOT 读到工控机实际电流上限。"""
+    names = ("直流电源1", "直流电源2", "直流电源3", "直流电源4")
+    ctrls = (
+        globals().get("dc1_controller"),
+        globals().get("dc2_controller"),
+        globals().get("dc3_controller"),
+        globals().get("dc4_controller"),
+    )
+    idxs = range(4) if dc_index is None else (int(dc_index),)
+    for i in idxs:
+        if i < 0 or i >= 4:
+            continue
+        ctrl = ctrls[i]
+        if ctrl is None or not getattr(ctrl, "connected", False):
+            continue
+        try:
+            _save_device_status(names[i], True, "", extra=_dc_status_extra(names[i]))
+        except Exception as exc:
+            print(f"[DC上限] 刷新 status 失败 DC{i + 1}: {exc}", flush=True)
+
+
+def _sync_array_dc_curr_from_device(dc_index: int) -> None:
+    """从已连直流源读回 OCP/电流上限，写入 ArrayfDCCurrValue（覆盖默认 15.75）。"""
+    global ArrayfDCCurrValue
+    if not (0 <= int(dc_index) < 4):
+        return
+    ctrls = (
+        globals().get("dc1_controller"),
+        globals().get("dc2_controller"),
+        globals().get("dc3_controller"),
+        globals().get("dc4_controller"),
+    )
+    ctrl = ctrls[int(dc_index)]
+    if ctrl is None:
+        return
+    brand = None
+    try:
+        factors = globals().get("per_dc_factor") or {}
+        brand = factors.get(str(dc_index)) or factors.get(dc_index)
+    except Exception:
+        brand = None
+    try:
+        from utils.iot_brand_limit_read import read_dc_output_limits
+
+        lim = read_dc_output_limits(ctrl, brand)
+        if not isinstance(lim, dict) or lim.get("_unread"):
+            return
+        cm = lim.get("curr_max")
+        if cm is None:
+            return
+        val = float(cm)
+        if val <= 0:
+            return
+        if not isinstance(ArrayfDCCurrValue, list) or len(ArrayfDCCurrValue) < 4:
+            ArrayfDCCurrValue = [15.75, 15.75, 15.75, 15.75]
+        ArrayfDCCurrValue[int(dc_index)] = val
+        try:
+            from utils.app_context import get_app_context
+
+            ctx = get_app_context()
+            if ctx is not None:
+                ctx.ArrayfDCCurrValue = ArrayfDCCurrValue
+        except Exception:
+            pass
+        print(f"[DC上限] DC{int(dc_index) + 1} 读回 curr_max={val}", flush=True)
+    except Exception as exc:
+        print(f"[DC上限] DC{int(dc_index) + 1} 读回失败: {exc}", flush=True)
 
 
 def _dewetron_status_extra():
@@ -2819,6 +2922,11 @@ def ConnectEQUDC1():
             kind_hint="dc",
             brand_hint=str(per_dc_factor.get("0") or _dc1_device_type or ""),
         )
+        try:
+            _sync_array_dc_curr_from_device(0)
+            _refresh_dc_curr_max_status(0)
+        except Exception:
+            pass
         _reapply_dc1_setpoints_to_device(reason="连接后恢复设定", show_errors=False)
     else:
         ui.textEdit_ReturnMessage.append(f"[DC1] 连接失败 ({device_type}) {tcp_addr}")
@@ -2888,6 +2996,11 @@ def ConnectEQUDC2():
             kind_hint="dc",
             brand_hint=str(per_dc_factor.get("1") or _dc2_device_type or ""),
         )
+        try:
+            _sync_array_dc_curr_from_device(1)
+            _refresh_dc_curr_max_status(1)
+        except Exception:
+            pass
 
 
 @_with_device_ui_busy("ConnectEQUDC3")
@@ -2950,6 +3063,11 @@ def ConnectEQUDC3():
             kind_hint="dc",
             brand_hint=str(per_dc_factor.get("2") or _dc3_device_type or ""),
         )
+        try:
+            _sync_array_dc_curr_from_device(2)
+            _refresh_dc_curr_max_status(2)
+        except Exception:
+            pass
 
 
 @_with_device_ui_busy("ConnectEQUDC4")
@@ -3012,6 +3130,11 @@ def ConnectEQUDC4():
             kind_hint="dc",
             brand_hint=str(per_dc_factor.get("3") or _dc4_device_type or ""),
         )
+        try:
+            _sync_array_dc_curr_from_device(3)
+            _refresh_dc_curr_max_status(3)
+        except Exception:
+            pass
 
 @_with_device_ui_busy("ConnectEQUDL850")
 def ConnectEQUDL850():
@@ -26994,7 +27117,13 @@ def ThreadSendDCCommandInfomationTimer():
                             strtimenow + "SendMessageToDC4:" + strCurrMessage)
                         print(
                             strtimenow + "SendMessageToDC4:" + strCurrMessage)
-                    
+
+        # Soft Panel 写完主从电流上限后，刷 status 供 IOT 按工控机实际额定电流校验
+        try:
+            _refresh_dc_curr_max_status()
+        except Exception as _dc_lim_exc:
+            print(f"[DC上限] Soft Panel 后刷新失败: {_dc_lim_exc}", flush=True)
+
     global ThreadSendDCCommandInfomationtimer
     ThreadSendDCCommandInfomationtimer = threading.Timer(1, ThreadSendDCCommandInfomationTimer)
     ThreadSendDCCommandInfomationtimer.start()
@@ -34130,32 +34259,69 @@ if __name__ == "__main__":
                     return bool(fn())
 
                 def _iot_device_dew_build(widgets):
+                    """IOT「下发并构造」：先写 UI → Save（接线/通道 APPLY）→ Build，返回真实成败。"""
                     try:
                         _apply_dewetron_widgets_to_setting_ui(widgets or {})
                     except Exception as exc:
-                        _iot_log(f"德威创参数写入: {exc}")
+                        return {"ok": False, "message": f"德威创参数写入失败: {exc}"}
+
+                    dew_ui = globals().get("uiDewetronSetting")
+                    if dew_ui is not None and hasattr(dew_ui, "_slot_input_widgets"):
+                        empty = [
+                            str(n)
+                            for n, le in (dew_ui._slot_input_widgets or {}).items()
+                            if not getattr(le, "_channel", None)
+                        ]
+                        if empty:
+                            return {
+                                "ok": False,
+                                "message": f"通道未填全，无法下发: {', '.join(empty)}",
+                            }
+
+                    if dewetron_controller is None or not getattr(
+                        dewetron_controller, "connected", False
+                    ):
+                        return {
+                            "ok": False,
+                            "message": "DEWETRON未连接，请先点「连接」再下发构造",
+                        }
+
                     try:
-                        BuildDEWETRONTestPageWithLoading()
-                        try:
-                            # 构造后把桌面当前接线/刷新率回写，供 Web 回填
-                            res = ""
-                            dew_ui = globals().get("uiDewetronSetting")
-                            if dew_ui is not None:
-                                ip = getattr(dew_ui, "lineEdit_deviceIP", None)
-                                port = getattr(dew_ui, "lineEdit_port", None)
-                                host = ip.text().strip() if ip is not None else ""
-                                p = port.text().strip() if port is not None else "10001"
-                                if host:
-                                    res = f"{host}:{p or '10001'}"
-                            if dewetron_controller is not None and dewetron_controller.connected:
-                                _save_device_status(
-                                    "DEWETRON", True, res or "", extra=_dewetron_status_extra()
-                                )
-                        except Exception as sync_exc:
-                            _iot_log(f"德威创回填同步: {sync_exc}")
-                        return {"ok": True, "message": "德威创测试界面构造已执行（桌面页参数已同步）"}
+                        ok_save = bool(SaveDEWETRONConfig(silent=True))
+                    except Exception as exc:
+                        return {"ok": False, "message": f"接线配置下发异常: {exc}"}
+                    if not ok_save:
+                        return {
+                            "ok": False,
+                            "message": "接线/通道配置下发失败（SaveDEWETRONConfig），请检查通道与设备在线状态",
+                        }
+
+                    try:
+                        ok_build = bool(BuildDEWETRONTestPage(silent=True))
                     except Exception as exc:
                         return {"ok": False, "message": f"构造失败: {exc}"}
+                    if not ok_build:
+                        return {
+                            "ok": False,
+                            "message": "测试界面构造失败，请检查设备连接与电力组",
+                        }
+
+                    try:
+                        res = ""
+                        if dew_ui is not None:
+                            ip = getattr(dew_ui, "lineEdit_deviceIP", None)
+                            port = getattr(dew_ui, "lineEdit_port", None)
+                            host = ip.text().strip() if ip is not None else ""
+                            p = port.text().strip() if port is not None else "10001"
+                            if host:
+                                res = f"{host}:{p or '10001'}"
+                        if dewetron_controller is not None and dewetron_controller.connected:
+                            _save_device_status(
+                                "DEWETRON", True, res or "", extra=_dewetron_status_extra()
+                            )
+                    except Exception as sync_exc:
+                        _iot_log(f"德威创回填同步: {sync_exc}")
+                    return {"ok": True, "message": "已下发接线并构造测试界面"}
 
                 def _iot_device_switch_flicker(instrument):
                     """与桌面「切换闪变页面」同命令；WT3000/WT3004E 等走 DISPLAY:MODE FLICker。"""
