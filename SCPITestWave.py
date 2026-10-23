@@ -1227,6 +1227,18 @@ def _sync_array_dc_curr_from_device(dc_index: int) -> None:
         val = float(cm)
         if val <= 0:
             return
+        # Chroma Soft Panel 双台并联：OCP 寄存器常仍是单机 15.75，按 MSTSLV 抬到 31.5
+        try:
+            brand_s = str(brand or "").strip().lower()
+            if "chroma" in brand_s or brand_s in ("", "none", "null"):
+                from utils.chroma_soft_panel_limits import probe_and_scale_limits
+
+                handle = getattr(ctrl, "handle", None)
+                scaled, _pw, units = probe_and_scale_limits(handle)
+                if units > 1:
+                    val = max(val, scaled)
+        except Exception as _mst_exc:
+            print(f"[DC上限] DC{int(dc_index) + 1} 主从缩放跳过: {_mst_exc}", flush=True)
         if not isinstance(ArrayfDCCurrValue, list) or len(ArrayfDCCurrValue) < 4:
             ArrayfDCCurrValue = [15.75, 15.75, 15.75, 15.75]
         ArrayfDCCurrValue[int(dc_index)] = val
@@ -1244,23 +1256,10 @@ def _sync_array_dc_curr_from_device(dc_index: int) -> None:
 
 
 def _resolve_soft_panel_curr_limit(handle, planned: float) -> float:
-    """Soft Panel 写 :sour:curr:prot:high max 后读回真实上限，避免写死 15.75 卡死工况 Isc。"""
-    base = float(planned) if planned and float(planned) > 0 else 15.75
-    if handle is None:
-        return base
-    try:
-        import re as _re
+    """Soft Panel 写 :sour:curr:prot:high max 后读回真实上限。"""
+    from utils.chroma_soft_panel_limits import resolve_curr_limit_after_max
 
-        raw = handle.query(":SOUR:CURR:PROT:HIGH?")
-        m = _re.search(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?", str(raw or ""))
-        if not m:
-            return base
-        qv = float(m.group(0))
-        if qv > 0:
-            return max(base, qv)
-    except Exception as exc:
-        print(f"[DC上限] Soft Panel 读回失败: {exc}", flush=True)
-    return base
+    return resolve_curr_limit_after_max(handle, planned)
 
 
 def _dewetron_status_extra():
@@ -26691,14 +26690,11 @@ def ThreadSendDCCommandInfomationTimer():
         strArraySettingFlag = []
         strArraySetting.append("*CLS")
         strArraySettingFlag.append("0")
+        # 注意：*RST 会清掉主从，MSTSLV 必须在复位前单独探测（见各 DC 分支 probe_and_scale_limits）
         strArraySetting.append("*RST")
         strArraySettingFlag.append("0")
         strArraySetting.append("OUTP OFF")
         strArraySettingFlag.append("0")
-        strArraySetting.append("CONF:MSTSLV?")
-        strArraySettingFlag.append("1")
-        strArraySetting.append("CONF:MSTSLV:NUMSLV?")
-        strArraySettingFlag.append("1")
         strArraySetting.append("IVC:EDIT:SHADOW:MODE 5")
         strArraySettingFlag.append("0")
         strArraySetting.append("Source:Volt 0.00")
@@ -26743,6 +26739,17 @@ def ThreadSendDCCommandInfomationTimer():
 
         if strFlagOfSendDCCommandTestLog == "1":
             if per_dc_factor.get("0") == "Chroma":
+                # 双台并联：RST 前读主从 → 15.75×2=31.5
+                try:
+                    from utils.chroma_soft_panel_limits import probe_and_scale_limits
+
+                    _h = dc1_controller.handle if dc1_controller is not None else None
+                    fDCCurrValue, fDCPowValue, _u = probe_and_scale_limits(_h)
+                    ArrayfDCCurrValue[0] = fDCCurrValue
+                    ArrayfDCPowValue[0] = fDCPowValue
+                    _refresh_dc_curr_max_status(0)
+                except Exception as _p_exc:
+                    print(f"[DC上限] DC1 主从探测失败: {_p_exc}", flush=True)
                 for i in range(len(strArraySetting)):
                     if dc1_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
@@ -26759,6 +26766,7 @@ def ThreadSendDCCommandInfomationTimer():
                                 dc1_controller.handle, fDCCurrValue
                             )
                             ArrayfDCCurrValue[0] = fDCCurrValue
+                            _refresh_dc_curr_max_status(0)
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
@@ -26783,32 +26791,6 @@ def ThreadSendDCCommandInfomationTimer():
                                 strtimenow = now_to_datenow()
                                 logger.info(strtimenow + "SendMessageToDC1:" + strCurrMessage)
                                 print(strtimenow + "SendMessageToDC1:" + strCurrMessage)
-                        elif strArraySettingFlag[i] == "1":
-                            try:
-                                strReturnMessage = dc1_controller.handle.query(strArraySetting[i])
-                            except Exception as e:
-                                print(e)
-                            else:
-                                print(strReturnMessage)
-                                print(strReturnMessage)
-                                if  "ON" in strReturnMessage :
-                                    print("find NO")
-                                    strMSTSLVFlag = "1"
-
-                                if strMSTSLVFlag == "1":
-                                    if  "1" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 2
-                                        fDCPowValue = fDCPowValue * 2
-                                    elif "2" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 3
-                                        fDCPowValue = fDCPowValue * 3
-                                    elif "3" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 4
-                                        fDCPowValue = fDCPowValue * 4
-
-                                strtimenow = now_to_datenow()
-                                logger.info(strtimenow + "ReturnMessageFromDC1:" + strReturnMessage)
-                                print(strtimenow + "ReturnMessageFromDC1:" + strReturnMessage)
 
                         #time.sleep(0.2)
             elif per_dc_factor.get("0") == "Keysight":
@@ -26839,6 +26821,16 @@ def ThreadSendDCCommandInfomationTimer():
 
         elif strFlagOfSendDCCommandTestLog == "2":
             if per_dc_factor.get("1") == "Chroma":
+                try:
+                    from utils.chroma_soft_panel_limits import probe_and_scale_limits
+
+                    _h = dc2_controller.handle if dc2_controller is not None else None
+                    fDCCurrValue, fDCPowValue, _u = probe_and_scale_limits(_h)
+                    ArrayfDCCurrValue[1] = fDCCurrValue
+                    ArrayfDCPowValue[1] = fDCPowValue
+                    _refresh_dc_curr_max_status(1)
+                except Exception as _p_exc:
+                    print(f"[DC上限] DC2 主从探测失败: {_p_exc}", flush=True)
                 for i in range(len(strArraySetting)):
                     if dc2_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
@@ -26857,6 +26849,7 @@ def ThreadSendDCCommandInfomationTimer():
                                 dc2_controller.handle, fDCCurrValue
                             )
                             ArrayfDCCurrValue[1] = fDCCurrValue
+                            _refresh_dc_curr_max_status(1)
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
@@ -26885,31 +26878,6 @@ def ThreadSendDCCommandInfomationTimer():
                                     strtimenow + "SendMessageToDC2:" + strCurrMessage)
                                 print(
                                     strtimenow + "SendMessageToDC2:" + strCurrMessage)
-                        elif strArraySettingFlag[i] == "1":
-                            try:
-                                strReturnMessage = dc2_controller.handle.query(strArraySetting[i])
-                            except Exception as e:
-                                print(e)
-                            else:
-                                if "ON" in strReturnMessage:
-                                    strMSTSLVFlag = "1"
-
-                                if strMSTSLVFlag == "1":
-                                    if "1" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 2
-                                        fDCPowValue = fDCPowValue * 2
-                                    elif "2" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 3
-                                        fDCPowValue = fDCPowValue * 3
-                                    elif "3" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 4
-                                        fDCPowValue = fDCPowValue * 4
-
-                                strtimenow = now_to_datenow()
-                                logger.info(
-                                    strtimenow + "ReturnMessageFromDC2:" + strReturnMessage)
-                                print(
-                                    strtimenow + "ReturnMessageFromDC2:" + strReturnMessage)
 
                         time.sleep(0.2)
             elif per_dc_factor.get("1") == "Keysight":
@@ -26943,6 +26911,16 @@ def ThreadSendDCCommandInfomationTimer():
 
         elif strFlagOfSendDCCommandTestLog == "3":
             if per_dc_factor.get("2") == "Chroma":
+                try:
+                    from utils.chroma_soft_panel_limits import probe_and_scale_limits
+
+                    _h = dc3_controller.handle if dc3_controller is not None else None
+                    fDCCurrValue, fDCPowValue, _u = probe_and_scale_limits(_h)
+                    ArrayfDCCurrValue[2] = fDCCurrValue
+                    ArrayfDCPowValue[2] = fDCPowValue
+                    _refresh_dc_curr_max_status(2)
+                except Exception as _p_exc:
+                    print(f"[DC上限] DC3 主从探测失败: {_p_exc}", flush=True)
                 for i in range(len(strArraySetting)):
                     if dc3_controller is not None and dc3_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
@@ -26961,6 +26939,7 @@ def ThreadSendDCCommandInfomationTimer():
                                 dc3_controller.handle, fDCCurrValue
                             )
                             ArrayfDCCurrValue[2] = fDCCurrValue
+                            _refresh_dc_curr_max_status(2)
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
@@ -26989,31 +26968,6 @@ def ThreadSendDCCommandInfomationTimer():
                                     strtimenow + "SendMessageToDC3:" + strCurrMessage)
                                 print(
                                     strtimenow + "SendMessageToDC3:" + strCurrMessage)
-                        elif strArraySettingFlag[i] == "1":
-                            try:
-                                strReturnMessage = dc3_controller.handle.query(strArraySetting[i])
-                            except Exception as e:
-                                print(e)
-                            else:
-                                if "ON" in strReturnMessage:
-                                    strMSTSLVFlag = "1"
-
-                                if strMSTSLVFlag == "1":
-                                    if "1" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 2
-                                        fDCPowValue = fDCPowValue * 2
-                                    elif "2" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 3
-                                        fDCPowValue = fDCPowValue * 3
-                                    elif "3" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 4
-                                        fDCPowValue = fDCPowValue * 4
-
-                                strtimenow = now_to_datenow()
-                                logger.info(
-                                    strtimenow + "ReturnMessageFromDC3:" + strReturnMessage)
-                                print(
-                                    strtimenow + "ReturnMessageFromDC3:" + strReturnMessage)
 
                         time.sleep(0.2)
             elif per_dc_factor.get("2") == "Keysight":
@@ -27048,6 +27002,16 @@ def ThreadSendDCCommandInfomationTimer():
         # 直流源4
         elif strFlagOfSendDCCommandTestLog == "4":
             if per_dc_factor.get("3") == "Chroma":
+                try:
+                    from utils.chroma_soft_panel_limits import probe_and_scale_limits
+
+                    _h = dc4_controller.handle if dc4_controller is not None else None
+                    fDCCurrValue, fDCPowValue, _u = probe_and_scale_limits(_h)
+                    ArrayfDCCurrValue[3] = fDCCurrValue
+                    ArrayfDCPowValue[3] = fDCPowValue
+                    _refresh_dc_curr_max_status(3)
+                except Exception as _p_exc:
+                    print(f"[DC上限] DC4 主从探测失败: {_p_exc}", flush=True)
                 for i in range(len(strArraySetting)):
                     if dc4_controller is not None and dc4_controller.handle is not None:
                         if strArraySettingFlag[i] == "0":
@@ -27066,6 +27030,7 @@ def ThreadSendDCCommandInfomationTimer():
                                 dc4_controller.handle, fDCCurrValue
                             )
                             ArrayfDCCurrValue[3] = fDCCurrValue
+                            _refresh_dc_curr_max_status(3)
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
                             strCurrMessage = strArraySetting[i] + strCurrValue
@@ -27094,31 +27059,6 @@ def ThreadSendDCCommandInfomationTimer():
                                     strtimenow + "SendMessageToDC4:" + strCurrMessage)
                                 print(
                                     strtimenow + "SendMessageToDC4:" + strCurrMessage)
-                        elif strArraySettingFlag[i] == "1":
-                            try:
-                                strReturnMessage = dc4_controller.handle.query(strArraySetting[i])
-                            except Exception as e:
-                                print(e)
-                            else:
-                                if "ON" in strReturnMessage:
-                                    strMSTSLVFlag = "1"
-
-                                if strMSTSLVFlag == "1":
-                                    if "1" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 2
-                                        fDCPowValue = fDCPowValue * 2
-                                    elif "2" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 3
-                                        fDCPowValue = fDCPowValue * 3
-                                    elif "3" in strReturnMessage:
-                                        fDCCurrValue = fDCCurrValue * 4
-                                        fDCPowValue = fDCPowValue * 4
-
-                                strtimenow = now_to_datenow()
-                                logger.info(
-                                    strtimenow + "ReturnMessageFromDC4:" + strReturnMessage)
-                                print(
-                                    strtimenow + "ReturnMessageFromDC4:" + strReturnMessage)
 
                         time.sleep(0.2)
             elif per_dc_factor.get("3") == "Keysight":
