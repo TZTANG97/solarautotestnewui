@@ -37,8 +37,8 @@ def test_plant_dispatch_not_overload_for_harmonic(tmp_path: Path):
 
 def test_map_harmonic_it_cei():
     t = resolve_analysis_target(test_type="harmonic", solar_standard="it_cei")
-    assert t["standard_pack"] == "CEI_Nbis_NanDe"
-    assert t["test_code"] == "harmonic"
+    assert t["standard_pack"] == "CEI_Nbis_BeiDe"
+    assert t["test_code"] == "3.1"
 
 
 def test_map_brazil_phase1_codes():

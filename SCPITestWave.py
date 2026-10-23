@@ -33553,6 +33553,59 @@ if __name__ == "__main__":
                 pass
             uiDC1Setting.pushButton_SendMessage.clicked.connect(SendDCTestMessage)
 
+            # Soft Panel Sandia 自算 → 回填 Vmp/Imp/Voc/Isc（不下发 Sandia 寄存器）
+            try:
+                from components.sandia_iv_panel import wire_sandia_iv_panel
+
+                def _resolve_sandia_test_ui():
+                    try:
+                        from PyQt5.QtWidgets import QApplication
+
+                        try:
+                            from setup.main_setup import LazyDialog as _LazyDialog
+                        except Exception:
+                            _LazyDialog = None
+
+                        for _name, _obj in list(globals().items()):
+                            if not _name.startswith("uiThai"):
+                                continue
+                            if _obj is None:
+                                continue
+                            # 禁止 hasattr/getattr / .ui 触发 LazyDialog 全量实例化
+                            if _LazyDialog is not None and isinstance(_obj, _LazyDialog):
+                                if not _obj.is_created:
+                                    continue
+                                _ui = getattr(_obj, "_real_ui", None)
+                                if _ui is None:
+                                    continue
+                            else:
+                                _ui = _obj
+                            if not hasattr(_ui, "textEdit_S1_DC1_VOLT"):
+                                continue
+                            _w = getattr(_ui, "textEdit_S1_DC1_VOLT", None)
+                            if _w is None:
+                                continue
+                            try:
+                                _win = _w.window()
+                            except Exception:
+                                _win = None
+                            if _win is not None and _win.isVisible():
+                                return _ui
+                        _fw = QApplication.focusWidget()
+                        if _fw is not None:
+                            _top = _fw.window()
+                            if hasattr(_top, "textEdit_S1_DC1_VOLT"):
+                                return _top
+                    except Exception:
+                        pass
+                    return None
+
+                wire_sandia_iv_panel(
+                    uiDC1Setting, resolve_test_ui=_resolve_sandia_test_ui
+                )
+            except Exception as _sandia_exc:
+                print(f"[Sandia] wire panel skip: {_sandia_exc}", flush=True)
+
             # 向DC1电源发送IV 测试命令
             # uiDC1Setting.pushButton_SendTestMessage.clicked.connect(SendDC1TestMessage)
 

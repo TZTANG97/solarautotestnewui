@@ -27,11 +27,29 @@ def test_map_thai_flicker_nande():
     assert t["test_code"] == "voltage.fluctuation"
 
 
-def test_map_it_cei_harmonic_nande():
+def test_map_it_cei_harmonic_beide_cei016():
+    """意大利 CEI 0-16 → 北德包 + 3.1（图喆/麦田报告，非南德 TDS）。"""
     t = resolve_analysis_target(test_type="harmonic", solar_standard="it_cei")
     assert t is not None
-    assert t["standard_pack"] == "CEI_Nbis_NanDe"
-    assert t["test_code"] == "harmonic"
+    assert t["standard_pack"] == "CEI_Nbis_BeiDe"
+    assert t["test_code"] == "3.1"
+
+
+def test_map_it_cei_flicker_beide_3_3():
+    t = resolve_analysis_target(test_type="flicker", solar_standard="it_cei")
+    assert t is not None
+    assert t["standard_pack"] == "CEI_Nbis_BeiDe"
+    assert t["test_code"] == "3.3"
+
+
+def test_map_en50549_flicker_stays_21_3():
+    """de_vde/en50549 同属北德包，闪变仍走 0-21 的 21.3，不被 CEI 0-16 的 3.3 带偏。"""
+    t = resolve_analysis_target(test_type="flicker", solar_standard="en50549")
+    assert t is not None
+    assert t["standard_pack"] == "CEI_Nbis_BeiDe"
+    assert t["test_code"] == "21.3"
+    t2 = resolve_analysis_target(test_type="flicker", solar_standard="de_vde")
+    assert t2["test_code"] == "21.3"
 
 
 def test_phase1_set():

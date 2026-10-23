@@ -6,12 +6,13 @@ from typing import Dict, Optional, Tuple
 
 # IOT 国家标准 id → 分析软件标准目录名
 STANDARD_PACK: Dict[str, str] = {
+    # 泰国 PEA/MEA → 南德包（PEA TDS 总体 Word）
     "thai": "CEI_Nbis_NanDe",
     "br_ord140": "BRAZIL_140",
     "de_vde": "CEI_Nbis_BeiDe",  # 过渡：德系先走北德包；真 VDE 目录后续再挂
     "en50549": "CEI_Nbis_BeiDe",
-    # 意大利 CEI → 南德包（含 TDS 总体 Word + 各条款 Excel 模板）
-    "it_cei": "CEI_Nbis_NanDe",
+    # 意大利 CEI 0-16 → 北德包（图喆/麦田式 TEST REPORT，非南德 PEA TDS）
+    "it_cei": "CEI_Nbis_BeiDe",
     "as_nzs": "CEI_Nbis_NanDe",
     "uk_g99": "CEI_Nbis_NanDe",
     "iec61727": "CEI_Nbis_NanDe",
@@ -24,6 +25,7 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("overload", "CEI_Nbis_DeKai"): "A.4.9",
     ("flicker", "BRAZIL_140"): "5.4.16",
     ("flicker", "CEI_Nbis_NanDe"): "voltage.fluctuation",
+    # 北德包默认走 0-21（de_vde / en50549）；CEI 0-16 见 TEST_CODE_BY_STANDARD
     ("flicker", "CEI_Nbis_BeiDe"): "21.3",
     ("flicker", "CEI_Nbis_DeKai"): "21.3",
     ("harmonic", "BRAZIL_140"): "5.10",
@@ -52,6 +54,17 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("staticmppt", "BRAZIL_140"): "5.4.26",
 }
 
+# (testType, solar_standard) 覆盖 pack 默认码——意大利 CEI 0-16（图喆/麦田）
+TEST_CODE_BY_STANDARD: Dict[Tuple[str, str], str] = {
+    ("harmonic", "it_cei"): "3.1",
+    ("flicker", "it_cei"): "3.3",
+    ("dccomponent", "it_cei"): "8.1",
+    ("fixedpf", "it_cei"): "6.7",
+    ("reconnect", "it_cei"): "5",
+    ("ovuf", "it_cei"): "4",
+    ("reactiveqin", "it_cei"): "6.1",
+}
+
 DEFAULT_TEST_CODE: Dict[str, str] = {
     "overload": "5.4.2",
     "flicker": "voltage.fluctuation",
@@ -73,7 +86,7 @@ DEFAULT_TEST_CODE: Dict[str, str] = {
     "staticmppt": "5.4.26",
 }
 
-# 结案自动处理：巴西 Ordinance + 南德有完整模板的试验（含二期扩面）
+# 结案自动处理：巴西 Ordinance + 南德 PEA + 北德 CEI 0-16（含二期扩面）
 PHASE1_AUTO_TESTS = frozenset(
     {
         "overload",
@@ -96,8 +109,8 @@ PHASE1_AUTO_TESTS = frozenset(
         "staticmppt",
     }
 )
-# 仅这些分析标准包会真跑（避免北德过渡映射误触发）
-PHASE1_AUTO_PACKS = frozenset({"BRAZIL_140", "CEI_Nbis_NanDe"})
+# 巴西 / 南德 PEA TDS / 北德 CEI 0-16（图喆麦田报告）会真跑
+PHASE1_AUTO_PACKS = frozenset({"BRAZIL_140", "CEI_Nbis_NanDe", "CEI_Nbis_BeiDe"})
 
 # 试点标准：巴西 Ordinance 140（过载）
 PHASE1_PILOT = {
@@ -107,12 +120,20 @@ PHASE1_PILOT = {
     "test_code": "5.4.2",
 }
 
-# 南德完整报告试点（谐波：Excel 模板 + 可进 TDS 总体 Word）
+# 南德完整报告试点（泰国 PEA：Excel + TDS 总体 Word）
 PHASE1_NANDE_PILOT = {
     "test_type": "harmonic",
-    "solar_standard": "it_cei",
+    "solar_standard": "thai",
     "standard_pack": "CEI_Nbis_NanDe",
     "test_code": "harmonic",
+}
+
+# 北德 / CEI 0-16 完整报告试点（意大利：Excel + 图喆麦田式总体 Word）
+PHASE1_BEIDE_PILOT = {
+    "test_type": "harmonic",
+    "solar_standard": "it_cei",
+    "standard_pack": "CEI_Nbis_BeiDe",
+    "test_code": "3.1",
 }
 
 
@@ -135,7 +156,11 @@ def resolve_analysis_target(
     pack = STANDARD_PACK.get(sid)
     if not pack:
         return None
-    code = TEST_CODE_BY_PACK.get((tt, pack)) or DEFAULT_TEST_CODE.get(tt)
+    code = (
+        TEST_CODE_BY_STANDARD.get((tt, sid))
+        or TEST_CODE_BY_PACK.get((tt, pack))
+        or DEFAULT_TEST_CODE.get(tt)
+    )
     if not code:
         return None
     return {

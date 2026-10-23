@@ -457,6 +457,40 @@ def run_analysis_after_job(
                     params["Pn"] = pn_v / 1000.0
             except (TypeError, ValueError):
                 pass
+    # 北德 / CEI 0-16（图喆麦田报告）
+    if target["standard_pack"] == "CEI_Nbis_BeiDe":
+        code = target["test_code"]
+        need_in = code in {"3.1"}
+        need_pn = code in {
+            "3.2",
+            "3.3",
+            "4",
+            "5",
+            "6.1",
+            "6.4",
+            "6.5",
+            "6.7",
+            "6.8",
+            "7.1",
+            "8.1",
+            "A.4.9",
+            "A.4.3.4",
+        }
+        need_un = code in {"3.2", "4", "5", "6.5", "6.7", "6.8", "7.1", "8.1"}
+        if need_in and not _ensure_param(
+            "In", 100, reason=f"北德 CEI0-16 {code} 缺少 In（analysis_In）"
+        ):
+            return info
+        if need_pn and not _ensure_param(
+            "Pn", 100000, reason=f"北德 CEI0-16 {code} 缺少 Pn（analysis_Pn）"
+        ):
+            return info
+        if need_un and not _ensure_param(
+            "Un", 230, reason=f"北德 CEI0-16 {code} 缺少 Un（analysis_Un）"
+        ):
+            return info
+        # 北德部分条款 Pn 按 W；若网页填 kW 小数则保持，填 100000(W) 不换算
+        # （与南德 kW 习惯不同，避免误除 1000）
     if defaults_applied:
         info["defaults_applied"] = defaults_applied
         logger.info("分析使用默认额定参数: %s", ",".join(defaults_applied))
