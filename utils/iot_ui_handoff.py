@@ -638,6 +638,7 @@ class IotUiHandoffService(QObject):
         apply_auto_connect: Optional[Callable[[Any], Any]] = None,
         ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
         stop_test: Optional[Callable[[], None]] = None,
+        reset_append_count: Optional[Callable[[], None]] = None,
         wrap_append_errors: bool = True,
         log: Optional[Callable[[str], None]] = None,
         interval_ms: int = 3000,
@@ -716,6 +717,7 @@ class IotUiHandoffService(QObject):
         self.apply_auto_connect = apply_auto_connect
         self.ensure_ready = ensure_ready
         self.stop_test = stop_test
+        self.reset_append_count = reset_append_count
         self.wrap_append_errors = bool(wrap_append_errors)
         self._log = log or (lambda m: print(f"[IOT交接] {m}", flush=True))
         self._busy = False
@@ -3033,6 +3035,16 @@ class IotUiHandoffService(QObject):
             appended = False
             project_append = handler.get("append")
             if auto_append and project_append:
+                # 云开测必须覆盖：残留 *_append_count>=1 会叠第二套命令队列
+                try:
+                    from utils.iot_force_overwrite_append import force_overwrite_before_iot_append
+
+                    force_overwrite_before_iot_append(
+                        reset_count=self.reset_append_count,
+                        log=self._log,
+                    )
+                except Exception as _ow_exc:
+                    self._log(f"IOT 追加前强制覆盖跳过: {_ow_exc}")
                 if self.wrap_append_errors:
                     fail_msg, append_err = _append_with_message_capture(project_append)
                     if fail_msg or append_err:
@@ -3055,11 +3067,11 @@ class IotUiHandoffService(QObject):
                         self._move_pending_done(pending_path)
                         return
                     appended = True
-                    self._log(f"已调用{handler['label']}追加")
+                    self._log(f"已调用{handler['label']}追加（覆盖模式）")
                 else:
                     project_append()
                     appended = True
-                    self._log(f"已调用{handler['label']}追加")
+                    self._log(f"已调用{handler['label']}追加（覆盖模式）")
 
             if auto_start:
                 if not self.start_test:
@@ -3216,6 +3228,7 @@ def start_iot_ui_handoff_from_main(
     apply_auto_connect: Optional[Callable[[Any], Any]] = None,
     ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
     stop_test: Optional[Callable[[], None]] = None,
+    reset_append_count: Optional[Callable[[], None]] = None,
     wrap_append_errors: bool = True,
     log: Optional[Callable[[str], None]] = None,
     parent=None,
@@ -3292,6 +3305,7 @@ def start_iot_ui_handoff_from_main(
         apply_auto_connect=apply_auto_connect,
         ensure_ready=ensure_ready,
         stop_test=stop_test,
+        reset_append_count=reset_append_count,
         wrap_append_errors=wrap_append_errors,
         log=log,
         parent=parent,

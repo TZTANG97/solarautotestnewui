@@ -4657,6 +4657,25 @@ def _sync_start_end_buttons():
     except Exception:
         pass
 
+def _force_iot_overwrite_append():
+    """云开测 auto_append 前强制覆盖：清零追加计数并清空命令队列。
+
+    否则上一轮残留 ``*_append_count>=1`` 会叠第二套命令，表现为跑完又从头再跑。
+    """
+    global strArrayTest, strArrayTestStep, strAddTestFlag, total_save_file, test_program, wt_config_nums
+    _reset_current_project_count()
+    strAddTestFlag = "0"
+    strArrayTest = []
+    strArrayTestStep = []
+    total_save_file = 0
+    test_program = []
+    wt_config_nums = 0
+    try:
+        _sync_start_end_buttons()
+    except Exception:
+        pass
+
+
 def _reset_current_project_count():
     """试验完成后重置当前项目的计数器为0，并更新label显示。"""
     global flicker_append_count, harmonic_append_count, overloads_append_count, fixedpf_append_count, reactiveQcap_append_count, fixedQ_append_count, reactiveQin_append_count, reactiveQacc_append_count, activeP_append_count, antibackflow_append_count, chonglian_append_count, zhiliufenliang_append_count, staticQU_append_count, dynamicQU_append_count, testPU_append_count, staticcosPhi_append_count, dynamiccosPhi_append_count, cosPhiBrazil_append_count, voltprotect10min_append_count, guopinjiangzai_append_count, qianpinshengzai_append_count, guoqianya_pin_append_count, guoqianpin_immun_append_count, staticMPPTtest_append_count, frequencyadaptability_append_count, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count, lvrt_append_count, phasejump_append_count, dynamicmppt_append_count
@@ -34008,6 +34027,7 @@ if __name__ == "__main__":
                     apply_auto_connect=_iot_apply_auto_connect,
                     ensure_ready=_iot_ensure_ready,
                     stop_test=_iot_remote_stop_test,
+                    reset_append_count=_force_iot_overwrite_append,
                     log=_iot_log,
                     parent=main_window,
                 )
