@@ -1243,6 +1243,26 @@ def _sync_array_dc_curr_from_device(dc_index: int) -> None:
         print(f"[DC上限] DC{int(dc_index) + 1} 读回失败: {exc}", flush=True)
 
 
+def _resolve_soft_panel_curr_limit(handle, planned: float) -> float:
+    """Soft Panel 写 :sour:curr:prot:high max 后读回真实上限，避免写死 15.75 卡死工况 Isc。"""
+    base = float(planned) if planned and float(planned) > 0 else 15.75
+    if handle is None:
+        return base
+    try:
+        import re as _re
+
+        raw = handle.query(":SOUR:CURR:PROT:HIGH?")
+        m = _re.search(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?", str(raw or ""))
+        if not m:
+            return base
+        qv = float(m.group(0))
+        if qv > 0:
+            return max(base, qv)
+    except Exception as exc:
+        print(f"[DC上限] Soft Panel 读回失败: {exc}", flush=True)
+    return base
+
+
 def _dewetron_status_extra():
     """桌面德威创页当前参数，写入 status.json 供 Web 回填。"""
     try:
@@ -26735,6 +26755,9 @@ def ThreadSendDCCommandInfomationTimer():
                                 logger.info(strtimenow + "SendMessageToDC1:" + strArraySetting[i])
                                 print(strtimenow + "SendMessageToDC1:" + strArraySetting[i])
                         elif strArraySettingFlag[i] == "2":
+                            fDCCurrValue = _resolve_soft_panel_curr_limit(
+                                dc1_controller.handle, fDCCurrValue
+                            )
                             ArrayfDCCurrValue[0] = fDCCurrValue
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
@@ -26830,6 +26853,9 @@ def ThreadSendDCCommandInfomationTimer():
                                 print(
                                     strtimenow + "SendMessageToDC2:" + strArraySetting[i])
                         elif strArraySettingFlag[i] == "2":
+                            fDCCurrValue = _resolve_soft_panel_curr_limit(
+                                dc2_controller.handle, fDCCurrValue
+                            )
                             ArrayfDCCurrValue[1] = fDCCurrValue
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
@@ -26931,6 +26957,9 @@ def ThreadSendDCCommandInfomationTimer():
                                 print(
                                     strtimenow + "SendMessageToDC3:" + strArraySetting[i])
                         elif strArraySettingFlag[i] == "2":
+                            fDCCurrValue = _resolve_soft_panel_curr_limit(
+                                dc3_controller.handle, fDCCurrValue
+                            )
                             ArrayfDCCurrValue[2] = fDCCurrValue
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
@@ -27033,6 +27062,9 @@ def ThreadSendDCCommandInfomationTimer():
                                 print(
                                     strtimenow + "SendMessageToDC4:" + strArraySetting[i])
                         elif strArraySettingFlag[i] == "2":
+                            fDCCurrValue = _resolve_soft_panel_curr_limit(
+                                dc4_controller.handle, fDCCurrValue
+                            )
                             ArrayfDCCurrValue[3] = fDCCurrValue
                             strCurrValue = round(fDCCurrValue, 2)
                             strCurrValue = '%.2f' % strCurrValue
