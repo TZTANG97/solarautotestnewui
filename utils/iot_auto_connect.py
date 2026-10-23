@@ -315,6 +315,50 @@ def prepare_jobs_from_cloud_instruments(
     return jobs
 
 
+def has_remembered_slot(
+    slot: str,
+    *,
+    status_json_path: Optional[str] = None,
+) -> bool:
+    """该槽位是否曾成功连接 / 有 status / UI 记忆（用于启动是否跳过德威创等）。"""
+    sl = (slot or "").strip().lower()
+    if not sl:
+        return False
+    try:
+        for v in load_slot_map().values():
+            if str(v or "").strip().lower() == sl:
+                return True
+    except Exception:
+        pass
+    try:
+        for snap in load_success_device_map().values():
+            if not isinstance(snap, dict):
+                continue
+            if str(snap.get("slot") or "").strip().lower() == sl:
+                return True
+            if sl == "dew" and str(snap.get("kind_hint") or "").strip().lower() == "dew":
+                return True
+    except Exception:
+        pass
+    try:
+        for d in devices_from_status_json(status_json_path):
+            if str((d.extra or {}).get("last_slot") or "").strip().lower() == sl:
+                return True
+            if sl == "dew" and str(d.kind_hint or "").strip().lower() == "dew":
+                return True
+    except Exception:
+        pass
+    if sl == "dew":
+        try:
+            from utils.ui_field_helpers import last_value
+
+            if (last_value("dewetron.ip", "") or "").strip():
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def prepare_auto_connect_jobs(
     *,
     visa_rm=None,
@@ -324,7 +368,7 @@ def prepare_auto_connect_jobs(
 ) -> Tuple[List[Tuple[str, dict, Any]], List[FoundDevice]]:
     """仅发现+建议槽位（可在后台线程跑）；不触碰 Qt。
 
-    ``skip_slots``：启动自动连可跳过德威创等慢且多数台架不用的槽位。
+    ``skip_slots``：启动自动连可跳过某些槽位（如从未用过的德威创）。
     """
     from utils.device_finder_connect import build_connect_jobs
 

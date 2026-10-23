@@ -3382,6 +3382,10 @@ def ConnectEQUDEWETRON():
         _toggle_connection_button("pushButton_ConnectEQUDEWETRON", True)
         ui.pushButton_ConnectEQUDEWETRON.setText("取消连接")
         _save_device_status("DEWETRON", True, tcp_addr, extra=_dewetron_status_extra())
+        # 记住槽位，下次启动自动重连（此前漏记导致每次都跳过德威创）
+        _remember_manual_device_slot(
+            "dew", tcp_addr, kind_hint="dew", brand_hint="dewetron"
+        )
         # 创建采集器（数据库已在启动时初始化）
         global dewetron_collector
         if dewetron_collector is None:
@@ -30205,17 +30209,22 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
                     equ_list = list(str1) if str1 else []
                 except Exception as exc:
                     print(f"[DEBUG_STARTUP]    boot list_resources fail: {exc}", flush=True)
-            from utils.iot_auto_connect import prepare_auto_connect_jobs
+            from utils.iot_auto_connect import has_remembered_slot, prepare_auto_connect_jobs
 
             _status_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "status.json"
             )
-            # 启动不自动连德威创：多数台架未用，连失败会卡很久；需要时手动点连接即可
+            # 从未用过的德威创跳过（连失败很慢）；以前连成功过 / status 有记忆则自动重连
+            _skip_dew = (
+                ()
+                if has_remembered_slot("dew", status_json_path=_status_path)
+                else ("dew",)
+            )
             jobs, devices = prepare_auto_connect_jobs(
                 visa_rm=_rm,
                 status_json_path=_status_path,
                 scan_lan=False,
-                skip_slots=("dew",),
+                skip_slots=_skip_dew,
             )
         except Exception as exc:
             print(f"[DEBUG_STARTUP]    boot prepare fail: {exc}", flush=True)

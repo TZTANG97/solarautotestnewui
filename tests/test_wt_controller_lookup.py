@@ -41,3 +41,19 @@ def test_prepare_skips_dew_slot(monkeypatch):
     slots = [j[0] for j in jobs]
     assert "wt" in slots
     assert "dew" not in slots
+
+
+def test_has_remembered_dew_from_success_map(monkeypatch):
+    from utils.iot_auto_connect import has_remembered_slot
+
+    monkeypatch.setattr("utils.iot_auto_connect.load_slot_map", lambda: {})
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.load_success_device_map",
+        lambda: {"192.168.40.24:10001": {"slot": "dew", "kind_hint": "dew"}},
+    )
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.devices_from_status_json",
+        lambda *_a, **_k: [],
+    )
+    assert has_remembered_slot("dew") is True
+    assert has_remembered_slot("wt") is False
