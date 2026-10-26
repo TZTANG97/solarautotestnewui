@@ -3035,16 +3035,46 @@ class IotUiHandoffService(QObject):
             appended = False
             project_append = handler.get("append")
             if auto_append and project_append:
-                # 云开测必须覆盖：残留 *_append_count>=1 会叠第二套命令队列
-                try:
-                    from utils.iot_force_overwrite_append import force_overwrite_before_iot_append
+                # 自动开跑：必须覆盖，防残留计数叠第二套。
+                # 只追加（auto_start=false）：保留队列，交给 apply_append_mode 跨项/同项。
+                from utils.iot_force_overwrite_append import (
+                    force_overwrite_before_iot_append,
+                    should_force_overwrite_for_iot_job,
+                )
 
-                    force_overwrite_before_iot_append(
-                        reset_count=self.reset_append_count,
-                        log=self._log,
+                do_overwrite = should_force_overwrite_for_iot_job(auto_start=auto_start)
+                if do_overwrite:
+                    try:
+                        ow_ok = force_overwrite_before_iot_append(
+                            reset_count=self.reset_append_count,
+                            log=self._log,
+                        )
+                    except Exception as _ow_exc:
+                        self._log(f"IOT 追加前强制覆盖异常: {_ow_exc}")
+                        ow_ok = False
+                    if not ow_ok:
+                        self._write_result_all(
+                            pending_path,
+                            job_id,
+                            {
+                                "status": "failed",
+                                "fail_reason": "云开测追加前强制覆盖失败，已中止以免叠第二套命令",
+                                "result_summary": {
+                                    "handoff": True,
+                                    "appended": False,
+                                    "started": False,
+                                    "missingWidgets": missing,
+                                    "force_overwrite_failed": True,
+                                },
+                            },
+                        )
+                        self._move_pending_done(pending_path)
+                        return
+                else:
+                    self._log(
+                        "IOT 只追加：保留现有命令队列（跨项/同项由 apply_append_mode 判定）"
                     )
-                except Exception as _ow_exc:
-                    self._log(f"IOT 追加前强制覆盖跳过: {_ow_exc}")
+                append_mode_label = "覆盖模式" if do_overwrite else "保留队列追加"
                 if self.wrap_append_errors:
                     fail_msg, append_err = _append_with_message_capture(project_append)
                     if fail_msg or append_err:
@@ -3067,11 +3097,11 @@ class IotUiHandoffService(QObject):
                         self._move_pending_done(pending_path)
                         return
                     appended = True
-                    self._log(f"已调用{handler['label']}追加（覆盖模式）")
+                    self._log(f"已调用{handler['label']}追加（{append_mode_label}）")
                 else:
                     project_append()
                     appended = True
-                    self._log(f"已调用{handler['label']}追加（覆盖模式）")
+                    self._log(f"已调用{handler['label']}追加（{append_mode_label}）")
 
             if auto_start:
                 if not self.start_test:

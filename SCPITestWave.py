@@ -4680,8 +4680,9 @@ def _sync_start_end_buttons():
         pass
 
 def _force_iot_overwrite_append():
-    """云开测 auto_append 前强制覆盖：清零追加计数并清空命令队列。
+    """云开测「自动开跑」追加前强制覆盖：清零计数并清空命令队列。
 
+    仅由 handoff 在 ``auto_start=true`` 时调用。「只追加」须保留队列做跨项连下。
     否则上一轮残留 ``*_append_count>=1`` 会叠第二套命令，表现为跑完又从头再跑。
     """
     global strArrayTest, strArrayTestStep, strAddTestFlag, total_save_file, test_program, wt_config_nums

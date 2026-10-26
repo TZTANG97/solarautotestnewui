@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
-from utils.iot_force_overwrite_append import force_overwrite_before_iot_append
+from utils.iot_force_overwrite_append import (
+    force_overwrite_before_iot_append,
+    should_force_overwrite_for_iot_job,
+)
+
+
+def test_only_append_skips_force_wipe():
+    assert should_force_overwrite_for_iot_job(auto_start=False) is False
+    assert should_force_overwrite_for_iot_job(auto_start=True) is True
 
 
 def test_force_overwrite_calls_reset():
