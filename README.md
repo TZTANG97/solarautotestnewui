@@ -6,6 +6,21 @@
 
 ---
 
+## 分支与发版（以哪个为准）
+
+| 分支 | 角色 | 说明 |
+|------|------|------|
+| **`dev`** | **当前最新开发 / 日常维护** | 追加队列、是德(Keysight)、Sandia IV / CEI 0-16、Soft Panel、IOT handoff 等均在此线。工控机发版与联调以 **`dev` tip** 为准。 |
+| `V1.1` | 历史基线（`dev` 的祖先） | 侧边栏 UI、增量 OSS 打包通道等从此线分出；**不再作为最新功能分支**。 |
+| `master` | 极旧主干 | 勿基于此开发或发版。 |
+
+远程：`http://gitlab.wisecom-tech.com/solarapp/solarautotest/solarautotestnewui.git`  
+发版产物：`packaging/`（OSS 通道）；近期现场包版本号示例 `20261026.1410`（以当次 `build_release` / OSS 上传记录为准）。
+
+架构说明见 [`docs/项目架构维护指南.md`](docs/项目架构维护指南.md)（维护分支口径与上文一致）。
+
+---
+
 ## 怎么开
 
 日常只双击 **`start_SolarAutoTest.bat`**（或桌面快捷方式）。会静默拉起 Agent，不必单独点「启动 Agent」。
