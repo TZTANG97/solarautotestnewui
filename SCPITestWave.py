@@ -2255,6 +2255,8 @@ def _auto_switch_dc1_breadcrumb():
         _dc1_breadcrumb_ref.setIndex(1)
     elif factor == "Itech":
         _dc1_breadcrumb_ref.setIndex(2)
+    elif factor == "Keysight":
+        _dc1_breadcrumb_ref.setIndex(3)
     else:
         _dc1_breadcrumb_ref.setIndex(0)
 
@@ -2448,10 +2450,19 @@ _ac_chroma_port_edit = None
 _ac_comm_mode_combo = None
 
 # ── DC1 设备类型选择状态 ──
-_dc1_device_type = "chroma"   # "chroma", "bluesight", or "itech"
+_dc1_device_type = "chroma"   # "chroma" | "bluesight" | "itech" | "keysight"
 _dc1_breadcrumb_ref = None
 _dc1_bs_ref = None
 _dc1_itech_ref = None
+_DC1_DEVICE_TYPES = ("chroma", "bluesight", "itech", "keysight")
+# 是德与致茂共用 Chroma 页（同为 SCPI IV），栈下标：Chroma/Keysight→0, Bluesight→1, Itech→2
+_DC1_STACK_INDEX = (0, 1, 2, 0)
+_DC1_FACTOR_NAME = {
+    "chroma": "Chroma",
+    "bluesight": "Bluesight",
+    "itech": "Itech",
+    "keysight": "Keysight",
+}
 
 
 def _reapply_dc1_setpoints_to_device(reason="恢复设定", show_errors=False):
@@ -2883,13 +2894,19 @@ def ConnectEQUDC1():
                 dc1_controller.connect_scpi(visa_addr, ui)
             if dc1_controller.connected:
                 _set_dc_factor_from_idn(
-                    0, dc1_controller.handle, fallback="Chroma",
-                    modbus_client=dc1_controller.client if conn_type == "modbus" else None
+                    0,
+                    dc1_controller.handle,
+                    fallback=_DC1_FACTOR_NAME.get(device_type, "Chroma"),
+                    modbus_client=dc1_controller.client if conn_type == "modbus" else None,
                 )
         else:
             dc1_controller.connect_scpi(tcp_addr, ui)
             if dc1_controller.connected and dc1_controller.handle is not None:
-                _set_dc_factor_from_idn(0, dc1_controller.handle)
+                _set_dc_factor_from_idn(
+                    0,
+                    dc1_controller.handle,
+                    fallback=_DC1_FACTOR_NAME.get(device_type, "Chroma"),
+                )
         return bool(dc1_controller.connected)
 
     try:
@@ -3751,7 +3768,9 @@ def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
         if n == 1:
             _dc1_device_type = device_type
             if _dc1_breadcrumb_ref is not None:
-                idx = {"chroma": 0, "bluesight": 1, "itech": 2}.get(device_type, 0)
+                idx = {"chroma": 0, "bluesight": 1, "itech": 2, "keysight": 3}.get(
+                    device_type, 0
+                )
                 _dc1_breadcrumb_ref.setIndex(idx)
             _finder_set_combo("comboBox_DC1", addr)
             if device_type == "itech" and _dc1_itech_ref and _dc1_itech_ref.get("ip_edit"):
@@ -32083,15 +32102,22 @@ if __name__ == "__main__":
 
                 # 创建面包屑
                 from components.breadcrumb import BreadcrumbWidget
-                _dc1_breadcrumb = BreadcrumbWidget(["Chroma", "Bluesight", "爱科(Itech)"])
-
-                _DC1_DEVICE_TYPES = ["chroma", "bluesight", "itech"]
+                _dc1_breadcrumb = BreadcrumbWidget(
+                    ["Chroma", "Bluesight", "爱科(Itech)", "是德(Keysight)"]
+                )
 
                 def _on_dc1_device_changed(idx):
-                    global _dc1_device_type
+                    global _dc1_device_type, per_dc_factor
                     from utils.ui_field_helpers import remember_value
+                    if idx < 0 or idx >= len(_DC1_DEVICE_TYPES):
+                        return
                     _dc1_device_type = _DC1_DEVICE_TYPES[idx]
-                    _dc1_stack.setCurrentIndex(idx)
+                    _dc1_stack.setCurrentIndex(_DC1_STACK_INDEX[idx])
+                    # 已连接时按面包屑同步厂家，避免仍走致茂 IVC
+                    if dc1_controller is not None and getattr(dc1_controller, "connected", False):
+                        per_dc_factor["0"] = _DC1_FACTOR_NAME.get(
+                            _dc1_device_type, "Chroma"
+                        )
                     _sync_dc1_connect_buttons()
                     remember_value("device.dc1.brand_idx", str(idx))
 
@@ -32350,7 +32376,7 @@ if __name__ == "__main__":
                 _dc1_itech_ref = _itech_dc1
                 from utils.ui_field_helpers import last_value as _last_dc1_brand
                 _saved_dc1 = _last_dc1_brand("device.dc1.brand_idx", "")
-                if _saved_dc1.isdigit() and int(_saved_dc1) in (0, 1, 2):
+                if _saved_dc1.isdigit() and int(_saved_dc1) in range(len(_DC1_DEVICE_TYPES)):
                     _dc1_breadcrumb.setIndex(int(_saved_dc1))
 
             # ui.gridLayout.addWidget(canvas)

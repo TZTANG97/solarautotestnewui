@@ -1006,6 +1006,13 @@ def connect_plan(slot: str, dev: FoundDevice) -> Dict[str, object]:
                 "port": int(port or 502),
             }
         addr = resource if visa_like else (host or resource)
+        if brand in ("keysight", "agilent"):
+            return {
+                "target": "dc_chroma",
+                "n": n,
+                "device_type": "keysight",
+                "addr": addr,
+            }
         return {"target": "dc_chroma", "n": n, "device_type": "chroma", "addr": addr}
     if slot == "scope":
         addr = resource if visa_like else (f"TCPIP0::{host}::INSTR" if host else resource)
