@@ -5100,7 +5100,8 @@ def addtestDialog():
 
     if project_now != currentSecond:
         project_change = '1'
-    project_change = '1'
+    else:
+        project_change = '0'
 
 
 
@@ -5314,13 +5315,18 @@ def wt_5000_show():
 
 #德国电压闪变
 def thaidianyashanbianAppend():
-    global strAddTestFlag, flicker_append_count
+    global strAddTestFlag, flicker_append_count, project_change, project_now
     if 'flicker_append_count' not in globals():
         flicker_append_count = 0
-    strAddTestFlag = "0" if flicker_append_count == 0 else "1"
-    mode = "覆盖" if flicker_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='电压闪变', local_count=flicker_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[闪变] 第{flicker_append_count + 1}次{mode}模式，开始生成命令...")
     thaidianyashanbianSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '电压闪变')
 
 def thaidianyashanbianSend():
     global uiThaiDianYaShanBian,strArrayTest,dialog_windowTdianyashanbian
@@ -7529,15 +7535,21 @@ def OpenFileDialogThaiDianYaShanBian():
 
 #德国重连
 def thaichonglianAppend():
-    global strAddTestFlag, chonglian_append_count
+    global strAddTestFlag, chonglian_append_count, project_change, project_now
     if 'chonglian_append_count' not in globals():
         chonglian_append_count = 0
-    strAddTestFlag = "0" if chonglian_append_count == 0 else "1"
-    mode = "覆盖" if chonglian_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='重连', local_count=chonglian_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[重连] 第{chonglian_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('重连')
     before_count = chonglian_append_count
     thaichonglianSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '重连')
+
     if not _normalize_generated_dewetron_rows('重连', snapshot):
         chonglian_append_count = before_count
         uithaichonglian.label_append_count.setText(str(before_count))
@@ -9796,16 +9808,22 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
 
 # 谐波电流测试追加
 def thaixiebodianliuAppend():
-    global strAddTestFlag, harmonic_append_count
+    global strAddTestFlag, harmonic_append_count, project_change, project_now
     if 'harmonic_append_count' not in globals():
         harmonic_append_count = 0
-    strAddTestFlag = "0" if harmonic_append_count == 0 else "1"
-    mode = "覆盖" if harmonic_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='谐波电流', local_count=harmonic_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[谐波电流] 第{harmonic_append_count + 1}次{mode}模式，开始生成命令...")
     try:
         from PyQt5.QtWidgets import QApplication
         QApplication.processEvents()
         thaixiebodianliuSend()
+        if str(globals().get('strSettingTestFlag') or '') == '1':
+            mark_project_now(globals(), '谐波电流')
+
     except Exception as e:
         import traceback
         err = f"[谐波电流] 生成命令失败: {type(e).__name__}: {e}"
@@ -9907,15 +9925,21 @@ def OpenFileDialogThaiXieBoDianLiu():
 
 # fixedPF=1 追加测试
 def thaifixedpfAppend():
-    global strAddTestFlag, fixedpf_append_count
+    global strAddTestFlag, fixedpf_append_count, project_change, project_now
     if 'fixedpf_append_count' not in globals():
         fixedpf_append_count = 0
-    strAddTestFlag = "0" if fixedpf_append_count == 0 else "1"
-    mode = "覆盖" if fixedpf_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='固定PF=1', local_count=fixedpf_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[固定PF=1] 第{fixedpf_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('固定PF=1')
     before_count = fixedpf_append_count
     thaifixedpfSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '固定PF=1')
+
     if not _normalize_generated_dewetron_rows('固定PF=1', snapshot):
         fixedpf_append_count = before_count
         uiThaiFixedPF.label_append_count.setText(str(before_count))
@@ -10585,15 +10609,21 @@ def OpenFileDialogThaiFixedPF():
 
 # 无功能力范围
 def thaireactiveQcapAppend():
-    global strAddTestFlag, reactiveQcap_append_count
+    global strAddTestFlag, reactiveQcap_append_count, project_change, project_now
     if 'reactiveQcap_append_count' not in globals():
         reactiveQcap_append_count = 0
-    strAddTestFlag = "0" if reactiveQcap_append_count == 0 else "1"
-    mode = "覆盖" if reactiveQcap_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='无功能力范围', local_count=reactiveQcap_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[无功能力范围] 第{reactiveQcap_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('无功能力范围')
     before_count = reactiveQcap_append_count
     thaireactiveQcapSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '无功能力范围')
+
     if not _normalize_generated_dewetron_rows('无功能力范围', snapshot):
         reactiveQcap_append_count = before_count
         uiThaiReactiveQCap.label_append_count.setText(str(before_count))
@@ -10790,15 +10820,21 @@ def SaveFileDialogThaiReactiveQCap():
 
 # overloads
 def thaifixedQAppend():
-    global strAddTestFlag, fixedQ_append_count
+    global strAddTestFlag, fixedQ_append_count, project_change, project_now
     if 'fixedQ_append_count' not in globals():
         fixedQ_append_count = 0
-    strAddTestFlag = "0" if fixedQ_append_count == 0 else "1"
-    mode = "覆盖" if fixedQ_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='定无功', local_count=fixedQ_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[定无功] 第{fixedQ_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('定无功')
     before_count = fixedQ_append_count
     thaifixedQSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '定无功')
+
     if not _normalize_generated_dewetron_rows('定无功', snapshot):
         fixedQ_append_count = before_count
         uiThaiFixedQ.label_append_count.setText(str(before_count))
@@ -10989,15 +11025,21 @@ def SaveFileDialogThaiFixedQ():
 
 # overloads
 def thaireactiveQaccAppend():
-    global strAddTestFlag, reactiveQacc_append_count
+    global strAddTestFlag, reactiveQacc_append_count, project_change, project_now
     if 'reactiveQacc_append_count' not in globals():
         reactiveQacc_append_count = 0
-    strAddTestFlag = "0" if reactiveQacc_append_count == 0 else "1"
-    mode = "覆盖" if reactiveQacc_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='无功精度', local_count=reactiveQacc_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[无功精度] 第{reactiveQacc_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('无功精度')
     before_count = reactiveQacc_append_count
     thaireactiveQaccSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '无功精度')
+
     if not _normalize_generated_dewetron_rows('无功精度', snapshot):
         reactiveQacc_append_count = before_count
         uiThaiReactiveQacc.label_append_count.setText(str(before_count))
@@ -11188,15 +11230,21 @@ def SaveFileDialogThaiReactiveQacc():
 
 # overloads
 def thaireactiveQinAppend():
-    global strAddTestFlag, reactiveQin_append_count
+    global strAddTestFlag, reactiveQin_append_count, project_change, project_now
     if 'reactiveQin_append_count' not in globals():
         reactiveQin_append_count = 0
-    strAddTestFlag = "0" if reactiveQin_append_count == 0 else "1"
-    mode = "覆盖" if reactiveQin_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='无功注入', local_count=reactiveQin_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[无功注入] 第{reactiveQin_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('无功注入')
     before_count = reactiveQin_append_count
     thaireactiveQinSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '无功注入')
+
     if not _normalize_generated_dewetron_rows('无功注入', snapshot):
         reactiveQin_append_count = before_count
         uiThaiReactiveQin.label_append_count.setText(str(before_count))
@@ -11387,15 +11435,21 @@ def SaveFileDialogThaiReactiveQin():
 
 # overloads
 def thaiactivePAppend():
-    global strAddTestFlag, activeP_append_count
+    global strAddTestFlag, activeP_append_count, project_change, project_now
     if 'activeP_append_count' not in globals():
         activeP_append_count = 0
-    strAddTestFlag = "0" if activeP_append_count == 0 else "1"
-    mode = "覆盖" if activeP_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='有功调度', local_count=activeP_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[有功调度] 第{activeP_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('有功调度')
     before_count = activeP_append_count
     thaiactivePSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '有功调度')
+
     if not _normalize_generated_dewetron_rows('有功调度', snapshot):
         activeP_append_count = before_count
         uiThaiActiveP.label_append_count.setText(str(before_count))
@@ -11583,15 +11637,21 @@ def SaveFileDialogThaiActiveP():
 
 
 def thaiantibackflowAppend():
-    global strAddTestFlag, antibackflow_append_count
+    global strAddTestFlag, antibackflow_append_count, project_change, project_now
     if 'antibackflow_append_count' not in globals():
         antibackflow_append_count = 0
-    strAddTestFlag = "0" if antibackflow_append_count == 0 else "1"
-    mode = "覆盖" if antibackflow_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='防逆流测试', local_count=antibackflow_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[防逆流测试] 第{antibackflow_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('防逆流测试')
     before_count = antibackflow_append_count
     thaiantibackflowSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '防逆流测试')
+
     if not _normalize_generated_dewetron_rows('防逆流测试', snapshot):
         antibackflow_append_count = before_count
         uiThaiAntiBackflow.label_append_count.setText(str(before_count))
@@ -11778,15 +11838,21 @@ def SaveFileDialogThaiAntiBackflow():
 
 # overloads
 def thaioverloadsAppend():
-    global strAddTestFlag, overloads_append_count
+    global strAddTestFlag, overloads_append_count, project_change, project_now
     if 'overloads_append_count' not in globals():
         overloads_append_count = 0
-    strAddTestFlag = "0" if overloads_append_count == 0 else "1"
-    mode = "覆盖" if overloads_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='过载能力测试', local_count=overloads_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[过载能力测试] 第{overloads_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('过载能力测试')
     before_count = overloads_append_count
     thaioverloadsSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '过载能力测试')
+
     if not _normalize_generated_dewetron_rows('过载能力测试', snapshot):
         overloads_append_count = before_count
         uiThaiOverLoads.label_append_count.setText(str(before_count))
@@ -12383,15 +12449,21 @@ def ExportIotAntibackflowTemplate():
 
 # 直流分量
 def thaizhiliufenliangAppend():
-    global strAddTestFlag, zhiliufenliang_append_count
+    global strAddTestFlag, zhiliufenliang_append_count, project_change, project_now
     if 'zhiliufenliang_append_count' not in globals():
         zhiliufenliang_append_count = 0
-    strAddTestFlag = "0" if zhiliufenliang_append_count == 0 else "1"
-    mode = "覆盖" if zhiliufenliang_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='直流分量', local_count=zhiliufenliang_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[直流分量] 第{zhiliufenliang_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('直流分量')
     before_count = zhiliufenliang_append_count
     thaizhiliufenliangSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '直流分量')
+
     if not _normalize_generated_dewetron_rows('直流分量', snapshot):
         zhiliufenliang_append_count = before_count
         uiThaiZhiLiuFenLiang.label_append_count.setText(str(before_count))
@@ -13180,15 +13252,21 @@ def OpenFileDialogThaiZhiLiuFenLiang():
 
 # 静态QU
 def thaistaticQUAppend():
-    global strAddTestFlag, staticQU_append_count
+    global strAddTestFlag, staticQU_append_count, project_change, project_now
     if 'staticQU_append_count' not in globals():
         staticQU_append_count = 0
-    strAddTestFlag = "0" if staticQU_append_count == 0 else "1"
-    mode = "覆盖" if staticQU_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='静态QU', local_count=staticQU_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[静态QU] 第{staticQU_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('静态QU')
     before_count = staticQU_append_count
     thaistaticQUSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '静态QU')
+
     if not _normalize_generated_dewetron_rows('静态QU', snapshot):
         staticQU_append_count = before_count
         uiThaiStaticQU.label_append_count.setText(str(before_count))
@@ -13933,15 +14011,21 @@ def SaveFileDialogThaiStaticQU():
 
 # 动态QU
 def thaidynamicQUAppend():
-    global strAddTestFlag, dynamicQU_append_count
+    global strAddTestFlag, dynamicQU_append_count, project_change, project_now
     if 'dynamicQU_append_count' not in globals():
         dynamicQU_append_count = 0
-    strAddTestFlag = "0" if dynamicQU_append_count == 0 else "1"
-    mode = "覆盖" if dynamicQU_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='动态QU', local_count=dynamicQU_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[动态QU] 第{dynamicQU_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('动态QU')
     before_count = dynamicQU_append_count
     thaidynamicQUSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '动态QU')
+
     if not _normalize_generated_dewetron_rows('动态QU', snapshot):
         dynamicQU_append_count = before_count
         uiThaiDynamicQU.label_append_count.setText(str(before_count))
@@ -14140,15 +14224,21 @@ def SaveFileDialogThaiDynamicQU():
 # 静态Cos(φ)
 def thaistaticcosPhiAppend():
 
-    global strAddTestFlag, staticcosPhi_append_count
+    global strAddTestFlag, staticcosPhi_append_count, project_change, project_now
     if 'staticcosPhi_append_count' not in globals():
         staticcosPhi_append_count = 0
-    strAddTestFlag = "0" if staticcosPhi_append_count == 0 else "1"
-    mode = "覆盖" if staticcosPhi_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='静态Cos(φ)', local_count=staticcosPhi_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[静态Cos(φ)] 第{staticcosPhi_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('静态Cos(φ)')
     before_count = staticcosPhi_append_count
     thaistaticcosPhiSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '静态Cos(φ)')
+
     if not _normalize_generated_dewetron_rows('静态Cos(φ)', snapshot):
         staticcosPhi_append_count = before_count
         uiThaiStaticCosPhi.label_append_count.setText(str(before_count))
@@ -14805,15 +14895,21 @@ def SaveFileDialogThaiStaticCosPhi():
 
 # 动态Cos(φ)
 def thaidynamiccosPhiAppend():
-    global strAddTestFlag, dynamiccosPhi_append_count
+    global strAddTestFlag, dynamiccosPhi_append_count, project_change, project_now
     if 'dynamiccosPhi_append_count' not in globals():
         dynamiccosPhi_append_count = 0
-    strAddTestFlag = "0" if dynamiccosPhi_append_count == 0 else "1"
-    mode = "覆盖" if dynamiccosPhi_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='动态Cos(φ)', local_count=dynamiccosPhi_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[动态Cos(φ)] 第{dynamiccosPhi_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('动态Cos(φ)')
     before_count = dynamiccosPhi_append_count
     thaidynamiccosPhiSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '动态Cos(φ)')
+
     if not _normalize_generated_dewetron_rows('动态Cos(φ)', snapshot):
         dynamiccosPhi_append_count = before_count
         uiThaiDynamicCosPhi.label_append_count.setText(str(before_count))
@@ -15013,15 +15109,21 @@ def SaveFileDialogThaiDynamicCosPhi():
 # 巴西Cos(φ)
 def thaicosPhiBrazilAppend():
 
-    global strAddTestFlag, cosPhiBrazil_append_count
+    global strAddTestFlag, cosPhiBrazil_append_count, project_change, project_now
     if 'cosPhiBrazil_append_count' not in globals():
         cosPhiBrazil_append_count = 0
-    strAddTestFlag = "0" if cosPhiBrazil_append_count == 0 else "1"
-    mode = "覆盖" if cosPhiBrazil_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='Cos(φ)_Brazil', local_count=cosPhiBrazil_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[巴西Cos(φ)] 第{cosPhiBrazil_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('Cos(φ)_Brazil')
     before_count = cosPhiBrazil_append_count
     thaicosPhiBrazilSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), 'Cos(φ)_Brazil')
+
     if not _normalize_generated_dewetron_rows('Cos(φ)_Brazil', snapshot):
         cosPhiBrazil_append_count = before_count
         uiThaiCosPhiBrazil.label_append_count.setText(str(before_count))
@@ -16027,15 +16129,21 @@ def SaveFileDialogThaiCosPhiBrazil():
 
 # 10min过压保护
 def thaivoltprotect10minAppend():
-    global strAddTestFlag, voltprotect10min_append_count
+    global strAddTestFlag, voltprotect10min_append_count, project_change, project_now
     if 'voltprotect10min_append_count' not in globals():
         voltprotect10min_append_count = 0
-    strAddTestFlag = "0" if voltprotect10min_append_count == 0 else "1"
-    mode = "覆盖" if voltprotect10min_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='10min过压保护', local_count=voltprotect10min_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[10min过压保护] 第{voltprotect10min_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('10min过压保护')
     before_count = voltprotect10min_append_count
     thaivoltprotect10minSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '10min过压保护')
+
     if not _normalize_generated_dewetron_rows('10min过压保护', snapshot):
         voltprotect10min_append_count = before_count
         uiThaiVoltProtect10min.label_append_count.setText(str(before_count))
@@ -16646,15 +16754,21 @@ def SaveFileDialogThaiVoltProtect10min():
 
 # 过频降载
 def thaiguopinjiangzaiAppend():
-    global strAddTestFlag, guopinjiangzai_append_count
+    global strAddTestFlag, guopinjiangzai_append_count, project_change, project_now
     if 'guopinjiangzai_append_count' not in globals():
         guopinjiangzai_append_count = 0
-    strAddTestFlag = "0" if guopinjiangzai_append_count == 0 else "1"
-    mode = "覆盖" if guopinjiangzai_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='过频降载', local_count=guopinjiangzai_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[过频降载] 第{guopinjiangzai_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('过频降载')
     before_count = guopinjiangzai_append_count
     thaiguopinjiangzaiSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '过频降载')
+
     if not _normalize_generated_dewetron_rows('过频降载', snapshot):
         guopinjiangzai_append_count = before_count
         uiThaiGuoPinJiangZai.label_append_count.setText(str(before_count))
@@ -17077,15 +17191,21 @@ def SaveFileDialogThaiGuoPinJiangZai():
 
 # 欠频升载
 def thaiqianpinshengzaiAppend():
-    global strAddTestFlag, qianpinshengzai_append_count
+    global strAddTestFlag, qianpinshengzai_append_count, project_change, project_now
     if 'qianpinshengzai_append_count' not in globals():
         qianpinshengzai_append_count = 0
-    strAddTestFlag = "0" if qianpinshengzai_append_count == 0 else "1"
-    mode = "覆盖" if qianpinshengzai_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='欠频升载', local_count=qianpinshengzai_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[欠频升载] 第{qianpinshengzai_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('欠频升载')
     before_count = qianpinshengzai_append_count
     thaiqianpinshengzaiSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '欠频升载')
+
     if not _normalize_generated_dewetron_rows('欠频升载', snapshot):
         qianpinshengzai_append_count = before_count
         uiThaiQianPinShengZai.label_append_count.setText(str(before_count))
@@ -17508,15 +17628,21 @@ def SaveFileDialogThaiQianPinShengZai():
 
 # PU
 def thaitestPUAppend():
-    global strAddTestFlag, testPU_append_count
+    global strAddTestFlag, testPU_append_count, project_change, project_now
     if 'testPU_append_count' not in globals():
         testPU_append_count = 0
-    strAddTestFlag = "0" if testPU_append_count == 0 else "1"
-    mode = "覆盖" if testPU_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='Test_PU', local_count=testPU_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[Test_PU] 第{testPU_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('Test_PU')
     before_count = testPU_append_count
     thaitestPUSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), 'Test_PU')
+
     if not _normalize_generated_dewetron_rows('Test_PU', snapshot):
         testPU_append_count = before_count
         uiThaiTestPU.label_append_count.setText(str(before_count))
@@ -18499,15 +18625,21 @@ def SaveFileDialogThaiTestPU():
 
 # 过欠压_过欠频
 def thaiguoqianya_pinAppend():
-    global strAddTestFlag, guoqianya_pin_append_count
+    global strAddTestFlag, guoqianya_pin_append_count, project_change, project_now
     if 'guoqianya_pin_append_count' not in globals():
         guoqianya_pin_append_count = 0
-    strAddTestFlag = "0" if guoqianya_pin_append_count == 0 else "1"
-    mode = "覆盖" if guoqianya_pin_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='过欠压_过欠频', local_count=guoqianya_pin_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[过欠压_过欠频] 第{guoqianya_pin_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('过欠压_过欠频')
     before_count = guoqianya_pin_append_count
     thaiguoqianya_pinSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '过欠压_过欠频')
+
     if not _normalize_generated_dewetron_rows('过欠压_过欠频', snapshot):
         guoqianya_pin_append_count = before_count
         uiThaiGuoQianYa_Pin.label_append_count.setText(str(before_count))
@@ -20805,16 +20937,22 @@ def SaveFileDialogThaiGuoQianYa_Pin():
 
 # 巴西过欠频稳定性
 def thaiguoqianpin_immunAppend():
-    global strAddTestFlag, guoqianpin_immun_append_count
+    global strAddTestFlag, guoqianpin_immun_append_count, project_change, project_now
     if 'guoqianpin_immun_append_count' not in globals():
         guoqianpin_immun_append_count = 0
-    strAddTestFlag = "0" if guoqianpin_immun_append_count == 0 else "1"
-    mode = "覆盖" if guoqianpin_immun_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='巴西过欠频稳定性', local_count=guoqianpin_immun_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[巴西过欠频稳定性] 第{guoqianpin_immun_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('巴西过欠频稳定性')
     before_count = guoqianpin_immun_append_count
     try:
         thaiguoqianpin_immunSend()
+        if str(globals().get('strSettingTestFlag') or '') == '1':
+            mark_project_now(globals(), '巴西过欠频稳定性')
+
     except Exception as e:
         logging.getLogger(__name__).exception("[巴西过欠频稳定性] 生成命令失败")
         ui.textEdit_ReturnMessage.append(f"[巴西过欠频稳定性] 生成命令失败: {e}")
@@ -21939,15 +22077,21 @@ def SaveFileDialogThaiGuoQianPin_Immun():
 
 # 静态MPPT测试
 def thaistaticMPPTtestAppend():
-    global strAddTestFlag, staticMPPTtest_append_count
+    global strAddTestFlag, staticMPPTtest_append_count, project_change, project_now
     if 'staticMPPTtest_append_count' not in globals():
         staticMPPTtest_append_count = 0
-    strAddTestFlag = "0" if staticMPPTtest_append_count == 0 else "1"
-    mode = "覆盖" if staticMPPTtest_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='静态MPPT测试', local_count=staticMPPTtest_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[静态MPPT测试] 第{staticMPPTtest_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('静态MPPT测试')
     before_count = staticMPPTtest_append_count
     thaistaticMPPTtestSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '静态MPPT测试')
+
     if not _normalize_generated_dewetron_rows('静态MPPT测试', snapshot):
         staticMPPTtest_append_count = before_count
         uiThaiStaticMPPTTest.label_append_count.setText(str(before_count))
@@ -22541,15 +22685,21 @@ def SaveFileDialogThaiStaticMPPTTest():
 
 # 频率适应性
 def thaifrequencyadaptabilityAppend():
-    global strAddTestFlag, frequencyadaptability_append_count, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count
+    global strAddTestFlag, frequencyadaptability_append_count, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count, project_change, project_now
     if 'frequencyadaptability_append_count' not in globals():
         frequencyadaptability_append_count = 0
-    strAddTestFlag = "0" if frequencyadaptability_append_count == 0 else "1"
-    mode = "覆盖" if frequencyadaptability_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='频率适应性', local_count=frequencyadaptability_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[频率适应性] 第{frequencyadaptability_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('频率适应性')
     before_count = frequencyadaptability_append_count
     thaifrequencyadaptabilitySend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '频率适应性')
+
     if not _normalize_generated_dewetron_rows('频率适应性', snapshot):
         frequencyadaptability_append_count = before_count
         uiThaiFrequencyAdaptability.label_append_count.setText(str(before_count))
@@ -22757,19 +22907,25 @@ def SaveFileDialogThaiFrequencyAdaptability():
 
 # 电压适应性
 def thaivoltageadaptabilityAppend():
-    global strAddTestFlag, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count
+    global strAddTestFlag, voltageadaptability_append_count, rocof_append_count, rapidvolt_append_count, project_change, project_now
     if 'voltageadaptability_append_count' not in globals():
         voltageadaptability_append_count = 0
     if 'rocof_append_count' not in globals():
         rocof_append_count = 0
     if 'rapidvolt_append_count' not in globals():
         rapidvolt_append_count = 0
-    strAddTestFlag = "0" if voltageadaptability_append_count == 0 else "1"
-    mode = "覆盖" if voltageadaptability_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='电压适应性', local_count=voltageadaptability_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[电压适应性] 第{voltageadaptability_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('电压适应性')
     before_count = voltageadaptability_append_count
     thaivoltageadaptabilitySend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '电压适应性')
+
     if not _normalize_generated_dewetron_rows('电压适应性', snapshot):
         voltageadaptability_append_count = before_count
         uiThaiVoltageAdaptability.label_append_count.setText(str(before_count))
@@ -23011,17 +23167,23 @@ def SaveFileDialogThaiVoltageAdaptability():
 
 # ROCOF保护
 def thairocofAppend():
-    global strAddTestFlag, rocof_append_count, rapidvolt_append_count
+    global strAddTestFlag, rocof_append_count, rapidvolt_append_count, project_change, project_now
     if 'rocof_append_count' not in globals():
         rocof_append_count = 0
     if 'rapidvolt_append_count' not in globals():
         rapidvolt_append_count = 0
-    strAddTestFlag = "0" if rocof_append_count == 0 else "1"
-    mode = "覆盖" if rocof_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='ROCOF保护', local_count=rocof_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[ROCOF保护] 第{rocof_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('ROCOF保护')
     before_count = rocof_append_count
     thairocofSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), 'ROCOF保护')
+
     if not _normalize_generated_dewetron_rows('ROCOF保护', snapshot):
         rocof_append_count = before_count
         uiThaiROCOF.label_append_count.setText(str(before_count))
@@ -23239,15 +23401,21 @@ def SaveFileDialogThaiROCOF():
 
 # 快速电压变化
 def thairapidvoltAppend():
-    global strAddTestFlag, rapidvolt_append_count
+    global strAddTestFlag, rapidvolt_append_count, project_change, project_now
     if 'rapidvolt_append_count' not in globals():
         rapidvolt_append_count = 0
-    strAddTestFlag = "0" if rapidvolt_append_count == 0 else "1"
-    mode = "覆盖" if rapidvolt_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='快速电压变化', local_count=rapidvolt_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[快速电压变化] 第{rapidvolt_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('快速电压变化')
     before_count = rapidvolt_append_count
     thairapidvoltSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '快速电压变化')
+
     if not _normalize_generated_dewetron_rows('快速电压变化', snapshot):
         rapidvolt_append_count = before_count
         uiThaiRapidVolt.label_append_count.setText(str(before_count))
@@ -23457,15 +23625,21 @@ def SaveFileDialogThaiRapidVolt():
 
 
 def thailvrtAppend():
-    global strAddTestFlag, lvrt_append_count
+    global strAddTestFlag, lvrt_append_count, project_change, project_now
     if 'lvrt_append_count' not in globals():
         lvrt_append_count = 0
-    strAddTestFlag = "0" if lvrt_append_count == 0 else "1"
-    mode = "覆盖" if lvrt_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='低电压穿越', local_count=lvrt_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[低电压穿越] 第{lvrt_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('低电压穿越')
     before_count = lvrt_append_count
     thailvrtSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '低电压穿越')
+
     if not _normalize_generated_dewetron_rows('低电压穿越', snapshot):
         lvrt_append_count = before_count
         uiThaiLVRT.label_append_count.setText(str(before_count))
@@ -23566,15 +23740,21 @@ def SaveFileDialogThaiLVRT():
 
 
 def thaiphasejumpAppend():
-    global strAddTestFlag, phasejump_append_count
+    global strAddTestFlag, phasejump_append_count, project_change, project_now
     if 'phasejump_append_count' not in globals():
         phasejump_append_count = 0
-    strAddTestFlag = "0" if phasejump_append_count == 0 else "1"
-    mode = "覆盖" if phasejump_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='相角突变', local_count=phasejump_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[相角突变] 第{phasejump_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('相角突变')
     before_count = phasejump_append_count
     thaiphasejumpSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '相角突变')
+
     if not _normalize_generated_dewetron_rows('相角突变', snapshot):
         phasejump_append_count = before_count
         uiThaiPhaseJump.label_append_count.setText(str(before_count))
@@ -23678,15 +23858,21 @@ def SaveFileDialogThaiPhaseJump():
 
 
 def thaidynamicmpptAppend():
-    global strAddTestFlag, dynamicmppt_append_count
+    global strAddTestFlag, dynamicmppt_append_count, project_change, project_now
     if 'dynamicmppt_append_count' not in globals():
         dynamicmppt_append_count = 0
-    strAddTestFlag = "0" if dynamicmppt_append_count == 0 else "1"
-    mode = "覆盖" if dynamicmppt_append_count == 0 else "追加"
+    from utils.append_mode import apply_append_mode, mark_project_now
+    _flag, _chg, mode = apply_append_mode(
+        globals(), project_name='动态MPPT', local_count=dynamicmppt_append_count
+    )
+    strAddTestFlag, project_change = _flag, _chg
     ui.textEdit_ReturnMessage.append(f"[动态MPPT] 第{dynamicmppt_append_count + 1}次{mode}模式，开始生成命令...")
     snapshot = _snapshot_dewetron_append('动态MPPT')
     before_count = dynamicmppt_append_count
     thaidynamicmpptSend()
+    if str(globals().get('strSettingTestFlag') or '') == '1':
+        mark_project_now(globals(), '动态MPPT')
+
     if not _normalize_generated_dewetron_rows('动态MPPT', snapshot):
         dynamicmppt_append_count = before_count
         uiThaiDynamicMPPT.label_append_count.setText(str(before_count))
