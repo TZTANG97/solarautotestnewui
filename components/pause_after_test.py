@@ -73,13 +73,18 @@ def _append_queue_marker(ui: Any) -> None:
         name = str(sw.ui.comboBox_PS.currentText() or "").strip()
     except Exception:
         name = ""
-    from utils.test_queue_markers import is_queue_end_row, make_queue_end_row
+    try:
+        from utils.append_mode import ensure_queue_end_marker
 
-    row = make_queue_end_row(name, pause_after=pause)
-    if is_queue_end_row(arr[-1]):
-        arr[-1] = row
-    else:
-        arr.append(row)
+        ensure_queue_end_marker(sw.__dict__, name or "试验", pause_after=pause)
+    except Exception:
+        from utils.test_queue_markers import is_queue_end_row, make_queue_end_row
+
+        row = make_queue_end_row(name, pause_after=pause)
+        if is_queue_end_row(arr[-1]):
+            arr[-1] = row
+        else:
+            arr.append(row)
     try:
         hint = "本试验结束后暂停，等人工改逆变器再继续" if pause else "本试验结束后直接进入下一项"
         sw.ui.textEdit_ReturnMessage.append(f"[{name or '试验'}] {hint}")
