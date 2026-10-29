@@ -119,6 +119,17 @@ def calc_sandia_iv(
     }
 
 
+def resolve_power_percent(page_pf: Any, panel_pf: Any, *, panel_edited: bool) -> float:
+    """功率设置（textEdit_PF）与 Sandia 面板功率% 二选一。
+
+    面板没改过时用直流源页的功率设置；改过面板后以面板为准。
+    """
+    page = str(page_pf or "").strip()
+    panel = str(panel_pf or "").strip()
+    raw = panel if panel_edited else (page or panel)
+    return parse_power_percent(raw, 100.0)
+
+
 def sandia_inputs_from_mapping(data: Optional[Dict[str, Any]]) -> Dict[str, float]:
     """从 prefs / widgets 字典取 Sandia 输入（缺省对齐 Soft Panel）。"""
     d = data or {}

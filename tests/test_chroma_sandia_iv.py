@@ -119,3 +119,50 @@ def test_rejects_bad_vmp():
         assert False, "expected ValueError"
     except ValueError:
         pass
+
+
+def test_resolve_power_prefers_dc_page_until_panel_edited():
+    from utils.chroma_sandia_iv import resolve_power_percent
+
+    assert resolve_power_percent("50", "100", panel_edited=False) == 50.0
+    assert resolve_power_percent("50", "80", panel_edited=True) == 80.0
+    assert resolve_power_percent("", "60%", panel_edited=False) == 60.0
+
+
+class _Plain:
+    def __init__(self, text: str):
+        self._text = text
+
+    def toPlainText(self):
+        return self._text
+
+    def setPlainText(self, text: str):
+        self._text = text
+
+    def isChecked(self):
+        return True
+
+
+def test_apply_remembered_dc_iv_fills_later_dialog(monkeypatch):
+    import components.sandia_iv_panel as panel
+
+    store = {
+        "dc.sandia_fill": "1",
+        "dc.vmp": "650",
+        "dc.imp": "5.384",
+        "dc.voc": "726.9",
+        "dc.isc": "5.56",
+        "dc.sandia_scaled": "1",
+    }
+    monkeypatch.setattr(panel, "last_value", lambda key, default="": store.get(key, default))
+    ui = type("Ui", (), {})()
+    ui.textEdit_S1_DC1_VOLT = _Plain("400")
+    ui.textEdit_S1_DC1_CURR = _Plain("10")
+    ui.textEdit_S1_DC1_Voc = _Plain("450")
+    ui.textEdit_S1_DC1_Isc = _Plain("12")
+    ui.textEdit_S1_DC1_PF = _Plain("40")
+    ui.checkBox_S1_DC1 = _Plain("1")
+    assert panel.apply_remembered_dc_iv(ui) is True
+    assert ui.textEdit_S1_DC1_VOLT.toPlainText() == "650"
+    assert ui.textEdit_S1_DC1_CURR.toPlainText() == "5.384"
+    assert ui.textEdit_S1_DC1_PF.toPlainText() == "100"

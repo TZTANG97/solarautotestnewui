@@ -182,6 +182,13 @@ def _do_heartbeat(
             busy = True
     except Exception:
         run_snapshot = None
+    error_logs = []
+    try:
+        from utils.iot_error_journal import peek_unsent
+
+        error_logs = peek_unsent(Path(status_json_path).resolve().parent)
+    except Exception:
+        error_logs = []
     try:
         hb = client.heartbeat(
             agent_version=agent_version,
@@ -194,6 +201,7 @@ def _do_heartbeat(
             control_result=ctrl_result,
             control_request_id=ctrl_rid,
             run_snapshot=run_snapshot,
+            error_logs=error_logs or None,
         )
     except Exception:
         # 回传失败时把结果塞回去，下一轮再试
@@ -212,6 +220,14 @@ def _do_heartbeat(
     if isinstance(data_hb, dict):
         if data_hb.get("pythonid"):
             client.pythonid = str(data_hb.get("pythonid") or "")
+        accepted = data_hb.get("acceptedErrorIds") or data_hb.get("accepted_error_ids") or []
+        if accepted:
+            try:
+                from utils.iot_error_journal import mark_uploaded
+
+                mark_uploaded(Path(status_json_path).resolve().parent, list(accepted))
+            except Exception:
+                logger.debug("报错回执落盘失败", exc_info=True)
         _handle_pending_actions(data_hb)
     # 二期：本机开测 / UI 占用时也能收到网页远程中止 → stop_request → 关电源
     try:
@@ -640,6 +656,13 @@ def run_once_job(
 def main(argv: Optional[list] = None) -> int:
     global _client_ref
     _setup_log()
+    try:
+        from agent.config import _repo_root
+        from utils.iot_error_journal import install_error_journal
+
+        install_error_journal(logger, base_dir=str(_repo_root()), hook_message_box=False)
+    except Exception:
+        logger.debug("报错流水安装跳过", exc_info=True)
     parser = argparse.ArgumentParser(description="Solar AutoTest IOT Agent（独立进程）")
     parser.add_argument("--config", default="", help="配置文件路径，默认 config/solar_agent.json")
     args = parser.parse_args(argv)

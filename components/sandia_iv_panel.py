@@ -21,7 +21,11 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
-from utils.chroma_sandia_iv import calc_sandia_iv, sandia_inputs_from_mapping
+from utils.chroma_sandia_iv import (
+    calc_sandia_iv,
+    resolve_power_percent,
+    sandia_inputs_from_mapping,
+)
 from utils.ui_field_helpers import last_value, remember_value
 
 _SANDIA_KEYS = (
@@ -142,6 +146,59 @@ def fill_test_dialog_dc(ui_test: Any, pts: dict, *, channels: Optional[list] = N
         _set_plain(getattr(ui_test, f"textEdit_S1_DC{ch}_CURR", None), f'{pts["imp"]:g}')
         _set_plain(getattr(ui_test, f"textEdit_S1_DC{ch}_Voc", None), f'{pts["voc"]:g}')
         _set_plain(getattr(ui_test, f"textEdit_S1_DC{ch}_Isc", None), f'{pts["isc"]:g}')
+
+
+def remember_sandia_fill(pts: dict) -> None:
+    """记下本次 Sandia 结果，供之后打开的实验页回填。"""
+    remember_value("dc.vmp", f'{pts["vmp"]:g}')
+    remember_value("dc.imp", f'{pts["imp"]:g}')
+    remember_value("dc.voc", f'{pts["voc"]:g}')
+    remember_value("dc.isc", f'{pts["isc"]:g}')
+    remember_value("dc.sandia_fill", "1")
+    scaled = abs(float(pts.get("power_pct") or 100) - 100.0) > 1e-6
+    remember_value("dc.sandia_scaled", "1" if scaled else "0")
+
+
+def apply_remembered_dc_iv(ui_test: Any) -> bool:
+    """实验页创建时，把最近一次直流源 Sandia 四点写进已勾选通道。"""
+    if ui_test is None or last_value("dc.sandia_fill") != "1":
+        return False
+    if not any(
+        getattr(ui_test, f"textEdit_S1_DC{ch}_VOLT", None) is not None for ch in (1, 2, 3, 4)
+    ):
+        return False
+    try:
+        pts = {
+            "vmp": float(last_value("dc.vmp")),
+            "imp": float(last_value("dc.imp")),
+            "voc": float(last_value("dc.voc")),
+            "isc": float(last_value("dc.isc")),
+        }
+    except (TypeError, ValueError):
+        return False
+    if min(pts.values()) <= 0:
+        return False
+    fill_test_dialog_dc(ui_test, pts)
+    if last_value("dc.sandia_scaled") == "1":
+        for ch in (1, 2, 3, 4):
+            cb = getattr(ui_test, f"checkBox_S1_DC{ch}", None)
+            enabled = True
+            if cb is not None:
+                try:
+                    enabled = bool(cb.isChecked())
+                except Exception:
+                    enabled = True
+            if enabled:
+                _set_plain(getattr(ui_test, f"textEdit_S1_DC{ch}_PF", None), "100")
+    return True
+
+
+def _iter_test_uis(found: Any):
+    if found is None:
+        return []
+    if isinstance(found, (list, tuple)):
+        return [u for u in found if u is not None]
+    return [found]
 
 
 def _find_timeline(start: Optional[QWidget]) -> Optional[QWidget]:
@@ -331,7 +388,33 @@ def wire_sandia_iv_panel(
     box.toggled.connect(_on_toggled)
     btn_hide.clicked.connect(lambda: box.setChecked(False))
 
+    panel_edited = {"on": False}
+    pf_widget = getattr(ui, "textEdit_PF", None)
+    edits["power_pct"].textChanged.connect(lambda _text: panel_edited.__setitem__("on", True))
+
+    def _on_page_pf() -> None:
+        if pf_widget is not None and hasattr(pf_widget, "signalsBlocked") and pf_widget.signalsBlocked():
+            return
+        panel_edited["on"] = False
+        page = _plain(pf_widget)
+        if not page:
+            return
+        edits["power_pct"].blockSignals(True)
+        edits["power_pct"].setText(page)
+        edits["power_pct"].blockSignals(False)
+
+    if pf_widget is not None and hasattr(pf_widget, "textChanged"):
+        pf_widget.textChanged.connect(_on_page_pf)
+
     def _on_calc() -> None:
+        pct = resolve_power_percent(
+            _plain(pf_widget),
+            edits["power_pct"].text(),
+            panel_edited=panel_edited["on"],
+        )
+        edits["power_pct"].blockSignals(True)
+        edits["power_pct"].setText(f"{pct:g}")
+        edits["power_pct"].blockSignals(False)
         raw = {k: edits[k].text() for k in edits}
         try:
             args = sandia_inputs_from_mapping(raw)
@@ -342,15 +425,23 @@ def wire_sandia_iv_panel(
         for mem_key, field, _default in _SANDIA_KEYS:
             remember_value(mem_key, edits[field].text().strip())
         fill_iv_widgets(ui, pts)
+        remember_sandia_fill(pts)
         # 电流已按功率%缩放时，通道功率%置 100，避免 IVC 下发再乘一次。
-        # 功率%本就是 100 时不动原有功率档，后面的工况点仍按自己的百分比缩放这组四点。
+        # 面板仍保留这次用的功率%，下次不会被刚写回的 100 盖掉。
         scaled = abs(float(pts.get("power_pct") or 100) - 100.0) > 1e-6
         if scaled:
-            _set_plain(getattr(ui, "textEdit_PF", None), "100")
+            panel_edited["on"] = True
+            if pf_widget is not None and hasattr(pf_widget, "blockSignals"):
+                pf_widget.blockSignals(True)
+            _set_plain(pf_widget, "100")
+            if pf_widget is not None and hasattr(pf_widget, "blockSignals"):
+                pf_widget.blockSignals(False)
         try:
-            test_ui = resolve_test_ui() if resolve_test_ui else None
-            fill_test_dialog_dc(test_ui, pts)
-            if scaled and test_ui is not None:
+            found = resolve_test_ui() if resolve_test_ui else None
+            for test_ui in _iter_test_uis(found):
+                fill_test_dialog_dc(test_ui, pts)
+                if not scaled:
+                    continue
                 for ch in (1, 2, 3, 4):
                     cb = getattr(test_ui, f"checkBox_S1_DC{ch}", None)
                     enabled = True

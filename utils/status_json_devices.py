@@ -2,6 +2,11 @@
 """status.json 设备行：保证连接时能写入，供 Agent 心跳上报 IOT。"""
 from __future__ import annotations
 
+import json
+import os
+import re
+import threading
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -212,6 +217,119 @@ def read_dc_ui_snapshot(dc_ui: Any, *, slot: str = "dc1") -> Dict[str, Any]:
         out["slot"] = str(slot or "dc1").lower()
     return out
 
+
+
+_VOLT_RE = re.compile(
+    r"(?:^|[;:])(?:SOUR(?:CE)?:)?VOLT(?:AGE)?(?:[:\s]+)([+-]?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+_FREQ_RE = re.compile(
+    r"(?:^|[;:])(?:SOUR(?:CE)?:)?FREQ(?:UENCY)?(?:[:\s]+)([+-]?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+_OUTP_RE = re.compile(
+    r"OUTP(?:UT)?(?::STAT(?:E)?)?(?:[:\s]+)(ON|OFF|1|0)\b",
+    re.IGNORECASE,
+)
+
+
+def measures_from_supply_command(command: str) -> Dict[str, str]:
+    """从刚下发的电源写命令抽出当前电压/频率/输出，供台架卡片跟随。"""
+    text = str(command or "").strip()
+    if not text:
+        return {}
+    out: Dict[str, str] = {}
+    volt = _VOLT_RE.search(text)
+    if volt:
+        out["voltage"] = volt.group(1)
+    freq = _FREQ_RE.search(text)
+    if freq:
+        out["frequency"] = freq.group(1)
+    outp = _OUTP_RE.search(text)
+    if outp:
+        flag = outp.group(1).upper()
+        out["output"] = "off" if flag in ("OFF", "0") else "on"
+    return out
+
+
+_STATUS_THREAD_LOCKS: Dict[str, threading.Lock] = {}
+_STATUS_THREAD_GUARD = threading.Lock()
+
+
+def _thread_lock_for(status_path: str) -> threading.Lock:
+    with _STATUS_THREAD_GUARD:
+        lock = _STATUS_THREAD_LOCKS.get(status_path)
+        if lock is None:
+            lock = threading.Lock()
+            _STATUS_THREAD_LOCKS[status_path] = lock
+        return lock
+
+
+@contextmanager
+def status_json_lock(status_path: str):
+    """整份 status.json 读改写共用一把锁，避免进度落盘盖掉刚写入的电压。"""
+    path = str(status_path or "").strip()
+    lock_path = path + ".lock"
+    folder = os.path.dirname(lock_path)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+    with _thread_lock_for(path):
+        fh = open(lock_path, "a+b")
+        try:
+            if fh.seek(0, os.SEEK_END) < 1:
+                fh.write(b" ")
+                fh.flush()
+            if os.name == "nt":
+                import msvcrt
+
+                fh.seek(0)
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    fh.seek(0)
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+            except Exception:
+                pass
+            fh.close()
+
+
+def note_supply_command(status_path: str, *, device_name: str, command: str) -> bool:
+    """把本条电源命令反映进 status.json。没有电压/频率/输出则不写。"""
+    extra_measures = measures_from_supply_command(command)
+    if not extra_measures:
+        return False
+    path = str(status_path or "").strip()
+    if not path:
+        return False
+    with status_json_lock(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except Exception:
+            data = empty_status_payload()
+        data = update_device_measures(
+            data,
+            device_name=device_name,
+            extra={"measures": extra_measures, **{k: v for k, v in extra_measures.items() if k != "output"}},
+        )
+        folder = os.path.dirname(path)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+    return True
 
 
 def update_device_measures(

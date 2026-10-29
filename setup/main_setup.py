@@ -124,6 +124,12 @@ class LazyDialog:
                 polish_input_widgets(self._real_dialog)
             except Exception as exc:
                 print(f"[WARN] polish_input_widgets({self._name}): {exc}", flush=True)
+            try:
+                from components.sandia_iv_panel import apply_remembered_dc_iv
+
+                apply_remembered_dc_iv(self._real_ui)
+            except Exception as exc:
+                print(f"[WARN] sandia dc iv ({self._name}): {exc}", flush=True)
             self._run_create_hooks()
         elif not self._hooks_ran:
             self._run_create_hooks()

@@ -222,11 +222,11 @@ def _sim_instruments_enabled() -> bool:
 def collect_instruments_snapshot(
     *,
     status_json_path: Optional[str] = None,
-    min_interval_sec: float = 45.0,
+    min_interval_sec: float = 0.0,
     force: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    只读 status.json 已连/曾连设备。
+    只读 status.json 已连/曾连设备。每次心跳都重读，台架卡片跟当前输出走。
     禁止再用「输入框字段记忆 / 仅 TCP 通」冒充在线。
     """
     global _cache, _cache_at

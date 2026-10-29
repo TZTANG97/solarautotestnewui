@@ -1274,10 +1274,18 @@ def _dewetron_status_extra():
 
 def _update_project_status(project_name, status):
     """更新 status.json 中的测试项目状态。"""
-    import json
     import os
-    from datetime import datetime
+    from utils.status_json_devices import status_json_lock
     _status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+    with status_json_lock(_status_file):
+        data = _update_project_status_locked(_status_file, project_name, status)
+    if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
+        _reload_home_status(data)
+
+
+def _update_project_status_locked(_status_file, project_name, status):
+    import json
+    from datetime import datetime
     try:
         with open(_status_file, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -1305,28 +1313,30 @@ def _update_project_status(project_name, status):
     data["project"]["updated_at"] = now_str
     with open(_status_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
-        _reload_home_status(data)
+    return data
 
 
 def _reload_home_status(data):
     """用已加载的 status 数据刷新首页卡片。"""
+    # 试验进行中以刚下发的命令为准，不用设置页旧电压盖回去
+    _running_now = str(globals().get("strTestStatusFlag") or "") in ("运行", "暂停")
     # refresh connected AC/DC measures from live UI (for IOT bench cards)
     try:
         from utils.status_json_devices import update_device_measures
         changed = False
-        for _dev in list(data.get("devices") or []):
-            if not isinstance(_dev, dict) or not _dev.get("connected"):
-                continue
-            _name = str(_dev.get("name") or "").strip()
-            _extra = None
-            if _name in ("交流电源", "交流源"):
-                _extra = _ac_status_extra()
-            elif _name.startswith("直流电源") or _name.startswith("直流源"):
-                _extra = _dc_status_extra(_name)
-            if isinstance(_extra, dict) and _extra:
-                data = update_device_measures(data, device_name=_name, extra=_extra)
-                changed = True
+        if not _running_now:
+            for _dev in list(data.get("devices") or []):
+                if not isinstance(_dev, dict) or not _dev.get("connected"):
+                    continue
+                _name = str(_dev.get("name") or "").strip()
+                _extra = None
+                if _name in ("交流电源", "交流源"):
+                    _extra = _ac_status_extra()
+                elif _name.startswith("直流电源") or _name.startswith("直流源"):
+                    _extra = _dc_status_extra(_name)
+                if isinstance(_extra, dict) and _extra:
+                    data = update_device_measures(data, device_name=_name, extra=_extra)
+                    changed = True
         if changed:
             try:
                 import json as _json
@@ -1503,9 +1513,19 @@ def _show_operator_pause_dialog(project_name=""):
 
 def _persist_run_progress(state):
     """把进度写回 status.json（不改变 start/end 语义）。"""
-    import json
     import os
+    from utils.status_json_devices import status_json_lock
     _status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+    with status_json_lock(_status_file):
+        data = _persist_run_progress_locked(_status_file, state)
+    try:
+        _reload_home_status(data)
+    except Exception:
+        pass
+
+
+def _persist_run_progress_locked(_status_file, state):
+    import json
     try:
         with open(_status_file, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -1581,10 +1601,7 @@ def _persist_run_progress(state):
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
-    try:
-        _reload_home_status(data)
-    except Exception:
-        pass
+    return data
 
 
 def _apply_run_progress_ui(state):
@@ -24993,6 +25010,20 @@ def _reconnect_ac_for_run(max_attempts=2) -> bool:
     return bool(ac_controller.connected and ac_controller.handle is not None)
 
 
+def _note_live_supply_command(device_name, command) -> None:
+    """试验命令改了电压/频率/输出后，立刻写进 status.json，台架卡片不要停在旧设定。"""
+    try:
+        from utils.status_json_devices import note_supply_command
+
+        note_supply_command(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json"),
+            device_name=str(device_name or ""),
+            command=str(command or ""),
+        )
+    except Exception:
+        pass
+
+
 def _ac_execute_write_command(command) -> None:
     """执行一条 AC write；失败时自动重连并最多再试 2 次。"""
     global ac_controller
@@ -25005,8 +25036,10 @@ def _ac_execute_write_command(command) -> None:
             cmd_norm = str(command or "").strip().upper().replace(" ", "")
             if cmd_norm in ("OUTPON", "OUTP:ON"):
                 ac_controller.open_output()
+                _note_live_supply_command("交流电源", command)
             elif cmd_norm in ("OUTPOFF", "OUTP:OFF"):
                 ac_controller.close_output()
+                _note_live_supply_command("交流电源", command)
             elif ac_controller._itech is not None:
                 ok, _ = ac_controller._itech.translate(command)
                 if not ok:
@@ -25021,6 +25054,7 @@ def _ac_execute_write_command(command) -> None:
                 except Exception:
                     pass
                 print(f"SendCommandToAC:{send_cmd}")
+            _note_live_supply_command("交流电源", command)
             return
         except Exception as exc:
             last_err = exc
@@ -26153,6 +26187,7 @@ def RunProject():
                         if dc1_controller.handle is None:
                             raise RuntimeError("DC1未连接，跳过该命令")
                         dc1_controller.write_command(strArrayTest[i][2], label="DC1")
+                        _note_live_supply_command("直流电源1", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC1 " + strArrayTest[i][2])
                         print(strtimenow + "DC1 " + strArrayTest[i][2])
@@ -26196,6 +26231,7 @@ def RunProject():
                         if dc2_controller.handle is None:
                             raise RuntimeError("DC2未连接，跳过该命令")
                         dc2_controller.write_command(strArrayTest[i][2], label="DC2")
+                        _note_live_supply_command("直流电源2", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC2 " + strArrayTest[i][2])
                         print(strtimenow + "DC2 " + strArrayTest[i][2])
@@ -26239,6 +26275,7 @@ def RunProject():
                         if dc3_controller.handle is None:
                             raise RuntimeError("DC3未连接，跳过该命令")
                         dc3_controller.write_command(strArrayTest[i][2], label="DC3")
+                        _note_live_supply_command("直流电源3", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC3 " + strArrayTest[i][2])
                         print(strtimenow + "DC3 " + strArrayTest[i][2])
@@ -26282,6 +26319,7 @@ def RunProject():
                         if dc4_controller.handle is None:
                             raise RuntimeError("DC4未连接，跳过该命令")
                         dc4_controller.write_command(strArrayTest[i][2], label="DC4")
+                        _note_live_supply_command("直流电源4", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "DC4 " + strArrayTest[i][2])
                         print(strtimenow + "DC4 " + strArrayTest[i][2])
@@ -31068,6 +31106,16 @@ if __name__ == "__main__":
     logger = setup_logging(os.path.dirname(os.path.abspath(__file__)))
     original_stdout, original_stderr = install_stream_logging(logger)
     install_exception_hook(logger, original_stderr)
+    try:
+        from utils.iot_error_journal import install_error_journal
+
+        install_error_journal(
+            logger,
+            base_dir=os.path.dirname(os.path.abspath(__file__)),
+            hook_message_box=True,
+        )
+    except Exception as _journal_exc:
+        print(f"[WARN] error journal install failed: {_journal_exc}", flush=True)
 
     #if is_admin():
     if (1):
@@ -34069,47 +34117,30 @@ if __name__ == "__main__":
                 )
 
                 def _resolve_sandia_test_ui():
+                    """已创建的实验页（含未显示的）。不要 getattr LazyDialog，避免把没打开的对话框实例化。"""
                     try:
-                        from PyQt5.QtWidgets import QApplication
-
-                        try:
-                            from setup.main_setup import LazyDialog as _LazyDialog
-                        except Exception:
-                            _LazyDialog = None
-
+                        from setup.main_setup import LazyDialog as _LazyDialog
+                    except Exception:
+                        _LazyDialog = None
+                    found = []
+                    try:
                         for _name, _obj in list(globals().items()):
-                            if not _name.startswith("uiThai"):
+                            if not _name.startswith("uiThai") or _obj is None:
                                 continue
-                            if _obj is None:
-                                continue
-                            # 禁止 hasattr/getattr / .ui 触发 LazyDialog 全量实例化
                             if _LazyDialog is not None and isinstance(_obj, _LazyDialog):
                                 if not _obj.is_created:
                                     continue
                                 _ui = getattr(_obj, "_real_ui", None)
-                                if _ui is None:
-                                    continue
                             else:
                                 _ui = _obj
-                            if not hasattr(_ui, "textEdit_S1_DC1_VOLT"):
+                            if _ui is None or not hasattr(_ui, "textEdit_S1_DC1_VOLT"):
                                 continue
-                            _w = getattr(_ui, "textEdit_S1_DC1_VOLT", None)
-                            if _w is None:
+                            if getattr(_ui, "textEdit_S1_DC1_VOLT", None) is None:
                                 continue
-                            try:
-                                _win = _w.window()
-                            except Exception:
-                                _win = None
-                            if _win is not None and _win.isVisible():
-                                return _ui
-                        _fw = QApplication.focusWidget()
-                        if _fw is not None:
-                            _top = _fw.window()
-                            if hasattr(_top, "textEdit_S1_DC1_VOLT"):
-                                return _top
+                            found.append(_ui)
                     except Exception:
-                        pass
-                    return None
+                        return found
+                    return found
 
                 _sandia_host = None
                 try:

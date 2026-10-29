@@ -52,6 +52,7 @@ class IotSolarClient:
         control_request_id: str = "",
         local_resources: Optional[list] = None,
         run_snapshot: Optional[dict] = None,
+        error_logs: Optional[list] = None,
     ) -> Dict[str, Any]:
         body: Dict[str, Any] = {
             "type": "on",
@@ -76,6 +77,8 @@ class IotSolarClient:
             body["localResources"] = list(local_resources)
         if run_snapshot is not None:
             body["runSnapshot"] = dict(run_snapshot)
+        if error_logs:
+            body["errorLogs"] = list(error_logs)
         return self._request(
             "POST",
             "/api/solar-autotest/agent/heartbeat",
