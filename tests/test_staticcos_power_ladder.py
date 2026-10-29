@@ -31,7 +31,7 @@ def test_dialog_has_power_ladder_and_visible_dwell(qapp):
 
     assert hasattr(ui, "textEdit_PowerLadder")
     assert "100" in ui.textEdit_PowerLadder.toPlainText()
-    assert ui.textEdit_S3_TIME_2.toPlainText() == "5"
+    assert ui.textEdit_S3_TIME_2.toPlainText() == "30"
     assert ui.comboBox_S3_TIME_2.count() >= 1
 
 
@@ -43,7 +43,7 @@ def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
     dialog = QDialog()
     ui.setupUi(dialog)
 
-    # 短驻留 + 2 档功率 + 仅勾选 2 个 cosφ → 4 轮
+    # 功率档 2 档 × 全部 9 个 cosφ。下面各步全部取消勾选，也不再参与。
     ui.textEdit_PowerLadder.setText("100,80")
     ui.textEdit_S3_TIME_2.setText("1")
     ui.comboBox_S3_TIME_2.setCurrentText("秒")
@@ -52,9 +52,9 @@ def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
         "checkBox_S8", "checkBox_S9", "checkBox_S10", "checkBox_S11",
     ]:
         getattr(ui, name).setChecked(False)
-    ui.checkBox_S3.setChecked(True)
-    ui.checkBox_S7.setChecked(True)
     ui.checkBox_S_END.setChecked(False)
+    if hasattr(ui, "comboBox_analyzer_recording_mode"):
+        ui.comboBox_analyzer_recording_mode.setCurrentIndex(0)
 
     ui.checkBox_S1.setChecked(True)
     ui.checkBox_S1_DC1.setChecked(True)
@@ -126,11 +126,54 @@ def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
 
     sw.thaistaticcosPhiSend()
 
-    assert sw.total_save_file == 4, sw.total_save_file
-    col6_rows = [r for r in sw.strArrayTest if len(r) > 6 and r[6] not in ("", None)]
-    assert len(col6_rows) == 4, len(col6_rows)
+    # 2 档 × 9 cosφ，每点 1 秒；连续录 StopTime = 18×1 + 30 秒
+    dwell_rows = [
+        r for r in sw.strArrayTest
+        if len(r) > 9 and r[2] == "*IDN?" and r[9] == 10
+    ]
+    assert len(dwell_rows) == 18, len(dwell_rows)
+    assert sw.total_save_file == 1, sw.total_save_file
 
     wt_row = next(r for r in sw.strArrayTest if r[0] == "Upper_WT_Config")
-    names = wt_row[4]["textEdit_FileNameList"].split(",")
-    assert names == ["P100_cos0.0", "P100_cos1.0", "P80_cos0.0", "P80_cos1.0"], names
+    assert wt_row[4]["textEdit_FileNameList"].startswith("CosPhi_BR")
+    assert wt_row[4]["textEdit_StopTime"] == "00:00:48", wt_row[4]["textEdit_StopTime"]
     assert wt_row[4]["comboBox_AutoSave"] == 1
+
+
+def test_second_segment_recording_does_not_rewrite_first_config():
+    from utils.static_cosphi_recording import apply_segment_recording
+
+    rows = [
+        ["Upper_WT_Config", "", "", "", {
+            "textEdit_FileNameList": "first.csv",
+            "textEdit_StopTime": "00:01:00",
+            "comboBox_AutoSave": 1,
+        }],
+        ["DC1", "write"],
+        ["Upper_WT_Config", "", "", "", {
+            "textEdit_FileNameList": "old",
+            "textEdit_StopTime": "00:00:01",
+            "comboBox_AutoSave": 0,
+        }],
+    ]
+    assert apply_segment_recording(
+        rows, "second.csv", "00:02:00", continuous=True
+    )
+    assert rows[0][4]["textEdit_FileNameList"] == "first.csv"
+    assert rows[0][4]["textEdit_StopTime"] == "00:01:00"
+    assert rows[2][4]["textEdit_FileNameList"] == "second.csv"
+    assert rows[2][4]["textEdit_StopTime"] == "00:02:00"
+    assert rows[2][4]["comboBox_AutoSave"] == 1
+
+
+def test_stoptime_is_powers_times_all_cos_plus_margin():
+    from utils.static_cosphi_recording import plan_stop_and_names, stoptime_hhmmss
+
+    ui = type("U", (), {})()
+    _names, stop_sec, n_rounds, mode = plan_stop_and_names(
+        ui, 1200, n_points=4 * 9, wt_on=True, wt_continuous=True,
+    )
+    assert mode == "一条线连续录"
+    assert n_rounds == 1
+    assert stop_sec == 4 * 9 * 120 + 30
+    assert stoptime_hhmmss(stop_sec) == "01:12:30"

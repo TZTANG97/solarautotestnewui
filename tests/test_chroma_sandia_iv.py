@@ -79,6 +79,38 @@ def test_sandia_inputs_from_mapping_defaults():
     assert d["tc_ref_c"] == 50.0
 
 
+def test_power_level_scales_current_not_voltage():
+    from utils.chroma_sandia_iv import calc_sandia_iv
+
+    full = calc_sandia_iv(
+        vmp=650, pmax_w=7000, ff=0.85, irr_wm2=1000, irr_ref_wm2=1000, tc_c=50, tc_ref_c=50
+    )
+    half = calc_sandia_iv(
+        vmp=650,
+        pmax_w=7000,
+        ff=0.85,
+        irr_wm2=1000,
+        irr_ref_wm2=1000,
+        tc_c=50,
+        tc_ref_c=50,
+        power_pct=50,
+    )
+    assert half["vmp"] == full["vmp"]
+    assert abs(half["voc"] - full["voc"]) < 1e-9
+    assert abs(half["imp"] - full["imp"] * 0.5) < 1e-9
+    assert _near(half["isc"], full["isc"] * 0.5, abs_tol=0.002)
+    assert half["power_pct"] == 50.0
+
+
+def test_power_percent_accepts_percent_sign_and_fraction():
+    from utils.chroma_sandia_iv import parse_power_percent, sandia_inputs_from_mapping
+
+    assert parse_power_percent("80%") == 80.0
+    assert parse_power_percent("0.8") == 80.0
+    mapped = sandia_inputs_from_mapping({"power_pct": "50%"})
+    assert mapped["power_pct"] == 50.0
+
+
 def test_rejects_bad_vmp():
     from utils.chroma_sandia_iv import calc_sandia_iv
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from utils.wt_scpi_items import (
     all_known_checkbox_keys,
     items_from_wt_config,
+    macro_column_name,
     max_item_slots,
     selected_functions,
     selected_singles,
@@ -52,7 +53,8 @@ def test_elements_and_basic_ui_expand():
     assert selected_targets(cfg) == ["1", "2", "3", "SIGMA"]
     assert selected_functions(cfg) == ["URMS", "IRMS", "P", "Q", "FU"]
     items = items_from_wt_config(cfg)
-    assert items[:5] == ["URMS,1", "IRMS,1", "P,1", "Q,1", "FU,1"]
+    # 同一测量项先排元素再排总和，和宏 CSV 列顺序一致。
+    assert items[:5] == ["URMS,1", "URMS,2", "URMS,3", "URMS,SIGMA", "IRMS,1"]
     assert "P,SIGMA" in items
     assert max_item_slots(cfg) == 24
 
@@ -115,7 +117,39 @@ def test_project_num_caps_long_list():
         "checkBox_SetS": "1",
         "comboBox_ProjectNum": 0,
     }
-    assert len(items_from_wt_config(cfg)) == 12
+    items = items_from_wt_config(cfg)
+    assert len(items) == 12
+    # 12 槽时总和不能被切到名单外面。
+    assert "URMS,SIGMA" in items
+
+
+def test_sigmaa_survives_twelve_slot_cap():
+    cfg = {
+        "Style": "Thai_WT3000E_Config",
+        "checkBox_SetElement1": "1",
+        "checkBox_SetElement2": "1",
+        "checkBox_SetElement3": "1",
+        "checkBox_SetSigma": "1",
+        "checkBox_SetSigmaA": "1",
+        "checkBox_SetU": "1",
+        "checkBox_SetI": "1",
+        "checkBox_SetP": "1",
+        "comboBox_ProjectNum": 0,
+    }
+    items = items_from_wt_config(cfg)
+    assert len(items) == 12
+    assert "URMS,SIGMAA" in items
+    assert "IRMS,SIGMA" in items
+
+
+def test_macro_column_names_match_viewer_csv():
+    assert macro_column_name("URMS,SIGMAA", "Thai_WT3000E_Config") == "U-SIGMAA"
+    assert macro_column_name("URMS,1", "Thai_WT1800_Config") == "Urms-1"
+    assert macro_column_name("LAMBDA,1", "Thai_WT3000E_Config") == "PF-1"
+    assert macro_column_name("FU,SIGMA", "WT3000") == "FreqU-SIGMA"
+    assert macro_column_name("F1", "") == "F01"
+    assert macro_column_name("ETA1", "Thai_WT1800_Config") == "η1"
+    assert macro_column_name("WPPLUS", "") == "WP+"
 
 
 def test_save_path_unrelated_still_maps():

@@ -15,7 +15,7 @@
 | `master` | 极旧主干 | 勿基于此开发或发版。 |
 
 远程：`http://gitlab.wisecom-tech.com/solarapp/solarautotest/solarautotestnewui.git`  
-发版产物：`packaging/`（OSS 通道）；近期现场包版本号示例 `20261026.1410`（以当次 `build_release` / OSS 上传记录为准）。
+发版产物：`packaging/`（OSS 通道）；近期现场包版本号示例 `20261026.1700`（以当次 `build_release` / OSS 上传记录为准）。
 
 架构说明见 [`docs/项目架构维护指南.md`](docs/项目架构维护指南.md)（维护分支口径与上文一致）。
 

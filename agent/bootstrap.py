@@ -15,10 +15,10 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-from urllib import error, request
 from urllib.parse import urlencode
 
 from agent.config import _repo_root
+from agent.http_tls import http_exchange
 
 logger = logging.getLogger("solar.agent.bootstrap")
 
@@ -157,14 +157,53 @@ def _http_json(
     headers = {"Accept": "application/json"}
     if raw is not None:
         headers["Content-Type"] = "application/json"
-    req = request.Request(url, data=raw, headers=headers, method=method)
-    try:
-        with request.urlopen(req, timeout=timeout) as resp:
-            text = resp.read().decode("utf-8")
-            return json.loads(text) if text else {}
-    except error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {e.code}: {detail[:400]}") from e
+    status, raw_b = http_exchange(method, url, data=raw, headers=headers, timeout=timeout)
+    text = raw_b.decode("utf-8", errors="replace")
+    if status >= 400:
+        raise RuntimeError(f"HTTP {status}: {text[:400]}")
+    return json.loads(text) if text else {}
+
+
+_PUBLIC_MQTT_HOST = "www.laidecloud.com"
+_PUBLIC_MQTT_PORT = 11883
+_PUBLIC_MQTT_USER = "mqtt_ops"
+_PUBLIC_MQTT_PASS = "MqttOps!2026"
+
+
+def migrate_bench_mqtt(path: Path) -> bool:
+    """台架无 EasyTier：把内网 10.144.144.3:1883 或空密码改成公网 EMQX。"""
+    if not path.is_file():
+        return False
+    data = _read_json(path)
+    mqtt = data.get("mqtt") if isinstance(data.get("mqtt"), dict) else {}
+    host = str(mqtt.get("host") or "").strip()
+    changed = False
+    if host in ("", "10.144.144.3"):
+        mqtt.update(
+            {
+                "enable": True,
+                "host": _PUBLIC_MQTT_HOST,
+                "port": _PUBLIC_MQTT_PORT,
+                "username": _PUBLIC_MQTT_USER,
+                "password": _PUBLIC_MQTT_PASS,
+                "topic_prefix": str(mqtt.get("topic_prefix") or "/EquMessage"),
+                "qos": int(mqtt.get("qos") or 1),
+                "use_ssl": False,
+                "client_id": str(mqtt.get("client_id") or "solar_agent_pub"),
+            }
+        )
+        changed = True
+    elif host == _PUBLIC_MQTT_HOST and not str(mqtt.get("password") or "").strip():
+        mqtt["username"] = str(mqtt.get("username") or _PUBLIC_MQTT_USER)
+        mqtt["password"] = _PUBLIC_MQTT_PASS
+        if int(mqtt.get("port") or 0) in (0, 1883):
+            mqtt["port"] = _PUBLIC_MQTT_PORT
+        changed = True
+    if not changed:
+        return False
+    data["mqtt"] = mqtt
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return True
 
 
 def write_agent_config(
@@ -194,12 +233,13 @@ def write_agent_config(
     )
     # 保留已有 mqtt 段；若无则写入默认（与温箱 EMQX 同机）
     if not isinstance(data.get("mqtt"), dict) or not str((data.get("mqtt") or {}).get("host") or "").strip():
+        # 台架/本机无 EasyTier：公网 EMQX（与箱子同入口）；云主机入组网才用 10.144.144.3:1883
         data["mqtt"] = {
             "enable": True,
-            "host": "10.144.144.3",
-            "port": 1883,
+            "host": "www.laidecloud.com",
+            "port": 11883,
             "username": "mqtt_ops",
-            "password": "",
+            "password": _PUBLIC_MQTT_PASS,
             "topic_prefix": "/EquMessage",
             "qos": 1,
             "use_ssl": False,

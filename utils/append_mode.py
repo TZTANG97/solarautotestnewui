@@ -72,6 +72,41 @@ def mark_project_now(g: MutableMapping[str, Any], project_name: str) -> None:
         g["project_now"] = name
 
 
+def _pause_checkbox_from_ui_obj(val: Any) -> Any:
+    """取「后续试验暂停」勾选框。
+
+    禁止对未创建的 LazyDialog 做 ``getattr(ui, 'checkBox_…')``：
+    LazyDialog.__getattr__ 会先 ``_ensure_created()``，追加收尾若扫遍全部
+    ``uiThai*`` 会一口气实例化几十个试验页，主线程表现为死机。
+    """
+    if val is None:
+        return None
+
+    # Duck-type LazyDialog：类上有 is_created 属性，且未创建则跳过
+    # （用 type(val).is_created / __dict__，避免触发实例 __getattr__）
+    cls = type(val)
+    if "is_created" in getattr(cls, "__dict__", {}):
+        try:
+            created = bool(cls.is_created.__get__(val, cls))  # type: ignore[attr-defined]
+        except Exception:
+            try:
+                created = bool(val.__dict__.get("_real_dialog") is not None)
+            except Exception:
+                created = False
+        if not created:
+            return None
+        target = val.__dict__.get("_real_ui")
+        if target is None:
+            return None
+    else:
+        target = val
+
+    try:
+        return getattr(target, "checkBox_PauseAfterNext", None)
+    except Exception:
+        return None
+
+
 def ensure_queue_end_marker(
     g: MutableMapping[str, Any],
     project_name: str,
@@ -89,23 +124,19 @@ def ensure_queue_end_marker(
     if pause_after is None:
         pause_after = False
         try:
-            ui = g.get("ui")
-            # 当前试验 Dialog 上的「后续试验暂停」
+            # 当前试验 Dialog 上的「后续试验暂停」——只扫已创建的 ui*
             for key, val in list(g.items()):
                 if not str(key).startswith("ui"):
                     continue
-                cb = getattr(val, "checkBox_PauseAfterNext", None)
-                if cb is not None:
-                    try:
-                        if cb.isChecked():
-                            pause_after = True
-                            break
-                    except Exception:
-                        pass
-            if ui is not None and not pause_after:
-                ps = getattr(ui, "comboBox_PS", None)
-                # 无 Dialog 勾选时保持 False
-                _ = ps
+                cb = _pause_checkbox_from_ui_obj(val)
+                if cb is None:
+                    continue
+                try:
+                    if cb.isChecked():
+                        pause_after = True
+                        break
+                except Exception:
+                    pass
         except Exception:
             pause_after = False
 

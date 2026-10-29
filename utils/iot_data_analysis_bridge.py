@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from utils.iot_data_analysis_map import (
     PHASE1_AUTO_PACKS,
     PHASE1_AUTO_TESTS,
+    normalize_test_type_for_analysis,
     resolve_analysis_target,
 )
 
@@ -139,8 +140,11 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "analysis_Un": "Un",
         "analysis_In": "In",
         "analysis_SeMax": "SeMax",
+        "analysis_Srated": "Srated",
+        "analysis_Pmax": "Srated",
         "analysisPn": "Pn",
         "analysisSeMax": "SeMax",
+        "analysisSrated": "Srated",
         "analysis_Model": "model_no",
         "analysis_ProjectNo": "project_no",
         "analysis_SampleNo": "sample_no",
@@ -156,6 +160,7 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "Un": "SOLAR_ANALYSIS_UN",
         "In": "SOLAR_ANALYSIS_IN",
         "SeMax": "SOLAR_ANALYSIS_SEMAX",
+        "Srated": "SOLAR_ANALYSIS_SRATED",
     }
     for k, env_k in env_map.items():
         if k not in out or out[k] in (None, ""):
@@ -337,9 +342,10 @@ def run_analysis_after_job(
         _store_analysis_meta(result, info)
         return info
 
-    tt = _job_test_type(job, result)
+    tt_raw = _job_test_type(job, result)
+    tt = normalize_test_type_for_analysis(tt_raw)
     if tt not in PHASE1_AUTO_TESTS:
-        info["reason"] = f"testType={tt or '(空)'} 不在结案自动处理列表"
+        info["reason"] = f"testType={tt_raw or '(空)'} 不在结案自动处理列表"
         _store_analysis_meta(result, info)
         return info
 
@@ -491,6 +497,39 @@ def run_analysis_after_job(
             return info
         # 北德部分条款 Pn 按 W；若网页填 kW 小数则保持，填 100000(W) 不换算
         # （与南德 kW 习惯不同，避免误除 1000）
+    # EN 50549（CEI_Nbis_BeiDe_50549）：处理器内部对 Pn>500 按 W、否则按 kW，桥接侧不换算
+    if target["standard_pack"] == "CEI_Nbis_BeiDe_50549":
+        code = target["test_code"]
+        need_pn = code in {
+            "5.3.1",
+            "5.3.3",
+            "5.4.3.2",
+            "5.4.3.3",
+            "5.7.2.4",
+            "5.9",
+            "5.10.3.2",
+        }
+        need_un = code in {
+            "5.3.3",
+            "5.7.2.4",
+            "5.8.3.3",
+            "5.9",
+        }
+        need_srated = code in {"5.10.3.2"}
+        if need_pn and not _ensure_param(
+            "Pn", 10000, reason=f"EN50549 {code} 缺少 Pn（analysis_Pn）"
+        ):
+            return info
+        if need_un and not _ensure_param(
+            "Un", 230, reason=f"EN50549 {code} 缺少 Un（analysis_Un）"
+        ):
+            return info
+        if need_srated and not _ensure_param(
+            "Srated",
+            params.get("Pn") or 10000,
+            reason=f"EN50549 {code} 缺少 Srated/Pmax（analysis_Srated）",
+        ):
+            return info
     if defaults_applied:
         info["defaults_applied"] = defaults_applied
         logger.info("分析使用默认额定参数: %s", ",".join(defaults_applied))

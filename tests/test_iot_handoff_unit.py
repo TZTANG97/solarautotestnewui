@@ -2,6 +2,7 @@
 """handoff：pending → Append/Start → progress → 等结束 → results。"""
 from __future__ import annotations
 
+import json
 import sys
 import threading
 import time
@@ -68,6 +69,7 @@ def test_handoff_roundtrip(tmp_path: Path | None = None) -> None:
             ),
             get_run_status=lambda: run_status["v"],
             get_run_progress=lambda: dict(run_prog),
+            reset_append_count=lambda: None,
             log=lambda m: print("ui:", m),
             interval_ms=200,
         )
@@ -115,6 +117,95 @@ def test_antibackflow_handler_maps() -> None:
     print("antibackflow map PASS")
 
 
+def test_stop_for_previous_job_does_not_fire_when_no_handoff(tmp_path: Path) -> None:
+    """58 的停机在还没记上 59/60 时 current_job=0，不能去点结束试验。"""
+    from agent.job_inbox import list_stop_requests, write_stop_request
+
+    root = Path(tmp_path)
+    write_stop_request(root, 58, reason="台架状态=已中止")
+    (root / "status.json").write_text(
+        json.dumps(
+            {"project": {"status": "进行中", "jobId": 60, "progress": 2}},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    stopped = {"n": 0}
+    logs: list[str] = []
+    svc = IotUiHandoffService(
+        repo_root=root,
+        stop_test=lambda: stopped.__setitem__("n", stopped["n"] + 1),
+        log=lambda m: logs.append(m),
+        interval_ms=200,
+    )
+    svc.get_run_status = lambda: "进行中"
+    svc.poll_once()
+    assert stopped["n"] == 0
+    assert list_stop_requests(root) == []
+    assert any("忽略过期停机" in m and "58" in m for m in logs)
+
+
+def test_awaiting_ignores_previous_job_terminal(tmp_path: Path) -> None:
+    """status.json 还是 58 的已中止时，不能把 60 收成试验状态=已中止。"""
+    root = Path(tmp_path)
+    (root / "status.json").write_text(
+        json.dumps(
+            {
+                "project": {
+                    "status": "已中止",
+                    "jobId": 58,
+                    "progress": 2,
+                    "current_detail": "本机无试验占用，收口陈旧进行中状态",
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    finished: list[dict] = []
+    svc = IotUiHandoffService(
+        repo_root=root,
+        log=lambda _m: None,
+        interval_ms=200,
+    )
+    svc._finish_job = lambda **kw: finished.append(kw)  # type: ignore[method-assign]
+    svc._awaiting = {
+        "job_id": 60,
+        "pending_path": None,
+        "started_at": time.time() - 30,
+        "start_grace_sec": 8,
+        "seen_running": False,
+    }
+    svc.get_run_status = lambda: "已中止"
+    svc._check_awaiting_finish()
+    assert finished
+    reason = str(finished[0]["result"].get("fail_reason") or "")
+    assert "未进入" in reason
+    assert "试验状态=已中止" not in reason
+
+
+def test_stop_request_for_other_job_does_not_stop_current(tmp_path: Path) -> None:
+    """云端收口的上一单不能停掉正在跑的下一单（58 的停机掐掉 59/60）。"""
+    from agent.job_inbox import list_stop_requests, write_stop_request
+
+    root = Path(tmp_path)
+    write_stop_request(root, 58, reason="台架状态=已中止")
+    stopped = {"n": 0}
+    logs: list[str] = []
+    svc = IotUiHandoffService(
+        repo_root=root,
+        stop_test=lambda: stopped.__setitem__("n", stopped["n"] + 1),
+        log=lambda m: logs.append(m),
+        interval_ms=200,
+    )
+    svc._awaiting = {"job_id": 60, "started_at": time.time(), "start_grace_sec": 30}
+    svc.get_run_status = lambda: "进行中"
+    svc.poll_once()
+    assert stopped["n"] == 0
+    assert list_stop_requests(root) == []
+    assert any("忽略过期停机" in m and "58" in m for m in logs)
+
+
 def test_stop_request_invokes_stop_test(tmp_path: Path) -> None:
     from agent.job_inbox import list_stop_requests, write_stop_request
 
@@ -129,6 +220,8 @@ def test_stop_request_invokes_stop_test(tmp_path: Path) -> None:
         log=lambda m: logs.append(m),
         interval_ms=200,
     )
+    svc._awaiting = {"job_id": 9201, "started_at": time.time(), "start_grace_sec": 30}
+    svc.get_run_status = lambda: "进行中"
     svc.poll_once()
     assert stopped["n"] == 1
     assert list_stop_requests(root) == []
@@ -211,6 +304,7 @@ def test_antibackflow_handoff_roundtrip(tmp_path: Path | None = None) -> None:
             ),
             get_run_status=lambda: run_status["v"],
             get_run_progress=lambda: dict(run_prog),
+            reset_append_count=lambda: None,
             log=lambda m: print("ui:", m),
             interval_ms=200,
         )

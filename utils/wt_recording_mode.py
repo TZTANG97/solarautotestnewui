@@ -177,7 +177,28 @@ def wire_recording_mode_autofill(ui, split_names_fn=None) -> None:
             row.names_filled.connect(_fill)
             row._autofill_mode_connected = True
 
-    _on_mode(MODE_CONTINUOUS)
+    # 云任务可能已在 QTimer 触发前写好录波方式和文件名。不要再强制改回连续录并清掉名单。
+    pinned = getattr(ui, "_wt_record_mode_from_job", None)
+    if pinned in (MODE_CONTINUOUS, MODE_SPLIT):
+        _sync_rows(pinned)
+        s3 = getattr(ui, "comboBox_S3_record_mode", None)
+        if s3 is not None:
+            s3.blockSignals(True)
+            s3.setCurrentIndex(mode_to_combo_index(pinned))
+            s3.blockSignals(False)
+        names_ready = False
+        try:
+            from PyQt5 import QtWidgets
+
+            page = stacked.currentWidget()
+            te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList") if page is not None else None
+            names_ready = bool(te is not None and te.toPlainText().strip())
+        except Exception:
+            names_ready = False
+        if not names_ready:
+            _fill(default_names_for_mode(ui, pinned))
+    else:
+        _on_mode(MODE_CONTINUOUS)
 
 
 def qcap_recommended_filenames(power_levels, cos_labels, mode: str = MODE_CONTINUOUS):

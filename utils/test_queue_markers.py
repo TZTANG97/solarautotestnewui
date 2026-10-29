@@ -116,6 +116,26 @@ def parse_queue_segments(
     return segments
 
 
+QUEUE_DONE_STATUS = frozenset({"完成", "已结束", "已中止", "中止", "失败"})
+
+
+def stamp_queue_times(queue: Sequence[Dict[str, Any]], *, now_text: str) -> None:
+    """进行中补开始时间，完成/中止补结束时间（已有则不覆盖）。"""
+    now = (now_text or "").strip()
+    if not now:
+        return
+    for item in queue or []:
+        if not isinstance(item, dict):
+            continue
+        st = str(item.get("status") or "").strip()
+        if st == "进行中" and not str(item.get("started_at") or "").strip():
+            item["started_at"] = now
+        if st in QUEUE_DONE_STATUS and not str(item.get("finished_at") or "").strip():
+            item["finished_at"] = now
+            if not str(item.get("started_at") or "").strip():
+                item["started_at"] = now
+
+
 def segment_at_command(
     segments: Sequence[Dict[str, Any]], cmd_index_1based: int
 ) -> Optional[Dict[str, Any]]:

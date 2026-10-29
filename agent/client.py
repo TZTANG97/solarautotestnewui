@@ -7,9 +7,9 @@ pythonid / clientid / experid / type / status / equs / commands / rep_url
 from __future__ import annotations
 
 import json
-import urllib.error
-import urllib.request
 from typing import Any, Dict, Optional
+
+from agent.http_tls import http_exchange
 
 
 class IotSolarClient:
@@ -30,14 +30,13 @@ class IotSolarClient:
         }
         if body is not None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                raw = resp.read().decode("utf-8")
-                return json.loads(raw) if raw else {}
-        except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"HTTP {e.code} {path}: {detail}") from e
+        status, raw_b = http_exchange(
+            method, url, data=data, headers=headers, timeout=self.timeout
+        )
+        raw = raw_b.decode("utf-8", errors="replace")
+        if status >= 400:
+            raise RuntimeError(f"HTTP {status} {path}: {raw[:400]}")
+        return json.loads(raw) if raw else {}
 
     def heartbeat(
         self,
@@ -252,7 +251,8 @@ class IotSolarClient:
             f"Content-Type: {ctype}\r\n\r\n"
         ).encode("utf-8") + raw + f"\r\n--{boundary}--\r\n".encode("utf-8")
         url = f"{self.base}/api/solar-autotest/agent/jobs/{job_id}/report"
-        req = urllib.request.Request(
+        status, raw_b = http_exchange(
+            "POST",
             url,
             data=body,
             headers={
@@ -260,11 +260,9 @@ class IotSolarClient:
                 "Content-Type": f"multipart/form-data; boundary={boundary}",
                 "Accept": "application/json",
             },
-            method="POST",
+            timeout=self.timeout,
         )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return json.loads(resp.read().decode("utf-8") or "{}")
-        except urllib.error.HTTPError as e:
-            detail = e.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"HTTP {e.code} upload_report: {detail}") from e
+        raw = raw_b.decode("utf-8", errors="replace")
+        if status >= 400:
+            raise RuntimeError(f"HTTP {status} upload_report: {raw[:400]}")
+        return json.loads(raw or "{}")

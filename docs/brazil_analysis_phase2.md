@@ -21,11 +21,14 @@
 | fixedq | 5.24 | 定无功 |
 | staticmppt | 5.4.26 | |
 
-未接分析算法（仍跳过）：相角突变、动态 MPPT、LVRT、快速电压变化等。
+分析软件已有、但 IOT **尚无独立 testType**（暂不自动挂）：`5.4.14` 过欠压保护、`5.4.25` 断联与重连。  
+未接分析算法（分析包无处理器）：相角突变、动态 MPPT、LVRT、快速电压变化等（巴西包）。
 
 网页开测时填「数据分析额定参数」Pn（多数条款）/ Un（谐波、直流、闪变、重连、电压适应性）。
 
 模拟工况（`execution_mode=sim_bench`）已为上表各 testType 造专用 CSV，不再误落 `sample_overload`。
+
+EN 50549 结案映射见 `docs/en50549_analysis_e2e.md`。
 
 ```bat
 cd /d E:\solarautotestnewui

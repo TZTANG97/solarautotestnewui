@@ -33,14 +33,15 @@ def test_mqtt_config_from_nested():
         {
             "mqtt": {
                 "enable": True,
-                "host": "10.144.144.3",
-                "port": 1883,
+                "host": "www.laidecloud.com",
+                "port": 11883,
                 "username": "mqtt_ops",
             }
         }
     )
     assert cfg.enable is True
-    assert cfg.host == "10.144.144.3"
+    assert cfg.host == "www.laidecloud.com"
+    assert cfg.port == 11883
     assert cfg.username == "mqtt_ops"
 
 

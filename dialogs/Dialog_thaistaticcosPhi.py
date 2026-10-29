@@ -545,9 +545,10 @@ class Ui_Dialog_thaistaticcosPhi(object):
         self.comboBox_S3_TIME_2.setFixedWidth(80)
         ladder_layout.addWidget(self.comboBox_S3_TIME_2, 1, 2)
         tip = QtWidgets.QLabel(
-            "流程：功率外循环 × 勾选 cosφ；"
-            "连续录单文件 CosPhi_BR（StopTime≈点数×每点驻留）；"
-            "分开录每点一文件。冒烟请用「秒」，勿用「分钟」拉长总时长。"
+            "只看上面的功率档：每个档都会测全部 9 个 cosφ"
+            "（0.0、0.5、0.8、0.9、1.0、-0.5、-0.8、-0.9、-1.0）。"
+            "连续录停机时间 = 档数 × 9 × 每点驻留 + 30 秒。"
+            "下面各 cosφ 步骤的勾选和功率%不再参与。"
         )
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
         tip.setWordWrap(True)
@@ -591,6 +592,8 @@ class Ui_Dialog_thaistaticcosPhi(object):
 
         scroll_layout.addStretch()
         scroll.setWidget(scroll_widget)
+        # 测量矩阵只由上方功率档 × 全部 cosφ 决定，各步卡片保留给旧设定读取，不再展示。
+        scroll.setVisible(False)
         layout.addWidget(scroll)
 
         self.stackedWidget.addWidget(page)

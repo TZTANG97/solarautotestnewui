@@ -57,6 +57,25 @@ def test_sync_writes_stop_when_cloud_aborted(tmp_path: Path):
     assert len(written) == 1
 
 
+def test_sync_skips_stale_snapshot_while_another_job_is_active(tmp_path: Path):
+    reset_remote_abort_state()
+    written = []
+
+    def _get_job(_jid):
+        return {"status": "aborted", "failReason": "云端已终止"}
+
+    got = sync_cloud_abort_to_stop_inbox(
+        client=SimpleNamespace(),
+        repo_root=tmp_path,
+        run_snapshot={"jobId": 58, "status": "进行中"},
+        get_job=_get_job,
+        write_stop=lambda *a, **k: written.append(1),
+        active_job_id=61,
+    )
+    assert got is None
+    assert written == []
+
+
 def test_sync_skips_when_not_aborted(tmp_path: Path):
     reset_remote_abort_state()
     written = []

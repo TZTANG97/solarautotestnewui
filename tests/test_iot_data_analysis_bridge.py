@@ -42,14 +42,77 @@ def test_map_it_cei_flicker_beide_3_3():
     assert t["test_code"] == "3.3"
 
 
-def test_map_en50549_flicker_stays_21_3():
-    """de_vde/en50549 同属北德包，闪变仍走 0-21 的 21.3，不被 CEI 0-16 的 3.3 带偏。"""
+def test_map_en50549_uses_50549_pack():
+    """en50549 → CEI_Nbis_BeiDe_50549；de_vde 仍走北德 0-21。"""
     t = resolve_analysis_target(test_type="flicker", solar_standard="en50549")
     assert t is not None
-    assert t["standard_pack"] == "CEI_Nbis_BeiDe"
-    assert t["test_code"] == "21.3"
+    assert t["standard_pack"] == "CEI_Nbis_BeiDe_50549"
+    assert t["test_code"] == "5.7.2.3.3"
     t2 = resolve_analysis_target(test_type="flicker", solar_standard="de_vde")
+    assert t2["standard_pack"] == "CEI_Nbis_BeiDe"
     assert t2["test_code"] == "21.3"
+
+
+def test_map_en50549_core_codes():
+    assert resolve_analysis_target(
+        test_type="voltprotect10min", solar_standard="en50549"
+    )["test_code"] == "5.8.3.3"
+    assert resolve_analysis_target(test_type="voltprotect", solar_standard="en50549")[
+        "test_code"
+    ] == "5.8.3.3"
+    assert resolve_analysis_target(test_type="rocof", solar_standard="en50549")[
+        "test_code"
+    ] == "5.3.1"
+    assert resolve_analysis_target(test_type="phasejump", solar_standard="en50549")[
+        "test_code"
+    ] == "5.3.2"
+    assert resolve_analysis_target(test_type="lvrt", solar_standard="en50549")[
+        "test_code"
+    ] == "5.3.3"
+    assert resolve_analysis_target(test_type="ovuf", solar_standard="en50549")[
+        "test_code"
+    ] == "5.8.3.2"
+    assert resolve_analysis_target(test_type="reconnect", solar_standard="en50549")[
+        "test_code"
+    ] == "5.9"
+    assert resolve_analysis_target(test_type="activep", solar_standard="en50549")[
+        "test_code"
+    ] == "5.10.3.2"
+    # 50549 包无谐波处理器：不得回落到 NanDe 默认码
+    assert resolve_analysis_target(test_type="harmonic", solar_standard="en50549") is None
+    assert resolve_analysis_target(test_type="overload", solar_standard="en50549") is None
+
+
+def test_map_nande_activep_voltageadapt():
+    assert resolve_analysis_target(test_type="activep", solar_standard="thai")[
+        "test_code"
+    ] == "active.power.control"
+    assert resolve_analysis_target(
+        test_type="voltageadaptability", solar_standard="thai"
+    )["test_code"] == "operating.voltage.range"
+
+
+def test_map_it_cei_rocof():
+    t = resolve_analysis_target(test_type="rocof", solar_standard="it_cei")
+    assert t["standard_pack"] == "CEI_Nbis_BeiDe"
+    assert t["test_code"] == "A.4.3.4"
+
+
+def test_no_cross_pack_default_for_en50549_only_types():
+    """rocof/phasejump/lvrt/voltprotect 不得用默认码落到 thai/巴西。"""
+    for tt in ("rocof", "phasejump", "lvrt", "voltprotect10min", "voltprotect"):
+        assert resolve_analysis_target(test_type=tt, solar_standard="thai") is None
+        assert resolve_analysis_target(test_type=tt, solar_standard="br_ord140") is None
+    # de_vde 暂无真 VDE ROCOF 条款，不挂 CEI0-16 的 A.4.3.4
+    assert resolve_analysis_target(test_type="rocof", solar_standard="de_vde") is None
+    assert resolve_analysis_target(test_type="phasejump", solar_standard="de_vde") is None
+
+
+def test_phase1_alias_voltprotect_normalized():
+    from utils.iot_data_analysis_map import normalize_test_type_for_analysis, PHASE1_AUTO_TESTS
+
+    assert normalize_test_type_for_analysis("voltprotect") == "voltprotect10min"
+    assert normalize_test_type_for_analysis("voltprotect") in PHASE1_AUTO_TESTS
 
 
 def test_phase1_set():
@@ -60,6 +123,11 @@ def test_phase1_set():
     assert "activep" in PHASE1_AUTO_TESTS
     assert "voltageadaptability" in PHASE1_AUTO_TESTS
     assert "staticmppt" in PHASE1_AUTO_TESTS
+    # EN50549 / 北德补充
+    assert "voltprotect10min" in PHASE1_AUTO_TESTS
+    assert "phasejump" in PHASE1_AUTO_TESTS
+    assert "lvrt" in PHASE1_AUTO_TESTS
+    assert "rocof" in PHASE1_AUTO_TESTS
 
 
 def test_map_brazil_phase2_codes():

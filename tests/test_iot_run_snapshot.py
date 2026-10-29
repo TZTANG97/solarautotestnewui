@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 from utils.iot_run_snapshot import build_run_snapshot_from_status, snapshot_implies_busy
@@ -51,3 +52,73 @@ def test_missing_file_returns_idle():
     snap = build_run_snapshot_from_status(str(Path("/no/such/status.json")))
     assert snap["status"] == "未开始"
     assert snapshot_implies_busy(snap) is False
+
+
+def test_fresh_progress_is_not_coerced_to_abort():
+    """锁文件读不到时，刚写过的进行中不能收成已中止（任务 58 的误伤）。"""
+    from utils.iot_run_snapshot import apply_unlocked_stale_policy
+
+    snap = {"status": "进行中", "progress": 2, "jobId": 58, "updated_at": "2026-10-28 20:44:40"}
+    now = time.mktime(time.strptime("2026-10-28 20:44:49", "%Y-%m-%d %H:%M:%S"))
+    out, busy = apply_unlocked_stale_policy(
+        snap, busy=False, owner="", now=now, max_age_sec=180
+    )
+    assert out["status"] == "进行中"
+    assert busy is True
+    assert out["progress"] == 2
+
+
+def test_ui_lock_keeps_running_snapshot():
+    from utils.iot_run_snapshot import apply_unlocked_stale_policy
+
+    snap = {"status": "进行中", "progress": 2, "updated_at": "2020-01-01 00:00:00"}
+    out, busy = apply_unlocked_stale_policy(
+        snap, busy=False, owner="ui", now=time.time(), max_age_sec=180
+    )
+    assert out["status"] == "进行中"
+    assert busy is True
+
+
+def test_three_minute_gap_is_not_aborted():
+    """任务 58：进度停在 2%，约 3 分钟没刷 updated_at，不能收成已中止。"""
+    from utils.iot_run_snapshot import apply_unlocked_stale_policy
+
+    snap = {
+        "status": "进行中",
+        "progress": 2,
+        "jobId": 58,
+        "updated_at": "2026-10-28 20:41:49",
+    }
+    now = time.mktime(time.strptime("2026-10-28 20:44:49", "%Y-%m-%d %H:%M:%S"))
+    out, busy = apply_unlocked_stale_policy(snap, busy=False, owner="", now=now)
+    assert out["status"] == "进行中"
+    assert busy is True
+    assert out["progress"] == 2
+
+
+def test_stale_unlocked_snapshot_is_aborted_and_persisted(tmp_path: Path):
+    from utils.iot_run_snapshot import apply_unlocked_stale_policy, persist_coerced_terminal
+
+    snap = {
+        "status": "进行中",
+        "progress": 2,
+        "jobId": 58,
+        "updated_at": "2026-10-28 18:00:00",
+    }
+    now = time.mktime(time.strptime("2026-10-28 20:44:49", "%Y-%m-%d %H:%M:%S"))
+    out, busy = apply_unlocked_stale_policy(
+        snap, busy=False, owner="", now=now, max_age_sec=180
+    )
+    assert busy is False
+    assert out["status"] == "已中止"
+    assert "本机无试验占用" in out["current_detail"]
+    path = tmp_path / "status.json"
+    path.write_text(
+        json.dumps({"devices": [], "project": {"status": "进行中", "progress": 2, "jobId": 58}}),
+        encoding="utf-8",
+    )
+    persist_coerced_terminal(str(path), out)
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["project"]["status"] == "已中止"
+    assert saved["project"]["jobId"] == 58
+    assert saved["project"]["progress"] == 2

@@ -5,6 +5,7 @@ from utils.test_queue_markers import (
     parse_queue_segments,
     row_pause_after,
     segment_at_command,
+    stamp_queue_times,
 )
 
 
@@ -28,3 +29,17 @@ def test_make_and_parse_pause_marker():
     hit2 = segment_at_command(segs, 3)
     assert hit2 is not None
     assert hit2["name"] == "过载"
+
+
+def test_stamp_queue_start_and_finish():
+    q = [
+        {"name": "电压闪变", "status": "进行中"},
+        {"name": "电压闪变", "status": "完成", "started_at": "2026-10-28 09:00:00"},
+    ]
+    stamp_queue_times(q, now_text="2026-10-28 10:00:00")
+    assert q[0]["started_at"] == "2026-10-28 10:00:00"
+    assert "finished_at" not in q[0]
+    assert q[1]["started_at"] == "2026-10-28 09:00:00"
+    assert q[1]["finished_at"] == "2026-10-28 10:00:00"
+    stamp_queue_times(q, now_text="2026-10-28 11:00:00")
+    assert q[1]["finished_at"] == "2026-10-28 10:00:00"

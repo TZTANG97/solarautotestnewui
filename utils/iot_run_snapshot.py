@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,7 @@ def build_run_snapshot_from_status(status_json_path: Optional[str] = None) -> Di
         "elapsed_text": str(_pick("elapsed_text", default="") or ""),
         "remain_text": str(_pick("remain_text", default="") or ""),
         "eta_total_text": str(_pick("eta_total_text", default="") or ""),
+        "updated_at": str(_pick("updated_at", default="") or ""),
     }
     ids = _resolve_job_ids()
     # status.json 里也可能已写
@@ -194,3 +196,155 @@ def snapshot_implies_busy(snap: Optional[Dict[str, Any]]) -> bool:
     if snap.get("operator_pause"):
         return True
     return st in ("进行中", "暂停")
+
+
+# 锁文件丢了，但 status.json 仍在被桌面刷新时，不要把活着的试验收成已中止。
+# 静态 Cos 连续录 / WT 宏等待可以远长于单点驻留，进度落盘若只靠命令边界，
+# 3 分钟就会把正在跑的局收成已中止（任务 58：进度停在 2%）。
+# 长等待里另有 touch_running_project 每 10 秒刷新；这里只收真正死掉的局。
+UNLOCKED_STALE_MAX_AGE_SEC = 600.0
+UNLOCKED_STALE_DETAIL = "本机无试验占用，收口陈旧进行中状态"
+_last_touch_mono = 0.0
+
+
+def activity_age_sec(
+    snap: Optional[Dict[str, Any]],
+    *,
+    file_mtime: Optional[float] = None,
+    now: Optional[float] = None,
+) -> Optional[float]:
+    """桌面最后一次写试验进度距今秒数。没有时间戳时退回文件 mtime。"""
+    now_ts = time.time() if now is None else float(now)
+    raw = ""
+    if isinstance(snap, dict):
+        raw = str(snap.get("updated_at") or "").strip()
+    if raw:
+        try:
+            ts = time.mktime(time.strptime(raw, "%Y-%m-%d %H:%M:%S"))
+            return max(0.0, now_ts - ts)
+        except (TypeError, ValueError, OverflowError):
+            pass
+    if file_mtime:
+        try:
+            return max(0.0, now_ts - float(file_mtime))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def apply_unlocked_stale_policy(
+    snap: Optional[Dict[str, Any]],
+    *,
+    busy: bool,
+    owner: str,
+    file_mtime: Optional[float] = None,
+    now: Optional[float] = None,
+    max_age_sec: float = UNLOCKED_STALE_MAX_AGE_SEC,
+) -> Tuple[Optional[Dict[str, Any]], bool]:
+    """
+    锁还在，或进度刚写过：这局还在跑，心跳报 busy，不要改成已中止。
+    锁空着且进度久未更新：才把内存快照收成已中止，供心跳结案。
+    返回 (快照, busy)。
+    """
+    if not isinstance(snap, dict) or not snapshot_implies_busy(snap):
+        return snap, busy
+    owner_l = str(owner or "").strip().lower()
+    if busy or owner_l in ("ui", "agent"):
+        return snap, True
+    age = activity_age_sec(snap, file_mtime=file_mtime, now=now)
+    if age is not None and age < float(max_age_sec):
+        return snap, True
+    out = dict(snap)
+    out["status"] = "已中止"
+    out["operator_pause"] = False
+    out["remain_text"] = ""
+    out["remain_s"] = 0.0
+    out["current_detail"] = UNLOCKED_STALE_DETAIL
+    return out, False
+
+
+def desktop_run_still_active(
+    status_json_path: Optional[str] = None,
+    *,
+    now: Optional[float] = None,
+    max_age_sec: float = UNLOCKED_STALE_MAX_AGE_SEC,
+) -> bool:
+    """status.json 仍是进行中/暂停，且最近仍有进度写入。Agent 此时不要再领下一单。"""
+    path = _status_json_path(status_json_path)
+    snap = build_run_snapshot_from_status(str(path))
+    if not snapshot_implies_busy(snap):
+        return False
+    mtime = None
+    try:
+        if path.is_file():
+            mtime = path.stat().st_mtime
+    except OSError:
+        mtime = None
+    age = activity_age_sec(snap, file_mtime=mtime, now=now)
+    if age is None:
+        return False
+    return age < float(max_age_sec)
+
+
+def persist_coerced_terminal(status_json_path: str, snap: Dict[str, Any]) -> None:
+    """把心跳收口写回 status.json，避免文件一直停在「进行中」把下一单带进停机。"""
+    path = Path(status_json_path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    proj = data.get("project")
+    if not isinstance(proj, dict):
+        proj = {}
+    proj = dict(proj)
+    proj["status"] = "已中止"
+    proj["operator_pause"] = False
+    proj["remain_text"] = ""
+    proj["remain_s"] = 0.0
+    proj["estimated_end_time"] = ""
+    detail = str((snap or {}).get("current_detail") or UNLOCKED_STALE_DETAIL)
+    proj["current_detail"] = detail
+    if snap.get("progress") is not None:
+        try:
+            proj["progress"] = int(snap.get("progress") or 0)
+        except (TypeError, ValueError):
+            pass
+    proj["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    data["project"] = proj
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def touch_running_project(*, min_interval_sec: float = 10.0) -> None:
+    """测量/宏等待循环里调用。10 秒内只写一次 updated_at。"""
+    global _last_touch_mono
+    now = time.monotonic()
+    if now - _last_touch_mono < float(min_interval_sec):
+        return
+    _last_touch_mono = now
+    touch_project_activity()
+
+
+def touch_project_activity(status_json_path: Optional[str] = None) -> None:
+    """长驻留期间刷新 updated_at，避免心跳把正在跑的试验当成陈旧进行中。"""
+    path = _status_json_path(status_json_path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except Exception:
+        return
+    if not isinstance(data, dict):
+        return
+    proj = data.get("project")
+    if not isinstance(proj, dict):
+        return
+    if str(proj.get("status") or "").strip() not in ("进行中", "暂停"):
+        return
+    proj = dict(proj)
+    proj["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    data["project"] = proj
+    try:
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        return

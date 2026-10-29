@@ -283,11 +283,13 @@ def start_agent(*, allow_without_token: bool = False) -> Tuple[bool, str]:
             return False, "config/solar_agent.json 尚无有效令牌"
     except Exception:
         return False, "无法读取 Agent 配置"
-    # 启动前清陈旧互斥，避免上次关软件残留 ui/agent 锁导致永不领任务
+    # 只清持有进程已退出的锁。force_clear 会把正在做的 UI 试验锁一起删掉，
+    # 心跳随后把活着的「进行中」收成已中止。
     try:
-        from agent.ui_mutex import ui_force_clear
+        from agent.mutex import LocalMutex
+        from agent.ui_mutex import default_mutex_path
 
-        ui_force_clear(repo_root=repo_root())
+        LocalMutex(default_mutex_path(repo_root())).clear_if_stale()
     except Exception:
         pass
     root = repo_root()
@@ -430,10 +432,17 @@ def stop_agent() -> Tuple[bool, str]:
         cleaned += 1
     if cleaned:
         msgs.append(f"已清理残留 Agent {cleaned} 个")
+    # 停 Agent 不能拆掉桌面 UI 正在持有的锁，否则试验会被心跳收成已中止。
     try:
-        from agent.ui_mutex import ui_force_clear
+        from agent.mutex import LocalMutex
+        from agent.ui_mutex import default_mutex_path
 
-        ui_force_clear(repo_root=repo_root())
+        held = LocalMutex(default_mutex_path(repo_root()))
+        owner = str((held._read() or {}).get("owner") or "")
+        if owner == "agent":
+            held.release("agent")
+        else:
+            held.clear_if_stale()
     except Exception:
         pass
     return True, "; ".join(msgs)

@@ -26,13 +26,16 @@
 ```json
 "mqtt": {
   "enable": true,
-  "host": "10.144.144.3",
-  "port": 1883,
+  "host": "www.laidecloud.com",
+  "port": 11883,
   "username": "mqtt_ops",
   "password": "",
   "topic_prefix": "/EquMessage",
-  "qos": 1
+  "qos": 1,
+  "use_ssl": false
 }
 ```
 
-与温箱共用 EMQX；`enable=false` 或未装 `paho-mqtt` 时仅 HTTPS 上报。
+与温箱/箱子共用公网 EMQX（`www.laidecloud.com:11883`，明文 MQTT，**不需要 EasyTier**）。  
+仅 IOT 云主机已入组网时才用内网 `10.144.144.3:1883`。  
+`enable=false` 或未装 `paho-mqtt` 时进度改走 HTTP；`iot_base` 用 `https://` 是因为公网站点本身是 HTTPS，与 MQTT 无关。

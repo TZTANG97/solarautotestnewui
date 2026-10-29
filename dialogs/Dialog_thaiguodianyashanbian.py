@@ -475,7 +475,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         # DC2
         r = 2
         self.checkBox_S1_DC2 = QtWidgets.QCheckBox("直流电源2")
-        self.checkBox_S1_DC2.setChecked(True)
+        self.checkBox_S1_DC2.setChecked(False)
         self.checkBox_S1_DC2.setObjectName("checkBox_S1_DC2")
         g7Layout.addWidget(self.checkBox_S1_DC2, r, 0)
         self.comboBox_S1_DC2 = QtWidgets.QComboBox()
@@ -495,7 +495,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         # DC3
         r = 3
         self.checkBox_S1_DC3 = QtWidgets.QCheckBox("直流电源3")
-        self.checkBox_S1_DC3.setChecked(True)
+        self.checkBox_S1_DC3.setChecked(False)
         self.checkBox_S1_DC3.setObjectName("checkBox_S1_DC3")
         g7Layout.addWidget(self.checkBox_S1_DC3, r, 0)
         self.comboBox_S1_DC3 = QtWidgets.QComboBox()
@@ -515,7 +515,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         # DC4
         r = 4
         self.checkBox_S1_DC4 = QtWidgets.QCheckBox("直流电源4")
-        self.checkBox_S1_DC4.setChecked(True)
+        self.checkBox_S1_DC4.setChecked(False)
         self.checkBox_S1_DC4.setObjectName("checkBox_S1_DC4")
         g7Layout.addWidget(self.checkBox_S1_DC4, r, 0)
         self.comboBox_S1_DC4 = QtWidgets.QComboBox()
@@ -817,7 +817,8 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         for c, (cb_name, cb_text, combo_name, items) in enumerate(dc1_cfg):
             col = 1 + c * 2
             cb = QtWidgets.QCheckBox(cb_text)
-            cb.setChecked(True)
+            # 仅 DC1 默认勾选；2~4 由 step1 联动决定（避免未接 DC2~4 却写入命令）
+            cb.setChecked(cb_name == "checkBox_S3_DC1")
             cb.setObjectName(cb_name)
             g2Layout.addWidget(cb, 1, col)
             setattr(self, cb_name, cb)
@@ -839,7 +840,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         for c, (cb_name, cb_text, combo_name, items) in enumerate(dc2_cfg):
             col = 1 + c * 2
             cb = QtWidgets.QCheckBox(cb_text)
-            cb.setChecked(True)
+            cb.setChecked(cb_name == "checkBox_S3_DC1_2")
             cb.setObjectName(cb_name)
             g2Layout.addWidget(cb, 2, col)
             setattr(self, cb_name, cb)
@@ -1252,7 +1253,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         for c, (cb_name, cb_text, combo_name) in enumerate(dc5_cfg):
             col = 1 + c * 2
             cb = QtWidgets.QCheckBox(cb_text)
-            cb.setChecked(True)
+            cb.setChecked(cb_name == "checkBox_S5_DC1")
             cb.setObjectName(cb_name)
             gLayout.addWidget(cb, 1, col)
             setattr(self, cb_name, cb)

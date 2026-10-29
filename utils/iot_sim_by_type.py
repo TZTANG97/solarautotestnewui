@@ -418,6 +418,113 @@ def plant_sim_staticmppt_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
     return dest_dir
 
 
+def plant_sim_voltprotect10min_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """EN50549 5.8.3.3 10min 过压：电压台阶 + 功率（占位）。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = [
+        "Time [s]",
+        "U_tRMS@AC_AVG [V]",
+        "P_t@AC_AVG [W]",
+        "F_fund@AC_AVG [Hz]",
+    ]
+    # a/c/b 三档：1.12Un / 1.06→1.14Un / 1.08Un
+    levels = (1.12 * un, 1.06 * un, 1.14 * un, 1.08 * un)
+    rows: List[List[Any]] = []
+    t = 0.0
+    for u_tgt in levels:
+        for _ in range(30):
+            rows.append([round(t, 3), round(u_tgt, 3), round(pn_w, 3), 50.0])
+            t += 1.0
+    _write_csv(dest_dir / "sample_voltprotect10min.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_rocof_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """ROCOF / EN50549 5.3.1：频率 50→51→49→50 循环。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, _un = _rated_pn_un(job)
+    headers = [
+        "Time [s]",
+        "F_fund@AC_AVG [Hz]",
+        "P_t@AC_AVG [W]",
+    ]
+    rows: List[List[Any]] = []
+    t = 0.0
+    # 一次完整循环：hold50 → ramp51 → hold51 → ramp49 → hold49 → ramp50 → hold50
+    profile = (
+        [(50.0, 20)]
+        + [(50.0 + i * 0.05, 1) for i in range(1, 21)]
+        + [(51.0, 20)]
+        + [(51.0 - i * 0.1, 1) for i in range(1, 21)]
+        + [(49.0, 20)]
+        + [(49.0 + i * 0.05, 1) for i in range(1, 21)]
+        + [(50.0, 20)]
+    )
+    for f, n in profile:
+        for _ in range(n):
+            rows.append([round(t, 3), round(f, 3), round(pn_w, 3)])
+            t += 0.2
+    _write_csv(dest_dir / "sample_rocof.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_lvrt_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """LVRT / EN50549 5.3.3：电压跌落 + 电流/功率占位。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = [
+        "Time [s]",
+        "U_tRMS@AC_AVG [V]",
+        "I1@AC_AVG [A]",
+        "I2@AC_AVG [A]",
+        "I3@AC_AVG [A]",
+        "P_t@AC_AVG [W]",
+    ]
+    i_rated = pn_w / max(un, 1.0) / 3.0
+    rows: List[List[Any]] = []
+    t = 0.0
+    for u_scale, n in ((1.0, 40), (0.2, 40), (1.0, 40)):
+        u = un * u_scale
+        i = i_rated * (0.3 if u_scale < 0.5 else 1.0)
+        p = pn_w * (0.2 if u_scale < 0.5 else 1.0)
+        for _ in range(n):
+            rows.append(
+                [
+                    round(t, 3),
+                    round(u, 3),
+                    round(i, 3),
+                    round(i, 3),
+                    round(i, 3),
+                    round(p, 3),
+                ]
+            )
+            t += 0.05
+    _write_csv(dest_dir / "sample_lvrt.csv", headers, rows)
+    return dest_dir
+
+
+def plant_sim_phasejump_csv(job: Dict[str, Any], dest_dir: Path) -> Path:
+    """相位跳变：分析器吃图片；此处只落占位 CSV，避免误用过载样例。"""
+    dest_dir = Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    _clear_sim_stale(dest_dir)
+    pn_w, un = _rated_pn_un(job)
+    headers = ["Time [s]", "U_tRMS@AC_AVG [V]", "P_t@AC_AVG [W]", "note"]
+    rows = [
+        [0.0, round(un, 3), round(pn_w, 3), "phasejump needs PNGs for 5.3.2"],
+        [1.0, round(un, 3), round(pn_w, 3), "placeholder"],
+    ]
+    _write_csv(dest_dir / "sample_phasejump.csv", headers, rows)
+    return dest_dir
+
+
 _PHASE2_SHORT_TYPES = frozenset(
     {
         "activep",
@@ -444,6 +551,12 @@ _PHASE2_SHORT_TYPES = frozenset(
         "static_mppt",
         "静态mppt",
         "静态MPPT测试",
+        "voltprotect10min",
+        "voltprotect",
+        "rocof",
+        "lvrt",
+        "phasejump",
+        "phase_jump",
     }
 )
 
@@ -483,6 +596,19 @@ def plant_sim_csv_for_job(job: Dict[str, Any], dest_dir: Path) -> Path:
         return plant_sim_freq_power_ctrl_csv(job, dest_dir, over_freq=False)
     if tt in ("staticmppt", "static_mppt", "静态mppt", "静态MPPT测试", "静态MPPT"):
         return plant_sim_staticmppt_csv(job, dest_dir)
+    if tt in (
+        "voltprotect10min",
+        "voltprotect",
+        "10min过压保护",
+        "过压保护10min",
+    ):
+        return plant_sim_voltprotect10min_csv(job, dest_dir)
+    if tt in ("rocof", "rocofprotect", "rocof_protect", "频率变化率"):
+        return plant_sim_rocof_csv(job, dest_dir)
+    if tt in ("lvrt", "lowvoltage_ride_through", "低电压穿越"):
+        return plant_sim_lvrt_csv(job, dest_dir)
+    if tt in ("phasejump", "phase_jump", "相位跳变", "相角突变"):
+        return plant_sim_phasejump_csv(job, dest_dir)
     csv_path, _plan, _rows = plant_sim_overload_csv(job, dest_dir)
     return Path(csv_path).parent
 
@@ -531,6 +657,12 @@ def run_sim_timeline_for_job(
         "qianpinshengzai": "欠频升载造数",
         "staticmppt": "静态MPPT造数",
         "静态MPPT测试": "静态MPPT造数",
+        "voltprotect10min": "10min过压保护造数",
+        "voltprotect": "10min过压保护造数",
+        "rocof": "ROCOF造数",
+        "lvrt": "LVRT造数",
+        "phasejump": "相位跳变占位造数",
+        "phase_jump": "相位跳变占位造数",
     }
     if tt in short_msgs or tt in _PHASE2_SHORT_TYPES or tt in (
         "harmonic",

@@ -83,6 +83,7 @@ class WtScpiCollector:
         items: Optional[Sequence[str]] = None,
         rate_text: str = "100ms",
         save_path: str = "",
+        header_style: str = "",
     ) -> Tuple[bool, List[str], List[str]]:
         """Configure RATE + NUMERIC items. Returns (ok, items, warnings)."""
         self._warnings = []
@@ -115,7 +116,13 @@ class WtScpiCollector:
             return False, [], self._warnings + [self._last_error or "NUMERIC 配置失败"]
 
         self._items = accepted
-        self._header = ["Time [s]"] + accepted
+        try:
+            from utils.wt_scpi_items import macro_column_name
+
+            headers = [macro_column_name(tok, header_style) for tok in accepted]
+        except Exception:
+            headers = list(accepted)
+        self._header = ["Time [s]"] + headers
         self._info(
             f"WT SCPI prepare OK: rate={self._rate_ms}ms, items={len(accepted)}"
         )

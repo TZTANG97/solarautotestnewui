@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List
 from agent.job_inbox import result_path
 
 _MAX_BYTES = 20 * 1024 * 1024
-_MAX_FILES = 24
+_MAX_FILES = 48
 _RECENT_GLOBS = (
     "command_save_files/command_data/**/*.*",
     "command_save_files/dewetron_data/**/*.*",
@@ -17,7 +17,17 @@ _RECENT_GLOBS = (
     "data_logs/**/*.log",
     "data_logs/**/*.csv",
 )
-_RECENT_SUFFIXES = {".csv", ".xlsx", ".xls", ".docx", ".pdf", ".txt", ".log", ".json"}
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
+_RECENT_SUFFIXES = {
+    ".csv",
+    ".xlsx",
+    ".xls",
+    ".docx",
+    ".pdf",
+    ".txt",
+    ".log",
+    ".json",
+} | _IMAGE_SUFFIXES
 
 
 def _job_scoped_globs(job_id: int) -> tuple[str, ...]:
@@ -118,6 +128,50 @@ def _recent_output_files(
     return found
 
 
+def _flicker_image_roots(repo_root: Path) -> List[Path]:
+    """闪变图实际目录：配置的 WT 保存路径，加上仓库内 wt_save / screenshots。"""
+    roots: List[Path] = [repo_root / "wt_save", repo_root / "screenshots"]
+    try:
+        from utils.wt_save_path import default_wt_save_path, resolve_config_wt_save_path
+
+        roots.append(Path(default_wt_save_path()))
+        roots.append(Path(resolve_config_wt_save_path()))
+    except Exception:
+        pass
+    uniq: List[Path] = []
+    seen = set()
+    for p in roots:
+        try:
+            key = str(p.resolve()).lower()
+        except OSError:
+            key = str(p).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(p)
+    return uniq
+
+
+def _flicker_images(repo_root: Path, since_ts: float, until_ts: float) -> List[Path]:
+    """只收 [since, until] 内的图片。调用方在没有 elapsed_sec 时不要调用。"""
+    found: List[Path] = []
+    for folder in _flicker_image_roots(repo_root):
+        if not folder.is_dir():
+            continue
+        for path in folder.glob("**/*"):
+            if not path.is_file():
+                continue
+            if path.suffix.lower() not in _IMAGE_SUFFIXES:
+                continue
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            if since_ts <= mtime <= until_ts:
+                found.append(path)
+    return found
+
+
 def collect_report_files(
     repo_root: Path,
     job_id: int,
@@ -158,6 +212,13 @@ def collect_report_files(
             prefer_dir=prefer_dir if prefer_dir and prefer_dir.exists() else None,
         )
     )
+    try:
+        elapsed_img = float(summary.get("elapsed_sec") or 0)
+    except (TypeError, ValueError):
+        elapsed_img = 0.0
+    if elapsed_img > 0:
+        now_img = time.time()
+        candidates.extend(_flicker_images(root, now_img - elapsed_img, now_img + 5.0))
 
     tt = str(summary.get("testType") or summary.get("test_type") or "").lower()
     drop_overload = tt in ("harmonic", "harmonics", "harmonic_current", "谐波", "谐波电流", "谐波电流测试")

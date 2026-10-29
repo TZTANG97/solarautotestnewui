@@ -131,31 +131,53 @@ def _do_heartbeat(
     host_name: str,
     busy: bool,
     status_json_path: str,
+    mutex_owner: str = "",
+    allow_stale_coerce: bool = True,
+    settle_terminal: bool = True,
+    active_job_id: int = 0,
 ) -> Optional[dict]:
     rid, probe_results = _consume_probe_payload()
     ctrl_rid, ctrl_result = _consume_control_payload()
     run_snapshot = None
     try:
-        from utils.iot_run_snapshot import build_run_snapshot_from_status, snapshot_implies_busy
+        from utils.iot_run_snapshot import build_run_snapshot_from_status
 
         run_snapshot = build_run_snapshot_from_status(status_json_path)
-        # 本机互斥锁无人占用时，勿把陈旧 status.json「进行中」报到云端占坑
-        if snapshot_implies_busy(run_snapshot) and not busy:
-            try:
-                from agent import mutex as _mx
+        # 锁空着且进度久未更新，才把陈旧「进行中」收成已中止。
+        # 原先在这里调用 mutex 模块上不存在的 _read()，异常后当成无人占用，
+        # 桌面还在跑也会被收成已中止。锁的主人由主循环传入。
+        owner_now = str(mutex_owner or "").strip().lower()
+        file_mtime = None
+        try:
+            file_mtime = Path(status_json_path).stat().st_mtime
+        except OSError:
+            file_mtime = None
+        before_st = str((run_snapshot or {}).get("status") or "")
+        from utils.iot_run_snapshot import (
+            apply_unlocked_stale_policy,
+            persist_coerced_terminal,
+            snapshot_implies_busy,
+        )
 
-                owner_now = str((_mx._read() or {}).get("owner") or "").strip().lower()
-            except Exception:
-                owner_now = ""
-            if owner_now not in ("ui", "agent"):
-                run_snapshot = dict(run_snapshot or {})
-                run_snapshot["status"] = "已中止"
-                run_snapshot["operator_pause"] = False
-                run_snapshot["remain_text"] = ""
-                run_snapshot["remain_s"] = 0.0
-                run_snapshot["current_detail"] = "本机无试验占用，收口陈旧进行中状态"
-            else:
-                busy = True
+        # 交接等待期间结案只认 UI 写回的 results。
+        # 这里若把进行中收成已中止，client.done 会先把云端打成已中止，
+        # 后面的成功回传会被丢掉（任务 58 进度停在 2%）。
+        if allow_stale_coerce:
+            run_snapshot, busy = apply_unlocked_stale_policy(
+                run_snapshot,
+                busy=busy,
+                owner=owner_now,
+                file_mtime=file_mtime,
+            )
+            if (
+                isinstance(run_snapshot, dict)
+                and before_st in ("进行中", "暂停")
+                and str(run_snapshot.get("status") or "") == "已中止"
+            ):
+                try:
+                    persist_coerced_terminal(status_json_path, run_snapshot)
+                except Exception as exc:
+                    logger.debug("收口状态写回 status.json 失败: %s", exc)
         elif snapshot_implies_busy(run_snapshot):
             busy = True
     except Exception:
@@ -199,6 +221,7 @@ def _do_heartbeat(
             client=client,
             repo_root=Path(status_json_path).resolve().parent,
             run_snapshot=run_snapshot,
+            active_job_id=active_job_id,
         )
     except Exception as exc:
         logger.debug("远程中止轮询跳过: %s", exc)
@@ -222,7 +245,13 @@ def _do_heartbeat(
             )
             # 本地开测结案兜底：桌面已写「已结束/已中止」但未调 done 时，实验管理会一直「测试中」
             st = str(run_snapshot.get("status") or "").strip()
-            if st in ("已结束", "已中止", "失败"):
+            if st in ("已结束", "已中止", "失败") and not settle_terminal:
+                logger.info(
+                    "交接等待中，心跳不结案 job=%s status=%s",
+                    jid,
+                    st,
+                )
+            elif st in ("已结束", "已中止", "失败"):
                 done_st = (
                     "success"
                     if st == "已结束"
@@ -331,12 +360,24 @@ def run_once_job(
     def _hb_while_job() -> None:
         while not stop_hb.wait(max(5.0, float(heartbeat_interval_sec))):
             try:
+                from agent.config import _repo_root as _agent_repo_root
+
+                root = Path(repo_root) if repo_root else _agent_repo_root()
+                owner_hb = ""
+                try:
+                    owner_hb = str((mutex._read() or {}).get("owner") or "")
+                except Exception:
+                    owner_hb = ""
                 _do_heartbeat(
                     client,
                     agent_version=agent_version,
                     host_name=host_name,
                     busy=True,
-                    status_json_path=str((repo_root or Path(".")) / "status.json"),
+                    status_json_path=str(root / "status.json"),
+                    mutex_owner=owner_hb,
+                    allow_stale_coerce=False,
+                    settle_terminal=False,
+                    active_job_id=int(job_id or 0),
                 )
             except Exception as exc:
                 logger.warning("任务中心跳失败: %s", exc)
@@ -604,6 +645,16 @@ def main(argv: Optional[list] = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        from agent.bootstrap import migrate_bench_mqtt
+        from agent.config import default_config_path
+
+        cfg_file = Path(args.config) if args.config else default_config_path()
+        if migrate_bench_mqtt(cfg_file):
+            logger.info("已把 MQTT 改为公网 %s:%s", "www.laidecloud.com", 11883)
+    except Exception as exc:
+        logger.warning("MQTT 公网地址迁移跳过: %s", exc)
+
+    try:
         cfg = load_config(args.config or None)
     except Exception as exc:
         logger.error("%s", exc)
@@ -748,6 +799,7 @@ def main(argv: Optional[list] = None) -> int:
                 host_name=host,
                 busy=agent_busy,
                 status_json_path=str(repo_root / "status.json"),
+                mutex_owner=owner,
             )
         except Exception as exc:
             logger.warning("心跳失败: %s", exc)
@@ -755,7 +807,8 @@ def main(argv: Optional[list] = None) -> int:
             continue
 
         if owner == "ui":
-            # 试验已结束但 UI 进程仍开着且未放锁 → 清掉后继续领任务
+            # 追加/连接阶段 status 还不是「进行中」。锁的持有进程还活着就不要清，
+            # 否则下一拍心跳会把刚开跑的试验收成「本机无试验占用」。
             local_st = ""
             try:
                 from utils.iot_run_snapshot import build_run_snapshot_from_status
@@ -764,22 +817,19 @@ def main(argv: Optional[list] = None) -> int:
                 local_st = str((snap_ui or {}).get("status") or "").strip()
             except Exception:
                 local_st = ""
-            if local_st in ("进行中", "暂停"):
-                logger.info("本机 UI 占用中，本轮不领任务（status=%s）", local_st or "-")
+            logger.info("本机 UI 占用中，本轮不领任务（status=%s）", local_st or "-")
+            time.sleep(interval)
+            continue
+
+        try:
+            from utils.iot_run_snapshot import desktop_run_still_active
+
+            if desktop_run_still_active(str(repo_root / "status.json")):
+                logger.info("本机试验进度仍在更新，本轮不领任务")
                 time.sleep(interval)
                 continue
-            try:
-                mutex.force_clear()
-                logger.info(
-                    "UI 锁残留但本机已非运行态（%s），已清锁并继续领任务",
-                    local_st or "空",
-                )
-            except Exception as clr_exc:
-                logger.warning("清 UI 残留锁失败: %s", clr_exc)
-                time.sleep(interval)
-                continue
-            owner = ""
-            agent_busy = False
+        except Exception:
+            pass
 
         if agent_busy:
             time.sleep(interval)
@@ -855,6 +905,7 @@ def main(argv: Optional[list] = None) -> int:
                 job,
                 dry_run=cfg.dry_run,
                 execution_mode=cfg.resolved_execution_mode,
+                repo_root=repo_root,
                 agent_version=cfg.agent_version,
                 host_name=host,
                 heartbeat_interval_sec=float(cfg.heartbeat_interval_sec or 15),

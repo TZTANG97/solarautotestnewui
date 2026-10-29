@@ -140,7 +140,10 @@ def prepare_from_config(config: Mapping, logger=None) -> tuple[bool, str]:
     except Exception:
         pass
     ok, _items, warnings = collector.prepare(
-        items=items, rate_text=rate, save_path=csv_path
+        items=items,
+        rate_text=rate,
+        save_path=csv_path,
+        header_style=str(config.get("Style") or ""),
     )
     if warnings:
         print(f"[wt_scpi_session] warnings: {warnings}")

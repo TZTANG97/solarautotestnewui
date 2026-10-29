@@ -1,4 +1,4 @@
-{
+﻿{
   "iot_base": "https://www.laidecloud.com/nss",
   "agent_token": "请填本机已注册台架的 agent_token（或测试服令牌）",
   "pythonid": "请填与 IOT 台架绑定的 PythonID",
@@ -11,8 +11,8 @@
   "agent_version": "0.1.0-sim",
   "mqtt": {
     "enable": false,
-    "host": "10.144.144.3",
-    "port": 1883,
+    "host": "www.laidecloud.com",
+    "port": 11883,
     "username": "mqtt_ops",
     "password": "",
     "topic_prefix": "/EquMessage",
@@ -22,3 +22,4 @@
   },
   "comment": "无真机模拟工况机：接 IOT 任务 → 落样例 CSV → 结案分析/上传。勿用于正式台架。复制为 solar_agent.sim.json 后填 token/pythonid。"
 }
+

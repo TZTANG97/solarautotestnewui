@@ -1302,6 +1302,7 @@ def _update_project_status(project_name, status):
             _run_progress_state["progress"] = 100
     data["project"]["current_round"] = int(_run_progress_state.get("current_round", 0) or 0)
     data["project"]["total_rounds"] = int(_run_progress_state.get("total_rounds", 0) or 0)
+    data["project"]["updated_at"] = now_str
     with open(_status_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
@@ -1563,6 +1564,7 @@ def _persist_run_progress(state):
     ]
     data["project"]["operator_pause"] = bool(state.get("operator_pause"))
     data["project"]["pause_accumulated_s"] = float(state.get("pause_accumulated_s") or 0.0)
+    data["project"]["updated_at"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # 关联 IOT 任务 id（本地登记 / handoff）
     try:
         from utils.iot_run_snapshot import _resolve_job_ids
@@ -2017,22 +2019,72 @@ def _sync_queue_for_cmd(cmd_index_1based, *, status_override=None):
         else:
             if item.get("status") not in ("中止",):
                 item["status"] = "完成"
-    _emit_run_progress(queue=queue, current_test=current_name or _run_progress_state.get("current_test"), persist=False)
+    try:
+        from datetime import datetime
+
+        from utils.test_queue_markers import stamp_queue_times
+
+        stamp_queue_times(queue, now_text=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    except Exception:
+        pass
+    _emit_run_progress(
+        queue=queue,
+        current_test=current_name or _run_progress_state.get("current_test"),
+        persist=True,
+    )
     return current_name
 
 
-def _wait_operator_after_test(project_name, pause_after):
-    """本试验命令结束：可选暂停等人工改逆变器。"""
+def _wait_operator_after_test(project_name, pause_after, marker_index=None):
+    """本试验命令结束：可选暂停等人工改逆变器。只收口本段（cmd_end），避免同名追加被一起打上结束时间。"""
     global strTestStatusFlag
     name = (project_name or "").strip() or "当前试验"
     queue = [dict(q) for q in (_run_progress_state.get("queue") or [])]
-    for item in queue:
-        if str(item.get("name") or "") == name:
-            item["status"] = "暂停" if pause_after else "完成"
+    hit = None
+    if marker_index is not None:
+        for item in queue:
+            try:
+                if int(item.get("cmd_end") or -1) == int(marker_index):
+                    hit = item
+                    break
+            except (TypeError, ValueError):
+                continue
+    if hit is None:
+        for item in queue:
+            if str(item.get("name") or "") != name:
+                continue
+            if str(item.get("finished_at") or "").strip():
+                continue
+            hit = item
+            break
+    if hit is not None:
+        hit["status"] = "暂停" if pause_after else "完成"
+        try:
+            from datetime import datetime
+
+            now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if not str(hit.get("started_at") or "").strip():
+                hit["started_at"] = now_text
+            if not str(hit.get("finished_at") or "").strip():
+                hit["finished_at"] = now_text
+        except Exception:
+            pass
     if queue:
-        _emit_run_progress(queue=queue, persist=False)
+        _emit_run_progress(queue=queue, persist=True)
     if not pause_after:
-        _append_return_message(f"[队列] 「{name}」已结束，继续下一项")
+        has_next = False
+        if marker_index is not None:
+            for item in queue:
+                try:
+                    if int(item.get("cmd_start") or 0) > int(marker_index):
+                        has_next = True
+                        break
+                except (TypeError, ValueError):
+                    continue
+        if has_next:
+            _append_return_message(f"[队列] 「{name}」已结束，继续下一项")
+        else:
+            _append_return_message(f"[队列] 「{name}」已结束")
         return
     strTestStatusFlag = "暂停"
     detail = f"「{name}」已结束，请调整逆变器/上位机后点「继续试验」"
@@ -5906,12 +5958,27 @@ def thaidianyashanbianSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
+            # Pst 观测窗 10 分钟（WT5000 手册：INTerval → COUNt → INITialize → STARt）
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "WT3000"
+            strArraySingle[1] = "write"
+            strArraySingle[2] = "FLICKER:INTerval 10:00"
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
             strArraySingle = ["" for _ in range(10)]
             strArraySingle[0] = "WT3000"
             strArraySingle[1] = "write"
             strArraySingle[2] = "FLICKER:COUNT " + S2_FLICKER_COUNT
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
+            try:
+                ui.textEdit_ReturnMessage.append(
+                    f"[闪变] 下发 FLICKER:COUNT {S2_FLICKER_COUNT}"
+                    f"（=step③循环次数；屏上 Count 应为 1/{S2_FLICKER_COUNT}）"
+                )
+            except Exception:
+                pass
 
             strArraySingle = ["" for _ in range(10)]
             strArraySingle[0] = "WT3000"
@@ -5936,6 +6003,16 @@ def thaidianyashanbianSend():
             # 旧版 1000(=100s) 偏长但稳；缩到 8s 后 WT5000 易 821。
             # 30s 起步 + START 遇 821 再重试，兼顾速度与兼容。
             strArraySingle[9] = 300
+            strArrayTest.append(strArraySingle)
+            strArrayTestStepSingle.append(strArraySingle)
+
+            # WT5000：INITIALIZE 后偶发把 COUNT 打回 1 → 屏上 Count 1/1、只跑 10 分钟。
+            # 手册顺序写 COUNT 在 INIT 前；这里再补写并在执行期回读确认。
+            strArraySingle = ["" for _ in range(10)]
+            strArraySingle[0] = "WT3000"
+            strArraySingle[1] = "write"
+            strArraySingle[2] = "FLICKER:COUNT " + S2_FLICKER_COUNT
+            strArraySingle[9] = 5
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
@@ -7461,7 +7538,15 @@ def thaidianyashanbianSend():
         flicker_append_count += 1
         uiThaiDianYaShanBian.label_append_count.setText(str(flicker_append_count))
         _sync_start_end_buttons()
-        ui.textEdit_ReturnMessage.append(f"[闪变] 追加完成，当前计数: {flicker_append_count}，开始/结束试验按钮已启用")
+        try:
+            _used_dev = sorted(_devices_used_in_command_queue(strArrayTest))
+            _used_txt = "、".join(_used_dev) if _used_dev else "(无设备命令)"
+        except Exception:
+            _used_txt = "(无法解析)"
+        ui.textEdit_ReturnMessage.append(
+            f"[闪变] 追加完成，当前计数: {flicker_append_count}，"
+            f"命令将用到设备: {_used_txt}；开始/结束试验按钮已启用"
+        )
         dialog_windowTdianyashanbian.close()
 
 #德国电压闪变保存设定
@@ -14610,11 +14695,11 @@ def thaistaticcosPhiSend():
         power_levels = ["__per_card__"]
         use_ladder = False
 
-    enabled_cos_steps = []
-    for step_num, cb_name, cos_label, pf_name, dc_names in cos_step_defs:
-        step_cb = getattr(uiThaiStaticCosPhi, cb_name, None)
-        if step_cb is not None and step_cb.isChecked():
-            enabled_cos_steps.append((step_num, cos_label, pf_name, dc_names))
+    # 功率档 × 全部 cosφ。各步勾选、卡片上的功率%不再决定测哪些点。
+    enabled_cos_steps = [
+        (step_num, cos_label, pf_name, dc_names)
+        for step_num, _cb_name, cos_label, pf_name, dc_names in cos_step_defs
+    ]
 
     point_plan = []
     for power_pct in power_levels:
@@ -14633,9 +14718,8 @@ def thaistaticcosPhiSend():
     for idx, (step_num, cos_label, pf_name, dc_names, point_power) in enumerate(point_plan):
         print(f'S{step_num}DCPF---{point_power} ({cos_label})')
         strArrayTestStepSingle = []
-        for dc_i, dc_cb_name in enumerate(dc_names):
-            step_dc_cb = getattr(uiThaiStaticCosPhi, dc_cb_name, None)
-            if not (s1_dc_cbs[dc_i].isChecked() and step_dc_cb is not None and step_dc_cb.isChecked()):
+        for dc_i, _dc_cb_name in enumerate(dc_names):
+            if not s1_dc_cbs[dc_i].isChecked():
                 continue
             vmp, imp, voc, isc, err1, err2, dc_name, dc_idx = dc_iv_params[dc_i]
             a = DCGetIVValueFunction(vmp, imp, voc, isc, point_power, dc_idx)
@@ -14688,31 +14772,32 @@ def thaistaticcosPhiSend():
         staticcos_file_names = list(measure_names)
 
     if staticcos_file_names:
-        staticcos_file_names = _finalize_recording_file_names(staticcos_file_names)
+        # 本段只用本段文件名。追加时不要把上一段名单拼进来再写回第一行配置。
+        staticcos_file_names = _finalize_recording_file_names(
+            staticcos_file_names, merge_previous=False
+        )
         file_list_text = ",".join(staticcos_file_names)
         stop_str = stoptime_hhmmss(stop_sec)
         merge_path = ""
-        for row in strArrayTest:
-            if row and row[0] == "Upper_WT_Config" and isinstance(row[4], dict):
-                row[4]["textEdit_FileNameList"] = file_list_text
-                row[4]["textEdit_StopTime"] = stop_str
-                if row[4].get("comboBox_AutoSave", 0) == 0:
-                    row[4]["comboBox_AutoSave"] = 1
-                # 分开录：多轮临时文件测完合并；连续录单文件无需 merge
-                if not wt_continuous:
+        from utils.static_cosphi_recording import apply_segment_recording
+
+        apply_segment_recording(
+            strArrayTest, file_list_text, stop_str, continuous=wt_continuous
+        )
+        if not wt_continuous:
+            for row in reversed(strArrayTest):
+                if row and row[0] == "Upper_WT_Config" and isinstance(row[4], dict):
                     from utils.wt_save_path import ensure_wt_save_dir
 
                     save_path = ensure_wt_save_dir(str(row[4].get("textEdit_SavePath") or "").strip())
                     row[4]["textEdit_SavePath"] = save_path
                     from datetime import datetime as _dt
+
                     merge_name = f"staticcosPhi_{_dt.now().strftime('%Y%m%d_%H%M%S')}.CSV"
                     merge_path = os.path.join(save_path, merge_name)
                     row[4]["wt_merge_single_file"] = "1"
                     row[4]["wt_merge_output_path"] = merge_path
-                else:
-                    row[4].pop("wt_merge_single_file", None)
-                    row[4].pop("wt_merge_output_path", None)
-                break
+                    break
         try:
             for page_idx in range(uiThaiStaticCosPhi._wtStacked.count()):
                 page = uiThaiStaticCosPhi._wtStacked.widget(page_idx)
@@ -17131,14 +17216,24 @@ def thaiguopinjiangzaiSend():
             f"[过频降载] 频率台阶 {n_pts} 点（来源={_src_label}）"
         )
 
-    # 频率台阶连续录 1 条（ASYNC_START / WAIT_END）
-    _enable_freq_step_continuous_record(
-        strArrayTest,
-        uiThaiGuoPinJiangZai,
-        file_default="OF_curve",
-        log_label="过频降载",
-        ladder_start_index=ladder_start,
-    )
+    # 录波方式：一条线连续录才包成 ASYNC；分开录保留逐点测量并展开文件名
+    from utils.wt_job_save import apply_split_freq_filenames, dialog_recording_is_continuous
+
+    if dialog_recording_is_continuous(uiThaiGuoPinJiangZai):
+        _enable_freq_step_continuous_record(
+            strArrayTest,
+            uiThaiGuoPinJiangZai,
+            file_default="OF_curve",
+            log_label="过频降载",
+            ladder_start_index=ladder_start,
+        )
+    else:
+        apply_split_freq_filenames(
+            strArrayTest,
+            uiThaiGuoPinJiangZai,
+            file_default="OF_curve",
+            log_label="过频降载",
+        )
 
 
     # step_end：先 DC 后 AC，蓝点缓降后再关 AC（禁止 AC/DC 贴着关）
@@ -17570,14 +17665,24 @@ def thaiqianpinshengzaiSend():
             f"[欠频升载] 频率台阶 {n_pts} 点（来源={_src_label}）"
         )
 
-    # 频率台阶连续录 1 条（ASYNC_START / WAIT_END）
-    _enable_freq_step_continuous_record(
-        strArrayTest,
-        uiThaiQianPinShengZai,
-        file_default="UF_curve",
-        log_label="欠频升载",
-        ladder_start_index=ladder_start,
-    )
+    # 录波方式：一条线连续录才包成 ASYNC；分开录保留逐点测量并展开文件名
+    from utils.wt_job_save import apply_split_freq_filenames, dialog_recording_is_continuous
+
+    if dialog_recording_is_continuous(uiThaiQianPinShengZai):
+        _enable_freq_step_continuous_record(
+            strArrayTest,
+            uiThaiQianPinShengZai,
+            file_default="UF_curve",
+            log_label="欠频升载",
+            ladder_start_index=ladder_start,
+        )
+    else:
+        apply_split_freq_filenames(
+            strArrayTest,
+            uiThaiQianPinShengZai,
+            file_default="UF_curve",
+            log_label="欠频升载",
+        )
 
 
     # step_end：先 DC 后 AC，蓝点缓降后再关 AC（禁止 AC/DC 贴着关）
@@ -24100,30 +24205,20 @@ def SaveFileDialogThaiDynamicMPPT():
 #         logger.info(strtimenow + "    请设定实验内容!")
 #         print(strtimenow + "    请设定实验内容!")
 
-def _check_device_connections():
-    """根据 strArrayTest 中实际用到的设备，检查连接状态。返回未连接设备的描述字符串，全部连接返回空字符串。
-
-    Upper_WT_Config 默认走 WTViewer 宏，不校验 wt3000 SCPI；
-    若配置为 SCPI 命令模式，则必须已连接功率分析仪。
-    """
+def _devices_used_in_command_queue(commands=None):
+    """从命令队列抽出实际用到的设备键（AC/DC1…/WT3000…）。"""
     from utils.wt_acquire_mode import is_scpi_mode
 
-    device_map = {
-        "AC": ("交流电源", ac_controller),
-        "DC1": ("DC电源1", dc1_controller),
-        "DC2": ("DC电源2", dc2_controller),
-        "DC3": ("DC电源3", dc3_controller),
-        "DC4": ("DC电源4", dc4_controller),
-        "DEWETRON": ("DEWETRON", dewetron_controller),
-        "WT3000": ("功率分析仪(WT3000)", wt3000_controller),
-        "DL850": ("示波器(DL850)", dl850_controller),
-    }
-    used_devices = set()
+    known = {"AC", "DC1", "DC2", "DC3", "DC4", "DEWETRON", "WT3000", "DL850"}
+    used = set()
     scpi_wt_needed = False
-    for cmd in strArrayTest:
-        if len(cmd) > 0 and cmd[0] in device_map:
-            used_devices.add(cmd[0])
-        if len(cmd) > 0 and cmd[0] == "Upper_WT_Config":
+    for cmd in commands if commands is not None else (strArrayTest or []):
+        if not cmd:
+            continue
+        key = cmd[0]
+        if key in known:
+            used.add(key)
+        if key == "Upper_WT_Config":
             cfg = cmd[4] if len(cmd) > 4 else None
             if isinstance(cfg, str) and cfg.strip():
                 try:
@@ -24133,18 +24228,42 @@ def _check_device_connections():
                     cfg = {}
             if is_scpi_mode(cfg if isinstance(cfg, dict) else {}):
                 scpi_wt_needed = True
-
     if scpi_wt_needed:
-        used_devices.add("WT3000")
+        used.add("WT3000")
+    return used
+
+
+def _check_device_connections():
+    """根据 strArrayTest 中实际用到的设备，检查连接状态。返回未连接设备的描述字符串，全部连接返回空字符串。
+
+    Upper_WT_Config 默认走 WTViewer 宏，不校验 wt3000 SCPI；
+    若配置为 SCPI 命令模式，则必须已连接功率分析仪。
+    """
+    device_map = {
+        "AC": ("交流电源", ac_controller),
+        "DC1": ("直流电源1", dc1_controller),
+        "DC2": ("直流电源2", dc2_controller),
+        "DC3": ("直流电源3", dc3_controller),
+        "DC4": ("直流电源4", dc4_controller),
+        "DEWETRON": ("DEWETRON", dewetron_controller),
+        "WT3000": ("功率分析仪(WT3000)", wt3000_controller),
+        "DL850": ("示波器(DL850)", dl850_controller),
+    }
+    used_devices = _devices_used_in_command_queue(strArrayTest)
 
     disconnected = []
     for device_key in sorted(used_devices):
-        name, controller = device_map[device_key]
-        if controller is None or not controller.connected:
+        name, controller = device_map.get(device_key, (device_key, None))
+        if controller is None or not getattr(controller, "connected", False):
             disconnected.append(name)
 
     if disconnected:
-        return "、".join(disconnected)
+        tip = (
+            "、".join(disconnected)
+            + "\n\n以上设备出现在本次「测试追加」生成的命令里。"
+            "若本台架没有这些直流源：请在试验步骤取消对应勾选后重新点「测试追加」。"
+        )
+        return tip
     return ""
 
 
@@ -24444,14 +24563,22 @@ def RunProjectPush():
                 map_per_dc_factor_to_brands,
             )
 
+            # 仅校验命令队列实际用到的直流槽，避免未勾选的 DC2~4 被上限门禁误拦
+            _used = _devices_used_in_command_queue(strArrayTest)
+            _dc_all = {
+                "dc1": globals().get("dc1_controller"),
+                "dc2": globals().get("dc2_controller"),
+                "dc3": globals().get("dc3_controller"),
+                "dc4": globals().get("dc4_controller"),
+            }
+            _dc_used = {
+                k: v
+                for k, v in _dc_all.items()
+                if k.upper() in _used or k in _used
+            }
             _ok_lim, _reason_lim = evaluate_controllers_output_limits_gate(
-                ac_controller=globals().get("ac_controller"),
-                dc_controllers={
-                    "dc1": globals().get("dc1_controller"),
-                    "dc2": globals().get("dc2_controller"),
-                    "dc3": globals().get("dc3_controller"),
-                    "dc4": globals().get("dc4_controller"),
-                },
+                ac_controller=globals().get("ac_controller") if "AC" in _used else None,
+                dc_controllers=_dc_used,
                 ac_brand=globals().get("_ac_current_brand"),
                 dc_brands=map_per_dc_factor_to_brands(globals().get("per_dc_factor")),
             )
@@ -25196,10 +25323,15 @@ def _wt_async_start_measure(cmd_no):
                 band
             )
             stop_sec_for_deadline = int(stop_sec)
-            for row in strArrayTest:
-                if not row or row[0] != "Upper_WT_Config":
-                    continue
-                cfg = row[4]
+            # 只改本段前面最近的那行配置，不要改到上一段的 StopTime。
+            target_row = None
+            for idx in range(start_i, -1, -1):
+                row = strArrayTest[idx] if idx < len(strArrayTest) else None
+                if row and row[0] == "Upper_WT_Config":
+                    target_row = row
+                    break
+            if target_row is not None:
+                cfg = target_row[4]
                 if isinstance(cfg, dict):
                     cfg["textEdit_StopTime"] = stop_str
                 elif isinstance(cfg, str) and cfg.strip():
@@ -25209,10 +25341,9 @@ def _wt_async_start_measure(cmd_no):
                         parsed = ast.literal_eval(cfg.strip())
                         if isinstance(parsed, dict):
                             parsed["textEdit_StopTime"] = stop_str
-                            row[4] = parsed
+                            target_row[4] = parsed
                     except Exception:
                         pass
-                break
             if isinstance(config_dict, dict):
                 config_dict["textEdit_StopTime"] = stop_str
             # 禁止在命令线程里碰 LazyDialog / setPlainText：
@@ -25286,6 +25417,12 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600):
                     f"等待连续测量结束: 第{cmd_no}条, test_status={test_status}, 已等待{elapsed}s"
                 )
             last_log_sec = elapsed
+            try:
+                from utils.iot_run_snapshot import touch_running_project
+
+                touch_running_project()
+            except Exception:
+                pass
         if test_status == '0':
             test_status = ''
             _append_debug_log(f"[run_loop] WT WAIT_END done at command#{cmd_no}")
@@ -25362,6 +25499,12 @@ def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9"):
             total_sec = round(ticks * 0.1, 1)
             if _log is not None:
                 _log.info(f"第{cmd_no}条命令等待中: {waited_sec}/{total_sec}s")
+            try:
+                from utils.iot_run_snapshot import touch_project_activity
+
+                touch_project_activity()
+            except Exception:
+                pass
         time.sleep(0.1)
 
 
@@ -25419,6 +25562,12 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
                 f"等待测量/采集: 第{cmd_no}条({log_tag}), "
                 f"{x * 0.1:.1f}/{ticks * 0.1:.1f}s, test_status={test_status}"
             )
+            try:
+                from utils.iot_run_snapshot import touch_running_project
+
+                touch_running_project()
+            except Exception:
+                pass
         time.sleep(0.1)
 
     # 2) 采集时长已满但录波可能仍未停：再等到 testing_stop
@@ -25435,6 +25584,12 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
                 f"test_status={test_status}, 已等待{elapsed}s"
             )
             last_log_sec = elapsed
+            try:
+                from utils.iot_run_snapshot import touch_running_project
+
+                touch_running_project()
+            except Exception:
+                pass
         if test_status == '0':
             _append_debug_log(
                 f"[run_loop] measure wait done by {log_tag} at command#{cmd_no}"
@@ -25516,6 +25671,8 @@ def RunProject():
         # 导致 now_save_file 提前递增到 1，第一段被错误地存成 file_list[1]，
         # 而 testing_stop 又因为 count_now>=total-1 判定全部结束（详见谐波多段测试 bug）。
         save_file_name = ''
+        # 上一轮结束会把 first_test 闩成 1，下一单就整段跳过 WT 宏。
+        first_test = ''
         _append_debug_log(
             f"[run_loop] reset on start: now_save_file=0, save_file_name='', total_save_file={total_save_file}"
         )
@@ -25544,6 +25701,7 @@ def RunProject():
                     _wait_operator_after_test(
                         row_project_name(strArrayTest[i]),
                         row_pause_after(strArrayTest[i]),
+                        marker_index=i,
                     )
                     continue
             except Exception:
@@ -25915,6 +26073,13 @@ def RunProject():
                             config_dict = {}
                     else:
                         config_dict = {}
+                # 每一段配置都是一份新的录波名单。沿用上一段的序号时，
+                # 本段会被 testing_stop 当成已经录完，第二个 CSV 不会出现。
+                # first_test=='1' 表示同一局里 WT 宏已经配过，本段只改文件名。
+                now_save_file = 0
+                save_file_name = ''
+                if first_test == '1':
+                    messsure_deatil_cofig = '0'
                 if isinstance(config_dict, dict):
                     try:
                         from utils.wt_save_path import ensure_wt_save_dir
@@ -26394,6 +26559,18 @@ def RunProject():
                             elif _cmd_u.startswith("FLICKER:START"):
                                 # 821=初始化未完成：等待重试（恢复旧版「多等一会再 START」）
                                 ok, msg = write_flicker_start(ctrl=wt3000_controller)
+                            elif _cmd_u.startswith("FLICKER:COUNT"):
+                                # 回读确认组数，避免 WT5000 静默仍是 Count 1/1
+                                from utils.wt_flicker_scpi import ensure_flicker_count
+
+                                _cnt_tok = command.strip().split()[-1]
+                                try:
+                                    _cnt_exp = int(float(_cnt_tok))
+                                except (TypeError, ValueError):
+                                    _cnt_exp = 0
+                                ok, msg = ensure_flicker_count(
+                                    _cnt_exp, ctrl=wt3000_controller, retries=3
+                                )
                             else:
                                 # INITIALIZE 前再强制 REMOTE；STATUS 超时不当失败
                                 _check_err = _cmd_u.startswith("FLICKER:INITIALIZE")
@@ -28830,6 +29007,30 @@ def messured_set(messure_handle):
                     pyautogui.doubleClick()
                     pyautogui.typewrite(str(test_time_list[local]))
                     pyautogui.sleep(0.2)
+            else:
+                # 下一段配置已经写了新的 StopTime。只改文件名时 WT 仍停在上一段时长，
+                # 新段更长就会被仪器提前停表。
+                stop_raw = ""
+                try:
+                    if isinstance(config_dict, dict):
+                        stop_raw = config_dict.get("textEdit_StopTime") or ""
+                except Exception:
+                    stop_raw = ""
+                hms = _parse_stoptime_to_hms(stop_raw)
+                if hms is not None:
+                    test_time_list = [int(hms[0]), int(hms[1]), int(hms[2])]
+                    for local in range(min(len(test_time_list), len(cells_coord[1][2]))):
+                        pyautogui.moveTo(
+                            cells_coord[1][2][local][0] + left,
+                            cells_coord[1][2][local][1] + top,
+                            duration=0.5,
+                        )
+                        pyautogui.doubleClick()
+                        pyautogui.typewrite(str(test_time_list[local]))
+                        pyautogui.sleep(0.2)
+                    _append_debug_log(
+                        f"[messured_set] partial StopTime={stop_raw!r} -> {test_time_list}"
+                    )
 
             # 自动保存开启时，每轮更新当前文件名
             if auto_save_file == '0':
@@ -28875,6 +29076,31 @@ def _append_debug_log(message):
             f.write(f"{now_to_datenow()} {message}\n")
     except Exception as e:
         logger.warning(f"写入log.txt失败: {e}")
+
+
+def _refresh_wt_measure_filename():
+    """同一局的下一段录波：打开数值详细设置，只改文件名。"""
+    global messure_handle_now
+    now_handle_dict = get_enumwindows()
+    now_h = _find_wtviewer_hwnd(now_handle_dict)
+    if now_h is None:
+        raise RuntimeError("WTViewerEfree window not found")
+    _close_wt_detail_dialogs()
+    win32gui.ShowWindow(now_h, win32con.SW_SHOWMAXIMIZED)
+    win32gui.SetForegroundWindow(now_h)
+    now_child_dict = {}
+    win32gui.EnumChildWindows(
+        now_h,
+        lambda hwnd, parm: parm.update({hwnd: win32gui.GetWindowText(hwnd)}),
+        now_child_dict,
+    )
+    if "数值" not in now_child_dict.values():
+        raise RuntimeError("数值 control not found")
+    messure_handle_now = list(now_child_dict.keys())[
+        list(now_child_dict.values()).index("数值")
+    ]
+    # messsure_deatil_cofig=='0' 且测量项已勾过时，messured_set 只贴文件名。
+    messured_set(messure_handle_now)
 
 
 def messure_testing():
@@ -29022,6 +29248,14 @@ def messure_testing():
                     )
                     now_save_file = clamped_index
                 save_file_name = test_count[now_save_file]
+                # 同一次运行里的下一段配置：详细页只改文件名，不再整页重勾测量项。
+                if messsure_deatil_cofig == '0':
+                    try:
+                        _refresh_wt_measure_filename()
+                    except Exception as _fn_exc:
+                        _append_debug_log(
+                            f"[messure_testing][warn] refresh filename skipped: {_fn_exc}"
+                        )
                 try:
                     status = testing_start()
                 except Exception as e:
@@ -33827,8 +34061,12 @@ if __name__ == "__main__":
             uiDC1Setting.pushButton_SendMessage.clicked.connect(SendDCTestMessage)
 
             # Soft Panel Sandia 自算 → 回填 Vmp/Imp/Voc/Isc（不下发 Sandia 寄存器）
+            # 必须挂在 DC1 嵌入页（IV 父控件），禁止挂主窗，否则跨页浮窗且关不掉
             try:
-                from components.sandia_iv_panel import wire_sandia_iv_panel
+                from components.sandia_iv_panel import (
+                    purge_orphan_sandia_panels,
+                    wire_sandia_iv_panel,
+                )
 
                 def _resolve_sandia_test_ui():
                     try:
@@ -33873,8 +34111,25 @@ if __name__ == "__main__":
                         pass
                     return None
 
+                _sandia_host = None
+                try:
+                    _vmp = getattr(uiDC1Setting, "textEdit_Vmp", None)
+                    if _vmp is not None:
+                        _sandia_host = _vmp.parentWidget()
+                except Exception:
+                    _sandia_host = None
+                try:
+                    _n_purged = purge_orphan_sandia_panels(uiDC1Setting)
+                    if _n_purged:
+                        print(f"[Sandia] purged orphan float panels: {_n_purged}", flush=True)
+                except Exception as _purge_exc:
+                    print(f"[Sandia] purge skip: {_purge_exc}", flush=True)
+
                 wire_sandia_iv_panel(
-                    uiDC1Setting, resolve_test_ui=_resolve_sandia_test_ui
+                    uiDC1Setting,
+                    parent=_sandia_host,
+                    resolve_test_ui=_resolve_sandia_test_ui,
+                    force=True,
                 )
             except Exception as _sandia_exc:
                 print(f"[Sandia] wire panel skip: {_sandia_exc}", flush=True)

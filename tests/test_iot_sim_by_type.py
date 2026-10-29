@@ -90,6 +90,22 @@ def test_sim_phase2_brazil_types(tmp_path: Path):
     assert (sm / "sample_staticmppt.csv").is_file()
 
 
+def test_sim_en50549_extra_types(tmp_path: Path):
+    base = {"widgets": {"analysis_Pn": 10000, "analysis_Un": 230}}
+    vp = plant_sim_csv_for_job({**base, "testType": "voltprotect10min"}, tmp_path / "vp")
+    assert (vp / "sample_voltprotect10min.csv").is_file()
+    assert not (vp / "sample_overload.csv").exists()
+
+    rc = plant_sim_csv_for_job({**base, "testType": "rocof"}, tmp_path / "rcf")
+    assert (rc / "sample_rocof.csv").is_file()
+
+    lv = plant_sim_csv_for_job({**base, "testType": "lvrt"}, tmp_path / "lv")
+    assert (lv / "sample_lvrt.csv").is_file()
+
+    pj = plant_sim_csv_for_job({**base, "testType": "phasejump"}, tmp_path / "pj")
+    assert (pj / "sample_phasejump.csv").is_file()
+
+
 def test_sim_dc_flicker_fixedpf_reconnect_ovuf(tmp_path: Path):
     base = {"widgets": {"analysis_Pn": 10000, "analysis_Un": 230}}
     dc = plant_sim_csv_for_job({**base, "testType": "dccomponent"}, tmp_path / "dc")

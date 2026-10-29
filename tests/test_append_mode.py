@@ -130,3 +130,71 @@ def test_success_send_finalizes_after_clear():
     assert commit_append_if_success(g, "电压闪变", prev) is True
     assert g["project_now"] == "电压闪变"
     assert is_queue_end_row(g["strArrayTest"][-1])
+
+
+class _FakeLazyDialog:
+    """模拟 setup.main_setup.LazyDialog：未创建时 __getattr__ 会建页。"""
+
+    def __init__(self, real_ui=None):
+        self._real_dialog = None
+        self._real_ui = real_ui
+        self.create_calls = 0
+
+    @property
+    def is_created(self) -> bool:
+        return self._real_dialog is not None
+
+    def ensure(self):
+        self.create_calls += 1
+        self._real_dialog = object()
+        if self._real_ui is None:
+            self._real_ui = type("UI", (), {})()
+        return self._real_dialog, self._real_ui
+
+    def __getattr__(self, name):
+        self.ensure()
+        return getattr(self._real_ui, name)
+
+
+def test_finalize_does_not_instantiate_lazy_dialogs():
+    """回归：追加收尾扫 ui* 时不得触发未打开试验页的 LazyDialog 创建（否则主线程假死）。"""
+
+    class _BoomUi:
+        def __getattr__(self, name):
+            raise AssertionError(f"must not touch ui attr {name}")
+
+    lazy = _FakeLazyDialog(_BoomUi())
+    other = _FakeLazyDialog(_BoomUi())
+    g = {
+        "strArrayTest": [["AC", "write", "OUTP ON"]],
+        "project_now": "",
+        "uiThaiBoom": lazy,
+        "uiThaiOther": other,
+    }
+    finalize_successful_append(g, "电压闪变", pause_after=None)
+    assert lazy.create_calls == 0 and lazy.is_created is False
+    assert other.create_calls == 0 and other.is_created is False
+    assert is_queue_end_row(g["strArrayTest"][-1])
+
+
+def test_finalize_reads_pause_from_created_ui_only():
+    class _FakeCb:
+        def __init__(self, checked):
+            self._checked = checked
+
+        def isChecked(self):
+            return self._checked
+
+    ready_ui = type("UI", (), {"checkBox_PauseAfterNext": _FakeCb(True)})()
+    ready = _FakeLazyDialog(ready_ui)
+    ready.ensure()
+    sleeping = _FakeLazyDialog()
+    g = {
+        "strArrayTest": [["AC", "write", "OUTP ON"]],
+        "uiThaiReady": ready,
+        "uiThaiSleeping": sleeping,
+    }
+    ensure_queue_end_marker(g, "电压闪变", pause_after=None)
+    assert sleeping.create_calls == 0 and sleeping.is_created is False
+    assert is_queue_end_row(g["strArrayTest"][-1])
+    assert g["strArrayTest"][-1][3] == "1"

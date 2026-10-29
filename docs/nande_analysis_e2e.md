@@ -17,6 +17,9 @@
 | fixedpf | fixed.displacement.factor | Excel + TDS 总体 Word |
 | reconnect | response.to.utility.recover | Excel + TDS 总体 Word |
 | ovuf | under.over.frequency | Excel + TDS 总体 Word |
+| reactiveqin | reactive.power | Excel + TDS 总体 Word |
+| activep | active.power.control | Excel + TDS 总体 Word |
+| voltageadaptability | operating.voltage.range | Excel + TDS 总体 Word |
 
 北德 CEI 0-16（`it_cei`，图喆/麦田报告）试验码：
 
@@ -29,6 +32,10 @@
 | reactiveqin | 6.1 | Excel + 麦田式「总体报告.docx」 |
 | fixedpf | 6.7 | Excel + 麦田式「总体报告.docx」 |
 | dccomponent | 8.1 | Excel + 麦田式「总体报告.docx」 |
+| overload | A.4.9 | Excel + 麦田式「总体报告.docx」 |
+| rocof | A.4.3.4 | Excel + 麦田式「总体报告.docx」 |
+
+EN 50549（`en50549`）见 `docs/en50549_analysis_e2e.md`。
 
 结案成功后 `run_headless.py` 会按标准包自动：
 

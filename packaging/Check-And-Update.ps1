@@ -506,17 +506,88 @@ function Compare-VersionTag([string]$A, [string]$B) {
     return -1
 }
 
+function Get-CurlExe {
+    $candidates = @(
+        (Join-Path $env:SystemRoot "System32\curl.exe"),
+        (Join-Path $env:SystemRoot "Sysnative\curl.exe")
+    )
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path $c)) { return $c }
+    }
+    $cmd = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source -and ($cmd.Source -notmatch 'WindowsPowerShell')) { return $cmd.Source }
+    return $null
+}
+
+function Save-UrlViaCurl([string]$Url, [string]$OutFile, [string]$Token) {
+    $curl = Get-CurlExe
+    if (-not $curl) { throw "curl.exe not found" }
+    $last = "curl failed"
+    foreach ($try in 1..4) {
+        if (Test-Path $OutFile) { Remove-Item -Force $OutFile -ErrorAction SilentlyContinue }
+        $curlArgs = @("-fsSL", "--connect-timeout", "20", "--max-time", "900", "-o", $OutFile)
+        if ($Token) { $curlArgs += @("-H", ("PRIVATE-TOKEN: " + $Token)) }
+        $curlArgs += $Url
+        & $curl @curlArgs
+        if (($LASTEXITCODE -eq 0) -and (Test-Path $OutFile) -and ((Get-Item $OutFile).Length -gt 0)) {
+            return
+        }
+        $last = "curl exit " + $LASTEXITCODE
+        Start-Sleep -Seconds 1
+    }
+    throw $last
+}
+
+function Save-HttpToFile([string]$Url, [string]$OutFile, [string]$Token) {
+    $parent = Split-Path $OutFile -Parent
+    if ($parent -and -not (Test-Path $parent)) {
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    }
+    $curlErr = ""
+    try {
+        Save-UrlViaCurl $Url $OutFile $Token
+        return
+    } catch {
+        $curlErr = $_.Exception.Message
+        Warn ("curl download failed, retry with PowerShell: " + $curlErr)
+    }
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    } catch {}
+    $headers = New-HttpHeaders $Token
+    $last = $curlErr
+    foreach ($try in 1..3) {
+        try {
+            Invoke-WebRequest -Uri $Url -Headers $headers -OutFile $OutFile -UseBasicParsing -TimeoutSec 900
+            if ((Test-Path $OutFile) -and ((Get-Item $OutFile).Length -gt 0)) { return }
+            $last = "empty download"
+        } catch {
+            $last = $_.Exception.Message
+        }
+        Start-Sleep -Seconds 1
+    }
+    throw ("Download failed: " + $last)
+}
+
+function Get-HttpText([string]$Url, [string]$Token) {
+    $tmp = Join-Path $env:TEMP ("sat-http-" + [guid]::NewGuid().ToString("N"))
+    try {
+        Save-HttpToFile $Url $tmp $Token
+        return [System.IO.File]::ReadAllText($tmp)
+    } finally {
+        Remove-Item -Force $tmp -ErrorAction SilentlyContinue
+    }
+}
+
 function Get-RemoteManifest([string]$Channel, [string]$Token) {
     if (Is-HttpChannel $Channel) {
         $url = Get-ManifestUrl $Channel
         Info ("Fetching manifest: " + $url)
-        $headers = New-HttpHeaders $Token
         try {
-            $resp = Invoke-WebRequest -Uri $url -Headers $headers -UseBasicParsing -TimeoutSec 60
+            $raw = Get-HttpText $url $Token
         } catch {
             throw ("Cannot download latest.json: " + $_.Exception.Message)
         }
-        $raw = [string]$resp.Content
         if ($raw.Length -gt 0 -and [int][char]$raw[0] -eq 0xFEFF) {
             $raw = $raw.Substring(1)
         }
@@ -632,9 +703,7 @@ function Invoke-IncrementalUpdate {
 
     Set-UpdateUi ("增量更新：读取文件清单 " + $RemoteVer + "...")
     if ($src.Mode -eq "http") {
-        $headers = New-HttpHeaders $Token
-        $resp = Invoke-WebRequest -Uri $src.Uri -Headers $headers -UseBasicParsing -TimeoutSec 120
-        $raw = [string]$resp.Content
+        $raw = Get-HttpText $src.Uri $Token
     } else {
         $raw = Get-Content -Path $src.Path -Raw -Encoding UTF8
     }
@@ -691,8 +760,7 @@ function Invoke-IncrementalUpdate {
 
         if (Is-HttpChannel $Channel) {
             $uri = $blobsBase.TrimEnd('/') + "/" + $sha
-            $headers = New-HttpHeaders $Token
-            Invoke-WebRequest -Uri $uri -Headers $headers -OutFile $tmp -UseBasicParsing -TimeoutSec 600
+            Save-HttpToFile $uri $tmp $Token
         } else {
             $srcBlob = Join-Path $blobsBase $sha
             if (-not (Test-Path $srcBlob)) { throw ("Blob missing: " + $srcBlob) }
@@ -783,10 +851,38 @@ function Get-ZipToTemp($Source, [string]$Token, [string]$WorkDir) {
     Info ("  " + $Source.Uri)
     Set-UpdateProgress 0 ("正在下载 " + $Source.Name + " 0%")
 
+    $curl = Get-CurlExe
+    if ($curl) {
+        if (Test-Path $localZip) { Remove-Item -Force $localZip -ErrorAction SilentlyContinue }
+        $curlArgs = @("-fsSL", "--connect-timeout", "20", "--max-time", "900", "-o", $localZip, $Source.Uri)
+        $proc = Start-Process -FilePath $curl -ArgumentList $curlArgs -PassThru -WindowStyle Hidden
+        $lastMb = -1.0
+        while (-not $proc.HasExited) {
+            $mb = 0.0
+            if (Test-Path $localZip) {
+                try { $mb = [Math]::Round(((Get-Item $localZip).Length) / 1MB, 1) } catch { $mb = 0.0 }
+            }
+            if ($mb -ne $lastMb) {
+                $lastMb = $mb
+                $soft = [int][Math]::Min(95, [Math]::Floor(($mb / 160.0) * 100))
+                Set-UpdateProgress $soft ("正在下载 " + $Source.Name + "  " + $mb + " MB (请勿关闭)")
+            } else {
+                Pump-UpdateUi
+            }
+            Start-Sleep -Milliseconds 250
+        }
+        if (($proc.ExitCode -eq 0) -and (Test-Path $localZip) -and ((Get-Item $localZip).Length -gt 1000)) {
+            Set-UpdateProgress 100 ("下载完成 " + [Math]::Round(((Get-Item $localZip).Length) / 1MB, 1) + " MB")
+            return $localZip
+        }
+        Warn ("curl zip download failed, exit " + $proc.ExitCode)
+    }
+
     # Background download so the progress window keeps painting (IWR blocks UI thread).
     $job = Start-Job -ScriptBlock {
         param($Uri, $OutFile, $Token)
         $ProgressPreference = "SilentlyContinue"
+        try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
         $hdr = @{
             "Accept" = "application/json, application/octet-stream, */*"
         }

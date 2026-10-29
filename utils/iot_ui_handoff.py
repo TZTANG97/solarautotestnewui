@@ -33,6 +33,33 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def stop_request_should_execute(
+    *,
+    current_job: int,
+    stop_job: int,
+    running_job: int = 0,
+    running: bool = False,
+) -> bool:
+    """停机单必须就是当前交接任务，或本机确实在跑的那一单。
+
+    云端收口的上一单（例如 58）在下一单还没写入 _awaiting 时 current_job 仍是 0，
+    不能因此去点结束试验。
+    """
+    try:
+        stop_job = int(stop_job or 0)
+        current_job = int(current_job or 0)
+        running_job = int(running_job or 0)
+    except (TypeError, ValueError):
+        return False
+    if stop_job <= 0:
+        return False
+    if current_job > 0:
+        return stop_job == current_job
+    if running and running_job > 0:
+        return stop_job == running_job
+    return False
+
+
 _SLOT_LABEL_ZH = {
     "ac": "交流电源",
     "dc1": "直流电源1",
@@ -902,6 +929,19 @@ class IotUiHandoffService(QObject):
             if was_active:
                 self._timer.start()
 
+    def _current_handoff_job_id(self) -> int:
+        """正在交接或等待结束的云端任务。过期 stop_request 不能拿来停这一单。"""
+        for src in (self._awaiting, getattr(self, "_job_ctx", None)):
+            if not isinstance(src, dict):
+                continue
+            try:
+                job_id = int(src.get("job_id") or 0)
+            except (TypeError, ValueError):
+                job_id = 0
+            if job_id > 0:
+                return job_id
+        return 0
+
     def _drain_stop_requests(self) -> None:
         """扫描 stop_requests：调用结束试验/关电源后 ack。"""
         if self._stop_inflight:
@@ -916,11 +956,35 @@ class IotUiHandoffService(QObject):
                 reqs.append(extra)
         if not reqs:
             return
+        current_job = self._current_handoff_job_id()
+        running = False
+        running_job = 0
+        try:
+            running = self._read_run_status() in ("进行中", "暂停", "人工等待")
+            running_job = self._status_file_job_id()
+        except Exception:
+            running = False
+            running_job = 0
         self._stop_inflight = True
         try:
             for req in reqs:
                 job_id = int(req.get("job_id") or 0)
                 if job_id <= 0:
+                    continue
+                # 云端收口的是上一单（例如 58 已被心跳标已中止）。
+                # 下一单尚未写入 _awaiting 时 current_job 为 0，也不能拿来停 59/60。
+                if not stop_request_should_execute(
+                    current_job=current_job,
+                    stop_job=job_id,
+                    running_job=running_job,
+                    running=running,
+                ):
+                    self._log(
+                        f"忽略过期停机 job={job_id}（当前任务 {current_job or running_job or 0}）"
+                    )
+                    ack_stop_request(self.repo_root, job_id)
+                    if legacy.resolve() != self.repo_root.resolve():
+                        ack_stop_request(legacy, job_id)
                     continue
                 if callable(self.stop_test):
                     try:
@@ -935,6 +999,35 @@ class IotUiHandoffService(QObject):
                     ack_stop_request(legacy, job_id)
         finally:
             self._stop_inflight = False
+
+    def _status_file_job_id(self) -> int:
+        path = self.repo_root / "status.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return 0
+        proj = data.get("project") if isinstance(data, dict) else None
+        if not isinstance(proj, dict):
+            return 0
+        try:
+            return int(proj.get("jobId") or proj.get("job_id") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _discard_unrelated_stops(self, keep_job_id: int) -> None:
+        """开跑新任务前清掉上一单的 stop_request，避免嵌套事件里误点结束试验。"""
+        from agent.job_inbox import ack_stop_request, list_stop_requests
+
+        keep = int(keep_job_id or 0)
+        for req in list_stop_requests(self.repo_root):
+            try:
+                jid = int(req.get("job_id") or 0)
+            except (TypeError, ValueError):
+                jid = 0
+            if jid <= 0 or jid == keep:
+                continue
+            ack_stop_request(self.repo_root, jid)
+            self._log(f"忽略过期停机 job={jid}（开始任务 {keep}）")
 
     def _read_run_status(self) -> str:
         if not self.get_run_status:
@@ -1386,6 +1479,14 @@ class IotUiHandoffService(QObject):
         now = time.time()
         elapsed = now - float(aw.get("started_at") or now)
         status = self._read_run_status()
+        # 上一单已被心跳写成已中止时，不要把它当成这一单的结果。
+        if (
+            status in ("已结束", "已中止", "失败")
+            and not aw.get("seen_running")
+        ):
+            file_job = self._status_file_job_id()
+            if file_job and file_job != job_id:
+                status = ""
         start_grace = float(aw.get("start_grace_sec") or 20)
         timeout = float(aw.get("timeout_sec") or 7200)
 
@@ -1493,6 +1594,10 @@ class IotUiHandoffService(QObject):
         job_id = int(job.get("id") or 0)
         test_type = str(job.get("testType") or "").strip().lower()
         self._log(f"处理任务 id={job_id} type={test_type}")
+        try:
+            self._discard_unrelated_stops(job_id)
+        except Exception as exc:
+            self._log(f"清理过期停机失败: {exc}")
 
         # 本机已在跑试验时拒收云端任务（双开测并存互斥）
         local_status = self._read_run_status()
@@ -2383,9 +2488,35 @@ class IotUiHandoffService(QObject):
                     widgets_for_ui = fill_missing_phase_volts(widgets_for_ui)
                 except Exception:
                     pass
-            missing = apply_widget_values(real_ui, widgets_for_ui)
+            _wt_apply_payload = widgets_for_ui
+            try:
+                from utils.wt_job_save import prepare_wt_save_widgets, widgets_for_standard_apply
+
+                if isinstance(widgets_for_ui, dict):
+                    _before_path = str(widgets_for_ui.get("textEdit_SavePath") or "").strip()
+                    widgets_for_ui = prepare_wt_save_widgets(
+                        widgets_for_ui,
+                        str(handler.get("key") or ""),
+                    )
+                    _after_path = str(widgets_for_ui.get("textEdit_SavePath") or "").strip()
+                    if _before_path and _after_path and _before_path != _after_path:
+                        self._log(f"WT 保存目录已就绪: {_before_path} -> {_after_path}")
+                    _wt_apply_payload = widgets_for_standard_apply(real_ui, widgets_for_ui)
+                else:
+                    _wt_apply_payload = widgets_for_ui
+            except Exception as _wt_save_exc:
+                self._log(f"WT 保存设置预处理跳过: {_wt_save_exc}")
+                _wt_apply_payload = widgets_for_ui
+            missing = apply_widget_values(real_ui, _wt_apply_payload)
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
+            try:
+                from utils.wt_job_save import apply_wt_save_to_dialog
+
+                if isinstance(widgets_for_ui, dict):
+                    apply_wt_save_to_dialog(real_ui, widgets_for_ui)
+            except Exception as _wt_apply_exc:
+                self._log(f"WT 保存设置写入跳过: {_wt_apply_exc}")
 
             # 重连等试验：Dialog 写完后同步 Soft Panel 交流相数/直流 IV（用户看到的主界面）
             try:

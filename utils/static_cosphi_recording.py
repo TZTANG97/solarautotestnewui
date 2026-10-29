@@ -30,12 +30,12 @@ def _power_levels(ui) -> List[str]:
 
 
 def _enabled_cos_steps(ui):
-    out = []
-    for step_num, cb_name, cos_label, pf_name in _COS_STEP_DEFS:
-        cb = getattr(ui, cb_name, None)
-        if cb is not None and cb.isChecked():
-            out.append((step_num, cos_label, pf_name))
-    return out
+    """全部 cosφ（0.0 … -1.0）。功率档是外循环，各步勾选不再过滤。"""
+    del ui
+    return [
+        (step_num, cos_label, pf_name)
+        for step_num, _cb_name, cos_label, pf_name in _COS_STEP_DEFS
+    ]
 
 
 def split_filenames(ui) -> List[str]:
@@ -63,6 +63,29 @@ def recommended_filenames(ui, mode: str) -> List[str]:
     return split_filenames(ui)
 
 
+def apply_segment_recording(rows, file_list_text: str, stop_str: str, *, continuous: bool) -> bool:
+    """把本段文件名和 StopTime 写到最后一行 Upper_WT_Config。
+
+    连续追加时从队头写会改掉第一段的名单，第二段仍用第一次的文件名，
+    停表时被当成已经录完，CSV 不会再落盘。
+    """
+    target = None
+    for row in rows or []:
+        if row and row[0] == "Upper_WT_Config" and isinstance(row[4], dict):
+            target = row
+    if target is None:
+        return False
+    cfg = target[4]
+    cfg["textEdit_FileNameList"] = file_list_text
+    cfg["textEdit_StopTime"] = stop_str
+    if cfg.get("comboBox_AutoSave", 0) == 0:
+        cfg["comboBox_AutoSave"] = 1
+    if continuous:
+        cfg.pop("wt_merge_single_file", None)
+        cfg.pop("wt_merge_output_path", None)
+    return True
+
+
 def stoptime_hhmmss(stop_sec: int) -> str:
     stop_sec = max(1, int(stop_sec))
     hh, rem = divmod(stop_sec, 3600)
@@ -81,11 +104,13 @@ def plan_stop_and_names(
 ) -> Tuple[List[str], int, int, str]:
     """返回 (文件名列表, StopTime秒, 本轮录波次数, 模式说明)。"""
     dwell_sec = max(1, int(round(float(dwell_01s) / 10.0)))
-    n = max(1, int(n_points))
+    n = max(0, int(n_points))
     if not wt_on:
         return [resolve_continuous_filename(ui) or "CosPhi_BR"], dwell_sec, 0, "未勾选WT"
     if wt_continuous:
         names = recommended_filenames(ui, MODE_CONTINUOUS)
+        if n <= 0:
+            return names, max(20, dwell_sec), 0, "一条线连续录"
         stop_sec = max(20, n * dwell_sec + int(margin_sec))
         return names, stop_sec, 1, "一条线连续录"
     names = recommended_filenames(ui, MODE_SPLIT)

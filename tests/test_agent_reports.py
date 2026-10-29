@@ -50,6 +50,37 @@ def test_collect_includes_recent_csv(tmp_path: Path) -> None:
     assert "wt_run.csv" in names
 
 
+def test_collect_includes_recent_flicker_image(tmp_path: Path) -> None:
+    import os
+    import time
+
+    job_id = 8
+    write_result(
+        tmp_path,
+        job_id,
+        {"status": "success", "result_summary": {"elapsed_sec": 60, "testType": "flicker"}},
+    )
+    img_dir = tmp_path / "wt_save"
+    img_dir.mkdir(parents=True)
+    img = img_dir / "flicker_e1.png"
+    img.write_bytes(b"\x89PNG\r\n\x1a\n")
+    old = img_dir / "old_flicker.png"
+    old.write_bytes(b"\x89PNG\r\n\x1a\n")
+    os.utime(old, (time.time() - 86400, time.time() - 86400))
+    other = tmp_path / "command_save_files" / "job_1"
+    other.mkdir(parents=True)
+    (other / "other_job.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    files = collect_report_files(
+        tmp_path,
+        job_id,
+        {"result_summary": {"elapsed_sec": 60, "testType": "flicker"}},
+    )
+    names = {p.name for p in files}
+    assert "flicker_e1.png" in names
+    assert "old_flicker.png" not in names
+    assert "other_job.png" not in names
+
+
 if __name__ == "__main__":
     import tempfile
 

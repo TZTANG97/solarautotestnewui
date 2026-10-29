@@ -27,6 +27,21 @@ def clamp_ff(ff: float) -> float:
     return max(0.25, min(0.95, f))
 
 
+def parse_power_percent(raw: Any, default: float = 100.0) -> float:
+    """功率档：80 / 80% / 0.8 → 80。空则 default。"""
+    if raw is None or str(raw).strip() == "":
+        return float(default)
+    vs = str(raw).strip()
+    if vs.endswith("%"):
+        vs = vs[:-1].strip()
+    p = float(vs)
+    if 0 < p <= 1:
+        p *= 100.0
+    if p <= 0:
+        raise ValueError("power level percent must be > 0")
+    return p
+
+
 def calc_sandia_iv(
     *,
     vmp: float,
@@ -38,14 +53,21 @@ def calc_sandia_iv(
     tc_c: float = 25.0,
     tc_ref_c: float = 25.0,
     alpha_pct_per_c: float = _DEFAULT_ALPHA_PCT_PER_C,
+    power_pct: float = 100.0,
 ) -> Dict[str, float]:
-    """由 Soft Panel Sandia 输入计算 Vmp/Imp/Voc/Isc/Pmp。"""
+    """由 Soft Panel Sandia 输入计算 Vmp/Imp/Voc/Isc/Pmp。
+
+    power_pct 是 Power Level（功率%）。先把 Pmax 乘上这个百分比再算 Imp，
+    Isc 跟着变，Voc/Vmp 不变。与工控机 DCGetIVValueFunction 只缩放电流一致。
+    """
     vmp_f = float(vmp)
     pmax_f = float(pmax_w)
     if vmp_f <= 0:
         raise ValueError("Vmp must be > 0")
     if pmax_f <= 0:
         raise ValueError("Pmax must be > 0")
+    pct = parse_power_percent(power_pct, 100.0)
+    pmax_f = pmax_f * (pct / 100.0)
     irr = float(irr_wm2)
     irr_ref = float(irr_ref_wm2)
     if irr <= 0 or irr_ref <= 0:
@@ -93,6 +115,7 @@ def calc_sandia_iv(
         "irr_ref_wm2": round(irr_ref, 3),
         "tc_c": float(tc_c),
         "tc_ref_c": float(tc_ref_c),
+        "power_pct": round(pct, 3),
     }
 
 
@@ -120,4 +143,15 @@ def sandia_inputs_from_mapping(data: Optional[Dict[str, Any]]) -> Dict[str, floa
         # Soft Panel 截图常用 TC=Pref TC=50；缺省与 Irr 同为台架常用点
         "tc_c": _f("tc_c", "sandia_tc", "tc", default=50.0),
         "tc_ref_c": _f("tc_ref_c", "sandia_tc_ref", default=50.0),
+        "power_pct": parse_power_percent(
+            next(
+                (
+                    d[k]
+                    for k in ("power_pct", "sandia_power_pct", "textEdit_PF")
+                    if k in d and d[k] is not None and str(d[k]).strip() != ""
+                ),
+                None,
+            ),
+            100.0,
+        ),
     }

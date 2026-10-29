@@ -386,3 +386,77 @@ def should_hard_fail_flicker_cmd(command: str) -> bool:
     if not u.startswith("FLICKER:"):
         return False
     return True
+
+
+def _parse_count_reply(raw: str) -> Optional[int]:
+    """从 FLICKER:COUNT? 原文抽出整数。"""
+    s = (raw or "").strip().replace('"', "")
+    if not s:
+        return None
+    # 常见：12 / +12 / :FLIC:COUN 12
+    head = s.split(",", 1)[0].strip()
+    for prefix in (
+        ":FLICKER:COUNT",
+        "FLICKER:COUNT",
+        ":FLIC:COUN",
+        "FLIC:COUN",
+        ":COUNT",
+        "COUNT",
+    ):
+        if head.upper().startswith(prefix):
+            head = head[len(prefix) :].lstrip(" :=")
+            break
+    token = head.split()[-1].strip().lstrip("+") if head.split() else head.strip().lstrip("+")
+    try:
+        return int(float(token))
+    except (TypeError, ValueError):
+        return None
+
+
+def query_flicker_count(ctrl=None) -> Tuple[Optional[int], str]:
+    """查询 Pst 观测组数。返回 (n/None, 原文)。"""
+    c = ctrl if ctrl is not None else get_wt_controller()
+    if not wt_connected(c):
+        return None, "WT 未连接"
+    handle = c.handle
+    last = ""
+    for q in ("FLICKER:COUNT?", ":FLICker:COUNt?", "FLICker:COUNt?"):
+        try:
+            raw = str(handle.query(q) or "").strip()
+            last = raw
+            n = _parse_count_reply(raw)
+            if n is not None:
+                return n, raw
+        except Exception as exc:  # noqa: BLE001
+            last = str(exc)
+            if _is_query_timeout(exc):
+                continue
+    return None, last
+
+
+def ensure_flicker_count(expected: int, ctrl=None, *, retries: int = 2) -> Tuple[bool, str]:
+    """写入并回读 FLICKER:COUNT，确认 Pst 组数（WT5000 上 INITIALIZE 后偶发掉回 1）。"""
+    exp = int(expected)
+    if exp < 1:
+        return False, f"无效 FLICKER:COUNT={exp}"
+    c = ctrl if ctrl is not None else get_wt_controller()
+    if not wt_connected(c):
+        return False, "WT 未连接，无法设置 FLICKER:COUNT"
+    last = ""
+    for attempt in range(max(1, int(retries))):
+        ok, msg = write_flicker_command(
+            f"FLICKER:COUNT {exp}",
+            ctrl=c,
+            check_error=False,
+            ensure_remote_first=False,
+        )
+        last = msg
+        if not ok:
+            continue
+        time.sleep(0.2)
+        n, raw = query_flicker_count(c)
+        if n == exp:
+            return True, f"FLICKER:COUNT={exp} 已确认（{raw}，第{attempt + 1}次）"
+        last = f"写后回读={n!r}（原文={raw}），期望 {exp}"
+        time.sleep(0.25)
+    return False, f"FLICKER:COUNT 未能确认成 {exp}：{last}"

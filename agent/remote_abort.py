@@ -51,6 +51,7 @@ def sync_cloud_abort_to_stop_inbox(
     run_snapshot: Any = None,
     get_job: Optional[Callable[[int], dict]] = None,
     write_stop: Optional[Callable[..., Path]] = None,
+    active_job_id: int = 0,
 ) -> Optional[int]:
     """
     若云端已把本局 job 标为 aborted，且本机仍在跑，则写 stop_request。
@@ -60,6 +61,15 @@ def sync_cloud_abort_to_stop_inbox(
 
     jid = job_id_from_run_snapshot(run_snapshot)
     if jid <= 0:
+        return None
+    try:
+        active = int(active_job_id or 0)
+    except (TypeError, ValueError):
+        active = 0
+    # status.json 里往往还是上一单。正在交接 61 时不能再为 58 写停机，
+    # 否则宏刚 moveTo 一下就被结束试验打断。
+    if active > 0 and jid != active:
+        logger.info("跳过过期远程停机 snapshot job=%s，当前任务 %s", jid, active)
         return None
     if not local_still_running(run_snapshot):
         return None

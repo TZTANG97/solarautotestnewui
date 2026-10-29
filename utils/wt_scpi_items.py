@@ -362,10 +362,10 @@ def items_from_wt_config(
         seen.add(token)
         items.append(token)
 
-    # Element/sigma quantities first so ProjectNum caps do not drop U/I/P
-    # when many F*/motor singles are also ticked.
-    for target in ordered_targets:
-        for func in funcs:
+    # 按测量项分组、组内先元素再总和，和 WT 宏录制列顺序一致。
+    # 旧顺序是每个元素先占满全部测量项，项目数一截，SIGMA/SIGMAA 整组被切掉。
+    for func in funcs:
+        for target in ordered_targets:
             _add(f"{func},{target}")
 
     for token in singles:
@@ -375,6 +375,80 @@ def items_from_wt_config(
     if len(items) > limit:
         items = items[:limit]
     return items if items else list(fallback)
+
+
+# CSV 表头用宏录制的「名称-对象」。发给仪器的仍是 URMS,SIGMAA 这类令牌。
+# 3000 界面短名（U-1、U-SIGMAA）；1800/1806/5000 用 Urms-1。
+_MACRO_STEM_SHORT: Dict[str, str] = {
+    "URMS": "U",
+    "IRMS": "I",
+    "P": "P",
+    "S": "S",
+    "Q": "Q",
+    "LAMBDA": "PF",
+    "PHI": "Phi",
+    "FU": "FreqU",
+    "FI": "FreqI",
+    "PC": "Pc",
+    "WP": "WP",
+    "WPPLUS": "WP+",
+    "WPMINUS": "WP-",
+    "WQ": "q",
+    "WQPLUS": "q+",
+    "WQMINUS": "q-",
+    "WS": "WS",
+    "U(K)": "U(k)",
+    "I(K)": "I(k)",
+    "P(K)": "P(k)",
+    "TIME": "Time",
+    "ETA1": "η1",
+    "ETA2": "η2",
+    "ETA3": "η3",
+    "ETA4": "η4",
+}
+_MACRO_STEM_LONG: Dict[str, str] = {
+    **_MACRO_STEM_SHORT,
+    "URMS": "Urms",
+    "IRMS": "Irms",
+    "UMN": "Umn",
+    "UDC": "Udc",
+    "URMN": "Urmn",
+    "UAC": "Uac",
+    "IMN": "Imn",
+    "IDC": "Idc",
+    "IRMN": "Irmn",
+    "IAC": "Iac",
+    "UPPEAK": "Uppeak",
+    "UMPEAK": "Umpeak",
+    "IPPEAK": "Ippeak",
+    "IMPEAK": "Impeak",
+    "UTHD": "Uthd",
+    "ITHD": "Ithd",
+    "UFND": "Ufnd",
+    "IFND": "Ifnd",
+    "PFND": "Pfnd",
+}
+
+
+def _macro_stem(func: str, *, short: bool) -> str:
+    table = _MACRO_STEM_SHORT if short else _MACRO_STEM_LONG
+    if func in table:
+        return table[func]
+    if func.startswith("F") and func[1:].isdigit():
+        return f"F{int(func[1:]):02d}"
+    return func
+
+
+def macro_column_name(token: str, style: str = "") -> str:
+    """SCPI 令牌 → WTViewer 宏 CSV 列名。例如 URMS,SIGMAA + WT3000 → U-SIGMAA。"""
+    raw = str(token or "").strip()
+    if not raw:
+        return raw
+    short = "3000" in str(style or "")
+    if "," in raw:
+        func, target = raw.split(",", 1)
+        return f"{_macro_stem(func.strip(), short=short)}-{target.strip()}"
+    return _macro_stem(raw, short=short)
 
 
 def describe_mapping(config: Mapping) -> Dict[str, Any]:
