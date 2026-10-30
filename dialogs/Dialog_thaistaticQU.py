@@ -12,8 +12,9 @@ from components.wt_config_content import (
 class Ui_Dialog_thaiStaticQU(object):
     def setupUi(self, Dialog_thaiStaticQU):
         Dialog_thaiStaticQU.setObjectName("Dialog_thaiStaticQU")
-        Dialog_thaiStaticQU.resize(1597, 828)
-        Dialog_thaiStaticQU.setMinimumSize(QtCore.QSize(1400, 750))
+        Dialog_thaiStaticQU.resize(1680, 920)
+        Dialog_thaiStaticQU.setMinimumSize(QtCore.QSize(1480, 820))
+
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(".\\ui_files\\logo.jpg"), QtGui.QIcon.Normal, QtGui.QIcon.On)
         Dialog_thaiStaticQU.setWindowIcon(icon)
@@ -362,7 +363,8 @@ class Ui_Dialog_thaiStaticQU(object):
                 v_name, c_name, voc_name, isc_name, pf_name,
                 lbl_v, lbl_c, lbl_voc, lbl_isc, lbl_pf) in enumerate(dc_channels, start=1):
             cb = QtWidgets.QCheckBox(cb_text)
-            cb.setChecked(True)
+            # 默认只勾 DC1，避免四路全开与功率阶梯冲突/误下多路
+            cb.setChecked(ch == 1)
             cb.setObjectName(cb_name)
             g2Layout.addWidget(cb, r, 0)
             setattr(self, cb_name, cb)
@@ -370,6 +372,7 @@ class Ui_Dialog_thaiStaticQU(object):
             combo = QtWidgets.QComboBox()
             combo.setObjectName(combo_name)
             combo.addItems(["开启", "关闭"])
+            combo.setCurrentText("开启" if ch == 1 else "关闭")
             combo.setFixedWidth(90)
             g2Layout.addWidget(combo, r, 1)
             setattr(self, combo_name, combo)
@@ -524,87 +527,113 @@ class Ui_Dialog_thaiStaticQU(object):
             "112,110,108,107,106,105,103,100,"
             "97,94,93,90,87,85"
         )
-        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压 list（静态设定精度 / 连续录 1 条 QU_curve）")
+        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压↔功率（同行一张表 / 连续录 1 条 QU_curve）")
         ladder_grp.setStyleSheet(
             "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
             "padding-top: 8px; font-weight: bold; }"
         )
         ladder_layout = QtWidgets.QGridLayout(ladder_grp)
-        ladder_layout.setSpacing(8)
-        ladder_layout.setContentsMargins(12, 20, 12, 12)
+        ladder_layout.setSpacing(10)
+        ladder_layout.setContentsMargins(14, 22, 14, 14)
 
         ladder_layout.addWidget(QtWidgets.QLabel("Un基准(V)："), 0, 0)
         self.textEdit_VoltageLadder_Un = QtWidgets.QTextEdit()
         self.textEdit_VoltageLadder_Un.setObjectName("textEdit_VoltageLadder_Un")
-        self.textEdit_VoltageLadder_Un.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_Un.setFixedSize(88, 30)
         self.textEdit_VoltageLadder_Un.setText("230")
         ladder_layout.addWidget(self.textEdit_VoltageLadder_Un, 0, 1)
         ladder_layout.addWidget(QtWidgets.QLabel("频率(Hz)："), 0, 2)
         self.textEdit_VoltageLadder_FR = QtWidgets.QTextEdit()
         self.textEdit_VoltageLadder_FR.setObjectName("textEdit_VoltageLadder_FR")
-        self.textEdit_VoltageLadder_FR.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_FR.setFixedSize(88, 30)
         self.textEdit_VoltageLadder_FR.setText("50")
         ladder_layout.addWidget(self.textEdit_VoltageLadder_FR, 0, 3)
-
-        ladder_layout.addWidget(QtWidgets.QLabel("电压Un%(list)："), 1, 0)
-        from components.comma_segment_edit import CommaSegmentEdit
-        self.textEdit_VoltageLadder = CommaSegmentEdit(value_header="电压 Un%", unit="%")
-        self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
-        self.textEdit_VoltageLadder.setPlaceholderText("Un%")
-        self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
-        self.textEdit_VoltageLadder.setPlaceholderText(
-            "先升再降取滞环，如 100…115…85；连续录 1 条 QU_curve"
-        )
-        ladder_layout.addWidget(self.textEdit_VoltageLadder, 1, 1, 1, 3)
-
-        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
+        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 0, 4)
         self.textEdit_VoltageLadder_TIME = QtWidgets.QTextEdit()
         self.textEdit_VoltageLadder_TIME.setObjectName("textEdit_VoltageLadder_TIME")
-        self.textEdit_VoltageLadder_TIME.setFixedSize(80, 28)
+        self.textEdit_VoltageLadder_TIME.setFixedSize(88, 30)
         self.textEdit_VoltageLadder_TIME.setText("1")
-        self.textEdit_VoltageLadder_TIME.setToolTip("每个 Un% 保持时间；WT 全程连续录，不停表")
-        ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 2, 1)
+        self.textEdit_VoltageLadder_TIME.setToolTip("每个电压点保持时间；WT 全程连续录，不停表")
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 0, 5)
         self.comboBox_VoltageLadder_TIME = QtWidgets.QComboBox()
         self.comboBox_VoltageLadder_TIME.setObjectName("comboBox_VoltageLadder_TIME")
         self.comboBox_VoltageLadder_TIME.addItems(["分钟", "秒", "毫秒"])
         self.comboBox_VoltageLadder_TIME.setCurrentText("分钟")
-        self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
-        ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 2, 2)
+        self.comboBox_VoltageLadder_TIME.setFixedWidth(88)
+        ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 0, 6)
+
+        from components.voltage_power_ladder_edit import VoltagePowerLadderEdit
+
+        self._vp_ladder = VoltagePowerLadderEdit(
+            default_power="100",
+            visible_rows=16,
+        )
+        self._vp_ladder.set_default_power("100")
+        self.textEdit_VoltageLadder = self._vp_ladder.voltage
+        self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
+        self.textEdit_PowerLadder = self._vp_ladder.power
+        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
+        self.textEdit_VoltageLadder.setPlaceholderText(
+            "先升再降取滞环，如 100…115…85"
+        )
+        self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
+        ladder_layout.addWidget(self._vp_ladder, 1, 0, 1, 7)
         tip = QtWidgets.QLabel(
-            "静态设定精度：先升后降取滞环，WT 连续录 1 条 QU_curve（分析时可按电压段取稳态）。"
-            "动态响应曲线用菜单「动态QU」→ QU_dyn_curve。Pn=100% 由步骤① DC 保持。"
+            "电压与功率同一行。功率默认 100%（开测功率）。拖拽下方分隔条可拉高表格。"
+            "勿再开「等步长」旧模式，二者互斥。WT 连续录 1 条 QU_curve。"
         )
-        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 12px;")
         tip.setWordWrap(True)
-        ladder_layout.addWidget(tip, 3, 0, 1, 4)
-        layout.addWidget(ladder_grp)
+        ladder_layout.addWidget(tip, 2, 0, 1, 7)
 
-        legacy_tip = QtWidgets.QLabel("下方为旧「等步长」模式：仅当上方电压 list 为空时才使用")
-        legacy_tip.setStyleSheet("color: #94a3b8; font-size: 11px;")
-        layout.addWidget(legacy_tip)
+        # 兼容存盘：保留 checkBox_S3 等控件，但不默认勾选、不占主界面（与电压表互斥）
+        self.checkBox_S3 = QtWidgets.QCheckBox("启用等步长旧模式")
+        self.checkBox_S3.setObjectName("checkBox_S3")
+        self.checkBox_S3.setChecked(False)
+        self.checkBox_S3.setVisible(False)
+        for name, default in (
+            ("textEdit_S3_AC_VOLT", "230"),
+            ("textEdit_S3_AC_Range_S", "1"),
+            ("textEdit_S3_AC_Range_E", "0.91"),
+            ("textEdit_S3_AC_Step", "0.01"),
+            ("textEdit_S3_AC_Range_Point", "10"),
+            ("textEdit_S3_AC_FR", "50"),
+            ("textEdit_S3_TIME", "2"),
+        ):
+            te = QtWidgets.QTextEdit()
+            te.setObjectName(name)
+            te.setPlainText(default)
+            te.setVisible(False)
+            setattr(self, name, te)
+        self.comboBox_S3_AC_Trend = QtWidgets.QComboBox()
+        self.comboBox_S3_AC_Trend.setObjectName("comboBox_S3_AC_Trend")
+        self.comboBox_S3_AC_Trend.addItems(["下降", "上升"])
+        self.comboBox_S3_AC_Trend.setVisible(False)
+        self.comboBox_S3_TIME = QtWidgets.QComboBox()
+        self.comboBox_S3_TIME.setObjectName("comboBox_S3_TIME")
+        self.comboBox_S3_TIME.addItems(["分钟", "秒", "毫秒"])
+        self.comboBox_S3_TIME.setCurrentText("分钟")
+        self.comboBox_S3_TIME.setVisible(False)
 
-        self._build_qu_trend_page(
-            layout, "groupBox_3", "QU 趋势1 设置（等步长备用）",
-            "checkBox_S3", "step3", False,
-            "label_20", "交流电源",
-            "label_133", "V", "textEdit_S3_AC_VOLT", "230",
-            "label_22", "交流电压趋势",
-            "comboBox_S3_AC_Trend", ["下降", "上升"],
-            "label_36", "电压变动区间",
-            "textEdit_S3_AC_Range_S", "1",
-            "label", "~",
-            "textEdit_S3_AC_Range_E", "0.91",
-            "label_60", "电压变动幅度",
-            "textEdit_S3_AC_Step", "0.01",
-            "label_61", "电压变动点数",
-            "textEdit_S3_AC_Range_Point", "10",
-            "label_37", "频率",
-            "textEdit_S3_AC_FR", "50",
-            "label_34", "Hz",
-            "label_23", "数据采集",
-            "textEdit_S3_TIME", "2",
-            "comboBox_S3_TIME", ["分钟", "秒", "毫秒"],
-        )
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        splitter.setObjectName("staticQuStep3Splitter")
+        splitter.setChildrenCollapsible(False)
+        top_wrap = QtWidgets.QWidget()
+        top_lay = QtWidgets.QVBoxLayout(top_wrap)
+        top_lay.setContentsMargins(0, 0, 0, 0)
+        top_lay.addWidget(ladder_grp)
+        splitter.addWidget(top_wrap)
+        # 占位底栏：仅作拖拽把手提示，无冲突的等步长表单
+        bottom = QtWidgets.QLabel("↕ 拖拽分隔条可调整电压/功率表高度")
+        bottom.setAlignment(QtCore.Qt.AlignCenter)
+        bottom.setMinimumHeight(28)
+        bottom.setMaximumHeight(36)
+        bottom.setStyleSheet("color:#94a3b8;font-size:11px;background:#f8fafc;border:1px dashed #e2e8f0;")
+        splitter.addWidget(bottom)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
+        splitter.setSizes([640, 32])
+        layout.addWidget(splitter, 1)
 
         self.stackedWidget.addWidget(page)
 

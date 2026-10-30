@@ -12,8 +12,9 @@ from components.wt_config_content import (
 class Ui_Dialog_thaidynamicQU(object):
     def setupUi(self, Dialog_thaidynamicQU):
         Dialog_thaidynamicQU.setObjectName("Dialog_thaidynamicQU")
-        Dialog_thaidynamicQU.resize(1597, 828)
-        Dialog_thaidynamicQU.setMinimumSize(QtCore.QSize(1400, 750))
+        Dialog_thaidynamicQU.resize(1680, 920)
+        Dialog_thaidynamicQU.setMinimumSize(QtCore.QSize(1480, 820))
+
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(".\\ui_files\\logo.jpg"), QtGui.QIcon.Normal, QtGui.QIcon.On)
         Dialog_thaidynamicQU.setWindowIcon(icon)
@@ -352,7 +353,8 @@ class Ui_Dialog_thaidynamicQU(object):
         ]
         for r, (cb_name, cb_text, combo_name, te_names) in enumerate(dc_channels, start=1):
             cb = QtWidgets.QCheckBox(cb_text)
-            cb.setChecked(True)
+            # 默认只勾 DC1，避免四路全开与功率阶梯冲突
+            cb.setChecked(r == 1)
             cb.setObjectName(cb_name)
             dcLayout.addWidget(cb, r, 0)
             setattr(self, cb_name, cb)
@@ -360,6 +362,7 @@ class Ui_Dialog_thaidynamicQU(object):
             combo = QtWidgets.QComboBox()
             combo.setObjectName(combo_name)
             combo.addItems(["开启", "关闭"])
+            combo.setCurrentText("开启" if r == 1 else "关闭")
             combo.setFixedWidth(100)
             dcLayout.addWidget(combo, r, 1)
             setattr(self, combo_name, combo)
@@ -540,36 +543,48 @@ class Ui_Dialog_thaidynamicQU(object):
         self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
         ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 0, 6)
 
-        from components.ladder_matrix_panel import MODE_PAIR, LadderMatrixPanel
+        from components.voltage_power_ladder_edit import VoltagePowerLadderEdit
 
-        self._ladder_matrix = LadderMatrixPanel(
-            mode=MODE_PAIR,
-            outer_header="功率",
-            outer_unit="%",
-            outer_object_name="textEdit_PowerLadder",
-            # 默认留空：整段电压阶梯用步骤①功率；要配对时填与电压相同点数
-            outer_default="",
-            outer_placeholder="如 100,95,90…（与电压同行）",
-            inner_header="电压 Un%",
-            inner_unit="%",
-            inner_object_name="textEdit_VoltageLadder",
-            inner_default=_DEFAULT_U_LIST,
-            inner_placeholder="如 100",
+        self._vp_ladder = VoltagePowerLadderEdit(
+            default_power="100",
+            visible_rows=16,
         )
-        self.textEdit_PowerLadder = self._ladder_matrix.outer
-        self.textEdit_VoltageLadder = self._ladder_matrix.inner
-        ladder_layout.addWidget(self._ladder_matrix, 1, 0, 1, 7)
+        self.textEdit_VoltageLadder = self._vp_ladder.voltage
+        self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
+        self.textEdit_PowerLadder = self._vp_ladder.power
+        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
+        self.textEdit_VoltageLadder.setPlaceholderText("Un%")
+        self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
+        ladder_layout.addWidget(self._vp_ladder, 1, 0, 1, 7)
 
         tip = QtWidgets.QLabel(
-            "一一对应：例如电压=100% 时功率=100%，电压跑到 103% 时功率改成 95%——"
-            "左右表同一行是一组。功率留空则全程用步骤①功率；只填 1 个功率则全程固定该功率。"
-            "不是「每个功率把电压 list 全扫一遍」的外循环。逆变器侧请预先设好 Q(U) 曲线；WT 连续录 1 条 QU_dyn_curve。"
+            "同一行：电压 + 对应功率（默认 100% 开测功率）。拖拽下方分隔条可拉高表格。"
+            "不是「每个功率把电压 list 全扫一遍」。WT 连续录 1 条 QU_dyn_curve。"
         )
         tip.setWordWrap(True)
-        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 12px;")
         ladder_layout.addWidget(tip, 2, 0, 1, 7)
-        layout.addWidget(ladder_grp)
-        layout.addStretch()
+
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        splitter.setObjectName("dynamicQuStep3Splitter")
+        splitter.setChildrenCollapsible(False)
+        top_wrap = QtWidgets.QWidget()
+        top_lay = QtWidgets.QVBoxLayout(top_wrap)
+        top_lay.setContentsMargins(0, 0, 0, 0)
+        top_lay.addWidget(ladder_grp)
+        splitter.addWidget(top_wrap)
+        bottom = QtWidgets.QLabel("↕ 拖拽分隔条可调整电压/功率表高度")
+        bottom.setAlignment(QtCore.Qt.AlignCenter)
+        bottom.setMinimumHeight(28)
+        bottom.setMaximumHeight(36)
+        bottom.setStyleSheet(
+            "color:#94a3b8;font-size:11px;background:#f8fafc;border:1px dashed #e2e8f0;"
+        )
+        splitter.addWidget(bottom)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
+        splitter.setSizes([640, 32])
+        layout.addWidget(splitter, 1)
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════════════

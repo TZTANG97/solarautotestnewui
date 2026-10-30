@@ -75,7 +75,8 @@ arrayRow1 = ['Style',
     'checkBox_S_End', "comboBox_S_End_AC", "checkBox_S_End_DC1", "comboBox_S_End_DC1","checkBox_S_End_DC2",
         "comboBox_S_End_DC2","checkBox_S_End_DC3", "comboBox_S_End_DC3","checkBox_S_End_DC4","comboBox_S_End_DC4",
     "checkBox_S2_WT1806E", "checkBox_S2_WT5000",
-    "textEdit_VoltageLadder", "textEdit_VoltageLadder_Un", "textEdit_VoltageLadder_FR",
+    "textEdit_VoltageLadder", "textEdit_PowerLadder",
+    "textEdit_VoltageLadder_Un", "textEdit_VoltageLadder_FR",
     "textEdit_VoltageLadder_TIME", "comboBox_VoltageLadder_TIME"]
 
 # 静态QU保存设定
@@ -440,6 +441,8 @@ def Save_File_ThaiStaticQU(kwargs):
 
         vl = getattr(uithaistaticQU, "textEdit_VoltageLadder", None)
         arrayRow2.append(vl.toPlainText() if vl is not None else "")
+        pl = getattr(uithaistaticQU, "textEdit_PowerLadder", None)
+        arrayRow2.append(pl.toPlainText() if pl is not None else "100")
         vl_un = getattr(uithaistaticQU, "textEdit_VoltageLadder_Un", None)
         arrayRow2.append(vl_un.toPlainText() if vl_un is not None else "230")
         vl_fr = getattr(uithaistaticQU, "textEdit_VoltageLadder_FR", None)
@@ -1264,6 +1267,10 @@ def Open_File_ThaiStaticQU(kwargs):
                     if "textEdit_VoltageLadder" in config_dict and hasattr(uithaistaticQU, "textEdit_VoltageLadder"):
                         uithaistaticQU.textEdit_VoltageLadder.setText(
                             config_dict.get("textEdit_VoltageLadder") or ""
+                        )
+                    if "textEdit_PowerLadder" in config_dict and hasattr(uithaistaticQU, "textEdit_PowerLadder"):
+                        uithaistaticQU.textEdit_PowerLadder.setText(
+                            config_dict.get("textEdit_PowerLadder") or "100"
                         )
                     if "textEdit_VoltageLadder_Un" in config_dict and hasattr(uithaistaticQU, "textEdit_VoltageLadder_Un"):
                         uithaistaticQU.textEdit_VoltageLadder_Un.setText(

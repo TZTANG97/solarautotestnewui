@@ -107,6 +107,45 @@ def default_dc_iv_resolver(vmp, imp, voc, isc, pf, dc_num):
     ]
 
 
+def checked_s1_dc_channels(ui):
+    """返回步骤①已勾选的直流通道 (ch, device, dc_num, label)。"""
+    out = []
+    for ch, device, dc_num, label in (
+        (1, "DC1", 0, "DC电源1"),
+        (2, "DC2", 1, "DC电源2"),
+        (3, "DC3", 2, "DC电源3"),
+        (4, "DC4", 3, "DC电源4"),
+    ):
+        cb = getattr(ui, "checkBox_S1_DC%d" % ch, None)
+        if cb is None or not hasattr(cb, "isChecked") or not cb.isChecked():
+            continue
+        out.append((ch, device, dc_num, label))
+    return out
+
+
+def step1_dc_pf_matches(ui, power_pct) -> bool:
+    """阶梯功率是否与步骤①各勾选直流的 PF 一致（一致则可跳过首点重复灌 IV）。"""
+    try:
+        target = float(power_pct)
+    except (TypeError, ValueError):
+        return False
+    channels = checked_s1_dc_channels(ui)
+    if not channels:
+        return True
+    for ch, _device, _dc_num, _label in channels:
+        pf_w = getattr(ui, "textEdit_S1_DC%d_PF" % ch, None)
+        raw = pf_w.toPlainText() if pf_w is not None and hasattr(pf_w, "toPlainText") else "100"
+        try:
+            pf = float(str(raw or "100").strip().replace("%", ""))
+        except (TypeError, ValueError):
+            pf = 100.0
+        if 0 < pf <= 1:
+            pf *= 100.0
+        if abs(pf - target) > 1e-6:
+            return False
+    return True
+
+
 def _append_dc_power_rows(
     ui,
     commands,
@@ -117,20 +156,27 @@ def _append_dc_power_rows(
     *,
     full_chain,
 ):
-    """按功率%重下已勾选直流通道的 IV。后续档跳过 MODE/SELECT。"""
+    """按功率%重下已勾选直流通道的 IV。后续档跳过 MODE/SELECT。
+
+    每个勾选的 DC1~DC4 各自用本通道 Vmp/Imp/Voc/Isc，统一缩放到 power_pct。
+    """
     point_rows = []
-    for ch, device, dc_num, label in (
-        (1, "DC1", 0, "DC电源1"),
-        (2, "DC2", 1, "DC电源2"),
-        (3, "DC3", 2, "DC电源3"),
-        (4, "DC4", 3, "DC电源4"),
-    ):
-        if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
+    channels = checked_s1_dc_channels(ui)
+    if not channels:
+        dc_errors.append("功率阶梯需要至少勾选一路步骤①直流电源")
+        return point_rows
+    for ch, device, dc_num, label in channels:
+        vmp_w = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch, None)
+        imp_w = getattr(ui, "textEdit_S1_DC%d_CURR" % ch, None)
+        voc_w = getattr(ui, "textEdit_S1_DC%d_Voc" % ch, None)
+        isc_w = getattr(ui, "textEdit_S1_DC%d_Isc" % ch, None)
+        if None in (vmp_w, imp_w, voc_w, isc_w):
+            dc_errors.append("%s缺少 Vmp/Imp/Voc/Isc 控件" % label)
             continue
-        vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()
-        imp = getattr(ui, "textEdit_S1_DC%d_CURR" % ch).toPlainText()
-        voc = getattr(ui, "textEdit_S1_DC%d_Voc" % ch).toPlainText()
-        isc = getattr(ui, "textEdit_S1_DC%d_Isc" % ch).toPlainText()
+        vmp = vmp_w.toPlainText()
+        imp = imp_w.toPlainText()
+        voc = voc_w.toPlainText()
+        isc = isc_w.toPlainText()
         code, iv_cmds = dc_iv_resolver(vmp, imp, voc, isc, power_pct, dc_num)
         if code == "err1":
             dc_errors.append("%s@P%.0f%%赋值错误" % (label, power_pct))
@@ -147,8 +193,9 @@ def _append_dc_power_rows(
                 row = _row_device_write(device, cmd)
                 commands.append(row)
                 point_rows.append(row)
-    if point_rows:
+    if point_rows and steps is not None:
         steps.append(point_rows)
+    return point_rows
 
 
 def build_dynamic_qu_plan(
