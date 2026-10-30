@@ -13903,6 +13903,21 @@ def thaistaticQUSend():
         dwell_unit = time_u.currentText() if time_u is not None else "秒"
         f_ladder_dwell = SetTimeFunction(float(dwell_raw), dwell_unit)
         u_pct_list = _parse_wt_style_list(ladder_text)
+        power_widget = getattr(uiThaiStaticQU, "textEdit_PowerLadder", None)
+        power_levels = _parse_wt_style_list(
+            power_widget.toPlainText() if power_widget is not None else ""
+        )
+        if not power_levels:
+            pair_powers = [None] * len(u_pct_list)
+        elif len(power_levels) == 1:
+            pair_powers = [power_levels[0]] * len(u_pct_list)
+        elif len(power_levels) == len(u_pct_list):
+            pair_powers = list(power_levels)
+        else:
+            # 点数不一致时按电压长度截断/补默认 100，避免整单失败
+            pair_powers = []
+            for i in range(len(u_pct_list)):
+                pair_powers.append(power_levels[i] if i < len(power_levels) else 100.0)
         try:
             base_un2 = float(uiThaiStaticQU.textEdit_S1_AC_VOLT_2.toPlainText().strip() or base_un)
         except ValueError:
@@ -13931,9 +13946,49 @@ def thaistaticQUSend():
                 )
             return strArrayTest[before:]
 
-        # 连续录：首点 ASYNC_START，中间只改压+驻留，末点 WAIT_END → 单文件 QU_curve
+        def _dc_iv_bridge_static(vmp, imp, voc, isc, pf, dc_num):
+            from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+            return resolve_dc_iv_with_bridge(
+                vmp, imp, voc, isc, pf, dc_num,
+                get_iv_fn=DCGetIVValueFunction,
+                per_dc_factor=per_dc_factor,
+                command_list_dc=command_list_DC,
+            )
+
+        from utils.dynamic_qu_commands import (
+            _append_dc_power_rows,
+            step1_dc_pf_matches,
+        )
+
+        # 连续录：首点 ASYNC_START，中间改功率(可选)+改压+驻留，末点 WAIT_END → 单文件 QU_curve
+        # 功率变化时对步骤①已勾选的 DC1~DC4 同步按 power% 重下 IV（各通道用各自 Vmp/Imp）
+        prev_power = object()
+        dc_full_chain_done = False
+        dc_errors_static = []
         for idx, pct in enumerate(u_pct_list):
-            strArrayTestStepSingle = _append_ladder_volt(pct)
+            strArrayTestStepSingle = []
+            power_pct = pair_powers[idx] if idx < len(pair_powers) else None
+            if power_pct is not None and power_pct != prev_power:
+                # 首点且与步骤①各路 PF 一致：不再重复灌 IV（避免误假定一定是 100%）
+                if idx == 0 and step1_dc_pf_matches(uiThaiStaticQU, power_pct):
+                    prev_power = power_pct
+                else:
+                    before_dc = len(strArrayTest)
+                    # steps=None：避免 _append_dc_power_rows 再往 strArrayTestStep 插一段，
+                    # 由本点 strArrayTestStepSingle 统一收口（否则进度步骤会把 DC 算两遍）
+                    _append_dc_power_rows(
+                        uiThaiStaticQU,
+                        strArrayTest,
+                        None,
+                        power_pct,
+                        _dc_iv_bridge_static,
+                        dc_errors_static,
+                        full_chain=(not dc_full_chain_done),
+                    )
+                    strArrayTestStepSingle.extend(strArrayTest[before_dc:])
+                    dc_full_chain_done = True
+                    prev_power = power_pct
+            strArrayTestStepSingle.extend(_append_ladder_volt(pct))
             if idx == 0:
                 row = ["" for _ in range(10)]
                 row[0] = "AC"
@@ -13950,6 +14005,10 @@ def thaistaticQUSend():
             strArrayTest.append(row)
             strArrayTestStepSingle.append(row)
             strArrayTestStep.append(strArrayTestStepSingle)
+        if dc_errors_static:
+            ui.textEdit_ReturnMessage.append(
+                "[静态QU] 功率档提示: " + "；".join(dc_errors_static[:4])
+            )
 
         if u_pct_list:
             row = ["" for _ in range(10)]
@@ -13986,9 +14045,14 @@ def thaistaticQUSend():
                         combo.setCurrentIndex(1)
             except Exception as e:
                 _append_debug_log(f"[staticQU] update WT continuous FileNameList failed: {e}")
+            pwr_note = (
+                f"，功率 {len([p for p in pair_powers if p is not None])} 档"
+                if any(p is not None for p in pair_powers)
+                else "，功率=开测"
+            )
             ui.textEdit_ReturnMessage.append(
-                f"[静态QU] 连续录 1 文件 QU_curve，电压 {len(u_pct_list)} 点，"
-                f"每点驻留 {dwell_raw}{dwell_unit}，StopTime {stop_str}"
+                f"[静态QU] 连续录 1 文件 QU_curve，电压 {len(u_pct_list)} 点"
+                f"{pwr_note}，每点驻留 {dwell_raw}{dwell_unit}，StopTime {stop_str}"
             )
 
     # step3

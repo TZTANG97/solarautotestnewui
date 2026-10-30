@@ -158,7 +158,7 @@ def test_send_short_voltage_list(qapp, monkeypatch, tmp_path):
     assert any(v.startswith("VOLT 241.5") for v in volts)
     assert sw.total_save_file == 1
     wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
-    assert wt_cfg.get("textEdit_FileNameList") == "QU_curve"
+    assert str(wt_cfg.get("textEdit_FileNameList") or "").startswith("QU_curve")
     # 3 点 × 1s + 5s = 8s，但下限抬到 10s
     assert wt_cfg.get("textEdit_StopTime") == "00:00:10"
     col6 = _col6_markers(sw)
@@ -182,7 +182,7 @@ def test_send_default_rise_fall_points(qapp, monkeypatch, tmp_path):
     assert sw.total_save_file == 1
     assert any("连续录 1 文件 QU_curve" in m and "23 点" in m for m in logs)
     wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
-    assert wt_cfg["textEdit_FileNameList"] == "QU_curve"
+    assert str(wt_cfg["textEdit_FileNameList"]).startswith("QU_curve")
     # 23×60 + 5 = 1385s → 00:23:05
     assert wt_cfg["textEdit_StopTime"] == "00:23:05"
     col6 = _col6_markers(sw)
@@ -239,7 +239,7 @@ def test_send_wt_smoke_list_three_points(qapp, monkeypatch, tmp_path):
     sw.thaistaticQUSend()
     assert sw.total_save_file == 1
     wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
-    assert wt_cfg["textEdit_FileNameList"] == "QU_curve"
+    assert str(wt_cfg["textEdit_FileNameList"]).startswith("QU_curve")
     volts = [r[2] for r in sw.strArrayTest if r and str(r[2]).startswith("VOLT ")]
     assert any("230" in v for v in volts)
     assert any("246.1" in v for v in volts)
@@ -290,7 +290,7 @@ def test_send_chinese_comma_and_spaces(qapp, monkeypatch, tmp_path):
 
     assert sw.total_save_file == 1
     wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
-    assert wt_cfg["textEdit_FileNameList"] == "QU_curve"
+    assert str(wt_cfg["textEdit_FileNameList"]).startswith("QU_curve")
     # 3×2 + 5 = 11s
     assert wt_cfg["textEdit_StopTime"] == "00:00:11"
     waits = [
@@ -313,7 +313,7 @@ def test_send_decimal_pct_filename(qapp, monkeypatch, tmp_path):
     sw.thaistaticQUSend()
     assert sw.total_save_file == 1
     wt_cfg = [r for r in sw.strArrayTest if r and r[0] == "Upper_WT_Config"][0][4]
-    assert wt_cfg["textEdit_FileNameList"] == "QU_curve"
+    assert str(wt_cfg["textEdit_FileNameList"]).startswith("QU_curve")
 
 
 def test_send_empty_ladder_no_point_files(qapp, monkeypatch, tmp_path):

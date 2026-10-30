@@ -8,7 +8,7 @@ import re
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 _ROW_H = 28
-_VISIBLE_ROWS = 8
+_VISIBLE_ROWS = 12
 _TOOLBAR_H = 34
 _HDR_H = 26
 
