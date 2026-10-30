@@ -79,10 +79,12 @@ def test_dialog_four_steps_and_default_list(dyn_ui):
     u = [float(x) for x in ui.textEdit_VoltageLadder.toPlainText().replace(" ", "").split(",") if x]
     assert len(u) == 23
     assert u[0] == 100 and u[8] == 115 and u[-1] == 85
-    # 默认功率留空：电压阶梯用步骤①功率；配对时再填与电压同长的功率 list
-    assert ui.textEdit_PowerLadder.toPlainText().strip() == ""
+    # 同行功率默认开测 100%
+    powers = [p for p in ui.textEdit_PowerLadder.toPlainText().split(",") if p.strip()]
+    assert len(powers) == 23
+    assert all(p.strip() == "100" for p in powers)
     assert ui.textEdit_VoltageLadder_TIME is not None
-    assert "一一对应" in ui._ladder_matrix.preview.text() or "步骤①" in ui._ladder_matrix.preview.text()
+    assert hasattr(ui, "_vp_ladder")
 
 
 def test_continuous_async_no_numeric_col6(dyn_ui):
@@ -91,6 +93,8 @@ def test_continuous_async_no_numeric_col6(dyn_ui):
     ui.checkBox_S2.setChecked(True)
     ui.radioButton_S2_WT3000.setChecked(True)
     _fill_ladder(ui, "100,103,105", dwell="10", unit="秒")
+    # 功率≠步骤① PF，才会在阶梯段灌 IV（=100% 时会跳过首点重复）
+    ui.textEdit_PowerLadder.setPlainText("80")
     ui.checkBox_S_END.setChecked(True)
     ui.comboBox_S_END_AC.setCurrentText("关闭")
     ui.checkBox_S_END_DC1.setChecked(True)
@@ -143,16 +147,96 @@ def test_power_voltage_paired_not_outer_product(dyn_ui):
     assert markers.count("WAIT_END") == 1
 
 
-def test_power_voltage_length_mismatch_rejected(dyn_ui):
+def test_power_shorter_than_voltage_pads_default(dyn_ui):
+    """同行表写入短功率 list 时，缺行补开测默认 100%，不再整单拒绝。"""
     ui, _ = dyn_ui
     _fill_step1(ui, dc1=True)
     ui.checkBox_S2.setChecked(False)
     _fill_ladder(ui, "100,110,120", dwell="1", unit="秒")
     ui.textEdit_PowerLadder.setPlainText("100,50")
     ui.checkBox_S_END.setChecked(False)
+    assert ui.textEdit_PowerLadder.toPlainText() == "100,50,100"
     plan = build_dynamic_qu_plan(ui, wt_config_dict={})
-    assert not plan["ok"]
-    assert "一一对应" in plan["error"]
+    assert plan["ok"]
+    assert plan["power_levels"] == [100.0, 50.0, 100.0]
+
+
+def test_power_ladder_updates_all_checked_dc_channels(dyn_ui):
+    """电压旁功率变化时，步骤①勾选的 DC1+DC2 都要按同一 Pn% 重下 IV。"""
+    ui, _ = dyn_ui
+    _fill_step1(ui, dc1=True)
+    ui.checkBox_S1_DC2.setChecked(True)
+    ui.comboBox_S1_DC2.setCurrentText("开启")
+    ui.textEdit_S1_DC2_VOLT.setPlainText("380")
+    ui.textEdit_S1_DC2_CURR.setPlainText("8")
+    ui.textEdit_S1_DC2_Voc.setPlainText("420")
+    ui.textEdit_S1_DC2_Isc.setPlainText("10")
+    ui.textEdit_S1_DC2_PF.setPlainText("100")
+    ui.checkBox_S2.setChecked(False)
+    _fill_ladder(ui, "100,110", dwell="1", unit="秒")
+    ui.textEdit_PowerLadder.setPlainText("100,50")
+    ui.checkBox_S_END.setChecked(False)
+
+    plan = build_dynamic_qu_plan(
+        ui, wt_config_dict={}, str_add_flag="0", dc_iv_resolver=default_dc_iv_resolver
+    )
+    assert plan["ok"], plan.get("error") or plan.get("dc_errors")
+    triples = [(r[0], r[1], r[2]) for r in plan["commands"]]
+    dc1_ivc = [t for t in triples if t[0] == "DC1" and str(t[2]).startswith("IVC:IT")]
+    dc2_ivc = [t for t in triples if t[0] == "DC2" and str(t[2]).startswith("IVC:IT")]
+    assert len(dc1_ivc) >= 2
+    assert len(dc2_ivc) >= 2
+    # 50%：DC1 Imp 10→5；DC2 Imp 8→4
+    assert any("5.000" in str(t[2]) or "5.0," in str(t[2]) for t in dc1_ivc)
+    assert any("4.000" in str(t[2]) or "4.0," in str(t[2]) for t in dc2_ivc)
+    # 未勾选的 DC3/DC4 不应出现写命令
+    assert not any(t[0] in ("DC3", "DC4") and t[1] == "write" for t in triples)
+
+
+def test_step1_pf_matches_helper(dyn_ui):
+    from utils.dynamic_qu_commands import step1_dc_pf_matches
+
+    ui, _ = dyn_ui
+    _fill_step1(ui, dc1=True)
+    assert step1_dc_pf_matches(ui, 100)
+    ui.textEdit_S1_DC1_PF.setPlainText("80")
+    assert not step1_dc_pf_matches(ui, 100)
+    assert step1_dc_pf_matches(ui, 80)
+
+
+def test_first_point_skips_dc_when_pf_matches(dyn_ui):
+    """首点功率=步骤① PF 时不重复灌 IV（与静态 QU 对齐）。"""
+    ui, _ = dyn_ui
+    _fill_step1(ui, dc1=True)
+    ui.textEdit_S1_DC1_PF.setPlainText("100")
+    ui.checkBox_S2.setChecked(False)
+    _fill_ladder(ui, "100,110", dwell="1", unit="秒")
+    ui.textEdit_PowerLadder.setPlainText("100")
+    ui.checkBox_S_END.setChecked(False)
+    plan = build_dynamic_qu_plan(
+        ui, wt_config_dict={}, str_add_flag="0", dc_iv_resolver=default_dc_iv_resolver
+    )
+    assert plan["ok"], plan.get("error") or plan.get("dc_errors")
+    triples = [(r[0], r[1], r[2]) for r in plan["commands"]]
+    # Step1 启机仍会写一次 MODE TABLE；阶梯全程 100% 不应再灌第二遍
+    mode_table = [t for t in triples if t[0] == "DC1" and t[2] == "OUTP:MODE TABLE"]
+    assert len(mode_table) == 1
+
+
+def test_build_plan_pads_short_power_bypass_ui(dyn_ui):
+    """handoff 短功率串（不经表格 pad）时，build_dynamic_qu_plan 仍按电压长度补 100%。"""
+    ui, _ = dyn_ui
+    _fill_step1(ui, dc1=True)
+    ui.checkBox_S2.setChecked(False)
+    _fill_ladder(ui, "100,105,110", dwell="1", unit="秒")
+    ui.checkBox_S_END.setChecked(False)
+    ui.textEdit_PowerLadder.toPlainText = lambda: "100,70"  # type: ignore[method-assign]
+    plan = build_dynamic_qu_plan(
+        ui, wt_config_dict={}, str_add_flag="0", dc_iv_resolver=default_dc_iv_resolver
+    )
+    assert plan["ok"], plan.get("error") or plan.get("dc_errors")
+    assert plan["power_levels"] == [100.0, 70.0]
+    assert len(plan["u_pct_list"]) == 3
 
 
 def test_three_phase_ladder(dyn_ui):

@@ -403,7 +403,8 @@ def build_dynamic_qu_plan(
         if power_widget is not None and hasattr(power_widget, "toPlainText"):
             power_levels = parse_voltage_ladder(power_widget.toPlainText())
         # 一一对应：第 i 点功率配第 i 点电压。
-        # 功率留空 → 全程步骤①功率；只填 1 个 → 全程固定该功率；多点须与电压点数相同。
+        # 功率留空 → 全程步骤①功率；只填 1 个 → 全程固定该功率；
+        # 多点长度不一致时按电压长度截断/补 100（与静态 QU 一致，避免整单失败）。
         if not power_levels:
             pair_powers = [None] * len(u_pct_list)
         elif len(power_levels) == 1:
@@ -411,45 +412,31 @@ def build_dynamic_qu_plan(
         elif len(power_levels) == len(u_pct_list):
             pair_powers = list(power_levels)
         else:
-            return {
-                "ok": False,
-                "error": (
-                    "动态QU 功率与电压须一一对应：点数相同，"
-                    "或功率只填 1 个，或功率留空（用步骤①功率）。"
-                    "当前功率 %d 点、电压 %d 点。"
-                    % (len(power_levels), len(u_pct_list))
-                ),
-                "dc_errors": dc_errors,
-                "commands": commands,
-                "steps": steps,
-                "wt_type": wt_type,
-                "test_program": test_program,
-                "wt_is_checked": wt_is_checked,
-                "u_pct_list": u_pct_list,
-                "power_levels": power_levels,
-                "dwell_01s": int(dwell_01s),
-                "file_name": file_name,
-                "wt_rounds": 0,
-                "band_duration_01s": 0,
-            }
+            pair_powers = []
+            for i in range(len(u_pct_list)):
+                pair_powers.append(power_levels[i] if i < len(power_levels) else 100.0)
 
         started = False
         prev_power = object()
         dc_full_chain_done = False
-        for power_pct, pct in zip(pair_powers, u_pct_list):
+        for idx, (power_pct, pct) in enumerate(zip(pair_powers, u_pct_list)):
             point_rows = []
             if power_pct is not None and power_pct != prev_power:
-                _append_dc_power_rows(
-                    ui,
-                    commands,
-                    steps,
-                    power_pct,
-                    dc_iv_resolver,
-                    dc_errors,
-                    full_chain=(not dc_full_chain_done),
-                )
-                dc_full_chain_done = True
-                prev_power = power_pct
+                # 首点且与步骤①各路 PF 一致：不再重复灌 IV（与静态 QU 对齐）
+                if idx == 0 and step1_dc_pf_matches(ui, power_pct):
+                    prev_power = power_pct
+                else:
+                    _append_dc_power_rows(
+                        ui,
+                        commands,
+                        steps,
+                        power_pct,
+                        dc_iv_resolver,
+                        dc_errors,
+                        full_chain=(not dc_full_chain_done),
+                    )
+                    dc_full_chain_done = True
+                    prev_power = power_pct
 
             volt1 = round(base_un * pct / 100.0, 2)
             volt2 = round(base_un2 * pct / 100.0, 2)
