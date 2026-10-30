@@ -77,21 +77,25 @@ def _persist_local_job_ids(job_id: int, exper_id: Optional[int] = None) -> None:
     """把本地登记的 job/exper 写入 status.json，供 Agent 心跳与结案兜底。"""
     try:
         path = _repo_root() / "status.json"
-        try:
-            data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
-        except Exception:
-            data = {}
-        if not isinstance(data, dict):
-            data = {}
-        proj = data.get("project")
-        if not isinstance(proj, dict):
-            proj = {}
-        proj = dict(proj)
-        proj["jobId"] = int(job_id)
-        if exper_id:
-            proj["experId"] = int(exper_id)
-        data["project"] = proj
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        from utils.status_json_devices import status_json_lock, status_when_binding_new_job
+
+        with status_json_lock(str(path)):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+            except Exception:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            proj = data.get("project")
+            if not isinstance(proj, dict):
+                proj = {}
+            proj = dict(proj)
+            proj["status"] = status_when_binding_new_job(str(proj.get("status") or ""))
+            proj["jobId"] = int(job_id)
+            if exper_id:
+                proj["experId"] = int(exper_id)
+            data["project"] = proj
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         logger.debug("写入 status.json jobId 失败", exc_info=True)
 
@@ -382,10 +386,22 @@ def notify_local_run_started(
         logger.info("[iot_local_run] handoff 正在开测，跳过本地登记")
         return
     if not desktop_run_in_progress():
+        # 进度已经写成进行中时，RunProject 里已经摘过上一单。
+        # 这里再摘会把刚绑定的任务号清掉，心跳又读到终态。
         try:
-            detach_previous_job_for_fresh_start()
+            from utils.status_json_devices import project_status_is_live_local_run
+
+            live = project_status_is_live_local_run(
+                getattr(__import__("SCPITestWave"), "_run_progress_state", None),
+                _local_run_flag(),
+            )
         except Exception:
-            logger.debug("新开试验前摘掉上一单失败", exc_info=True)
+            live = False
+        if not live:
+            try:
+                detach_previous_job_for_fresh_start()
+            except Exception:
+                logger.debug("新开试验前摘掉上一单失败", exc_info=True)
     # 中途追加后再点开始：命令已在同一 RunProject 队列里继续跑，
     # 绝不能再 local_run_start，否则服务端会把还在跑的上一单结掉。
     if desktop_run_in_progress():

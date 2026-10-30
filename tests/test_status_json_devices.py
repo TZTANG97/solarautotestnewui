@@ -36,6 +36,20 @@ def test_mark_stale_in_flight_project_aborts_running():
     assert data["project"]["estimated_end_time"] == ""
 
 
+def test_live_run_is_not_a_cold_start_leftover():
+    from utils.status_json_devices import (
+        project_status_is_live_local_run,
+        status_when_binding_new_job,
+    )
+
+    assert project_status_is_live_local_run({"status": "进行中", "started_at": 10.0}, "") is True
+    assert project_status_is_live_local_run({"status": "未开始", "started_at": 0}, "") is False
+    assert project_status_is_live_local_run({}, "运行") is True
+    assert status_when_binding_new_job("已中止") == "进行中"
+    assert status_when_binding_new_job("进行中") == "进行中"
+    assert status_when_binding_new_job("暂停") == "暂停"
+
+
 def test_mark_stale_leaves_finished_alone():
     raw = {
         "devices": [],

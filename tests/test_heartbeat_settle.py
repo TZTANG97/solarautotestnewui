@@ -63,6 +63,32 @@ def _plant(root: Path) -> Path:
     return csv
 
 
+def test_stale_abort_does_not_settle_before_run_seen(tmp_path: Path) -> None:
+    """重启后文件仍是已中止，新任务号刚写上时不能结成台架状态=已中止。"""
+    client = _Client(status="running")
+    state = HeartbeatSettleState()
+    snap = _snap("已中止", 82)
+    snap["progress"] = 8
+    snap["current_detail"] = "软件已重新打开，上次未跑完的试验已标为中止"
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=82, run_snapshot=snap, state=state
+    )
+    assert client.done_calls == []
+
+
+def test_abort_after_running_still_settles(tmp_path: Path) -> None:
+    client = _Client(status="running")
+    state = HeartbeatSettleState()
+    note_job_status(state, 82, "进行中")
+    snap = _snap("已中止", 82)
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=82, run_snapshot=snap, state=state
+    )
+    assert len(client.done_calls) == 1
+    assert client.done_calls[0][1]["status"] == "aborted"
+    assert client.done_calls[0][1]["fail_reason"] == "台架状态=已中止"
+
+
 def test_done_once_then_skip(tmp_path: Path) -> None:
     csv = _plant(tmp_path)
     client = _Client(status="running")

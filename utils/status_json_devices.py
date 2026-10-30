@@ -38,6 +38,33 @@ def empty_status_payload() -> Dict[str, Any]:
 _STALE_IN_FLIGHT_STATUSES = frozenset({"进行中", "暂停", "待开始"})
 
 
+def project_status_is_live_local_run(progress_state: Optional[Dict[str, Any]], run_flag: str = "") -> bool:
+    """本进程已经点过开始：进度是进行中，或执行标志已是运行/暂停。
+
+    冷启动纠偏只能收上一次进程留下的「进行中」。
+    自动连接结束、每 5 秒的会话纠偏若再收一次，会把刚开的电压闪变写成已中止。
+    """
+    if str(run_flag or "").strip() in ("运行", "暂停"):
+        return True
+    if not isinstance(progress_state, dict):
+        return False
+    status = str(progress_state.get("status") or "").strip()
+    if status not in ("进行中", "暂停"):
+        return False
+    try:
+        return float(progress_state.get("started_at") or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def status_when_binding_new_job(existing: str) -> str:
+    """新任务号不能挂在上一局的终态上，否则心跳会立刻按「台架状态=已中止」结案。"""
+    st = str(existing or "").strip()
+    if st in ("", "未开始", "待开始", "已中止", "失败", "已结束", "中止"):
+        return "进行中"
+    return st
+
+
 def mark_stale_in_flight_project(data: Optional[Dict[str, Any]]) -> tuple[Dict[str, Any], bool]:
     """
     软件冷启动时：若 status.json 仍写着「进行中/暂停」，改为「已中止」。

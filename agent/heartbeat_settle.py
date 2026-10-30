@@ -23,12 +23,14 @@ class HeartbeatSettleState:
         self.done_ok: set[int] = set()
         self.reports_finished: set[int] = set()
         self.report_attempts: Dict[int, int] = {}
+        self.seen_running: set[int] = set()
 
     def forget(self, job_id: int) -> None:
         jid = int(job_id)
         self.done_ok.discard(jid)
         self.reports_finished.discard(jid)
         self.report_attempts.pop(jid, None)
+        self.seen_running.discard(jid)
 
 
 _shared = HeartbeatSettleState()
@@ -40,8 +42,14 @@ def shared_settle_state() -> HeartbeatSettleState:
 
 def note_job_status(state: HeartbeatSettleState, job_id: int, status: str) -> None:
     """非终态说明这单还没结完，不能沿用上一轮的「已结案」记忆。"""
-    if str(status or "").strip() not in LOCAL_TERMINAL:
-        state.forget(int(job_id))
+    st = str(status or "").strip()
+    jid = int(job_id)
+    if st in ("进行中", "暂停"):
+        state.seen_running.add(jid)
+        state.done_ok.discard(jid)
+        return
+    if st not in LOCAL_TERMINAL:
+        state.forget(jid)
 
 
 def cloud_status_is_terminal(status: str) -> bool:
@@ -176,6 +184,15 @@ def apply_heartbeat_terminal_settle(
     st = str(snap.get("status") or "").strip()
     if st not in LOCAL_TERMINAL:
         state.forget(jid)
+        return
+    # 重启后 status.json 往往仍是上一局的「已中止」。新任务号写上去之后，
+    # 本进程若还没见过它在跑，不能据此把云端新单打成台架状态=已中止。
+    if st == "已中止" and jid not in state.seen_running:
+        logger.info(
+            "心跳跳过结案 job=%s：本进程未见其进入进行中（status=%s）",
+            jid,
+            st,
+        )
         return
 
     pending_files: Optional[List[Path]] = None

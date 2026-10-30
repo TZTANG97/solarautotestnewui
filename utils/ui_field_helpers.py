@@ -2,7 +2,7 @@
 """本机字段记忆、Tab 跳焦点、输入框旁单位等 UI 辅助。"""
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from PyQt5.QtCore import QEvent, QObject, QSettings, Qt
 from PyQt5.QtGui import QKeyEvent
@@ -27,6 +27,8 @@ _MAX_HISTORY = 16
 _DEVICE_EXACT_KEYS = {
     "textEdit_AC_VOLT": "ac.volt",
     "textEdit_AC_FR": "ac.freq",
+    "comboBox_Phase": "ac.phase",
+    "combo_phase": "ac.phase",
     "textEdit_VOLT": "ac.volt",
     "textEdit_FR": "ac.freq",
     "textEdit_Vmp": "dc.vmp",
@@ -115,6 +117,47 @@ def remember_value(key: str, value: str) -> None:
     items.insert(0, value)
     _settings().setValue(f"history/{key}", items[:_MAX_HISTORY])
     _settings().sync()
+
+
+def is_phase_combo_name(object_name: str) -> bool:
+    name = object_name or ""
+    return name in {"comboBox_Phase", "combo_phase"} or name.endswith("_AC_2")
+
+
+def capture_phase_memory(root: QWidget, *, memory_scope: str = "device") -> Dict[str, str]:
+    """记下各相位下拉上次选的「三相/单相」，供试验预设回放之后再盖回去。"""
+    out: Dict[str, str] = {}
+    if root is None or not hasattr(root, "findChildren"):
+        return out
+    for combo in root.findChildren(QComboBox):
+        name = combo.objectName() or ""
+        if not is_phase_combo_name(name):
+            continue
+        key = history_key_for_object_name(name, memory_scope=memory_scope)
+        if not key:
+            continue
+        saved = last_value(key)
+        if saved:
+            out[name] = saved
+    return out
+
+
+def restore_phase_memory(root: QWidget, saved: Dict[str, str]) -> int:
+    if root is None or not saved or not hasattr(root, "findChildren"):
+        return 0
+    n = 0
+    for combo in root.findChildren(QComboBox):
+        name = combo.objectName() or ""
+        text = saved.get(name) or ""
+        if not text:
+            continue
+        idx = combo.findText(text)
+        if idx >= 0 and combo.currentIndex() != idx:
+            combo.setCurrentIndex(idx)
+            n += 1
+        elif idx >= 0:
+            n += 1
+    return n
 
 
 def last_value(key: str, default: str = "") -> str:
@@ -252,6 +295,19 @@ def enable_field_memory(
         for item in history:
             if widget.findText(item) < 0:
                 widget.addItem(item)
+    elif isinstance(widget, QComboBox):
+        # 单相/三相这种不可编辑下拉：改选项就记住，重启才不会回到第一项。
+        def _remember_combo(_text: str = "", w: QWidget = widget, k: str = key) -> None:
+            remember_value(k, _widget_text(w))
+
+        try:
+            widget.currentTextChanged.connect(_remember_combo)
+        except Exception:
+            widget.currentIndexChanged.connect(
+                lambda _i, w=widget, k=key: remember_value(k, _widget_text(w))
+            )
+        widget._field_memory_enabled = True  # type: ignore
+        return
     elif not isinstance(widget, QTextEdit):
         return
 

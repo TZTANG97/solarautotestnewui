@@ -3870,7 +3870,21 @@ def _reconcile_status_json_with_sessions() -> None:
     except Exception:
         data = empty_status_payload()
     data = ensure_device_rows(data)
-    data, stale_cleared = mark_stale_in_flight_project(data)
+    # 只在冷启动、且本进程还没点开始时，把上次留下的「进行中」收成已中止。
+    # 自动连接收尾和 5 秒会话纠偏也会进这里；那时若再收口，会把刚开的试验写成已中止。
+    stale_cleared = False
+    live = False
+    try:
+        from utils.status_json_devices import project_status_is_live_local_run
+
+        live = project_status_is_live_local_run(
+            globals().get("_run_progress_state"),
+            str(globals().get("strTestStatusFlag") or ""),
+        )
+    except Exception:
+        live = False
+    if not live:
+        data, stale_cleared = mark_stale_in_flight_project(data)
     try:
         with open(status_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -33207,7 +33221,14 @@ if __name__ == "__main__":
 
                     _polish_test(real_ui, memory_scope=f"test:{test_name}")
                     from utils.test_ui_preset import apply_test_preset
+                    from utils.ui_field_helpers import (
+                        capture_phase_memory,
+                        restore_phase_memory,
+                    )
 
+                    _phase_keep = capture_phase_memory(
+                        real_ui, memory_scope=f"test:{test_name}"
+                    )
                     if apply_test_preset(test_name, real_ui):
                         print(
                             f"[DEBUG_STARTUP] loaded test preset for {test_name}",
@@ -33215,6 +33236,8 @@ if __name__ == "__main__":
                         )
                     elif _panel is not None and hasattr(_panel, "_try_load_export_preset"):
                         _panel._try_load_export_preset(apply_rate=True)
+                    if _phase_keep:
+                        restore_phase_memory(real_ui, _phase_keep)
                 except Exception as _preset_exc:
                     print(
                         f"[DEBUG_STARTUP] test preset skip ({test_name}): {_preset_exc}",
@@ -34636,14 +34659,18 @@ if __name__ == "__main__":
                                 continue
                             try:
                                 for _attr in dir(_f):
-                                    if _attr.startswith("textEdit_") or _attr.startswith(
-                                        "lineEdit_"
-                                    ):
+                                    if _attr.startswith(
+                                        ("textEdit_", "lineEdit_", "comboBox_")
+                                    ) or _attr in ("combo_phase",):
                                         _w = getattr(_f, _attr, None)
                                         if _w is not None:
                                             polish_input_widgets(_w)
                             except Exception as _pe:
                                 print(f"[UI] polish skip {_name}: {_pe}", flush=True)
+                        _itch = globals().get("_ac_itch_ref") or {}
+                        _phase_w = _itch.get("combo_phase") if isinstance(_itch, dict) else None
+                        if _phase_w is not None:
+                            polish_input_widgets(_phase_w)
                         print("[DEBUG_STARTUP]    deferred polish extras done", flush=True)
                     except Exception as _polish_exc:
                         print(
