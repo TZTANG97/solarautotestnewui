@@ -2,9 +2,8 @@
 """
 DEWETRON 功率分析仪设置对话框（手写 UI，无需 .ui 文件）。
 
-布局：QTabWidget
-  Tab 1: 接线图 — 顶部接线类型按钮 + 左侧通道列表 + 中间输入框列 + 右侧图片背景接线图
-  Tab 2: 设置 — 基本配置 + 采样与测量配置 + 比例系数配置
+单页：左侧通道与接线图，右侧设备参数。
+比例系数在右侧，保存时写入各模拟通道的 Neon/PhysicalScaleFactor。
 """
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -518,6 +517,21 @@ class Ui_Dialog_DEWETRON_Setting(object):
         params_layout.addRow("通道二次采样:", self.comboBox_downsampling)
 
         right_side.addWidget(params_group)
+
+        scale_group = QtWidgets.QGroupBox("比例系数")
+        scale_group.setToolTip("保存时写入对应模拟通道的 Neon/PhysicalScaleFactor。1 表示不缩放。")
+        scale_grid = QtWidgets.QGridLayout(scale_group)
+        scale_grid.setSpacing(6)
+        scale_grid.setContentsMargins(8, 12, 8, 8)
+        from utils.dewetron_channel_scale import ANALOG_SCALE_CHANNELS
+        self._scale_edits = {}
+        voltage_names = [name for name in ANALOG_SCALE_CHANNELS if "/U" in name]
+        current_names = [name for name in ANALOG_SCALE_CHANNELS if "/l" in name]
+        for row, name in enumerate(voltage_names):
+            self._add_scale_row(scale_grid, row, 0, name)
+        for row, name in enumerate(current_names):
+            self._add_scale_row(scale_grid, row, 2, name)
+        right_side.addWidget(scale_group)
 
         # -- 加载配置按钮 --
         self.pushButton_LoadLastConfig = QtWidgets.QPushButton()
@@ -1041,6 +1055,16 @@ class Ui_Dialog_DEWETRON_Setting(object):
                 self.comboBox_downsampling.setCurrentIndex(idx)
                 self.log(f"  通道二次采样: {ds_ui}")
 
+        from utils.dewetron_channel_scale import read_physical_scale_factors
+        found_scales = read_physical_scale_factors(xml)
+        if found_scales:
+            self.set_channel_scale_factors(found_scales)
+            shown = ", ".join(
+                f"{name.split('/')[-1].replace('l', 'I')}={value}"
+                for name, value in found_scales.items()
+            )
+            self.log(f"  比例系数: {shown}")
+
         self.log("配置加载完成")
 
     def _fill_channels_from_xml(self, xml):
@@ -1077,3 +1101,37 @@ class Ui_Dialog_DEWETRON_Setting(object):
                 idx = self.comboBox_frequencyChannel.findText(u1_ch)
                 if idx >= 0:
                     self.comboBox_frequencyChannel.setCurrentIndex(idx)
+
+    def _add_scale_row(self, grid, row, column, channel_name):
+        short = channel_name.split("/")[-1].replace("l", "I")
+        label = QtWidgets.QLabel(short)
+        label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        edit = QtWidgets.QLineEdit("1")
+        edit.setObjectName("lineEdit_scale_" + short)
+        edit.setFixedWidth(72)
+        edit.setMinimumHeight(26)
+        edit.setPlaceholderText("1")
+        edit.setToolTip(f"{channel_name} 的 Neon/PhysicalScaleFactor，1 表示不缩放")
+        self._scale_edits[channel_name] = edit
+        grid.addWidget(label, row, column)
+        grid.addWidget(edit, row, column + 1)
+
+    def channel_scale_factors(self):
+        """当前界面上的每通道比例系数。键为 AI 1/U1、AI 1/l1。"""
+        edits = getattr(self, "_scale_edits", None) or {}
+        return {name: edit.text().strip() for name, edit in edits.items()}
+
+    def set_channel_scale_factors(self, mapping):
+        """回填比例系数。接受设置页通道名或 XML 的 AI 1/I* 名。"""
+        if not isinstance(mapping, dict):
+            return
+        edits = getattr(self, "_scale_edits", None) or {}
+        for name, edit in edits.items():
+            raw = mapping.get(name)
+            if raw is None:
+                raw = mapping.get(name.replace("/l", "/I"))
+            if raw is None:
+                continue
+            text = str(raw).strip()
+            if text:
+                edit.setText(text)

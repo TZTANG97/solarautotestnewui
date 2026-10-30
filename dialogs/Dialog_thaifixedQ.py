@@ -511,38 +511,43 @@ class Ui_Dialog_thaifixedQ(object):
         ladder_layout.setSpacing(8)
         ladder_layout.setContentsMargins(12, 20, 12, 12)
 
-        ladder_layout.addWidget(QtWidgets.QLabel("功率档(%)："), 0, 0)
-        self.textEdit_PowerLadder = QtWidgets.QTextEdit()
-        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
-        self.textEdit_PowerLadder.setFixedHeight(40)
-        self.textEdit_PowerLadder.setText("50,100")
-        self.textEdit_PowerLadder.setPlaceholderText("逗号分隔，如 50,100")
-        ladder_layout.addWidget(self.textEdit_PowerLadder, 0, 1, 1, 3)
-
-        ladder_layout.addWidget(QtWidgets.QLabel("Q设定(%Qmax)："), 1, 0)
-        self.textEdit_QLadder = QtWidgets.QTextEdit()
-        self.textEdit_QLadder.setObjectName("textEdit_QLadder")
-        self.textEdit_QLadder.setFixedHeight(40)
-        self.textEdit_QLadder.setText("-100,-50,0,50,100")
-        self.textEdit_QLadder.setPlaceholderText("逗号分隔，支持负号")
-        ladder_layout.addWidget(self.textEdit_QLadder, 1, 1, 1, 3)
-
-        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
+        dwell_row = QtWidgets.QHBoxLayout()
+        dwell_row.addWidget(QtWidgets.QLabel("每点驻留："))
         self.textEdit_S3_TIME_2 = QtWidgets.QTextEdit()
         self.textEdit_S3_TIME_2.setObjectName("textEdit_S3_TIME_2")
         self.textEdit_S3_TIME_2.setFixedSize(80, 28)
         self.textEdit_S3_TIME_2.setText("1")
-        ladder_layout.addWidget(self.textEdit_S3_TIME_2, 2, 1)
+        dwell_row.addWidget(self.textEdit_S3_TIME_2)
         self.comboBox_S3_TIME_2 = QtWidgets.QComboBox()
         self.comboBox_S3_TIME_2.setObjectName("comboBox_S3_TIME_2")
         self.comboBox_S3_TIME_2.addItems(["分钟", "秒", "毫秒"])
         self.comboBox_S3_TIME_2.setCurrentText("分钟")
         self.comboBox_S3_TIME_2.setFixedWidth(80)
-        ladder_layout.addWidget(self.comboBox_S3_TIME_2, 2, 2)
+        dwell_row.addWidget(self.comboBox_S3_TIME_2)
+        dwell_row.addStretch(1)
+        ladder_layout.addLayout(dwell_row, 0, 0, 1, 4)
+
+        from components.ladder_matrix_panel import LadderMatrixPanel
+
+        self._ladder_matrix = LadderMatrixPanel(
+            outer_header="功率",
+            outer_unit="%",
+            outer_object_name="textEdit_PowerLadder",
+            outer_default="50,100",
+            outer_placeholder="如 50",
+            inner_header="Q 设定",
+            inner_unit="%Qmax",
+            inner_object_name="textEdit_QLadder",
+            inner_default="-100,-50,0,50,100",
+            inner_placeholder="如 -100",
+        )
+        self.textEdit_PowerLadder = self._ladder_matrix.outer
+        self.textEdit_QLadder = self._ladder_matrix.inner
+        ladder_layout.addWidget(self._ladder_matrix, 1, 0, 1, 4)
 
         from components.matrix_recording_ui import add_record_mode_row
 
-        add_record_mode_row(ladder_layout, 3, self)
+        add_record_mode_row(ladder_layout, 2, self)
 
         tip = QtWidgets.QLabel(
             "巴西 Ordinance 5.4.24 / EN 5.5.2.3.2：功率外循环 × Q 设定点；"
@@ -551,7 +556,7 @@ class Ui_Dialog_thaifixedQ(object):
         )
         tip.setWordWrap(True)
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
-        ladder_layout.addWidget(tip, 4, 0, 1, 4)
+        ladder_layout.addWidget(tip, 3, 0, 1, 4)
         layout.addWidget(ladder_grp)
 
         dc_grp = QtWidgets.QGroupBox("工况时更新的直流通道（需同时勾选 step1）")

@@ -2,7 +2,16 @@
 import sys
 import types
 
+import pytest
+
 from agent.local_endpoints import collect_local_endpoints
+
+
+@pytest.fixture(autouse=True)
+def _isolate_scanned_resources(monkeypatch, tmp_path):
+    import agent.local_endpoints as mod
+
+    monkeypatch.setattr(mod, "scanned_resources_path", lambda: tmp_path / "scanned_resources.json")
 
 
 def test_collect_maps_com_to_asrl(monkeypatch):
@@ -80,6 +89,35 @@ def test_collect_keeps_cache_when_empty(monkeypatch):
 
     items = collect_local_endpoints(force=True)
     assert items[0]["resource"] == "ASRL1::INSTR"
+
+
+def test_collect_includes_scanned_visa_when_no_com(monkeypatch, tmp_path):
+    import agent.local_endpoints as mod
+
+    mod._cache = []
+    mod._cache_at = 0.0
+    monkeypatch.setattr(mod, "_enumerate_winreg", lambda: ([], None))
+    monkeypatch.setattr(mod, "_enumerate_pyserial", lambda: ([], None))
+    path = tmp_path / "scanned_resources.json"
+    monkeypatch.setattr(mod, "scanned_resources_path", lambda: path)
+
+    mod.remember_scanned_resources(
+        [
+            "USB0::0x0A69::0x084B::SN::INSTR",
+            "TCPIP0::192.168.40.10::2101::INSTR",
+            "未发现可连接设备",
+            "192.10",
+        ]
+    )
+    items = mod.collect_local_endpoints(force=True)
+    resources = {item["resource"] for item in items}
+    assert "USB0::0x0A69::0x084B::SN::INSTR" in resources
+    assert "TCPIP0::192.168.40.10::2101::INSTR" in resources
+    assert all(item["resource"] != "未发现可连接设备" for item in items)
+
+    mod.remember_scanned_resources(["未发现可连接设备"])
+    again = mod.collect_local_endpoints(force=True)
+    assert {item["resource"] for item in again} == resources
 
 
 def test_serialcomm_missing_key_is_empty_not_error(monkeypatch):

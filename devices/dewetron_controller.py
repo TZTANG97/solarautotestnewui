@@ -420,7 +420,8 @@ class DewetronController:
                    export_fields=None, decimal_places=None, realtime_waveform=None,
                    harmonic_enabled=None, max_harmonic_order=None, thd_order=None, grouping_type=None,
                    multi_file_storage=None, split_by_time=None, split_time=None,
-                   create_subfolder=None, input_before_store=None):
+                   create_subfolder=None, input_before_store=None,
+                   channel_scale_factors=None):
         """根据 UI 设置修改 XML 配置字符串。
 
         Args:
@@ -444,6 +445,8 @@ class DewetronController:
                           需要 channel_id_map 来将 ShortId 映射到 ChannelID。
             decimal_places: 导出小数位数 (如 3, 6)，为 None 时不修改。对应 EXPORT_VALUE_PRECISION。
             realtime_waveform: 实时波形开关 (True/False)，为 None 时不修改。对应 WAVEFORM。
+            channel_scale_factors: 模拟通道比例系数，键为 AI 1/U1 或 AI 1/l1，
+                写入该通道 Neon/PhysicalScaleFactor。为 None 或空时不修改。
         Returns:
             修改后的 XML 字符串
         """
@@ -860,6 +863,10 @@ class DewetronController:
             print(f"[DEWETRON] {label} -> {val}")
         if not file_replacements:
             print("[DEWETRON] 文件设置无需修改（已与 UI 一致）")
+
+        if channel_scale_factors:
+            from utils.dewetron_channel_scale import apply_physical_scale_factors
+            xml = apply_physical_scale_factors(xml, channel_scale_factors)
 
         return xml
 

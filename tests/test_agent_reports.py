@@ -37,7 +37,8 @@ def test_collect_includes_recent_csv(tmp_path: Path) -> None:
         job_id,
         {"status": "success", "result_summary": {"elapsed_sec": 30}},
     )
-    csv_dir = tmp_path / "command_save_files" / "command_data"
+    # 结案只扫本任务目录，避免误收其它 job 的 CSV
+    csv_dir = tmp_path / "command_save_files" / "command_data" / f"sim_job_{job_id}"
     csv_dir.mkdir(parents=True)
     recent = csv_dir / "wt_run.csv"
     recent.write_text("a,b\n1,2\n", encoding="utf-8")
@@ -48,6 +49,37 @@ def test_collect_includes_recent_csv(tmp_path: Path) -> None:
     )
     names = {p.name for p in files}
     assert "wt_run.csv" in names
+
+
+def test_collect_includes_staticqu_wt_save_csv(tmp_path: Path) -> None:
+    """静态QU 连续录波在 wt_save/QU_curve*.csv，须能被结案收集。"""
+    import os
+    import time
+
+    job_id = 77
+    write_result(
+        tmp_path,
+        job_id,
+        {
+            "status": "success",
+            "result_summary": {"elapsed_sec": 420, "testType": "静态QU"},
+        },
+    )
+    wt = tmp_path / "wt_save"
+    wt.mkdir(parents=True)
+    csv = wt / "QU_curve.csv"
+    csv.write_text("t,U,Q\n1,230,0\n", encoding="utf-8")
+    old = wt / "QU_curve_old.csv"
+    old.write_text("t,U,Q\n0,0,0\n", encoding="utf-8")
+    os.utime(old, (time.time() - 86400, time.time() - 86400))
+    files = collect_report_files(
+        tmp_path,
+        job_id,
+        {"result_summary": {"elapsed_sec": 420, "testType": "静态QU"}},
+    )
+    names = {p.name for p in files}
+    assert "QU_curve.csv" in names
+    assert "QU_curve_old.csv" not in names
 
 
 def test_collect_includes_recent_flicker_image(tmp_path: Path) -> None:

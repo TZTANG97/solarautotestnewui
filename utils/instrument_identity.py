@@ -71,6 +71,14 @@ def is_resource_like_serial(value: str) -> bool:
     return False
 
 
+def _resource_has_port(resource: str, port: int) -> bool:
+    res = resource or ""
+    token = ":%s" % int(port)
+    if res.endswith(token):
+        return True
+    return re.search(re.escape(token) + r"(?:\D|$)", res) is not None
+
+
 def display_brand(brand: str) -> str:
     raw = (brand or "").strip()
     if not raw:
@@ -128,7 +136,13 @@ def infer_brand(*, kind: str, resource: str, brand: str = "", idn: str = "", mod
     res = (resource or "").strip()
     res_u = res.upper()
     if kind_l in ("ac", "dc"):
-        if re.search(r":502(?:\D|$)", res) or res.endswith(":502"):
+        # 502 同时是爱科交流 Modbus 和蓝点直流 Modbus。直流 502 不能猜成爱科。
+        # 爱科直流默认 30000。已写入的 brand 在函数开头就返回，不会走到这里。
+        if kind_l == "ac" and _resource_has_port(res, 502):
+            return "ITECH"
+        if kind_l == "dc" and _resource_has_port(res, 502):
+            return "Bluesight"
+        if kind_l == "dc" and _resource_has_port(res, 30000):
             return "ITECH"
         if "TCPIP" in res_u or "::INSTR" in res_u:
             return "CHROMA"

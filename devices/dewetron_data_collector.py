@@ -4,7 +4,7 @@
 支持闪变、谐波等多测试项目复用，支持版本回溯。
 
 数据库路径: database/db.sqlite（固定）
-初始化脚本: database/init.sql（启动时自动检查）
+初始化脚本: database/init.sql；安装包未带该文件时使用本模块内置建表语句
 
 用法:
     from devices.dewetron_data_collector import DewetronDataCollector, init_database
@@ -66,21 +66,95 @@ def _ensure_column(conn, table_name, column_name, definition):
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
 
 
+# 与 database/init.sql 保持一致。发布包排除整个 database 目录，
+# 增量更新只同步 stage 里已有的文件，不会补上 init.sql。
+_EMBEDDED_INIT_SQL = """
+PRAGMA busy_timeout = 5000;
+
+CREATE TABLE IF NOT EXISTS de_test_batch (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_uid TEXT UNIQUE NOT NULL,
+    test_type TEXT NOT NULL,
+    total_versions INTEGER DEFAULT 0,
+    start_time TEXT,
+    end_time TEXT,
+    save_path TEXT
+);
+
+CREATE TABLE IF NOT EXISTS de_test_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER NOT NULL,
+    version INTEGER NOT NULL,
+    start_time TEXT,
+    end_time TEXT,
+    total_rows INTEGER DEFAULT 0,
+    csv_header TEXT,
+    UNIQUE(batch_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS de_commands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    device TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    command TEXT NOT NULL,
+    param1 TEXT,
+    param2 TEXT,
+    param3 TEXT,
+    param4 TEXT,
+    param5 TEXT,
+    param6 TEXT,
+    param7 TEXT,
+    raw_row TEXT,
+    wait_time INTEGER DEFAULT 0,
+    executed INTEGER DEFAULT 0,
+    execute_time TEXT,
+    execute_result TEXT,
+    FOREIGN KEY (run_id) REFERENCES de_test_runs(id)
+);
+
+CREATE TABLE IF NOT EXISTS de_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    seq INTEGER,
+    time REAL,
+    channel_values TEXT,
+    FOREIGN KEY (run_id) REFERENCES de_test_runs(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_de_test_runs_batch_id ON de_test_runs(batch_id);
+CREATE INDEX IF NOT EXISTS idx_de_data_run_id ON de_data(run_id);
+CREATE INDEX IF NOT EXISTS idx_de_test_batch_uid ON de_test_batch(batch_uid);
+CREATE INDEX IF NOT EXISTS idx_de_commands_run_id ON de_commands(run_id);
+CREATE INDEX IF NOT EXISTS idx_de_commands_executed ON de_commands(executed);
+"""
+
+
+def _load_init_script(init_sql_path):
+    """读取 init.sql；文件不在安装目录时使用内置建表语句。"""
+    if init_sql_path and os.path.isfile(init_sql_path):
+        with open(init_sql_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    print(f"[DB] {init_sql_path} 不存在，使用内置建表语句")
+    return _EMBEDDED_INIT_SQL
+
+
 def init_database(db_path=None, init_sql_path=None):
-    """初始化或非破坏性迁移 SQLite 数据库。"""
+    """初始化或非破坏性迁移 SQLite 数据库。
+
+    缺少 database/init.sql 时仍建库。安装包排除 database 目录，
+    增量更新不会把 init.sql 同步到已安装的工控机。
+    """
     db_path = db_path or DB_PATH
     init_sql_path = init_sql_path or INIT_SQL_PATH
     os.makedirs(os.path.dirname(db_path) or '.', exist_ok=True)
 
-    if not os.path.exists(init_sql_path):
-        print(f"[DB] 错误: {init_sql_path} 不存在")
-        return False
-
     try:
+        script = _load_init_script(init_sql_path)
         with sqlite3.connect(db_path) as conn:
             conn.execute('PRAGMA busy_timeout=5000')
-            with open(init_sql_path, 'r', encoding='utf-8') as f:
-                conn.executescript(f.read())
+            conn.executescript(script)
 
             # 仅添加缺失列；不删除、不重命名，也不重建现有表。
             migration_columns = {

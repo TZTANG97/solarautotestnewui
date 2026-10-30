@@ -37,6 +37,17 @@ def test_tcpip_ac_chroma_sat_serial():
     assert "192.168" not in seq
 
 
+def test_ac_port_502_is_itech_dc_port_502_is_bluesight():
+    assert infer_brand(kind="ac", resource="192.168.40.210:502") == "ITECH"
+    assert infer_brand(kind="dc", resource="192.168.40.12:502") == "Bluesight"
+    assert infer_brand(kind="dc", resource="TCPIP0::192.168.40.12::502::INSTR") == "Bluesight"
+    assert infer_brand(kind="dc", resource="192.168.40.12:30000") == "ITECH"
+    # 桌面已经写了品牌时，端口不能再把蓝点改成爱科
+    assert infer_brand(kind="dc", resource="192.168.40.12:502", brand="bluesight") == "Bluesight"
+    assert infer_brand(kind="dc", resource="192.168.40.12:502", brand="itech") == "ITECH"
+    assert infer_brand(kind="ac", resource="192.168.40.210:502", brand="itech") == "ITECH"
+
+
 def test_dew_ip_not_used_as_serial():
     seq = infer_serial(
         kind="dew",

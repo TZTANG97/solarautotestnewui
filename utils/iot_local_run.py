@@ -175,6 +175,135 @@ def _do_done(job_id: int, aborted: bool) -> None:
                 _state["exper_id"] = None
 
 
+def clear_status_job_binding() -> None:
+    """去掉 status.json 上的任务号，避免心跳继续把新进度写到上一单。"""
+    with _lock:
+        _state["job_id"] = None
+        _state["exper_id"] = None
+    try:
+        path = _repo_root() / "status.json"
+        if not path.is_file():
+            return
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return
+        proj = data.get("project")
+        if not isinstance(proj, dict):
+            return
+        proj.pop("jobId", None)
+        proj.pop("job_id", None)
+        proj.pop("experId", None)
+        data["project"] = proj
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        logger.debug("清除 status.json 任务号失败", exc_info=True)
+
+
+def _local_run_flag() -> str:
+    try:
+        import SCPITestWave as sw
+
+        return str(getattr(sw, "strTestStatusFlag", "") or "").strip()
+    except Exception:
+        return ""
+
+
+def desktop_run_in_progress() -> bool:
+    """本机命令队列仍在跑（含暂停）时，禁止新开/强结上一单。"""
+    return _local_run_flag() in ("运行", "暂停")
+
+
+def _status_json_project() -> Dict[str, Any]:
+    try:
+        path = _repo_root() / "status.json"
+        if not path.is_file():
+            return {}
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        proj = raw.get("project") if isinstance(raw, dict) else None
+        return dict(proj) if isinstance(proj, dict) else {}
+    except Exception:
+        return {}
+
+
+def release_previous_cloud_job_for_new_round() -> Optional[int]:
+    """桌面不在跑、且不是云端这次交接本身时，结案仍挂着的上一云任务。
+
+    本机仍在「运行/暂停」或 status.json 仍是进行中时，绝不强结成功——
+    否则中途追加再点开始会把还在跑的上一单（如静态QU）误标成成功。
+    """
+    try:
+        import SCPITestWave as sw
+
+        svc = getattr(sw, "_iot_ui_handoff_svc", None)
+    except Exception:
+        svc = None
+    if desktop_run_in_progress():
+        return None
+    proj = _status_json_project()
+    local_status = str(proj.get("status") or "").strip()
+    if local_status in ("进行中", "暂停", "运行"):
+        logger.info(
+            "跳过结案上一云任务：status.json 仍为 %s（本机队列未真正结束）",
+            local_status,
+        )
+        return None
+    if svc is not None and getattr(svc, "_job_ctx", None):
+        return None
+    job_id = None
+    if svc is not None and hasattr(svc, "finish_awaiting_as_new_round"):
+        try:
+            job_id = svc.finish_awaiting_as_new_round()
+        except Exception:
+            logger.info("结案上一云任务失败", exc_info=True)
+            job_id = None
+    if not job_id:
+        job_id = _job_id_from_status_json()
+        if job_id:
+            aborted = local_status in ("已中止", "失败", "中止")
+            try:
+                from agent.job_inbox import write_result
+
+                write_result(
+                    _repo_root(),
+                    int(job_id),
+                    {
+                        "status": "aborted" if aborted else "success",
+                        "fail_reason": "台架本地中止" if aborted else "",
+                        "result_summary": {
+                            "note": (
+                                "本机已另行开测，上一云任务按中止结案"
+                                if aborted
+                                else "本机已另行开测，上一云任务按完成结案"
+                            ),
+                        },
+                    },
+                )
+            except Exception:
+                logger.debug("写上一云任务结果失败", exc_info=True)
+            threading.Thread(
+                target=_do_done,
+                args=(int(job_id), bool(aborted)),
+                daemon=True,
+                name="iot-close-previous-job",
+            ).start()
+    clear_status_job_binding()
+    return int(job_id) if job_id else None
+
+
+def handoff_start_in_progress() -> bool:
+    """云端交接正在调用开始试验。此时不要再登记一条本地任务。"""
+    try:
+        import SCPITestWave as sw
+
+        svc = getattr(sw, "_iot_ui_handoff_svc", None)
+        if svc is None:
+            return False
+        ctx = getattr(svc, "_job_ctx", None)
+        return isinstance(ctx, dict) and int(ctx.get("job_id") or 0) > 0
+    except Exception:
+        return False
+
+
 def notify_local_run_started(
     test_name: str,
     widgets: Optional[Dict[str, Any]] = None,
@@ -188,13 +317,27 @@ def notify_local_run_started(
     widgets / run_commands / blockly_* 应来自本机当前局实际 Dialog 与 strArrayTest，
     一并上报供 IOT 实验 Blockly 与步骤快照使用。
     """
-    if handoff_has_awaiting_job():
-        logger.info("[iot_local_run] handoff 任务进行中，跳过本地登记")
+    if handoff_start_in_progress():
+        logger.info("[iot_local_run] handoff 正在开测，跳过本地登记")
         return
-    with _lock:
-        if _state.get("job_id"):
-            # 上一局未结案又开新测：仍报新 start，服务端会中止上一局 local_ui
-            pass
+    # 中途追加后再点开始：命令已在同一 RunProject 队列里继续跑，
+    # 绝不能再 local_run_start，否则服务端会把还在跑的上一单结掉。
+    if desktop_run_in_progress():
+        jid = current_local_job_id() or _job_id_from_status_json()
+        logger.info(
+            "[iot_local_run] 本机仍在执行中，跳过新开任务（保持 job #%s）",
+            jid or "?",
+        )
+        _ui_log(
+            f"[IOT] 试验仍在执行中，追加项并入当前任务"
+            f"{f' #{jid}' if jid else ''}，不新开一单"
+        )
+        return
+    # 只剩上一单的等待结案：先结掉，这次开始才是新任务
+    try:
+        release_previous_cloud_job_for_new_round()
+    except Exception:
+        logger.debug("开测前结案上一云任务跳过", exc_info=True)
     name = (test_name or "").strip() or "本地实验"
     try:
         from utils.iot_run_upload import enrich_widgets_for_upload
@@ -213,8 +356,34 @@ def notify_local_run_started(
     ).start()
 
 
+def adopt_cloud_job(job_id: int, exper_id: Optional[int] = None) -> None:
+    """云端任务开跑：丢掉上一单本地号，立刻把 status.json 写成这一单。
+
+    否则心跳仍读到上一单（例如 67），当前单 69 的远程中止和结案会对不上。
+    """
+    try:
+        jid = int(job_id)
+    except (TypeError, ValueError):
+        return
+    if jid <= 0:
+        return
+    with _lock:
+        prev = _state.get("job_id")
+        try:
+            prev_id = int(prev) if prev else 0
+        except (TypeError, ValueError):
+            prev_id = 0
+        if prev_id and prev_id != jid:
+            _state["job_id"] = None
+            _state["exper_id"] = None
+    _persist_local_job_ids(jid, exper_id)
+
+
 def notify_local_run_finished(*, aborted: bool = False) -> None:
     """试验正常结束或中止时结案；无登记则静默。"""
+    if handoff_has_awaiting_job():
+        logger.info("[iot_local_run] handoff 等待结案，跳过本地 done，避免结到上一单")
+        return
     with _lock:
         jid = _state.get("job_id")
     if not jid:

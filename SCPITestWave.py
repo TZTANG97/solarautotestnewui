@@ -132,7 +132,12 @@ from utils.static_mppt_commands import (
     build_static_mppt_bluesight_plan,
     is_bluesight_mode,
 )
-from utils.ac_scpi_commands import append_ac_startup_from_ui, append_volt_set, append_freq_set
+from utils.ac_scpi_commands import (
+    append_ac_startup_from_ui,
+    append_freq_set,
+    append_legacy_three_phase_setpoints,
+    append_volt_set,
+)
 from devices.scpi_common import _configure_scpi_resource
 from devices.ac_controller import ACController, _normalize_chroma_ac_write
 from devices.dc_controller import DCController, send_dc_test_message
@@ -718,7 +723,15 @@ def SaveDEWETRONConfig(silent=False):
     acquisition_rate = uiDewetronSetting.comboBox_maxRefreshRate.currentText()
     downsampling = uiDewetronSetting.comboBox_downsampling.currentText()
     frequency_channel = uiDewetronSetting.comboBox_frequencyChannel.currentText()
+    scale_factors = {}
+    if hasattr(uiDewetronSetting, "channel_scale_factors"):
+        try:
+            scale_factors = dict(uiDewetronSetting.channel_scale_factors() or {})
+        except Exception:
+            scale_factors = {}
     _log(f"用户选择 - 输入通道: {frequency_channel}, 最大刷新率: {acquisition_rate}, 通道二次采样: {downsampling}")
+    if scale_factors:
+        _log(f"比例系数: {scale_factors}")
 
     base_dir = os.path.dirname(os.path.abspath(__file__))
     bootstrap_path = os.path.join(base_dir, 'config_files', 'dewetron.xml')
@@ -811,7 +824,8 @@ def SaveDEWETRONConfig(silent=False):
     # 4. 修改 XML（使用设备原始 InputChannels 映射）
     modified_xml = DewetronController.modify_xml(xml_string, wiring_type, channel_map, channel_id_map, input_channels,
                                                  acquisition_rate=acquisition_rate, downsampling=downsampling,
-                                                 frequency_channel=frequency_channel)
+                                                 frequency_channel=frequency_channel,
+                                                 channel_scale_factors=scale_factors or None)
     _log(f"XML已修改: {len(modified_xml)} 字符")
 
     # 4. 保存到本机德威创目录（按小时命名）
@@ -1129,20 +1143,127 @@ def _save_device_status(device_name, connected, resource="", extra=None):
 
 
 
-def _ac_status_extra():
-    """交流源当前电压/频率写入 status.json，供 IOT 台架卡片实时展示。"""
+def _widget_plain(widget) -> str:
+    if widget is None:
+        return ""
     try:
-        from utils.status_json_devices import read_ac_ui_snapshot
+        if hasattr(widget, "toPlainText"):
+            return str(widget.toPlainText() or "").strip()
+        if hasattr(widget, "currentText"):
+            return str(widget.currentText() or "").strip()
+        if hasattr(widget, "text"):
+            return str(widget.text() or "").strip()
+    except Exception:
+        return ""
+    return ""
 
-        return read_ac_ui_snapshot(globals().get("uiACSetting"))
+
+def _dc_brand_raw(idx: int) -> str:
+    """当前直流槽位品牌：连接后的 per_dc_factor，否则面包屑设备类型。"""
+    factors = globals().get("per_dc_factor") or {}
+    raw = factors.get(str(idx))
+    if raw is None:
+        raw = factors.get(idx)
+    text = str(raw or "").strip()
+    if text:
+        return text
+    type_names = ("_dc1_device_type", "_dc2_device_type", "_dc3_device_type", "_dc4_device_type")
+    if 0 <= int(idx) < len(type_names):
+        return str(globals().get(type_names[int(idx)]) or "").strip()
+    return ""
+
+
+def _read_dc1_bluesight_page():
+    """蓝点 DC1 页当前模式和数值。没有该页时返回 None。"""
+    ref = globals().get("_dc1_bs_ref")
+    if not isinstance(ref, dict):
+        return None
+    try:
+        mode_idx = int(ref["combo_mode"].currentIndex())
+    except Exception:
+        return None
+    page = {"mode": "sas" if mode_idx == 1 else "original"}
+    try:
+        page["pmpp_kw"] = float(ref["sp_pmpp"].value())
+        page["umpp_v"] = float(ref["sp_umpp"].value())
+        page["ff"] = float(ref["sp_ff"].value())
+    except Exception:
+        pass
+    if mode_idx != 0:
+        return page
+    try:
+        idx_o = int(ref["combo_outmode"].currentIndex())
+        names = ("cv", "cc", "cp", "cr")
+        page["outmode"] = names[idx_o] if 0 <= idx_o < len(names) else "cv"
+        from PyQt5.QtWidgets import QDoubleSpinBox
+
+        spins = ref["params_stack"].widget(idx_o).findChildren(QDoubleSpinBox)
+        vals = []
+        for spin in spins:
+            try:
+                vals.append(float(spin.value()))
+            except Exception:
+                continue
+        if page["outmode"] == "cv" and vals:
+            page["voltage_v"] = vals[0]
+        elif page["outmode"] == "cc" and vals:
+            page["current_a"] = vals[0]
+        elif page["outmode"] == "cp" and vals:
+            page["power_kw"] = vals[0]
+    except Exception:
+        pass
+    return page
+
+
+def _read_dc1_itech_iv():
+    ref = globals().get("_dc1_itech_ref")
+    if not isinstance(ref, dict):
+        return {}
+    return {
+        "vmp": _widget_plain(ref.get("textEdit_Vmp")),
+        "voc": _widget_plain(ref.get("textEdit_Voc")),
+        "imp": _widget_plain(ref.get("textEdit_Imp")),
+        "isc": _widget_plain(ref.get("textEdit_Isc")),
+        "pf": _widget_plain(ref.get("textEdit_PF")),
+    }
+
+
+def _ac_status_extra():
+    """交流源当前品牌页的电压/频率写入 status.json。爱科不读致茂页。"""
+    try:
+        from utils.status_json_devices import ac_connection_extra, canonical_reported_brand
+
+        brand = canonical_reported_brand(str(globals().get("_ac_current_brand") or ""))
+        if brand == "itech":
+            ref = globals().get("_ac_itch_ref")
+            ref = ref if isinstance(ref, dict) else {}
+            return ac_connection_extra(
+                brand="itech",
+                voltage=_widget_plain(ref.get("textEdit_VOLT")),
+                frequency=_widget_plain(ref.get("textEdit_FR")),
+                phase=_widget_plain(ref.get("combo_phase")),
+            )
+        ui_ac = globals().get("uiACSetting")
+        phase = _widget_plain(getattr(ui_ac, "comboBox_Phase", None) if ui_ac is not None else None)
+        return ac_connection_extra(
+            brand=brand or "chroma",
+            voltage=_widget_plain(getattr(ui_ac, "textEdit_AC_VOLT", None) if ui_ac is not None else None),
+            frequency=_widget_plain(getattr(ui_ac, "textEdit_AC_FR", None) if ui_ac is not None else None),
+            phase=phase,
+        )
     except Exception:
         return {"measures": {}}
 
 
 def _dc_status_extra(device_name="直流电源1"):
-    """直流源当前 IV 设定 + 额定电流上限写入 status.json（供 IOT Isc 校验）。"""
+    """直流源当前品牌页 IV + 额定电流上限。蓝点读蓝点页，不拿致茂/爱科默认值。"""
     try:
-        from utils.status_json_devices import read_dc_ui_snapshot
+        from utils.status_json_devices import (
+            bluesight_iv_fields,
+            canonical_reported_brand,
+            dc_connection_extra,
+            read_dc_ui_snapshot,
+        )
 
         name = str(device_name or "")
         slot = "dc1"
@@ -1154,7 +1275,27 @@ def _dc_status_extra(device_name="直流电源1"):
             slot, ui_name, idx = "dc3", "uiDC3Setting", 2
         elif "4" in name:
             slot, ui_name, idx = "dc4", "uiDC4Setting", 3
-        snap = read_dc_ui_snapshot(globals().get(ui_name), slot=slot)
+        brand = canonical_reported_brand(_dc_brand_raw(idx))
+        if brand == "bluesight":
+            page = _read_dc1_bluesight_page() if idx == 0 else None
+            iv = bluesight_iv_fields(page or {})
+            snap = dc_connection_extra(brand=brand, iv=iv, slot=slot, force_iv=True)
+        elif brand == "itech" and idx == 0:
+            snap = dc_connection_extra(
+                brand=brand, iv=_read_dc1_itech_iv(), slot=slot, force_iv=True
+            )
+        else:
+            ui_snap = read_dc_ui_snapshot(globals().get(ui_name), slot=slot)
+            measures = ui_snap.get("measures") if isinstance(ui_snap, dict) else {}
+            measures = measures if isinstance(measures, dict) else {}
+            iv = {
+                "vmp": measures.get("vmp") or "",
+                "voc": measures.get("voc") or "",
+                "imp": measures.get("imp") or "",
+                "isc": measures.get("isc") or "",
+                "pf": measures.get("powerPercent") or "",
+            }
+            snap = dc_connection_extra(brand=brand or "chroma", iv=iv, slot=slot)
         if not isinstance(snap, dict):
             snap = {"measures": {}}
         try:
@@ -1896,6 +2037,14 @@ def _finalize_recording_file_names(file_names, *, run_tag=None, merge_previous=T
 def _init_run_progress_plan(project_name=None, status="待开始"):
     """追加完成后初始化轮次表。"""
     try:
+        running_now = str(globals().get("strTestStatusFlag") or "") in ("运行", "暂停")
+        if not running_now and str(status or "") in ("待开始", "进行中"):
+            from utils.iot_local_run import release_previous_cloud_job_for_new_round
+
+            release_previous_cloud_job_for_new_round()
+    except Exception as _rel_exc:
+        print(f"[进度] 结案上一云任务跳过: {_rel_exc}", flush=True)
+    try:
         project = project_name or (ui.comboBox_PS.currentText() if hasattr(ui, "comboBox_PS") else "")
     except Exception:
         project = project_name or ""
@@ -2261,8 +2410,19 @@ def _refresh_combo_box_with_states(combo, resources, connected_resources, curren
     finally:
         combo.blockSignals(False)
 
+def _publish_scanned_equ_list(resources):
+    """把桌面已扫到的 VISA/网口写入文件，供 Agent 心跳上报（不在心跳里打开 VISA）。"""
+    try:
+        from agent.local_endpoints import remember_scanned_resources
+
+        remember_scanned_resources(list(resources or []))
+    except Exception:
+        pass
+
+
 def _refresh_all_equ_combo_boxes(resources, connected_resources):
     """统一刷新所有设备下拉框状态。"""
+    _publish_scanned_equ_list(resources)
     combo_names = [
         "comboBox_AC",
         "comboBox_DC1",
@@ -3381,6 +3541,13 @@ def _apply_dewetron_widgets_to_setting_ui(widgets: dict) -> None:
                 dew_ui._highlight_bound_channels()
         except Exception as exc:
             print(f"[DEWETRON] apply channel_map failed: {exc}", flush=True)
+
+    scales = widgets.get("dew_channel_scales")
+    if isinstance(scales, dict) and hasattr(dew_ui, "set_channel_scale_factors"):
+        try:
+            dew_ui.set_channel_scale_factors(scales)
+        except Exception as exc:
+            print(f"[DEWETRON] apply channel scales failed: {exc}", flush=True)
 
 
 @_with_device_ui_busy("ConnectEQUDEWETRON")
@@ -4747,6 +4914,20 @@ def _sync_start_end_buttons():
             )
     except Exception:
         pass
+
+def _bump_wt_config_nums():
+    """跨项追加计数。未初始化时从 1 起，避免 NameError 停在「开始生成命令」。"""
+    global wt_config_nums
+    try:
+        current = wt_config_nums
+    except NameError:
+        current = 0
+    try:
+        wt_config_nums = int(current or 0) + 1
+    except (TypeError, ValueError):
+        wt_config_nums = 1
+    return wt_config_nums
+
 
 def _force_iot_overwrite_append():
     """云开测「自动开跑」追加前强制覆盖：清零计数并清空命令队列。
@@ -7747,7 +7928,7 @@ def thaichonglianSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
     #     strArraySingle = ["" for _ in range(10)]
@@ -8417,7 +8598,7 @@ def thaixiebodianliuSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
         
     strArrayTestStep = []
     # 交流源相数
@@ -10222,7 +10403,7 @@ def thaifixedpfSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 20
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if uiThaiFixedPF.checkBox_S2.isChecked() and (not _fixedpf_dew_mode):
         WT_is_checked = '1'
@@ -10815,7 +10996,7 @@ def thaireactiveQcapSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         from utils.wt_recording_mode import dedupe_errors
@@ -11028,7 +11209,7 @@ def thaifixedQSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -11235,7 +11416,7 @@ def thaireactiveQaccSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -11442,7 +11623,7 @@ def thaireactiveQinSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -11649,7 +11830,7 @@ def thaiactivePSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -11853,7 +12034,7 @@ def thaiantibackflowSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -12068,7 +12249,7 @@ def thaioverloadsSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
         
     strArrayTestStep = []
     # 交流源相数
@@ -12685,7 +12866,7 @@ def thaizhiliufenliangSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     strArrayTestStep = []
     DCPF_VALUE_LIST = []
@@ -13409,13 +13590,26 @@ def thaistaticQUAppend():
     if snapshot is not None:
         snapshot['previous_setting_flag'] = _prev_setting
     before_count = staticQU_append_count
-    thaistaticQUSend()
+    _seg = 0 if strAddTestFlag == "0" else len(strArrayTest)
+    try:
+        thaistaticQUSend()
+    except Exception as exc:
+        if strAddTestFlag == "0":
+            strArrayTest[:] = []
+        elif isinstance(strArrayTest, list) and _seg <= len(strArrayTest):
+            del strArrayTest[_seg:]
+        staticQU_append_count = before_count
+        uiThaiStaticQU.label_append_count.setText(str(before_count))
+        ui.textEdit_ReturnMessage.append(f"[静态QU] 生成命令失败: {exc}")
+        _sync_start_end_buttons()
+        return
     if not _normalize_generated_dewetron_rows('静态QU', snapshot):
         staticQU_append_count = before_count
         uiThaiStaticQU.label_append_count.setText(str(before_count))
         _sync_start_end_buttons()
     else:
         commit_append_if_success(globals(), '静态QU', _prev_setting)
+        ui.textEdit_ReturnMessage.append("[静态QU] 命令已生成")
 
 def thaistaticQUSend():
     global uiThaiStaticQU,dialog_windowstaticQU,strArrayTest,Ui_Dialog_thaiStaticQU
@@ -13459,9 +13653,10 @@ def thaistaticQUSend():
         strArraySingle[0] = "AC"
         strArraySingle[1] = "wait"
         strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
+        strArraySingle[9] = 50
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
+        ui.textEdit_ReturnMessage.append("[静态QU] 跨项间隔 5 秒后继续")
 
     strArrayTestStep = []
     strArraySingle = ["" for _ in range(10)]
@@ -13718,39 +13913,23 @@ def thaistaticQUSend():
             base_un3 = base_un
 
         def _append_ladder_volt(pct):
+            # 爱科等同压三相：必须 EDIT ALL + 一次 VOLT。
+            # 旧逻辑 INST:NSEL 逐相改压时，源会短暂掉回启机标称 230，CSV 里就像「反复跳回 230」。
             volt1 = round(base_un * pct / 100.0, 2)
             volt2 = round(base_un2 * pct / 100.0, 2)
             volt3 = round(base_un3 * pct / 100.0, 2)
-            step_cmds = []
+            before = len(strArrayTest)
             if S1ACEACHStatus == "单相":
-                for cmd in (f"VOLT {volt1}", f"FREQ {ladder_fr}"):
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = cmd
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
+                append_volt_set(strArrayTest, "单相", volt1)
+                append_freq_set(strArrayTest, "单相", ladder_fr)
+            elif abs(volt1 - volt2) < 1e-9 and abs(volt1 - volt3) < 1e-9:
+                append_volt_set(strArrayTest, "三相", volt1, edit_all=True)
+                append_freq_set(strArrayTest, "三相", ladder_fr, edit_all=True)
             else:
-                for nsel, vv in ((1, volt1), (2, volt2), (3, volt3)):
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = f"INST:NSEL {nsel}"
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = f"VOLT {vv}"
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = f"FREQ {ladder_fr}"
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
-            return step_cmds
+                append_legacy_three_phase_setpoints(
+                    strArrayTest, volt1, volt2, volt3, ladder_fr
+                )
+            return strArrayTest[before:]
 
         # 连续录：首点 ASYNC_START，中间只改压+驻留，末点 WAIT_END → 单文件 QU_curve
         for idx, pct in enumerate(u_pct_list):
@@ -14170,13 +14349,32 @@ def thaidynamicQUAppend():
     if snapshot is not None:
         snapshot['previous_setting_flag'] = _prev_setting
     before_count = dynamicQU_append_count
-    thaidynamicQUSend()
+    _seg = 0 if strAddTestFlag == "0" else len(strArrayTest)
+    try:
+        thaidynamicQUSend()
+    except Exception as exc:
+        if strAddTestFlag == "0":
+            strArrayTest[:] = []
+        elif isinstance(strArrayTest, list) and _seg <= len(strArrayTest):
+            del strArrayTest[_seg:]
+        dynamicQU_append_count = before_count
+        uiThaiDynamicQU.label_append_count.setText(str(before_count))
+        ui.textEdit_ReturnMessage.append(f"[动态QU] 生成命令失败: {exc}")
+        _sync_start_end_buttons()
+        return
     if not _normalize_generated_dewetron_rows('动态QU', snapshot):
         dynamicQU_append_count = before_count
         uiThaiDynamicQU.label_append_count.setText(str(before_count))
         _sync_start_end_buttons()
     else:
         commit_append_if_success(globals(), '动态QU', _prev_setting)
+        try:
+            from utils.test_ui_preset import remember_voltage_ladder
+
+            remember_voltage_ladder("动态QU", uiThaiDynamicQU)
+        except Exception:
+            pass
+        ui.textEdit_ReturnMessage.append("[动态QU] 命令已生成")
 
 
 def thaidynamicQUSend():
@@ -14235,7 +14433,7 @@ def thaidynamicQUSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -14243,15 +14441,21 @@ def thaidynamicQUSend():
     else:
         wt_rounds = int(plan.get("wt_rounds") or 0)
         if plan.get("wt_is_checked") == "1" and wt_rounds > 0:
+            cfg_rows = [
+                cfg_row for cfg_row in strArrayTest
+                if cfg_row and len(cfg_row) > 4 and cfg_row[0] == "Upper_WT_Config"
+                and isinstance(cfg_row[4], dict)
+            ]
+            target_cfg = cfg_rows[-1] if cfg_rows else None
             existing_names = []
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    existing_names = [
-                        p.strip()
-                        for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                        if p.strip()
-                    ]
-                    break
+            if target_cfg is not None:
+                existing_names = [
+                    p.strip()
+                    for p in re.split(
+                        r"[,，]", str(target_cfg[4].get("textEdit_FileNameList") or "")
+                    )
+                    if p.strip()
+                ]
             if not existing_names:
                 try:
                     for page_idx in range(uiThaiDynamicQU._wtStacked.count()):
@@ -14274,13 +14478,11 @@ def thaidynamicQUSend():
             hh, rem = divmod(stop_sec, 3600)
             mm, ss = divmod(rem, 60)
             stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            if target_cfg is not None:
+                target_cfg[4]["textEdit_FileNameList"] = file_list_text
+                target_cfg[4]["textEdit_StopTime"] = stop_str
+                if target_cfg[4].get("comboBox_AutoSave", 0) == 0:
+                    target_cfg[4]["comboBox_AutoSave"] = 1
             try:
                 for page_idx in range(uiThaiDynamicQU._wtStacked.count()):
                     page = uiThaiDynamicQU._wtStacked.widget(page_idx)
@@ -14296,9 +14498,11 @@ def thaidynamicQUSend():
             except Exception as e:
                 _append_debug_log(f"[dynamicQU] update WT FileNameList failed: {e}")
             total_save_file = total_save_file + 1
+            n_powers = len(plan.get("power_levels") or []) or 1
             ui.textEdit_ReturnMessage.append(
                 f"[动态QU] 连续录 1 条 {file_list_text}，"
-                f"电压 {len(plan.get('u_pct_list') or [])} 点，StopTime {stop_str}"
+                f"电压 {len(plan.get('u_pct_list') or [])} 点，"
+                f"功率 {n_powers} 档，StopTime {stop_str}"
             )
 
         strtimenow = now_to_datenow()
@@ -14442,7 +14646,7 @@ def thaistaticcosPhiSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     strArrayTestStep = []
     strArraySingle = ["" for _ in range(10)]
@@ -14661,10 +14865,10 @@ def thaistaticcosPhiSend():
     fS3SetTime = float(S3_TIME_VALUE)
     fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
 
-    # 功率阶梯外循环 × 已勾选 cosφ 内循环；按 WT「连续录/分开录」分支
+    # 功率阶梯有几段跑几段；留空才走勾选的 cosφ。按 WT「连续录/分开录」分支
     from utils.wt_recording_mode import MODE_CONTINUOUS
     from utils.matrix_recording_commands import get_record_mode, row_wt_async_marker
-    from utils.static_cosphi_recording import plan_stop_and_names, stoptime_hhmmss
+    from utils.static_cosphi_recording import _power_levels, plan_stop_and_names, stoptime_hhmmss
 
     _dew = getattr(uiThaiStaticCosPhi, "_mode", "wt") == "dewetron"
     wt_on = bool(uiThaiStaticCosPhi.checkBox_S2.isChecked() and not _dew)
@@ -14703,31 +14907,28 @@ def thaistaticcosPhiSend():
         (S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, "7", "8", "DC4", 3),
     ]
 
-    ladder_widget = getattr(uiThaiStaticCosPhi, "textEdit_PowerLadder", None)
-    ladder_text = ladder_widget.toPlainText().strip() if ladder_widget is not None else ""
-    if ladder_text:
-        power_levels = [p.strip() for p in re.split(r'[,，]', ladder_text) if p.strip()]
-        use_ladder = True
-    else:
-        power_levels = ["__per_card__"]
-        use_ladder = False
+    power_levels = _power_levels(uiThaiStaticCosPhi)
+    use_ladder = bool(power_levels)
 
-    # 功率档 × 全部 cosφ。各步勾选、卡片上的功率%不再决定测哪些点。
-    enabled_cos_steps = [
-        (step_num, cos_label, pf_name, dc_names)
-        for step_num, _cb_name, cos_label, pf_name, dc_names in cos_step_defs
-    ]
+    # 功率阶梯有几段就跑几段，每段一次驻留。留空才按下面勾选的 cosφ 一段一段跑。
+    enabled_cos_steps = []
+    for step_num, cb_name, cos_label, pf_name, dc_names in cos_step_defs:
+        cb = getattr(uiThaiStaticCosPhi, cb_name, None)
+        if cb is not None and hasattr(cb, "isChecked") and not cb.isChecked():
+            continue
+        enabled_cos_steps.append((step_num, cos_label, pf_name, dc_names))
 
     point_plan = []
-    for power_pct in power_levels:
+    if use_ladder:
+        dc_names = cos_step_defs[0][4]
+        for power_pct in power_levels:
+            point_plan.append((3, "pwr", "textEdit_PowerLadder", dc_names, power_pct))
+    else:
         for step_num, cos_label, pf_name, dc_names in enabled_cos_steps:
-            if use_ladder:
-                point_power = power_pct
-            else:
-                pf_widget = getattr(uiThaiStaticCosPhi, pf_name, None)
-                point_power = pf_widget.toPlainText().strip() if pf_widget is not None else "100"
-                if not point_power:
-                    point_power = "100"
+            pf_widget = getattr(uiThaiStaticCosPhi, pf_name, None)
+            point_power = pf_widget.toPlainText().strip() if pf_widget is not None else "100"
+            if not point_power:
+                point_power = "100"
             point_plan.append((step_num, cos_label, pf_name, dc_names, point_power))
 
     n_points = len(point_plan)
@@ -14775,7 +14976,10 @@ def thaistaticcosPhiSend():
         if not (wt_on and wt_continuous):
             total_save_file = total_save_file + 1
             safe_power = str(point_power).replace('%', '')
-            staticcos_file_names.append(f"P{safe_power}_{cos_label}")
+            if use_ladder:
+                staticcos_file_names.append(f"P{safe_power}")
+            else:
+                staticcos_file_names.append(f"P{safe_power}_{cos_label}")
 
     measure_names, stop_sec, n_rounds, mode_label = plan_stop_and_names(
         uiThaiStaticCosPhi,
@@ -15123,7 +15327,7 @@ def thaidynamiccosPhiSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -15329,7 +15533,7 @@ def thaicosPhiBrazilSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     strArrayTestStep = []
     strArraySingle = ["" for _ in range(10)]
@@ -16349,7 +16553,7 @@ def thaivoltprotect10minSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
     #     strArraySingle = ["" for _ in range(10)]
@@ -16975,7 +17179,7 @@ def thaiguopinjiangzaiSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
     #     strArraySingle = ["" for _ in range(10)]
@@ -17424,7 +17628,7 @@ def thaiqianpinshengzaiSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
     #     strArraySingle = ["" for _ in range(10)]
@@ -17828,6 +18032,12 @@ def thaitestPUAppend():
         _sync_start_end_buttons()
     else:
         commit_append_if_success(globals(), 'Test_PU', _prev_setting)
+        try:
+            from utils.test_ui_preset import remember_voltage_ladder
+
+            remember_voltage_ladder("Test_PU", uiThaiTestPU)
+        except Exception:
+            pass
 
 def thaitestPUSend():
     global uiThaiTestPU,dialog_windowtestPU,strArrayTest,Ui_Dialog_thaitestPU
@@ -17872,7 +18082,7 @@ def thaitestPUSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
     #     strArraySingle = ["" for _ in range(10)]
@@ -18095,145 +18305,89 @@ def thaitestPUSend():
                 wt_type = 'WT5000'
             test_program.append([test_project_now_index, wt_type])
 
-    # P(U) 电压 list：连续录一条 PU_curve（首点 ASYNC_START，末点 WAIT_END，中间只改压+驻留）
-    use_voltage_ladder = False
-    ladder_widget = getattr(uiThaiTestPU, "textEdit_VoltageLadder", None)
-    ladder_text = ladder_widget.toPlainText().strip() if ladder_widget is not None else ""
-    if ladder_text:
-        def _parse_wt_style_list(raw_text):
-            """WT/Cos 同款：逗号（或空白）分隔数字 list。"""
-            vals = []
-            for tok in re.split(r'[,，\s]+', (raw_text or "").strip()):
-                tok = tok.strip().replace("%", "")
-                if not tok or tok.startswith("#"):
-                    continue
-                try:
-                    vals.append(float(tok))
-                except ValueError:
-                    continue
-            return vals
+    # P(U)：功率档改直流后再扫电压，连续录一条 PU_curve（逻辑在 utils.test_pu_commands）
+    from utils.dc_brand_cmd_guard import resolve_dc_iv_with_bridge
+    from utils.test_pu_commands import build_pu_voltage_power_rows
 
-        use_voltage_ladder = True
-        un_w = getattr(uiThaiTestPU, "textEdit_VoltageLadder_Un", None)
-        fr_w = getattr(uiThaiTestPU, "textEdit_VoltageLadder_FR", None)
-        time_w = getattr(uiThaiTestPU, "textEdit_VoltageLadder_TIME", None)
-        time_u = getattr(uiThaiTestPU, "comboBox_VoltageLadder_TIME", None)
+    def _pu_dc_iv_bridge(vmp, imp, voc, isc, pf, dc_num):
+        return resolve_dc_iv_with_bridge(
+            vmp, imp, voc, isc, pf, dc_num,
+            get_iv_fn=DCGetIVValueFunction,
+            per_dc_factor=per_dc_factor,
+            command_list_dc=command_list_DC,
+        )
+
+    _pu_ladder = build_pu_voltage_power_rows(
+        uiThaiTestPU,
+        phase_mode=S1ACEACHStatus,
+        dc_iv_resolver=_pu_dc_iv_bridge,
+    )
+    use_voltage_ladder = bool(_pu_ladder.get("use_voltage_ladder"))
+    if not _pu_ladder.get("ok", True):
+        QMessageBox.information(
+            None, "错误提示信息", _pu_ladder.get("error") or "PU 电压阶梯无效",
+            QMessageBox.Ok, QMessageBox.Ok,
+        )
+        return
+    if _pu_ladder.get("dc_errors"):
+        QMessageBox.information(
+            None,
+            "错误提示信息",
+            "\n".join(
+                "%d. %s" % (i + 1, msg)
+                for i, msg in enumerate(_pu_ladder["dc_errors"])
+            ),
+            QMessageBox.Ok,
+            QMessageBox.Ok,
+        )
+        return
+    u_pct_list = list(_pu_ladder.get("u_pct_list") or [])
+    for _row in _pu_ladder.get("rows") or []:
+        strArrayTest.append(_row)
+    for _step in _pu_ladder.get("steps") or []:
+        strArrayTestStep.append(_step)
+    if use_voltage_ladder and u_pct_list:
+        total_save_file = total_save_file + 1
+        f_ladder_dwell = _pu_ladder.get("dwell_01s") or 0
+        n_powers = len(_pu_ladder.get("power_levels") or []) or 1
+        dwell_raw = _pu_ladder.get("dwell_raw") or ""
+        dwell_unit = _pu_ladder.get("dwell_unit") or ""
+        stop_sec = int(round(len(u_pct_list) * n_powers * (float(f_ladder_dwell) / 10.0) + 5))
+        if stop_sec < 10:
+            stop_sec = 10
+        hh, rem = divmod(stop_sec, 3600)
+        mm, ss = divmod(rem, 60)
+        stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
+        file_list_text = "PU_curve"
+        cfg_rows = [
+            cfg_row for cfg_row in strArrayTest
+            if cfg_row and len(cfg_row) > 4 and cfg_row[0] == "Upper_WT_Config"
+            and isinstance(cfg_row[4], dict)
+        ]
+        target_cfg = cfg_rows[-1] if cfg_rows else None
+        if target_cfg is not None:
+            target_cfg[4]["textEdit_FileNameList"] = file_list_text
+            target_cfg[4]["textEdit_StopTime"] = stop_str
+            if target_cfg[4].get("comboBox_AutoSave", 0) == 0:
+                target_cfg[4]["comboBox_AutoSave"] = 1
         try:
-            base_un = float((un_w.toPlainText() if un_w is not None else "") or uiThaiTestPU.textEdit_S1_AC_VOLT.toPlainText() or "230")
-        except ValueError:
-            base_un = 230.0
-        ladder_fr = (fr_w.toPlainText().strip() if fr_w is not None else "") or uiThaiTestPU.textEdit_S1_AC_FR.toPlainText().strip() or "50"
-        dwell_raw = (time_w.toPlainText().strip() if time_w is not None else "10") or "10"
-        dwell_unit = time_u.currentText() if time_u is not None else "秒"
-        f_ladder_dwell = SetTimeFunction(float(dwell_raw), dwell_unit)
-        u_pct_list = _parse_wt_style_list(ladder_text)
-        try:
-            base_un2 = float(uiThaiTestPU.textEdit_S1_AC_VOLT_2.toPlainText().strip() or base_un)
-        except ValueError:
-            base_un2 = base_un
-        try:
-            base_un3 = float(uiThaiTestPU.textEdit_S1_AC_VOLT_3.toPlainText().strip() or base_un)
-        except ValueError:
-            base_un3 = base_un
-
-        def _append_ladder_volt(pct):
-            volt1 = round(base_un * pct / 100.0, 2)
-            volt2 = round(base_un2 * pct / 100.0, 2)
-            volt3 = round(base_un3 * pct / 100.0, 2)
-            step_cmds = []
-            if S1ACEACHStatus == "单相":
-                for cmd in (f"VOLT {volt1}", f"FREQ {ladder_fr}"):
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = cmd
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
-            else:
-                for nsel, vv in ((1, volt1), (2, volt2), (3, volt3)):
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = f"INST:NSEL {nsel}"
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = f"VOLT {vv}"
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
-                    row = ["" for _ in range(10)]
-                    row[0] = "AC"
-                    row[1] = "write"
-                    row[2] = f"FREQ {ladder_fr}"
-                    strArrayTest.append(row)
-                    step_cmds.append(row)
-            return step_cmds
-
-        for idx, pct in enumerate(u_pct_list):
-            strArrayTestStepSingle = _append_ladder_volt(pct)
-            if idx == 0:
-                # 首点设压后启动 WT，整段阶梯连续录一条
-                row = ["" for _ in range(10)]
-                row[0] = "AC"
-                row[1] = "query"
-                row[2] = "*IDN?"
-                row[6] = "ASYNC_START"
-                strArrayTest.append(row)
-                strArrayTestStepSingle.append(row)
-            # 每点驻留（WT 持续录）
-            row = ["" for _ in range(10)]
-            row[0] = "AC"
-            row[1] = "wait"
-            row[2] = ""
-            row[9] = f_ladder_dwell
-            strArrayTest.append(row)
-            strArrayTestStepSingle.append(row)
-            strArrayTestStep.append(strArrayTestStepSingle)
-
-        if u_pct_list:
-            # 阶梯结束后再等 WT 停表存盘
-            row = ["" for _ in range(10)]
-            row[0] = "AC"
-            row[1] = "query"
-            row[2] = "*IDN?"
-            row[6] = "WAIT_END"
-            strArrayTest.append(row)
-            total_save_file = total_save_file + 1
-            # 停机时间覆盖：点数×驻留 + 5s 余量，避免录到一半被停
-            stop_sec = int(round(len(u_pct_list) * (f_ladder_dwell / 10.0) + 5))
-            if stop_sec < 10:
-                stop_sec = 10
-            hh, rem = divmod(stop_sec, 3600)
-            mm, ss = divmod(rem, 60)
-            stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-            file_list_text = "PU_curve"
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
-            try:
-                for page_idx in range(uiThaiTestPU._wtStacked.count()):
-                    page = uiThaiTestPU._wtStacked.widget(page_idx)
-                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
-                    if te is not None:
-                        te.setPlainText(file_list_text)
-                    st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
-                    if st is not None:
-                        st.setPlainText(stop_str)
-                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
-                    if combo is not None and combo.currentIndex() == 0:
-                        combo.setCurrentIndex(1)
-            except Exception as e:
-                _append_debug_log(f"[Test_PU] update WT continuous config failed: {e}")
-            ui.textEdit_ReturnMessage.append(
-                f"[Test_PU] 连续录 1 条 PU_curve，电压 {len(u_pct_list)} 点，"
-                f"每点驻留 {dwell_raw}{dwell_unit}，WT停机 {stop_str}"
-            )
+            for page_idx in range(uiThaiTestPU._wtStacked.count()):
+                page = uiThaiTestPU._wtStacked.widget(page_idx)
+                te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                if te is not None:
+                    te.setPlainText(file_list_text)
+                st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                if st is not None:
+                    st.setPlainText(stop_str)
+                combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                if combo is not None and combo.currentIndex() == 0:
+                    combo.setCurrentIndex(1)
+        except Exception as e:
+            _append_debug_log(f"[Test_PU] update WT continuous config failed: {e}")
+        ui.textEdit_ReturnMessage.append(
+            f"[Test_PU] 连续录 1 条 PU_curve，电压 {len(u_pct_list)} 点，"
+            f"功率 {n_powers} 档，每点驻留 {dwell_raw}{dwell_unit}，WT停机 {stop_str}"
+        )
 
     # step3..22 legacy（电压 list 为空时）
     if (not use_voltage_ladder) and uiThaiTestPU.checkBox_S3.isChecked():
@@ -18902,7 +19056,7 @@ def thaiguoqianya_pinSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
     #     strArraySingle = ["" for _ in range(10)]
@@ -21193,7 +21347,7 @@ def thaiguoqianpin_immunSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 3000
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
     #     strArraySingle = ["" for _ in range(10)]
@@ -22351,7 +22505,7 @@ def thaistaticMPPTtestSend():
         else:
             test_program.extend(plan["test_program"])
         if strAddTestFlag == '1' and project_change == '1':
-            wt_config_nums = wt_config_nums + 1
+            wt_config_nums = _bump_wt_config_nums()
 
         file_names = plan.get("file_names") or []
         if plan.get("wt_is_checked") == "1" and file_names:
@@ -22455,7 +22609,7 @@ def thaistaticMPPTtestSend():
         strArraySingle[2] = S1Command
         strArraySingle[9] = 1800
         strArrayTest.append(strArraySingle)
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     DC_port_list = []
     strArrayTestStep = []
@@ -22957,7 +23111,7 @@ def thaifrequencyadaptabilitySend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -23189,7 +23343,7 @@ def thaivoltageadaptabilitySend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -23447,7 +23601,7 @@ def thairocofSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -23679,7 +23833,7 @@ def thairapidvoltSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -23898,7 +24052,7 @@ def thailvrtSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -24018,7 +24172,7 @@ def thaiphasejumpSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -24128,7 +24282,7 @@ def thaidynamicmpptSend():
     else:
         test_program.extend(plan["test_program"])
     if strAddTestFlag == '1' and project_change == '1':
-        wt_config_nums = wt_config_nums + 1
+        wt_config_nums = _bump_wt_config_nums()
 
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
@@ -24551,6 +24705,23 @@ def RunProjectPush():
             box.setIcon(QMessageBox.Warning)
             box.setWindowTitle("连接错误")
             box.setText(f"以下设备未连接，已终止本次试验启动：\n\n{disconnected}")
+            box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
+            box.exec_()
+            return
+
+        # 已在跑：中途追加的命令会由 RunProject while 接着执行，不要再点开始新开 IOT 单
+        _run_flag = str(globals().get("strTestStatusFlag") or "").strip()
+        if _run_flag in ("运行", "暂停"):
+            msg = (
+                f"试验已在「{_run_flag}」中。中途追加的项目会按同一命令队列继续执行，"
+                "无需再次「开始试验」；再次开始会误把当前 IOT 任务结案并新开一单。"
+            )
+            ui.textEdit_ReturnMessage.append("[开始试验] " + msg)
+            logger.info(msg)
+            box = QMessageBox(None)
+            box.setIcon(QMessageBox.Information)
+            box.setWindowTitle("试验进行中")
+            box.setText(msg)
             box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
             box.exec_()
             return
@@ -25642,6 +25813,50 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
         time.sleep(0.05)
 
 
+def _note_runtime_appended_commands():
+    """运行中又追加了命令：进度队列补上新试验段，执行循环会继续跑。"""
+    cmds = globals().get("strArrayTest") or []
+    try:
+        from utils.test_queue_markers import parse_queue_segments
+
+        segs = parse_queue_segments(cmds, fallback_name="")
+    except Exception:
+        return
+    queue = [dict(q) for q in (_run_progress_state.get("queue") or [])]
+    known = set()
+    for item in queue:
+        try:
+            known.add(int(item.get("cmd_end") or -1))
+        except (TypeError, ValueError):
+            pass
+    added = 0
+    for seg in segs:
+        try:
+            end = int(seg.get("cmd_end") or 0)
+        except (TypeError, ValueError):
+            continue
+        if end in known:
+            continue
+        queue.append(
+            {
+                "index": len(queue) + 1,
+                "name": seg.get("name") or f"试验{len(queue) + 1}",
+                "status": "等待",
+                "pause_after": bool(seg.get("pause_after")),
+                "planned_seconds": float(seg.get("planned_seconds") or 0),
+                "cmd_start": int(seg.get("cmd_start") or 0),
+                "cmd_end": end,
+            }
+        )
+        known.add(end)
+        added += 1
+    if added:
+        _emit_run_progress(queue=queue, cmd_total=len(cmds), persist=True)
+        _append_return_message(
+            f"[队列] 运行中追加了后续试验（{added} 段），当前项结束后继续"
+        )
+
+
 #解析命令并开始试验
 def RunProject():
     """
@@ -25712,8 +25927,13 @@ def RunProject():
         )
         # [6] 分支内部使用的"一次性门闩"状态
         auto_end_status = '0'
-        # 逐条解释命令
-        for i in range(len(strArrayTest)):
+        # 逐条解释命令。用 while 而不是固定 range：开始后中途追加的下一项也能接着跑。
+        i = 0
+        _run_cmd_seen = len(strArrayTest)
+        while i < len(strArrayTest):
+            if len(strArrayTest) > _run_cmd_seen:
+                _note_runtime_appended_commands()
+                _run_cmd_seen = len(strArrayTest)
             # 中途「结束试验」必须在每条命令入口立刻跳出，否则会卡在 Upper_WT_Config/宏后再继续跑后续命令
             if strTestStatusFlag == "结束":
                 logger.info(f"试验已结束，跳过剩余命令（自第{i+1}条起）")
@@ -25737,6 +25957,7 @@ def RunProject():
                         row_pause_after(strArrayTest[i]),
                         marker_index=i,
                     )
+                    i += 1
                     continue
             except Exception:
                 pass
@@ -26162,6 +26383,7 @@ def RunProject():
                         first_test = "1"
                     if strTestStatusFlag == "结束":
                         break
+                    i += 1
                     continue
                 if first_test == '':
                     try:
@@ -26782,6 +27004,7 @@ def RunProject():
 
                         time.sleep(strArrayTest[i][8])
 
+            i += 1
 
         # 当前整轮 strArrayTest 全部执行完成，复位状态
         currentSecond = ui.comboBox_PS.currentText()
@@ -29528,22 +29751,30 @@ def testing_stop(test_count, count_now):
             messure_project_cofig = ''
             return
     
-        # 1) 当前项目所有文件都测完：总测试结束
-        # count_now 是 0-based 索引。以「文件名列表长度」与 total_save_file 的较小值为准，
-        # 避免连续录只写了 1 个文件名、但 total_save_file 残留为 2 时误判还有下一轮，
-        # 从而在试验收尾前再次打开「数值详细设置」改文件名。
-        rounds = int(total_save_file or 0)
+        # 1) 整单录完。后面还有别的试验（例如静态 QU 之后的动态 QU）时走 2)，
+        #    不能因为文件名列表只剩 1 个就把整单收掉。
+        from utils.wt_recording_stop import decide_wt_recording_stop
+
         n_names = len(test_count) if isinstance(test_count, (list, tuple)) else 0
-        if n_names > 0:
-            rounds = min(rounds, n_names) if rounds > 0 else n_names
-        if rounds < 1:
-            rounds = 1
-        if count_now >= rounds - 1:
+        try:
+            n_prog = len(test_program) if isinstance(test_program, (list, tuple)) else 0
+        except Exception:
+            n_prog = 0
+        _stop_decision = decide_wt_recording_stop(
+            count_now=count_now,
+            total_save_file=total_save_file,
+            name_count=n_names,
+            program_count=n_prog,
+        )
+        _append_debug_log(
+            f"[testing_stop] decision={_stop_decision} count_now={count_now} "
+            f"total_save_file={total_save_file} names={n_names} programs={n_prog}"
+        )
+        if _stop_decision == "all_done":
             print('测试结束')
             _append_debug_log(
                 f"[testing_stop] all tests finished "
-                f"(count_now={count_now}, rounds={rounds}, "
-                f"total_save_file={total_save_file}, names={n_names})"
+                f"(count_now={count_now}, total_save_file={total_save_file}, names={n_names})"
             )
             try:
                 _set_run_progress_round(count_now, "完成", note="本轮完成")
@@ -29563,7 +29794,7 @@ def testing_stop(test_count, count_now):
 
         # 2) 当前"项目"结束，但后面还有其它项目：
         #    清空 WT 配置状态，让下一个项目重新走 auto_config / messured_set
-        elif count_now >= len(test_count) - 1 and len(test_program) > 1:
+        elif _stop_decision == "project_done":
             print('此项目测试结束')
             _append_debug_log("[testing_stop] current project finished, reset WT config status for next project")
             try:
@@ -30707,6 +30938,7 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
         try:
             if equ_list:
                 EQUList = list(equ_list)
+                _publish_scanned_equ_list(EQUList)
             elif not EQUList:
                 EQUList = ["未发现可连接设备"]
         except Exception:
@@ -31065,6 +31297,14 @@ def translate_to_bluesight(text, value=None):
 
 if __name__ == "__main__":
     print("[DEBUG_STARTUP] 1/9 进入 __main__ 入口", flush=True)
+    try:
+        from utils.startup_update import maybe_apply_startup_update
+
+        maybe_apply_startup_update()
+    except SystemExit:
+        raise
+    except Exception as _upd_exc:
+        print("[更新] 检查失败，继续打开: %s" % _upd_exc, flush=True)
     global EQUList,dialog_windowguoqianpin
     global rm,ui,projectSecondList,uithaiguoqianya
     global flagstopwave,uithaichonglian,uithaiguoqianpin,dialog_windowguoqianya
@@ -33722,11 +33962,13 @@ if __name__ == "__main__":
             # 重置计数
             def reset_staticQU_count():
                 global staticQU_append_count
+                from utils.append_mode import clear_append_session
                 staticQU_append_count = 0
                 uiThaiStaticQU.label_append_count.setText("0")
+                clear_append_session(globals())
                 _reset_dewetron_append_fingerprint('静态QU')
                 _sync_start_end_buttons()
-                ui.textEdit_ReturnMessage.append("[静态QU] 计数器已重置为0")
+                ui.textEdit_ReturnMessage.append("[静态QU] 计数器已重置为0，命令队列已清空")
             _safe_click(uiThaiStaticQU, "pushButton_ResetCount", reset_staticQU_count)
 
             # 静态QU的的配置档读取写入
@@ -33739,11 +33981,13 @@ if __name__ == "__main__":
 
             def reset_dynamicQU_count():
                 global dynamicQU_append_count
+                from utils.append_mode import clear_append_session
                 dynamicQU_append_count = 0
                 uiThaiDynamicQU.label_append_count.setText("0")
+                clear_append_session(globals())
                 _reset_dewetron_append_fingerprint('动态QU')
                 _sync_start_end_buttons()
-                ui.textEdit_ReturnMessage.append("[动态QU] 计数器已重置为0")
+                ui.textEdit_ReturnMessage.append("[动态QU] 计数器已重置为0，命令队列已清空")
             _safe_click(uiThaiDynamicQU, "pushButton_ResetCount", reset_dynamicQU_count)
             _safe_click(uiThaiDynamicQU, "pushButton_ReadSettingFile", OpenFileDialogThaiDynamicQU)
             _safe_click(uiThaiDynamicQU, "pushButton_SaveSettingFile", SaveFileDialogThaiDynamicQU)

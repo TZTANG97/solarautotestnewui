@@ -30,12 +30,13 @@ def test_dialog_has_power_ladder_and_visible_dwell(qapp):
     ui.setupUi(dialog)
 
     assert hasattr(ui, "textEdit_PowerLadder")
-    assert "100" in ui.textEdit_PowerLadder.toPlainText()
+    assert "100,90,80,70" in ui.textEdit_PowerLadder.toPlainText()
+    assert ui.textEdit_PowerLadder.minimumWidth() >= 240
     assert ui.textEdit_S3_TIME_2.toPlainText() == "30"
     assert ui.comboBox_S3_TIME_2.count() >= 1
 
 
-def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
+def test_staticcos_send_runs_each_ladder_point_once(qapp, monkeypatch):
     import SCPITestWave as sw
     from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
 
@@ -43,7 +44,7 @@ def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
     dialog = QDialog()
     ui.setupUi(dialog)
 
-    # 功率档 2 档 × 全部 9 个 cosφ。下面各步全部取消勾选，也不再参与。
+    # 功率档 2 段。下面的 cosφ 勾选不再相乘。
     ui.textEdit_PowerLadder.setText("100,80")
     ui.textEdit_S3_TIME_2.setText("1")
     ui.comboBox_S3_TIME_2.setCurrentText("秒")
@@ -51,7 +52,7 @@ def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
         "checkBox_S3", "checkBox_S4", "checkBox_S5", "checkBox_S6", "checkBox_S7",
         "checkBox_S8", "checkBox_S9", "checkBox_S10", "checkBox_S11",
     ]:
-        getattr(ui, name).setChecked(False)
+        getattr(ui, name).setChecked(name in ("checkBox_S3", "checkBox_S7"))
     ui.checkBox_S_END.setChecked(False)
     if hasattr(ui, "comboBox_analyzer_recording_mode"):
         ui.comboBox_analyzer_recording_mode.setCurrentIndex(0)
@@ -126,17 +127,17 @@ def test_staticcos_send_builds_power_times_cos_matrix(qapp, monkeypatch):
 
     sw.thaistaticcosPhiSend()
 
-    # 2 档 × 9 cosφ，每点 1 秒；连续录 StopTime = 18×1 + 30 秒
+    # 2 段功率，每点 1 秒；连续录 StopTime = 2×1 + 30 秒
     dwell_rows = [
         r for r in sw.strArrayTest
         if len(r) > 9 and r[2] == "*IDN?" and r[9] == 10
     ]
-    assert len(dwell_rows) == 18, len(dwell_rows)
+    assert len(dwell_rows) == 2, len(dwell_rows)
     assert sw.total_save_file == 1, sw.total_save_file
 
     wt_row = next(r for r in sw.strArrayTest if r[0] == "Upper_WT_Config")
     assert wt_row[4]["textEdit_FileNameList"].startswith("CosPhi_BR")
-    assert wt_row[4]["textEdit_StopTime"] == "00:00:48", wt_row[4]["textEdit_StopTime"]
+    assert wt_row[4]["textEdit_StopTime"] == "00:00:32", wt_row[4]["textEdit_StopTime"]
     assert wt_row[4]["comboBox_AutoSave"] == 1
 
 
@@ -166,14 +167,40 @@ def test_second_segment_recording_does_not_rewrite_first_config():
     assert rows[2][4]["comboBox_AutoSave"] == 1
 
 
-def test_stoptime_is_powers_times_all_cos_plus_margin():
+def test_stoptime_is_ladder_points_times_dwell_plus_margin():
     from utils.static_cosphi_recording import plan_stop_and_names, stoptime_hhmmss
 
     ui = type("U", (), {})()
     _names, stop_sec, n_rounds, mode = plan_stop_and_names(
-        ui, 1200, n_points=4 * 9, wt_on=True, wt_continuous=True,
+        ui, 1200, n_points=4, wt_on=True, wt_continuous=True,
     )
     assert mode == "一条线连续录"
     assert n_rounds == 1
-    assert stop_sec == 4 * 9 * 120 + 30
-    assert stoptime_hhmmss(stop_sec) == "01:12:30"
+    assert stop_sec == 4 * 120 + 30
+    assert stoptime_hhmmss(stop_sec) == "00:08:30"
+
+
+def test_punctuation_only_ladder_is_empty():
+    from utils.static_cosphi_recording import _power_levels
+
+    class Text:
+        def toPlainText(self):
+            return " , ， "
+
+    ui = type("U", (), {"textEdit_PowerLadder": Text()})()
+    assert _power_levels(ui) == []
+
+
+def test_split_filenames_ladder_is_one_file_per_power():
+    from utils.static_cosphi_recording import split_filenames
+
+    class Text:
+        def toPlainText(self):
+            return "100,70,30,10"
+
+    class Checked:
+        def isChecked(self):
+            return True
+
+    ui = type("U", (), {"textEdit_PowerLadder": Text(), "checkBox_S3": Checked()})()
+    assert split_filenames(ui) == ["P100", "P70", "P30", "P10"]

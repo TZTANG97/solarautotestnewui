@@ -68,6 +68,12 @@ def test_map_brazil_phase1_codes():
         "test_code"
     ] == "5.4.23"
     assert "activep" in PHASE1_AUTO_TESTS
+    # 静态 QU：南德暂无处理器；北德走 6.8
+    assert resolve_analysis_target(test_type="静态QU", solar_standard="thai") is None
+    assert resolve_analysis_target(test_type="staticqu", solar_standard="it_cei")[
+        "test_code"
+    ] == "6.8"
+    assert "staticqu" in PHASE1_AUTO_TESTS
 
 
 def test_sim_phase2_brazil_types(tmp_path: Path):

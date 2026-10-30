@@ -510,11 +510,11 @@ class Ui_Dialog_thaidynamiccosPhi(object):
         ladder_layout.setContentsMargins(12, 20, 12, 12)
 
         ladder_layout.addWidget(QtWidgets.QLabel("功率档(%)："), 0, 0)
-        self.textEdit_PowerLadder = QtWidgets.QTextEdit()
+        from components.comma_segment_edit import CommaSegmentEdit
+        self.textEdit_PowerLadder = CommaSegmentEdit(value_header="功率", unit="%")
         self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
-        self.textEdit_PowerLadder.setFixedHeight(48)
+        self.textEdit_PowerLadder.setPlaceholderText("功率%")
         self.textEdit_PowerLadder.setText("20,40,60,80,100,80,60,40,20")
-        self.textEdit_PowerLadder.setPlaceholderText("逗号分隔，如 20,40,60,80,100,80,60,40,20")
         ladder_layout.addWidget(self.textEdit_PowerLadder, 0, 1, 1, 3)
 
         ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 1, 0)

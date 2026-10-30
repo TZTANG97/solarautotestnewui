@@ -5,9 +5,11 @@
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -109,12 +111,122 @@ def _merge(dst: List[Dict[str, str]], src: List[Dict[str, str]]) -> None:
         dst.append(item)
 
 
+_PLACEHOLDER_RESOURCES = {"未发现可连接设备", "未配置", "-"}
+
+
+def scanned_resources_path() -> Path:
+    return Path(__file__).resolve().parent.parent / "config_files" / "scanned_resources.json"
+
+
+def _usable_scanned_resource(text: str) -> bool:
+    raw = (text or "").strip()
+    if not raw or raw in _PLACEHOLDER_RESOURCES or raw.startswith("--"):
+        return False
+    upper = raw.upper()
+    if upper.startswith(("TCPIP", "ASRL", "USB", "GPIB", "COM")):
+        return True
+    return bool(re.match(r"^\d{1,3}(\.\d{1,3}){3}(:\d+)?$", raw))
+
+
+def _resource_to_endpoint(resource: str) -> Dict[str, str]:
+    upper = resource.upper()
+    if upper.startswith("USB"):
+        return {"kind": "usb", "resource": resource, "label": resource}
+    if upper.startswith("GPIB"):
+        return {"kind": "gpib", "resource": resource, "label": resource}
+    if upper.startswith("ASRL") or upper.startswith("COM"):
+        com = ""
+        match = re.search(r"ASRL(\d+)", upper)
+        if match:
+            com = f"COM{match.group(1)}"
+        elif upper.startswith("COM"):
+            com = resource.split("::", 1)[0]
+        label = f"{com} {resource}".strip() if com and com.upper() not in upper else resource
+        item = {"kind": "serial", "resource": resource, "label": label}
+        if com:
+            item["com"] = com
+        return item
+    if upper.startswith("TCPIP") or ":" in resource:
+        return {"kind": "network", "resource": resource, "label": resource}
+    return {"kind": "visa", "resource": resource, "label": resource}
+
+
+def remember_scanned_resources(resources: Optional[List[str]]) -> None:
+    """桌面 VISA/网口扫描结果落盘。空列表或占位文案不覆盖上一帧。"""
+    items: List[Dict[str, str]] = []
+    seen = set()
+    for raw in resources or []:
+        if isinstance(raw, dict):
+            text = str(raw.get("resource") or "").strip()
+        else:
+            text = str(raw or "").strip()
+        if not _usable_scanned_resource(text):
+            continue
+        key = text.upper()
+        if key in seen:
+            continue
+        seen.add(key)
+        items.append(_resource_to_endpoint(text))
+    if not items:
+        return
+    text = json.dumps(items, ensure_ascii=False)
+    path = scanned_resources_path()
+    try:
+        if path.is_file() and path.read_text(encoding="utf-8") == text:
+            return
+    except Exception:
+        pass
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    except Exception as exc:
+        logger.debug("写入扫描资源失败: %s", exc)
+
+
+def load_scanned_resources() -> List[Dict[str, str]]:
+    path = scanned_resources_path()
+    try:
+        if not path.is_file():
+            return []
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    out: List[Dict[str, str]] = []
+    for raw in data:
+        if isinstance(raw, dict):
+            resource = str(raw.get("resource") or "").strip()
+            if not _usable_scanned_resource(resource):
+                continue
+            item = _resource_to_endpoint(resource)
+            label = str(raw.get("label") or "").strip()
+            if label:
+                item["label"] = label
+            kind = str(raw.get("kind") or "").strip().lower()
+            if kind in ("serial", "usb", "gpib", "visa", "network"):
+                item["kind"] = kind
+            com = str(raw.get("com") or "").strip()
+            if com:
+                item["com"] = com
+            out.append(item)
+        elif _usable_scanned_resource(str(raw or "")):
+            out.append(_resource_to_endpoint(str(raw).strip()))
+    return out
+
+
+def _with_scanned(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    out = list(items)
+    _merge(out, load_scanned_resources())
+    return out
+
+
 def collect_local_endpoints(*, min_interval_sec: float = 15.0, force: bool = False) -> List[Dict[str, str]]:
-    """枚举本机 COM，映射为桌面使用的 ASRL{n}::INSTR。不打开 VISA，避免心跳被资源管理器卡住。"""
+    """枚举本机 COM，并带上桌面已扫描的 USB/网口。不在心跳里打开 VISA。"""
     global _cache, _cache_at, _last_error
     now = time.time()
     if not force and _cache and (now - _cache_at) < float(min_interval_sec):
-        return list(_cache)
+        return _with_scanned(_cache)
 
     out: List[Dict[str, str]] = []
     errors: List[str] = []
@@ -128,6 +240,7 @@ def collect_local_endpoints(*, min_interval_sec: float = 15.0, force: bool = Fal
     if ser_err:
         errors.append(ser_err)
     _merge(out, ser_items)
+    _merge(out, load_scanned_resources())
 
     _last_error = "; ".join(errors) if errors and not out else ""
     if out:

@@ -269,20 +269,63 @@ def all_known_checkbox_keys() -> Set[str]:
     return set(_SKIP_CHECKBOXES) | set(_SINGLE_BY_CHECKBOX) | set(_FUNCTION_BY_CHECKBOX)
 
 
+def _is_wt3000(config: Mapping) -> bool:
+    """WT3000/WT3000E。网页字典可能没有 Style，只带型号单选。"""
+    style = str(config.get("Style") or "")
+    if "3000" in style:
+        return True
+    if any(tag in style for tag in ("1800", "1806", "5000")):
+        return False
+    if any(
+        _is_checked(config, key)
+        for key in ("radio_S2_WT1800", "radio_S2_WT1806E", "radio_S2_WT5000")
+    ):
+        return False
+    return _is_checked(config, "radio_S2_WT3000") or _is_checked(config, "radio_wt3000")
+
+
+def _append_target(targets: List[str], token: str) -> None:
+    if token not in targets:
+        targets.append(token)
+
+
+def _user_picked_element(config: Mapping) -> bool:
+    max_el = _style_max_elements(config)
+    return any(
+        _is_checked(config, f"checkBox_SetElement{i}") for i in range(1, max_el + 1)
+    )
+
+
+def _user_picked_sigma(config: Mapping) -> bool:
+    return any(
+        _is_checked(config, key)
+        for key in (
+            "checkBox_SetSigma",
+            "checkBox_SetSigmaA",
+            "checkBox_SetSigmaB",
+            "checkBox_SetSigmaC",
+        )
+    )
+
+
 def selected_targets(config: Mapping) -> List[str]:
     max_el = _style_max_elements(config)
     targets: List[str] = []
     for i in range(1, max_el + 1):
         if _is_checked(config, f"checkBox_SetElement{i}"):
-            targets.append(str(i))
+            _append_target(targets, str(i))
+    # WT3000 通信手册里 ΣA 的元素名是 SIGMA（存盘列 U-SIGMA），ΣB 是 SIGMB。
+    # 没有 SIGMAA。勾 SigmaA 却发 SIGMAA 时，ITEM? 回读对不上，
+    # WtScpiCollector._setup_numeric_items 会丢掉该列，CSV 里就没有 sigma。
+    sigma_a = "SIGMA" if _is_wt3000(config) else "SIGMAA"
     if _is_checked(config, "checkBox_SetSigma"):
-        targets.append("SIGMA")
+        _append_target(targets, "SIGMA")
     if _is_checked(config, "checkBox_SetSigmaA"):
-        targets.append("SIGMAA")
+        _append_target(targets, sigma_a)
     if _is_checked(config, "checkBox_SetSigmaB"):
-        targets.append("SIGMAB")
+        _append_target(targets, "SIGMAB")
     if _is_checked(config, "checkBox_SetSigmaC"):
-        targets.append("SIGMAC")
+        _append_target(targets, "SIGMAC")
     if targets:
         return targets
     return list(_DEFAULT_ELEMENTS) + list(_DEFAULT_SIGMA)
@@ -345,8 +388,12 @@ def items_from_wt_config(
 
     funcs = selected_functions(config)
     singles = selected_singles(config)
+    # 只勾总和、没勾 U/I/P 时，旧逻辑整表换成元素 1/2/3 的默认项。
+    # 电压只剩 URMS,1，没有 URMS,SIGMA，CSV 里看不到 U-SIGMA。
     if not funcs and not singles:
-        return list(fallback)
+        if not (_user_picked_sigma(config) and not _user_picked_element(config)):
+            return list(fallback)
+        funcs = ["URMS", "IRMS", "P", "Q"]
 
     targets = selected_targets(config)
     element_targets = [t for t in targets if str(t).isdigit()]
@@ -371,14 +418,36 @@ def items_from_wt_config(
     for token in singles:
         _add(token)
 
-    limit = max_item_slots(config)
+    limit = 200
     if len(items) > limit:
-        items = items[:limit]
+        items = _fit_keep_sigma(items, limit)
     return items if items else list(fallback)
 
 
-# CSV 表头用宏录制的「名称-对象」。发给仪器的仍是 URMS,SIGMAA 这类令牌。
-# 3000 界面短名（U-1、U-SIGMAA）；1800/1806/5000 用 Urms-1。
+def _is_sigma_item(token: str) -> bool:
+    if "," not in str(token):
+        return False
+    target = str(token).split(",", 1)[1].strip().upper()
+    return target.startswith("SIGMA")
+
+
+def _fit_keep_sigma(items: List[str], limit: int) -> List[str]:
+    """超过 200 列时先留总和，再按原顺序留元素。项目数下拉不再把已勾的 SIGMA 整组切掉。"""
+    if limit <= 0:
+        return []
+    sigma = [item for item in items if _is_sigma_item(item)]
+    plain = [item for item in items if not _is_sigma_item(item)]
+    chosen = set(sigma[:limit])
+    for item in plain:
+        if len(chosen) >= limit:
+            break
+        chosen.add(item)
+    return [item for item in items if item in chosen]
+
+
+# CSV 表头用宏录制的「名称-对象」。
+# WT3000 勾 SigmaA 发给仪器的是 URMS,SIGMA，表头 U-SIGMA（与 wt_file_save_path 实录一致）。
+# 1800/1806/5000 的 SigmaA 才是 URMS,SIGMAA。3000 短名 U-1；1800/1806/5000 用 Urms-1。
 _MACRO_STEM_SHORT: Dict[str, str] = {
     "URMS": "U",
     "IRMS": "I",
@@ -440,7 +509,7 @@ def _macro_stem(func: str, *, short: bool) -> str:
 
 
 def macro_column_name(token: str, style: str = "") -> str:
-    """SCPI 令牌 → WTViewer 宏 CSV 列名。例如 URMS,SIGMAA + WT3000 → U-SIGMAA。"""
+    """SCPI 令牌 → WTViewer 宏 CSV 列名。例如 URMS,SIGMA + WT3000 → U-SIGMA。"""
     raw = str(token or "").strip()
     if not raw:
         return raw

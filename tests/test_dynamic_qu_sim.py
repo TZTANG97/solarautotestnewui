@@ -79,7 +79,10 @@ def test_dialog_four_steps_and_default_list(dyn_ui):
     u = [float(x) for x in ui.textEdit_VoltageLadder.toPlainText().replace(" ", "").split(",") if x]
     assert len(u) == 23
     assert u[0] == 100 and u[8] == 115 and u[-1] == 85
+    # 默认功率留空：电压阶梯用步骤①功率；配对时再填与电压同长的功率 list
+    assert ui.textEdit_PowerLadder.toPlainText().strip() == ""
     assert ui.textEdit_VoltageLadder_TIME is not None
+    assert "一一对应" in ui._ladder_matrix.preview.text() or "步骤①" in ui._ladder_matrix.preview.text()
 
 
 def test_continuous_async_no_numeric_col6(dyn_ui):
@@ -108,6 +111,48 @@ def test_continuous_async_no_numeric_col6(dyn_ui):
     assert ("DC1", "write", "OUTP:MODE TABLE") in triples
     assert ("AC", "write", "OUTP OFF") in triples
     assert ("DC1", "write", "OUTP OFF") in triples
+
+
+def test_power_voltage_paired_not_outer_product(dyn_ui):
+    """电压100%→功率100%，电压110%→功率50%：两点，不是 2×2 外循环。"""
+    ui, _ = dyn_ui
+    _fill_step1(ui, dc1=True)
+    ui.checkBox_S2.setChecked(True)
+    ui.radioButton_S2_WT3000.setChecked(True)
+    _fill_ladder(ui, "100,110", dwell="1", unit="秒")
+    ui.textEdit_PowerLadder.setPlainText("100,50")
+    ui.checkBox_S_END.setChecked(False)
+
+    plan = build_dynamic_qu_plan(
+        ui, wt_config_dict={}, str_add_flag="0", dc_iv_resolver=default_dc_iv_resolver
+    )
+    assert plan["ok"]
+    assert plan["power_levels"] == [100.0, 50.0]
+    assert plan["band_duration_01s"] == 10 * 2  # 两点驻留，不是 2×2
+    triples = [(r[0], r[1], r[2]) for r in plan["commands"]]
+    volts = [t[2] for t in triples if str(t[2]).startswith("VOLT ")]
+    # 启机 + 配对第1点都可能写 230；第2点 110%→253，且不得再 NSEL 扩成 3 遍
+    assert any(v in ("VOLT 230", "VOLT 230.0") for v in volts)
+    assert sum(1 for v in volts if v.startswith("VOLT 253")) == 1
+    assert not any(str(t[2]).startswith("INST:NSEL") for t in triples)
+    ivc = [t[2] for t in triples if str(t[2]).startswith("IVC:IT")]
+    assert len(ivc) >= 2
+    assert any("5.000" in cmd or "5.0" in cmd for cmd in ivc)
+    markers = [str(r[6]).upper() for r in plan["commands"] if len(r) > 6 and r[6] not in ("", None)]
+    assert markers.count("ASYNC_START") == 1
+    assert markers.count("WAIT_END") == 1
+
+
+def test_power_voltage_length_mismatch_rejected(dyn_ui):
+    ui, _ = dyn_ui
+    _fill_step1(ui, dc1=True)
+    ui.checkBox_S2.setChecked(False)
+    _fill_ladder(ui, "100,110,120", dwell="1", unit="秒")
+    ui.textEdit_PowerLadder.setPlainText("100,50")
+    ui.checkBox_S_END.setChecked(False)
+    plan = build_dynamic_qu_plan(ui, wt_config_dict={})
+    assert not plan["ok"]
+    assert "一一对应" in plan["error"]
 
 
 def test_three_phase_ladder(dyn_ui):

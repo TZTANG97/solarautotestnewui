@@ -6,7 +6,11 @@ import json
 import time
 from pathlib import Path
 
-from utils.iot_run_snapshot import build_run_snapshot_from_status, snapshot_implies_busy
+from utils.iot_run_snapshot import (
+    build_run_snapshot_from_status,
+    heartbeat_should_push_progress,
+    snapshot_implies_busy,
+)
 
 
 def test_build_from_status_json(tmp_path: Path):
@@ -122,3 +126,10 @@ def test_stale_unlocked_snapshot_is_aborted_and_persisted(tmp_path: Path):
     assert saved["project"]["status"] == "已中止"
     assert saved["project"]["jobId"] == 58
     assert saved["project"]["progress"] == 2
+
+
+def test_idle_append_does_not_push_progress_onto_previous_job():
+    assert heartbeat_should_push_progress("进行中") is True
+    assert heartbeat_should_push_progress("暂停") is True
+    assert heartbeat_should_push_progress("待开始") is False
+    assert heartbeat_should_push_progress("未开始") is False

@@ -159,7 +159,7 @@ class Ui_Dialog_thaistaticcosPhi(object):
         QtCore.QMetaObject.connectSlotsByName(Dialog_thaistaticcosPhi)
 
     def _wire_recording_mode(self):
-        """绑定 WT 页录波方式：连续录 CosPhi_BR；分开录按功率×cosφ 生成多文件名。"""
+        """绑定 WT 页录波方式：连续录 CosPhi_BR；分开录按功率阶梯一段一个文件名。"""
         from utils.wt_recording_mode import wire_recording_mode_autofill
         from utils.static_cosphi_recording import split_filenames
 
@@ -524,35 +524,35 @@ class Ui_Dialog_thaistaticcosPhi(object):
         ladder_layout.setSpacing(8)
         ladder_layout.setContentsMargins(12, 20, 12, 12)
 
-        ladder_layout.addWidget(QtWidgets.QLabel("功率档(%)："), 0, 0)
-        self.textEdit_PowerLadder = QtWidgets.QTextEdit()
-        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
-        self.textEdit_PowerLadder.setFixedHeight(28)
-        self.textEdit_PowerLadder.setText("100,90,80,70")
-        self.textEdit_PowerLadder.setPlaceholderText("逗号分隔，如 100,90,80,70；空则回退每卡功率%")
-        ladder_layout.addWidget(self.textEdit_PowerLadder, 0, 1, 1, 3)
+        ladder_layout.addWidget(QtWidgets.QLabel("功率档(%)："), 0, 0, 1, 4)
+        from components.comma_segment_edit import CommaSegmentEdit
 
-        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 1, 0)
+        self.textEdit_PowerLadder = CommaSegmentEdit(value_header="功率", unit="%")
+        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
+        self.textEdit_PowerLadder.setPlaceholderText("功率%")
+        self.textEdit_PowerLadder.setText("100,90,80,70")
+        ladder_layout.addWidget(self.textEdit_PowerLadder, 1, 0, 1, 4)
+
+        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
         self.textEdit_S3_TIME_2 = QtWidgets.QTextEdit()
         self.textEdit_S3_TIME_2.setObjectName("textEdit_S3_TIME_2")
         self.textEdit_S3_TIME_2.setFixedSize(80, 28)
         # 默认 30 秒：连续录 StopTime≈点数×驻留；勿默认「5分钟」导致数小时空录
         self.textEdit_S3_TIME_2.setText("30")
-        ladder_layout.addWidget(self.textEdit_S3_TIME_2, 1, 1)
+        ladder_layout.addWidget(self.textEdit_S3_TIME_2, 2, 1)
         self.comboBox_S3_TIME_2 = QtWidgets.QComboBox()
         self.comboBox_S3_TIME_2.setObjectName("comboBox_S3_TIME_2")
         self.comboBox_S3_TIME_2.addItems(["秒", "分钟", "毫秒"])
         self.comboBox_S3_TIME_2.setFixedWidth(80)
-        ladder_layout.addWidget(self.comboBox_S3_TIME_2, 1, 2)
+        ladder_layout.addWidget(self.comboBox_S3_TIME_2, 2, 2)
         tip = QtWidgets.QLabel(
-            "只看上面的功率档：每个档都会测全部 9 个 cosφ"
-            "（0.0、0.5、0.8、0.9、1.0、-0.5、-0.8、-0.9、-1.0）。"
-            "连续录停机时间 = 档数 × 9 × 每点驻留 + 30 秒。"
-            "下面各 cosφ 步骤的勾选和功率%不再参与。"
+            "一段一行，直接填功率。有几段就跑几段，每段只保持一次，不再乘下面的 cosφ。"
+            "连续录停机时间 = 段数 × 每点驻留 + 30 秒。"
+            "全部删空时，才按下面勾选的 cosφ 一段一段跑。"
         )
-        tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
+        tip.setStyleSheet("color: #334155; font-weight: normal; font-size: 13px;")
         tip.setWordWrap(True)
-        ladder_layout.addWidget(tip, 2, 0, 1, 4)
+        ladder_layout.addWidget(tip, 3, 0, 1, 4)
         layout.addWidget(ladder_grp)
 
         # 滚动区域承载所有 cosPhi 卡片
@@ -592,9 +592,7 @@ class Ui_Dialog_thaistaticcosPhi(object):
 
         scroll_layout.addStretch()
         scroll.setWidget(scroll_widget)
-        # 测量矩阵只由上方功率档 × 全部 cosφ 决定，各步卡片保留给旧设定读取，不再展示。
-        scroll.setVisible(False)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         self.stackedWidget.addWidget(page)
 

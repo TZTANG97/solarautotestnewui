@@ -114,9 +114,12 @@ If you only moved the app and updates started a slow uv sync:
    and put the same path in runtime_root.txt (one line).
 3. Restart. Installer will reuse it; no need to wait for PyPI.
 
-New installs also set China-friendly mirrors:
-  UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/
-  UV_PYTHON_INSTALL_MIRROR=https://cdn.npmmirror.com/binaries/python-build-standalone
+New installs download wheels from China mirrors, not files.pythonhosted.org.
+uv sync --frozen ignores the index URL and uses the URLs baked into uv.lock,
+so the installer rewrites those URLs to a mirror with the same /packages/ path
+(Aliyun, then Tencent, Huawei, Tsinghua) and still checks the lockfile hashes.
+Python itself comes from the npmmirror python-build-standalone mirror.
+The original uv.lock is restored after sync so upgrades keep the same file hash.
 
 Notes
 -----

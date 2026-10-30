@@ -108,6 +108,47 @@ class _FakeBtn:
         return self._checked
 
 
+def test_bluesight_sas_iv_uses_page_not_chroma_defaults():
+    from utils.status_json_devices import bluesight_iv_fields, dc_connection_extra
+
+    iv = bluesight_iv_fields(
+        {"mode": "sas", "pmpp_kw": 8.0, "umpp_v": 650.0, "ff": 0.8}
+    )
+    assert iv["vmp"] == "650"
+    assert iv["pf"] == "100"
+    assert abs(float(iv["imp"]) - (8000.0 / 650.0)) < 1e-3
+    # 致茂页默认 220；Sandia 示例 Imp 不是 8000/650
+    assert iv["vmp"] != "220"
+    assert iv["voc"] != "220"
+    assert abs(float(iv["imp"]) - 19.154) > 1
+    extra = dc_connection_extra(brand="Bluesight", iv=iv, slot="dc1", force_iv=True)
+    assert extra["brand"] == "bluesight"
+    assert extra["widgets"]["textEdit_Vmp"] == "650"
+    assert extra["widgets"]["textEdit_Imp"] == iv["imp"]
+    assert extra["measures"]["vmp"] == "650"
+
+
+def test_bluesight_original_load_does_not_copy_other_brand_iv():
+    from utils.status_json_devices import bluesight_iv_fields
+
+    iv = bluesight_iv_fields({"mode": "original", "outmode": "cv", "voltage_v": 480})
+    assert iv["vmp"] == "480"
+    assert iv["voc"] == ""
+    assert iv["imp"] == ""
+    assert iv["isc"] == ""
+    assert iv["pf"] == ""
+
+
+def test_ac_itech_connection_extra_brand():
+    from utils.status_json_devices import ac_connection_extra
+
+    extra = ac_connection_extra(brand="itech", voltage="230", frequency="50", phase="三相")
+    assert extra["brand"] == "itech"
+    assert extra["voltage"] == "230"
+    assert extra["widgets"]["textEdit_AC_VOLT"] == "230"
+    assert extra["widgets"]["comboBox_Phase"] == "三相"
+
+
 def test_read_dewetron_ui_snapshot():
     from utils.status_json_devices import read_dewetron_ui_snapshot
 

@@ -210,13 +210,19 @@ def test_send_three_phase_scales_all_phases(qapp, monkeypatch, tmp_path):
     ui.textEdit_VoltageLadder_Un.setText("230")
     sw.thaistaticQUSend()
 
-    nsel = [r[2] for r in sw.strArrayTest if r and r[0] == "AC" and str(r[2]).startswith("INST:NSEL")]
-    assert nsel.count("INST:NSEL 1") >= 2
-    assert nsel.count("INST:NSEL 2") >= 2
-    assert nsel.count("INST:NSEL 3") >= 2
-    volts = [r[2] for r in sw.strArrayTest if r and r[0] == "AC" and str(r[2]).startswith("VOLT ")]
-    assert volts.count("VOLT 230.0") + volts.count("VOLT 230") >= 3
+    # 同压三相：EDIT ALL + 一次 VOLT（爱科），不再 NSEL 逐相
+    writes = [
+        r[2]
+        for r in sw.strArrayTest
+        if r and r[0] == "AC" and r[1] == "write" and r[2]
+    ]
+    assert "INST:EDIT ALL" in writes
+    assert not any(str(c).startswith("INST:NSEL") for c in writes)
+    volts = [c for c in writes if str(c).startswith("VOLT ")]
+    assert any(v.startswith("VOLT 230") for v in volts)
     assert any(v.startswith("VOLT 253") for v in volts)
+    # 每阶梯点只写一次同压，不是三相各写一遍
+    assert volts.count("VOLT 253.0") + volts.count("VOLT 253") == 1
     assert sw.total_save_file == 1
 
 

@@ -107,6 +107,52 @@ def apply_mode_to_ui(ui, mode: Any) -> None:
         pass
 
 
+def apply_mode_across(root, mode: Any) -> int:
+    """把宏/SCPI 写到每个 WT 型号页的采集模式下拉。返回写中的个数。"""
+    idx = mode_to_combo_index(normalize_mode(mode))
+    updated = 0
+    seen = set()
+
+    def _set(combo) -> None:
+        nonlocal updated
+        if combo is None:
+            return
+        ident = id(combo)
+        if ident in seen:
+            return
+        seen.add(ident)
+        try:
+            combo.setCurrentIndex(idx)
+            updated += 1
+        except Exception:
+            pass
+
+    pages = []
+    stacked = getattr(root, "_wtStacked", None)
+    try:
+        if stacked is not None and hasattr(stacked, "count"):
+            pages.extend(stacked.widget(i) for i in range(int(stacked.count())))
+    except Exception:
+        pass
+    pages.append(root)
+    for page in pages:
+        if page is None:
+            continue
+        combo = None
+        finder = getattr(page, "findChild", None)
+        if callable(finder):
+            try:
+                from PyQt5.QtWidgets import QWidget
+
+                combo = finder(QWidget, COMBO_NAME)
+            except Exception:
+                combo = None
+        if combo is None:
+            combo = getattr(page, COMBO_NAME, None)
+        _set(combo)
+    return updated
+
+
 def inject_mode_into_params(params_dict: dict, ui) -> dict:
     """Append acquire-mode keys into WT params_dict (runtime + save)."""
     if not isinstance(params_dict, dict):

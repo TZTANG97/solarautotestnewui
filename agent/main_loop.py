@@ -245,22 +245,34 @@ def _do_heartbeat(
     try:
         jid = int((run_snapshot or {}).get("jobId") or 0)
         if jid > 0 and run_snapshot:
-            client.progress(
-                jid,
-                progress_percent=int(run_snapshot.get("progress") or 0),
-                progress_text=str(
-                    run_snapshot.get("remain_text")
-                    or run_snapshot.get("current_detail")
-                    or ""
-                )[:255],
-                current_step=str(
-                    run_snapshot.get("current_detail")
-                    or run_snapshot.get("current_test")
-                    or ""
-                )[:128],
+            from utils.iot_run_snapshot import heartbeat_should_push_progress
+
+            st_now = str(run_snapshot.get("status") or "").strip()
+            if heartbeat_should_push_progress(st_now):
+                client.progress(
+                    jid,
+                    progress_percent=int(run_snapshot.get("progress") or 0),
+                    progress_text=str(
+                        run_snapshot.get("remain_text")
+                        or run_snapshot.get("current_detail")
+                        or ""
+                    )[:255],
+                    current_step=str(
+                        run_snapshot.get("current_detail")
+                        or run_snapshot.get("current_test")
+                        or ""
+                    )[:128],
+                )
+            # 本地开测结案兜底：桌面已写终态但未调 done 时补一次。
+            # 确认结案（done 成功或云端已是终态）后不再重复。
+            st = st_now
+            from agent.heartbeat_settle import (
+                apply_heartbeat_terminal_settle,
+                note_job_status,
+                shared_settle_state,
             )
-            # 本地开测结案兜底：桌面已写「已结束/已中止」但未调 done 时，实验管理会一直「测试中」
-            st = str(run_snapshot.get("status") or "").strip()
+
+            note_job_status(shared_settle_state(), jid, st)
             if st in ("已结束", "已中止", "失败") and not settle_terminal:
                 logger.info(
                     "交接等待中，心跳不结案 job=%s status=%s",
@@ -268,30 +280,12 @@ def _do_heartbeat(
                     st,
                 )
             elif st in ("已结束", "已中止", "失败"):
-                done_st = (
-                    "success"
-                    if st == "已结束"
-                    else ("aborted" if st == "已中止" else "failed")
+                apply_heartbeat_terminal_settle(
+                    client,
+                    repo_root=Path(status_json_path).resolve().parent,
+                    job_id=jid,
+                    run_snapshot=run_snapshot,
                 )
-                try:
-                    client.done(
-                        jid,
-                        status=done_st,
-                        fail_reason="" if done_st == "success" else f"台架状态={st}",
-                        result_summary={
-                            "source": "agent_heartbeat_status_json",
-                            "run_status": st,
-                            "progress": int(run_snapshot.get("progress") or 0),
-                        },
-                    )
-                    logger.info(
-                        "心跳结案兜底 job=%s status=%s (status.json=%s)",
-                        jid,
-                        done_st,
-                        st,
-                    )
-                except Exception as exc:
-                    logger.debug("心跳结案兜底跳过 job=%s: %s", jid, exc)
     except Exception:
         pass
     # HTTPS 心跳成功后顺便经 WS 推一帧串口/仪器，供网页即时刷新
@@ -790,11 +784,20 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
+    report_version = cfg.agent_version
+    try:
+        from utils.app_version import read_app_version
+
+        pkg = read_app_version()
+        if pkg and pkg != "源码未打包":
+            report_version = pkg
+    except Exception:
+        report_version = cfg.agent_version
     logger.info(
         "Solar Agent 启动 base=%s mode=%s version=%s host=%s pythonid=%s",
         cfg.iot_base,
         cfg.resolved_execution_mode,
-        cfg.agent_version,
+        report_version,
         host,
         pythonid or client.pythonid,
     )
@@ -818,7 +821,7 @@ def main(argv: Optional[list] = None) -> int:
         try:
             _do_heartbeat(
                 client,
-                agent_version=cfg.agent_version,
+                agent_version=report_version,
                 host_name=host,
                 busy=agent_busy,
                 status_json_path=str(repo_root / "status.json"),
@@ -929,7 +932,7 @@ def main(argv: Optional[list] = None) -> int:
                 dry_run=cfg.dry_run,
                 execution_mode=cfg.resolved_execution_mode,
                 repo_root=repo_root,
-                agent_version=cfg.agent_version,
+                agent_version=report_version,
                 host_name=host,
                 heartbeat_interval_sec=float(cfg.heartbeat_interval_sec or 15),
             )

@@ -488,6 +488,60 @@ def test_database_migration_adds_raw_row_to_preexisting_commands_schema(tmp_path
     assert preserved == (7, 1, 'AC', 'VOLT 230', 'keep-me', 12, None)
 
 
+def test_init_database_without_init_sql_creates_usable_sqlite(tmp_path):
+    db_path = tmp_path / 'db.sqlite'
+    missing_sql = tmp_path / 'init.sql'
+    assert not missing_sql.exists()
+
+    assert init_database(str(db_path), str(missing_sql)) is True
+    assert db_path.is_file()
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        assert {
+            'de_test_batch',
+            'de_test_runs',
+            'de_commands',
+            'de_data',
+        } <= tables
+        conn.execute(
+            "INSERT INTO de_test_batch (batch_uid, test_type, start_time, save_path) "
+            "VALUES ('flicker_embedded', 'flicker', '2026-10-29 21:40:00', 'D:/data/a.csv')"
+        )
+        batch_id = conn.execute('SELECT id FROM de_test_batch').fetchone()[0]
+        conn.execute(
+            "INSERT INTO de_test_runs (batch_id, version, start_time, csv_header) "
+            "VALUES (?, 1, '2026-10-29 21:40:00', 'Time [s],U1')",
+            (batch_id,),
+        )
+        run_id = conn.execute('SELECT id FROM de_test_runs').fetchone()[0]
+        conn.execute(
+            "INSERT INTO de_commands (run_id, seq, device, operation, command, raw_row) "
+            "VALUES (?, 1, 'AC', 'write', 'VOLT 230', ?)",
+            (run_id, '{"cmd":"VOLT 230"}'),
+        )
+        conn.execute(
+            "INSERT INTO de_data (run_id, seq, time, channel_values) "
+            "VALUES (?, 1, 0.1, '[230.0]')",
+            (run_id,),
+        )
+        conn.commit()
+        saved = conn.execute(
+            "SELECT b.batch_uid, r.version, c.command, d.channel_values "
+            "FROM de_test_batch b "
+            "JOIN de_test_runs r ON r.batch_id = b.id "
+            "JOIN de_commands c ON c.run_id = r.id "
+            "JOIN de_data d ON d.run_id = r.id"
+        ).fetchone()
+
+    assert saved == ('flicker_embedded', 1, 'VOLT 230', '[230.0]')
+
+
 def test_non_destructive_migration_adds_missing_columns(tmp_path):
     db_path = tmp_path / 'legacy.sqlite'
     with sqlite3.connect(db_path) as conn:

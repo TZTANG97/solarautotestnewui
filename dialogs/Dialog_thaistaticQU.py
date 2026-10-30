@@ -12,8 +12,8 @@ from components.wt_config_content import (
 class Ui_Dialog_thaiStaticQU(object):
     def setupUi(self, Dialog_thaiStaticQU):
         Dialog_thaiStaticQU.setObjectName("Dialog_thaiStaticQU")
-        Dialog_thaiStaticQU.resize(1300, 850)
-        Dialog_thaiStaticQU.setMinimumSize(QtCore.QSize(1200, 750))
+        Dialog_thaiStaticQU.resize(1597, 828)
+        Dialog_thaiStaticQU.setMinimumSize(QtCore.QSize(1400, 750))
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(".\\ui_files\\logo.jpg"), QtGui.QIcon.Normal, QtGui.QIcon.On)
         Dialog_thaiStaticQU.setWindowIcon(icon)
@@ -547,9 +547,10 @@ class Ui_Dialog_thaiStaticQU(object):
         ladder_layout.addWidget(self.textEdit_VoltageLadder_FR, 0, 3)
 
         ladder_layout.addWidget(QtWidgets.QLabel("电压Un%(list)："), 1, 0)
-        self.textEdit_VoltageLadder = QtWidgets.QTextEdit()
+        from components.comma_segment_edit import CommaSegmentEdit
+        self.textEdit_VoltageLadder = CommaSegmentEdit(value_header="电压 Un%", unit="%")
         self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
-        self.textEdit_VoltageLadder.setFixedHeight(28)
+        self.textEdit_VoltageLadder.setPlaceholderText("Un%")
         self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
         self.textEdit_VoltageLadder.setPlaceholderText(
             "先升再降取滞环，如 100…115…85；连续录 1 条 QU_curve"

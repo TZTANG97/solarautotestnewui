@@ -205,6 +205,12 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
     missing = []
     if not values:
         return missing
+    try:
+        from utils.wt_measure_aliases import expand_wt_measure_checks
+
+        values = expand_wt_measure_checks(values)
+    except Exception:
+        pass
 
     active_page = None
     try:
@@ -256,6 +262,14 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
     for name in ordered:
         val = values.get(name)
         key = str(name)
+        if key in ("wt_acquire_mode", "comboBox_wt_acquire_mode"):
+            try:
+                from utils.wt_acquire_mode import apply_mode_across
+
+                apply_mode_across(root_widget, val)
+            except Exception:
+                missing.append(key)
+            continue
         # 时序表 / EN50530 面板：JSON 整包写入（非普通 QWidget 文本）
         if key in (
             "TIMING_PROFILE_JSON",
@@ -1403,6 +1417,35 @@ class IotUiHandoffService(QObject):
         self._log(f"任务 {job_id} 因软件急停已中止")
         return job_id
 
+    def finish_awaiting_as_new_round(self) -> Optional[int]:
+        """本机已另行追加/开测：把还挂着的上一云任务按完成结案，避免进度写回旧单。"""
+        aw = self._awaiting
+        if not isinstance(aw, dict):
+            return None
+        try:
+            job_id = int(aw.get("job_id") or 0)
+        except (TypeError, ValueError):
+            return None
+        if job_id <= 0:
+            return None
+        pending_path = aw.get("pending_path")
+        self._finish_job(
+            job_id=job_id,
+            pending_path=pending_path,
+            result={
+                "status": "success",
+                "fail_reason": "",
+                "result_summary": {
+                    "handoff": True,
+                    "appended": aw.get("appended"),
+                    "note": "本机已另行追加，上一云任务按完成结案",
+                },
+                "report_meta": [],
+            },
+        )
+        self._log(f"任务 {job_id} 已结案（本机另行追加）")
+        return job_id
+
     def _finish_job(
         self,
         *,
@@ -1643,6 +1686,18 @@ class IotUiHandoffService(QObject):
                     self.ensure_project(handler["project_name"])
                 except Exception as exc:
                     self._log(f"切换项目失败: {exc}")
+
+            try:
+                from utils.iot_local_run import adopt_cloud_job
+
+                raw_eid = job.get("experId") or job.get("experid")
+                try:
+                    eid = int(raw_eid) if raw_eid else None
+                except (TypeError, ValueError):
+                    eid = None
+                adopt_cloud_job(job_id, eid)
+            except Exception as exc:
+                self._log(f"写入当前任务号失败: {exc}")
 
             resolve_ui = handler.get("resolve_ui")
             ui_obj = resolve_ui() if resolve_ui else None

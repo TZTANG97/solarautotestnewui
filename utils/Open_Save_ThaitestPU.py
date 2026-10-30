@@ -89,7 +89,8 @@ arrayRow1 = ['Style',
         "comboBox_S_End_DC2","checkBox_S_End_DC3", "comboBox_S_End_DC3","checkBox_S_End_DC4","comboBox_S_End_DC4",
         "checkBox_S2_WT5000",
     "textEdit_VoltageLadder", "textEdit_VoltageLadder_Un", "textEdit_VoltageLadder_FR",
-    "textEdit_VoltageLadder_TIME", "comboBox_VoltageLadder_TIME"]
+    "textEdit_VoltageLadder_TIME", "comboBox_VoltageLadder_TIME",
+    "textEdit_PowerLadder"]
 
 # PU保存设定
 def Save_File_ThaiTestPU(kwargs):
@@ -646,6 +647,9 @@ def Save_File_ThaiTestPU(kwargs):
         vl_tu = getattr(uiThaiTestPU, "comboBox_VoltageLadder_TIME", None)
         arrayRow2.append(vl_tu.currentIndex() if vl_tu is not None else 1)
 
+        pl = getattr(uiThaiTestPU, "textEdit_PowerLadder", None)
+        arrayRow2.append(pl.toPlainText() if pl is not None else "")
+
         _append_dewetron_tail(arrayRow2, uiThaiTestPU)
 
         if uiThaiTestPU.radioButton_S2_WT3000.isChecked():
@@ -668,6 +672,12 @@ def Save_File_ThaiTestPU(kwargs):
             csv_write.writerow(result[0])
             csv_write.writerow(result[1])
         out.close()
+        try:
+            from utils.test_ui_preset import remember_voltage_ladder
+
+            remember_voltage_ladder("Test_PU", uiThaiTestPU)
+        except Exception:
+            pass
         QMessageBox.information(None, "实验设定提示信息", "PU文件保存完成", QMessageBox.Ok, QMessageBox.Ok)
 
 # PU读取设定
@@ -1820,6 +1830,10 @@ def Open_File_ThaiTestPU(kwargs):
                             )
                         except (TypeError, ValueError):
                             pass
+                    if "textEdit_PowerLadder" in config_dict and hasattr(uiThaiTestPU, "textEdit_PowerLadder"):
+                        uiThaiTestPU.textEdit_PowerLadder.setText(
+                            config_dict.get("textEdit_PowerLadder") or ""
+                        )
 
                     _restore_dewetron_tail(result_list[0], result_list[1], uiThaiTestPU)
                 else:

@@ -20,9 +20,10 @@ def resolve_append_mode(
 ) -> Tuple[str, str, str]:
     """返回 ``(strAddTestFlag, project_change, mode_label)``。
 
-    - 覆盖：命令队列为空（含同项跑完未点重置、首次追加）
-    - 跨项追加：队列非空且项目切换（或本项计数为0但队列已有别项）
-    - 同项追加：队列非空且仍是同一项目、计数>0
+    - 覆盖：命令队列为空；或本项计数已归零且没有换到别的项目
+      （重置后队列还在时必须覆盖，不能再进「第1次跨项追加」）
+    - 跨项追加：队列非空，且 ``project_now`` 已是另一个项目
+    - 同项追加：队列非空、仍是同一项目、计数>0
     """
     name = str(project_name or "").strip()
     try:
@@ -41,8 +42,9 @@ def resolve_append_mode(
         return "1", "1", "跨项追加"
 
     if count <= 0:
-        # 队列里已有内容，但本项计数为0（常见：刚换到本项）
-        return "1", "1", "跨项追加"
+        # 重置只把计数打回 0，队列和 project_now 往往还在。
+        # 这时再走跨项会在 wt_config_nums 未赋值处抛错，界面停在「开始生成命令」。
+        return "0", "0", "覆盖"
 
     return "1", "0", "追加"
 
@@ -63,6 +65,18 @@ def apply_append_mode(
     g["strAddTestFlag"] = flag
     g["project_change"] = change
     return flag, change, label
+
+
+def clear_append_session(g: MutableMapping[str, Any]) -> None:
+    """重置：清空命令队列和当前项目，下一次追加按覆盖生成。"""
+    g["strArrayTest"] = []
+    g["strArrayTestStep"] = []
+    g["strAddTestFlag"] = "0"
+    g["project_change"] = "0"
+    g["project_now"] = ""
+    g["test_program"] = []
+    g["total_save_file"] = 0
+    g["wt_config_nums"] = 0
 
 
 def mark_project_now(g: MutableMapping[str, Any], project_name: str) -> None:

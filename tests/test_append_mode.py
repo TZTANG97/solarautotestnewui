@@ -5,6 +5,7 @@ from __future__ import annotations
 from utils.append_mode import (
     apply_append_mode,
     begin_append_attempt,
+    clear_append_session,
     commit_append_if_success,
     ensure_queue_end_marker,
     finalize_successful_append,
@@ -31,6 +32,42 @@ def test_first_append_overwrites_when_queue_empty():
         project_name="谐波电流", local_count=0, queue=[], project_now=""
     )
     assert (flag, change, label) == ("0", "0", "覆盖")
+
+
+def test_reset_same_project_overwrites_leftover_queue():
+    """重置后计数为 0、队列还在：必须覆盖，不能停在第 1 次跨项追加。"""
+    flag, change, label = resolve_append_mode(
+        project_name="静态QU",
+        local_count=0,
+        queue=[["AC", "write", "OUTP ON"]],
+        project_now="静态QU",
+    )
+    assert (flag, change, label) == ("0", "0", "覆盖")
+
+
+def test_clear_append_session_drops_queue_and_project():
+    g = {
+        "strArrayTest": [["AC", "write", "OUTP ON"]],
+        "strArrayTestStep": [[]],
+        "strAddTestFlag": "1",
+        "project_change": "1",
+        "project_now": "静态QU",
+        "test_program": [["12", "WT3000"]],
+        "total_save_file": 2,
+        "wt_config_nums": 3,
+    }
+    clear_append_session(g)
+    assert g["strArrayTest"] == []
+    assert g["project_now"] == ""
+    assert g["strAddTestFlag"] == "0"
+    assert g["wt_config_nums"] == 0
+    flag, change, _label = resolve_append_mode(
+        project_name="动态QU",
+        local_count=0,
+        queue=g["strArrayTest"],
+        project_now=g["project_now"],
+    )
+    assert (flag, change) == ("0", "0")
 
 
 def test_same_project_second_round_keeps_queue():

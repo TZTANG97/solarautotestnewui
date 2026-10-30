@@ -511,7 +511,8 @@ class Ui_Dialog_thaantibackflow(object):
         layout.addWidget(self.checkBox_S3)
 
         # 兼容 Open_Save / 旧字段：稳态 DC 档位写在 PowerLadder
-        self.textEdit_PowerLadder = QtWidgets.QTextEdit()
+        from components.comma_segment_edit import CommaSegmentEdit
+        self.textEdit_PowerLadder = CommaSegmentEdit(value_header="功率", unit="%")
         self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
         self.textEdit_PowerLadder.setVisible(False)
         self.textEdit_PowerLadder.setText("100,70,20,0")

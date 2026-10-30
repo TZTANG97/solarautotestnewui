@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import threading
@@ -218,6 +219,161 @@ def read_dc_ui_snapshot(dc_ui: Any, *, slot: str = "dc1") -> Dict[str, Any]:
     return out
 
 
+def format_report_number(value: float) -> str:
+    """上报用短数字：650.0 → 650，12.30769 → 12.3077。"""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(num):
+        return ""
+    rounded = round(num, 4)
+    if abs(rounded - round(rounded)) < 1e-9:
+        return str(int(round(rounded)))
+    return f"{rounded:.4f}".rstrip("0").rstrip(".")
+
+
+def canonical_reported_brand(brand: str) -> str:
+    """桌面面包屑 / per_dc_factor → IOT 下拉 value。"""
+    raw = str(brand or "").strip()
+    if not raw:
+        return ""
+    key = raw.lower().replace(" ", "")
+    aliases = {
+        "itech": "itech",
+        "it6000": "itech",
+        "爱科": "itech",
+        "bluesight": "bluesight",
+        "蓝点": "bluesight",
+        "蓝电": "bluesight",
+        "chroma": "chroma",
+        "致茂": "chroma",
+        "chroma_ip": "chroma_ip",
+        "chroma-ip": "chroma_ip",
+        "chromaip": "chroma_ip",
+        "keysight": "keysight",
+        "agilent": "keysight",
+        "是德": "keysight",
+        "dewetron": "dewetron",
+        "yokogawa": "yokogawa",
+    }
+    return aliases.get(key, aliases.get(raw.lower(), raw.lower()))
+
+
+def bluesight_iv_fields(page: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    """蓝点页当前值 → Vmp/Voc/Imp/Isc/功率%。
+
+    SAS：Vmp=Umpp，Imp=Pmpp(kW)×1000/Umpp，Voc/Isc 只用页上的填充因子拆开
+    （FF=Vmp×Imp/(Voc×Isc)），功率%记 100。不读致茂/爱科页的 220 或 Sandia 默认。
+    原始负载：只填当前模式那一项，其余留空。
+    """
+    blank = {"vmp": "", "voc": "", "imp": "", "isc": "", "pf": ""}
+    if not isinstance(page, dict):
+        return dict(blank)
+    mode = str(page.get("mode") or "").strip().lower()
+    if mode == "sas":
+        try:
+            umpp = float(page.get("umpp_v"))
+            pmpp = float(page.get("pmpp_kw"))
+            ff_v = float(page.get("ff"))
+        except (TypeError, ValueError):
+            return dict(blank)
+        if umpp <= 0 or pmpp <= 0 or not (0 < ff_v < 1):
+            return dict(blank)
+        imp = pmpp * 1000.0 / umpp
+        scale = math.sqrt(ff_v)
+        out = dict(blank)
+        out["vmp"] = format_report_number(umpp)
+        out["imp"] = format_report_number(imp)
+        out["voc"] = format_report_number(umpp / scale)
+        out["isc"] = format_report_number(imp / scale)
+        out["pf"] = "100"
+        return out
+    out = dict(blank)
+    outmode = str(page.get("outmode") or "").strip().lower()
+    try:
+        if outmode == "cv" and page.get("voltage_v") not in (None, ""):
+            out["vmp"] = format_report_number(float(page["voltage_v"]))
+        elif outmode == "cc" and page.get("current_a") not in (None, ""):
+            out["imp"] = format_report_number(float(page["current_a"]))
+    except (TypeError, ValueError):
+        return dict(blank)
+    return out
+
+
+_IV_WIDGET_KEYS = (
+    ("vmp", "textEdit_Vmp", "vmp", "voltage"),
+    ("imp", "textEdit_Imp", "imp", "current"),
+    ("voc", "textEdit_Voc", "voc", None),
+    ("isc", "textEdit_Isc", "isc", None),
+    ("pf", "textEdit_PF", "powerPercent", None),
+)
+
+
+def dc_connection_extra(
+    *,
+    brand: str,
+    iv: Optional[Dict[str, Any]] = None,
+    slot: str = "dc1",
+    force_iv: bool = False,
+) -> Dict[str, Any]:
+    """直流连接态附加字段：品牌 + IV。force_iv 时五点都写入（含空串）。"""
+    canon = canonical_reported_brand(brand)
+    out: Dict[str, Any] = {"brand": canon, "slot": str(slot or "dc1").lower(), "measures": {}}
+    src = iv if isinstance(iv, dict) else {}
+    force = bool(force_iv) or canon == "bluesight"
+    widgets: Dict[str, str] = {}
+    measures: Dict[str, str] = {}
+    for key, widget_key, measure_key, alias in _IV_WIDGET_KEYS:
+        if key not in src and not force:
+            continue
+        val = str(src.get(key) or "").strip()
+        if not val and not force:
+            continue
+        widgets[widget_key] = val
+        if val:
+            measures[measure_key] = val
+            if alias and alias not in out:
+                out[alias] = val
+    if widgets:
+        out["widgets"] = widgets
+    if measures:
+        out["measures"] = measures
+    return out
+
+
+def ac_connection_extra(
+    *,
+    brand: str,
+    voltage: str = "",
+    frequency: str = "",
+    phase: str = "",
+) -> Dict[str, Any]:
+    """交流连接态：品牌 + 当前页电压/频率/相位。"""
+    canon = canonical_reported_brand(brand)
+    out: Dict[str, Any] = {"brand": canon, "measures": {}}
+    widgets: Dict[str, str] = {}
+    measures: Dict[str, str] = {}
+    volt = str(voltage or "").strip()
+    freq = str(frequency or "").strip()
+    ph = str(phase or "").strip()
+    if volt:
+        widgets["textEdit_AC_VOLT"] = volt
+        measures["voltage"] = volt
+        out["voltage"] = volt
+    if freq:
+        widgets["textEdit_AC_FR"] = freq
+        measures["frequency"] = freq
+        out["frequency"] = freq
+    if ph:
+        widgets["comboBox_Phase"] = ph
+    if widgets:
+        out["widgets"] = widgets
+    if measures:
+        out["measures"] = measures
+    return out
+
+
 
 _VOLT_RE = re.compile(
     r"(?:^|[;:])(?:SOUR(?:CE)?:)?VOLT(?:AGE)?(?:[:\s]+)([+-]?\d+(?:\.\d+)?)",
@@ -429,5 +585,17 @@ def read_dewetron_ui_snapshot(dew_ui: Any) -> Dict[str, Any]:
                 continue
         if ch_map:
             widgets["dew_channel_map"] = ch_map
+    scales_fn = getattr(dew_ui, "channel_scale_factors", None)
+    if callable(scales_fn):
+        try:
+            scales = scales_fn()
+        except Exception:
+            scales = None
+        if isinstance(scales, dict) and scales:
+            widgets["dew_channel_scales"] = {
+                str(key): str(value)
+                for key, value in scales.items()
+                if str(value).strip()
+            }
     out["widgets"] = widgets
     return out

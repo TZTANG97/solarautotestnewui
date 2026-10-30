@@ -57,7 +57,7 @@ Push-Location $InstallDir
 try {
     if (Test-Path $uv) {
         Info "Import check (PyQt5 / numpy / pyvisa) ..."
-        & $uv run --frozen python -c "import sys; print('python', sys.version); import PyQt5; import numpy; import pyvisa; import psutil; print('IMPORT_OK')"
+        & $uv run --frozen --offline python -c "import sys; print('python', sys.version); import PyQt5; import numpy; import pyvisa; import psutil; print('IMPORT_OK')"
         if ($LASTEXITCODE -eq 0) {
             Pass "Core imports OK"
         } else {
@@ -65,11 +65,11 @@ try {
         }
 
         Info "Syntax check SCPITestWave.py ..."
-        & $uv run --frozen python -c "import ast; ast.parse(open('SCPITestWave.py', encoding='utf-8').read()); print('SYNTAX_OK')"
+        & $uv run --frozen --offline python -c "import ast; ast.parse(open('SCPITestWave.py', encoding='utf-8').read()); print('SYNTAX_OK')"
         if ($LASTEXITCODE -eq 0) { Pass "SCPITestWave.py syntax OK" } else { Fail "SCPITestWave.py syntax failed" }
 
         Info "Syntax check Dialog_thai*.py ..."
-        & $uv run --frozen python -c @"
+        & $uv run --frozen --offline python -c @"
 from pathlib import Path
 import ast, sys
 errs=[]
@@ -89,7 +89,7 @@ print('DIALOG_SYNTAX_OK', len(list(Path('.').glob('Dialog_thai*.py'))))
         Info "Overfreq cross smoke (no instruments) ..."
         $smoke = Join-Path $InstallDir "code_example\test_overfreq_cross_smoke.py"
         if (Test-Path $smoke) {
-            & $uv run --frozen python $smoke
+            & $uv run --frozen --offline python $smoke
             if ($LASTEXITCODE -eq 0) { Pass "Overfreq cross smoke OK" } else { Fail "Overfreq cross smoke failed" }
         } else {
             Info "Smoke script not packaged, skip"

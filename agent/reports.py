@@ -152,6 +152,72 @@ def _flicker_image_roots(repo_root: Path) -> List[Path]:
     return uniq
 
 
+def recording_token_for_test(test_name: str) -> str:
+    """已知试验的连续录波文件名片段。对不上返回空，避免误收其它任务文件。"""
+    raw = str(test_name or "").strip()
+    if not raw:
+        return ""
+    try:
+        from utils.wt_job_save import (
+            CONTINUOUS_FILENAME_BY_TEST,
+            _ALIASES,
+            continuous_filename_for_test,
+        )
+    except Exception:
+        low = raw.lower().replace(" ", "").replace("_", "")
+        if low in {"动态qu", "dynamicqu"}:
+            return "qu_dyn_curve"
+        if low in {"静态qu", "staticqu"}:
+            return "qu_curve"
+        return ""
+    low = raw.lower().replace(" ", "").replace("_", "")
+    canon = _ALIASES.get(raw) or _ALIASES.get(low) or low
+    if canon not in CONTINUOUS_FILENAME_BY_TEST and low not in CONTINUOUS_FILENAME_BY_TEST:
+        if low in {"动态qu", "dynamicqu"}:
+            return "qu_dyn_curve"
+        if low in {"静态qu", "staticqu"}:
+            return "qu_curve"
+        return ""
+    name = str(continuous_filename_for_test(raw) or "").strip().lower()
+    if not name or name == "record_br":
+        return ""
+    return name
+
+
+def window_output_files_by_token(
+    repo_root: Path,
+    since_ts: float,
+    until_ts: float,
+    *,
+    name_token: str,
+) -> List[Path]:
+    """时间窗内、文件名含 token 的录波（含 wt_save）。"""
+    token = str(name_token or "").strip().lower()
+    if not token:
+        return []
+    found: List[Path] = []
+    root = Path(repo_root)
+
+    def _named(path: Path) -> bool:
+        return token in path.name.lower()
+
+    for pattern in _RECENT_GLOBS:
+        for path in root.glob(pattern):
+            if _named(path) and _match_recent_file(path, since_ts, until_ts):
+                found.append(path)
+    for folder in _flicker_image_roots(root):
+        if not folder.is_dir():
+            continue
+        for path in folder.glob("**/*"):
+            if not path.is_file() or not _named(path):
+                continue
+            if path.suffix.lower() not in _RECENT_SUFFIXES and "dewetron" not in str(path).lower():
+                continue
+            if _match_recent_file(path, since_ts, until_ts):
+                found.append(path)
+    return found
+
+
 def _flicker_images(repo_root: Path, since_ts: float, until_ts: float) -> List[Path]:
     """只收 [since, until] 内的图片。调用方在没有 elapsed_sec 时不要调用。"""
     found: List[Path] = []
@@ -221,30 +287,58 @@ def collect_report_files(
         candidates.extend(_flicker_images(root, now_img - elapsed_img, now_img + 5.0))
 
     tt = str(summary.get("testType") or summary.get("test_type") or "").lower()
+    # 连续录波常落在 wt_save（QU_curve.csv 等），job 目录扫不到时按试验名 token 补扫
+    token = recording_token_for_test(
+        str(
+            summary.get("testType")
+            or summary.get("test_type")
+            or summary.get("current_test")
+            or ""
+        )
+    )
+    if token and (elapsed_img > 0 or since_ts > 0):
+        candidates.extend(
+            window_output_files_by_token(
+                root,
+                since_ts,
+                until_ts,
+                name_token=token,
+            )
+        )
     drop_overload = tt in ("harmonic", "harmonics", "harmonic_current", "谐波", "谐波电流", "谐波电流测试")
 
+    def _keep(path: Path) -> bool:
+        name_l = path.name.lower()
+        if drop_overload and (
+            name_l.startswith("sample_overload") or name_l == "sim_plan.json"
+        ):
+            return False
+        try:
+            size = path.stat().st_size
+        except OSError:
+            return False
+        return 0 < size <= _MAX_BYTES
+
+    def _priority(path: Path) -> tuple:
+        name_l = path.name.lower()
+        if token and token in name_l:
+            return (0, name_l)
+        if path.suffix.lower() in {".csv", ".xlsx", ".xls", ".docx", ".pdf"}:
+            return (1, name_l)
+        if name_l == "status.json" or (name_l.startswith("job_") and name_l.endswith(".json")):
+            return (3, name_l)
+        return (2, name_l)
+
+    resolved_list: List[Path] = []
     seen = set()
-    files: List[Path] = []
     for path in candidates:
         try:
             resolved = path.resolve()
         except OSError:
             continue
-        if resolved in seen or not resolved.is_file():
-            continue
-        name_l = resolved.name.lower()
-        if drop_overload and (
-            name_l.startswith("sample_overload") or name_l == "sim_plan.json"
-        ):
-            continue
-        try:
-            size = resolved.stat().st_size
-        except OSError:
-            continue
-        if size <= 0 or size > _MAX_BYTES:
+        if resolved in seen or not resolved.is_file() or not _keep(resolved):
             continue
         seen.add(resolved)
-        files.append(resolved)
-        if len(files) >= _MAX_FILES:
-            break
-    return files
+        resolved_list.append(resolved)
+    resolved_list.sort(key=_priority)
+    return resolved_list[:_MAX_FILES]

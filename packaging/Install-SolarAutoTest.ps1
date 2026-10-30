@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Install SolarAutoTest to this PC (local copy + uv + venv).
@@ -194,7 +194,7 @@ function Write-Launcher([string]$InstallRoot) {
     # Check-And-Update 返回 10，必须 restart，否则 cmd 按行号错位（'OOT'/LOCAL_ROOT 空）。
     $lines = @(
         '@echo off',
-        'setlocal EnableExtensions',
+        'setlocal EnableExtensions EnableDelayedExpansion',
         'chcp 65001 >nul',
         'pushd "%~dp0" >nul 2>&1',
         'if errorlevel 1 (',
@@ -203,16 +203,22 @@ function Write-Launcher([string]$InstallRoot) {
         '    exit /b 1',
         ')',
         '',
-        'REM LAN auto-update (before app starts, so files are not locked)',
+        'REM Update before the app starts. Do not hide this window, and do not',
+        'REM read ERRORLEVEL inside the same parentheses block (%VAR% is stale).',
+        'set "UPD_EC=0"',
         'if exist "%~dp0Check-And-Update.ps1" (',
-        '    powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0Check-And-Update.ps1" -InstallDir "%CD%"',
-        '    set "UPD_EC=%ERRORLEVEL%"',
-        '    if "%UPD_EC%"=="10" (',
-        '        echo Restarting after upgrade...',
-        '        popd',
-        '        call "%~f0"',
-        '        exit /b %ERRORLEVEL%',
-        '    )',
+        '    echo Checking for updates...',
+        '    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Check-And-Update.ps1" -InstallDir "%CD%"',
+        '    set "UPD_EC=!ERRORLEVEL!"',
+        ')',
+        'if "!UPD_EC!"=="10" (',
+        '    echo Restarting after upgrade...',
+        '    popd',
+        '    call "%~f0"',
+        '    exit /b !ERRORLEVEL!',
+        ')',
+        'if not "!UPD_EC!"=="0" (',
+        '    echo [WARN] Update did not finish. See update.log',
         ')',
         '',
         'REM Runtime root: runtime_root.txt in install dir, else LOCALAPPDATA',
@@ -248,10 +254,15 @@ function Write-Launcher([string]$InstallRoot) {
         'echo Install: %CD%',
         'echo Runtime: %UV_PROJECT_ENVIRONMENT%',
         'echo.',
+        'echo Preparing Python packages...',
+        'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ". ''%~dp0Install-PathHelpers.ps1''; Sync-SolarAutoTestRuntime -UvExe ''%UV_EXE%'' -ProjectDir ''%CD%''"',
+        'if errorlevel 1 (',
+        '    echo [WARN] Dependency sync failed.',
+        ')',
         '',
         'REM IOT Agent is started silently by SCPITestWave when config\solar_agent.json exists',
-        '',
-        '"%UV_EXE%" run --frozen python SCPITestWave.py',
+        'REM --offline: do not fall back to files.pythonhosted.org at startup',
+        '"%UV_EXE%" run --frozen --offline python SCPITestWave.py',
         'set "EC=%ERRORLEVEL%"',
         'popd',
         'if not "%EC%"=="0" (',
@@ -313,7 +324,7 @@ function New-AppShortcut([string]$TargetBat, [string]$InstallRoot) {
 }
 
 function Invoke-UvSync([string]$InstallRoot, [string]$UvExe, [string]$RuntimeRoot = "") {
-    Write-Step "Syncing Python environment (first run may take several minutes)"
+    Write-Step "正在安装 Python 环境（依赖走国内镜像，不从 files.pythonhosted.org 下载）"
     Set-UvDownloadMirrors
     Write-Host ("  UV_DEFAULT_INDEX=" + $env:UV_DEFAULT_INDEX)
     Write-Host ("  UV_PYTHON_INSTALL_MIRROR=" + $env:UV_PYTHON_INSTALL_MIRROR)
@@ -335,22 +346,9 @@ function Invoke-UvSync([string]$InstallRoot, [string]$UvExe, [string]$RuntimeRoo
     Ensure-Directory $env:UV_PYTHON_INSTALL_DIR
     Ensure-Directory $env:UV_CACHE_DIR
 
-    Push-Location $InstallRoot
-    try {
-        & $UvExe --version
-        & $UvExe sync --frozen
-        if ($LASTEXITCODE -ne 0) {
-            Write-WarnLine "uv sync --frozen failed, trying uv sync"
-            & $UvExe sync
-            if ($LASTEXITCODE -ne 0) {
-                throw ("uv sync failed, exit code " + $LASTEXITCODE)
-            }
-        }
-        Write-Ok "Dependencies synced"
-    }
-    finally {
-        Pop-Location
-    }
+    & $UvExe --version
+    Sync-SolarAutoTestRuntime -UvExe $UvExe -ProjectDir $InstallRoot
+    Write-Ok "Dependencies synced"
 }
 
 function Get-AppVersion([string]$Root) {
@@ -562,6 +560,7 @@ if (Test-Path $verSrc) {
 
 Copy-Item -Force (Join-Path $packageRoot "Verify-Install.ps1") (Join-Path $InstallDir "Verify-Install.ps1") -ErrorAction SilentlyContinue
 Copy-Item -Force (Join-Path $packageRoot "Check-And-Update.ps1") (Join-Path $InstallDir "Check-And-Update.ps1") -ErrorAction SilentlyContinue
+Copy-Item -Force (Join-Path $packageRoot "Install-PathHelpers.ps1") (Join-Path $InstallDir "Install-PathHelpers.ps1") -ErrorAction SilentlyContinue
 Copy-Item -Force (Join-Path $packageRoot "INSTALL.txt") (Join-Path $InstallDir "INSTALL.txt") -ErrorAction SilentlyContinue
 
 $uv = Ensure-Uv -InstallRoot $InstallDir

@@ -189,6 +189,11 @@ def build_run_snapshot_from_status(status_json_path: Optional[str] = None) -> Di
     return snap
 
 
+def heartbeat_should_push_progress(status: str) -> bool:
+    """待开始/未开始不能写回云任务，否则本机追加会把上一单进度打回 0。"""
+    return str(status or "").strip() in ("进行中", "暂停")
+
+
 def snapshot_implies_busy(snap: Optional[Dict[str, Any]]) -> bool:
     if not isinstance(snap, dict):
         return False

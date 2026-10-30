@@ -222,6 +222,10 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
             prefer_keys = ("33%", "66%", "100%", "harmonic", "voltage")
         elif tt in ("overload", "overloads", "过载"):
             prefer_keys = ("overload", "过载", "542", "5.4.2")
+        elif tt in ("staticqu", "静态qu"):
+            prefer_keys = ("qu_curve", "staticqu", "q(u)")
+        elif tt in ("dynamicqu", "动态qu"):
+            prefer_keys = ("qu_dyn_curve", "dynamicqu")
         else:
             prefer_keys = (tt,) if tt else ()
     files = summary.get("report_files") or summary.get("reportFiles") or []
@@ -248,8 +252,9 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
     if csv_parents:
         csv_parents.sort(key=lambda d: d.stat().st_mtime if d.exists() else 0, reverse=True)
         return csv_parents[0]
-    # 兜底：command_data / dewetron 最近目录（含 csv 的文件夹或扁平 csv 目录）
+    # 兜底：wt_save（静态/动态 QU 连续录常落这里）+ command_data / dewetron
     for base in (
+        repo_root / "wt_save",
         repo_root / "command_save_files" / "command_data",
         repo_root / "command_save_files" / "dewetron_data",
     ):

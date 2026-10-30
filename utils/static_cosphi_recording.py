@@ -30,26 +30,26 @@ def _power_levels(ui) -> List[str]:
 
 
 def _enabled_cos_steps(ui):
-    """全部 cosφ（0.0 … -1.0）。功率档是外循环，各步勾选不再过滤。"""
-    del ui
-    return [
-        (step_num, cos_label, pf_name)
-        for step_num, _cb_name, cos_label, pf_name in _COS_STEP_DEFS
-    ]
+    """已勾选的 cosφ。没有勾选框时视为全测，方便无界面推算。"""
+    out = []
+    for step_num, cb_name, cos_label, pf_name in _COS_STEP_DEFS:
+        cb = getattr(ui, cb_name, None)
+        if cb is not None and hasattr(cb, "isChecked") and not cb.isChecked():
+            continue
+        out.append((step_num, cos_label, pf_name))
+    return out
 
 
 def split_filenames(ui) -> List[str]:
-    """功率档 × 勾选 cosφ → 分开录多文件名。"""
+    """功率阶梯有内容时一段一个文件；留空才按勾选的 cosφ 一段一段生成。"""
     levels = _power_levels(ui)
-    steps = _enabled_cos_steps(ui)
     names: List[str] = []
     if levels:
         for power_pct in levels:
-            for _sn, cos_label, _pf in steps:
-                safe = str(power_pct).replace("%", "")
-                names.append("P%s_%s" % (safe, cos_label))
+            safe = str(power_pct).replace("%", "")
+            names.append("P%s" % safe)
     else:
-        for _sn, cos_label, pf_name in steps:
+        for _sn, cos_label, pf_name in _enabled_cos_steps(ui):
             te = getattr(ui, pf_name, None)
             pct = (te.toPlainText().strip() if te is not None else "") or "100"
             safe = str(pct).replace("%", "")

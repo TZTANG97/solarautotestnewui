@@ -70,6 +70,9 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("voltprotect10min", "CEI_Nbis_BeiDe_50549"): "5.8.3.3",
     ("reconnect", "CEI_Nbis_BeiDe_50549"): "5.9",
     ("activep", "CEI_Nbis_BeiDe_50549"): "5.10.3.2",
+    # 静态 Q(U)：北德/德凯有 6.8；南德 NanDe 暂无处理器（resolve 会 None）
+    ("staticqu", "CEI_Nbis_BeiDe"): "6.8",
+    ("staticqu", "CEI_Nbis_DeKai"): "6.8",
 }
 
 # (testType, solar_standard) 覆盖 pack 默认码——意大利 CEI 0-16（图喆/麦田）
@@ -134,6 +137,7 @@ PHASE1_AUTO_TESTS = frozenset(
         "phasejump",
         "lvrt",
         "rocof",
+        "staticqu",
     }
 )
 # 巴西 / 南德 PEA TDS / 北德 CEI 0-16 / EN 50549
@@ -199,6 +203,8 @@ TEST_TYPE_ALIASES: Dict[str, str] = {
     "lowvoltage_ride_through": "lvrt",
     "rocofprotect": "rocof",
     "rocof_protect": "rocof",
+    "静态qu": "staticqu",
+    "动态qu": "dynamicqu",
 }
 
 

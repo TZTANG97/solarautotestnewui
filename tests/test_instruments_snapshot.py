@@ -155,6 +155,50 @@ def test_resource_without_ever_connected_skipped(tmp_path: Path, monkeypatch):
     assert out == []
 
 
+def test_dc_bluesight_on_port_502_not_reported_as_itech(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(snap, "_cache", [])
+    monkeypatch.setattr(snap, "_cache_at", 0.0)
+    status = tmp_path / "status.json"
+    status.write_text(
+        json.dumps(
+            {
+                "devices": [
+                    {
+                        "name": "交流电源",
+                        "connected": True,
+                        "resource": "192.168.40.210:502",
+                        "last_connected": "2026-10-29 21:00:00",
+                        "brand": "itech",
+                    },
+                    {
+                        "name": "直流电源1",
+                        "connected": True,
+                        "resource": "192.168.40.12:502",
+                        "last_connected": "2026-10-29 21:00:00",
+                        "brand": "bluesight",
+                        "widgets": {
+                            "textEdit_Vmp": "650",
+                            "textEdit_Imp": "12.3077",
+                            "textEdit_Voc": "726.722",
+                            "textEdit_Isc": "13.7576",
+                            "textEdit_PF": "100",
+                        },
+                    },
+                ],
+                "project": {},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    out = snap.collect_instruments_snapshot(status_json_path=str(status), force=True)
+    by_slot = {item["slot"]: item for item in out}
+    assert by_slot["ac"]["brand"] == "ITECH"
+    assert by_slot["dc1"]["brand"] == "Bluesight"
+    assert by_slot["dc1"]["widgets"]["textEdit_Vmp"] == "650"
+    assert by_slot["dc1"]["widgets"]["textEdit_Imp"] == "12.3077"
+
+
 def test_usb_dc_chroma_serial_from_visa(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(snap, "_cache", [])
     monkeypatch.setattr(snap, "_cache_at", 0.0)

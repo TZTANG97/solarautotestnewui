@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from utils.iot_local_run import (
+    adopt_cloud_job,
     current_local_job_id,
     handoff_has_awaiting_job,
     notify_local_run_finished,
@@ -12,7 +13,8 @@ from utils.iot_local_run import (
 )
 
 
-def test_handoff_awaiting_skips_when_job_present(monkeypatch):
+def test_stale_awaiting_registers_a_new_local_job(monkeypatch):
+    """上一云任务还挂着时，本机再点开始应先结案再新建，而不是跳过登记。"""
     import utils.iot_local_run as mod
 
     fake_sw = SimpleNamespace(
@@ -22,13 +24,14 @@ def test_handoff_awaiting_skips_when_job_present(monkeypatch):
     assert handoff_has_awaiting_job() is True
 
     called = []
-
-    def _boom(*_a, **_k):
-        called.append(1)
-
-    monkeypatch.setattr(mod, "_do_start", _boom)
+    released = []
+    monkeypatch.setattr(mod, "_do_start", lambda *_a, **_k: called.append(1))
+    monkeypatch.setattr(
+        mod, "release_previous_cloud_job_for_new_round", lambda: released.append(42) or 42
+    )
     notify_local_run_started("过载能力测试")
-    assert called == []
+    assert released == [42]
+    assert called == [1]
 
 
 def test_handoff_job_ctx_skips_during_start_test(monkeypatch):
@@ -121,3 +124,80 @@ def test_notify_finished_falls_back_to_status_json(monkeypatch):
     notify_local_run_finished(aborted=False)
     assert called == [(26, False)]
     assert current_local_job_id() == 26
+
+
+def test_release_closes_awaiting_and_drops_status_job_id(monkeypatch, tmp_path):
+    import json
+
+    import utils.iot_local_run as mod
+
+    closed = []
+
+    class _Svc:
+        _job_ctx = None
+        _awaiting = {"job_id": 69}
+
+        def finish_awaiting_as_new_round(self):
+            closed.append(69)
+            self._awaiting = None
+            return 69
+
+    fake_sw = SimpleNamespace(_iot_ui_handoff_svc=_Svc(), strTestStatusFlag="")
+    monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake_sw)
+    monkeypatch.setattr(mod, "_repo_root", lambda: tmp_path)
+    # 仍显示进行中：不能强结（避免追加开测误杀上一单）
+    (tmp_path / "status.json").write_text(
+        json.dumps({"project": {"jobId": 69, "status": "进行中"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    assert mod.release_previous_cloud_job_for_new_round() is None
+    assert closed == []
+
+    (tmp_path / "status.json").write_text(
+        json.dumps({"project": {"jobId": 69, "status": "已结束"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    assert mod.release_previous_cloud_job_for_new_round() == 69
+    saved = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    assert "jobId" not in saved["project"]
+    assert closed == [69]
+
+    fake_sw.strTestStatusFlag = "运行"
+    assert mod.release_previous_cloud_job_for_new_round() is None
+
+
+def test_notify_started_skips_while_desktop_running(monkeypatch):
+    """中途追加后再点开始：本机还在跑时不得新开 IOT 任务。"""
+    import utils.iot_local_run as mod
+
+    fake_sw = SimpleNamespace(
+        _iot_ui_handoff_svc=SimpleNamespace(_awaiting=None, _job_ctx=None),
+        strTestStatusFlag="运行",
+    )
+    monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake_sw)
+    called = []
+    monkeypatch.setattr(mod, "_do_start", lambda *_a, **_k: called.append(1))
+    monkeypatch.setattr(mod, "release_previous_cloud_job_for_new_round", lambda: called.append("rel"))
+    with mod._lock:
+        mod._state["job_id"] = 75
+    notify_local_run_started("Test_PU")
+    assert called == []
+    assert current_local_job_id() == 75
+
+
+def test_adopt_cloud_job_drops_previous_local_id(monkeypatch):
+    import utils.iot_local_run as mod
+
+    written = {}
+
+    def _persist(job_id, exper_id=None):
+        written["job"] = job_id
+        written["exper"] = exper_id
+
+    monkeypatch.setattr(mod, "_persist_local_job_ids", _persist)
+    with mod._lock:
+        mod._state["job_id"] = 67
+        mod._state["exper_id"] = 1
+    adopt_cloud_job(69, 3)
+    assert written == {"job": 69, "exper": 3}
+    assert current_local_job_id() is None

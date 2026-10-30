@@ -505,7 +505,7 @@ class Ui_Dialog_thaidynamicQU(object):
             "112,110,108,107,106,105,103,100,"
             "97,94,93,90,87,85"
         )
-        ladder_grp = QtWidgets.QGroupBox("Q(U) 电压 list（连续录 1 条 QU_dyn_curve）")
+        ladder_grp = QtWidgets.QGroupBox("动态 Q(U)：电压↔功率一一对应（连续录 1 条 QU_dyn_curve）")
         ladder_grp.setStyleSheet(
             "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
             "padding-top: 8px; font-weight: bold; }"
@@ -527,34 +527,47 @@ class Ui_Dialog_thaidynamicQU(object):
         self.textEdit_VoltageLadder_FR.setText("50")
         ladder_layout.addWidget(self.textEdit_VoltageLadder_FR, 0, 3)
 
-        ladder_layout.addWidget(QtWidgets.QLabel("电压Un%(list)："), 1, 0)
-        self.textEdit_VoltageLadder = QtWidgets.QTextEdit()
-        self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
-        self.textEdit_VoltageLadder.setFixedHeight(48)
-        self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
-        self.textEdit_VoltageLadder.setPlaceholderText("先升再降，如 100…115…85；连续录 QU_dyn_curve")
-        ladder_layout.addWidget(self.textEdit_VoltageLadder, 1, 1, 1, 3)
-
-        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
+        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 0, 4)
         self.textEdit_VoltageLadder_TIME = QtWidgets.QTextEdit()
         self.textEdit_VoltageLadder_TIME.setObjectName("textEdit_VoltageLadder_TIME")
         self.textEdit_VoltageLadder_TIME.setFixedSize(80, 28)
         self.textEdit_VoltageLadder_TIME.setText("1")
-        ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 2, 1)
+        ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 0, 5)
         self.comboBox_VoltageLadder_TIME = QtWidgets.QComboBox()
         self.comboBox_VoltageLadder_TIME.setObjectName("comboBox_VoltageLadder_TIME")
         self.comboBox_VoltageLadder_TIME.addItems(["分钟", "秒", "毫秒"])
         self.comboBox_VoltageLadder_TIME.setCurrentText("分钟")
         self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
-        ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 2, 2)
+        ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 0, 6)
+
+        from components.ladder_matrix_panel import MODE_PAIR, LadderMatrixPanel
+
+        self._ladder_matrix = LadderMatrixPanel(
+            mode=MODE_PAIR,
+            outer_header="功率",
+            outer_unit="%",
+            outer_object_name="textEdit_PowerLadder",
+            # 默认留空：整段电压阶梯用步骤①功率；要配对时填与电压相同点数
+            outer_default="",
+            outer_placeholder="如 100,95,90…（与电压同行）",
+            inner_header="电压 Un%",
+            inner_unit="%",
+            inner_object_name="textEdit_VoltageLadder",
+            inner_default=_DEFAULT_U_LIST,
+            inner_placeholder="如 100",
+        )
+        self.textEdit_PowerLadder = self._ladder_matrix.outer
+        self.textEdit_VoltageLadder = self._ladder_matrix.inner
+        ladder_layout.addWidget(self._ladder_matrix, 1, 0, 1, 7)
 
         tip = QtWidgets.QLabel(
-            "VDE 5.4.8.4.2：逆变器侧预先设定 Q(U) 曲线；软件按电压 list 改网压，"
-            "WT 连续录 1 条 QU_dyn_curve（ASYNC_START→驻留→WAIT_END）。Pn 由步骤① DC 保持。"
+            "一一对应：例如电压=100% 时功率=100%，电压跑到 103% 时功率改成 95%——"
+            "左右表同一行是一组。功率留空则全程用步骤①功率；只填 1 个功率则全程固定该功率。"
+            "不是「每个功率把电压 list 全扫一遍」的外循环。逆变器侧请预先设好 Q(U) 曲线；WT 连续录 1 条 QU_dyn_curve。"
         )
         tip.setWordWrap(True)
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
-        ladder_layout.addWidget(tip, 3, 0, 1, 4)
+        ladder_layout.addWidget(tip, 2, 0, 1, 7)
         layout.addWidget(ladder_grp)
         layout.addStretch()
         self.stackedWidget.addWidget(page)

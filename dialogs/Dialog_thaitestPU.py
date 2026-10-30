@@ -36,8 +36,8 @@ QPushButton:hover { background-color: #e2e8f0; }
 class Ui_Dialog_thaitestPU(object):
     def setupUi(self, Dialog_thaitestPU):
         Dialog_thaitestPU.setObjectName("Dialog_thaitestPU")
-        Dialog_thaitestPU.resize(1300, 850)
-        Dialog_thaitestPU.setMinimumSize(QtCore.QSize(1200, 750))
+        Dialog_thaitestPU.resize(1597, 828)
+        Dialog_thaitestPU.setMinimumSize(QtCore.QSize(1400, 750))
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(".\\ui_files\\logo.jpg"), QtGui.QIcon.Normal, QtGui.QIcon.On)
         Dialog_thaitestPU.setWindowIcon(icon)
@@ -557,30 +557,50 @@ class Ui_Dialog_thaitestPU(object):
         self.textEdit_VoltageLadder_FR.setText("50")
         ladder_layout.addWidget(self.textEdit_VoltageLadder_FR, 0, 3)
 
-        ladder_layout.addWidget(QtWidgets.QLabel("电压Un%(list)："), 1, 0)
-        self.textEdit_VoltageLadder = QtWidgets.QTextEdit()
-        self.textEdit_VoltageLadder.setObjectName("textEdit_VoltageLadder")
-        self.textEdit_VoltageLadder.setFixedHeight(28)
-        self.textEdit_VoltageLadder.setText(_DEFAULT_U_LIST)
-        self.textEdit_VoltageLadder.setPlaceholderText("先升再降，如 100…115…85；连续录 PU_curve")
-        ladder_layout.addWidget(self.textEdit_VoltageLadder, 1, 1, 1, 3)
-
-        ladder_layout.addWidget(QtWidgets.QLabel("每点驻留："), 2, 0)
+        dwell_row = QtWidgets.QHBoxLayout()
+        dwell_row.addWidget(QtWidgets.QLabel("每点驻留："))
         self.textEdit_VoltageLadder_TIME = QtWidgets.QTextEdit()
         self.textEdit_VoltageLadder_TIME.setObjectName("textEdit_VoltageLadder_TIME")
         self.textEdit_VoltageLadder_TIME.setFixedSize(80, 28)
         self.textEdit_VoltageLadder_TIME.setText("1")
         self.textEdit_VoltageLadder_TIME.setToolTip("每个 Un% 保持时间；WT 全程连续录，不停表")
-        ladder_layout.addWidget(self.textEdit_VoltageLadder_TIME, 2, 1)
+        dwell_row.addWidget(self.textEdit_VoltageLadder_TIME)
         self.comboBox_VoltageLadder_TIME = QtWidgets.QComboBox()
         self.comboBox_VoltageLadder_TIME.setObjectName("comboBox_VoltageLadder_TIME")
         self.comboBox_VoltageLadder_TIME.addItems(["分钟", "秒", "毫秒"])
         self.comboBox_VoltageLadder_TIME.setCurrentText("分钟")
         self.comboBox_VoltageLadder_TIME.setFixedWidth(80)
-        ladder_layout.addWidget(self.comboBox_VoltageLadder_TIME, 2, 2)
+        dwell_row.addWidget(self.comboBox_VoltageLadder_TIME)
+        dwell_row.addStretch(1)
+        ladder_layout.addLayout(dwell_row, 1, 0, 1, 4)
+
+        try:
+            from utils.iot_testpu_standard import default_testpu_power_ladder
+
+            _default_power = default_testpu_power_ladder("thai")
+        except Exception:
+            _default_power = "100,70,50,20"
+        from components.ladder_matrix_panel import LadderMatrixPanel
+
+        self._ladder_matrix = LadderMatrixPanel(
+            outer_header="功率",
+            outer_unit="%",
+            outer_object_name="textEdit_PowerLadder",
+            outer_default=_default_power,
+            outer_placeholder="如 100",
+            inner_header="电压 Un%",
+            inner_unit="%",
+            inner_object_name="textEdit_VoltageLadder",
+            inner_default=_DEFAULT_U_LIST,
+            inner_placeholder="如 100",
+        )
+        self.textEdit_PowerLadder = self._ladder_matrix.outer
+        self.textEdit_VoltageLadder = self._ladder_matrix.inner
+        ladder_layout.addWidget(self._ladder_matrix, 2, 0, 1, 4)
+
         tip = QtWidgets.QLabel(
-            "只填电压 list（同静态QU）。逐点改网压，有功由机侧 P(U)/降载特性产生，WT 连续录一条曲线。"
-            "Pn 工况由步骤① DC 保持。"
+            "组合扫：每个功率档完整扫一遍电压 list（不是电压与功率一对一绑定）。"
+            "功率 list 留空则保持步骤①直流功率，只扫电压。WT 连续录一条 PU_curve。"
         )
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
         tip.setWordWrap(True)

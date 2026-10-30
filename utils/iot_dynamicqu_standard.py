@@ -8,9 +8,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "thai": {
         'comboBox_S1_AC_2': '单相',
         'textEdit_S1_AC_FR': '50',
-        'textEdit_PowerLadder': '100,70,50,20',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '60',
-        '_dynamicquLadder': '100,70,50,20',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '60',
         'textEdit_VoltageLadder': '0.9,0.95,1.0,1.05,1.1',
         'textEdit_VoltageLadder_TIME': '60',
@@ -20,9 +20,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "de_vde": {
         'comboBox_S1_AC_2': '三相',
         'textEdit_S1_AC_FR': '50',
-        'textEdit_PowerLadder': '100,75,50,25',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '30',
-        '_dynamicquLadder': '100,75,50,25',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '30',
         'textEdit_VoltageLadder': '0.85,0.9,1.0,1.1,1.15',
         'textEdit_VoltageLadder_TIME': '30',
@@ -32,9 +32,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "br_ord140": {
         'comboBox_S1_AC_2': '三相',
         'textEdit_S1_AC_FR': '60',
-        'textEdit_PowerLadder': '100,50,20',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '45',
-        '_dynamicquLadder': '100,50,20',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '45',
         'textEdit_VoltageLadder': '0.9,1.0,1.1',
         'textEdit_VoltageLadder_TIME': '45',
@@ -44,9 +44,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "en50549": {
         'comboBox_S1_AC_2': '三相',
         'textEdit_S1_AC_FR': '50',
-        'textEdit_PowerLadder': '100,66,33',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '40',
-        '_dynamicquLadder': '100,66,33',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '40',
         'textEdit_VoltageLadder': '0.9,0.95,1.0,1.05,1.1',
         'textEdit_VoltageLadder_TIME': '40',
@@ -56,9 +56,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "as_nzs": {
         'comboBox_S1_AC_2': '单相',
         'textEdit_S1_AC_FR': '50',
-        'textEdit_PowerLadder': '100,50,0',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '50',
-        '_dynamicquLadder': '100,50,0',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '50',
         'textEdit_VoltageLadder': '0.9,1.0,1.1',
         'textEdit_VoltageLadder_TIME': '50',
@@ -68,9 +68,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "it_cei": {
         'comboBox_S1_AC_2': '单相',
         'textEdit_S1_AC_FR': '50',
-        'textEdit_PowerLadder': '100,80,40,20',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '35',
-        '_dynamicquLadder': '100,80,40,20',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '35',
         'textEdit_VoltageLadder': '0.9,0.95,1.0,1.05,1.1',
         'textEdit_VoltageLadder_TIME': '35',
@@ -80,9 +80,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "uk_g99": {
         'comboBox_S1_AC_2': '单相',
         'textEdit_S1_AC_FR': '50',
-        'textEdit_PowerLadder': '100,50',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '55',
-        '_dynamicquLadder': '100,50',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '55',
         'textEdit_VoltageLadder': '0.9,1.0,1.1',
         'textEdit_VoltageLadder_TIME': '55',
@@ -92,9 +92,9 @@ DYNAMICQU_STANDARD_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "iec61727": {
         'comboBox_S1_AC_2': '单相',
         'textEdit_S1_AC_FR': '50',
-        'textEdit_PowerLadder': '100,50,10',
+        'textEdit_PowerLadder': '',
         'textEdit_S3_TIME_2': '20',
-        '_dynamicquLadder': '100,50,10',
+        '_dynamicquLadder': '',
         '_dynamicquDwell': '20',
         'textEdit_VoltageLadder': '0.95,1.0,1.05',
         'textEdit_VoltageLadder_TIME': '20',
@@ -178,5 +178,7 @@ def apply_dynamicqu_standard_to_ui(
     if not apply_defaults:
         return sid
     defaults = apply_dynamicqu_standard_to_widgets({}, sid, force=True)
+    # 电压 Un% 是界面长名单 / 用户改过的曲线。标准里的 0.9 短名单不能在打开或切标准时盖掉。
+    defaults.pop("textEdit_VoltageLadder", None)
     apply_defaults_dict_to_ui(ui, defaults, force=force)
     return sid

@@ -433,7 +433,17 @@ function Resolve-Channel([string]$Root) {
         $line = (Get-Content -Path $txt -TotalCount 1 -ErrorAction SilentlyContinue)
         if ($line) { return $line.Trim() }
     }
-    return ""
+    # 旧安装包的 config.ini 可能还没有 [update] channel，否则工况机永远不会检查。
+    return "https://qgongye.oss-cn-shanghai.aliyuncs.com/solarautotest/updates"
+}
+
+function Write-UpdateLog([string]$Message) {
+    try {
+        if (-not $InstallDir) { return }
+        $path = Join-Path $InstallDir "update.log"
+        $line = (Get-Date -Format "yyyy-MM-dd HH:mm:ss") + " " + $Message
+        Add-Content -Path $path -Value $line -Encoding UTF8
+    } catch {}
 }
 
 function Resolve-UpdateToken([string]$Root) {
@@ -806,8 +816,10 @@ function Invoke-IncrementalUpdate {
             if ($cmd) { $uv = $cmd.Source }
         }
         if (Test-Path $uv) {
-            Set-UpdateUi "依赖有变，正在 uv sync ..."
-            Info "uv.lock changed; running uv sync --frozen"
+            Set-UpdateUi "依赖有变，正在从国内镜像同步 ..."
+            Info "uv.lock changed; syncing wheels via China package mirrors"
+            $helpers = Join-Path $PSScriptRoot "Install-PathHelpers.ps1"
+            if (Test-Path -LiteralPath $helpers) { . $helpers }
             $runtimeRoot = ""
             $rr = Join-Path $InstallDir "runtime_root.txt"
             if (Test-Path $rr) {
@@ -819,14 +831,18 @@ function Invoke-IncrementalUpdate {
             $env:UV_PROJECT_ENVIRONMENT = Join-Path $runtimeRoot ".venv"
             $env:UV_PYTHON_INSTALL_DIR = Join-Path $runtimeRoot "python"
             $env:UV_CACHE_DIR = Join-Path $runtimeRoot "uv-cache"
-            Push-Location $InstallDir
-            try {
-                & $uv sync --frozen
-                if ($LASTEXITCODE -ne 0) {
-                    & $uv sync
+            if (Get-Command Set-UvDownloadMirrors -ErrorAction SilentlyContinue) {
+                Set-UvDownloadMirrors
+                Install-UvPythonForSync -UvExe $uv
+                Invoke-UvSyncFromChinaMirrors -UvExe $uv -ProjectDir $InstallDir
+            } else {
+                Push-Location $InstallDir
+                try {
+                    & $uv sync --frozen
+                    if ($LASTEXITCODE -ne 0) { & $uv sync }
+                } finally {
+                    Pop-Location
                 }
-            } finally {
-                Pop-Location
             }
         } else {
             Warn "uv.lock changed but uv.exe missing; launch may sync on next start"
@@ -958,8 +974,12 @@ try {
     Set-UpdateUi "正在检查更新，请稍候..."
     $manifest = Get-RemoteManifest $channel $token
 } catch {
+    $err = $_.Exception.Message
+    Write-UpdateLog ("manifest failed: " + $err)
+    Set-UpdateUi ("检查更新失败，仍打开当前版本。  " + $err)
+    Warn $err
+    Start-Sleep -Seconds 3
     Close-UpdateUi
-    Warn $_.Exception.Message
     exit 0
 }
 
@@ -974,7 +994,30 @@ $localVer = Read-LocalVersion $InstallDir
 if (-not $localVer) { $localVer = "0" }
 
 if ((Compare-VersionTag $remoteVer $localVer) -le 0) {
-    Set-UpdateUi ("已是最新版 " + $localVer + "，正在打开软件...")
+    $uvExe = Join-Path $InstallDir "tools\uv.exe"
+    if (-not (Test-Path -LiteralPath $uvExe)) {
+        $cmdUv = Get-Command uv.exe -ErrorAction SilentlyContinue
+        if ($cmdUv) { $uvExe = $cmdUv.Source }
+    }
+    $helpers = Join-Path $PSScriptRoot "Install-PathHelpers.ps1"
+    if ((Test-Path -LiteralPath $uvExe) -and (Test-Path -LiteralPath $helpers)) {
+        . $helpers
+        Set-UpdateUi "正在确认 Python 环境..."
+        try {
+            $script:SolarUvFetched = $false
+            Sync-SolarAutoTestRuntime -UvExe $uvExe -ProjectDir $InstallDir
+            if ($script:SolarUvFetched) {
+                Set-UpdateUi "依赖已从国内镜像装好，正在打开软件..."
+            } else {
+                Set-UpdateUi ("已是最新版 " + $localVer + "，正在打开软件...")
+            }
+        } catch {
+            Warn ("China mirror sync failed: " + $_.Exception.Message)
+            Set-UpdateUi "依赖同步失败，仍尝试打开软件..."
+        }
+    } else {
+        Set-UpdateUi ("已是最新版 " + $localVer + "，正在打开软件...")
+    }
     Start-Sleep -Milliseconds 600
     Close-UpdateUi
     Info ("Up to date. local=" + $localVer + " remote=" + $remoteVer)
@@ -1068,11 +1111,26 @@ try {
         Pump-UpdateUi
         Start-Sleep -Milliseconds 120
     }
-    if ($p.ExitCode -ne 0) {
-        throw ("Installer exit code " + $p.ExitCode)
+    # -NoNewWindow 时 HasExited 变 true 后 ExitCode 仍可能是空的。
+    # 空退出码以前被当成失败，安装其实已经写完，快捷方式就不再重启。
+    try { $null = $p.WaitForExit() } catch {}
+    try { $p.Refresh() } catch {}
+    $code = $p.ExitCode
+    if ($null -eq $code -or "$code" -eq "") {
+        $installedNow = Read-LocalVersion $InstallDir
+        if ($installedNow -eq $remoteVer) {
+            Info ("Installer exit code empty; VERSION is " + $remoteVer + ", treat as success.")
+            $code = 0
+        } else {
+            $code = 1
+        }
+    }
+    if ([int]$code -ne 0) {
+        throw ("Installer exit code " + $code)
     }
 
     Set-UpdateUi ("升级完成 " + $remoteVer + "，即将重新启动软件...")
+    Write-UpdateLog ("upgraded to " + $remoteVer)
     Ok ("Upgraded to " + $remoteVer + $(if ($usedIncremental) { " (incremental)" } else { " (full zip)" }))
     Start-Sleep -Milliseconds 800
     Close-UpdateUi
@@ -1081,8 +1139,12 @@ try {
     exit 10
 }
 catch {
+    $err = $_.Exception.Message
+    Write-UpdateLog ("upgrade failed: " + $err)
+    Set-UpdateUi ("升级失败，仍打开当前版本。  " + $err)
+    Warn ("Upgrade failed: " + $err)
+    Start-Sleep -Seconds 4
     Close-UpdateUi
-    Warn ("Upgrade failed: " + $_.Exception.Message)
     if (Is-HttpChannel $channel -and -not $token) {
         Warn "If the project is private, enable Package Registry public pull in GitLab,"
         Warn "or set [update] token= (Deploy Token read_package_registry) on this PC."

@@ -52,6 +52,7 @@ def test_dialog_voltage_list_defaults(qapp):
     assert ui.textEdit_VoltageLadder_Un.toPlainText() == "230"
     assert ui.textEdit_VoltageLadder_TIME.toPlainText() == "1"
     assert ui.comboBox_VoltageLadder_TIME.currentText() == "分钟"
+    assert ui.textEdit_PowerLadder.toPlainText() == "100,70,50,20"
     # 旧 20 点卡片仍在（list 为空时备用）
     assert hasattr(ui, "checkBox_S3") and hasattr(ui, "checkBox_S22")
 
@@ -90,6 +91,9 @@ def _prep_send(ui, sw, monkeypatch, tmp_path, u_text):
     for n in range(3, 23):
         getattr(ui, f"checkBox_S{n}").setChecked(False)
     ui.checkBox_S_End.setChecked(False)
+    # 旧用例只扫电压：功率名单留空则保持步骤①
+    if hasattr(ui, "textEdit_PowerLadder"):
+        ui.textEdit_PowerLadder.setPlainText("")
 
     monkeypatch.setattr(sw, "DCGetIVValueFunction", lambda *a, **k: ["IVC:IT 1", "IVC:VT 1"], raising=False)
     monkeypatch.setattr(sw, "command_list_DC", {"chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"]}, raising=False)
@@ -256,3 +260,56 @@ def test_voltage_math_matrix():
     cases = [(100, 230.0), (103, 236.9), (107, 246.1), (115, 264.5), (93, 213.9), (85, 195.5)]
     for pct, expect in cases:
         assert round(un * pct / 100.0, 2) == expect
+
+
+def test_send_each_power_then_voltage_still_one_recording(qapp, monkeypatch, tmp_path):
+    """每个功率档先改已勾选直流，再扫电压；全程只录一条。"""
+    import SCPITestWave as sw
+    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+
+    ui = Ui_Dialog_thaitestPU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    _prep_send(ui, sw, monkeypatch, tmp_path, "100,110")
+    ui.textEdit_PowerLadder.setPlainText("100,50")
+
+    def _iv(vmp, imp, voc, isc, pf, dc_num):
+        scale = float(str(pf).strip().rstrip("%") or "0") / 100.0
+        return ["IVC:IT %.3f" % (float(imp) * scale)]
+
+    monkeypatch.setattr(sw, "DCGetIVValueFunction", _iv, raising=False)
+    sw.thaitestPUSend()
+
+    cmds = [r[2] for r in sw.strArrayTest if r]
+    assert "IVC:IT 5.000" in cmds
+    assert cmds.count("VOLT 230.0") == 2
+    assert cmds.count("VOLT 253.0") == 2
+    col6 = [r[6] for r in sw.strArrayTest if r and r[0] == "AC" and r[6] != ""]
+    assert col6.count("ASYNC_START") == 1
+    assert col6.count("WAIT_END") == 1
+    assert sw.total_save_file == 1
+    # 先改 50% 直流，再出现该档的第二遍电压
+    idx_half = cmds.index("IVC:IT 5.000")
+    assert cmds.index("VOLT 253.0", idx_half) > idx_half
+
+
+def test_empty_power_ladder_does_not_rewrite_dc(qapp):
+    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from utils.dynamic_qu_commands import default_dc_iv_resolver
+    from utils.test_pu_commands import build_pu_voltage_power_rows
+
+    ui = Ui_Dialog_thaitestPU()
+    dialog = QDialog()
+    ui.setupUi(dialog)
+    ui.textEdit_VoltageLadder.setPlainText("100,110")
+    ui.textEdit_PowerLadder.setPlainText("")
+    ui.textEdit_VoltageLadder_TIME.setPlainText("1")
+    ui.comboBox_VoltageLadder_TIME.setCurrentText("秒")
+    ui.checkBox_S1_DC1.setChecked(True)
+    plan = build_pu_voltage_power_rows(
+        ui, phase_mode="单相", dc_iv_resolver=default_dc_iv_resolver
+    )
+    assert plan["ok"] and plan["power_levels"] == []
+    assert not any(r[0] == "DC1" for r in plan["rows"])
+    assert [r[6] for r in plan["rows"]].count("ASYNC_START") == 1
+    assert [r[6] for r in plan["rows"]].count("WAIT_END") == 1

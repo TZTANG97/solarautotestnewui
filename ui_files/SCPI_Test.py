@@ -64,8 +64,19 @@ class Ui_Dialog(object):
         _brand_sub.setStyleSheet(
             f"color: {theme.NAV_MUTED}; font-size: 11px; background: transparent;"
         )
+        from utils.app_version import read_app_version
+
+        _app_ver = read_app_version()
+        _brand_ver = QtWidgets.QLabel("版本 " + _app_ver)
+        _brand_ver.setObjectName("label_app_version")
+        _brand_ver.setStyleSheet(
+            "color: #f8fafc; font-size: 13px; font-weight: 700; background: transparent;"
+        )
         _brand_lay.addWidget(_brand_title)
         _brand_lay.addWidget(_brand_sub)
+        _brand_lay.addWidget(_brand_ver)
+        self._app_version_text = _app_ver
+        self.label_app_version = _brand_ver
         sidebarLayout.addWidget(_brand)
         self._sidebar_brand = _brand
         self._sidebar_brand_title = _brand_title
@@ -915,11 +926,21 @@ class Ui_Dialog(object):
         projectPageLayout.setContentsMargins(24, 16, 24, 16)
         projectPageLayout.setSpacing(12)
 
+        projTitleRow = QtWidgets.QHBoxLayout()
         projTitle = QtWidgets.QLabel("项目配置")
         projTitle.setStyleSheet(
             f"font-size: 18px; font-weight: 700; color: {theme.INK}; background: transparent;"
         )
-        projectPageLayout.addWidget(projTitle)
+        projVer = QtWidgets.QLabel("版本 " + getattr(self, "_app_version_text", ""))
+        projVer.setObjectName("label_project_app_version")
+        projVer.setStyleSheet(
+            f"font-size: 15px; font-weight: 700; color: {theme.INK}; background: transparent;"
+        )
+        projTitleRow.addWidget(projTitle)
+        projTitleRow.addStretch(1)
+        projTitleRow.addWidget(projVer)
+        projectPageLayout.addLayout(projTitleRow)
+        self.label_project_app_version = projVer
 
         # 保留comboBox定义但隐藏（供其他代码引用）
         self.comboBox_P = QtWidgets.QComboBox()
@@ -1215,7 +1236,9 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "自动化测试"))
+        Dialog.setWindowTitle(
+            _translate("Dialog", "自动化测试  " + getattr(self, "_app_version_text", ""))
+        )
         self.pushButton_ConnectEQUAC.setText(_translate("Dialog", "连接设备"))
         self.pushButton_ConnectEQUDC1.setText(_translate("Dialog", "连接设备"))
         self.pushButton_ConnectEQUDC2.setText(_translate("Dialog", "连接设备"))

@@ -118,12 +118,14 @@ def test_project_num_caps_long_list():
         "comboBox_ProjectNum": 0,
     }
     items = items_from_wt_config(cfg)
-    assert len(items) == 12
-    # 12 槽时总和不能被切到名单外面。
     assert "URMS,SIGMA" in items
+    assert "P,SIGMA" in items
+    assert "Q,SIGMA" in items
+    assert len(items) > 12
 
 
 def test_sigmaa_survives_twelve_slot_cap():
+    """WT3000 的 SigmaA 就是 ΣA，元素名 SIGMA。项目数 12 也不能把它换成仪器不认的 SIGMAA。"""
     cfg = {
         "Style": "Thai_WT3000E_Config",
         "checkBox_SetElement1": "1",
@@ -137,9 +139,78 @@ def test_sigmaa_survives_twelve_slot_cap():
         "comboBox_ProjectNum": 0,
     }
     items = items_from_wt_config(cfg)
-    assert len(items) == 12
-    assert "URMS,SIGMAA" in items
+    assert "URMS,SIGMA" in items
     assert "IRMS,SIGMA" in items
+    assert "P,SIGMA" in items
+    assert "URMS,SIGMAA" not in items
+    assert "P,SIGMAA" not in items
+    assert macro_column_name("URMS,SIGMA", "Thai_WT3000E_Config") == "U-SIGMA"
+
+
+def test_only_sigmaa_checkbox_writes_sigma_column():
+    """只勾 SigmaA、不勾元素 1/2/3：CSV 表头必须有 U-SIGMA，不能被默认元素盖掉。"""
+    cfg = {
+        "Style": "Thai_WT3000E_Config",
+        "checkBox_SetElement1": False,
+        "checkBox_SetElement2": False,
+        "checkBox_SetElement3": False,
+        "checkBox_SetSigma": False,
+        "checkBox_SetSigmaA": True,
+        "checkBox_SetSigmaB": False,
+        "checkBox_SetU": True,
+        "checkBox_SetI": True,
+        "checkBox_SetP": True,
+        "checkBox_SetQ": True,
+        "comboBox_ProjectNum": "12",
+    }
+    assert selected_targets(cfg) == ["SIGMA"]
+    items = items_from_wt_config(cfg)
+    assert items[:4] == ["URMS,SIGMA", "IRMS,SIGMA", "P,SIGMA", "Q,SIGMA"]
+    assert all(not tok.endswith(",1") for tok in items)
+    headers = ["Time [s]"] + [macro_column_name(tok, cfg["Style"]) for tok in items]
+    assert "U-SIGMA" in headers
+    assert "I-SIGMA" in headers
+    assert "P-SIGMA" in headers
+    assert "Q-SIGMA" in headers
+    assert "U-1" not in headers
+    assert "U-SIGMAA" not in headers
+
+
+def test_only_sigmaa_without_measure_functions_still_has_u_sigma():
+    cfg = {
+        "Style": "Thai_WT3000E_Config",
+        "checkBox_SetSigmaA": "1",
+        "comboBox_ProjectNum": 0,
+    }
+    items = items_from_wt_config(cfg)
+    assert "URMS,SIGMA" in items
+    assert "P,SIGMA" in items
+    assert "Q,SIGMA" in items
+    assert "URMS,1" not in items
+    assert "URMS,SIGMAA" not in items
+    assert macro_column_name("URMS,SIGMA", cfg["Style"]) == "U-SIGMA"
+
+
+def test_only_sigmaa_on_wt1800_stays_sigmaa():
+    cfg = {
+        "Style": "Thai_WT1800_Config",
+        "checkBox_SetSigmaA": "1",
+        "checkBox_SetUrms": "1",
+    }
+    items = items_from_wt_config(cfg)
+    assert items == ["URMS,SIGMAA"]
+    assert macro_column_name(items[0], cfg["Style"]) == "Urms-SIGMAA"
+
+
+def test_only_sigmaa_web_radio_wt3000_without_style():
+    cfg = {
+        "radio_S2_WT3000": True,
+        "checkBox_SetSigmaA": True,
+        "checkBox_SetU": True,
+    }
+    items = items_from_wt_config(cfg)
+    assert items == ["URMS,SIGMA"]
+    assert macro_column_name(items[0], "Thai_WT3000E_Config") == "U-SIGMA"
 
 
 def test_macro_column_names_match_viewer_csv():

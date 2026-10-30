@@ -41,6 +41,11 @@ def preset_path(test_name: str) -> str:
     return os.path.join(_preset_root(), f"{safe_test_id(test_name)}.json")
 
 
+VOLTAGE_LADDER_FIELD = "textEdit_VoltageLadder"
+# 只有这两项的电压阶梯是 CommaSegmentEdit 长 Un% 名单，打开时会被 setupUi 写回默认。
+VOLTAGE_LADDER_TESTS = frozenset({"动态QU", "Test_PU"})
+
+
 def _skip_object_name(name: str) -> bool:
     if not name:
         return True
@@ -89,12 +94,34 @@ def collect_dialog_fields(root: QWidget) -> Dict[str, Any]:
     return out
 
 
+def comma_voltage_ladder_text(root) -> Optional[str]:
+    """CommaSegmentEdit 不是 QTextEdit，findChildren 采集不到整段 Un% 名单。"""
+    widget = getattr(root, VOLTAGE_LADDER_FIELD, None)
+    if widget is None or isinstance(widget, QTextEdit) or not hasattr(widget, "toPlainText"):
+        return None
+    try:
+        return widget.toPlainText()
+    except Exception:
+        return None
+
+
 def apply_dialog_fields(root: QWidget, fields: Dict[str, Any]) -> int:
     if root is None or not fields:
         return 0
     n = 0
     for name, value in fields.items():
         if _skip_object_name(name):
+            continue
+        if name == VOLTAGE_LADDER_FIELD:
+            alt = getattr(root, name, None)
+            if alt is not None and hasattr(alt, "setPlainText") and not isinstance(alt, QTextEdit):
+                try:
+                    alt.setPlainText("" if value is None else str(value))
+                    n += 1
+                except Exception:
+                    pass
+                continue
+        if not hasattr(root, "findChild"):
             continue
         w = root.findChild(QWidget, name)
         if w is None:
@@ -148,7 +175,14 @@ def save_test_preset(
         except Exception:
             pass
     if root is not None:
-        payload["fields"] = collect_dialog_fields(root)
+        collected = collect_dialog_fields(root)
+        # Ui 对象没有 findChildren 时 collect 得到空字典。不要用空字典盖掉已记住的名单。
+        if collected or hasattr(root, "findChildren"):
+            payload["fields"] = collected
+        if test_name in VOLTAGE_LADDER_TESTS:
+            ladder = comma_voltage_ladder_text(root)
+            if ladder is not None:
+                payload["fields"][VOLTAGE_LADDER_FIELD] = ladder
     elif fields is not None:
         payload["fields"] = dict(fields)
     if dew_export is not None:
@@ -174,6 +208,11 @@ def load_test_preset(test_name: str) -> Optional[Dict[str, Any]]:
         "fields": dict(data.get("fields") or {}),
         "dew_export": dict(data.get("dew_export") or {}),
     }
+
+
+def remember_voltage_ladder(test_name: str, root) -> str:
+    """保存/追加后记住电压 Un% 名单（含用户删空的情况）。"""
+    return save_test_preset(test_name, root=root)
 
 
 def apply_test_preset(test_name: str, root: QWidget) -> bool:

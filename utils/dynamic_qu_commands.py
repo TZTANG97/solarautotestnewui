@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""动态 Q(U)：电压 Un% 阶梯扫 U + WT 连续录 1 条 QU_dyn_curve。"""
+"""动态 Q(U)：电压 Un% 与功率% 一一对应（同行配对），WT 连续录 1 条 QU_dyn_curve。"""
 
 from __future__ import annotations
 
@@ -9,7 +9,12 @@ from utils.safe_shutdown import (
     build_forced_shutdown_rows,
     enabled_shutdown_dc_channels,
 )
-from utils.ac_scpi_commands import append_ac_startup_from_ui
+from utils.ac_scpi_commands import (
+    append_ac_startup_from_ui,
+    append_freq_set,
+    append_legacy_three_phase_setpoints,
+    append_volt_set,
+)
 from utils.time_helpers import SetTimeFunction
 
 DEFAULT_FILE_NAME = "QU_dyn_curve"
@@ -102,6 +107,50 @@ def default_dc_iv_resolver(vmp, imp, voc, isc, pf, dc_num):
     ]
 
 
+def _append_dc_power_rows(
+    ui,
+    commands,
+    steps,
+    power_pct,
+    dc_iv_resolver,
+    dc_errors,
+    *,
+    full_chain,
+):
+    """按功率%重下已勾选直流通道的 IV。后续档跳过 MODE/SELECT。"""
+    point_rows = []
+    for ch, device, dc_num, label in (
+        (1, "DC1", 0, "DC电源1"),
+        (2, "DC2", 1, "DC电源2"),
+        (3, "DC3", 2, "DC电源3"),
+        (4, "DC4", 3, "DC电源4"),
+    ):
+        if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
+            continue
+        vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()
+        imp = getattr(ui, "textEdit_S1_DC%d_CURR" % ch).toPlainText()
+        voc = getattr(ui, "textEdit_S1_DC%d_Voc" % ch).toPlainText()
+        isc = getattr(ui, "textEdit_S1_DC%d_Isc" % ch).toPlainText()
+        code, iv_cmds = dc_iv_resolver(vmp, imp, voc, isc, power_pct, dc_num)
+        if code == "err1":
+            dc_errors.append("%s@P%.0f%%赋值错误" % (label, power_pct))
+        elif code == "err2":
+            dc_errors.append("%s@P%.0f%%Isc超范围" % (label, power_pct))
+        elif code == "err_brand":
+            dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
+        elif code == "ok" and iv_cmds:
+            for cmd in iv_cmds:
+                if not full_chain and (
+                    "MODE" in cmd or "SELect" in cmd or "SAS:MODE" in cmd
+                ):
+                    continue
+                row = _row_device_write(device, cmd)
+                commands.append(row)
+                point_rows.append(row)
+    if point_rows:
+        steps.append(point_rows)
+
+
 def build_dynamic_qu_plan(
     ui,
     *,
@@ -128,6 +177,7 @@ def build_dynamic_qu_plan(
     wt_type = None
     wt_is_checked = "0"
     u_pct_list = []
+    power_levels = []
     dwell_01s = 0
     file_name = DEFAULT_FILE_NAME
 
@@ -144,7 +194,7 @@ def build_dynamic_qu_plan(
         row[0] = "AC"
         row[1] = "wait"
         row[2] = ""
-        row[9] = 3000
+        row[9] = 50  # 5s。3000（300s）会让下一项看起来一直没开始
         commands.append(row)
 
     phase_mode = ui.comboBox_S1_AC_2.currentText()
@@ -301,27 +351,81 @@ def build_dynamic_qu_plan(
         except ValueError:
             base_un3 = base_un
 
-        for idx, pct in enumerate(u_pct_list):
+        power_widget = getattr(ui, "textEdit_PowerLadder", None)
+        power_levels = []
+        if power_widget is not None and hasattr(power_widget, "toPlainText"):
+            power_levels = parse_voltage_ladder(power_widget.toPlainText())
+        # 一一对应：第 i 点功率配第 i 点电压。
+        # 功率留空 → 全程步骤①功率；只填 1 个 → 全程固定该功率；多点须与电压点数相同。
+        if not power_levels:
+            pair_powers = [None] * len(u_pct_list)
+        elif len(power_levels) == 1:
+            pair_powers = [power_levels[0]] * len(u_pct_list)
+        elif len(power_levels) == len(u_pct_list):
+            pair_powers = list(power_levels)
+        else:
+            return {
+                "ok": False,
+                "error": (
+                    "动态QU 功率与电压须一一对应：点数相同，"
+                    "或功率只填 1 个，或功率留空（用步骤①功率）。"
+                    "当前功率 %d 点、电压 %d 点。"
+                    % (len(power_levels), len(u_pct_list))
+                ),
+                "dc_errors": dc_errors,
+                "commands": commands,
+                "steps": steps,
+                "wt_type": wt_type,
+                "test_program": test_program,
+                "wt_is_checked": wt_is_checked,
+                "u_pct_list": u_pct_list,
+                "power_levels": power_levels,
+                "dwell_01s": int(dwell_01s),
+                "file_name": file_name,
+                "wt_rounds": 0,
+                "band_duration_01s": 0,
+            }
+
+        started = False
+        prev_power = object()
+        dc_full_chain_done = False
+        for power_pct, pct in zip(pair_powers, u_pct_list):
             point_rows = []
+            if power_pct is not None and power_pct != prev_power:
+                _append_dc_power_rows(
+                    ui,
+                    commands,
+                    steps,
+                    power_pct,
+                    dc_iv_resolver,
+                    dc_errors,
+                    full_chain=(not dc_full_chain_done),
+                )
+                dc_full_chain_done = True
+                prev_power = power_pct
+
             volt1 = round(base_un * pct / 100.0, 2)
             volt2 = round(base_un2 * pct / 100.0, 2)
             volt3 = round(base_un3 * pct / 100.0, 2)
+            # 爱科同压：EDIT ALL + 一次 VOLT，避免 NSEL 逐相时输出掉回启机 230
+            before = len(commands)
             if phase_mode == "单相":
-                for cmd in ("VOLT %s" % volt1, "FREQ %s" % ladder_fr):
-                    row = _row_ac_write(cmd)
-                    commands.append(row)
-                    point_rows.append(row)
+                append_volt_set(commands, "单相", volt1)
+                append_freq_set(commands, "单相", ladder_fr)
+            elif abs(volt1 - volt2) < 1e-9 and abs(volt1 - volt3) < 1e-9:
+                append_volt_set(commands, "三相", volt1, edit_all=True)
+                append_freq_set(commands, "三相", ladder_fr, edit_all=True)
             else:
-                for nsel, vv in ((1, volt1), (2, volt2), (3, volt3)):
-                    for cmd in ("INST:NSEL %d" % nsel, "VOLT %s" % vv, "FREQ %s" % ladder_fr):
-                        row = _row_ac_write(cmd)
-                        commands.append(row)
-                        point_rows.append(row)
+                append_legacy_three_phase_setpoints(
+                    commands, volt1, volt2, volt3, ladder_fr
+                )
+            point_rows.extend(commands[before:])
 
-            if idx == 0 and wt_is_checked == "1":
+            if not started and wt_is_checked == "1":
                 row = _row_wt_async_marker("ASYNC_START")
                 commands.append(row)
                 point_rows.append(row)
+                started = True
 
             wait = _row_ac_wait_empty(int(dwell_01s))
             commands.append(wait)
@@ -343,6 +447,7 @@ def build_dynamic_qu_plan(
         commands.extend(step_rows)
         steps.append(step_rows)
 
+    # 配对扫：点数 = 电压点数（不是功率×电压）
     band_duration_01s = int(dwell_01s) * len(u_pct_list) if u_pct_list else 0
     wt_rounds = 1 if (wt_is_checked == "1" and u_pct_list) else 0
 
@@ -356,6 +461,7 @@ def build_dynamic_qu_plan(
         "test_program": test_program,
         "wt_is_checked": wt_is_checked,
         "u_pct_list": u_pct_list,
+        "power_levels": power_levels,
         "dwell_01s": int(dwell_01s),
         "file_name": file_name,
         "wt_rounds": wt_rounds,

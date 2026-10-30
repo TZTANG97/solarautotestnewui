@@ -94,6 +94,7 @@ def _build_headers():
         "textEdit_VoltageLadder_Un",
         "textEdit_VoltageLadder_FR",
         "textEdit_VoltageLadder",
+        "textEdit_PowerLadder",
         "textEdit_VoltageLadder_TIME",
         "comboBox_VoltageLadder_TIME",
         "checkBox_S_END",
@@ -121,8 +122,11 @@ def _widget_to_csv(ui, name):
         return "1" if w.isChecked() else "0"
     if isinstance(w, QComboBox):
         return str(w.currentIndex())
-    if isinstance(w, QTextEdit):
-        return w.toPlainText()
+    if isinstance(w, QTextEdit) or hasattr(w, "toPlainText"):
+        try:
+            return w.toPlainText()
+        except Exception:
+            return ""
     return ""
 
 
@@ -137,7 +141,7 @@ def _apply_csv_value(ui, name, value):
             w.setCurrentIndex(int(value))
         except (TypeError, ValueError):
             pass
-    elif isinstance(w, QTextEdit):
+    elif isinstance(w, QTextEdit) or hasattr(w, "setPlainText"):
         w.setPlainText("" if value is None else str(value))
 
 
@@ -175,6 +179,12 @@ def Save_File_ThaiDynamicQU(kwargs):
         Save_File_ThaiWT1806E_Config({"uiThiaWT1806E": finder, "dialog_window": None})
     elif ui.radioButton_S2_WT5000.isChecked():
         Save_File_ThaiWT5000_Config({"uiThiaWT5000": finder, "dialog_window": None})
+    try:
+        from utils.test_ui_preset import remember_voltage_ladder
+
+        remember_voltage_ladder("动态QU", ui)
+    except Exception:
+        pass
     QMessageBox.information(None, "提示", "动态QU 设定已保存", QMessageBox.Ok)
 
 

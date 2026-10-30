@@ -268,9 +268,10 @@ class Ui_Dialog_thaiguopinjiangzai(object):
         g.addWidget(self.textEdit_FrequencyLadder_VOLT, 0, 1)
 
         g.addWidget(QtWidgets.QLabel("频率Hz(list)："), 1, 0)
-        self.textEdit_FrequencyLadder = QtWidgets.QTextEdit()
+        from components.comma_segment_edit import CommaSegmentEdit
+        self.textEdit_FrequencyLadder = CommaSegmentEdit(value_header="频率", unit="Hz")
         self.textEdit_FrequencyLadder.setObjectName("textEdit_FrequencyLadder")
-        self.textEdit_FrequencyLadder.setFixedHeight(56)
+        self.textEdit_FrequencyLadder.setPlaceholderText("Hz")
         self.textEdit_FrequencyLadder.setText(_DEFAULT_F_LIST)
         self.textEdit_FrequencyLadder.setPlaceholderText(
             "逗号分隔，如 50,50.25,50.7,51.15,50.7,50.25,50；可任意多点交叉扫频"

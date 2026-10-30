@@ -178,5 +178,15 @@ def apply_testpu_standard_to_ui(
     if not apply_defaults:
         return sid
     defaults = apply_testpu_standard_to_widgets({}, sid, force=True)
+    # 电压 Un% 是界面长名单 / 用户改过的曲线。标准里的 0.9 短名单不能在打开或切标准时盖掉。
+    defaults.pop("textEdit_VoltageLadder", None)
     apply_defaults_dict_to_ui(ui, defaults, force=force)
     return sid
+
+
+def default_testpu_power_ladder(standard_id: Optional[str] = "thai") -> str:
+    """界面功率名单默认：用该标准已有值；没有则 100,70,50,20。"""
+    sid = normalize_testpu_standard_id(standard_id) or "thai"
+    raw = (TESTPU_STANDARD_DEFAULTS.get(sid) or {}).get("textEdit_PowerLadder")
+    text = str(raw or "").strip()
+    return text or "100,70,50,20"

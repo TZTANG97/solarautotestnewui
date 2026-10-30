@@ -15,11 +15,14 @@ logger = logging.getLogger("solar.agent.remote_abort")
 
 # 同一 job 只写一次 stop_request，避免心跳风暴
 _last_stop_written_job: Optional[int] = None
+# status.json 还是上一单时，每个 (旧单, 当前单) 只记一行，避免心跳刷屏
+_last_stale_skip: Optional[tuple] = None
 
 
 def reset_remote_abort_state() -> None:
-    global _last_stop_written_job
+    global _last_stop_written_job, _last_stale_skip
     _last_stop_written_job = None
+    _last_stale_skip = None
 
 
 def job_id_from_run_snapshot(run_snapshot: Any) -> int:
@@ -57,7 +60,7 @@ def sync_cloud_abort_to_stop_inbox(
     若云端已把本局 job 标为 aborted，且本机仍在跑，则写 stop_request。
     返回写入的 job_id；无需动作返回 None。
     """
-    global _last_stop_written_job
+    global _last_stop_written_job, _last_stale_skip
 
     jid = job_id_from_run_snapshot(run_snapshot)
     if jid <= 0:
@@ -69,7 +72,10 @@ def sync_cloud_abort_to_stop_inbox(
     # status.json 里往往还是上一单。正在交接 61 时不能再为 58 写停机，
     # 否则宏刚 moveTo 一下就被结束试验打断。
     if active > 0 and jid != active:
-        logger.info("跳过过期远程停机 snapshot job=%s，当前任务 %s", jid, active)
+        key = (jid, active)
+        if _last_stale_skip != key:
+            logger.info("跳过过期远程停机 snapshot job=%s，当前任务 %s", jid, active)
+            _last_stale_skip = key
         return None
     if not local_still_running(run_snapshot):
         return None
