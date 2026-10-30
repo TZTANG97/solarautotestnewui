@@ -206,6 +206,28 @@ def test_stop_request_for_other_job_does_not_stop_current(tmp_path: Path) -> Non
     assert any("忽略过期停机" in m and "58" in m for m in logs)
 
 
+def test_superseded_stop_does_not_stop_fresh_run(tmp_path: Path) -> None:
+    """上一单的停机单不能在新开的电压闪变上再点一次结束。"""
+    from agent.job_inbox import list_stop_requests, remember_superseded_job, write_stop_request
+
+    root = Path(tmp_path)
+    write_stop_request(root, 80, reason="台架本地中止")
+    remember_superseded_job(root, 80)
+    stopped = {"n": 0}
+    logs: list[str] = []
+    svc = IotUiHandoffService(
+        repo_root=root,
+        stop_test=lambda: stopped.__setitem__("n", stopped["n"] + 1),
+        log=lambda m: logs.append(m),
+        interval_ms=200,
+    )
+    svc.get_run_status = lambda: "进行中"
+    svc.poll_once()
+    assert stopped["n"] == 0
+    assert list_stop_requests(root) == []
+    assert any("上一单" in m and "80" in m for m in logs)
+
+
 def test_stop_request_invokes_stop_test(tmp_path: Path) -> None:
     from agent.job_inbox import list_stop_requests, write_stop_request
 

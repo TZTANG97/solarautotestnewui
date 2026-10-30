@@ -76,6 +76,28 @@ def test_sync_skips_stale_snapshot_while_another_job_is_active(tmp_path: Path):
     assert written == []
 
 
+def test_sync_skips_job_replaced_by_a_fresh_start(tmp_path: Path):
+    """重新打开后上一单已在云端中止，不能再写成这一局的远程停机。"""
+    reset_remote_abort_state()
+    from agent.job_inbox import remember_superseded_job
+
+    remember_superseded_job(tmp_path, 81)
+    written = []
+
+    def _get_job(_jid):
+        return {"status": "aborted", "failReason": "台架本地中止"}
+
+    got = sync_cloud_abort_to_stop_inbox(
+        client=SimpleNamespace(),
+        repo_root=tmp_path,
+        run_snapshot={"jobId": 81, "status": "进行中"},
+        get_job=_get_job,
+        write_stop=lambda *a, **k: written.append(1),
+    )
+    assert got is None
+    assert written == []
+
+
 def test_sync_skips_when_not_aborted(tmp_path: Path):
     reset_remote_abort_state()
     written = []

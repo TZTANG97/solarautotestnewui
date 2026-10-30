@@ -167,6 +167,29 @@ def test_release_closes_awaiting_and_drops_status_job_id(monkeypatch, tmp_path):
     assert mod.release_previous_cloud_job_for_new_round() is None
 
 
+def test_fresh_start_drops_previous_job_and_its_stop(monkeypatch, tmp_path):
+    import json
+
+    import utils.iot_local_run as mod
+    from agent.job_inbox import list_stop_requests, write_stop_request
+
+    fake_sw = SimpleNamespace(strTestStatusFlag="", strArrayTest=[])
+    monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake_sw)
+    monkeypatch.setattr(mod, "_repo_root", lambda: tmp_path)
+    (tmp_path / "status.json").write_text(
+        json.dumps({"project": {"jobId": 80, "status": "进行中"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    write_stop_request(tmp_path, 80, reason="台架本地中止")
+    with mod._lock:
+        mod._state["job_id"] = 80
+    assert mod.detach_previous_job_for_fresh_start() == 80
+    saved = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    assert "jobId" not in saved["project"]
+    assert list_stop_requests(tmp_path) == []
+    assert mod.current_local_job_id() is None
+
+
 def test_notify_started_skips_while_desktop_running(monkeypatch):
     """中途追加后再点开始：本机还在跑时不得新开 IOT 任务。"""
     import utils.iot_local_run as mod

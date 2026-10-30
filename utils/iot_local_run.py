@@ -328,6 +328,43 @@ def handoff_start_in_progress() -> bool:
         return False
 
 
+def detach_previous_job_for_fresh_start() -> Optional[int]:
+    """新开一局之前摘掉上一单号，并清掉它留下的远程停机。
+
+    软件重新打开后，status.json 往往还挂着途哲这台的上一单。
+    点开始会先把进度写成「进行中」。若这时心跳仍读到旧任务号，
+    而云端那一单已经是 aborted，就会写成远程停机，把刚开始的闪变停掉。
+    """
+    if desktop_run_in_progress():
+        return None
+    old = current_local_job_id() or _job_id_from_status_json()
+    from agent.job_inbox import (
+        ack_stop_request,
+        is_superseded_job,
+        list_stop_requests,
+        remember_superseded_job,
+    )
+
+    root = _repo_root()
+    if old:
+        remember_superseded_job(root, int(old))
+    for req in list_stop_requests(root):
+        try:
+            jid = int(req.get("job_id") or 0)
+        except (TypeError, ValueError):
+            jid = 0
+        if jid <= 0 or is_superseded_job(root, jid):
+            if jid > 0:
+                ack_stop_request(root, jid)
+            continue
+        remember_superseded_job(root, jid)
+        ack_stop_request(root, jid)
+    clear_status_job_binding()
+    if old:
+        _ui_log(f"[IOT] 新开试验前已摘掉上一单 #{old}，它的远程停机不再作用到这一局")
+    return int(old) if old else None
+
+
 def notify_local_run_started(
     test_name: str,
     widgets: Optional[Dict[str, Any]] = None,
@@ -344,6 +381,11 @@ def notify_local_run_started(
     if handoff_start_in_progress():
         logger.info("[iot_local_run] handoff 正在开测，跳过本地登记")
         return
+    if not desktop_run_in_progress():
+        try:
+            detach_previous_job_for_fresh_start()
+        except Exception:
+            logger.debug("新开试验前摘掉上一单失败", exc_info=True)
     # 中途追加后再点开始：命令已在同一 RunProject 队列里继续跑，
     # 绝不能再 local_run_start，否则服务端会把还在跑的上一单结掉。
     if desktop_run_in_progress():

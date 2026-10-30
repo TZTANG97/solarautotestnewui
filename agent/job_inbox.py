@@ -119,6 +119,64 @@ def list_stop_requests(repo_root: Path) -> List[Dict[str, Any]]:
     return out
 
 
+def _superseded_path(repo_root: Path) -> Path:
+    return inbox_root(repo_root) / "superseded_jobs.json"
+
+
+def remember_superseded_job(repo_root: Path, job_id: int) -> None:
+    """记下已被新开试验替换的任务号。Agent 与界面进程都读这个文件。"""
+    try:
+        jid = int(job_id)
+    except (TypeError, ValueError):
+        return
+    if jid <= 0:
+        return
+    path = _superseded_path(repo_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ids: List[int] = []
+    if path.is_file():
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                for item in raw:
+                    try:
+                        n = int(item)
+                    except (TypeError, ValueError):
+                        continue
+                    if n > 0 and n not in ids:
+                        ids.append(n)
+        except (OSError, ValueError, json.JSONDecodeError):
+            ids = []
+    if jid not in ids:
+        ids.append(jid)
+    path.write_text(json.dumps(ids[-40:]), encoding="utf-8")
+
+
+def is_superseded_job(repo_root: Path, job_id: int) -> bool:
+    try:
+        jid = int(job_id)
+    except (TypeError, ValueError):
+        return False
+    if jid <= 0:
+        return False
+    path = _superseded_path(repo_root)
+    if not path.is_file():
+        return False
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+    if not isinstance(raw, list):
+        return False
+    for item in raw:
+        try:
+            if int(item) == jid:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
 def ack_stop_request(repo_root: Path, job_id: int) -> bool:
     """确认已处理停机请求：移到 stop_requests/done/，不存在则返回 False。"""
     d = inbox_root(repo_root) / "stop_requests"

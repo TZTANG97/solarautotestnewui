@@ -66,6 +66,14 @@ def sync_cloud_abort_to_stop_inbox(
     if jid <= 0:
         return None
     try:
+        from agent.job_inbox import is_superseded_job
+
+        if is_superseded_job(Path(repo_root), jid):
+            logger.info("跳过上一单远程停机 job=%s（本机已新开试验）", jid)
+            return None
+    except Exception:
+        logger.debug("读取已替换任务号失败", exc_info=True)
+    try:
         active = int(active_job_id or 0)
     except (TypeError, ValueError):
         active = 0

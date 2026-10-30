@@ -24882,6 +24882,12 @@ def RunProjectPush():
                 QMessageBox.warning(None, "准备失败", "DEWETRON采集准备失败，试验未启动")
                 return
 
+        try:
+            from utils.iot_local_run import detach_previous_job_for_fresh_start
+
+            detach_previous_job_for_fresh_start()
+        except Exception as _detach_exc:
+            print(f"[RunProject] 摘掉上一单任务号跳过: {_detach_exc}", flush=True)
         _init_run_progress_plan(currentSecond, status="进行中")
         _emit_run_progress(
             status="进行中",
@@ -26733,6 +26739,26 @@ def RunProject():
                                 raise RuntimeError("DEWETRON未进入Started状态")
                             _append_return_message("[DEWETRON] 采集已开始")
                         elif DEWETRON_STOP_COMMAND in cmd_upper or ':STORE:STOP' in cmd_upper:
+                            if str(globals().get("flicker_is_test") or "") == "1":
+                                try:
+                                    project_now = ui.comboBox_PS.currentText()
+                                except Exception:
+                                    project_now = ""
+                                section = _get_dewetron_section(project_now) if project_now else None
+                                paths = list(getattr(section, "_dew_save_paths", None) or [])
+                                idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
+                                beside = ""
+                                if section is not None and paths:
+                                    beside = paths[min(idx, len(paths) - 1)]
+                                try:
+                                    from utils.oxygen_screenshot import capture_flicker_result
+
+                                    shot_ok, shot_msg = capture_flicker_result(beside)
+                                    _append_return_message(
+                                        f"[闪变截图] {shot_msg}" if shot_ok else f"[闪变截图] 未保存：{shot_msg}"
+                                    )
+                                except Exception as shot_exc:
+                                    _append_return_message(f"[闪变截图] 未保存：{shot_exc}")
                             dewetron_collector.stop_gathering()
                             sent = dewetron_controller.stop_acquisition()
                             if not sent:
@@ -26953,12 +26979,28 @@ def RunProject():
                             elif ok:
                                 time.sleep(0.2)
                         else:
-                            if wt3000_controller is None or wt3000_controller.handle is None:
-                                raise RuntimeError("WT3000 未连接，无法发送命令")
-                            wt3000_controller.handle.write(command)
-                            strtimenow = now_to_datenow()
-                            logger.info(strtimenow + "WT3000 " + command)
-                            print(strtimenow + "WT3000 " + command)
+                            if command.upper().replace(" ", "").startswith("IMAGE:"):
+                                # 截图只是存证。失败只记日志，不能把已经跑完的闪变标成中止。
+                                try:
+                                    from utils.wt_screen_image import save_wt_screen
+
+                                    ok_img, msg_img = save_wt_screen(wt3000_controller)
+                                except Exception as img_exc:
+                                    ok_img, msg_img = False, str(img_exc)
+                                strtimenow = now_to_datenow()
+                                line = f"{strtimenow} [WT截图] {msg_img}"
+                                logger.info(line)
+                                print(line)
+                                _append_return_message(
+                                    f"[WT截图] {msg_img}" if ok_img else f"[WT截图] 未保存：{msg_img}"
+                                )
+                            else:
+                                if wt3000_controller is None or wt3000_controller.handle is None:
+                                    raise RuntimeError("WT3000 未连接，无法发送命令")
+                                wt3000_controller.handle.write(command)
+                                strtimenow = now_to_datenow()
+                                logger.info(strtimenow + "WT3000 " + command)
+                                print(strtimenow + "WT3000 " + command)
 
                     except Exception as e:
                         print(e)
