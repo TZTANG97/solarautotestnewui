@@ -275,10 +275,11 @@ def test_settings_csv_roundtrip(dyn_ui, tmp_path):
 # 7. Append 计数（覆盖/追加标志）
 # --------------------------------------------------------------------------- #
 def test_append_flag_mode_from_count():
-    """对齐 thaidynamiccosPhiAppend：count==0 → 覆盖(strAdd=0)，否则追加。"""
+    """动态 Cos(φ) 追加走统一判定，不再用计数三元式覆盖跨项队列。"""
     src = MAIN_PATH.read_text(encoding="utf-8")
     assert "def thaidynamiccosPhiAppend():" in src
-    assert 'strAddTestFlag = "0" if dynamiccosPhi_append_count == 0 else "1"' in src
+    assert "apply_append_mode(" in src
+    assert "project_name='动态Cos(φ)'" in src
     assert "build_dynamic_cosphi_plan" in src
     assert "dynamiccosPhi_append_count" in src
 

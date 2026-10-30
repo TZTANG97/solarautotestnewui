@@ -974,7 +974,9 @@ class IotUiHandoffService(QObject):
         running = False
         running_job = 0
         try:
-            running = self._read_run_status() in ("进行中", "暂停", "人工等待")
+            from utils.iot_local_run import bench_is_running
+
+            running = bench_is_running(self._read_run_status())
             running_job = self._status_file_job_id()
         except Exception:
             running = False
@@ -1642,9 +1644,18 @@ class IotUiHandoffService(QObject):
         except Exception as exc:
             self._log(f"清理过期停机失败: {exc}")
 
-        # 本机已在跑试验时拒收云端任务（双开测并存互斥）
+        # 本机已在跑、且这条云任务不追加：拒收，避免再开一局。
+        # 带自动追加时放行，后面只把命令接到当前队列，不清空、不二次开始。
+        # 进度条和 strTestStatusFlag 任一在跑都算占用，避免刚启动的窗口误改绑。
+        from utils.iot_local_run import bench_is_running
+
         local_status = self._read_run_status()
-        if local_status in ("进行中", "暂停", "人工等待"):
+        bench_running = bench_is_running(local_status)
+        params_early = job.get("params") if isinstance(job.get("params"), dict) else {}
+        auto_append_early = True
+        if isinstance(params_early, dict) and "auto_append" in params_early:
+            auto_append_early = bool(params_early.get("auto_append"))
+        if bench_running and not auto_append_early:
             reason = "本机试验进行中，已拒收云端任务"
             self._log(reason + f"（status={local_status}）")
             self._write_result_all(
@@ -1690,12 +1701,15 @@ class IotUiHandoffService(QObject):
             try:
                 from utils.iot_local_run import adopt_cloud_job
 
-                raw_eid = job.get("experId") or job.get("experid")
-                try:
-                    eid = int(raw_eid) if raw_eid else None
-                except (TypeError, ValueError):
-                    eid = None
-                adopt_cloud_job(job_id, eid)
+                if bench_running:
+                    self._log("本机正在执行，保留当前任务号，只把 IOT 命令追加进队列")
+                else:
+                    raw_eid = job.get("experId") or job.get("experid")
+                    try:
+                        eid = int(raw_eid) if raw_eid else None
+                    except (TypeError, ValueError):
+                        eid = None
+                    adopt_cloud_job(job_id, eid)
             except Exception as exc:
                 self._log(f"写入当前任务号失败: {exc}")
 
@@ -2992,12 +3006,12 @@ class IotUiHandoffService(QObject):
             except Exception as exc:
                 self._log(f"德威创面板写入跳过: {exc}")
 
+            from utils.iot_force_overwrite_append import coerce_auto_start
+
             auto_append = True
             if isinstance(params, dict) and "auto_append" in params:
                 auto_append = bool(params.get("auto_append"))
-            auto_start = False
-            if isinstance(params, dict) and "auto_start" in params:
-                auto_start = bool(params.get("auto_start"))
+            auto_start = coerce_auto_start(params if isinstance(params, dict) else None)
             wait_finish = True
             if isinstance(params, dict) and "wait_finish" in params:
                 wait_finish = bool(params.get("wait_finish"))
@@ -3219,16 +3233,24 @@ class IotUiHandoffService(QObject):
                     return
 
             appended = False
+            desktop_running = False
             project_append = handler.get("append")
             if auto_append and project_append:
-                # 自动开跑：必须覆盖，防残留计数叠第二套。
-                # 只追加（auto_start=false）：保留队列，交给 apply_append_mode 跨项/同项。
+                # 队列已空且自动开跑：覆盖，防残留计数叠第二套。
+                # 桌面已追加（队列非空）或本机已在跑：保留队列，交给 apply_append_mode。
                 from utils.iot_force_overwrite_append import (
                     force_overwrite_before_iot_append,
                     should_force_overwrite_for_iot_job,
                 )
+                from utils.iot_local_run import bench_is_running, desktop_queue_nonempty
 
-                do_overwrite = should_force_overwrite_for_iot_job(auto_start=auto_start)
+                desktop_running = bench_is_running(self._read_run_status())
+                queue_nonempty = desktop_queue_nonempty()
+                do_overwrite = should_force_overwrite_for_iot_job(
+                    auto_start=auto_start,
+                    desktop_running=desktop_running,
+                    queue_nonempty=queue_nonempty,
+                )
                 if do_overwrite:
                     try:
                         ow_ok = force_overwrite_before_iot_append(
@@ -3258,7 +3280,7 @@ class IotUiHandoffService(QObject):
                         return
                 else:
                     self._log(
-                        "IOT 只追加：保留现有命令队列（跨项/同项由 apply_append_mode 判定）"
+                        "保留现有命令队列（桌面已追加或只追加；跨项/同项由 apply_append_mode 判定）"
                     )
                 append_mode_label = "覆盖模式" if do_overwrite else "保留队列追加"
                 if self.wrap_append_errors:
@@ -3288,6 +3310,28 @@ class IotUiHandoffService(QObject):
                     project_append()
                     appended = True
                     self._log(f"已调用{handler['label']}追加（{append_mode_label}）")
+
+            if desktop_running:
+                self._write_result_all(
+                    pending_path,
+                    job_id,
+                    {
+                        "status": "success" if appended else "failed",
+                        "fail_reason": "" if appended else "本机正在执行，且本次没有追加进队列",
+                        "result_summary": {
+                            "handoff": True,
+                            "appended": appended,
+                            "started": False,
+                            "desktop_running": True,
+                            "joined_running_queue": bool(appended),
+                            "missingWidgets": missing,
+                            "note": "命令已接在正在执行的队列后，未再次开始",
+                        },
+                    },
+                )
+                self._move_pending_done(pending_path)
+                self._log("本机正在执行，IOT 追加已并入当前队列，不再次开始")
+                return
 
             if auto_start:
                 if not self.start_test:

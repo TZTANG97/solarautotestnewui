@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from utils.iot_local_run import (
     adopt_cloud_job,
+    bench_is_running,
     current_local_job_id,
     handoff_has_awaiting_job,
     notify_local_run_finished,
@@ -201,3 +202,15 @@ def test_adopt_cloud_job_drops_previous_local_id(monkeypatch):
     adopt_cloud_job(69, 3)
     assert written == {"job": 69, "exper": 3}
     assert current_local_job_id() is None
+
+
+def test_bench_running_if_either_signal_says_so(monkeypatch):
+    """进度已是进行中、执行标志还没写成运行时，也算占用。"""
+    fake_sw = SimpleNamespace(strTestStatusFlag="", strArrayTest=[])
+    monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake_sw)
+    assert bench_is_running("进行中") is True
+    assert bench_is_running("人工等待") is True
+    assert bench_is_running("待开始") is False
+    fake_sw.strTestStatusFlag = "运行"
+    assert bench_is_running("") is True
+    assert bench_is_running("已结束") is True

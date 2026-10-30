@@ -1,13 +1,43 @@
 # -*- coding: utf-8 -*-
 from utils.iot_force_overwrite_append import (
+    coerce_auto_start,
     force_overwrite_before_iot_append,
     should_force_overwrite_for_iot_job,
 )
 
 
+def test_missing_auto_start_matches_web_default():
+    assert coerce_auto_start({}) is True
+    assert coerce_auto_start(None) is True
+    assert coerce_auto_start({"auto_append": True}) is True
+    assert coerce_auto_start({"auto_start": False}) is False
+    assert coerce_auto_start({"auto_start": True}) is True
+
+
 def test_only_append_skips_force_wipe():
     assert should_force_overwrite_for_iot_job(auto_start=False) is False
     assert should_force_overwrite_for_iot_job(auto_start=True) is True
+
+
+def test_desktop_running_never_force_wipes():
+    assert should_force_overwrite_for_iot_job(auto_start=True, desktop_running=True) is False
+    assert should_force_overwrite_for_iot_job(auto_start=False, desktop_running=True) is False
+
+
+def test_desktop_queue_blocks_wipe_even_if_auto_start():
+    """桌面已追加、尚未开跑：IOT 再追加不得清队列。"""
+    assert (
+        should_force_overwrite_for_iot_job(
+            auto_start=True, desktop_running=False, queue_nonempty=True
+        )
+        is False
+    )
+    assert (
+        should_force_overwrite_for_iot_job(
+            auto_start=True, desktop_running=False, queue_nonempty=False
+        )
+        is True
+    )
 
 
 def test_force_overwrite_calls_reset():

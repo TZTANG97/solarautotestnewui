@@ -213,6 +213,30 @@ def desktop_run_in_progress() -> bool:
     return _local_run_flag() in ("运行", "暂停")
 
 
+_PROGRESS_RUNNING = ("进行中", "暂停", "人工等待")
+
+
+def bench_is_running(progress_status: str = "") -> bool:
+    """执行标志或进度条任一显示在跑，都算台架占用。
+
+    刚点开始时进度可能已是「进行中」，``strTestStatusFlag`` 还没写成「运行」。
+    只看其中一边会在这个窗口里改绑任务号并再点一次开始。
+    """
+    if desktop_run_in_progress():
+        return True
+    return str(progress_status or "").strip() in _PROGRESS_RUNNING
+
+
+def desktop_queue_nonempty() -> bool:
+    """桌面已经追加过、命令还在队列里（含尚未点开始）。"""
+    try:
+        import SCPITestWave as sw
+
+        return bool(getattr(sw, "strArrayTest", None))
+    except Exception:
+        return False
+
+
 def _status_json_project() -> Dict[str, Any]:
     try:
         path = _repo_root() / "status.json"
