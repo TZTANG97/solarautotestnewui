@@ -552,7 +552,7 @@ def build_wt3000_content(parent):
 # WT1800 配置内容
 # ═══════════════════════════════════════════════════════════════════════════
 def build_wt1800_content(parent):
-    """构建 WT1800 配置内容（不含顶部按钮栏），返回 QScrollArea。"""
+    """构建 WT1800 配置内容（不含顶部按钮栏），返回 QScrollArea。元素 1–6。"""
     scroll = QtWidgets.QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet(
@@ -854,7 +854,7 @@ def build_wt1800_content(parent):
 # WT1806E 配置内容（与 WT1800 结构相同，差异：无 FreqPLL2, 无 EaU/EaI）
 # ═══════════════════════════════════════════════════════════════════════════
 def build_wt1806e_content(parent):
-    """构建 WT1806E 配置内容，返回 QScrollArea。"""
+    """构建 WT1806E 配置内容，返回 QScrollArea。元素 1–6。"""
     scroll = QtWidgets.QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet(
@@ -1146,7 +1146,7 @@ def build_wt1806e_content(parent):
 # WT5000 配置内容
 # ═══════════════════════════════════════════════════════════════════════════
 def build_wt5000_content(parent):
-    """构建 WT5000 配置内容（不含顶部按钮栏），返回 QScrollArea。"""
+    """构建 WT5000 配置内容（不含顶部按钮栏），返回 QScrollArea。元素 1–4。"""
     scroll = QtWidgets.QScrollArea()
     scroll.setWidgetResizable(True)
     scroll.setStyleSheet(

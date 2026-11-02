@@ -84,6 +84,7 @@ class WtScpiCollector:
         rate_text: str = "100ms",
         save_path: str = "",
         header_style: str = "",
+        scaling_commands: Optional[Sequence[str]] = None,
     ) -> Tuple[bool, List[str], List[str]]:
         """Configure RATE + NUMERIC items. Returns (ok, items, warnings)."""
         self._warnings = []
@@ -110,6 +111,8 @@ class WtScpiCollector:
 
         if not self._setup_rate():
             return False, [], self._warnings + [self._last_error or "RATE 设置失败"]
+
+        self._apply_scaling(scaling_commands or [])
 
         accepted = self._setup_numeric_items(wanted)
         if not accepted:
@@ -186,24 +189,40 @@ class WtScpiCollector:
         if not m:
             return None
 
-        def _avg(prefix: str) -> Optional[float]:
+        def _avg(names) -> Optional[float]:
+            wanted = {names} if isinstance(names, str) else set(names)
             vals = []
-            for k, v in m.items():
-                if k.startswith(prefix + ",") and not k.endswith(",SIGMA"):
-                    vals.append(v)
+            for key, value in m.items():
+                parts = key.split(",")
+                if parts[0] not in wanted:
+                    continue
+                if len(parts) > 1 and parts[1].startswith("SIGM"):
+                    continue
+                vals.append(value)
             if not vals:
                 return None
             return sum(vals) / len(vals)
 
-        u = _avg("URMS")
+        u = _avg(("URMS", "U"))
         if u is None and "URMS,1" in m:
             u = m["URMS,1"]
-        i = _avg("IRMS")
+        if u is None:
+            u = m.get("U,1") or m.get("U,1,TOTAL")
+        i = _avg(("IRMS", "I"))
         if i is None and "IRMS,1" in m:
             i = m["IRMS,1"]
-        p = m.get("P,SIGMA")
+        if i is None:
+            i = m.get("I,1") or m.get("I,1,TOTAL")
+        p = m.get("P,SIGMA") or m.get("P,SIGMA,TOTAL") or m.get("P,SIGMAA")
         if p is None:
-            p_vals = [v for k, v in m.items() if k.startswith("P,") and k != "P,SIGMA"]
+            p_vals = []
+            for key, value in m.items():
+                parts = key.split(",")
+                if parts[0] != "P":
+                    continue
+                if len(parts) > 1 and parts[1].startswith("SIGM"):
+                    continue
+                p_vals.append(value)
             if p_vals:
                 p = sum(p_vals)
         freq = m.get("FU,1") or m.get("FREQ,1") or m.get("F,1")
@@ -301,6 +320,14 @@ class WtScpiCollector:
             self._info(self._last_error)
             return None
 
+    def _apply_scaling(self, commands: Sequence[str]) -> None:
+        for command in commands:
+            text = str(command or "").strip()
+            if not text:
+                continue
+            if not self._write(text):
+                self._warnings.append(f"比例系数未写下 {text}")
+
     def _setup_rate(self) -> bool:
         cmd = rate_command(self._rate_ms)
         if not self._write(cmd):
@@ -328,6 +355,8 @@ class WtScpiCollector:
 
     def _setup_numeric_items(self, wanted: Sequence[str]) -> List[str]:
         """Program ITEM1..N; drop items the instrument rejects."""
+        from utils.wt_scpi_items import item_echo_matches
+
         if not self._write(":NUMERIC:FORMAT ASCII"):
             return []
         # Clear / set count — NUMBER ALL is model-dependent; set explicit count.
@@ -345,7 +374,7 @@ class WtScpiCollector:
             if check is None:
                 continue
             # Reply often echoes "URMS,1" or ":NUMERIC:NORMAL:ITEM1 URMS,1"
-            if token.replace(" ", "").upper() in check.replace(" ", "").upper():
+            if item_echo_matches(token, check):
                 accepted.append(token)
             else:
                 self._warnings.append(f"ITEM{index} 未接受 {token!r} (reply={check!r})")

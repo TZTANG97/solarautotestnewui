@@ -12,6 +12,10 @@ def test_parse_volt_freq_and_output():
     assert measures_from_supply_command("OUTP OFF")["output"] == "off"
     assert measures_from_supply_command("OUTP ON")["output"] == "on"
     assert measures_from_supply_command("*IDN?") == {}
+    assert measures_from_supply_command("INST:PHAS THREE")["phase"] == "三相"
+    assert measures_from_supply_command("INST:PHASE SINGLE")["phase"] == "单相"
+    assert measures_from_supply_command("VMP 400")["vmp"] == "400"
+    assert measures_from_supply_command("BLUESIGHT:STC 7 650 0.8")["vmp"] == "650"
 
 
 def test_note_supply_command_updates_status_json(tmp_path: Path):

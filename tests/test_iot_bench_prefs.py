@@ -50,6 +50,28 @@ def test_merge_widgets_respects_flag(tmp_prefs):
     assert merged3 == {"a": "cloud"}
 
 
+def test_merge_keeps_connected_three_phase_over_form_default(tmp_prefs):
+    prefs.save_instruments(
+        [
+            {
+                "kind": "ac",
+                "slot": "ac",
+                "widgets": {"comboBox_Phase": "三相"},
+            }
+        ]
+    )
+    merged = prefs.merge_widgets_with_memory(
+        "flicker",
+        {"comboBox_S1_AC_2": "单相", "textEdit_S1_AC_VOLT": "230"},
+        {"useSavedTestParams": True},
+    )
+    assert merged["comboBox_S1_AC_2"] == "三相"
+    assert merged["textEdit_S1_AC_VOLT"] == "230"
+
+    explicit = prefs.apply_connected_ac_phase({"comboBox_S1_AC_2": "三相"})
+    assert explicit["comboBox_S1_AC_2"] == "三相"
+
+
 def test_loads_prefs_roundtrip(tmp_prefs):
     body = prefs.empty_prefs()
     body["instruments"] = [{"slot": "wt"}]

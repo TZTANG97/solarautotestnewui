@@ -33,7 +33,7 @@ def test_all_open_save_checkboxes_are_classified():
 
 def test_default_fallback_when_nothing_checked():
     items = items_from_wt_config({"Style": "Thai_WT3000E_Config"})
-    assert "URMS,1" in items and "P,SIGMA" in items and "FU,1" in items
+    assert "U,1,TOTAL" in items and "P,SIGMA,TOTAL" in items and "FU,1" in items
 
 
 def test_elements_and_basic_ui_expand():
@@ -51,11 +51,11 @@ def test_elements_and_basic_ui_expand():
         "comboBox_ProjectNum": 1,
     }
     assert selected_targets(cfg) == ["1", "2", "3", "SIGMA"]
-    assert selected_functions(cfg) == ["URMS", "IRMS", "P", "Q", "FU"]
+    assert selected_functions(cfg) == ["U", "I", "P", "Q", "FU"]
     items = items_from_wt_config(cfg)
-    # 同一测量项先排元素再排总和，和宏 CSV 列顺序一致。
-    assert items[:5] == ["URMS,1", "URMS,2", "URMS,3", "URMS,SIGMA", "IRMS,1"]
-    assert "P,SIGMA" in items
+    # WT3000 手册示例是 U,1,TOTAL。同一测量项先排元素再排总和。
+    assert items[:5] == ["U,1,TOTAL", "U,2,TOTAL", "U,3,TOTAL", "U,SIGMA,TOTAL", "I,1,TOTAL"]
+    assert "P,SIGMA,TOTAL" in items
     assert max_item_slots(cfg) == 24
 
 
@@ -74,7 +74,7 @@ def test_singles_and_harmonics_included():
     singles = selected_singles(cfg)
     assert "TIME" in singles and "SPEED" in singles and "F1" in singles and "ETA1" in singles
     items = items_from_wt_config(cfg)
-    assert "U(K),1" in items
+    assert "U,1,1" in items
     assert "UTHD,1" in items
     assert "TIME" in items
     assert "SPEED" in items
@@ -139,11 +139,12 @@ def test_sigmaa_survives_twelve_slot_cap():
         "comboBox_ProjectNum": 0,
     }
     items = items_from_wt_config(cfg)
-    assert "URMS,SIGMA" in items
-    assert "IRMS,SIGMA" in items
-    assert "P,SIGMA" in items
-    assert "URMS,SIGMAA" not in items
+    assert "U,SIGMA,TOTAL" in items
+    assert "I,SIGMA,TOTAL" in items
+    assert "P,SIGMA,TOTAL" in items
+    assert "U,SIGMAA,TOTAL" not in items
     assert "P,SIGMAA" not in items
+    assert macro_column_name("U,SIGMA,TOTAL", "Thai_WT3000E_Config") == "U-SIGMA"
     assert macro_column_name("URMS,SIGMA", "Thai_WT3000E_Config") == "U-SIGMA"
 
 
@@ -165,8 +166,8 @@ def test_only_sigmaa_checkbox_writes_sigma_column():
     }
     assert selected_targets(cfg) == ["SIGMA"]
     items = items_from_wt_config(cfg)
-    assert items[:4] == ["URMS,SIGMA", "IRMS,SIGMA", "P,SIGMA", "Q,SIGMA"]
-    assert all(not tok.endswith(",1") for tok in items)
+    assert items[:4] == ["U,SIGMA,TOTAL", "I,SIGMA,TOTAL", "P,SIGMA,TOTAL", "Q,SIGMA,TOTAL"]
+    assert all(",1," not in tok and not tok.endswith(",1") for tok in items)
     headers = ["Time [s]"] + [macro_column_name(tok, cfg["Style"]) for tok in items]
     assert "U-SIGMA" in headers
     assert "I-SIGMA" in headers
@@ -183,12 +184,12 @@ def test_only_sigmaa_without_measure_functions_still_has_u_sigma():
         "comboBox_ProjectNum": 0,
     }
     items = items_from_wt_config(cfg)
-    assert "URMS,SIGMA" in items
-    assert "P,SIGMA" in items
-    assert "Q,SIGMA" in items
-    assert "URMS,1" not in items
-    assert "URMS,SIGMAA" not in items
-    assert macro_column_name("URMS,SIGMA", cfg["Style"]) == "U-SIGMA"
+    assert "U,SIGMA,TOTAL" in items
+    assert "P,SIGMA,TOTAL" in items
+    assert "Q,SIGMA,TOTAL" in items
+    assert "U,1,TOTAL" not in items
+    assert "U,SIGMAA,TOTAL" not in items
+    assert macro_column_name("U,SIGMA,TOTAL", cfg["Style"]) == "U-SIGMA"
 
 
 def test_only_sigmaa_on_wt1800_stays_sigmaa():
@@ -209,7 +210,7 @@ def test_only_sigmaa_web_radio_wt3000_without_style():
         "checkBox_SetU": True,
     }
     items = items_from_wt_config(cfg)
-    assert items == ["URMS,SIGMA"]
+    assert items == ["U,SIGMA,TOTAL"]
     assert macro_column_name(items[0], "Thai_WT3000E_Config") == "U-SIGMA"
 
 
@@ -220,6 +221,7 @@ def test_macro_column_names_match_viewer_csv():
     assert macro_column_name("FU,SIGMA", "WT3000") == "FreqU-SIGMA"
     assert macro_column_name("F1", "") == "F01"
     assert macro_column_name("ETA1", "Thai_WT1800_Config") == "η1"
+    assert macro_column_name("WHP", "") == "WP+"
     assert macro_column_name("WPPLUS", "") == "WP+"
 
 
@@ -231,7 +233,7 @@ def test_save_path_unrelated_still_maps():
         "checkBox_SetElement1": "1",
         "checkBox_SetP": "1",
     }
-    assert items_from_wt_config(cfg) == ["P,1"]
+    assert items_from_wt_config(cfg) == ["P,1,TOTAL"]
 
 
 def test_mass_check_all_functions_respects_cap():
@@ -251,3 +253,41 @@ def test_mass_check_all_functions_respects_cap():
     assert any(x.startswith("URMS,") for x in items)
     # Singles may be truncated when every function×element fills the slot budget
     assert any(x.startswith("P,") for x in items)
+
+
+def test_wt5000_tokens_match_manual():
+    cfg = {
+        "Style": "Thai_WT5000_Config",
+        "checkBox_SetElement1": "1",
+        "checkBox_SetSigmaA": "1",
+        "checkBox_SetUrms": "1",
+        "checkBox_SetWPPlus": "1",
+        "checkBox_SetUk": "1",
+        "checkBox_SetPhiUi_Uj": "1",
+        "checkBox_SetPhiUi_Ii": "1",
+        "textEdit_SetStart": "1",
+        "textEdit_SetStop": "2",
+    }
+    items = items_from_wt_config(cfg)
+    assert "URMS,1" in items and "URMS,SIGMA" in items
+    assert "URMS,SIGMAA" not in items
+    assert "WHP,1" in items
+    assert "WPPLUS,1" not in items
+    assert "UK,1,1" in items and "UK,1,2" in items
+    assert "U(K),1" not in items
+    assert "PHI_U1U2,SIGMA" in items
+    assert "PHI_U1U2,1" not in items
+    assert "PHI_U1I1,1" in items
+    assert "PHIUiii,1" not in items
+
+
+def test_item_echo_rejects_lookalike_tokens():
+    from utils.wt_scpi_items import item_echo_matches
+
+    assert item_echo_matches("URMS,1", ":NUMERIC:NORMAL:ITEM1 URMS,1")
+    assert item_echo_matches("U,1,TOTAL", ":NUMERIC:NORMAL:ITEM1 U,1,TOTAL")
+    assert item_echo_matches("U,1", ":NUMERIC:NORMAL:ITEM1 U,1,TOTAL")
+    assert not item_echo_matches("URMS,1", ":NUMERIC:NORMAL:ITEM1 U,1,TOTAL")
+    assert not item_echo_matches("U,1", ":NUMERIC:NORMAL:ITEM1 FU,1")
+    assert not item_echo_matches("U(K),1", ":NUMERIC:NORMAL:ITEM1 UK,1,1")
+

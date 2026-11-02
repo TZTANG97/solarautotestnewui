@@ -236,10 +236,10 @@ def test_scpi_session_uses_checkbox_items(qapp, tmp_path, monkeypatch):
     ok, err = wt_scpi_session.prepare_from_config(config)
     assert ok, err
     written = " | ".join(handle.writes)
-    assert "URMS,1" in written
-    assert "URMS,2" in written
-    assert "P,1" in written
-    assert "P,2" in written
+    assert "U,1,TOTAL" in written
+    assert "U,2,TOTAL" in written
+    assert "P,1,TOTAL" in written
+    assert "P,2,TOTAL" in written
     # Should NOT dump full default FU/SIGMA set when user only picked U+P on el1/2
     assert "FU,1" not in written
     wt_scpi_session.shutdown()

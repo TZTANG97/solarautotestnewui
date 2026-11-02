@@ -394,6 +394,7 @@ def ac_connection_extra(
         out["frequency"] = freq
     if ph:
         widgets["comboBox_Phase"] = ph
+        measures["phase"] = ph
     if widgets:
         out["widgets"] = widgets
     if measures:
@@ -414,10 +415,22 @@ _OUTP_RE = re.compile(
     r"OUTP(?:UT)?(?::STAT(?:E)?)?(?:[:\s]+)(ON|OFF|1|0)\b",
     re.IGNORECASE,
 )
+_PHASE_RE = re.compile(
+    r"INST:PHAS(?:E)?(?:[:\s]+)(SINGLE|THREE|1|3)\b",
+    re.IGNORECASE,
+)
+_IV_RE = re.compile(
+    r"\b(VMP|IMP|VOC|ISC)\s*[:= ]\s*([+-]?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+_STC_RE = re.compile(
+    r"BLUESIGHT:STC\s+([+-]?\d+(?:\.\d+)?)\s+([+-]?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
 
 
 def measures_from_supply_command(command: str) -> Dict[str, str]:
-    """从刚下发的电源写命令抽出当前电压/频率/输出，供台架卡片跟随。"""
+    """从刚下发的电源写命令抽出当前电压/频率/相数/直流设定，供台架卡片跟随。"""
     text = str(command or "").strip()
     if not text:
         return {}
@@ -432,6 +445,15 @@ def measures_from_supply_command(command: str) -> Dict[str, str]:
     if outp:
         flag = outp.group(1).upper()
         out["output"] = "off" if flag in ("OFF", "0") else "on"
+    phase = _PHASE_RE.search(text)
+    if phase:
+        token = phase.group(1).upper()
+        out["phase"] = "单相" if token in ("SINGLE", "1") else "三相"
+    for match in _IV_RE.finditer(text):
+        out[match.group(1).lower()] = match.group(2)
+    stc = _STC_RE.search(text)
+    if stc and "vmp" not in out:
+        out["vmp"] = stc.group(2)
     return out
 
 

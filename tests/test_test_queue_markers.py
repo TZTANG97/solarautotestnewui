@@ -43,3 +43,23 @@ def test_stamp_queue_start_and_finish():
     assert q[1]["finished_at"] == "2026-10-28 10:00:00"
     stamp_queue_times(q, now_text="2026-10-28 11:00:00")
     assert q[1]["finished_at"] == "2026-10-28 10:00:00"
+
+
+def test_close_queue_clocks_keeps_unstarted():
+    from utils.test_queue_markers import close_queue_clocks
+
+    q = [
+        {"name": "电压闪变", "status": "完成", "started_at": "2026-10-30 18:04:48", "finished_at": "2026-10-30 20:11:05"},
+        {"name": "电压闪变", "status": "进行中", "started_at": "2026-10-30 20:11:05"},
+        {"name": "电压闪变", "status": "等待"},
+    ]
+    close_queue_clocks(q, now_text="2026-10-30 22:17:22", aborted=False)
+    assert q[0]["finished_at"] == "2026-10-30 20:11:05"
+    assert q[1]["status"] == "完成"
+    assert q[1]["finished_at"] == "2026-10-30 22:17:22"
+    assert "started_at" not in q[2]
+    assert q[2]["status"] == "等待"
+    missing_start = [{"name": "电压闪变", "status": "完成"}]
+    close_queue_clocks(missing_start, now_text="2026-10-30 22:17:22", aborted=False)
+    assert "started_at" not in missing_start[0]
+    assert missing_start[0]["finished_at"] == "2026-10-30 22:17:22"

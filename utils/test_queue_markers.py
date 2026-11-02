@@ -119,6 +119,28 @@ def parse_queue_segments(
 QUEUE_DONE_STATUS = frozenset({"完成", "已结束", "已中止", "中止", "失败"})
 
 
+def close_queue_clocks(
+    queue: Sequence[Dict[str, Any]], *, now_text: str, aborted: bool = False
+) -> None:
+    """整段试验结束时，给已经跑过的每一段补上结束时间。没开始的段不造时间。"""
+    now = (now_text or "").strip()
+    done = "中止" if aborted else "完成"
+    for item in queue or []:
+        if not isinstance(item, dict):
+            continue
+        st = str(item.get("status") or "").strip()
+        started = str(item.get("started_at") or item.get("startedAt") or "").strip()
+        ran = bool(started) or st in ("进行中", "暂停", "完成", "已结束", "已中止", "中止", "失败")
+        if not ran:
+            if aborted and st in ("等待", ""):
+                item["status"] = "中止"
+            continue
+        if st in ("进行中", "暂停", ""):
+            item["status"] = done
+        if now and not str(item.get("finished_at") or item.get("finishedAt") or "").strip():
+            item["finished_at"] = now
+
+
 def stamp_queue_times(queue: Sequence[Dict[str, Any]], *, now_text: str) -> None:
     """进行中补开始时间，完成/中止补结束时间（已有则不覆盖）。"""
     now = (now_text or "").strip()

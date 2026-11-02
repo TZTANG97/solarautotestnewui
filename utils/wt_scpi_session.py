@@ -105,6 +105,54 @@ def _get_controller():
         return None
 
 
+def _wt_scale_hosts():
+    """主窗口和连接页都试一次。输入框挂在主窗口上，显示在第 7 页里。"""
+    import sys
+
+    hosts = []
+    for name in ("SCPITestWave", "__main__"):
+        mod = sys.modules.get(name)
+        if mod is None:
+            continue
+        ui = getattr(mod, "ui", None)
+        if ui is not None and ui not in hosts:
+            hosts.append(ui)
+    page = _wt_connection_page()
+    if page is not None and page not in hosts:
+        hosts.append(page)
+    return hosts
+
+
+def _persist_connection_scales() -> None:
+    for host in _wt_scale_hosts():
+        panel = getattr(host, "widget_wt_scale", None)
+        if panel is None:
+            extra = getattr(host, "_extra_widgets_comboBox_WT3000", None)
+            if isinstance(extra, dict):
+                panel = extra.get("widget_wt_scale")
+        if panel is not None and hasattr(panel, "persist_scales"):
+            panel.persist_scales()
+            return
+
+
+def _wt_connection_page():
+    """功率分析仪连接页（stackedWidget 第 7 页）。比例系数放在这里。"""
+    import sys
+
+    for name in ("SCPITestWave", "__main__"):
+        mod = sys.modules.get(name)
+        if mod is None:
+            continue
+        ui = getattr(mod, "ui", None)
+        stack = getattr(ui, "stackedWidget", None) if ui is not None else None
+        try:
+            if stack is not None and stack.count() > 7:
+                return stack.widget(7)
+        except Exception:
+            continue
+    return None
+
+
 def ensure_collector(logger=None) -> Optional[WtScpiCollector]:
     global _collector
     ctrl = _get_controller()
@@ -131,6 +179,16 @@ def prepare_from_config(config: Mapping, logger=None) -> tuple[bool, str]:
     rate = rate_text_from_config(config)
     csv_path = resolve_csv_path(config, 0)
     items = items_from_wt_config(config)
+    from utils.wt_channel_scale import scales_for_run, scaling_commands
+
+    try:
+        _persist_connection_scales()
+    except Exception as scale_exc:
+        print(f"[wt_scpi_session] 保存比例系数失败: {scale_exc}")
+    scale_cmds = scaling_commands(
+        str(config.get("Style") or ""),
+        scales_for_run(roots=_wt_scale_hosts()),
+    )
     try:
         summary = describe_mapping(config)
         print(
@@ -144,6 +202,7 @@ def prepare_from_config(config: Mapping, logger=None) -> tuple[bool, str]:
         rate_text=rate,
         save_path=csv_path,
         header_style=str(config.get("Style") or ""),
+        scaling_commands=scale_cmds,
     )
     if warnings:
         print(f"[wt_scpi_session] warnings: {warnings}")

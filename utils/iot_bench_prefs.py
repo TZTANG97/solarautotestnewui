@@ -230,6 +230,39 @@ def should_merge_saved_test_params(job_params: Optional[Dict[str, Any]]) -> bool
     return True
 
 
+def connected_ac_phase_label(prefs: Optional[Dict[str, Any]] = None) -> str:
+    """交流源连接页相数。空串表示这次上报里没有。"""
+    data = prefs if isinstance(prefs, dict) else load_local()
+    for item in data.get("instruments") or []:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("kind") or item.get("slot") or "").strip().lower()
+        if kind != "ac":
+            continue
+        widgets = item.get("widgets") if isinstance(item.get("widgets"), dict) else {}
+        raw = str(widgets.get("comboBox_Phase") or "").strip()
+        low = raw.lower()
+        if raw == "三相" or low in ("three", "3"):
+            return "三相"
+        if raw == "单相" or low in ("single", "1"):
+            return "单相"
+    return ""
+
+
+def apply_connected_ac_phase(
+    widgets: Optional[Dict[str, Any]],
+    prefs: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """交流源已连三相时，试验相数仍是默认「单相」则改成三相再下发。"""
+    out = dict(widgets or {})
+    if connected_ac_phase_label(prefs) != "三相":
+        return out
+    cur = str(out.get("comboBox_S1_AC_2") or "").strip()
+    if cur in ("", "单相") or cur.lower() in ("single", "1"):
+        out["comboBox_S1_AC_2"] = "三相"
+    return out
+
+
 def merge_widgets_with_memory(
     test_type: str,
     widgets: Optional[Dict[str, Any]],
@@ -237,17 +270,17 @@ def merge_widgets_with_memory(
 ) -> Dict[str, Any]:
     base = dict(widgets or {}) if isinstance(widgets, dict) else {}
     if not should_merge_saved_test_params(job_params):
-        return base
+        return apply_connected_ac_phase(base)
     remembered = remembered_test_widgets(test_type)
     if not remembered:
-        return base
-    # 云端已填字段优先；空缺用本地记忆补
+        return apply_connected_ac_phase(base)
+    # 云端已填字段优先；空缺用本地记忆补。交流连接相数最后再盖默认单相。
     out = dict(remembered)
     for k, v in base.items():
         if v is None or v == "":
             continue
         out[k] = v
-    return out
+    return apply_connected_ac_phase(out)
 
 
 def _try_agent_client():

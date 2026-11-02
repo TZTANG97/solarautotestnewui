@@ -84,12 +84,13 @@ _FUNCTION_BY_CHECKBOX: Dict[str, str] = {
     "checkBox_SetPc": "PC",
     "checkBox_SetFreqU": "FU",
     "checkBox_SetFreqI": "FI",
-    "checkBox_SetWP": "WP",
-    "checkBox_SetWPPlus": "WPPLUS",
-    "checkBox_SetWPMinus": "WPMINUS",
-    "checkBox_Setq": "WQ",
-    "checkBox_SetqPlus": "WQPLUS",
-    "checkBox_SetqMinus": "WQMINUS",
+    # 手册里积分功率的命令名是 WH/WHP/WHM，菜单上才写成 WP/WP+/WP-。
+    "checkBox_SetWP": "WH",
+    "checkBox_SetWPPlus": "WHP",
+    "checkBox_SetWPMinus": "WHM",
+    "checkBox_Setq": "AH",
+    "checkBox_SetqPlus": "AHP",
+    "checkBox_SetqMinus": "AHM",
     "checkBox_SetWS": "WS",
     "checkBox_SetWQ": "WQ",
     # RMS family (1800/1806/5000)
@@ -118,8 +119,8 @@ _FUNCTION_BY_CHECKBOX: Dict[str, str] = {
     "checkBox_SetQfnd": "QFND",
     "checkBox_SetLambdafnd": "LAMBDAFND",
     "checkBox_SetPhifnd": "PHIFND",
-    "checkBox_SetFreq2U": "FU2",
-    "checkBox_SetFreq2I": "FI2",
+    "checkBox_SetFreq2U": "F2U",
+    "checkBox_SetFreq2I": "F2I",
     # Distortion / quality
     "checkBox_SetUthd": "UTHD",
     "checkBox_SetIthd": "ITHD",
@@ -130,33 +131,80 @@ _FUNCTION_BY_CHECKBOX: Dict[str, str] = {
     "checkBox_SetItif": "ITIF",
     "checkBox_Sethvf": "HVF",
     "checkBox_Sethcf": "HCF",
-    # Harmonic order list (best-effort tokens; may need HARMonics mode on instrument)
-    "checkBox_SetUk": "U(K)",
-    "checkBox_SetIk": "I(K)",
-    "checkBox_SetPk": "P(K)",
-    "checkBox_SetSk": "S(K)",
-    "checkBox_SetQk": "Q(K)",
-    "checkBox_SetPFk": "LAMBDA(K)",
-    "checkBox_SetPhik": "PHI(K)",
-    "checkBox_SetPhiUk": "PHIU(K)",
-    "checkBox_SetPhiIk": "PHII(K)",
-    "checkBox_SetUhdfk": "UHDF(K)",
-    "checkBox_SetIhdfk": "IHDF(K)",
-    "checkBox_SetPhdfk": "PHDF(K)",
-    "checkBox_SetZk": "Z(K)",
-    "checkBox_SetRsk": "RS(K)",
-    "checkBox_SetRpk": "RP(K)",
-    "checkBox_SetXsk": "XS(K)",
-    "checkBox_SetXpk": "XP(K)",
-    # Phase differences
-    "checkBox_SetPhiUi_Uj": "PHIUIUJ",
-    "checkBox_SetPhiUi_Uk": "PHIUIUK",
-    "checkBox_SetPhiUi_Ii": "PHIUiii",
-    "checkBox_SetPhiUi_Ij": "PHIUIJI",
-    "checkBox_SetPhiUi_Ik": "PHIUIKI",
+}
+
+# 谐波阶次必须写成 UK,元素,阶次。括号形式 U(K) 仪器不回读。
+# WT3000 的数值项没有单独的 UK，阶次写在 U/I/P 的第三个字段上（手册 6-44）。
+_HARMONIC_BY_CHECKBOX: Dict[str, Tuple[str, str]] = {
+    "checkBox_SetUk": ("U", "UK"),
+    "checkBox_SetIk": ("I", "IK"),
+    "checkBox_SetPk": ("P", "PK"),
+    "checkBox_SetSk": ("S", "SK"),
+    "checkBox_SetQk": ("Q", "QK"),
+    "checkBox_SetPFk": ("LAMBDA", "LAMBDAK"),
+    "checkBox_SetPhik": ("PHI", "PHIK"),
+    "checkBox_SetPhiUk": ("PHIU", "PHIUK"),
+    "checkBox_SetPhiIk": ("PHII", "PHIIK"),
+    "checkBox_SetUhdfk": ("UHDF", "UHDFK"),
+    "checkBox_SetIhdfk": ("IHDF", "IHDFK"),
+    "checkBox_SetPhdfk": ("PHDF", "PHDFK"),
+    "checkBox_SetZk": ("Z", "ZK"),
+    "checkBox_SetRsk": ("RS", "RSK"),
+    "checkBox_SetRpk": ("RP", "RPK"),
+    "checkBox_SetXsk": ("XS", "XSK"),
+    "checkBox_SetXpk": ("XP", "XPK"),
+}
+
+# 相位差是完整功能名，不能再拼成 PHIUiii,1。
+# 值是 (WT3000 功能名, 其他机型功能名, 5000 是否只能跟 Σ)。
+_PHASE_BY_CHECKBOX: Dict[str, Tuple[str, str, bool]] = {
+    "checkBox_SetPhiUi_Uj": ("PHI_U1U2", "PHI_U1U2", True),
+    "checkBox_SetPhiUi_Uk": ("PHI_U1U3", "PHI_U1U3", True),
+    "checkBox_SetPhiUi_Ii": ("PHI_U1I1", "PHI_U1I1", False),
+    "checkBox_SetPhiUi_Ij": ("PHI_U1I2", "PHI_U2I2", True),
+    "checkBox_SetPhiUi_Ik": ("PHI_U1I3", "PHI_U3I3", True),
+}
+
+# WT5000 的 Δ 计算命令名。元素只能是 Σ。
+_WT5000_DELTA_SINGLE = {
+    "DELTAU1": "DU1",
+    "DELTAU2": "DU2",
+    "DELTAU3": "DU3",
+    "DELTAUSIGMA": "DUS",
+    "DELTAI": "DI",
+    "DELTAP1": "DP1",
+    "DELTAP2": "DP2",
+    "DELTAP3": "DP3",
+    "DELTAPSIGMA": "DPS",
+}
+
+_WT5000_SINGLE_ALIAS = {
+    "DATE": "TSDATE",
+    "CLOCK": "TSTIME",
+    "SUBSEC": "TSSUBSEC",
+    **{f"EVENT{i}": f"EV{i}" for i in range(1, 9)},
+}
+
+# WT3000 这些功能的阶次是必填，省略时仪器按 TOTAL 回读。
+_WT3000_NEEDS_ORDER = {"U", "I", "P", "S", "Q", "LAMBDA", "PHI"}
+_WT3000_FUNCTION_ALIAS = {
+    "checkBox_SetU": "U",
+    "checkBox_SetI": "I",
+    "checkBox_SetUrms": "U",
+    "checkBox_SetIrms": "I",
+    "checkBox_SetUmn": "U",
+    "checkBox_SetUdc": "U",
+    "checkBox_SetUrmn": "U",
+    "checkBox_SetUac": "U",
+    "checkBox_SetImn": "I",
+    "checkBox_SetIdc": "I",
+    "checkBox_SetIrmn": "I",
+    "checkBox_SetIac": "I",
 }
 
 _FUNCTION_PRIORITY: Tuple[str, ...] = (
+    "U",
+    "I",
     "URMS",
     "IRMS",
     "P",
@@ -181,12 +229,14 @@ _FUNCTION_PRIORITY: Tuple[str, ...] = (
     "PPPEAK",
     "PMPEAK",
     "PC",
+    "WH",
+    "WHP",
+    "WHM",
+    "AH",
+    "AHP",
+    "AHM",
     "WP",
-    "WPPLUS",
-    "WPMINUS",
     "WQ",
-    "WQPLUS",
-    "WQMINUS",
     "WS",
     "UFND",
     "IFND",
@@ -195,8 +245,8 @@ _FUNCTION_PRIORITY: Tuple[str, ...] = (
     "QFND",
     "LAMBDAFND",
     "PHIFND",
-    "FU2",
-    "FI2",
+    "F2U",
+    "F2I",
     "UTHD",
     "ITHD",
     "PTHD",
@@ -206,28 +256,9 @@ _FUNCTION_PRIORITY: Tuple[str, ...] = (
     "ITIF",
     "HVF",
     "HCF",
-    "U(K)",
-    "I(K)",
-    "P(K)",
-    "S(K)",
-    "Q(K)",
-    "LAMBDA(K)",
-    "PHI(K)",
-    "PHIU(K)",
-    "PHII(K)",
-    "UHDF(K)",
-    "IHDF(K)",
-    "PHDF(K)",
-    "Z(K)",
-    "RS(K)",
-    "RP(K)",
-    "XS(K)",
-    "XP(K)",
-    "PHIUIUJ",
-    "PHIUIUK",
-    "PHIUiii",
-    "PHIUIJI",
-    "PHIUIKI",
+    "UK",
+    "IK",
+    "PK",
 )
 
 _PROJECT_NUM_BY_INDEX = (12, 24, 48, 200)
@@ -266,22 +297,36 @@ def _style_max_elements(config: Mapping) -> int:
 
 
 def all_known_checkbox_keys() -> Set[str]:
-    return set(_SKIP_CHECKBOXES) | set(_SINGLE_BY_CHECKBOX) | set(_FUNCTION_BY_CHECKBOX)
+    return (
+        set(_SKIP_CHECKBOXES)
+        | set(_SINGLE_BY_CHECKBOX)
+        | set(_FUNCTION_BY_CHECKBOX)
+        | set(_HARMONIC_BY_CHECKBOX)
+        | set(_PHASE_BY_CHECKBOX)
+    )
+
+
+def model_of(config: Optional[Mapping]) -> str:
+    """3000 / 1800 / 1806 / 5000。认不出时按 1800 这一代（URMS、SIGMAA）。"""
+    if not isinstance(config, Mapping):
+        return ""
+    style = str(config.get("Style") or "")
+    for tag in ("5000", "1806", "1800", "3000"):
+        if tag in style:
+            return tag
+    if _is_checked(config, "radio_S2_WT5000"):
+        return "5000"
+    if _is_checked(config, "radio_S2_WT1806E"):
+        return "1806"
+    if _is_checked(config, "radio_S2_WT1800"):
+        return "1800"
+    if _is_checked(config, "radio_S2_WT3000") or _is_checked(config, "radio_wt3000"):
+        return "3000"
+    return ""
 
 
 def _is_wt3000(config: Mapping) -> bool:
-    """WT3000/WT3000E。网页字典可能没有 Style，只带型号单选。"""
-    style = str(config.get("Style") or "")
-    if "3000" in style:
-        return True
-    if any(tag in style for tag in ("1800", "1806", "5000")):
-        return False
-    if any(
-        _is_checked(config, key)
-        for key in ("radio_S2_WT1800", "radio_S2_WT1806E", "radio_S2_WT5000")
-    ):
-        return False
-    return _is_checked(config, "radio_S2_WT3000") or _is_checked(config, "radio_wt3000")
+    return model_of(config) == "3000"
 
 
 def _append_target(targets: List[str], token: str) -> None:
@@ -314,10 +359,11 @@ def selected_targets(config: Mapping) -> List[str]:
     for i in range(1, max_el + 1):
         if _is_checked(config, f"checkBox_SetElement{i}"):
             _append_target(targets, str(i))
-    # WT3000 通信手册里 ΣA 的元素名是 SIGMA（存盘列 U-SIGMA），ΣB 是 SIGMB。
-    # 没有 SIGMAA。勾 SigmaA 却发 SIGMAA 时，ITEM? 回读对不上，
-    # WtScpiCollector._setup_numeric_items 会丢掉该列，CSV 里就没有 sigma。
-    sigma_a = "SIGMA" if _is_wt3000(config) else "SIGMAA"
+    # WT3000 / WT5000 手册里 ΣA 的元素名是 SIGMA。1800/1806 仍用 SIGMAA。
+    # WT5000 的 ΣC 是 SIGMC，不是 SIGMAC。
+    model = model_of(config)
+    sigma_a = "SIGMA" if model in ("3000", "5000") else "SIGMAA"
+    sigma_c = "SIGMC" if model == "5000" else "SIGMAC"
     if _is_checked(config, "checkBox_SetSigma"):
         _append_target(targets, "SIGMA")
     if _is_checked(config, "checkBox_SetSigmaA"):
@@ -325,18 +371,21 @@ def selected_targets(config: Mapping) -> List[str]:
     if _is_checked(config, "checkBox_SetSigmaB"):
         _append_target(targets, "SIGMAB")
     if _is_checked(config, "checkBox_SetSigmaC"):
-        _append_target(targets, "SIGMAC")
+        _append_target(targets, sigma_c)
     if targets:
         return targets
     return list(_DEFAULT_ELEMENTS) + list(_DEFAULT_SIGMA)
 
 
 def selected_functions(config: Mapping) -> List[str]:
+    model = model_of(config)
     found: List[str] = []
     seen = set()
     for key, func in _FUNCTION_BY_CHECKBOX.items():
         if not _is_checked(config, key):
             continue
+        if model == "3000":
+            func = _WT3000_FUNCTION_ALIAS.get(key, func)
         if func in seen:
             continue
         seen.add(func)
@@ -377,6 +426,54 @@ def max_item_slots(config: Mapping) -> int:
     return 48
 
 
+def _any_extra_checked(config: Mapping) -> bool:
+    keys = list(_HARMONIC_BY_CHECKBOX) + list(_PHASE_BY_CHECKBOX)
+    return any(_is_checked(config, key) for key in keys)
+
+
+def harmonic_orders(config: Mapping) -> List[str]:
+    """谐波阶次。空白时发 1，和手册示例 UK,1,1 一致。跨度超过 50 阶就截断。"""
+
+    def _one(raw, default: int) -> int:
+        text = str(raw if raw is not None else "").strip()
+        if not text:
+            return default
+        try:
+            return int(float(text))
+        except ValueError:
+            return default
+
+    start = _one(config.get("textEdit_SetStart"), 1)
+    stop = _one(config.get("textEdit_SetStop"), start)
+    if start <= 0 and stop <= 0:
+        return ["DC"]
+    start = max(1, min(start, 500))
+    stop = max(start, min(stop, 500))
+    if stop - start > 50:
+        stop = start + 50
+    return [str(number) for number in range(start, stop + 1)]
+
+
+def _fallback_for(config: Mapping, fallback: Sequence[str]) -> List[str]:
+    if model_of(config) != "3000":
+        return list(fallback)
+    return [
+        "U,1,TOTAL",
+        "U,2,TOTAL",
+        "U,3,TOTAL",
+        "I,1,TOTAL",
+        "I,2,TOTAL",
+        "I,3,TOTAL",
+        "P,1,TOTAL",
+        "P,2,TOTAL",
+        "P,3,TOTAL",
+        "P,SIGMA,TOTAL",
+        "Q,SIGMA,TOTAL",
+        "LAMBDA,SIGMA,TOTAL",
+        "FU,1",
+    ]
+
+
 def items_from_wt_config(
     config: Optional[Mapping],
     *,
@@ -388,17 +485,20 @@ def items_from_wt_config(
 
     funcs = selected_functions(config)
     singles = selected_singles(config)
+    model = model_of(config)
     # 只勾总和、没勾 U/I/P 时，旧逻辑整表换成元素 1/2/3 的默认项。
-    # 电压只剩 URMS,1，没有 URMS,SIGMA，CSV 里看不到 U-SIGMA。
-    if not funcs and not singles:
+    # 电压只剩元素 1，没有 SIGMA，CSV 里看不到 U-SIGMA。
+    if not funcs and not singles and not _any_extra_checked(config):
         if not (_user_picked_sigma(config) and not _user_picked_element(config)):
-            return list(fallback)
-        funcs = ["URMS", "IRMS", "P", "Q"]
+            return _fallback_for(config, fallback)
+        funcs = ["U", "I", "P", "Q"] if model == "3000" else ["URMS", "IRMS", "P", "Q"]
 
     targets = selected_targets(config)
     element_targets = [t for t in targets if str(t).isdigit()]
     sigma_targets = [t for t in targets if not str(t).isdigit()]
     ordered_targets = element_targets + sigma_targets
+    if not element_targets:
+        element_targets = list(_DEFAULT_ELEMENTS[:1])
 
     items: List[str] = []
     seen = set()
@@ -410,12 +510,52 @@ def items_from_wt_config(
         items.append(token)
 
     # 按测量项分组、组内先元素再总和，和 WT 宏录制列顺序一致。
-    # 旧顺序是每个元素先占满全部测量项，项目数一截，SIGMA/SIGMAA 整组被切掉。
     for func in funcs:
         for target in ordered_targets:
+            token = f"{func},{target}"
+            if model == "3000" and func in _WT3000_NEEDS_ORDER:
+                token = f"{token},TOTAL"
+            _add(token)
+
+    orders = harmonic_orders(config)
+    for key, (on_3000, on_other) in _HARMONIC_BY_CHECKBOX.items():
+        if not _is_checked(config, key):
+            continue
+        func = on_3000 if model == "3000" else on_other
+        for target in element_targets:
+            for order in orders:
+                _add(f"{func},{target},{order}")
+
+    for key, (on_3000, on_other, sigma_only_on_5000) in _PHASE_BY_CHECKBOX.items():
+        if not _is_checked(config, key):
+            continue
+        func = on_3000 if model == "3000" else on_other
+        if model == "5000" and sigma_only_on_5000:
+            phase_targets = sigma_targets or ["SIGMA"]
+        elif model == "3000":
+            phase_targets = ordered_targets
+        else:
+            # 1800/1806 相位差按已选元素发完整功能名，不带仪器不认的 PHIUiii。
+            phase_targets = element_targets
+            if model != "5000" and key == "checkBox_SetPhiUi_Ij":
+                func = "PHI_U1I2"
+            if model != "5000" and key == "checkBox_SetPhiUi_Ik":
+                func = "PHI_U1I3"
+        for target in phase_targets:
             _add(f"{func},{target}")
 
     for token in singles:
+        if model == "5000" and token in _WT5000_DELTA_SINGLE:
+            name = _WT5000_DELTA_SINGLE[token]
+            for target in sigma_targets or ["SIGMA"]:
+                _add(f"{name},{target}")
+            continue
+        if model == "5000" and token in _WT5000_SINGLE_ALIAS:
+            _add(_WT5000_SINGLE_ALIAS[token])
+            continue
+        if model == "3000" and token.startswith("DELTAF") and token[6:].isdigit():
+            _add("DELTA" + token[6:])
+            continue
         _add(token)
 
     limit = 200
@@ -427,8 +567,8 @@ def items_from_wt_config(
 def _is_sigma_item(token: str) -> bool:
     if "," not in str(token):
         return False
-    target = str(token).split(",", 1)[1].strip().upper()
-    return target.startswith("SIGMA")
+    target = str(token).split(",", 1)[1].strip().upper().split(",", 1)[0]
+    return target.startswith("SIGM")
 
 
 def _fit_keep_sigma(items: List[str], limit: int) -> List[str]:
@@ -446,9 +586,11 @@ def _fit_keep_sigma(items: List[str], limit: int) -> List[str]:
 
 
 # CSV 表头用宏录制的「名称-对象」。
-# WT3000 勾 SigmaA 发给仪器的是 URMS,SIGMA，表头 U-SIGMA（与 wt_file_save_path 实录一致）。
-# 1800/1806/5000 的 SigmaA 才是 URMS,SIGMAA。3000 短名 U-1；1800/1806/5000 用 Urms-1。
+# WT3000 发给仪器的是 U,SIGMA,TOTAL，表头仍是 U-SIGMA。
+# 1800/1806 的 SigmaA 是 URMS,SIGMAA。5000 的 ΣA 是 SIGMA。
 _MACRO_STEM_SHORT: Dict[str, str] = {
+    "U": "U",
+    "I": "I",
     "URMS": "U",
     "IRMS": "I",
     "P": "P",
@@ -460,15 +602,31 @@ _MACRO_STEM_SHORT: Dict[str, str] = {
     "FI": "FreqI",
     "PC": "Pc",
     "WP": "WP",
+    "WH": "WP",
+    "WHP": "WP+",
+    "WHM": "WP-",
     "WPPLUS": "WP+",
     "WPMINUS": "WP-",
     "WQ": "q",
+    "AH": "q",
+    "AHP": "q+",
+    "AHM": "q-",
     "WQPLUS": "q+",
     "WQMINUS": "q-",
     "WS": "WS",
+    "UK": "U(k)",
+    "IK": "I(k)",
+    "PK": "P(k)",
     "U(K)": "U(k)",
     "I(K)": "I(k)",
     "P(K)": "P(k)",
+    "PHI_U1U2": "PhiUi-Uj",
+    "PHI_U1U3": "PhiUi-Uk",
+    "PHI_U1I1": "PhiUi-Ii",
+    "PHI_U1I2": "PhiUi-Ij",
+    "PHI_U1I3": "PhiUi-Ik",
+    "PHI_U2I2": "PhiUj-Ij",
+    "PHI_U3I3": "PhiUj-Ik",
     "TIME": "Time",
     "ETA1": "η1",
     "ETA2": "η2",
@@ -509,15 +667,38 @@ def _macro_stem(func: str, *, short: bool) -> str:
 
 
 def macro_column_name(token: str, style: str = "") -> str:
-    """SCPI 令牌 → WTViewer 宏 CSV 列名。例如 URMS,SIGMA + WT3000 → U-SIGMA。"""
+    """SCPI 令牌 → WTViewer 宏 CSV 列名。例如 U,SIGMA,TOTAL + WT3000 → U-SIGMA。"""
     raw = str(token or "").strip()
     if not raw:
         return raw
-    short = "3000" in str(style or "")
-    if "," in raw:
-        func, target = raw.split(",", 1)
-        return f"{_macro_stem(func.strip(), short=short)}-{target.strip()}"
-    return _macro_stem(raw, short=short)
+    parts = [part.strip() for part in raw.split(",") if part.strip()]
+    short = "3000" in str(style or "") or parts[0].upper() in ("U", "I")
+    if len(parts) == 1:
+        return _macro_stem(parts[0], short=short)
+    name = f"{_macro_stem(parts[0], short=short)}-{parts[1]}"
+    if len(parts) >= 3 and parts[2].upper() != "TOTAL":
+        name = f"{name}-{parts[2]}"
+    return name
+
+
+def item_echo_matches(token: str, reply: str) -> bool:
+    """ITEM? 回读必须包含原样功能名。仪器常在后面补 ,TOTAL，这算接受。
+
+    不能用子串：U,1 会误中 FU,1。
+    """
+    payload = str(reply or "").upper().replace(" ", "")
+    marker = "ITEM"
+    idx = payload.rfind(marker)
+    if idx >= 0:
+        rest = payload[idx + len(marker) :]
+        cursor = 0
+        while cursor < len(rest) and rest[cursor].isdigit():
+            cursor += 1
+        payload = rest[cursor:]
+    wanted = str(token or "").upper().replace(" ", "")
+    if not wanted or not payload:
+        return False
+    return payload == wanted or payload.startswith(wanted + ",")
 
 
 def describe_mapping(config: Mapping) -> Dict[str, Any]:
