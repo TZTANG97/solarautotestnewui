@@ -525,48 +525,53 @@ def SendACMessage():
     return ac_controller.send_message(uiACSetting)
 
 
-def SendDCTestMessage(silent=False):
-    global dc1_controller, dc2_controller, dc3_controller, dc4_controller, uiDC1Setting
+def _send_dc_iv_curve(ui_setting, selected_dc, silent=False):
+    """从指定直流设置页读取 IV 四点并下发到对应 DC 通道。"""
+    global dc1_controller, dc2_controller, dc3_controller, dc4_controller
 
-    selected_dc = uiDC1Setting.comboBox_DC_Select.currentText().strip()
     controller_map = {
-        "DC1": ("0", 0, dc1_controller),
-        "DC2": ("1", 1, dc2_controller),
-        "DC3": ("2", 2, dc3_controller),
-        "DC4": ("3", 3, dc4_controller),
+        "DC1": ("0", 0),
+        "DC2": ("1", 1),
+        "DC3": ("2", 2),
+        "DC4": ("3", 3),
     }
 
     if selected_dc not in controller_map:
-        _show_connect_message("请选择有效的直流电源（DC1~DC4）", uiDC1Setting)
+        _show_connect_message("请选择有效的直流电源（DC1~DC4）", ui_setting)
         return []
 
-    dc_key, dc_index, controller = controller_map[selected_dc]
+    dc_key, dc_index = controller_map[selected_dc]
+    controller = {
+        "DC1": dc1_controller,
+        "DC2": dc2_controller,
+        "DC3": dc3_controller,
+        "DC4": dc4_controller,
+    }[selected_dc]
     if controller is None:
         controller = DCController(
             logger,
             _show_connect_message,
             now_to_datenow,
-            ui_setting=uiDC1Setting,
+            ui_setting=ui_setting,
             rm=rm,
             configure_scpi_resource=_configure_scpi_resource,
         )
-
-    if selected_dc == "DC1":
-        dc1_controller = controller
-    elif selected_dc == "DC2":
-        dc2_controller = controller
-    elif selected_dc == "DC3":
-        dc3_controller = controller
-    elif selected_dc == "DC4":
-        dc4_controller = controller
+        if selected_dc == "DC1":
+            dc1_controller = controller
+        elif selected_dc == "DC2":
+            dc2_controller = controller
+        elif selected_dc == "DC3":
+            dc3_controller = controller
+        else:
+            dc4_controller = controller
 
     if controller.handle is None:
-        _show_connect_message(f"{selected_dc}未连接，请先连接{selected_dc}设备", uiDC1Setting)
+        _show_connect_message(f"{selected_dc}未连接，请先连接{selected_dc}设备", ui_setting)
         return []
 
     order_list = send_dc_test_message(
         controller.handle,
-        uiDC1Setting,
+        ui_setting,
         per_dc_factor,
         command_list_DC,
         DCGetIVValueFunction,
@@ -589,16 +594,22 @@ def SendDCTestMessage(silent=False):
             strtimenow = now_to_datenow()
             logger.info(f"Send message {command} to {selected_dc} error :{e}")
             print(f'{strtimenow} Send message {command} to {selected_dc} error :{e}')
-            _show_connect_message(f"{selected_dc}参数下发失败：{e}", uiDC1Setting)
+            _show_connect_message(f"{selected_dc}参数下发失败：{e}", ui_setting)
             return []
         else:
             strtimenow = now_to_datenow()
             logger.info(f"SendMessageTo{selected_dc}:{command}")
             print(strtimenow + f"SendMessageTo{selected_dc}:{command}")
-            uiDC1Setting.textEdit_ReturnMessage.append(f"SendMessageTo{selected_dc}:{command}")
+            if hasattr(ui_setting, "textEdit_ReturnMessage"):
+                ui_setting.textEdit_ReturnMessage.append(f"SendMessageTo{selected_dc}:{command}")
         time.sleep(0.8)
 
     return order_list
+
+
+def SendDCTestMessage(silent=False):
+    selected_dc = uiDC1Setting.comboBox_DC_Select.currentText().strip()
+    return _send_dc_iv_curve(uiDC1Setting, selected_dc, silent=silent)
 
 
 def SendDC1QueryMessage():
@@ -608,25 +619,37 @@ def SendDC1QueryMessage():
     return dc1_controller.query_message(uiDC1Setting, "DC1", logger)
 
 
-def SendDC2Message():
+def SendDC2Message(silent=False):
+    return _send_dc_iv_curve(uiDC2Setting, "DC2", silent=silent)
+
+
+def SendDC2QueryMessage():
     global dc2_controller
     if dc2_controller is None:
         dc2_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC2Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc2_controller.send_message(uiDC2Setting, "DC2", logger)
+    return dc2_controller.query_message(uiDC2Setting, "DC2", logger)
 
 
-def SendDC3Message():
+def SendDC3Message(silent=False):
+    return _send_dc_iv_curve(uiDC3Setting, "DC3", silent=silent)
+
+
+def SendDC3QueryMessage():
     global dc3_controller
     if dc3_controller is None:
         dc3_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC3Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc3_controller.send_message(uiDC3Setting, "DC3", logger)
+    return dc3_controller.query_message(uiDC3Setting, "DC3", logger)
 
 
-def SendDC4Message():
+def SendDC4Message(silent=False):
+    return _send_dc_iv_curve(uiDC4Setting, "DC4", silent=silent)
+
+
+def SendDC4QueryMessage():
     global dc4_controller
     if dc4_controller is None:
         dc4_controller = DCController(logger, _show_connect_message, now_to_datenow, ui_setting=uiDC4Setting, rm=rm, configure_scpi_resource=_configure_scpi_resource)
-    return dc4_controller.send_message(uiDC4Setting, "DC4", logger)
+    return dc4_controller.query_message(uiDC4Setting, "DC4", logger)
 
 def SendDL850StartMessage():
     global dl850_controller
@@ -31945,21 +31968,36 @@ if __name__ == "__main__":
                 {"title": "单条命令查询",   "widgets": ["lineEdit", "pushButton_SendQueryMessage"]},
                 {"title": "操作日志",     "widgets": "__log_widget__"},
             ]
-            # 直流电源2/3/4：设备连接 → 输出控制 → 单项测试
+            # 直流电源2/3/4：与 DC1 对齐（IV 四点 + 功率% + 输出控制）
             _DC2_GRID = [
                 {"title": "设备连接",     "widgets": "__connect_clean__"},
+                {"title": "参数设置（IV 四点）", "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
+                                                     "label_2", "textEdit_Imp", "label_4", "textEdit_Isc"]},
+                {"title": "功率设置（功率%）",     "widgets": ["label_5", "textEdit_PF", "lineEdit_2"]},
                 {"title": "输出控制",     "widgets": ["pushButton_SetDC2ON", "pushButton_SetDC2OFF"]},
-                {"title": "单条命令测试", "widgets": ["textEdit_SendMessage", "pushButton_SendMessage"]},
+                {"title": "下发 IV 曲线（已连接可反复下发）", "widgets": ["pushButton_SendMessage"]},
+                {"title": "单条命令查询",   "widgets": ["lineEdit", "pushButton_SendQueryMessage"]},
+                {"title": "操作日志",     "widgets": "__log_widget__"},
             ]
             _DC3_GRID = [
                 {"title": "设备连接",     "widgets": "__connect_clean__"},
+                {"title": "参数设置（IV 四点）", "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
+                                                     "label_2", "textEdit_Imp", "label_4", "textEdit_Isc"]},
+                {"title": "功率设置（功率%）",     "widgets": ["label_5", "textEdit_PF", "lineEdit_2"]},
                 {"title": "输出控制",     "widgets": ["pushButton_SetDC3ON", "pushButton_SetDC3OFF"]},
-                {"title": "单条命令测试", "widgets": ["textEdit_SendMessage", "pushButton_SendMessage"]},
+                {"title": "下发 IV 曲线（已连接可反复下发）", "widgets": ["pushButton_SendMessage"]},
+                {"title": "单条命令查询",   "widgets": ["lineEdit", "pushButton_SendQueryMessage"]},
+                {"title": "操作日志",     "widgets": "__log_widget__"},
             ]
             _DC4_GRID = [
                 {"title": "设备连接",     "widgets": "__connect_clean__"},
+                {"title": "参数设置（IV 四点）", "widgets": ["label", "textEdit_Vmp", "label_3", "textEdit_Voc",
+                                                     "label_2", "textEdit_Imp", "label_4", "textEdit_Isc"]},
+                {"title": "功率设置（功率%）",     "widgets": ["label_5", "textEdit_PF", "lineEdit_2"]},
                 {"title": "输出控制",     "widgets": ["pushButton_SetDC4ON", "pushButton_SetDC4OFF"]},
-                {"title": "单条命令测试", "widgets": ["textEdit_SendMessage", "pushButton_SendMessage"]},
+                {"title": "下发 IV 曲线（已连接可反复下发）", "widgets": ["pushButton_SendMessage"]},
+                {"title": "单条命令查询",   "widgets": ["lineEdit", "pushButton_SendQueryMessage"]},
+                {"title": "操作日志",     "widgets": "__log_widget__"},
             ]
             # DL850 示波器：设备连接 → 采集控制 → 命令查询 → 命令发送 → 日志
             _DL850_GRID = [
@@ -34641,8 +34679,9 @@ if __name__ == "__main__":
             # 关闭DC1电源输出
             uiDC2Setting.pushButton_SetDC2OFF.clicked.connect(CloseDC2OUTPUTON)
 
-            # 向DC2电源发送命令
+            # 向DC2电源下发 IV 曲线 / 单条查询
             uiDC2Setting.pushButton_SendMessage.clicked.connect(SendDC2Message)
+            uiDC2Setting.pushButton_SendQueryMessage.clicked.connect(SendDC2QueryMessage)
 
             # 打开DC3Setting对话框
             ui.pushButton_SetDC3Options.clicked.connect(ShowDC3Setting)
@@ -34653,8 +34692,9 @@ if __name__ == "__main__":
             # 关闭DC3电源输出
             uiDC3Setting.pushButton_SetDC3OFF.clicked.connect(CloseDC3OUTPUTON)
 
-            # 向DC3电源发送命令
+            # 向DC3电源下发 IV 曲线 / 单条查询
             uiDC3Setting.pushButton_SendMessage.clicked.connect(SendDC3Message)
+            uiDC3Setting.pushButton_SendQueryMessage.clicked.connect(SendDC3QueryMessage)
             
             # 打开DC4Setting对话框
             ui.pushButton_SetDC4Options.clicked.connect(ShowDC4Setting)
@@ -34665,8 +34705,9 @@ if __name__ == "__main__":
             # 关闭DC4电源输出
             uiDC4Setting.pushButton_SetDC4OFF.clicked.connect(CloseDC4OUTPUTON)
 
-            # 向DC4电源发送命令
+            # 向DC4电源下发 IV 曲线 / 单条查询
             uiDC4Setting.pushButton_SendMessage.clicked.connect(SendDC4Message)
+            uiDC4Setting.pushButton_SendQueryMessage.clicked.connect(SendDC4QueryMessage)
 
             # 向DL850电源发送Start命令
             uiDL850Setting.pushButton_StartTest.clicked.connect(SendDL850StartMessage)
