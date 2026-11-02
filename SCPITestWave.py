@@ -7384,6 +7384,9 @@ def thaidianyashanbianSend():
 
         if not is_dewetron:
             # ── WT3000 模式 Step4 ──
+            from utils.wt_screen_image import flicker_screen_save_command_from_ui
+
+            _flicker_img_cmd = flicker_screen_save_command_from_ui(uiThaiDianYaShanBian)
 
             if S2_WT3000_Single == "单相":
                 if S2_WT3000_Setting == "ELEMENT1":
@@ -7441,12 +7444,13 @@ def thaidianyashanbianSend():
                     strArrayTestStepSingle.append(strArraySingle)
 
 
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "IMAGE:EXEC"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                if _flicker_img_cmd:
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = _flicker_img_cmd
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -7475,12 +7479,13 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "IMAGE:EXEC"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                if _flicker_img_cmd:
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = _flicker_img_cmd
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -7508,12 +7513,13 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "IMAGE:EXEC"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                if _flicker_img_cmd:
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = _flicker_img_cmd
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -7541,12 +7547,13 @@ def thaidianyashanbianSend():
                 strArrayTest.append(strArraySingle)
                 strArrayTestStepSingle.append(strArraySingle)
 
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
-                strArraySingle[2] = "IMAGE:EXEC"
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                if _flicker_img_cmd:
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
+                    strArraySingle[2] = _flicker_img_cmd
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -26995,12 +27002,22 @@ def RunProject():
                         else:
                             if command.upper().replace(" ", "").startswith("IMAGE:"):
                                 # 截图只是存证。失败只记日志，不能把已经跑完的闪变标成中止。
-                                try:
-                                    from utils.wt_screen_image import save_wt_screen
+                                _img_norm = command.upper().replace(" ", "")
+                                if _img_norm in ("IMAGE:EXEC", ":IMAGE:EXEC"):
+                                    try:
+                                        if wt3000_controller is None or wt3000_controller.handle is None:
+                                            raise RuntimeError("WT 未连接")
+                                        wt3000_controller.handle.write("IMAGE:EXEC")
+                                        ok_img, msg_img = True, "已发给功率分析仪，保存到仪器 U 盘"
+                                    except Exception as img_exc:
+                                        ok_img, msg_img = False, str(img_exc)
+                                else:
+                                    try:
+                                        from utils.wt_screen_image import save_wt_screen
 
-                                    ok_img, msg_img = save_wt_screen(wt3000_controller)
-                                except Exception as img_exc:
-                                    ok_img, msg_img = False, str(img_exc)
+                                        ok_img, msg_img = save_wt_screen(wt3000_controller)
+                                    except Exception as img_exc:
+                                        ok_img, msg_img = False, str(img_exc)
                                 strtimenow = now_to_datenow()
                                 line = f"{strtimenow} [WT截图] {msg_img}"
                                 logger.info(line)

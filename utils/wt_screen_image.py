@@ -16,6 +16,45 @@ from utils.wt_save_path import ensure_wt_save_dir
 _SEND_QUERIES = (":IMAGE:SEND?", "IMAGE:SEND?")
 _FORMAT_CMDS = (":IMAGE:FORMAT PNG", ":IMAGE:FORMAT BMP")
 
+SAVE_TO_LOCAL = "保存至本地"
+SAVE_TO_USB = "保存至USB"
+SAVE_NONE = "不保存图片"
+CMD_SAVE_LOCAL = "IMAGE:SAVE:LOCAL"
+CMD_SAVE_USB = "IMAGE:EXEC"
+
+
+def flicker_screen_save_command(save_where: str = "", save_enabled: str = "保存图片") -> str:
+    """闪变判定步的截图命令。
+
+    保存至本地：工控机用 IMAGE:SEND? 把画面存到本机。
+    保存至USB：只发 IMAGE:EXEC，由功率分析仪写到插在仪器上的 U 盘。
+    不保存图片：返回空，调用方不要入队。
+    未识别的位置按保存至本地。
+    """
+    enabled = str(save_enabled or "").strip()
+    where = str(save_where or "").strip()
+    if enabled == SAVE_NONE or where == SAVE_NONE:
+        return ""
+    if where == SAVE_TO_USB:
+        return CMD_SAVE_USB
+    return CMD_SAVE_LOCAL
+
+
+def flicker_screen_save_command_from_ui(ui: Any) -> str:
+    """读闪变对话框「是否保存图片 / 图片保存位置」。缺控件时按保存至本地。"""
+    enabled = "保存图片"
+    where = SAVE_TO_LOCAL
+    try:
+        box_enable = getattr(ui, "comboBox_S4_WT3000_2", None)
+        if box_enable is not None and hasattr(box_enable, "currentText"):
+            enabled = str(box_enable.currentText() or enabled)
+        box_where = getattr(ui, "comboBox_S4_WT3000_3", None)
+        if box_where is not None and hasattr(box_where, "currentText"):
+            where = str(box_where.currentText() or where)
+    except Exception:
+        return CMD_SAVE_LOCAL
+    return flicker_screen_save_command(where, enabled)
+
 
 def save_wt_screen(ctrl: Any, save_path: str = "") -> Tuple[bool, str]:
     handle = getattr(ctrl, "handle", None) if ctrl is not None else None

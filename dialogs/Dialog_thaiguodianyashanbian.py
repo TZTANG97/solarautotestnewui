@@ -933,7 +933,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
 
         self.comboBox_S4_WT3000_3 = QtWidgets.QComboBox()
         self.comboBox_S4_WT3000_3.setObjectName("comboBox_S4_WT3000_3")
-        self.comboBox_S4_WT3000_3.addItems(["保存至本地", "不保存图片"])
+        self.comboBox_S4_WT3000_3.addItems(["保存至本地", "不保存图片", "保存至USB"])
         self.comboBox_S4_WT3000_3.setFixedWidth(120)
         g4Layout.addWidget(self.comboBox_S4_WT3000_3, 0, 4)
 
