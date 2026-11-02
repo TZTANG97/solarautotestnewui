@@ -58,12 +58,19 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("voltageadaptability", "CEI_Nbis_NanDe"): "operating.voltage.range",
     # —— EN 50549（CEI_Nbis_BeiDe_50549）——
     ("voltageadaptability", "CEI_Nbis_BeiDe_50549"): "5.2",
-    ("rocof", "CEI_Nbis_BeiDe_50549"): "5.3.1",
+    # IOT「ROCOF保护」对应 5.8.3.4.1（设定值精度与动作时间）；抗扰度 5.3.1 暂无独立 testType
+    ("rocof", "CEI_Nbis_BeiDe_50549"): "5.8.3.4.1",
+    ("rocofprotect", "CEI_Nbis_BeiDe_50549"): "5.8.3.4.1",
+    ("rocofreset", "CEI_Nbis_BeiDe_50549"): "5.8.3.4.2",
     ("phasejump", "CEI_Nbis_BeiDe_50549"): "5.3.2",
     ("lvrt", "CEI_Nbis_BeiDe_50549"): "5.3.3",
+    ("frequencyadaptability", "CEI_Nbis_BeiDe_50549"): "5.4.3",
     ("guopinjiangzai", "CEI_Nbis_BeiDe_50549"): "5.4.3.2",
     ("qianpinshengzai", "CEI_Nbis_BeiDe_50549"): "5.4.3.3",
     ("guoqianpin_immun", "CEI_Nbis_BeiDe_50549"): "5.4.3.3",
+    ("reactiveqcap", "CEI_Nbis_BeiDe_50549"): "5.5.1.3",
+    ("reactiveqacc", "CEI_Nbis_BeiDe_50549"): "5.5.2.3.2",
+    ("fixedq", "CEI_Nbis_BeiDe_50549"): "5.5.2.3.2",
     ("flicker", "CEI_Nbis_BeiDe_50549"): "5.7.2.3.3",
     ("dccomponent", "CEI_Nbis_BeiDe_50549"): "5.7.2.4",
     ("ovuf", "CEI_Nbis_BeiDe_50549"): "5.8.3.2",
@@ -71,6 +78,7 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("reconnect", "CEI_Nbis_BeiDe_50549"): "5.9",
     ("activep", "CEI_Nbis_BeiDe_50549"): "5.10.3.2",
     # 静态 Q(U)：北德/德凯有 6.8；南德 NanDe 暂无处理器（resolve 会 None）
+    # EN50549 的 5.5.2.4.2（Q(U) 稳态）处理器尚未交付，暂不挂 staticqu
     ("staticqu", "CEI_Nbis_BeiDe"): "6.8",
     ("staticqu", "CEI_Nbis_DeKai"): "6.8",
 }
@@ -137,6 +145,10 @@ PHASE1_AUTO_TESTS = frozenset(
         "phasejump",
         "lvrt",
         "rocof",
+        "rocofprotect",
+        "rocofreset",
+        "reactiveqcap",
+        "reactiveqacc",
         "staticqu",
     }
 )
@@ -201,8 +213,15 @@ TEST_TYPE_ALIASES: Dict[str, str] = {
     "过压保护10min": "voltprotect10min",
     "phase_jump": "phasejump",
     "lowvoltage_ride_through": "lvrt",
-    "rocofprotect": "rocof",
-    "rocof_protect": "rocof",
+    # ROCOF保护：EN50549 下 rocof / rocofprotect → 5.8.3.4.1；复位单独 rocofreset
+    "rocof_protect": "rocofprotect",
+    "rocof保护": "rocofprotect",
+    "rocof复位": "rocofreset",
+    "rocof_reset": "rocofreset",
+    "无功能力范围": "reactiveqcap",
+    "reactive_qcap": "reactiveqcap",
+    "无功精度": "reactiveqacc",
+    "reactive_qacc": "reactiveqacc",
     "静态qu": "staticqu",
     "动态qu": "dynamicqu",
 }

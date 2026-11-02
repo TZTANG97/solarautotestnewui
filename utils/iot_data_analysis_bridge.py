@@ -109,6 +109,8 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "SeMax",
         "PeMax",
         "Srated",
+        "Qmax",
+        "Qmin",
         "reconnect_time",
         "rated_power",
         # 南德总体报告页眉页脚
@@ -134,6 +136,8 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "textEdit_Un": "Un",
         "textEdit_In": "In",
         "textEdit_SeMax": "SeMax",
+        "textEdit_Qmax": "Qmax",
+        "textEdit_Qmin": "Qmin",
         "textEdit_S1_AC_VOLT": "Un",
         # IOT 开测页「数据分析额定参数」
         "analysis_Pn": "Pn",
@@ -142,9 +146,13 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "analysis_SeMax": "SeMax",
         "analysis_Srated": "Srated",
         "analysis_Pmax": "Srated",
+        "analysis_Qmax": "Qmax",
+        "analysis_Qmin": "Qmin",
         "analysisPn": "Pn",
         "analysisSeMax": "SeMax",
         "analysisSrated": "Srated",
+        "analysisQmax": "Qmax",
+        "analysisQmin": "Qmin",
         "analysis_Model": "model_no",
         "analysis_ProjectNo": "project_no",
         "analysis_SampleNo": "sample_no",
@@ -161,6 +169,8 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "In": "SOLAR_ANALYSIS_IN",
         "SeMax": "SOLAR_ANALYSIS_SEMAX",
         "Srated": "SOLAR_ANALYSIS_SRATED",
+        "Qmax": "SOLAR_ANALYSIS_QMAX",
+        "Qmin": "SOLAR_ANALYSIS_QMIN",
     }
     for k, env_k in env_map.items():
         if k not in out or out[k] in (None, ""):
@@ -508,19 +518,27 @@ def run_analysis_after_job(
         need_pn = code in {
             "5.3.1",
             "5.3.3",
+            "5.4.3",
             "5.4.3.2",
             "5.4.3.3",
             "5.7.2.4",
+            "5.8.3.4.1",
+            "5.8.3.4.2",
             "5.9",
             "5.10.3.2",
+            "5.10.3.3",
         }
         need_un = code in {
             "5.3.3",
             "5.7.2.4",
             "5.8.3.3",
+            "5.8.3.4.1",
+            "5.8.3.4.2",
             "5.9",
         }
-        need_srated = code in {"5.10.3.2"}
+        need_srated = code in {"5.10.3.2", "5.10.3.3"}
+        need_semax = code in {"5.5.1.3", "5.5.2.3.2"}
+        need_q = code in {"5.5.1.3", "5.5.2.3.2"}
         if need_pn and not _ensure_param(
             "Pn", 10000, reason=f"EN50549 {code} 缺少 Pn（analysis_Pn）"
         ):
@@ -533,6 +551,20 @@ def run_analysis_after_job(
             "Srated",
             params.get("Pn") or 10000,
             reason=f"EN50549 {code} 缺少 Srated/Pmax（analysis_Srated）",
+        ):
+            return info
+        if need_semax and not _ensure_param(
+            "SeMax",
+            params.get("Srated") or params.get("Pn") or 10000,
+            reason=f"EN50549 {code} 缺少 SeMax（analysis_SeMax）",
+        ):
+            return info
+        if need_q and not _ensure_param(
+            "Qmax", 5000, reason=f"EN50549 {code} 缺少 Qmax（analysis_Qmax）"
+        ):
+            return info
+        if need_q and not _ensure_param(
+            "Qmin", -5000, reason=f"EN50549 {code} 缺少 Qmin（analysis_Qmin）"
         ):
             return info
     if defaults_applied:

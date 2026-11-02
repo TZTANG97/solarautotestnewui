@@ -60,15 +60,34 @@ def test_map_en50549_core_codes():
     assert resolve_analysis_target(test_type="voltprotect", solar_standard="en50549")[
         "test_code"
     ] == "5.8.3.3"
+    # IOT「ROCOF保护」→ 5.8.3.4.1；复位 → 5.8.3.4.2
     assert resolve_analysis_target(test_type="rocof", solar_standard="en50549")[
         "test_code"
-    ] == "5.3.1"
+    ] == "5.8.3.4.1"
+    assert resolve_analysis_target(test_type="rocofprotect", solar_standard="en50549")[
+        "test_code"
+    ] == "5.8.3.4.1"
+    assert resolve_analysis_target(test_type="rocofreset", solar_standard="en50549")[
+        "test_code"
+    ] == "5.8.3.4.2"
     assert resolve_analysis_target(test_type="phasejump", solar_standard="en50549")[
         "test_code"
     ] == "5.3.2"
     assert resolve_analysis_target(test_type="lvrt", solar_standard="en50549")[
         "test_code"
     ] == "5.3.3"
+    assert resolve_analysis_target(
+        test_type="frequencyadaptability", solar_standard="en50549"
+    )["test_code"] == "5.4.3"
+    assert resolve_analysis_target(test_type="reactiveqcap", solar_standard="en50549")[
+        "test_code"
+    ] == "5.5.1.3"
+    assert resolve_analysis_target(test_type="reactiveqacc", solar_standard="en50549")[
+        "test_code"
+    ] == "5.5.2.3.2"
+    assert resolve_analysis_target(test_type="fixedq", solar_standard="en50549")[
+        "test_code"
+    ] == "5.5.2.3.2"
     assert resolve_analysis_target(test_type="ovuf", solar_standard="en50549")[
         "test_code"
     ] == "5.8.3.2"
@@ -81,6 +100,8 @@ def test_map_en50549_core_codes():
     # 50549 包无谐波处理器：不得回落到 NanDe 默认码
     assert resolve_analysis_target(test_type="harmonic", solar_standard="en50549") is None
     assert resolve_analysis_target(test_type="overload", solar_standard="en50549") is None
+    # 三相不平衡暂无 IOT testType
+    assert resolve_analysis_target(test_type="unbalance", solar_standard="en50549") is None
 
 
 def test_map_nande_activep_voltageadapt():
