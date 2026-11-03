@@ -23,7 +23,8 @@
 
 ## 怎么开
 
-日常只双击 **`start_SolarAutoTest.bat`**（或桌面快捷方式）。会静默拉起 Agent，不必单独点「启动 Agent」。
+- **正式/安装版**：双击桌面 **`SolarAutoTest`**（或 `start_SolarAutoTest.bat`）。会静默拉起 Agent，不必单独点「启动 Agent」。
+- **开发/测试版（拉了 `dev` 的仓库）**：双击 **`启动测试版.bat`**。与桌面版一样会**自动安装缺失的 uv / Python / 依赖**到 `%LOCALAPPDATA%\SolarAutoTestDev`（国内镜像），再启动 `SCPITestWave.py`。
 
 默认 IOT 地址在 `config/iot_bootstrap.json`（正式一般为 `https://www.laidecloud.com/nss`）。
 

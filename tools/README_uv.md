@@ -16,18 +16,20 @@
 3. **`tools\uv.exe` 不在 Git 里**  
    若共享的是「纯克隆、没带 tools\uv.exe」的目录，也会缺启动器。
 
-## 现在启动器会做什么
+## 现在启动器会做什么（对齐桌面版「自动装环境」）
 
 1. 若检测到网络路径：把 `tools\uv.exe` **复制到本机** `%LOCALAPPDATA%\SolarAutoTestDev\uv.exe` 再运行  
-2. 本机还没有 venv、但共享目录里有 `.venv`：自动**回退用共享 .venv**（兼容以前用法）  
-3. 本机 venv 首次失败时：自动再 `uv sync` 一次
+2. 本机没有 `uv`：尝试 `tools\bootstrap_uv.ps1` 下载  
+3. **启动前**调用 `tools\ensure_dev_runtime.ps1`：自动装 Python 3.14 + 按 `uv.lock` 同步依赖（国内镜像，同桌面版逻辑）  
+4. 本机装环境失败、但共享目录里有 `.venv`：才**回退用共享 .venv**  
+5. 启动用 `uv run --frozen --offline`（依赖已预装好，不再慢吞吞拉外网）
 
 ## 推荐用法（稳）
 
 | 角色 | 做什么 |
 |---|---|
 | 主机（共享提供者） | 保证共享里有完整工程 + `tools\uv.exe`；可选保留能用的 `.venv` |
-| 其它电脑 | 点 `启动测试版.bat`；首次允许访问外网装依赖到本机 AppData |
+| 其它电脑 | 点 `启动测试版.bat`；**首次允许访问外网**，自动装到本机 AppData |
 | 长期 | 每台电脑用自己的 `%LOCALAPPDATA%\SolarAutoTestDev\.venv`，避免多机抢同一个网盘 venv |
 
 ## 自检
