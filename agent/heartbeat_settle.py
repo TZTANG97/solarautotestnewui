@@ -24,6 +24,8 @@ class HeartbeatSettleState:
         self.reports_finished: set[int] = set()
         self.report_attempts: Dict[int, int] = {}
         self.seen_running: set[int] = set()
+        # 冷启动残留「已中止」：只跳过结案一次，避免每心跳刷同一句日志
+        self.stale_abort_skipped: set[int] = set()
 
     def forget(self, job_id: int) -> None:
         jid = int(job_id)
@@ -31,6 +33,7 @@ class HeartbeatSettleState:
         self.reports_finished.discard(jid)
         self.report_attempts.pop(jid, None)
         self.seen_running.discard(jid)
+        self.stale_abort_skipped.discard(jid)
 
 
 _shared = HeartbeatSettleState()
@@ -243,15 +246,41 @@ def apply_heartbeat_terminal_settle(
     if st not in LOCAL_TERMINAL:
         state.forget(jid)
         return
-    # 重启后 status.json 往往仍是上一局的「已中止」。新任务号写上去之后，
-    # 本进程若还没见过它在跑，不能据此把云端新单打成台架状态=已中止。
-    if st == "已中止" and jid not in state.seen_running:
-        logger.info(
-            "心跳跳过结案 job=%s：本进程未见其进入进行中（status=%s）",
-            jid,
-            st,
-        )
+    # 已收口且报告侧也结束：静默返回，避免终态 job 一直占着心跳结案
+    if jid in state.done_ok and jid in state.reports_finished:
         return
+
+    # 未见「进行中」的「已中止」：以前直接 return，status.json 一直挂着，每心跳刷同一句。
+    # 云端已终态 → 收口记忆；冷启动残留 → 只跳一次；否则补 aborted，结束死循环。
+    if st == "已中止" and jid not in state.seen_running:
+        cloud_st = ""
+        try:
+            cloud_st = _cloud_status_from_job(client.get_job(jid))
+        except Exception as exc:
+            logger.debug("心跳结案查云端跳过 job=%s: %s", jid, exc)
+        if cloud_status_is_terminal(cloud_st):
+            if jid not in state.done_ok:
+                logger.info(
+                    "心跳收口 job=%s：本地已中止且未见进行中，云端已是 %s，不再重复",
+                    jid,
+                    cloud_st,
+                )
+            state.done_ok.add(jid)
+            state.reports_finished.add(jid)
+            return
+        detail = str(snap.get("current_detail") or "")
+        cold_stale = ("软件已重新打开" in detail) or ("冷启动" in detail)
+        if cold_stale:
+            if jid in state.stale_abort_skipped:
+                return
+            state.stale_abort_skipped.add(jid)
+            logger.info(
+                "心跳跳过结案 job=%s：冷启动残留已中止，本进程未见进行中（仅记一次）",
+                jid,
+            )
+            return
+        # 本 jobId 的已中止（绑定新任务已改为待开始，不会再把旧中止安到新号上）
+        # 落到下面正常 done(aborted)
 
     pending_files: Optional[List[Path]] = None
     if jid not in state.done_ok:

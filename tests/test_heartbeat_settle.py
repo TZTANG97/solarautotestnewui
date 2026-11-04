@@ -64,7 +64,7 @@ def _plant(root: Path) -> Path:
 
 
 def test_stale_abort_does_not_settle_before_run_seen(tmp_path: Path) -> None:
-    """重启后文件仍是已中止，新任务号刚写上时不能结成台架状态=已中止。"""
+    """冷启动残留已中止：不打云端，且第二次心跳不再刷跳过日志记忆。"""
     client = _Client(status="running")
     state = HeartbeatSettleState()
     snap = _snap("已中止", 82)
@@ -72,6 +72,43 @@ def test_stale_abort_does_not_settle_before_run_seen(tmp_path: Path) -> None:
     snap["current_detail"] = "软件已重新打开，上次未跑完的试验已标为中止"
     apply_heartbeat_terminal_settle(
         client, repo_root=tmp_path, job_id=82, run_snapshot=snap, state=state
+    )
+    assert client.done_calls == []
+    assert 82 in state.stale_abort_skipped
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=82, run_snapshot=snap, state=state
+    )
+    assert client.done_calls == []
+
+
+def test_abort_without_running_settles_once_when_cloud_still_open(tmp_path: Path) -> None:
+    """本单已中止、云端还在跑：补 aborted，不能每心跳一直跳。"""
+    client = _Client(status="running")
+    state = HeartbeatSettleState()
+    snap = _snap("已中止", 94)
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=94, run_snapshot=snap, state=state
+    )
+    assert len(client.done_calls) == 1
+    assert client.done_calls[0][1]["status"] == "aborted"
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=94, run_snapshot=snap, state=state
+    )
+    assert len(client.done_calls) == 1
+
+
+def test_cloud_already_terminal_stops_skip_loop(tmp_path: Path) -> None:
+    """本地已中止但云端已结案：记 done_ok，不再每心跳跳过。"""
+    client = _Client(status="aborted")
+    state = HeartbeatSettleState()
+    snap = _snap("已中止", 94)
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=94, run_snapshot=snap, state=state
+    )
+    assert client.done_calls == []
+    assert 94 in state.done_ok
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=94, run_snapshot=snap, state=state
     )
     assert client.done_calls == []
 
