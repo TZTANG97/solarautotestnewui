@@ -122,13 +122,14 @@ def test_desktop_append_then_iot_append_keeps_both(tmp_path, monkeypatch):
 
 
 def test_desktop_running_then_iot_append_joins_queue(tmp_path, monkeypatch):
-    """已在跑：IOT 再追加只进队列，不清空、不二次开始、不新开等待结案。"""
+    """已在跑：IOT 再追加只进队列，不清空、不二次开始，但要等本机跑完再结案。"""
     g, fake, calls, svc, _pending = _bench(
         tmp_path,
         queue=[["AC", "write", "DESKTOP-HARM"]],
         running=True,
     )
     monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake)
+    svc.get_run_progress = lambda: {"cmd_index": 2, "cmd_total": 5}
     svc._continue_job_after_connect(None)
 
     assert calls["wipe"] == 0
@@ -137,12 +138,9 @@ def test_desktop_running_then_iot_append_joins_queue(tmp_path, monkeypatch):
     bodies = [row[2] for row in g["strArrayTest"] if len(row) > 2]
     assert bodies[0] == "DESKTOP-HARM"
     assert "IOT-FLICKER" in bodies
-    assert svc._awaiting is None
-    assert svc._busy is False
-    result = _result(tmp_path)
-    assert result["status"] == "success"
-    assert result["result_summary"]["joined_running_queue"] is True
-    assert result["result_summary"]["started"] is False
+    assert svc._awaiting is not None
+    assert svc._awaiting.get("joined_running_queue") is True
+    assert not (tmp_path / "iot_job_inbox" / "results" / "job_77.json").exists()
 
 
 class _Ui:
@@ -202,12 +200,10 @@ def test_handle_job_progress_ahead_of_flag_does_not_rebind(tmp_path, monkeypatch
     assert calls["start"] == 0
     assert "DESKTOP-HARM" in [row[2] for row in g["strArrayTest"] if len(row) > 2]
     assert "IOT-FLICKER" in [row[2] for row in g["strArrayTest"] if len(row) > 2]
-    assert svc._busy is False
     assert svc._job_ctx is None
-    result = json.loads(
-        (tmp_path / "iot_job_inbox" / "results" / "job_88.json").read_text(encoding="utf-8")
-    )
-    assert result["result_summary"]["joined_running_queue"] is True
+    assert svc._awaiting is not None
+    assert svc._awaiting.get("joined_running_queue") is True
+    assert not (tmp_path / "iot_job_inbox" / "results" / "job_88.json").exists()
 
 
 def test_handle_job_omitted_auto_start_still_starts(tmp_path, monkeypatch):

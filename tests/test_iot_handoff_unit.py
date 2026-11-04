@@ -66,6 +66,8 @@ def test_handoff_roundtrip(tmp_path: Path | None = None) -> None:
                 run_prog.__setitem__("percent", 40),
                 run_prog.__setitem__("text", "进行中 S1"),
                 run_prog.__setitem__("step", "进行中"),
+                run_prog.__setitem__("cmd_index", 1),
+                run_prog.__setitem__("cmd_total", 8),
             ),
             get_run_status=lambda: run_status["v"],
             get_run_progress=lambda: dict(run_prog),
@@ -78,11 +80,13 @@ def test_handoff_roundtrip(tmp_path: Path | None = None) -> None:
         # 模拟进度刷新
         run_prog["percent"] = 70
         run_prog["text"] = "进行中 采集"
+        run_prog["cmd_index"] = 4
         svc.poll_once()
         time.sleep(0.2)
         run_status["v"] = "已结束"
         run_prog["percent"] = 100
         run_prog["text"] = "已结束"
+        run_prog["cmd_index"] = 8
         svc.poll_once()
 
     th = threading.Thread(target=ui_side, daemon=True)
@@ -217,14 +221,48 @@ def test_stale_finished_without_running_is_failed_not_success(tmp_path: Path) ->
         "desktop_finished": False,
     }
     svc.get_run_status = lambda: "已结束"
+    svc.get_run_progress = lambda: {"cmd_index": 0, "cmd_total": 0}
     svc._check_awaiting_finish()
     assert finished
     assert finished[0]["result"].get("status") == "failed"
-    assert "未进入" in str(finished[0]["result"].get("fail_reason") or "")
+    assert "未见命令真正执行" in str(finished[0]["result"].get("fail_reason") or "")
+
+
+def test_optimistic_running_then_finish_without_cmd_is_failed(tmp_path: Path) -> None:
+    """开始按钮先写进行中(cmd=0)再空跑已结束：不得 success。"""
+    finished: list[dict] = []
+    progress = {"cmd_index": 0, "cmd_total": 12}
+    svc = IotUiHandoffService(
+        repo_root=Path(tmp_path),
+        log=lambda _m: None,
+        interval_ms=200,
+    )
+    svc._finish_job = lambda **kw: finished.append(kw)  # type: ignore[method-assign]
+    svc._awaiting = {
+        "job_id": 95,
+        "pending_path": None,
+        "started_at": time.time() - 1,
+        "start_grace_sec": 20,
+        "seen_running": False,
+        "desktop_finished": False,
+        "max_cmd_index": 0,
+        "max_cmd_total": 0,
+    }
+    svc.get_run_status = lambda: "进行中"
+    svc.get_run_progress = lambda: dict(progress)
+    svc._check_awaiting_finish()
+    assert not finished
+    assert svc._awaiting["seen_running"] is False
+
+    svc.get_run_status = lambda: "已结束"
+    svc._awaiting["started_at"] = time.time() - 30
+    svc._check_awaiting_finish()
+    assert finished
+    assert finished[0]["result"].get("status") == "failed"
 
 
 def test_real_finish_after_seen_running_still_success(tmp_path: Path) -> None:
-    """这一单真进过进行中再「已结束」，仍应收成 success。"""
+    """这一单真执行过命令再「已结束」，仍应收成 success。"""
     root = Path(tmp_path)
     finished: list[dict] = []
     svc = IotUiHandoffService(
@@ -240,8 +278,11 @@ def test_real_finish_after_seen_running_still_success(tmp_path: Path) -> None:
         "start_grace_sec": 8,
         "seen_running": True,
         "desktop_finished": True,
+        "max_cmd_index": 3,
+        "max_cmd_total": 10,
     }
     svc.get_run_status = lambda: "已结束"
+    svc.get_run_progress = lambda: {"cmd_index": 10, "cmd_total": 10}
     svc._check_awaiting_finish()
     assert finished
     assert finished[0]["result"].get("status") == "success"
@@ -386,6 +427,8 @@ def test_antibackflow_handoff_roundtrip(tmp_path: Path | None = None) -> None:
                 run_prog.__setitem__("percent", 40),
                 run_prog.__setitem__("text", "进行中 S1"),
                 run_prog.__setitem__("step", "进行中"),
+                run_prog.__setitem__("cmd_index", 1),
+                run_prog.__setitem__("cmd_total", 6),
             ),
             get_run_status=lambda: run_status["v"],
             get_run_progress=lambda: dict(run_prog),
@@ -397,11 +440,13 @@ def test_antibackflow_handoff_roundtrip(tmp_path: Path | None = None) -> None:
         time.sleep(0.25)
         run_prog["percent"] = 70
         run_prog["text"] = "进行中 采集"
+        run_prog["cmd_index"] = 3
         svc.poll_once()
         time.sleep(0.2)
         run_status["v"] = "已结束"
         run_prog["percent"] = 100
         run_prog["text"] = "已结束"
+        run_prog["cmd_index"] = 6
         svc.poll_once()
 
     th = threading.Thread(target=ui_side, daemon=True)

@@ -26186,7 +26186,12 @@ def RunProject():
         # 逐条解释命令。用 while 而不是固定 range：开始后中途追加的下一项也能接着跑。
         i = 0
         _run_cmd_seen = len(strArrayTest)
+        _executed_any_cmd = False
+        if _run_cmd_seen <= 0:
+            logger.info("开始执行时命令队列为空，不能报已结束")
+            print("开始执行时命令队列为空，不能报已结束")
         while i < len(strArrayTest):
+            _executed_any_cmd = True
             if len(strArrayTest) > _run_cmd_seen:
                 _note_runtime_appended_commands()
                 _run_cmd_seen = len(strArrayTest)
@@ -27310,17 +27315,28 @@ def RunProject():
 
         # 当前整轮 strArrayTest 全部执行完成，复位状态
         currentSecond = ui.comboBox_PS.currentText()
-        if strTestStatusFlag != "结束":
+        if strTestStatusFlag == "结束":
+            logger.info(now_to_datenow() + "    实验已中止")
+            _finish_run_progress(aborted=True)
+            _update_project_status(currentSecond, "已中止")
+        elif not _executed_any_cmd:
+            # 空队列空跑会把 IOT handoff 收成秒成功；必须失败
+            strtimenow = now_to_datenow()
+            logger.info(strtimenow + "    实验失败：命令队列为空")
+            print(strtimenow + "    实验失败：命令队列为空")
+            try:
+                ui.textEdit_ReturnMessage.append("[开始试验] 命令队列为空，未执行任何步骤")
+            except Exception:
+                pass
+            _finish_run_progress(aborted=True)
+            _update_project_status(currentSecond, "失败")
+        else:
             _finish_dewetron_session("completed", send_stop=True)
             strtimenow = now_to_datenow()
             logger.info(strtimenow + "    实验完成")
             print(strtimenow + "    实验完成")
             _finish_run_progress(aborted=False)
             _update_project_status(currentSecond, "已结束")
-        else:
-            logger.info(now_to_datenow() + "    实验已中止")
-            _finish_run_progress(aborted=True)
-            _update_project_status(currentSecond, "已中止")
         strArrayTest = []
         # 退出执行态，确保下次追加可重置 WT 门闩并重新跑配置脚本
         strTestStatusFlag = ""
@@ -35085,9 +35101,13 @@ if __name__ == "__main__":
                         remain = str(st.get("remain_text") or "").strip()
                         cur = str(st.get("current_test") or "").strip()
                         qn = len(st.get("queue") or [])
+                        cmd_index = int(st.get("cmd_index") or 0)
+                        cmd_total = int(st.get("cmd_total") or 0)
                         parts = [x for x in (status, cur, remain, detail) if x]
                         if qn:
                             parts.append(f"共{qn}项")
+                        if cmd_total > 0:
+                            parts.append(f"命令 {cmd_index}/{cmd_total}")
                         if st.get("operator_pause"):
                             parts.append("等人工改逆变器后点继续试验")
                         text = " | ".join(parts).strip()
@@ -35096,9 +35116,11 @@ if __name__ == "__main__":
                             "percent": int(st.get("progress") or 0),
                             "text": (text or "进行中")[:255],
                             "step": step,
+                            "cmd_index": cmd_index,
+                            "cmd_total": cmd_total,
                         }
                     except Exception:
-                        return {"percent": 0, "text": "", "step": ""}
+                        return {"percent": 0, "text": "", "step": "", "cmd_index": 0, "cmd_total": 0}
 
                 def _iot_ensure_project(name: str):
                     try:

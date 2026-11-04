@@ -1580,17 +1580,38 @@ class IotUiHandoffService(QObject):
         start_grace = float(aw.get("start_grace_sec") or 20)
         timeout = float(aw.get("timeout_sec") or 7200)
 
+        # 真正执行过至少 1 条命令才算开跑。RunProjectPush 会先把状态写成「进行中」
+        # 且 cmd_index=0，空队列/瞬间收尾若只认状态会秒成功。
+        cmd_index, cmd_total = 0, 0
+        if self.get_run_progress:
+            try:
+                snap = self.get_run_progress() or {}
+                if isinstance(snap, dict):
+                    cmd_index = int(snap.get("cmd_index") or 0)
+                    cmd_total = int(snap.get("cmd_total") or 0)
+            except Exception:
+                cmd_index, cmd_total = 0, 0
+        if cmd_index > int(aw.get("max_cmd_index") or 0):
+            aw["max_cmd_index"] = cmd_index
+        if cmd_total > int(aw.get("max_cmd_total") or 0):
+            aw["max_cmd_total"] = cmd_total
+
         if status == "进行中":
-            if not aw.get("seen_running"):
+            if (
+                not aw.get("seen_running")
+                and cmd_index >= 1
+                and (cmd_total > 0 or int(aw.get("max_cmd_total") or 0) > 0)
+            ):
                 aw["seen_running"] = True
-                self._log(f"任务 {job_id} 已进入进行中")
+                self._log(
+                    f"任务 {job_id} 已真正开跑（命令 {cmd_index}/{cmd_total or aw.get('max_cmd_total')}）"
+                )
             self._emit_progress(job_id)
             return
 
         if status == "已结束":
-            # 没见过这一单「进行中」时，宽限内继续等；超时后必须失败。
-            # 否则上一单残留的「已结束」会在约 start_grace 后被收成 success（job91 秒成功）。
-            # desktop_finished 也不能单独放行：可能是上一单终态通知落到新 awaiting 上。
+            # 没见过这一单真正执行命令时，宽限内继续等；超时后必须失败。
+            # 否则「乐观进行中 + 空跑已结束」会在数秒内收成 success。
             if not aw.get("seen_running"):
                 if elapsed < start_grace:
                     return
@@ -1600,8 +1621,9 @@ class IotUiHandoffService(QObject):
                     result={
                         "status": "failed",
                         "fail_reason": (
-                            f"开始试验后 {int(start_grace)}s 内未进入「进行中」"
-                            f"（当前状态=已结束，疑似上一单残留），可能启动被拦截"
+                            f"开始试验后 {int(start_grace)}s 内未见命令真正执行"
+                            f"（当前状态=已结束，cmd={aw.get('max_cmd_index') or 0}/"
+                            f"{aw.get('max_cmd_total') or 0}），可能队列为空或启动被拦截"
                         ),
                         "result_summary": {
                             "handoff": True,
@@ -1610,6 +1632,8 @@ class IotUiHandoffService(QObject):
                             "waited_finish": True,
                             "run_status": status,
                             "elapsed_sec": round(elapsed, 1),
+                            "cmd_index": int(aw.get("max_cmd_index") or 0),
+                            "cmd_total": int(aw.get("max_cmd_total") or 0),
                             "missingWidgets": aw.get("missing") or [],
                         },
                         "report_meta": [],
@@ -1629,6 +1653,8 @@ class IotUiHandoffService(QObject):
                         "waited_finish": True,
                         "run_status": status,
                         "elapsed_sec": round(elapsed, 1),
+                        "cmd_index": int(aw.get("max_cmd_index") or 0),
+                        "cmd_total": int(aw.get("max_cmd_total") or 0),
                         "missingWidgets": aw.get("missing") or [],
                         "note": "试验已正常结束并回传",
                     },
@@ -3390,25 +3416,63 @@ class IotUiHandoffService(QObject):
                     self._log(f"已调用{handler['label']}追加（{append_mode_label}）")
 
             if desktop_running:
+                if not appended:
+                    self._write_result_all(
+                        pending_path,
+                        job_id,
+                        {
+                            "status": "failed",
+                            "fail_reason": "本机正在执行，且本次没有追加进队列",
+                            "result_summary": {
+                                "handoff": True,
+                                "appended": False,
+                                "started": False,
+                                "desktop_running": True,
+                                "missingWidgets": missing,
+                            },
+                        },
+                    )
+                    self._move_pending_done(pending_path)
+                    return
+                # 追加进正在跑的队列后必须等本机真正跑完，不能立刻 success（否则秒结束）
+                if wait_finish and self.get_run_status:
+                    self._awaiting = {
+                        "job_id": job_id,
+                        "pending_path": pending_path,
+                        "appended": True,
+                        "missing": missing,
+                        "started_at": time.time(),
+                        "start_grace_sec": 20,
+                        "timeout_sec": 7200,
+                        "seen_running": False,
+                        "desktop_finished": False,
+                        "joined_running_queue": True,
+                        "max_cmd_index": 0,
+                        "max_cmd_total": 0,
+                    }
+                    self._log("本机正在执行，IOT 追加已并入当前队列，等待本机跑完再结案")
+                    self._emit_progress(job_id, force=True)
+                    self._check_awaiting_finish()
+                    return
                 self._write_result_all(
                     pending_path,
                     job_id,
                     {
-                        "status": "success" if appended else "failed",
-                        "fail_reason": "" if appended else "本机正在执行，且本次没有追加进队列",
+                        "status": "success",
+                        "fail_reason": "",
                         "result_summary": {
                             "handoff": True,
-                            "appended": appended,
+                            "appended": True,
                             "started": False,
                             "desktop_running": True,
-                            "joined_running_queue": bool(appended),
+                            "joined_running_queue": True,
                             "missingWidgets": missing,
-                            "note": "命令已接在正在执行的队列后，未再次开始",
+                            "note": "命令已接在正在执行的队列后，未等待结束",
                         },
                     },
                 )
                 self._move_pending_done(pending_path)
-                self._log("本机正在执行，IOT 追加已并入当前队列，不再次开始")
+                self._log("本机正在执行，IOT 追加已并入当前队列（未等待结束）")
                 return
 
             if auto_start:
@@ -3453,6 +3517,8 @@ class IotUiHandoffService(QObject):
                     "timeout_sec": float(max(30, wait_finish_timeout)),
                     "start_grace_sec": float(max(0, start_grace)),
                     "seen_running": False,
+                    "max_cmd_index": 0,
+                    "max_cmd_total": 0,
                     "test_type": test_type,
                     "handler_key": str((handler or {}).get("key") or test_type),
                     "widgets": dict(widgets) if isinstance(widgets, dict) else {},
