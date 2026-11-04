@@ -80,6 +80,7 @@ def execute_device_cmd(
     output_off: Optional[Callable[[str], bool]] = None,
     dew_build: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     switch_flicker: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+    apply_setpoints: Optional[Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]] = None,
     log: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """在桌面主线程执行一条控制命令。"""
@@ -117,6 +118,25 @@ def execute_device_cmd(
                     pass
             _log(f"[仪器控制] disconnect {slot}: 已请求关输出（无专用断开回调）")
             return {"ok": True, "message": f"{slot} 已请求断开/关输出"}
+
+        if action == "apply_setpoints":
+            if not apply_setpoints:
+                return {
+                    "ok": False,
+                    "message": "桌面未注册下发参数回调（请升级 SolarAutoTest）",
+                }
+            w_apply = dict(widgets)
+            brand_apply = str(instrument.get("brand") or "").strip()
+            if brand_apply and not w_apply.get("_iot_brand"):
+                w_apply["_iot_brand"] = brand_apply
+            summary = apply_setpoints(dict(instrument or {}), w_apply)
+            ok = bool((summary or {}).get("ok", False))
+            msg = str(
+                (summary or {}).get("message")
+                or ("参数已下发" if ok else "参数下发失败")
+            )
+            _log(f"[仪器控制] apply_setpoints {slot}: {msg}")
+            return {"ok": ok, "message": msg, "detail": summary or {}}
 
         if action == "output_on":
             if not output_on:

@@ -32264,6 +32264,8 @@ if __name__ == "__main__":
 
                 # ── Step 2: 相位选择 ──
                 combo_phase = QComboBox()
+                # 必须有 objectName，polish/QSettings 才能记住「三相」；否则每次启动停在第 0 项「单相」
+                combo_phase.setObjectName("combo_phase")
                 combo_phase.addItems(["单相", "三相"])
                 combo_phase.setStyleSheet(_INPUT_QSS)
                 timeline.addStep("相位选择", param_row([("相位:", combo_phase)]))
@@ -32549,6 +32551,72 @@ if __name__ == "__main__":
 
                 _itch_ac["btn_send"].setText("下发参数（电压/频率/相位）")
                 _itch_ac["btn_send"].clicked.connect(_itch_ac_send_command)
+
+                # 启动时把上次相位/电压/频率写回致茂+爱科两页，避免自动重连用默认「单相」盖掉真机
+                try:
+                    from utils.iot_boot_params_sync import (
+                        apply_ac_boot_to_panels,
+                        normalize_phase_label,
+                    )
+                    from utils.ui_field_helpers import last_value as _ac_last
+
+                    _phase_mem = normalize_phase_label(
+                        _ac_last("device.ac.phase", "") or _ac_last("ac.phase", "")
+                    )
+                    _volt_mem = (
+                        _ac_last("device.ac.volt", "")
+                        or _ac_last("ac.volt", "")
+                        or ""
+                    ).strip()
+                    _freq_mem = (
+                        _ac_last("device.ac.freq", "")
+                        or _ac_last("ac.freq", "")
+                        or ""
+                    ).strip()
+                    try:
+                        import json as _json_ac
+
+                        _sf = os.path.join(
+                            os.path.dirname(os.path.abspath(__file__)), "status.json"
+                        )
+                        with open(_sf, "r", encoding="utf-8") as _f:
+                            _st = _json_ac.load(_f)
+                        for _dev in (_st.get("devices") or []):
+                            if not isinstance(_dev, dict):
+                                continue
+                            if str(_dev.get("name") or "") not in ("交流电源", "交流源"):
+                                continue
+                            _w = _dev.get("widgets") if isinstance(_dev.get("widgets"), dict) else {}
+                            _m = _dev.get("measures") if isinstance(_dev.get("measures"), dict) else {}
+                            _phase_mem = normalize_phase_label(
+                                _phase_mem
+                                or _w.get("comboBox_Phase")
+                                or _m.get("phase")
+                                or ""
+                            )
+                            if not _volt_mem:
+                                _volt_mem = str(
+                                    _w.get("textEdit_AC_VOLT") or _m.get("voltage") or ""
+                                ).strip()
+                            if not _freq_mem:
+                                _freq_mem = str(
+                                    _w.get("textEdit_AC_FR") or _m.get("frequency") or ""
+                                ).strip()
+                            break
+                    except Exception:
+                        pass
+                    if _phase_mem or _volt_mem or _freq_mem:
+                        apply_ac_boot_to_panels(
+                            {
+                                "phase": _phase_mem,
+                                "volt": _volt_mem,
+                                "freq": _freq_mem,
+                            },
+                            chroma_ui=uiACSetting,
+                            itech_ref=_itch_ac,
+                        )
+                except Exception as _ac_mem_exc:
+                    print(f"[AC] 启动回填相位失败: {_ac_mem_exc}", flush=True)
 
             # ── DC1 面包屑：Chroma / Bluesight 切换 ──
             def _build_bluesight_dc1_content():
@@ -35536,6 +35604,49 @@ if __name__ == "__main__":
                         return False
                     return bool(fn())
 
+                def _iot_device_apply_setpoints(instrument, widgets=None):
+                    """IOT 已连接时在线下发 AC/DC 参数，不必断开重连。"""
+                    inst = instrument if isinstance(instrument, dict) else {}
+                    w_in = widgets if isinstance(widgets, dict) else {}
+                    sl = str(inst.get("slot") or "").strip().lower()
+                    kind = str(inst.get("kind") or "").strip().lower()
+                    if not (sl in ("", "ac") or sl.startswith("dc") or kind in ("ac", "dc")):
+                        return {
+                            "ok": False,
+                            "message": f"槽位 {sl or kind or '-'} 不支持在线下发参数",
+                        }
+                    if sl in ("", "ac") or kind == "ac":
+                        if ac_controller is None or not getattr(ac_controller, "connected", False):
+                            return {
+                                "ok": False,
+                                "message": "交流源未连接：请先连接后再下发参数",
+                            }
+                    elif sl.startswith("dc") or kind == "dc":
+                        ctrl = {
+                            "dc1": dc1_controller,
+                            "dc2": dc2_controller,
+                            "dc3": dc3_controller,
+                            "dc4": dc4_controller,
+                        }.get(sl or "dc1")
+                        if ctrl is None or not getattr(ctrl, "connected", False):
+                            return {
+                                "ok": False,
+                                "message": f"{sl or '直流源'} 未连接：请先连接后再下发参数",
+                            }
+                    try:
+                        brand = str(inst.get("brand") or "").strip()
+                        if brand and not w_in.get("_iot_brand"):
+                            w_in = dict(w_in)
+                            w_in["_iot_brand"] = brand
+                        _iot_sync_boot_params_to_soft_panel(
+                            w_in,
+                            reason="IOT 在线下发参数",
+                            brand=brand,
+                        )
+                    except Exception as exc:
+                        return {"ok": False, "message": f"参数下发失败: {exc}"}
+                    return {"ok": True, "message": f"{sl or kind or '仪器'} 参数已下发"}
+
                 def _iot_device_output_off(slot):
                     sl = str(slot or "").strip().lower()
                     fn = {
@@ -35652,6 +35763,7 @@ if __name__ == "__main__":
                 _iot_ui_handoff_svc.device_output_off = _iot_device_output_off
                 _iot_ui_handoff_svc.device_dew_build = _iot_device_dew_build
                 _iot_ui_handoff_svc.device_switch_flicker = _iot_device_switch_flicker
+                _iot_ui_handoff_svc.device_apply_setpoints = _iot_device_apply_setpoints
                 _iot_ui_handoff_svc.device_sync_boot_params = _iot_sync_boot_params_to_soft_panel
                 try:
                     _reconcile_status_json_with_sessions()

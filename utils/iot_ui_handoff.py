@@ -802,6 +802,8 @@ class IotUiHandoffService(QObject):
         self.device_output_off = None
         self.device_dew_build = None
         self.device_switch_flicker = None
+        # 已连接时在线下发 AC/DC 参数（不必断开重连）
+        self.device_apply_setpoints = None
         # 交接写完 Dialog 后：把 S1 AC/DC 同步到 Soft Panel 并尽量下发真机
         self.device_sync_boot_params = None
 
@@ -962,6 +964,7 @@ class IotUiHandoffService(QObject):
                     output_off=self.device_output_off,
                     dew_build=self.device_dew_build,
                     switch_flicker=self.device_switch_flicker,
+                    apply_setpoints=self.device_apply_setpoints,
                     log=self._log,
                 )
             try:
