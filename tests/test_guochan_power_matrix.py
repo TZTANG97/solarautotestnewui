@@ -257,6 +257,9 @@ def test_bluesight_stc_from_iv_dialog_points():
     assert half is not None
     assert abs(half[0] - pmpp_kw * 0.5) < 1e-9
     assert bluesight_stc_from_iv("0", "10") is None
+    forced = bluesight_stc_from_iv("750", "13.33", "804", "14.29", "100", ff="0.85")
+    assert forced is not None
+    assert abs(forced[2] - 0.85) < 1e-9
 
 
 def test_bluesight_dcgetiv_scales_device_page_cache():

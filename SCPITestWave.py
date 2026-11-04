@@ -2856,14 +2856,38 @@ def _reapply_dc1_setpoints_to_device(reason="恢复设定", show_errors=False):
                 return False
             tr = BluesightTranslator(client, device_id=1)
             idx = _dc1_bs_ref["combo_mode"].currentIndex()
-            if idx == 1:  # SAS
+            if idx == 1:  # SAS：先写模式寄存器，再写曲线（IOT 只改下拉不够）
+                ok_mode, msg_mode = tr.translate("SYST:MODE SAS")
+                if not ok_mode:
+                    _dc1_bs_ref["log_edit"].append(
+                        f"[DC1 Bluesight] {reason}: MODE SAS FAIL {msg_mode or ''}"
+                    )
+                    ui.textEdit_ReturnMessage.append(
+                        f"[DC1 Bluesight] {reason}: MODE SAS FAIL"
+                    )
+                    return False
                 stc = BluesightCurveSTC(
                     pmpp_stc_kw=_dc1_bs_ref["sp_pmpp"].value(),
                     umpp_stc_v=_dc1_bs_ref["sp_umpp"].value(),
                     fill_factor=_dc1_bs_ref["sp_ff"].value(),
                 )
                 ok, msg = tr.write_curve_block(stc=stc)
+                if ok:
+                    bluesight_stc_params[0] = {
+                        "pmpp": float(_dc1_bs_ref["sp_pmpp"].value()),
+                        "umpp": float(_dc1_bs_ref["sp_umpp"].value()),
+                        "ff": float(_dc1_bs_ref["sp_ff"].value()),
+                    }
             elif idx == 0:  # 原始负载
+                ok_mode, msg_mode = tr.translate("SYST:MODE 0")
+                if not ok_mode:
+                    _dc1_bs_ref["log_edit"].append(
+                        f"[DC1 Bluesight] {reason}: MODE 0 FAIL {msg_mode or ''}"
+                    )
+                    ui.textEdit_ReturnMessage.append(
+                        f"[DC1 Bluesight] {reason}: MODE 0 FAIL"
+                    )
+                    return False
                 idx_o = _dc1_bs_ref["combo_outmode"].currentIndex()
                 spins = _dc1_bs_ref["params_stack"].widget(idx_o).findChildren(QDoubleSpinBox)
                 if idx_o == 0:
@@ -35033,8 +35057,23 @@ if __name__ == "__main__":
                     return globals().get("uiThaiCosPhiBrazil")
 
                 def _iot_get_run_status():
+                    """交接读状态：内存终态可能是上一单，优先认 status.json 的待开始/进行中。"""
                     try:
-                        return str((_run_progress_state or {}).get("status") or "")
+                        mem = str((_run_progress_state or {}).get("status") or "").strip()
+                        if mem in ("已结束", "已中止", "失败", "中止", ""):
+                            try:
+                                import json
+                                from pathlib import Path
+
+                                path = Path(__file__).resolve().parent / "status.json"
+                                raw = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+                                proj = raw.get("project") if isinstance(raw, dict) else {}
+                                file_st = str((proj or {}).get("status") or "").strip()
+                                if file_st in ("待开始", "未开始", "进行中", "暂停"):
+                                    return file_st
+                            except Exception:
+                                pass
+                        return mem
                     except Exception:
                         return ""
 

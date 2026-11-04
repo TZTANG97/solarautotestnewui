@@ -44,8 +44,24 @@ def extract_ac_boot_from_widgets(widgets: Optional[Dict[str, Any]]) -> Dict[str,
     }
 
 
+def normalize_bluesight_mode(raw: Any) -> str:
+    """统一为 sas / original；空或无法识别时默认 sas（IOT 下发 IV 曲线）。"""
+    s = str(raw or "").strip().lower()
+    if not s:
+        return "sas"
+    if s in ("0", "original", "orig", "原始负载", "cv", "cc", "cp"):
+        return "original"
+    if s in ("1", "sas", "sas模式"):
+        return "sas"
+    if "原始" in str(raw or ""):
+        return "original"
+    if "sas" in s:
+        return "sas"
+    return "sas"
+
+
 def extract_dc1_iv_from_widgets(widgets: Optional[Dict[str, Any]]) -> Dict[str, str]:
-    """从云端 widgets 抽 DC1 IV：Vmp/Imp/Voc/Isc/PF%。"""
+    """从云端 widgets 抽 DC1 IV：Vmp/Imp/Voc/Isc/PF%/FF/mode。"""
     w = widgets if isinstance(widgets, dict) else {}
     return {
         "vmp": _pick(w, "textEdit_Vmp", "textEdit_S1_DC1_VOLT"),
@@ -53,6 +69,10 @@ def extract_dc1_iv_from_widgets(widgets: Optional[Dict[str, Any]]) -> Dict[str, 
         "voc": _pick(w, "textEdit_Voc", "textEdit_S1_DC1_Voc"),
         "isc": _pick(w, "textEdit_Isc", "textEdit_S1_DC1_Isc"),
         "pf": _pick(w, "textEdit_PF", "textEdit_S1_DC1_PF"),
+        "ff": _pick(w, "textEdit_FF", "sp_ff", "fill_factor", "textEdit_S1_DC1_FF"),
+        "mode": normalize_bluesight_mode(
+            _pick(w, "comboBox_DC_Mode", "combo_mode", "bluesight_mode")
+        ),
     }
 
 
@@ -149,28 +169,32 @@ def _set_plain(widget, text: str) -> None:
 
 
 def apply_bluesight_sas_from_iv(ref, iv: Optional[Dict[str, str]]):
-    """把网页四点写到蓝点页：模式选 SAS，填 Pmpp(kW) / Umpp(V) / 填充因子。
+    """把网页四点写到蓝点页：按 mode 切页，填 Pmpp(kW) / Umpp(V) / 填充因子。
 
-    曲线缓存用 100% 基准，工况功率%由试验步骤再乘。参数不够时返回 None。
+    曲线缓存用 100% 基准，工况功率%由试验步骤再乘。
+    填充因子优先用网页显式 FF（Sandia），没有才用 Voc/Isc 反算。
+    参数不够时返回 None。
     """
     from utils.guochan_sim_matrix import bluesight_stc_from_iv
 
     if not isinstance(ref, dict):
         return None
     src = iv if isinstance(iv, dict) else {}
+    mode = normalize_bluesight_mode(src.get("mode"))
     triple = bluesight_stc_from_iv(
         src.get("vmp"),
         src.get("imp"),
         src.get("voc"),
         src.get("isc"),
         "100",
+        ff=src.get("ff"),
     )
     if not triple:
         return None
     pmpp, umpp, ff = triple
     combo = ref.get("combo_mode")
     if combo is not None and hasattr(combo, "setCurrentIndex"):
-        combo.setCurrentIndex(1)
+        combo.setCurrentIndex(0 if mode == "original" else 1)
     for key, val in (("sp_pmpp", pmpp), ("sp_umpp", umpp), ("sp_ff", ff)):
         spin = ref.get(key)
         if spin is not None and hasattr(spin, "setValue"):

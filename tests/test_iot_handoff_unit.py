@@ -184,6 +184,69 @@ def test_awaiting_ignores_previous_job_terminal(tmp_path: Path) -> None:
     assert "试验状态=已中止" not in reason
 
 
+def test_stale_finished_without_running_is_failed_not_success(tmp_path: Path) -> None:
+    """新任务号挂着上一单残留的「已结束」时，宽限后必须失败，不能秒成功。"""
+    root = Path(tmp_path)
+    (root / "status.json").write_text(
+        json.dumps(
+            {
+                "project": {
+                    "status": "已结束",
+                    "jobId": 91,
+                    "progress": 100,
+                    "current_detail": "上一单残留",
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    finished: list[dict] = []
+    svc = IotUiHandoffService(
+        repo_root=root,
+        log=lambda _m: None,
+        interval_ms=200,
+    )
+    svc._finish_job = lambda **kw: finished.append(kw)  # type: ignore[method-assign]
+    svc._awaiting = {
+        "job_id": 91,
+        "pending_path": None,
+        "started_at": time.time() - 30,
+        "start_grace_sec": 8,
+        "seen_running": False,
+        "desktop_finished": False,
+    }
+    svc.get_run_status = lambda: "已结束"
+    svc._check_awaiting_finish()
+    assert finished
+    assert finished[0]["result"].get("status") == "failed"
+    assert "未进入" in str(finished[0]["result"].get("fail_reason") or "")
+
+
+def test_real_finish_after_seen_running_still_success(tmp_path: Path) -> None:
+    """这一单真进过进行中再「已结束」，仍应收成 success。"""
+    root = Path(tmp_path)
+    finished: list[dict] = []
+    svc = IotUiHandoffService(
+        repo_root=root,
+        log=lambda _m: None,
+        interval_ms=200,
+    )
+    svc._finish_job = lambda **kw: finished.append(kw)  # type: ignore[method-assign]
+    svc._awaiting = {
+        "job_id": 92,
+        "pending_path": None,
+        "started_at": time.time() - 120,
+        "start_grace_sec": 8,
+        "seen_running": True,
+        "desktop_finished": True,
+    }
+    svc.get_run_status = lambda: "已结束"
+    svc._check_awaiting_finish()
+    assert finished
+    assert finished[0]["result"].get("status") == "success"
+
+
 def test_stop_request_for_other_job_does_not_stop_current(tmp_path: Path) -> None:
     """云端收口的上一单不能停掉正在跑的下一单（58 的停机掐掉 59/60）。"""
     from agent.job_inbox import list_stop_requests, write_stop_request

@@ -59,6 +59,22 @@ def test_extract_dc1_from_s1_dialog_keys():
     assert dc["pf"] == "100"
 
 
+def test_extract_dc1_keeps_explicit_ff_and_mode():
+    dc = extract_dc1_iv_from_widgets(
+        {
+            "textEdit_Vmp": "750",
+            "textEdit_Imp": "13.33",
+            "textEdit_Voc": "804",
+            "textEdit_Isc": "14.29",
+            "textEdit_PF": "100",
+            "textEdit_FF": "0.85",
+            "comboBox_DC_Mode": "SAS",
+        }
+    )
+    assert dc["ff"] == "0.85"
+    assert dc["mode"] == "sas"
+
+
 def test_apply_bluesight_sas_from_iv_sets_mode_and_stc():
     from utils.iot_boot_params_sync import apply_bluesight_sas_from_iv
 
@@ -83,13 +99,22 @@ def test_apply_bluesight_sas_from_iv_sets_mode_and_stc():
         "sp_ff": _Spin(0.8),
     }
     triple = apply_bluesight_sas_from_iv(
-        ref, {"vmp": "750", "imp": "16.666", "voc": "838.731", "isc": "17.211", "pf": "100"}
+        ref,
+        {
+            "vmp": "750",
+            "imp": "13.33",
+            "voc": "804",
+            "isc": "14.29",
+            "pf": "100",
+            "ff": "0.85",
+            "mode": "SAS",
+        },
     )
     assert triple is not None
     assert ref["combo_mode"].idx == 1
     assert abs(ref["sp_umpp"].value - 750) < 1e-6
-    assert abs(ref["sp_pmpp"].value - 12.4995) < 1e-3
-    assert ref["sp_ff"].value > 0.8
+    assert abs(ref["sp_pmpp"].value - 9.9975) < 1e-3
+    assert abs(ref["sp_ff"].value - 0.85) < 1e-6
 
 
 def test_apply_ac_boot_writes_itech_phase_not_only_chroma():

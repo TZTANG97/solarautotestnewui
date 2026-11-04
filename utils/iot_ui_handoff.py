@@ -1588,12 +1588,33 @@ class IotUiHandoffService(QObject):
             return
 
         if status == "已结束":
-            if (
-                not aw.get("seen_running")
-                and not aw.get("desktop_finished")
-                and elapsed < start_grace
-            ):
-                # 可能仍是上一轮残留状态，再等片刻看是否进入「进行中」
+            # 没见过这一单「进行中」时，宽限内继续等；超时后必须失败。
+            # 否则上一单残留的「已结束」会在约 start_grace 后被收成 success（job91 秒成功）。
+            # desktop_finished 也不能单独放行：可能是上一单终态通知落到新 awaiting 上。
+            if not aw.get("seen_running"):
+                if elapsed < start_grace:
+                    return
+                self._finish_job(
+                    job_id=job_id,
+                    pending_path=pending_path,
+                    result={
+                        "status": "failed",
+                        "fail_reason": (
+                            f"开始试验后 {int(start_grace)}s 内未进入「进行中」"
+                            f"（当前状态=已结束，疑似上一单残留），可能启动被拦截"
+                        ),
+                        "result_summary": {
+                            "handoff": True,
+                            "appended": aw.get("appended"),
+                            "started": False,
+                            "waited_finish": True,
+                            "run_status": status,
+                            "elapsed_sec": round(elapsed, 1),
+                            "missingWidgets": aw.get("missing") or [],
+                        },
+                        "report_meta": [],
+                    },
+                )
                 return
             self._finish_job(
                 job_id=job_id,
@@ -1628,7 +1649,11 @@ class IotUiHandoffService(QObject):
                 pending_path=pending_path,
                 result={
                     "status": "aborted" if status == "已中止" else "failed",
-                    "fail_reason": f"试验状态={status}",
+                    "fail_reason": (
+                        f"开始试验后 {int(start_grace)}s 内未进入「进行中」"
+                        if not aw.get("seen_running") and not aw.get("desktop_finished")
+                        else f"试验状态={status}"
+                    ),
                     "result_summary": {
                         "handoff": True,
                         "appended": aw.get("appended"),
@@ -3404,7 +3429,8 @@ class IotUiHandoffService(QObject):
 
             # 以下保持与原 _handle_job 后半一致：等结束或立即结案
             wait_finish_timeout = 7200
-            start_grace = 8
+            # OVUF 等试验打开 Dialog/追加命令可能超过 8s；过短会把慢启动误判成未进入进行中
+            start_grace = 20
             if isinstance(params, dict):
                 try:
                     if params.get("wait_finish_timeout_sec") is not None:

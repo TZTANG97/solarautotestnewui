@@ -160,8 +160,10 @@ def ac_sequence_for_menu(menu: str) -> list[str]:
     return ac_smoke_sequence(single_phase=True)
 
 
-def bluesight_stc_from_iv(vmp, imp, voc=None, isc=None, pf="100"):
-    """由试验对话框 Vmp/Imp（及可选 Voc/Isc、功率百分比）得到蓝点 STC 三元组。
+def bluesight_stc_from_iv(vmp, imp, voc=None, isc=None, pf="100", ff=None):
+    """由试验对话框 Vmp/Imp（及可选 Voc/Isc、功率百分比、填充因子）得到蓝点 STC 三元组。
+
+    ff 显式传入时优先使用（IOT Sandia 的填充因子），不再用四点反算顶替。
 
     Returns:
         (pmpp_kw, umpp_v, ff) 或 None（参数非法）。
@@ -187,21 +189,32 @@ def bluesight_stc_from_iv(vmp, imp, voc=None, isc=None, pf="100"):
     scale = pf_pct / 100.0
     f_imp_s = f_imp * scale
     pmpp_kw = f_vmp * f_imp_s / 1000.0
-    ff = 0.8
-    try:
-        voc_s = "" if voc is None else str(voc).strip()
-        isc_s = "" if isc is None else str(isc).strip()
-        if voc_s and isc_s:
-            f_voc = float(voc_s)
-            f_isc_s = float(isc_s) * scale
-            if f_voc > 0 and f_isc_s > 0:
-                ff = (f_vmp * f_imp_s) / (f_voc * f_isc_s)
-                ff = max(0.50, min(0.95, ff))
-    except (TypeError, ValueError):
-        pass
+    ff_out = None
+    if ff is not None and str(ff).strip() != "":
+        try:
+            ff_out = float(str(ff).strip())
+            if ff_out > 1.0 and ff_out <= 100.0:
+                ff_out = ff_out / 100.0
+            if not (0.0 < ff_out <= 1.0):
+                ff_out = None
+        except (TypeError, ValueError):
+            ff_out = None
+    if ff_out is None:
+        ff_out = 0.8
+        try:
+            voc_s = "" if voc is None else str(voc).strip()
+            isc_s = "" if isc is None else str(isc).strip()
+            if voc_s and isc_s:
+                f_voc = float(voc_s)
+                f_isc_s = float(isc_s) * scale
+                if f_voc > 0 and f_isc_s > 0:
+                    ff_out = (f_vmp * f_imp_s) / (f_voc * f_isc_s)
+                    ff_out = max(0.50, min(0.95, ff_out))
+        except (TypeError, ValueError):
+            pass
     if pmpp_kw <= 0:
         return None
-    return (pmpp_kw, f_vmp, ff)
+    return (pmpp_kw, f_vmp, float(ff_out))
 
 
 def dc_bluesight_smoke_sequence() -> list[str]:

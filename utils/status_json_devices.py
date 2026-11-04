@@ -58,10 +58,14 @@ def project_status_is_live_local_run(progress_state: Optional[Dict[str, Any]], r
 
 
 def status_when_binding_new_job(existing: str) -> str:
-    """新任务号不能挂在上一局的终态上，否则心跳会立刻按「台架状态=已中止」结案。"""
+    """新任务号不能挂在上一局的终态上。
+
+    写成「进行中」会让心跳先记 seen_running，上一单残留的「已结束」再被当成这一单
+    success（秒成功、无文件处理）。应写成「待开始」，等真正 RunProject 再进进行中。
+    """
     st = str(existing or "").strip()
     if st in ("", "未开始", "待开始", "已中止", "失败", "已结束", "中止"):
-        return "进行中"
+        return "待开始"
     return st
 
 
