@@ -15,14 +15,39 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
+_EXPERIMENT_START_SOURCES = frozenset(
+    {"experiment_start", "exper_start", "blockly_start"}
+)
+
+
+def _job_source(params: Any) -> str:
+    if not isinstance(params, dict):
+        return ""
+    return str(params.get("source") or "").strip().lower()
+
 
 def coerce_auto_start(params: Any) -> bool:
     """云任务没带 ``auto_start`` 时与网页默认勾选一致，按自动开始。
 
     显式 ``false`` 仍是只追加、不开跑。
+    实验管理 ``source=experiment_start`` 一律开跑：本地开测写入的
+    ``auto_start=false`` 若被带回云任务，会导致跳过开跑并秒成功。
     """
-    if isinstance(params, dict) and "auto_start" in params:
-        return bool(params.get("auto_start"))
+    if isinstance(params, dict):
+        if _job_source(params) in _EXPERIMENT_START_SOURCES:
+            return True
+        if "auto_start" in params:
+            return bool(params.get("auto_start"))
+    return True
+
+
+def coerce_auto_append(params: Any) -> bool:
+    """实验管理开测必须追加；其它任务尊重显式 ``auto_append``，默认 True。"""
+    if isinstance(params, dict):
+        if _job_source(params) in _EXPERIMENT_START_SOURCES:
+            return True
+        if "auto_append" in params:
+            return bool(params.get("auto_append"))
     return True
 
 

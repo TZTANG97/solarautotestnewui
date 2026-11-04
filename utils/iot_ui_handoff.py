@@ -3110,15 +3110,16 @@ class IotUiHandoffService(QObject):
             except Exception as exc:
                 self._log(f"德威创面板写入跳过: {exc}")
 
-            from utils.iot_force_overwrite_append import coerce_auto_start
+            from utils.iot_force_overwrite_append import coerce_auto_append, coerce_auto_start
 
-            auto_append = True
-            if isinstance(params, dict) and "auto_append" in params:
-                auto_append = bool(params.get("auto_append"))
+            auto_append = coerce_auto_append(params if isinstance(params, dict) else None)
             auto_start = coerce_auto_start(params if isinstance(params, dict) else None)
             wait_finish = True
             if isinstance(params, dict) and "wait_finish" in params:
-                wait_finish = bool(params.get("wait_finish"))
+                src = str(params.get("source") or "").strip().lower()
+                # 实验管理开测必须等结束，禁止被本地记忆改成 false
+                if src not in ("experiment_start", "exper_start", "blockly_start"):
+                    wait_finish = bool(params.get("wait_finish"))
 
             self._job_ctx = {
                 "job": job,
@@ -3530,6 +3531,35 @@ class IotUiHandoffService(QObject):
                     f"启动宽限{int(start_grace)}秒）"
                 )
                 self._check_awaiting_finish()
+                return
+
+            # 实验管理 / 要求等结束但未开跑：禁止「未执行就 success」（秒结束假成功）
+            src = ""
+            if isinstance(params, dict):
+                src = str(params.get("source") or "").strip().lower()
+            if (not auto_start) and wait_finish:
+                self._write_result_all(
+                    pending_path,
+                    job_id,
+                    {
+                        "status": "failed",
+                        "fail_reason": (
+                            "云任务要求等待结束但未自动开跑（auto_start=false）；"
+                            "已中止以免沿用上一单残留状态秒成功"
+                        ),
+                        "result_summary": {
+                            "handoff": True,
+                            "appended": appended,
+                            "started": False,
+                            "waited_finish": False,
+                            "missingWidgets": missing,
+                            "source": src or None,
+                        },
+                        "report_meta": [],
+                    },
+                )
+                self._move_pending_done(pending_path)
+                self._log(f"任务 {job_id} 已失败（wait_finish 但未开跑，拒绝秒成功）")
                 return
 
             self._write_result_all(

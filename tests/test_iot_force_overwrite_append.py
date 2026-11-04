@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from utils.iot_force_overwrite_append import (
+    coerce_auto_append,
     coerce_auto_start,
     force_overwrite_before_iot_append,
     should_force_overwrite_for_iot_job,
@@ -12,6 +13,18 @@ def test_missing_auto_start_matches_web_default():
     assert coerce_auto_start({"auto_append": True}) is True
     assert coerce_auto_start({"auto_start": False}) is False
     assert coerce_auto_start({"auto_start": True}) is True
+
+
+def test_experiment_start_forces_auto_start_and_append():
+    poisoned = {
+        "source": "experiment_start",
+        "auto_start": False,
+        "auto_append": False,
+    }
+    assert coerce_auto_start(poisoned) is True
+    assert coerce_auto_append(poisoned) is True
+    assert coerce_auto_append({"auto_append": False}) is False
+    assert coerce_auto_append({}) is True
 
 
 def test_only_append_skips_force_wipe():
