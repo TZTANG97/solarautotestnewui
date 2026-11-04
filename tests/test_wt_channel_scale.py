@@ -66,16 +66,15 @@ def test_connection_page_remembers_scale_and_experiment_pages_do_not(tmp_path, m
     assert history_key_for_object_name("lineEdit_WT3000_IP") == "wt.ip"
     assert history_key_for_object_name("lineEdit_wt_vt_1") is None
 
-    from PyQt5.QtWidgets import QPushButton
-
     host = QWidget()
     panel = build_connection_scale_panel(host)
     assert host.lineEdit_wt_vt_1.text() == "1"
     assert host.lineEdit_wt_ct_7.text() == "1"
-    names = {btn.objectName() for btn in panel.findChildren(QPushButton)}
-    assert "pushButton_wt_scale_apply" in names
-    assert "pushButton_wt_scale_probe" in names
-    assert "pushButton_wt_scale_once" in names
+    # 下发按钮挂在 host 上，由时间线单独一行展示（不嵌在 panel 子树里）
+    assert getattr(host, "pushButton_wt_scale_apply", None) is not None
+    assert host.pushButton_wt_scale_apply.objectName() == "pushButton_wt_scale_apply"
+    assert host.pushButton_wt_scale_probe.objectName() == "pushButton_wt_scale_probe"
+    assert host.pushButton_wt_scale_once.objectName() == "pushButton_wt_scale_once"
     host.lineEdit_wt_vt_1.setText("100")
     host.lineEdit_wt_ct_2.setText("20")
     panel.persist_scales()

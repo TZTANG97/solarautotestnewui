@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """功率分析仪比例系数。电压 VT、电流 CT，1 表示不缩放。
 
-连接页可下发到仪器并试读 U/I/P/频率，交流源、直流源通电后直接核对，
-不必再开 WT 上位机。
+连接页填写后，必须点「下发并保存」才会写入配置档并下发到仪器。
+连接设备时不再自动改变比。
 """
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from utils.wt_channel_scale import SCALE_ELEMENTS, scale_object_name
 def add_wt_scale_group(parent, layout, element_count: int) -> QtWidgets.QGroupBox:
     """插入比例系数。连接页用 7 个元素，覆盖 WT3000 / 1800 / 1806 / 5000。"""
     count = max(1, min(int(element_count or 1), len(SCALE_ELEMENTS)))
-    group = QtWidgets.QGroupBox("比例系数")
+    group = QtWidgets.QGroupBox("VT / CT 填写")
     group.setToolTip(
-        "在这里填写一次即可。SCPI 开测按手册下发 :INPUT:SCALING:VT/CT:ELEMENTn。1 表示不缩放。"
-        "数值写入 config_files/wt_scale.ini，下次打开还是这次填的。"
+        "在这里填写一次即可。点「下发并保存」后按手册写 :INPUT:SCALING:VT/CT:ELEMENTn。"
+        "1 表示不缩放。未点按钮不会改仪器、也不会写配置档。"
     )
     grid = QtWidgets.QGridLayout(group)
     grid.setSpacing(6)
@@ -41,26 +41,20 @@ def add_wt_scale_group(parent, layout, element_count: int) -> QtWidgets.QGroupBo
 
 
 def build_connection_scale_panel(host) -> QtWidgets.QWidget:
-    """功率分析仪连接页上的比例系数。可下发、试读，离开输入框时写入配置档。"""
+    """功率分析仪连接页上的比例系数。仅「下发并保存」会写档并改仪器。"""
     from utils.wt_channel_scale import load_saved_scales, save_saved_scales, scales_from_root
     from utils.wt_scale_probe import apply_scales, prepare_probe, read_probe
 
     panel = QtWidgets.QWidget()
     panel.setObjectName("widget_wt_scale")
-    panel.setMinimumHeight(360)
+    panel.setMinimumHeight(280)
     layout = QtWidgets.QVBoxLayout(panel)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
-    add_wt_scale_group(host, layout, len(SCALE_ELEMENTS))
-    saved = load_saved_scales()
-    for name, text in saved.items():
-        edit = getattr(host, name, None)
-        if edit is not None and hasattr(edit, "setText") and str(text).strip():
-            edit.setText(str(text).strip())
 
     tip = QtWidgets.QLabel(
-        "先连好功率分析仪，交流源、直流源通电后：点「下发到仪器」，再点「开始试读」。"
-        "对照显示的电压电流调比例系数，调完再下发，不必打开 WT 上位机。"
+        "改完 VT/CT 后必须点上方蓝色「下发并保存」才会写入配置档并下发到仪器。"
+        "连接设备不会自动改变比。交流源、直流源通电后可再点「开始试读」核对。"
     )
     tip.setWordWrap(True)
     tip.setStyleSheet(
@@ -69,24 +63,36 @@ def build_connection_scale_panel(host) -> QtWidgets.QWidget:
     )
     layout.addWidget(tip)
 
-    row = QtWidgets.QHBoxLayout()
-    row.setSpacing(8)
-    apply_btn = QtWidgets.QPushButton("下发到仪器")
+    # 按钮挂到 host，由时间线「比例系数下发」单独一行展示（避免塞进竖向面板后被裁切看不见）
+    apply_btn = QtWidgets.QPushButton("下发并保存")
     apply_btn.setObjectName("pushButton_wt_scale_apply")
-    apply_btn.setToolTip("把当前 VT/CT 按手册写成 :INPUT:SCALING…")
+    apply_btn.setMinimumHeight(36)
+    apply_btn.setMinimumWidth(120)
+    apply_btn.setCursor(QtCore.Qt.PointingHandCursor)
+    apply_btn.setStyleSheet(
+        "QPushButton { background:#2563eb; color:#fff; border:none; border-radius:8px; "
+        "padding:8px 16px; font-size:13px; font-weight:600; }"
+        "QPushButton:hover { background:#1d4ed8; }"
+        "QPushButton:disabled { background:#94a3b8; }"
+    )
+    apply_btn.setToolTip("保存到 config_files/wt_scale.ini，并下发 :INPUT:SCALING… 到已连接的功率分析仪")
     probe_btn = QtWidgets.QPushButton("开始试读")
     probe_btn.setObjectName("pushButton_wt_scale_probe")
-    probe_btn.setToolTip("读取各元素 U/I/P/频率，方便核对比例系数")
+    probe_btn.setMinimumHeight(36)
+    probe_btn.setToolTip("读取各元素 U/I/P/频率；不会自动下发变比，请先点「下发并保存」")
     once_btn = QtWidgets.QPushButton("读一次")
     once_btn.setObjectName("pushButton_wt_scale_once")
-    once_btn.setToolTip("只读当前一帧，不持续刷新")
-    row.addWidget(apply_btn)
-    row.addWidget(probe_btn)
-    row.addWidget(once_btn)
-    row.addStretch(1)
-    layout.addLayout(row)
+    once_btn.setMinimumHeight(36)
+    once_btn.setToolTip("只读当前一帧，不持续刷新；不会自动下发变比")
 
-    status = QtWidgets.QLabel("未试读")
+    add_wt_scale_group(host, layout, len(SCALE_ELEMENTS))
+    saved = load_saved_scales()
+    for name, text in saved.items():
+        edit = getattr(host, name, None)
+        if edit is not None and hasattr(edit, "setText") and str(text).strip():
+            edit.setText(str(text).strip())
+
+    status = QtWidgets.QLabel("未下发。改完系数后点「下发并保存」。")
     status.setObjectName("label_wt_scale_status")
     status.setWordWrap(True)
     layout.addWidget(status)
@@ -102,7 +108,13 @@ def build_connection_scale_panel(host) -> QtWidgets.QWidget:
     )
     layout.addWidget(live)
 
-    state = {"items": [], "running": False}
+    # 挂到 host，便于时间线单独排一行（更醒目）
+    setattr(host, "pushButton_wt_scale_apply", apply_btn)
+    setattr(host, "pushButton_wt_scale_probe", probe_btn)
+    setattr(host, "pushButton_wt_scale_once", once_btn)
+    setattr(host, "widget_wt_scale", panel)
+
+    state = {"items": [], "running": False, "applied": False}
 
     def _persist() -> None:
         payload = {}
@@ -127,9 +139,22 @@ def build_connection_scale_panel(host) -> QtWidgets.QWidget:
 
     def _on_apply() -> None:
         _persist()
-        ok, message, _cmds = apply_scales(_controller(), _current_scales())
+        ctrl = _controller()
+        if ctrl is None or not bool(getattr(ctrl, "connected", False)):
+            status.setText("已保存到配置档。功率分析仪未连接，连上后再点一次「下发并保存」写入仪器。")
+            state["applied"] = False
+            QtWidgets.QMessageBox.information(
+                panel,
+                "比例系数",
+                "数值已保存到本机配置档。\n请先连接功率分析仪，再点「下发并保存」写入仪器。",
+            )
+            return
+        ok, message, _cmds = apply_scales(ctrl, _current_scales())
         status.setText(message)
-        if not ok:
+        state["applied"] = bool(ok)
+        if ok:
+            QtWidgets.QMessageBox.information(panel, "比例系数", message)
+        else:
             QtWidgets.QMessageBox.warning(panel, "比例系数", message)
 
     def _refresh_once() -> bool:
@@ -146,20 +171,25 @@ def build_connection_scale_panel(host) -> QtWidgets.QWidget:
         probe_btn.setText("开始试读")
         timer.stop()
 
-    def _start_probe() -> None:
-        _persist()
+    def _ensure_probe_items():
         ctrl = _controller()
-        ok_scale, scale_msg, _ = apply_scales(ctrl, _current_scales())
-        if not ok_scale:
-            status.setText(scale_msg)
-            QtWidgets.QMessageBox.warning(panel, "比例系数", scale_msg)
-            return
+        if ctrl is None or not bool(getattr(ctrl, "connected", False)):
+            return False, "请先连接功率分析仪"
         ok, message, items = prepare_probe(ctrl)
-        status.setText(f"{scale_msg}；{message}" if ok else message)
         if not ok:
+            return False, message
+        state["items"] = items
+        return True, message
+
+    def _start_probe() -> None:
+        # 试读不再偷偷下发变比，避免「连上就改仪器」
+        ok, message = _ensure_probe_items()
+        if not ok:
+            status.setText(message)
             QtWidgets.QMessageBox.warning(panel, "试读", message)
             return
-        state["items"] = items
+        hint = "" if state["applied"] else "（若刚改过系数，请先点「下发并保存」）"
+        status.setText(f"{message}{hint}")
         state["running"] = True
         probe_btn.setText("停止试读")
         _refresh_once()
@@ -173,21 +203,13 @@ def build_connection_scale_panel(host) -> QtWidgets.QWidget:
         _start_probe()
 
     def _on_once() -> None:
-        _persist()
-        ctrl = _controller()
         if not state["items"]:
-            ok_scale, scale_msg, _ = apply_scales(ctrl, _current_scales())
-            if not ok_scale:
-                status.setText(scale_msg)
-                QtWidgets.QMessageBox.warning(panel, "比例系数", scale_msg)
-                return
-            ok, message, items = prepare_probe(ctrl)
+            ok, message = _ensure_probe_items()
             if not ok:
                 status.setText(message)
                 QtWidgets.QMessageBox.warning(panel, "试读", message)
                 return
-            state["items"] = items
-            status.setText(f"{scale_msg}；{message}")
+            status.setText(message)
         _refresh_once()
 
     timer = QtCore.QTimer(panel)
@@ -201,9 +223,5 @@ def build_connection_scale_panel(host) -> QtWidgets.QWidget:
     panel.persist_scales = _persist  # type: ignore[attr-defined]
     panel.apply_scales_now = _on_apply  # type: ignore[attr-defined]
     panel.stop_scale_probe = _stop_probe  # type: ignore[attr-defined]
-    for element in SCALE_ELEMENTS:
-        for kind in ("vt", "ct"):
-            edit = getattr(host, scale_object_name(kind, element), None)
-            if edit is not None and hasattr(edit, "editingFinished"):
-                edit.editingFinished.connect(_persist)
+    # 不再 editingFinished 自动写档；只有点「下发并保存」才保存/下发
     return panel

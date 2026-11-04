@@ -3875,29 +3875,13 @@ def ConnectEQUWT3000():
         _toggle_connection_button("pushButton_ConnectEQUWT3000", True)
         ui.pushButton_ConnectEQUWT3000.setText("取消连接")
         _save_device_status("WT3000", True, saved_addr)
+        # 连接成功不自动下发/保存变比；须在比例系数区点「下发并保存」
         try:
-            persist = getattr(ui, "widget_wt_scale", None)
-            if persist is None:
-                _page = ui.stackedWidget.widget(7)
-                persist = getattr(_page, "_extra_widgets_comboBox_WT3000", {}).get("widget_wt_scale")
-            if persist is not None and hasattr(persist, "persist_scales"):
-                persist.persist_scales()
-            from utils.wt_channel_scale import load_saved_scales
-            from utils.wt_scale_probe import apply_scales
-
-            ok_scale, scale_msg, _ = apply_scales(wt3000_controller, load_saved_scales())
-            print(f"[WT3000] {scale_msg}")
-            if not ok_scale and "没有可下发" not in scale_msg:
-                try:
-                    QMessageBox.warning(None, "比例系数", scale_msg)
-                except Exception:
-                    pass
-        except Exception as scale_exc:
-            print(f"[WT3000] 保存/下发比例系数失败: {scale_exc}")
-            try:
-                QMessageBox.warning(None, "比例系数", f"比例系数没有写入配置档：{scale_exc}")
-            except Exception:
-                pass
+            ui.textEdit_ReturnMessage.append(
+                "[WT3000] 已连接。若要改 VT/CT，请到「比例系数」点「下发并保存」。"
+            )
+        except Exception:
+            pass
         # 记住 IP + 槽位，下次启动/开测自动连不要把 10001 误分成德威创后跳过
         try:
             from utils.device_discovery import remember_found_resource
@@ -32183,9 +32167,17 @@ if __name__ == "__main__":
             _WT3000_GRID = [
                 {"title": "使用说明",   "widgets": ["label_WT3000_Tips"]},
                 {"title": "IP地址",     "widgets": ["lineEdit_WT3000_IP", "lineEdit_WT3000_Port"]},
-                {"title": "比例系数",   "widgets": ["widget_wt_scale"]},
-                {"title": "波特率设置", "widgets": ["comboBox_BaudRate"]},
                 {"title": "设备连接",   "widgets": "__connect_clean__"},
+                {
+                    "title": "比例系数下发",
+                    "widgets": [
+                        "pushButton_wt_scale_apply",
+                        "pushButton_wt_scale_probe",
+                        "pushButton_wt_scale_once",
+                    ],
+                },
+                {"title": "比例系数 VT/CT", "widgets": ["widget_wt_scale"]},
+                {"title": "波特率设置", "widgets": ["comboBox_BaudRate"]},
                 {"title": "测试命令",   "widgets": ["pushButton_SwitchFlicker"]},
             ]
 
@@ -32193,8 +32185,8 @@ if __name__ == "__main__":
             _wt3000_page = ui.stackedWidget.widget(7)
             _wt3000_tips = QtWidgets.QLabel(
                 "提示: 网口填 IP 后连接；串口则 IP 留空、从下拉框选口。"
-                "比例系数在下方填写。交流源、直流源通电后点「下发到仪器」再「开始试读」，"
-                "对照 U/I/P 调系数，不必打开 WT 上位机。"
+                "连接不会自动改变比。填写 VT/CT 后点蓝色「下发并保存」才会写配置档并下发到仪器；"
+                "通电后可再点「开始试读」核对。"
             )
             _wt3000_tips.setObjectName("label_WT3000_Tips")
             _wt3000_tips.setWordWrap(True)
@@ -32276,6 +32268,9 @@ if __name__ == "__main__":
                      "lineEdit_WT3000_IP": _wt3000_ip_edit,
                      "lineEdit_WT3000_Port": _wt3000_port_edit,
                      "widget_wt_scale": _wt_scale_panel,
+                     "pushButton_wt_scale_apply": getattr(ui, "pushButton_wt_scale_apply", None),
+                     "pushButton_wt_scale_probe": getattr(ui, "pushButton_wt_scale_probe", None),
+                     "pushButton_wt_scale_once": getattr(ui, "pushButton_wt_scale_once", None),
                      "pushButton_SwitchFlicker": _flicker_btn})
 
             _device_embed_map = {
@@ -35016,18 +35011,12 @@ if __name__ == "__main__":
                         try:
                             from utils.wt_channel_scale import load_saved_scales
 
+                            # 只从配置档回填到输入框；不自动写档、不自动下发仪器
                             _saved_scales = load_saved_scales()
-                            if _saved_scales:
-                                for _name, _text in _saved_scales.items():
-                                    _edit = getattr(ui, _name, None)
-                                    if _edit is not None and hasattr(_edit, "setText"):
-                                        _edit.setText(str(_text))
-                            else:
-                                _panel = getattr(
-                                    _wt3000_page, "_extra_widgets_comboBox_WT3000", {}
-                                ).get("widget_wt_scale")
-                                if _panel is not None and hasattr(_panel, "persist_scales"):
-                                    _panel.persist_scales()
+                            for _name, _text in (_saved_scales or {}).items():
+                                _edit = getattr(ui, _name, None)
+                                if _edit is not None and hasattr(_edit, "setText"):
+                                    _edit.setText(str(_text))
                         except Exception as _scale_exc:
                             print(f"[WT] 回填比例系数失败: {_scale_exc}")
                         for _name in (

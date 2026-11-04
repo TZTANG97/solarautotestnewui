@@ -179,15 +179,12 @@ def prepare_from_config(config: Mapping, logger=None) -> tuple[bool, str]:
     rate = rate_text_from_config(config)
     csv_path = resolve_csv_path(config, 0)
     items = items_from_wt_config(config)
-    from utils.wt_channel_scale import scales_for_run, scaling_commands
+    from utils.wt_channel_scale import load_saved_scales, scaling_commands
 
-    try:
-        _persist_connection_scales()
-    except Exception as scale_exc:
-        print(f"[wt_scpi_session] 保存比例系数失败: {scale_exc}")
+    # 只用「下发并保存」写过的配置档；开测不把未点保存的输入框偷偷写档
     scale_cmds = scaling_commands(
         str(config.get("Style") or ""),
-        scales_for_run(roots=_wt_scale_hosts()),
+        load_saved_scales(),
     )
     try:
         summary = describe_mapping(config)

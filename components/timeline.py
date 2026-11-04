@@ -127,6 +127,10 @@ def _style_widget(w):
 
     cls = type(w).__name__
     if cls == "QPushButton":
+        # 比例系数「下发并保存」保留醒目蓝底，勿盖成灰按钮
+        if str(w.objectName() or "") == "pushButton_wt_scale_apply":
+            w.setCursor(QtCore.Qt.PointingHandCursor)
+            return
         w.setStyleSheet(_BTN_QSS)
         w.setCursor(QtCore.Qt.PointingHandCursor)
     elif cls in ("QTextEdit", "QComboBox", "QLineEdit"):
