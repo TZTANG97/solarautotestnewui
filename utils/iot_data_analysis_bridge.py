@@ -352,10 +352,18 @@ def run_analysis_after_job(
     """
     info: Dict[str, Any] = {"ran": False, "skipped": True, "reason": ""}
     status = str(result.get("status") or "").lower()
-    if status not in ("success", "ok"):
+    if status not in ("success", "ok", "aborted"):
         info["reason"] = f"status={status} 不自动处理"
         _store_analysis_meta(result, info)
         return info
+    # 已中止：仅当已有录波/报告文件时才尝试处理，避免空跑
+    if status == "aborted":
+        summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
+        files = summary.get("report_files") or summary.get("reportFiles") or []
+        if not files:
+            info["reason"] = "status=aborted 且无报告文件，跳过处理"
+            _store_analysis_meta(result, info)
+            return info
 
     tt_raw = _job_test_type(job, result)
     tt = normalize_test_type_for_analysis(tt_raw)

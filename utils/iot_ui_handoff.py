@@ -701,6 +701,7 @@ class IotUiHandoffService(QObject):
         prepare_auto_connect: Optional[Callable[[], Any]] = None,
         apply_auto_connect: Optional[Callable[[Any], Any]] = None,
         ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
+        session_ok: Optional[Callable[[str], bool]] = None,
         stop_test: Optional[Callable[[], None]] = None,
         reset_append_count: Optional[Callable[[], None]] = None,
         wrap_append_errors: bool = True,
@@ -780,6 +781,7 @@ class IotUiHandoffService(QObject):
         self.prepare_auto_connect = prepare_auto_connect
         self.apply_auto_connect = apply_auto_connect
         self.ensure_ready = ensure_ready
+        self.session_ok = session_ok
         self.stop_test = stop_test
         self.reset_append_count = reset_append_count
         self.wrap_append_errors = bool(wrap_append_errors)
@@ -1507,6 +1509,17 @@ class IotUiHandoffService(QObject):
         from agent.job_inbox import write_result
         from agent.ui_mutex import ui_release
 
+        # 先写入 testType，再收集报告：aborted 也要按 OVUF 等 token 扫 wt_save
+        aw = self._awaiting if isinstance(self._awaiting, dict) else {}
+        summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
+        if aw.get("test_type") and not summary.get("testType"):
+            summary["testType"] = aw.get("test_type")
+        if aw.get("handler_key") and not summary.get("handler_key"):
+            summary["handler_key"] = aw.get("handler_key")
+        if aw.get("widgets") and not summary.get("widgets"):
+            summary["widgets"] = aw.get("widgets")
+        result["result_summary"] = summary
+
         try:
             self._attach_report_files(result, job_id)
         except Exception:
@@ -1521,16 +1534,6 @@ class IotUiHandoffService(QObject):
         try:
             from utils.iot_data_analysis_bridge import run_analysis_after_job
 
-            aw = self._awaiting if isinstance(self._awaiting, dict) else {}
-            summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
-            # 把试验类型/标准写入摘要，便于 Agent 侧二次结案也能映射
-            if aw.get("test_type") and not summary.get("testType"):
-                summary["testType"] = aw.get("test_type")
-            if aw.get("handler_key") and not summary.get("handler_key"):
-                summary["handler_key"] = aw.get("handler_key")
-            if aw.get("widgets") and not summary.get("widgets"):
-                summary["widgets"] = aw.get("widgets")
-            result["result_summary"] = summary
             job_snap = {
                 "id": job_id,
                 "testType": aw.get("test_type")
@@ -1673,6 +1676,40 @@ class IotUiHandoffService(QObject):
                 and elapsed < start_grace
             ):
                 return
+            max_i = int(aw.get("max_cmd_index") or cmd_index or 0)
+            max_t = int(aw.get("max_cmd_total") or cmd_total or 0)
+            # 末段 OUTP OFF 等收口偶发写成「已中止」（如 job99 496/500）：按完成结案以便上传 CSV
+            near_done = (
+                status == "已中止"
+                and bool(aw.get("seen_running"))
+                and max_t > 0
+                and max_i >= max(1, int(max_t * 0.95))
+            )
+            if near_done:
+                self._finish_job(
+                    job_id=job_id,
+                    pending_path=pending_path,
+                    result={
+                        "status": "success",
+                        "fail_reason": "",
+                        "result_summary": {
+                            "handoff": True,
+                            "appended": aw.get("appended"),
+                            "started": True,
+                            "waited_finish": True,
+                            "run_status": status,
+                            "elapsed_sec": round(elapsed, 1),
+                            "cmd_index": max_i,
+                            "cmd_total": max_t,
+                            "missingWidgets": aw.get("missing") or [],
+                            "note": (
+                                f"末段收口本地状态为已中止（命令 {max_i}/{max_t}），按完成结案"
+                            ),
+                        },
+                        "report_meta": [],
+                    },
+                )
+                return
             self._finish_job(
                 job_id=job_id,
                 pending_path=pending_path,
@@ -1690,6 +1727,8 @@ class IotUiHandoffService(QObject):
                         "waited_finish": True,
                         "run_status": status,
                         "elapsed_sec": round(elapsed, 1),
+                        "cmd_index": max_i,
+                        "cmd_total": max_t,
                         "missingWidgets": aw.get("missing") or [],
                     },
                     "report_meta": [],
@@ -3140,22 +3179,49 @@ class IotUiHandoffService(QObject):
                 "widgets": dict(widgets) if isinstance(widgets, dict) else {},
             }
 
+            cloud_inst = None
+            if isinstance(params, dict):
+                raw_inst = params.get("instruments")
+                if isinstance(raw_inst, list) and raw_inst:
+                    cloud_inst = raw_inst
+
+            def _cloud_slots_missing() -> list:
+                """云端配了但本机会话未建的槽位（常见：AC/DC 已连、WT 未连被误跳过）。"""
+                missing_slots = []
+                if not cloud_inst or not self.session_ok:
+                    return missing_slots
+                for item in cloud_inst:
+                    if not isinstance(item, dict):
+                        continue
+                    slot = str(item.get("slot") or "").strip().lower()
+                    if not slot:
+                        continue
+                    try:
+                        ok = bool(self.session_ok(slot))
+                    except Exception:
+                        ok = False
+                    if not ok:
+                        missing_slots.append(slot)
+                return missing_slots
+
             # 已连好则跳过扫连，避免主线程卡在 TCP/SCPI 探测
             if self.ensure_ready:
                 try:
                     ready_ok, _ready_reason = self.ensure_ready(real_ui, test_type)
                 except Exception:
                     ready_ok = False
+                missing_cloud = _cloud_slots_missing()
+                if ready_ok and missing_cloud:
+                    ready_ok = False
+                    self._log(
+                        "AC/DC 看似就绪，但云端仪器仍有未连接槽位: "
+                        + ",".join(missing_cloud)
+                        + "，继续自动连"
+                    )
                 if ready_ok:
                     self._log("设备已就绪，跳过自动扫连")
                     self._continue_job_after_connect(None)
                     return
-
-            cloud_inst = None
-            if isinstance(params, dict):
-                raw_inst = params.get("instruments")
-                if isinstance(raw_inst, list) and raw_inst:
-                    cloud_inst = raw_inst
 
             if cloud_inst and self.apply_auto_connect:
                 self._log("按 IOT 下发的仪器配置连接（后台探测计划）…")
@@ -3168,9 +3234,23 @@ class IotUiHandoffService(QObject):
                         from utils.iot_auto_connect import prepare_jobs_from_cloud_instruments
 
                         jobs = prepare_jobs_from_cloud_instruments(cloud_inst)
+                        had_cloud_jobs = bool(jobs)
+                        # 已连槽位不再点 Connect（按钮文案是「取消连接」会误断开）
+                        if self.session_ok and jobs:
+                            filtered = []
+                            for slot, plan, dev in jobs:
+                                try:
+                                    already = bool(self.session_ok(str(slot or "")))
+                                except Exception:
+                                    already = False
+                                if already:
+                                    continue
+                                filtered.append((slot, plan, dev))
+                            jobs = filtered
                         prepared = (jobs, [])
-                        if not jobs:
+                        if not had_cloud_jobs:
                             err = ValueError("云端仪器配置无有效槽位/地址，将尝试本机扫连")
+                        # had_cloud_jobs 但过滤后为空：全部已连，正常跳过连接
                     except Exception as exc:
                         err = exc
                     if err is not None and prepared and prepared[0]:
@@ -3665,6 +3745,7 @@ def start_iot_ui_handoff_from_main(
     prepare_auto_connect: Optional[Callable[[], Any]] = None,
     apply_auto_connect: Optional[Callable[[Any], Any]] = None,
     ensure_ready: Optional[Callable[[Any, str], tuple]] = None,
+    session_ok: Optional[Callable[[str], bool]] = None,
     stop_test: Optional[Callable[[], None]] = None,
     reset_append_count: Optional[Callable[[], None]] = None,
     wrap_append_errors: bool = True,
@@ -3742,6 +3823,7 @@ def start_iot_ui_handoff_from_main(
         prepare_auto_connect=prepare_auto_connect,
         apply_auto_connect=apply_auto_connect,
         ensure_ready=ensure_ready,
+        session_ok=session_ok,
         stop_test=stop_test,
         reset_append_count=reset_append_count,
         wrap_append_errors=wrap_append_errors,

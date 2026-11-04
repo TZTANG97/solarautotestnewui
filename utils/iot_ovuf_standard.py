@@ -340,6 +340,13 @@ def apply_ovuf_standard_to_widgets(
         cur = out.get(k)
         if cur is None or cur == "":
             out[k] = v
+    # 元数据 _ovufDwellSec → 可见「段间并网等待」控件（handoff/表单可改）
+    dwell = out.get("_ovufDwellSec")
+    if dwell not in (None, ""):
+        if force or out.get("textEdit_ovuf_grid_wait") in (None, ""):
+            out["textEdit_ovuf_grid_wait"] = str(dwell)
+        if force or out.get("comboBox_ovuf_grid_wait") in (None, ""):
+            out["comboBox_ovuf_grid_wait"] = "秒"
     return out
 
 
@@ -359,4 +366,7 @@ def apply_ovuf_standard_to_ui(
         return sid
     defaults = apply_ovuf_standard_to_widgets({}, sid, force=True)
     apply_defaults_dict_to_ui(ui, defaults, force=force)
+    dwell = defaults.get("_ovufDwellSec")
+    if dwell not in (None, ""):
+        setattr(ui, "_ovufDwellSec", str(dwell))
     return sid

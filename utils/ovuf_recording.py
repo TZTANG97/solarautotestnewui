@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any, List, Optional, Sequence
+
 from utils.matrix_recording_commands import row_wt_async_marker
 from utils.wt_recording_mode import MODE_CONTINUOUS, _format_setpoint_tag
 
@@ -43,6 +45,101 @@ def _plain(ui, name, default=""):
         return (te.toPlainText() or "").strip() or default
     except Exception:
         return default
+
+
+def _combo_text(ui, name, default=""):
+    combo = getattr(ui, name, None)
+    if combo is None:
+        return default
+    try:
+        return (combo.currentText() or "").strip() or default
+    except Exception:
+        return default
+
+
+def _to_01s(value: Any, unit: str) -> int:
+    """把界面数值转成命令列等待单位（0.1s）。"""
+    try:
+        raw = float(str(value).strip())
+    except (TypeError, ValueError):
+        return 0
+    u = str(unit or "秒").strip()
+    if u in ("分钟", "分", "min", "minute", "minutes"):
+        sec = raw * 60.0
+    elif u in ("毫秒", "ms", "msec"):
+        sec = raw / 1000.0
+    else:
+        sec = raw
+    return max(0, int(round(sec * 10.0)))
+
+
+def ovuf_grid_wait_01s(ui) -> int:
+    """段间回压后的并网等待（0.1s）。优先 textEdit_ovuf_grid_wait，其次 _ovufDwellSec，再退回启机时间。"""
+    raw = _plain(ui, "textEdit_ovuf_grid_wait", "")
+    unit = _combo_text(ui, "comboBox_ovuf_grid_wait", "秒")
+    if raw:
+        wait = _to_01s(raw, unit)
+        if wait > 0:
+            return wait
+    meta = getattr(ui, "_ovufDwellSec", None)
+    if meta not in (None, ""):
+        wait = _to_01s(meta, "秒")
+        if wait > 0:
+            return wait
+    s1 = _plain(ui, "textEdit_S1_TIME", "")
+    if s1:
+        wait = _to_01s(s1, _combo_text(ui, "comboBox_S1_TIME", "分钟"))
+        if wait > 0:
+            return wait
+    return 50  # 默认 5s
+
+
+def ovuf_has_later_segment(ui, after_step: int) -> bool:
+    """after_step 之后是否还有已勾选的 S3~S8 段。"""
+    try:
+        cur = int(after_step)
+    except (TypeError, ValueError):
+        return False
+    for step_no in range(cur + 1, 9):
+        cb = getattr(ui, "checkBox_S%d" % step_no, None)
+        if cb is not None and cb.isChecked():
+            return True
+    return False
+
+
+def append_ovuf_segment_recovery(
+    commands: List[Any],
+    step_rows: Optional[List[Any]],
+    ui,
+    phase_mode: str,
+    *,
+    after_step: int,
+    dwell_01s: Optional[int] = None,
+) -> int:
+    """段间恢复到 S1 额定电压/频率，并等待并网。
+
+    等待写在 FREQ 命令的 col9，避免产生 *IDN? 扫点占位，干扰录波方式改写。
+    返回追加的等待（0.1s），未插入时返回 0。
+    """
+    if not ovuf_has_later_segment(ui, after_step):
+        return 0
+    wait = int(dwell_01s) if dwell_01s is not None else ovuf_grid_wait_01s(ui)
+    if wait <= 0:
+        wait = 50
+    from utils.ac_scpi_commands import append_freq_set, append_volt_set
+
+    volt = _plain(ui, "textEdit_S1_AC_VOLT", "230") or "230"
+    freq = _plain(ui, "textEdit_S1_AC_FR", "50") or "50"
+    batch_start = len(commands)
+    append_volt_set(commands, phase_mode, volt)
+    append_freq_set(commands, phase_mode, freq)
+    last = commands[-1]
+    while len(last) < 10:
+        last.append("")
+    last[9] = wait
+    if step_rows is not None:
+        step_rows.extend(commands[batch_start:])
+    return wait
 
 
 def ovuf_test_project(ui) -> str:

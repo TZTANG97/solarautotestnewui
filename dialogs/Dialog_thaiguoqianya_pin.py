@@ -402,6 +402,17 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.comboBox_S1_TIME.addItems(["分钟", "秒", "毫秒"])
         g4Layout.addWidget(self.comboBox_S1_TIME, 1, 2)
 
+        g4Layout.addWidget(self._make_label("段间并网等待:"), 2, 0)
+        self.textEdit_ovuf_grid_wait = QtWidgets.QTextEdit()
+        self.textEdit_ovuf_grid_wait.setObjectName("textEdit_ovuf_grid_wait")
+        self.textEdit_ovuf_grid_wait.setMaximumHeight(31)
+        self.textEdit_ovuf_grid_wait.setHtml("5")
+        g4Layout.addWidget(self.textEdit_ovuf_grid_wait, 2, 1)
+        self.comboBox_ovuf_grid_wait = QtWidgets.QComboBox()
+        self.comboBox_ovuf_grid_wait.setObjectName("comboBox_ovuf_grid_wait")
+        self.comboBox_ovuf_grid_wait.addItems(["秒", "分钟", "毫秒"])
+        g4Layout.addWidget(self.comboBox_ovuf_grid_wait, 2, 2)
+
         layout.addWidget(self.groupBox_4)
         layout.addStretch()
 

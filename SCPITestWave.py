@@ -19852,6 +19852,19 @@ def thaiguoqianya_pinSend():
                         strArrayTestStep.append(strArrayTestStepSingle)
 
         total_test_time = total_test_time + (len(S3_test_step_list) * (fS3SetTime / 10))
+        from utils.ovuf_recording import append_ovuf_segment_recovery
+
+        _rec_rows = []
+        _rec_wait = append_ovuf_segment_recovery(
+            strArrayTest,
+            _rec_rows,
+            uiThaiGuoQianYa_Pin,
+            S1ACEACHStatus,
+            after_step=3,
+        )
+        if _rec_wait:
+            total_test_time = total_test_time + (_rec_wait / 10.0)
+            strArrayTestStep.append(_rec_rows)
 
     # step4 欠压：固定扫电压
     extend_test_project = ovuf_sweep_project(4)
@@ -20133,6 +20146,19 @@ def thaiguoqianya_pinSend():
                         strArrayTestStep.append(strArrayTestStepSingle)
 
         total_test_time = total_test_time + (len(S4_test_step_list) * (fS4SetTime / 10))
+        from utils.ovuf_recording import append_ovuf_segment_recovery
+
+        _rec_rows = []
+        _rec_wait = append_ovuf_segment_recovery(
+            strArrayTest,
+            _rec_rows,
+            uiThaiGuoQianYa_Pin,
+            S1ACEACHStatus,
+            after_step=4,
+        )
+        if _rec_wait:
+            total_test_time = total_test_time + (_rec_wait / 10.0)
+            strArrayTestStep.append(_rec_rows)
 
     # step5 过频：固定扫频率
     extend_test_project = ovuf_sweep_project(5)
@@ -20414,6 +20440,19 @@ def thaiguoqianya_pinSend():
                         strArrayTestStep.append(strArrayTestStepSingle)
 
         total_test_time = total_test_time + (len(S5_test_step_list) * (fS5SetTime / 10))
+        from utils.ovuf_recording import append_ovuf_segment_recovery
+
+        _rec_rows = []
+        _rec_wait = append_ovuf_segment_recovery(
+            strArrayTest,
+            _rec_rows,
+            uiThaiGuoQianYa_Pin,
+            S1ACEACHStatus,
+            after_step=5,
+        )
+        if _rec_wait:
+            total_test_time = total_test_time + (_rec_wait / 10.0)
+            strArrayTestStep.append(_rec_rows)
 
     # step6 欠频：固定扫频率
     extend_test_project = ovuf_sweep_project(6)
@@ -20695,6 +20734,19 @@ def thaiguoqianya_pinSend():
                         strArrayTestStep.append(strArrayTestStepSingle)
 
         total_test_time = total_test_time + (len(S6_test_step_list) * (fS6SetTime / 10))
+        from utils.ovuf_recording import append_ovuf_segment_recovery
+
+        _rec_rows = []
+        _rec_wait = append_ovuf_segment_recovery(
+            strArrayTest,
+            _rec_rows,
+            uiThaiGuoQianYa_Pin,
+            S1ACEACHStatus,
+            after_step=6,
+        )
+        if _rec_wait:
+            total_test_time = total_test_time + (_rec_wait / 10.0)
+            strArrayTestStep.append(_rec_rows)
 
     # step7 相位页附加过频：固定扫频率
     extend_test_project = ovuf_sweep_project(7)
@@ -20976,6 +21028,19 @@ def thaiguoqianya_pinSend():
                         strArrayTestStep.append(strArrayTestStepSingle)
 
         total_test_time = total_test_time + (len(S7_test_step_list) * (fS7SetTime / 10))
+        from utils.ovuf_recording import append_ovuf_segment_recovery
+
+        _rec_rows = []
+        _rec_wait = append_ovuf_segment_recovery(
+            strArrayTest,
+            _rec_rows,
+            uiThaiGuoQianYa_Pin,
+            S1ACEACHStatus,
+            after_step=7,
+        )
+        if _rec_wait:
+            total_test_time = total_test_time + (_rec_wait / 10.0)
+            strArrayTestStep.append(_rec_rows)
 
     # step8 相位页附加欠频：固定扫频率
     extend_test_project = ovuf_sweep_project(8)
@@ -35232,6 +35297,7 @@ if __name__ == "__main__":
                         jobs,
                         apply_plan=_apply_device_finder_plan,
                         log=_iot_log,
+                        session_ok=_iot_slot_session_ok,
                     )
                     summary["found"] = len(devices) if devices is not None else summary.get("found", 0)
                     summary["skipped_ambiguous"] = max(
@@ -35266,6 +35332,41 @@ if __name__ == "__main__":
                     )
                     if not ok:
                         return ok, format_ready_fail_reason(reasons)
+
+                    # 勾了功率分析仪 / WT 模式却未连上时，不能因 AC/DC 已连就跳过云端扫连
+                    try:
+                        s2 = getattr(ui_obj, "checkBox_S2", None)
+                        need_wt = bool(s2 is not None and s2.isChecked())
+                        if not need_wt:
+                            for rn in ("radio_wt3000", "radio_wt", "radioButton_WT3000"):
+                                radio = getattr(ui_obj, rn, None)
+                                if radio is not None and radio.isChecked():
+                                    need_wt = True
+                                    break
+                        if not need_wt:
+                            section = getattr(ui_obj, "analyzerModeSection", None)
+                            if section is not None and hasattr(section, "is_wt"):
+                                need_wt = bool(section.is_wt())
+                    except Exception:
+                        need_wt = False
+                    if need_wt and not _iot_slot_session_ok("wt"):
+                        return False, "功率分析仪未连接"
+
+                    try:
+                        dew_mode = False
+                        section = getattr(ui_obj, "analyzerModeSection", None)
+                        if section is not None and hasattr(section, "is_dewetron"):
+                            dew_mode = bool(section.is_dewetron())
+                        if not dew_mode:
+                            radio = getattr(ui_obj, "radioButton_DEWETRON", None) or getattr(
+                                ui_obj, "radio_dewetron", None
+                            )
+                            if radio is not None and radio.isChecked():
+                                dew_mode = True
+                        if dew_mode and not _iot_slot_session_ok("dew"):
+                            return False, "德威创未连接"
+                    except Exception:
+                        pass
 
                     ok_lim, reason_lim = evaluate_controllers_output_limits_gate(
                         ac_controller=globals().get("ac_controller"),
@@ -35359,6 +35460,7 @@ if __name__ == "__main__":
                     prepare_auto_connect=_iot_prepare_auto_connect,
                     apply_auto_connect=_iot_apply_auto_connect,
                     ensure_ready=_iot_ensure_ready,
+                    session_ok=_iot_slot_session_ok,
                     stop_test=_iot_remote_stop_test,
                     reset_append_count=_force_iot_overwrite_append,
                     log=_iot_log,

@@ -128,9 +128,36 @@ def _recent_output_files(
     return found
 
 
-def _flicker_image_roots(repo_root: Path) -> List[Path]:
+def _widget_save_dirs(result: Dict[str, Any] | None) -> List[Path]:
+    """从结案摘要 widgets 取 textEdit_SavePath（台架常存 D:\\xiebodianliu_test 等盘符）。"""
+    out: List[Path] = []
+    if not isinstance(result, dict):
+        return out
+    summary = result.get("result_summary") or result.get("resultSummary") or {}
+    if not isinstance(summary, dict):
+        summary = {}
+    widgets = summary.get("widgets") or result.get("widgets") or {}
+    if not isinstance(widgets, dict):
+        return out
+    raw = widgets.get("textEdit_SavePath") or widgets.get("SavePath") or ""
+    text = str(raw or "").strip()
+    if not text:
+        return out
+    try:
+        p = Path(text)
+        if p.is_dir():
+            out.append(p)
+        elif p.parent.is_dir():
+            out.append(p.parent)
+    except OSError:
+        pass
+    return out
+
+
+def _flicker_image_roots(repo_root: Path, result: Dict[str, Any] | None = None) -> List[Path]:
     """闪变图实际目录：配置的 WT 保存路径，加上仓库内 wt_save / screenshots。"""
     roots: List[Path] = [repo_root / "wt_save", repo_root / "screenshots"]
+    roots.extend(_widget_save_dirs(result))
     try:
         from utils.wt_save_path import default_wt_save_path, resolve_config_wt_save_path
 
@@ -193,8 +220,9 @@ def window_output_files_by_token(
     until_ts: float,
     *,
     name_token: str,
+    result: Dict[str, Any] | None = None,
 ) -> List[Path]:
-    """时间窗内、文件名含 token 的录波（含 wt_save）。"""
+    """时间窗内、文件名含 token 的录波（含 wt_save / 界面 SavePath）。"""
     token = str(name_token or "").strip().lower()
     if not token:
         return []
@@ -208,7 +236,7 @@ def window_output_files_by_token(
         for path in root.glob(pattern):
             if _named(path) and _match_recent_file(path, since_ts, until_ts):
                 found.append(path)
-    for folder in _flicker_image_roots(root):
+    for folder in _flicker_image_roots(root, result):
         if not folder.is_dir():
             continue
         for path in folder.glob("**/*"):
@@ -221,10 +249,16 @@ def window_output_files_by_token(
     return found
 
 
-def _flicker_images(repo_root: Path, since_ts: float, until_ts: float) -> List[Path]:
+def _flicker_images(
+    repo_root: Path,
+    since_ts: float,
+    until_ts: float,
+    *,
+    result: Dict[str, Any] | None = None,
+) -> List[Path]:
     """只收 [since, until] 内的图片。调用方在没有 elapsed_sec 时不要调用。"""
     found: List[Path] = []
-    for folder in _flicker_image_roots(repo_root):
+    for folder in _flicker_image_roots(repo_root, result):
         if not folder.is_dir():
             continue
         for path in folder.glob("**/*"):
@@ -272,6 +306,11 @@ def collect_report_files(
     prefer_dir = Path(str(prefer_raw)) if prefer_raw else None
     if prefer_dir and not prefer_dir.is_absolute():
         prefer_dir = root / prefer_dir
+    # 无 analysis_input_dir 时，优先扫界面 SavePath（OVUF 等常写到 D:\xiebodianliu_test）
+    if prefer_dir is None or not prefer_dir.exists():
+        for save_dir in _widget_save_dirs(result):
+            prefer_dir = save_dir
+            break
     candidates.extend(
         _recent_output_files(
             root,
@@ -281,16 +320,31 @@ def collect_report_files(
             prefer_dir=prefer_dir if prefer_dir and prefer_dir.exists() else None,
         )
     )
+    # SavePath 可能不在 job 目录：即使有 job_id 也再扫一遍 SavePath
+    for save_dir in _widget_save_dirs(result):
+        candidates.extend(
+            _recent_output_files(
+                root,
+                since_ts,
+                until_ts,
+                job_id=None,
+                prefer_dir=save_dir,
+            )
+        )
     try:
         elapsed_img = float(summary.get("elapsed_sec") or 0)
     except (TypeError, ValueError):
         elapsed_img = 0.0
     if elapsed_img > 0:
         now_img = time.time()
-        candidates.extend(_flicker_images(root, now_img - elapsed_img, now_img + 5.0))
+        candidates.extend(
+            _flicker_images(
+                root, now_img - elapsed_img, now_img + 5.0, result=result
+            )
+        )
 
     tt = str(summary.get("testType") or summary.get("test_type") or "").lower()
-    # 连续录波常落在 wt_save（QU_curve.csv 等），job 目录扫不到时按试验名 token 补扫
+    # 连续录波常落在 wt_save / SavePath（OVUF_BR.csv 等），job 目录扫不到时按试验名 token 补扫
     token = recording_token_for_test(
         str(
             summary.get("testType")
@@ -299,6 +353,14 @@ def collect_report_files(
             or ""
         )
     )
+    if not token:
+        # 文件名列表里常有 OVUF_BR：无映射时仍按 ovuf 扫
+        fn_list = ""
+        widgets = summary.get("widgets") if isinstance(summary.get("widgets"), dict) else {}
+        if isinstance(widgets, dict):
+            fn_list = str(widgets.get("textEdit_FileNameList") or "").lower()
+        if "ovuf" in fn_list:
+            token = "ovuf"
     if token and (elapsed_img > 0 or since_ts > 0):
         candidates.extend(
             window_output_files_by_token(
@@ -306,6 +368,7 @@ def collect_report_files(
                 since_ts,
                 until_ts,
                 name_token=token,
+                result=result,
             )
         )
     drop_overload = tt in ("harmonic", "harmonics", "harmonic_current", "谐波", "谐波电流", "谐波电流测试")
