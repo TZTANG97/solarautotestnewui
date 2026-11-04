@@ -224,6 +224,14 @@ class IotSolarClient:
     def put_prefs(self, body: dict) -> Dict[str, Any]:
         return self._request("PUT", "/api/solar-autotest/agent/prefs", body or {})
 
+    def sync_dc1_widgets(self, widgets: Dict[str, Any]) -> Dict[str, Any]:
+        """蓝点曲线换算的直流四点，写进本台架进行中实验和记住的参数。"""
+        return self._request(
+            "POST",
+            "/api/solar-autotest/agent/local-run/dc-iv",
+            {"widgets": dict(widgets or {})},
+        )
+
     def seed_curve_points(
         self,
         job_id: int,

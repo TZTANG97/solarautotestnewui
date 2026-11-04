@@ -719,6 +719,19 @@ def _function_echo_ok(sent: str, echoed: str) -> bool:
     return True
 
 
+# 手册里大写字母才是短名：SIGMa→SIGM，SIGMAa/SIGMAb/SIGMAc→SIGMA，SIGMc→SIGM，TOTal→TOT。
+# 只认「下发这项的短名」，避免 SIGMA 被回读成 SIGMAA 时仍收下。
+_ELEMENT_SHORT = {
+    "SIGMA": "SIGM",
+    "SIGMAA": "SIGMA",
+    "SIGMAB": "SIGMA",
+    "SIGMAC": "SIGMA",
+    "SIGMB": "SIGM",
+    "SIGMC": "SIGM",
+    "TOTAL": "TOT",
+}
+
+
 def _element_echo_ok(sent: str, echoed: str) -> bool:
     sent_u = str(sent or "").upper()
     echo_u = str(echoed or "").upper()
@@ -726,7 +739,8 @@ def _element_echo_ok(sent: str, echoed: str) -> bool:
         return True
     if sent_u.isdigit() and echo_u in (f"ELEMENT{sent_u}", f"EL{sent_u}"):
         return True
-    return False
+    short = _ELEMENT_SHORT.get(sent_u)
+    return bool(short) and echo_u == short
 
 
 def item_echo_matches(token: str, reply: str) -> bool:

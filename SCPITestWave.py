@@ -1337,6 +1337,62 @@ def _dc_status_extra(device_name="直流电源1"):
         return {"measures": {}}
 
 
+def _sync_experiment_dc_from_bluesight_curve(pmpp_kw, umpp_v, ff) -> None:
+    """SAS 曲线下发成功后，把换算的四点写进实验对话框，并推到当前 IOT 实验。"""
+    from utils.bluesight_experiment_iv import (
+        apply_experiment_dc1_to_open_widgets,
+        experiment_dc1_widgets,
+    )
+    from utils.status_json_devices import bluesight_iv_fields
+
+    iv = bluesight_iv_fields(
+        {"mode": "sas", "pmpp_kw": pmpp_kw, "umpp_v": umpp_v, "ff": ff}
+    )
+    fields = experiment_dc1_widgets(iv)
+    if not fields:
+        return
+    written = apply_experiment_dc1_to_open_widgets(iv)
+    try:
+        ctrl = globals().get("dc1_controller")
+        connected = ctrl is not None and getattr(ctrl, "connected", False)
+        resource = ""
+        if connected:
+            resource = str(getattr(ctrl, "resource", "") or "")
+        _save_device_status(
+            "直流电源1",
+            bool(connected),
+            resource,
+            extra=_dc_status_extra("直流电源1"),
+        )
+    except Exception as exc:
+        print(f"[DC1 Bluesight] 刷新直流状态跳过: {exc}", flush=True)
+    msg = (
+        f"[DC1 Bluesight] 实验直流源已同步 Vmp={fields.get('textEdit_S1_DC1_VOLT')} "
+        f"Imp={fields.get('textEdit_S1_DC1_CURR')} "
+        f"Voc={fields.get('textEdit_S1_DC1_Voc')} "
+        f"Isc={fields.get('textEdit_S1_DC1_Isc')} "
+        f"（写了 {written} 个控件）"
+    )
+    print(msg, flush=True)
+    try:
+        ui.textEdit_ReturnMessage.append(msg)
+    except Exception:
+        pass
+
+    def _push():
+        try:
+            from utils.iot_local_run import _build_client
+
+            client = _build_client()
+            client.sync_dc1_widgets(fields)
+        except Exception as exc:
+            print(f"[DC1 Bluesight] 同步 IOT 实验直流源跳过: {exc}", flush=True)
+
+    import threading
+
+    threading.Thread(target=_push, daemon=True, name="bluesight-dc-sync").start()
+
+
 def _refresh_dc_curr_max_status(dc_index=None):
     """ArrayfDCCurrValue 变更后刷新 status.json，供 Agent/IOT 读到工控机实际电流上限。"""
     names = ("直流电源1", "直流电源2", "直流电源3", "直流电源4")
@@ -19448,13 +19504,12 @@ def thaiguoqianya_pinSend():
             test_program.append([test_project_now_index, wt_type])
 
     # extend_step
-    from utils.ovuf_recording import build_ovuf_phase_check_list
+    from utils.ovuf_recording import build_ovuf_phase_check_list, ovuf_sweep_project
 
     phase_check_list = build_ovuf_phase_check_list(uiThaiGuoQianYa_Pin)
-    # 测试项
-    extend_test_project = uiThaiGuoQianYa_Pin.comboBox_Test_Project.currentText()
 
-    # step3
+    # step3 过压：固定扫电压
+    extend_test_project = ovuf_sweep_project(3)
     if uiThaiGuoQianYa_Pin.checkBox_S3.isChecked():
         strArrayTestStepSingle = []
         S3_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S3_TIME.toPlainText()
@@ -19774,7 +19829,8 @@ def thaiguoqianya_pinSend():
 
         total_test_time = total_test_time + (len(S3_test_step_list) * (fS3SetTime / 10))
 
-    # step4
+    # step4 欠压：固定扫电压
+    extend_test_project = ovuf_sweep_project(4)
     if uiThaiGuoQianYa_Pin.checkBox_S4.isChecked():
         strArrayTestStepSingle = []
         S4_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S4_TIME.toPlainText()
@@ -20054,7 +20110,8 @@ def thaiguoqianya_pinSend():
 
         total_test_time = total_test_time + (len(S4_test_step_list) * (fS4SetTime / 10))
 
-    # step5
+    # step5 过频：固定扫频率
+    extend_test_project = ovuf_sweep_project(5)
     if uiThaiGuoQianYa_Pin.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
         S5_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S5_TIME.toPlainText()
@@ -20334,7 +20391,8 @@ def thaiguoqianya_pinSend():
 
         total_test_time = total_test_time + (len(S5_test_step_list) * (fS5SetTime / 10))
 
-    # step6
+    # step6 欠频：固定扫频率
+    extend_test_project = ovuf_sweep_project(6)
     if uiThaiGuoQianYa_Pin.checkBox_S6.isChecked():
         strArrayTestStepSingle = []
         S6_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S6_TIME.toPlainText()
@@ -20614,7 +20672,8 @@ def thaiguoqianya_pinSend():
 
         total_test_time = total_test_time + (len(S6_test_step_list) * (fS6SetTime / 10))
 
-    # step7
+    # step7 相位页附加过频：固定扫频率
+    extend_test_project = ovuf_sweep_project(7)
     if uiThaiGuoQianYa_Pin.checkBox_S7.isChecked():
         strArrayTestStepSingle = []
         S7_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S7_TIME.toPlainText()
@@ -20894,7 +20953,8 @@ def thaiguoqianya_pinSend():
 
         total_test_time = total_test_time + (len(S7_test_step_list) * (fS7SetTime / 10))
 
-    # step8
+    # step8 相位页附加欠频：固定扫频率
+    extend_test_project = ovuf_sweep_project(8)
     if uiThaiGuoQianYa_Pin.checkBox_S8.isChecked():
         strArrayTestStepSingle = []
         S8_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S8_TIME.toPlainText()
@@ -32965,6 +33025,9 @@ if __name__ == "__main__":
                                 "umpp": umpp_val,
                                 "ff": ff_val,
                             }
+                            _sync_experiment_dc_from_bluesight_curve(
+                                pmpp_val, umpp_val, ff_val
+                            )
                         _bs_dc1["log_edit"].append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
                         ui.textEdit_ReturnMessage.append(f"[DC1 Bluesight] 曲线发送: {'OK' if ok else 'FAIL'}")
                         fn = QMessageBox.information if ok else QMessageBox.warning

@@ -1694,18 +1694,18 @@
     },
     {
       "name": "checkBox_S7",
-      "label": "启用过频扫描(相位页)",
+      "label": "启用附加过频（与步骤5分开）",
       "type": "checkbox",
       "group": "step7_phase",
-      "default": true,
+      "default": false,
       "options": []
     },
     {
       "name": "checkBox_S8",
-      "label": "启用欠频扫描(相位页)",
+      "label": "启用附加欠频（与步骤6分开）",
       "type": "checkbox",
       "group": "step7_phase",
-      "default": true,
+      "default": false,
       "options": []
     },
     {

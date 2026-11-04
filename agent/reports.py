@@ -181,6 +181,9 @@ def recording_token_for_test(test_name: str) -> str:
     name = str(continuous_filename_for_test(raw) or "").strip().lower()
     if not name or name == "record_br":
         return ""
+    # 实际文件是 OVUF_Volt_BR / OVUF_Freq_BR / OVUF_S3_…，整词 ovuf_br 对不上。
+    if name == "ovuf_br" or name.startswith("ovuf"):
+        return "ovuf"
     return name
 
 

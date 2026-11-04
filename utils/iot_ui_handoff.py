@@ -167,9 +167,31 @@ def collect_widgets_for_project(project_name: str, handoff_svc=None) -> Dict[str
         ui = resolve_ui() if callable(resolve_ui) else None
         if ui is None:
             return {}
-        return collect_widget_values(ui)
+        widgets = collect_widget_values(ui)
+        return _overlay_live_bluesight_dc(widgets)
     except Exception:
         return {}
+
+
+def _overlay_live_bluesight_dc(widgets: Dict[str, Any]) -> Dict[str, Any]:
+    """当前直流是蓝点 SAS 时，实验直流四点跟曲线走，不用对话框里的旧默认。"""
+    try:
+        import SCPITestWave as sw
+        from utils.bluesight_experiment_iv import overlay_experiment_dc1
+        from utils.status_json_devices import bluesight_iv_fields, canonical_reported_brand
+
+        brand = canonical_reported_brand(sw._dc_brand_raw(0))
+        if brand != "bluesight":
+            return widgets
+        page = sw._read_dc1_bluesight_page()
+        if not isinstance(page, dict) or str(page.get("mode") or "") != "sas":
+            return widgets
+        iv = bluesight_iv_fields(page)
+        if not str(iv.get("vmp") or "").strip():
+            return widgets
+        return overlay_experiment_dc1(widgets, iv)
+    except Exception:
+        return widgets
 
 
 def persist_current_project_prefs(project_name: str, handoff_svc=None) -> int:

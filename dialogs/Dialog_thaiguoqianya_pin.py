@@ -111,7 +111,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 过欠压1", "④ 过欠压2", "⑤ 过欠压3", "⑥ 过欠压4", "⑦ 过欠频", "⑧ 关机设置"]
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 过压扫描", "④ 欠压扫描", "⑤ 过频扫描", "⑥ 欠频扫描", "⑦ 测试相位", "⑧ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -567,7 +567,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
     # ══════════════════════════════════════
     def _build_step3(self):
         self._build_sweep_page(
-            2, "groupBox_3", "checkBox_S3", "过压扫描", "step3",
+            2, "groupBox_3", "checkBox_S3", "过压扫描", "启用",
             "textEdit_S3_AC_VOLT_Start", 230,
             "textEdit_S3_AC_VOLT_End", 230,
             "textEdit_S3_AC_FR_Start", 50,
@@ -582,7 +582,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
     # ══════════════════════════════════════
     def _build_step4(self):
         self._build_sweep_page(
-            3, "groupBox_6", "checkBox_S4", "欠压扫描", "step4",
+            3, "groupBox_6", "checkBox_S4", "欠压扫描", "启用",
             "textEdit_S4_AC_VOLT_Start", 230,
             "textEdit_S4_AC_VOLT_End", 230,
             "textEdit_S4_AC_FR_Start", 50,
@@ -597,7 +597,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
     # ══════════════════════════════════════
     def _build_step5(self):
         self._build_sweep_page(
-            4, "groupBox_7", "checkBox_S5", "过频扫描", "step5",
+            4, "groupBox_7", "checkBox_S5", "过频扫描", "启用",
             "textEdit_S5_AC_VOLT_Start", 230,
             "textEdit_S5_AC_VOLT_End", 230,
             "textEdit_S5_AC_FR_Start", 50,
@@ -612,7 +612,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
     # ══════════════════════════════════════
     def _build_step6(self):
         self._build_sweep_page(
-            5, "groupBox_13", "checkBox_S6", "欠频扫描", "step6",
+            5, "groupBox_13", "checkBox_S6", "欠频扫描", "启用",
             "textEdit_S6_AC_VOLT_Start", 230,
             "textEdit_S6_AC_VOLT_End", 230,
             "textEdit_S6_AC_FR_Start", 50,
@@ -635,31 +635,30 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         # ── 测试项目与相位配置 ──
         self.groupBox_9 = QtWidgets.QGroupBox()
         self.groupBox_9.setObjectName("groupBox_9")
-        self.groupBox_9.setTitle("测试项目与相位")
+        self.groupBox_9.setTitle("测试相位")
         self.groupBox_9.setStyleSheet("QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; padding-top: 8px; font-weight: bold; }")
         g9Layout = QtWidgets.QGridLayout(self.groupBox_9)
         g9Layout.setSpacing(8)
         g9Layout.setContentsMargins(12, 20, 12, 12)
 
-        g9Layout.addWidget(self._make_label("测试项目"), 0, 0)
-        self.comboBox_Test_Project = QtWidgets.QComboBox()
+        self.comboBox_Test_Project = QtWidgets.QComboBox(self.groupBox_9)
         self.comboBox_Test_Project.setObjectName("comboBox_Test_Project")
         self.comboBox_Test_Project.addItems(["过欠压", "过欠频"])
-        g9Layout.addWidget(self.comboBox_Test_Project, 0, 1)
+        self.comboBox_Test_Project.hide()
 
-        g9Layout.addWidget(self._make_label("测试相"), 0, 2)
+        g9Layout.addWidget(self._make_label("测试相"), 0, 0)
         self.checkBox_AC_Test_L1 = QtWidgets.QCheckBox("L1")
         self.checkBox_AC_Test_L1.setChecked(True)
         self.checkBox_AC_Test_L1.setObjectName("checkBox_AC_Test_L1")
-        g9Layout.addWidget(self.checkBox_AC_Test_L1, 0, 3)
+        g9Layout.addWidget(self.checkBox_AC_Test_L1, 0, 1)
         self.checkBox_AC_Test_L2 = QtWidgets.QCheckBox("L2")
         self.checkBox_AC_Test_L2.setChecked(True)
         self.checkBox_AC_Test_L2.setObjectName("checkBox_AC_Test_L2")
-        g9Layout.addWidget(self.checkBox_AC_Test_L2, 0, 4)
+        g9Layout.addWidget(self.checkBox_AC_Test_L2, 0, 2)
         self.checkBox_AC_Test_L3 = QtWidgets.QCheckBox("L3")
         self.checkBox_AC_Test_L3.setChecked(True)
         self.checkBox_AC_Test_L3.setObjectName("checkBox_AC_Test_L3")
-        g9Layout.addWidget(self.checkBox_AC_Test_L3, 0, 5)
+        g9Layout.addWidget(self.checkBox_AC_Test_L3, 0, 3)
 
         layout.addWidget(self.groupBox_9)
 
@@ -672,8 +671,8 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         g14Layout.setSpacing(8)
         g14Layout.setContentsMargins(12, 20, 12, 12)
 
-        self.checkBox_S7 = QtWidgets.QCheckBox("step7")
-        self.checkBox_S7.setChecked(True)
+        self.checkBox_S7 = QtWidgets.QCheckBox("启用附加过频")
+        self.checkBox_S7.setChecked(False)
         self.checkBox_S7.setObjectName("checkBox_S7")
         g14Layout.addWidget(self.checkBox_S7, 0, 0)
 
@@ -736,8 +735,8 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         g15Layout.setSpacing(8)
         g15Layout.setContentsMargins(12, 20, 12, 12)
 
-        self.checkBox_S8 = QtWidgets.QCheckBox("step8")
-        self.checkBox_S8.setChecked(True)
+        self.checkBox_S8 = QtWidgets.QCheckBox("启用附加欠频")
+        self.checkBox_S8.setChecked(False)
         self.checkBox_S8.setObjectName("checkBox_S8")
         g15Layout.addWidget(self.checkBox_S8, 0, 0)
 
@@ -905,6 +904,9 @@ class Ui_Dialog_thaiguoqianya_pin(object):
                 row.names_filled.connect(_fill_wt_names)
                 row.mode_changed.connect(_on_mode)
 
+        shared = getattr(getattr(self, "analyzerModeSection", None), "recordingModeRow", None)
+        if shared is not None:
+            shared.mode_changed.connect(_on_mode)
         self.comboBox_Test_Project.currentIndexChanged.connect(lambda *_: _fill_wt_names())
         for step_no in (3, 4, 5, 6, 7, 8):
             cb = getattr(self, "checkBox_S%d" % step_no, None)

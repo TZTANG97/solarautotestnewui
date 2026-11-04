@@ -299,6 +299,17 @@ def test_item_echo_rejects_lookalike_tokens():
     assert not item_echo_matches("PHI_U1U2,1", "PHI,1")
     assert not item_echo_matches("F10", "F1")
     assert not item_echo_matches("URMS,1", "U,1")
+    # 元素短名：SIGMa→SIGM，SIGMAa/b/c→SIGMA，SIGMc→SIGM，TOTal→TOT。
+    assert item_echo_matches("URMS,SIGMA", "URMS,SIGM")
+    assert item_echo_matches("URMS,SIGMAA", "URMS,SIGMA")
+    assert item_echo_matches("URMS,SIGMAB", "URMS,SIGMA")
+    assert item_echo_matches("URMS,SIGMAC", "URMS,SIGMA")
+    assert item_echo_matches("URMS,SIGMC", "URMS,SIGM")
+    assert item_echo_matches("U,SIGMA,TOTAL", "U,SIGM,TOT")
+    assert item_echo_matches("P,SIGMA,TOTAL", ":NUMERIC:NORMAL:ITEM4 P,SIGM,TOT")
+    assert not item_echo_matches("URMS,SIGMA", "URMS,SIGMAA")
+    assert not item_echo_matches("URMS,1", "URMS,SIGM")
+    assert not item_echo_matches("U,1", "URMS,SIGM")
 
 
 def test_wt1806e_uses_manual_commands_for_sync_delta_and_crest():
@@ -369,5 +380,54 @@ def test_wt1806e_short_echo_is_kept_by_collector():
         ["URMS,1", "LAMBDA,1", "UPPEAK,1", "SPEED", "TORQUE", "CFU,1"]
     )
     assert accepted == ["URMS,1", "LAMBDA,1", "UPPEAK,1", "SPEED", "TORQUE", "CFU,1"]
+    assert collector.warnings() == []
+
+
+def test_sigma_short_echo_kept_for_1800_3000_and_5000():
+    """四种型号的 Σ 元素回读都是短名，不能整列丢掉。"""
+    from devices.wt_data_collector import WtScpiCollector
+
+    class _Handle:
+        def __init__(self):
+            self.items = {}
+
+        def write(self, command):
+            text = str(command).strip()
+            if text.upper().startswith(":NUMERIC:NORMAL:ITEM"):
+                head, _, token = text.partition(" ")
+                index = int("".join(ch for ch in head if ch.isdigit()))
+                self.items[index] = token.strip()
+
+        def query(self, command):
+            text = str(command).strip().upper()
+            if not text.startswith(":NUMERIC:NORMAL:ITEM"):
+                return "0"
+            index = int("".join(ch for ch in text if ch.isdigit()))
+            token = self.items.get(index, "NONE")
+            element_short = {
+                "SIGMA": "SIGM",
+                "SIGMAA": "SIGMA",
+                "SIGMAB": "SIGMA",
+                "SIGMAC": "SIGMA",
+                "SIGMC": "SIGM",
+                "TOTAL": "TOT",
+            }
+            parts = [element_short.get(part.upper(), part) for part in token.split(",")]
+            return f":NUMERIC:NORMAL:ITEM{index} {','.join(parts)}"
+
+    class _Ctrl:
+        connected = True
+        handle = _Handle()
+
+    collector = WtScpiCollector(_Ctrl())
+    wanted = [
+        "URMS,SIGMA",
+        "URMS,SIGMAA",
+        "URMS,SIGMAB",
+        "URMS,SIGMAC",
+        "URMS,SIGMC",
+        "U,SIGMA,TOTAL",
+    ]
+    assert collector._setup_numeric_items(wanted) == wanted
     assert collector.warnings() == []
 

@@ -17,6 +17,7 @@ from utils.ovuf_recording import (
     apply_ovuf_recording_mode,
     build_ovuf_sweep_points,
     enabled_ovuf_segments,
+    ovuf_sweep_project,
     recommended_ovuf_names,
 )
 from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT
@@ -36,6 +37,15 @@ def ovuf_ui(qapp):
     return ui
 
 
+def test_step_kind_does_not_follow_the_project_combo():
+    assert ovuf_sweep_project(3) == "过欠压"
+    assert ovuf_sweep_project(4) == "过欠压"
+    assert ovuf_sweep_project(5) == "过欠频"
+    assert ovuf_sweep_project(6) == "过欠频"
+    assert ovuf_sweep_project(7) == "过欠频"
+    assert ovuf_sweep_project(8) == "过欠频"
+
+
 def test_ovuf_has_recording_mode_on_filename_list(ovuf_ui):
     page = ovuf_ui._wtStacked.widget(0)
     gb = page.findChild(QtWidgets.QGroupBox, "groupBox_7")
@@ -47,21 +57,19 @@ def test_ovuf_has_recording_mode_on_filename_list(ovuf_ui):
 
 
 def test_ovuf_recommended_filenames_continuous_and_split(ovuf_ui):
-    # 默认全勾选 + 过欠压 + 起止同为 230 → 每段 1 点
-    assert recommended_ovuf_names(ovuf_ui, MODE_CONTINUOUS) == ["OVUF_Volt_BR"]
+    # 3/4 扫电压，5/6 扫频率；附加段默认关闭。两边都有时连续录用 OVUF_BR。
+    assert recommended_ovuf_names(ovuf_ui, MODE_CONTINUOUS) == ["OVUF_BR"]
     split = recommended_ovuf_names(ovuf_ui, MODE_SPLIT)
     assert split == [
         "OVUF_S3_V230_230",
         "OVUF_S4_V230_230",
-        "OVUF_S5_V230_230",
-        "OVUF_S6_V230_230",
-        "OVUF_S7_V230_230",
-        "OVUF_S8_V230_230",
+        "OVUF_S5_F50_50",
+        "OVUF_S6_F50_50",
     ]
 
     ovuf_ui.comboBox_Test_Project.setCurrentText("过欠频")
-    assert recommended_ovuf_names(ovuf_ui, MODE_CONTINUOUS) == ["OVUF_Freq_BR"]
-    assert recommended_ovuf_names(ovuf_ui, MODE_SPLIT)[0].startswith("OVUF_S3_F")
+    assert recommended_ovuf_names(ovuf_ui, MODE_SPLIT)[0].startswith("OVUF_S3_V")
+    assert recommended_ovuf_names(ovuf_ui, MODE_SPLIT)[2].startswith("OVUF_S5_F")
 
 
 def test_ovuf_mode_change_auto_fills_filename_list(ovuf_ui):
@@ -70,13 +78,15 @@ def test_ovuf_mode_change_auto_fills_filename_list(ovuf_ui):
     combo = page.findChild(QtWidgets.QComboBox, "comboBox_recording_mode")
     assert te is not None and combo is not None
 
-    combo.setCurrentIndex(0)  # continuous
-    assert "OVUF_Volt_BR" in te.toPlainText().replace(" ", "")
+    shared = ovuf_ui.analyzerModeSection.comboBox_analyzer_recording_mode
+    shared.setCurrentIndex(0)  # continuous
+    assert "OVUF_BR" in te.toPlainText().replace(" ", "")
 
-    combo.setCurrentIndex(1)  # split
+    shared.setCurrentIndex(1)  # split
     text = te.toPlainText().replace(" ", "")
     assert "OVUF_S3_V230_230" in text
-    assert text.count(",") >= 5
+    assert "OVUF_S5_F50_50" in text
+    assert "OVUF_S7_" not in text
 
 
 def test_ovuf_sweep_points_and_segments(ovuf_ui):

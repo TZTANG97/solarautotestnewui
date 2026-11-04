@@ -65,16 +65,24 @@ def build_ovuf_phase_check_list(ui):
     return out
 
 
+def ovuf_sweep_project(step_no: int) -> str:
+    """步骤3/4扫电压，步骤5/6以及相位页附加段扫频率。
+
+    不再跟步骤7上的「测试项目」走，避免四段被收成同一种过欠压。
+    """
+    if int(step_no) in (3, 4):
+        return "过欠压"
+    return "过欠频"
+
+
 def enabled_ovuf_segments(ui):
-    """已勾选 S3~S8 段：按测试项目取电压或频率扫点。"""
-    project = ovuf_test_project(ui)
-    is_volt = project == "过欠压"
+    """已勾选 S3~S8 段。过压/欠压取电压，过频/欠频和附加段取频率。"""
     segs = []
     for step_no in (3, 4, 5, 6, 7, 8):
         cb = getattr(ui, "checkBox_S%d" % step_no, None)
         if cb is None or not cb.isChecked():
             continue
-        if is_volt:
+        if ovuf_sweep_project(step_no) == "过欠压":
             start = _plain(ui, "textEdit_S%d_AC_VOLT_Start" % step_no, "230")
             end = _plain(ui, "textEdit_S%d_AC_VOLT_End" % step_no, "230")
             kind = "V"
@@ -100,7 +108,12 @@ def recommended_ovuf_names(ui, mode: str = MODE_CONTINUOUS):
     """连续录 OVUF_Volt_BR / OVUF_Freq_BR；分开录按勾选段生成 OVUF_S3_V230_253 等。"""
     segs = enabled_ovuf_segments(ui)
     if mode == MODE_CONTINUOUS:
-        return ["OVUF_Volt_BR"] if ovuf_test_project(ui) == "过欠压" else ["OVUF_Freq_BR"]
+        kinds = {seg["kind"] for seg in segs}
+        if kinds == {"F"}:
+            return ["OVUF_Freq_BR"]
+        if kinds == {"V"}:
+            return ["OVUF_Volt_BR"]
+        return ["OVUF_BR"]
     names = []
     for seg in segs:
         prefix = seg["kind"]

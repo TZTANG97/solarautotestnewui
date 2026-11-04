@@ -285,3 +285,44 @@ def test_back_to_running_clears_settled_memory(tmp_path: Path) -> None:
         client, repo_root=tmp_path, job_id=70, run_snapshot=_snap(), state=state
     )
     assert len(client.done_calls) == 2
+
+
+def test_ovuf_recording_name_is_collected_and_command_log_does_not_finish(tmp_path: Path) -> None:
+    from agent.reports import recording_token_for_test
+
+    assert recording_token_for_test("过欠压_过欠频") == "ovuf"
+    assert recording_token_for_test("过欠压过欠频") == "ovuf"
+    (tmp_path / "status.json").write_text(
+        json.dumps({"project": {"status": "已结束", "jobId": 89, "progress": 100}}),
+        encoding="utf-8",
+    )
+    commands = tmp_path / "command_save_files" / "command_data" / "job_89"
+    commands.mkdir(parents=True)
+    (commands / "guoqianya_pin_commands2026_11_04_19.csv").write_text(
+        "step\n1\n", encoding="utf-8"
+    )
+    client = _Client(status="running")
+    state = HeartbeatSettleState()
+    snap = {
+        "status": "已结束",
+        "jobId": 89,
+        "progress": 100,
+        "elapsed_s": 540,
+        "current_test": "过欠压_过欠频",
+    }
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=89, run_snapshot=snap, state=state
+    )
+    uploaded = [Path(p).name for _, p in client.uploads]
+    assert "guoqianya_pin_commands2026_11_04_19.csv" in uploaded
+    assert 89 not in state.reports_finished
+
+    wt = tmp_path / "wt_save"
+    wt.mkdir()
+    (wt / "OVUF_Volt_BR.csv").write_text("t,u\n1,230\n", encoding="utf-8")
+    apply_heartbeat_terminal_settle(
+        client, repo_root=tmp_path, job_id=89, run_snapshot=snap, state=state
+    )
+    uploaded = [Path(p).name for _, p in client.uploads]
+    assert "OVUF_Volt_BR.csv" in uploaded
+    assert 89 in state.reports_finished

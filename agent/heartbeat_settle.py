@@ -215,6 +215,18 @@ def _file_meta(paths: List[Path]) -> List[Dict[str, str]]:
     return meta
 
 
+def _is_substantive_report(path: Path) -> bool:
+    """status.json / job_*.json / *commands*.csv 不算正式试验产物。"""
+    name = path.name.lower()
+    if name == "status.json":
+        return False
+    if name.startswith("job_") and name.endswith(".json"):
+        return False
+    if name.endswith(".csv") and "commands" in name:
+        return False
+    return True
+
+
 def apply_heartbeat_terminal_settle(
     client: Any,
     *,
@@ -424,13 +436,8 @@ def apply_heartbeat_terminal_settle(
         except Exception as exc:
             failed = True
             logger.warning("心跳结案上传已有文件失败 %s: %s", path.name, exc)
-    # 仅 status.json / job_*.json 不算正式产物齐套，继续等录波
-    substantive = [
-        p
-        for p in files
-        if p.name.lower() != "status.json"
-        and not (p.name.lower().startswith("job_") and p.name.lower().endswith(".json"))
-    ]
+    # 仅 status.json / job_*.json / 命令记录 csv 不算正式产物齐套，继续等录波和报告
+    substantive = [p for p in files if _is_substantive_report(p)]
     if (not failed and substantive) or attempts >= 3:
         state.reports_finished.add(jid)
     if uploaded:

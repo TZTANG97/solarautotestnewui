@@ -61,6 +61,11 @@ _ALIASES = {
     "固定pf": "fixedpf",
     "过欠压": "ovuf",
     "过欠频": "ovuf",
+    "过欠压过欠频": "ovuf",
+    "过欠压_过欠频": "ovuf",
+    "guoqianya_pin": "ovuf",
+    "guoqianyapin": "ovuf",
+    "volt_freq": "ovuf",
     # UI 中文名 → 连续录文件名表 key（心跳结案扫 wt_save 依赖）
     "静态qu": "staticqu",
     "动态qu": "dynamicqu",
