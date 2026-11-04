@@ -30,7 +30,12 @@ def row_ac_wait_idn(wait_01s, slot=9):
 
 def get_record_mode(ui) -> str:
     """Resolve continuous vs split from analyzer / step / WT page combos."""
-    from utils.wt_recording_mode import MODE_CONTINUOUS, combo_index_to_mode
+    from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT, combo_index_to_mode
+
+    # 云任务钉住的录波方式优先（OVUF 等对话框无 comboBox_S3_record_mode 时）
+    pinned = getattr(ui, "_wt_record_mode_from_job", None) if ui is not None else None
+    if pinned in (MODE_CONTINUOUS, MODE_SPLIT, "continuous", "split"):
+        return MODE_SPLIT if str(pinned).lower() == MODE_SPLIT else MODE_CONTINUOUS
 
     # Shared analyzer row (visible in both WT and DEWETRON modes).
     for name in (

@@ -332,6 +332,26 @@ def apply_wt_save_to_dialog(root, widgets: Dict[str, Any]) -> None:
     names = str(widgets.get("textEdit_FileNameList") or "")
     mode_idx = record_mode_index(widgets.get("comboBox_S3_record_mode")) if "comboBox_S3_record_mode" in widgets else None
 
+    # 同步分析仪共用录波下拉，避免 get_record_mode 仍读到本机「连续录」默认
+    if mode_idx is not None:
+        for combo in (
+            getattr(root, "comboBox_analyzer_recording_mode", None),
+            getattr(getattr(root, "analyzerModeSection", None), "comboBox_analyzer_recording_mode", None),
+            getattr(root, "comboBox_S3_record_mode", None),
+        ):
+            if combo is None or not hasattr(combo, "setCurrentIndex"):
+                continue
+            try:
+                combo.blockSignals(True)
+                combo.setCurrentIndex(mode_idx)
+            except Exception:
+                pass
+            finally:
+                try:
+                    combo.blockSignals(False)
+                except Exception:
+                    pass
+
     for page in pages:
         _set_plain(page, "textEdit_SavePath", path)
         _set_plain(page, "textEdit_StopTime", stop)

@@ -3898,7 +3898,7 @@ def ConnectEQUWT3000():
                 QMessageBox.warning(None, "比例系数", f"比例系数没有写入配置档：{scale_exc}")
             except Exception:
                 pass
-        # 记住 IP，下次「扫描并连接」能出现在上次地址（不必再手填）
+        # 记住 IP + 槽位，下次启动/开测自动连不要把 10001 误分成德威创后跳过
         try:
             from utils.device_discovery import remember_found_resource
             from utils.ui_field_helpers import remember_value
@@ -3910,6 +3910,12 @@ def ConnectEQUWT3000():
                 port_part = tcp_addr.split(":", 1)[1].strip() if ":" in tcp_addr else "5025"
                 if port_part.isdigit():
                     remember_value("wt.port", port_part)
+            _remember_manual_device_slot(
+                "wt",
+                saved_addr if ":" in str(saved_addr) else (tcp_addr if ":" in tcp_addr else f"{tcp_addr}:5025"),
+                kind_hint="wt",
+                brand_hint="yokogawa",
+            )
         except Exception as rem_exc:
             print(f"[WT3000] 记忆地址失败: {rem_exc}")
  

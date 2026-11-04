@@ -687,6 +687,42 @@ def _best_open_on_host(host: str, source: str, timeout: float, preferred_port: O
     return max(found, key=_score)
 
 
+def _merge_enriched_device(orig: FoundDevice, probed: FoundDevice) -> FoundDevice:
+    """探测结果合并原槽位/类型：10001 既可能是德威创也可能是横河 WT。"""
+    extra = dict(orig.extra or {})
+    extra.update(probed.extra or {})
+    last_slot = str(extra.get("last_slot") or "").strip().lower()
+    orig_kind = str(orig.kind_hint or "").strip().lower()
+    probed_kind = str(probed.kind_hint or "").strip().lower()
+    kind = probed_kind
+    brand = probed.brand_hint or orig.brand_hint or ""
+    proto = probed.protocol or orig.protocol or ""
+    # 有 wt 记忆时，禁止仅因端口 10001 被 classify_port 改成 dew
+    if last_slot == "wt" or orig_kind == "wt":
+        kind = "wt"
+        brand = brand or "yokogawa"
+        if int(probed.port or orig.port or 0) == DEW_PORT:
+            proto = "scpi_tcp"
+    elif last_slot == "dew" or orig_kind == "dew":
+        kind = "dew"
+        brand = brand or "dewetron"
+        proto = "dew_socket"
+    elif probed_kind in ("", "unknown") and orig_kind not in ("", "unknown"):
+        kind = orig_kind
+        brand = brand or orig.brand_hint or ""
+    return FoundDevice(
+        resource=probed.resource or orig.resource,
+        host=probed.host or orig.host,
+        port=probed.port if probed.port is not None else orig.port,
+        idn=probed.idn or orig.idn,
+        kind_hint=kind or orig.kind_hint,
+        brand_hint=brand,
+        source=probed.source or orig.source,
+        protocol=proto,
+        extra=extra,
+    )
+
+
 def enrich_device(dev: FoundDevice, rm=None, skip_resources: Optional[Sequence[str]] = None) -> FoundDevice:
     """对已有条目做端口/*IDN? 探测，补识别信息。不通的记为离线，不假装已识别。"""
     skip = set(skip_resources or ())
@@ -711,19 +747,19 @@ def enrich_device(dev: FoundDevice, rm=None, skip_resources: Optional[Sequence[s
             if probed is None:
                 return _offline_device(dev, f"端口 {dev.port} 未开放（关机、不同网段或端口不对）")
             probed.source = dev.source or probed.source
-            return probed
+            return _merge_enriched_device(dev, probed)
         probed = _device_from_host_port(dev.host, int(dev.port), dev.source or "扫描")
         probed.source = dev.source or probed.source
-        return probed
+        return _merge_enriched_device(dev, probed)
     if dev.host and not dev.port:
         probed = _best_open_on_host(dev.host, dev.source or "上次", last_timeout)
         if probed is None:
             return _offline_device(dev, "常用端口未开放（关机、不同网段或只记了 IP）")
-        return probed
+        return _merge_enriched_device(dev, probed)
     if rm is not None and dev.resource:
         idn = probe_visa_idn(rm, dev.resource)
         kind, brand = classify_idn(idn)
-        return FoundDevice(
+        probed = FoundDevice(
             resource=dev.resource,
             host=dev.host,
             port=dev.port,
@@ -733,6 +769,7 @@ def enrich_device(dev: FoundDevice, rm=None, skip_resources: Optional[Sequence[s
             source=dev.source or "VISA",
             protocol="visa",
         )
+        return _merge_enriched_device(dev, probed)
     return dev
 
 

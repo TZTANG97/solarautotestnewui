@@ -359,6 +359,14 @@ def has_remembered_slot(
                 return True
         except Exception:
             pass
+    if sl == "wt":
+        try:
+            from utils.ui_field_helpers import last_value
+
+            if (last_value("wt.ip", "") or "").strip():
+                return True
+        except Exception:
+            pass
     return False
 
 
