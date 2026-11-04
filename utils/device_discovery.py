@@ -974,7 +974,9 @@ def connect_plan(slot: str, dev: FoundDevice) -> Dict[str, object]:
     port = dev.port
     if not host:
         host, port = parse_host_port(dev.resource)
-    brand = (dev.brand_hint or "").lower()
+    from utils.status_json_devices import canonical_reported_brand
+
+    brand = canonical_reported_brand(dev.brand_hint or "")
     proto = dev.protocol or ""
     resource = dev.resource
     visa_like = resource.upper().startswith(("USB", "GPIB", "ASRL", "TCPIP"))

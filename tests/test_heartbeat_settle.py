@@ -76,6 +76,30 @@ def test_stale_abort_does_not_settle_before_run_seen(tmp_path: Path) -> None:
     assert client.done_calls == []
 
 
+def test_handoff_settle_only_after_this_job_was_running() -> None:
+    from agent.heartbeat_settle import heartbeat_should_settle_terminal
+
+    assert heartbeat_should_settle_terminal(
+        status="已结束", settle_terminal=False, seen_running=False
+    ) is False
+    assert heartbeat_should_settle_terminal(
+        status="已结束", settle_terminal=False, seen_running=True
+    ) is True
+    assert heartbeat_should_settle_terminal(
+        status="进行中", settle_terminal=True, seen_running=True
+    ) is False
+
+
+def test_publish_terminal_result_unblocks_wait(tmp_path: Path) -> None:
+    from agent.heartbeat_settle import publish_terminal_result_if_missing
+    from agent.job_inbox import result_path
+
+    assert publish_terminal_result_if_missing(tmp_path, 88, "已结束") is True
+    data = json.loads(result_path(tmp_path, 88).read_text(encoding="utf-8"))
+    assert data["status"] == "success"
+    assert publish_terminal_result_if_missing(tmp_path, 88, "已结束") is False
+
+
 def test_abort_after_running_still_settles(tmp_path: Path) -> None:
     client = _Client(status="running")
     state = HeartbeatSettleState()

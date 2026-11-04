@@ -20,6 +20,26 @@ def test_prepare_jobs_from_cloud_instruments_ac_dc():
     assert ac_plan.get("target") in ("ac_chroma_ip", "ac_itech", "ac_visa")
 
 
+def test_dc_bluesight_display_name_routes_modbus_not_chroma():
+    jobs = prepare_jobs_from_cloud_instruments(
+        [
+            {
+                "slot": "dc1",
+                "kind": "dc",
+                "resource": "192.168.40.30:502",
+                "host": "192.168.40.30",
+                "port": 502,
+                "brand": "蓝点(Bluesight)（Modbus 网口）",
+            }
+        ]
+    )
+    assert len(jobs) == 1
+    _slot, plan, dev = jobs[0]
+    assert plan.get("target") == "dc_modbus"
+    assert plan.get("device_type") == "bluesight"
+    assert (dev.protocol or "") == "modbus"
+
+
 def test_prepare_skips_empty():
     assert prepare_jobs_from_cloud_instruments([]) == []
     assert prepare_jobs_from_cloud_instruments([{"slot": "ac", "resource": ""}]) == []

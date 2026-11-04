@@ -261,7 +261,11 @@ def format_report_number(value: float) -> str:
 
 
 def canonical_reported_brand(brand: str) -> str:
-    """桌面面包屑 / per_dc_factor → IOT 下拉 value。"""
+    """桌面面包屑 / 网页展示名 → IOT 下拉 value。
+
+    网页下拉展示名是「蓝点(Bluesight)（Modbus 网口）」，不能只认整词 bluesight，
+    否则连接计划会落到致茂页，蓝点页不会被选中。
+    """
     raw = str(brand or "").strip()
     if not raw:
         return ""
@@ -284,7 +288,25 @@ def canonical_reported_brand(brand: str) -> str:
         "dewetron": "dewetron",
         "yokogawa": "yokogawa",
     }
-    return aliases.get(key, aliases.get(raw.lower(), raw.lower()))
+    hit = aliases.get(key)
+    if hit:
+        return hit
+    low = raw.lower()
+    if "bluesight" in low or "蓝点" in raw or "蓝电" in raw:
+        return "bluesight"
+    if "爱科" in raw or "itech" in low or "it6000" in low:
+        return "itech"
+    if "是德" in raw or "keysight" in low or "agilent" in low:
+        return "keysight"
+    if "致茂" in raw or "chroma" in low:
+        if "chroma_ip" in key or "chromaip" in key:
+            return "chroma_ip"
+        return "chroma"
+    if "dewetron" in low or "德威创" in raw:
+        return "dewetron"
+    if "yokogawa" in low or "横河" in raw:
+        return "yokogawa"
+    return aliases.get(raw.lower(), raw.lower())
 
 
 def bluesight_iv_fields(page: Optional[Dict[str, Any]]) -> Dict[str, str]:
@@ -320,9 +342,14 @@ def bluesight_iv_fields(page: Optional[Dict[str, Any]]) -> Dict[str, str]:
     outmode = str(page.get("outmode") or "").strip().lower()
     try:
         if outmode == "cv" and page.get("voltage_v") not in (None, ""):
-            out["vmp"] = format_report_number(float(page["voltage_v"]))
+            voltage = float(page["voltage_v"])
+            # 原始负载电压默认 0，不能当成 Vmp 回写，否则网页四点每次被清成 0。
+            if voltage > 0:
+                out["vmp"] = format_report_number(voltage)
         elif outmode == "cc" and page.get("current_a") not in (None, ""):
-            out["imp"] = format_report_number(float(page["current_a"]))
+            current = float(page["current_a"])
+            if current > 0:
+                out["imp"] = format_report_number(current)
     except (TypeError, ValueError):
         return dict(blank)
     return out
@@ -344,7 +371,7 @@ def dc_connection_extra(
     slot: str = "dc1",
     force_iv: bool = False,
 ) -> Dict[str, Any]:
-    """直流连接态附加字段：品牌 + IV。force_iv 时五点都写入（含空串）。"""
+    """直流连接态附加字段：品牌 + 有值的 IV。空串和 0 不回写，避免冲掉网页已算好的四点。"""
     canon = canonical_reported_brand(brand)
     out: Dict[str, Any] = {"brand": canon, "slot": str(slot or "dc1").lower(), "measures": {}}
     src = iv if isinstance(iv, dict) else {}
@@ -355,8 +382,14 @@ def dc_connection_extra(
         if key not in src and not force:
             continue
         val = str(src.get(key) or "").strip()
-        if not val and not force:
+        if not val:
             continue
+        if key in ("vmp", "voc", "imp", "isc"):
+            try:
+                if float(val) == 0.0:
+                    continue
+            except (TypeError, ValueError):
+                pass
         widgets[widget_key] = val
         if val:
             measures[measure_key] = val

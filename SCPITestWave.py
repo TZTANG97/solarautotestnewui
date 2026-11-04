@@ -35173,26 +35173,27 @@ if __name__ == "__main__":
                     parent=main_window,
                 )
 
-                def _iot_sync_boot_params_to_soft_panel(widgets, reason="IOT 交接同步 Soft Panel"):
+                def _iot_sync_boot_params_to_soft_panel(widgets, reason="IOT 交接同步 Soft Panel", brand=""):
                     """把云端 S1_* / Soft Panel 键写到主界面 AC/DC，已连接则下发真机。"""
                     from utils.iot_boot_params_sync import (
+                        apply_bluesight_sas_from_iv,
                         extract_ac_boot_from_widgets,
                         extract_dc1_iv_from_widgets,
                     )
+                    from utils.status_json_devices import canonical_reported_brand
 
                     w_in = widgets if isinstance(widgets, dict) else {}
                     ac = extract_ac_boot_from_widgets(w_in)
                     phase, volt, freq = ac.get("phase") or "", ac.get("volt") or "", ac.get("freq") or ""
                     try:
-                        if uiACSetting is not None and (phase or volt or freq):
-                            if phase:
-                                idx = uiACSetting.comboBox_Phase.findText(phase)
-                                if idx >= 0:
-                                    uiACSetting.comboBox_Phase.setCurrentIndex(idx)
-                            if volt:
-                                uiACSetting.textEdit_AC_VOLT.setPlainText(volt)
-                            if freq:
-                                uiACSetting.textEdit_AC_FR.setPlainText(freq)
+                        if phase or volt or freq:
+                            from utils.iot_boot_params_sync import apply_ac_boot_to_panels
+
+                            apply_ac_boot_to_panels(
+                                ac,
+                                chroma_ui=uiACSetting,
+                                itech_ref=globals().get("_ac_itch_ref"),
+                            )
                             _iot_log(
                                 f"AC Soft Panel 已同步 phase={phase or '-'} volt={volt or '-'} freq={freq or '-'}"
                             )
@@ -35212,8 +35213,31 @@ if __name__ == "__main__":
                         dc.get("isc") or "",
                         dc.get("pf") or "",
                     )
+                    brand_hint = canonical_reported_brand(
+                        brand or w_in.get("_iot_brand") or ""
+                    )
                     try:
                         if any((vmp, voc, imp, isc, pf)):
+                            use_bs = brand_hint == "bluesight" or str(
+                                globals().get("_dc1_device_type") or ""
+                            ) == "bluesight"
+                            if use_bs:
+                                globals()["_dc1_device_type"] = "bluesight"
+                                if _dc1_breadcrumb_ref is not None:
+                                    _dc1_breadcrumb_ref.setIndex(1)
+                                triple = apply_bluesight_sas_from_iv(
+                                    globals().get("_dc1_bs_ref"), dc
+                                )
+                                if triple:
+                                    bluesight_stc_params[0] = {
+                                        "pmpp": triple[0],
+                                        "umpp": triple[1],
+                                        "ff": triple[2],
+                                    }
+                                    _iot_log(
+                                        "蓝点页已切到 SAS "
+                                        f"Pmpp={triple[0]:.4g}kW Umpp={triple[1]:.4g}V FF={triple[2]:.3f}"
+                                    )
                             if _dc1_itech_ref is not None:
                                 for key, val in (
                                     ("textEdit_Vmp", vmp),
@@ -35260,7 +35284,9 @@ if __name__ == "__main__":
                         slot_l = str(inst.get("slot") or "").strip().lower()
                         if slot_l in ("", "ac") or slot_l.startswith("dc"):
                             _iot_sync_boot_params_to_soft_panel(
-                                widgets_in, reason="IOT 连接前同步 Soft Panel"
+                                widgets_in,
+                                reason="IOT 连接前同步 Soft Panel",
+                                brand=str(inst.get("brand") or ""),
                             )
                     except Exception as exc:
                         _iot_log(f"AC/DC 参数预同步: {exc}")
@@ -35310,6 +35336,15 @@ if __name__ == "__main__":
                     connected = summary.get("connected") or []
                     errors = summary.get("errors") or []
                     ok = bool(connected) and not errors
+                    if ok and str(inst.get("slot") or "").strip().lower().startswith("dc"):
+                        try:
+                            _iot_sync_boot_params_to_soft_panel(
+                                widgets_in,
+                                reason="IOT 连接后下发蓝点/直流参数",
+                                brand=str(inst.get("brand") or ""),
+                            )
+                        except Exception as post_exc:
+                            _iot_log(f"连接后直流参数下发: {post_exc}")
                     # WT 连接成功后自动切闪变显示（与桌面「切换闪变页面」同命令）
                     if ok and str(inst.get("slot") or "").strip().lower() == "wt":
                         try:

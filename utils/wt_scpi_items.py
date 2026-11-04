@@ -26,8 +26,6 @@ _SKIP_CHECKBOXES: Set[str] = {
     "checkBox_SetIrange",
     "checkBox_SetRngU",
     "checkBox_SetRngI",
-    "checkBox_SetCfU",
-    "checkBox_SetCfI",
 }
 
 # ---------------------------------------------------------------------------
@@ -111,6 +109,9 @@ _FUNCTION_BY_CHECKBOX: Dict[str, str] = {
     "checkBox_SetImpeak": "IMPEAK",
     "checkBox_SetPppeak": "PPPEAK",
     "checkBox_SetPmpeak": "PMPEAK",
+    # 波峰因数是测量值。量程才不是。
+    "checkBox_SetCfU": "CFU",
+    "checkBox_SetCfI": "CFI",
     # Fundamental (WT5000)
     "checkBox_SetUfnd": "UFND",
     "checkBox_SetIfnd": "IFND",
@@ -545,7 +546,11 @@ def items_from_wt_config(
             _add(f"{func},{target}")
 
     for token in singles:
-        if model == "5000" and token in _WT5000_DELTA_SINGLE:
+        if model in ("1800", "1806") and token == "SYNCSP":
+            # 手册电机项是 SYNC，不是界面上的 SyncSp。
+            _add("SYNC")
+            continue
+        if model in ("5000", "1800", "1806") and token in _WT5000_DELTA_SINGLE:
             name = _WT5000_DELTA_SINGLE[token]
             for target in sigma_targets or ["SIGMA"]:
                 _add(f"{name},{target}")
@@ -681,8 +686,51 @@ def macro_column_name(token: str, style: str = "") -> str:
     return name
 
 
+def _known_function_names() -> Set[str]:
+    names = set(_FUNCTION_BY_CHECKBOX.values())
+    names |= set(_SINGLE_BY_CHECKBOX.values())
+    names |= set(_WT3000_FUNCTION_ALIAS.values())
+    names |= {part for pair in _HARMONIC_BY_CHECKBOX.values() for part in pair}
+    names |= {part for triple in _PHASE_BY_CHECKBOX.values() for part in triple[:2]}
+    names |= set(_WT5000_DELTA_SINGLE.values())
+    names |= set(_WT5000_SINGLE_ALIAS.values())
+    names.add("SYNC")
+    return {str(name).upper() for name in names}
+
+
+_KNOWN_FUNCTION_NAMES = _known_function_names()
+
+
+def _function_echo_ok(sent: str, echoed: str) -> bool:
+    """长名下发、短名回读也算接受。LAMBda→LAMB，UPPeak→UPP，SPEed→SPE，TORQue→TORQ。
+
+    短名至少 3 个字符，并且不能是另一条完整功能名，避免 U 认成 URMS、PHI 认成 PHI_U1U2。
+    """
+    sent_u = str(sent or "").upper()
+    echo_u = str(echoed or "").upper()
+    if not sent_u or not echo_u:
+        return False
+    if sent_u == echo_u:
+        return True
+    if len(echo_u) < 3 or not sent_u.startswith(echo_u):
+        return False
+    if echo_u in _KNOWN_FUNCTION_NAMES and echo_u != sent_u:
+        return False
+    return True
+
+
+def _element_echo_ok(sent: str, echoed: str) -> bool:
+    sent_u = str(sent or "").upper()
+    echo_u = str(echoed or "").upper()
+    if sent_u == echo_u:
+        return True
+    if sent_u.isdigit() and echo_u in (f"ELEMENT{sent_u}", f"EL{sent_u}"):
+        return True
+    return False
+
+
 def item_echo_matches(token: str, reply: str) -> bool:
-    """ITEM? 回读必须包含原样功能名。仪器常在后面补 ,TOTAL，这算接受。
+    """ITEM? 回读必须对上功能名。仪器常在后面补 ,TOTAL，或把长名收成短名。
 
     不能用子串：U,1 会误中 FU,1。
     """
@@ -698,7 +746,19 @@ def item_echo_matches(token: str, reply: str) -> bool:
     wanted = str(token or "").upper().replace(" ", "")
     if not wanted or not payload:
         return False
-    return payload == wanted or payload.startswith(wanted + ",")
+    if payload == wanted or payload.startswith(wanted + ","):
+        return True
+    wanted_parts = [part for part in wanted.split(",") if part]
+    echo_parts = [part for part in payload.split(",") if part]
+    if not wanted_parts or not echo_parts:
+        return False
+    if not _function_echo_ok(wanted_parts[0], echo_parts[0]):
+        return False
+    if echo_parts[-1] == "TOTAL" and (len(wanted_parts) < 2 or wanted_parts[-1] != "TOTAL"):
+        echo_parts = echo_parts[:-1]
+    if len(echo_parts) != len(wanted_parts):
+        return False
+    return all(_element_echo_ok(sent, echoed) for sent, echoed in zip(wanted_parts[1:], echo_parts[1:]))
 
 
 def describe_mapping(config: Mapping) -> Dict[str, Any]:

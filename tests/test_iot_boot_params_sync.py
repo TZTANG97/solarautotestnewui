@@ -59,6 +59,84 @@ def test_extract_dc1_from_s1_dialog_keys():
     assert dc["pf"] == "100"
 
 
+def test_apply_bluesight_sas_from_iv_sets_mode_and_stc():
+    from utils.iot_boot_params_sync import apply_bluesight_sas_from_iv
+
+    class _Spin:
+        def __init__(self, value):
+            self.value = value
+
+        def setValue(self, value):
+            self.value = value
+
+    class _Combo:
+        def __init__(self):
+            self.idx = 0
+
+        def setCurrentIndex(self, idx):
+            self.idx = idx
+
+    ref = {
+        "combo_mode": _Combo(),
+        "sp_pmpp": _Spin(8.0),
+        "sp_umpp": _Spin(650.0),
+        "sp_ff": _Spin(0.8),
+    }
+    triple = apply_bluesight_sas_from_iv(
+        ref, {"vmp": "750", "imp": "16.666", "voc": "838.731", "isc": "17.211", "pf": "100"}
+    )
+    assert triple is not None
+    assert ref["combo_mode"].idx == 1
+    assert abs(ref["sp_umpp"].value - 750) < 1e-6
+    assert abs(ref["sp_pmpp"].value - 12.4995) < 1e-3
+    assert ref["sp_ff"].value > 0.8
+
+
+def test_apply_ac_boot_writes_itech_phase_not_only_chroma():
+    from utils.iot_boot_params_sync import apply_ac_boot_to_panels
+
+    class _Combo:
+        def __init__(self):
+            self.items = ["单相", "三相"]
+            self.idx = 0
+
+        def findText(self, text):
+            return self.items.index(text) if text in self.items else -1
+
+        def setCurrentIndex(self, idx):
+            self.idx = idx
+
+        def currentText(self):
+            return self.items[self.idx]
+
+    class _Text:
+        def __init__(self, value):
+            self.value = value
+
+        def setPlainText(self, text):
+            self.value = text
+
+    chroma_phase, itech_phase = _Combo(), _Combo()
+    chroma = type("C", (), {
+        "comboBox_Phase": chroma_phase,
+        "textEdit_AC_VOLT": _Text("220"),
+        "textEdit_AC_FR": _Text("50"),
+    })()
+    itech = {
+        "combo_phase": itech_phase,
+        "textEdit_VOLT": _Text("220"),
+        "textEdit_FR": _Text("50"),
+    }
+    apply_ac_boot_to_panels(
+        {"phase": "三相", "volt": "230", "freq": "50"},
+        chroma_ui=chroma,
+        itech_ref=itech,
+    )
+    assert chroma_phase.currentText() == "三相"
+    assert itech_phase.currentText() == "三相"
+    assert itech["textEdit_VOLT"].value == "230"
+
+
 def test_phase_combo_aliases():
     assert "三相" in phase_combo_aliases("Three")
     assert "单相" in phase_combo_aliases("Single")

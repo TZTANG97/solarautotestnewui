@@ -142,6 +142,27 @@ def test_bluesight_sas_iv_uses_page_not_chroma_defaults():
     assert extra["measures"]["vmp"] == "650"
 
 
+def test_bluesight_display_name_is_bluesight():
+    from utils.status_json_devices import canonical_reported_brand, dc_connection_extra
+
+    assert canonical_reported_brand("蓝点(Bluesight)（Modbus 网口）") == "bluesight"
+    extra = dc_connection_extra(
+        brand="bluesight",
+        iv={"vmp": "0", "voc": "", "imp": "", "isc": "", "pf": ""},
+        slot="dc1",
+        force_iv=True,
+    )
+    assert "widgets" not in extra or "textEdit_Vmp" not in (extra.get("widgets") or {})
+
+
+def test_bluesight_original_zero_voltage_is_not_vmp():
+    from utils.status_json_devices import bluesight_iv_fields
+
+    iv = bluesight_iv_fields({"mode": "original", "outmode": "cv", "voltage_v": 0})
+    assert iv["vmp"] == ""
+    assert iv["imp"] == ""
+
+
 def test_bluesight_original_load_does_not_copy_other_brand_iv():
     from utils.status_json_devices import bluesight_iv_fields
 

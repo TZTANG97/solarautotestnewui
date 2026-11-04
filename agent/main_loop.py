@@ -244,6 +244,15 @@ def _do_heartbeat(
     # 有关联 job 时额外打一枪 progress（任务详情页即时性更好）
     try:
         jid = int((run_snapshot or {}).get("jobId") or 0)
+        if jid <= 0 and active_job_id and run_snapshot:
+            from agent.heartbeat_settle import LOCAL_TERMINAL, shared_settle_state as _shared_settle
+
+            aid = int(active_job_id)
+            st_file = str(run_snapshot.get("status") or "").strip()
+            if st_file in LOCAL_TERMINAL and aid in _shared_settle().seen_running:
+                jid = aid
+                run_snapshot = dict(run_snapshot)
+                run_snapshot["jobId"] = aid
         if jid > 0 and run_snapshot:
             from utils.iot_run_snapshot import heartbeat_should_push_progress
 
@@ -272,14 +281,26 @@ def _do_heartbeat(
                 shared_settle_state,
             )
 
-            note_job_status(shared_settle_state(), jid, st)
-            if st in ("已结束", "已中止", "失败") and not settle_terminal:
-                logger.info(
-                    "交接等待中，心跳不结案 job=%s status=%s",
-                    jid,
-                    st,
-                )
-            elif st in ("已结束", "已中止", "失败"):
+            state_hb = shared_settle_state()
+            note_job_status(state_hb, jid, st)
+            from agent.heartbeat_settle import heartbeat_should_settle_terminal
+
+            if heartbeat_should_settle_terminal(
+                status=st,
+                settle_terminal=settle_terminal,
+                seen_running=jid in state_hb.seen_running,
+            ):
+                if not settle_terminal:
+                    try:
+                        from agent.heartbeat_settle import publish_terminal_result_if_missing
+
+                        publish_terminal_result_if_missing(
+                            Path(status_json_path).resolve().parent,
+                            jid,
+                            st,
+                        )
+                    except Exception as exc:
+                        logger.debug("交接终态写回 results 跳过 job=%s: %s", jid, exc)
                 apply_heartbeat_terminal_settle(
                     client,
                     repo_root=Path(status_json_path).resolve().parent,

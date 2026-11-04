@@ -261,6 +261,7 @@ def prepare_jobs_from_cloud_instruments(
 ) -> List[Tuple[str, dict, Any]]:
     """IOT 开测下发的 instruments → 连接计划（可在后台线程跑）。"""
     from utils.device_discovery import FoundDevice, connect_plan, parse_host_port
+    from utils.status_json_devices import canonical_reported_brand
 
     jobs: List[Tuple[str, dict, Any]] = []
     for item in instruments or []:
@@ -288,7 +289,9 @@ def prepare_jobs_from_cloud_instruments(
         if not kind or kind == "unknown":
             kind = "dc" if slot.startswith("dc") else slot
         proto = ""
-        bl = brand.lower()
+        bl = canonical_reported_brand(brand)
+        if bl:
+            brand = bl
         if bl == "bluesight" or (bl == "itech" and slot.startswith("dc")):
             proto = "modbus"
         elif slot == "ac" and (bl == "itech" or port_i == 502):

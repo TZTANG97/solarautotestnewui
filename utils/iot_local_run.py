@@ -464,7 +464,16 @@ def adopt_cloud_job(job_id: int, exper_id: Optional[int] = None) -> None:
 def notify_local_run_finished(*, aborted: bool = False) -> None:
     """试验正常结束或中止时结案；无登记则静默。"""
     if handoff_has_awaiting_job():
-        logger.info("[iot_local_run] handoff 等待结案，跳过本地 done，避免结到上一单")
+        logger.info("[iot_local_run] handoff 等待结案，跳过本地 done，改为立刻查终态")
+        try:
+            import SCPITestWave as sw
+
+            svc = getattr(sw, "_iot_ui_handoff_svc", None)
+            notify = getattr(svc, "notify_desktop_run_finished", None)
+            if callable(notify):
+                notify()
+        except Exception:
+            logger.debug("通知 handoff 结案失败", exc_info=True)
         return
     with _lock:
         jid = _state.get("job_id")

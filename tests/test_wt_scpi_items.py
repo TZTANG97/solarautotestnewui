@@ -290,4 +290,84 @@ def test_item_echo_rejects_lookalike_tokens():
     assert not item_echo_matches("URMS,1", ":NUMERIC:NORMAL:ITEM1 U,1,TOTAL")
     assert not item_echo_matches("U,1", ":NUMERIC:NORMAL:ITEM1 FU,1")
     assert not item_echo_matches("U(K),1", ":NUMERIC:NORMAL:ITEM1 UK,1,1")
+    # WT1806E 回读短名。长名对不上就会被丢掉，CSV 里整列没有。
+    assert item_echo_matches("LAMBDA,1", ":NUMERIC:NORMAL:ITEM2 LAMB,1")
+    assert item_echo_matches("UPPEAK,1", "UPP,1")
+    assert item_echo_matches("SPEED", ":NUM:NORM:ITEM1 SPE")
+    assert item_echo_matches("TORQUE", "TORQ")
+    assert item_echo_matches("URMS,1", "URMS,ELEMENT1")
+    assert not item_echo_matches("PHI_U1U2,1", "PHI,1")
+    assert not item_echo_matches("F10", "F1")
+    assert not item_echo_matches("URMS,1", "U,1")
+
+
+def test_wt1806e_uses_manual_commands_for_sync_delta_and_crest():
+    cfg = {
+        "Style": "Thai_WT1806E_Config",
+        "radio_S2_WT1806E": "1",
+        "checkBox_SetElement1": "1",
+        "checkBox_SetSigma": "1",
+        "checkBox_SetUrms": "1",
+        "checkBox_SetPF": "1",
+        "checkBox_SetUppeak": "1",
+        "checkBox_SetCfU": "1",
+        "checkBox_SetSpeed": "1",
+        "checkBox_SetTorque": "1",
+        "checkBox_SetSyncSp": "1",
+        "checkBox_SetDeltaU1": "1",
+        "checkBox_SetDeltaPSigma": "1",
+        "comboBox_ProjectNum": 3,
+    }
+    items = items_from_wt_config(cfg)
+    assert "URMS,1" in items and "URMS,SIGMA" in items
+    assert "LAMBDA,1" in items and "UPPEAK,1" in items and "CFU,1" in items
+    assert "SPEED" in items and "TORQUE" in items and "SYNC" in items
+    assert "SYNCSP" not in items
+    assert "DU1,SIGMA" in items and "DPS,SIGMA" in items
+    assert "DELTAU1" not in items
+
+
+class _FakeHandle:
+    def __init__(self):
+        self.items = {}
+
+    def write(self, command):
+        text = str(command).strip()
+        if text.upper().startswith(":NUMERIC:NORMAL:ITEM"):
+            head, _, token = text.partition(" ")
+            index = int("".join(ch for ch in head if ch.isdigit()))
+            self.items[index] = token.strip()
+
+    def query(self, command):
+        text = str(command).strip().upper()
+        if not text.startswith(":NUMERIC:NORMAL:ITEM"):
+            return "0"
+        index = int("".join(ch for ch in text if ch.isdigit()))
+        token = self.items.get(index, "NONE")
+        short = {
+            "LAMBDA": "LAMB",
+            "UPPEAK": "UPP",
+            "SPEED": "SPE",
+            "TORQUE": "TORQ",
+            "CFU": "CFU",
+            "URMS": "URMS",
+        }
+        parts = token.split(",")
+        parts[0] = short.get(parts[0].upper(), parts[0])
+        return f":NUMERIC:NORMAL:ITEM{index} {','.join(parts)}"
+
+
+def test_wt1806e_short_echo_is_kept_by_collector():
+    from devices.wt_data_collector import WtScpiCollector
+
+    class _Ctrl:
+        connected = True
+        handle = _FakeHandle()
+
+    collector = WtScpiCollector(_Ctrl())
+    accepted = collector._setup_numeric_items(
+        ["URMS,1", "LAMBDA,1", "UPPEAK,1", "SPEED", "TORQUE", "CFU,1"]
+    )
+    assert accepted == ["URMS,1", "LAMBDA,1", "UPPEAK,1", "SPEED", "TORQUE", "CFU,1"]
+    assert collector.warnings() == []
 

@@ -122,3 +122,77 @@ def fill_missing_phase_volts(widgets: Optional[Dict[str, Any]]) -> Dict[str, Any
     if normalize_output_on(out.get("comboBox_S1_AC")) is None:
         out["comboBox_S1_AC"] = "开启"
     return out
+
+
+def _set_phase_combo(combo, phase: str) -> bool:
+    if combo is None or not phase or not hasattr(combo, "findText"):
+        return False
+    for candidate in phase_combo_aliases(phase):
+        try:
+            idx = int(combo.findText(candidate))
+        except Exception:
+            continue
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+            return True
+    return False
+
+
+def _set_plain(widget, text: str) -> None:
+    if widget is None or not str(text or "").strip():
+        return
+    value = str(text).strip()
+    if hasattr(widget, "setPlainText"):
+        widget.setPlainText(value)
+    elif hasattr(widget, "setText"):
+        widget.setText(value)
+
+
+def apply_bluesight_sas_from_iv(ref, iv: Optional[Dict[str, str]]):
+    """把网页四点写到蓝点页：模式选 SAS，填 Pmpp(kW) / Umpp(V) / 填充因子。
+
+    曲线缓存用 100% 基准，工况功率%由试验步骤再乘。参数不够时返回 None。
+    """
+    from utils.guochan_sim_matrix import bluesight_stc_from_iv
+
+    if not isinstance(ref, dict):
+        return None
+    src = iv if isinstance(iv, dict) else {}
+    triple = bluesight_stc_from_iv(
+        src.get("vmp"),
+        src.get("imp"),
+        src.get("voc"),
+        src.get("isc"),
+        "100",
+    )
+    if not triple:
+        return None
+    pmpp, umpp, ff = triple
+    combo = ref.get("combo_mode")
+    if combo is not None and hasattr(combo, "setCurrentIndex"):
+        combo.setCurrentIndex(1)
+    for key, val in (("sp_pmpp", pmpp), ("sp_umpp", umpp), ("sp_ff", ff)):
+        spin = ref.get(key)
+        if spin is not None and hasattr(spin, "setValue"):
+            spin.setValue(float(val))
+    return (float(pmpp), float(umpp), float(ff))
+
+
+def apply_ac_boot_to_panels(ac: Optional[Dict[str, str]], *, chroma_ui=None, itech_ref=None) -> None:
+    """电压/频率/单相三相同时写致茂页和爱科页。
+
+    爱科连接读的是 combo_phase / textEdit_VOLT，只写致茂 comboBox_Phase
+    时，重连仍按爱科页上的「单相」下发，并回写成云端单相。
+    """
+    src = ac if isinstance(ac, dict) else {}
+    phase = str(src.get("phase") or "")
+    volt = str(src.get("volt") or "")
+    freq = str(src.get("freq") or "")
+    if chroma_ui is not None:
+        _set_phase_combo(getattr(chroma_ui, "comboBox_Phase", None), phase)
+        _set_plain(getattr(chroma_ui, "textEdit_AC_VOLT", None), volt)
+        _set_plain(getattr(chroma_ui, "textEdit_AC_FR", None), freq)
+    if isinstance(itech_ref, dict):
+        _set_phase_combo(itech_ref.get("combo_phase"), phase)
+        _set_plain(itech_ref.get("textEdit_VOLT"), volt)
+        _set_plain(itech_ref.get("textEdit_FR"), freq)

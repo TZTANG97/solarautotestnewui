@@ -603,6 +603,7 @@ class IotUiHandoffService(QObject):
 
     # (summary_or_none, error_or_none) — 探测在后台线程，回主线程继续交接
     _auto_connect_finished = pyqtSignal(object, object)
+    _desktop_run_finished = pyqtSignal()
 
     def __init__(
         self,
@@ -771,6 +772,7 @@ class IotUiHandoffService(QObject):
         self._stop_inflight = False
         self._job_ctx: Optional[Dict[str, Any]] = None
         self._auto_connect_finished.connect(self._on_auto_connect_finished)
+        self._desktop_run_finished.connect(self._check_awaiting_finish)
         # 云端仪器控制（连接/输出/德威创构造）回调，由 SCPITestWave 启动后挂载
         self.device_apply_connect = None
         self.device_apply_disconnect = None
@@ -817,6 +819,16 @@ class IotUiHandoffService(QObject):
 
         for root in self._write_roots_for(pending_path):
             write_result(root, job_id, result)
+
+    def notify_desktop_run_finished(self) -> None:
+        """桌面试验线程已写终态。立刻查一次，不必等下一拍定时器。"""
+        aw = self._awaiting
+        if isinstance(aw, dict):
+            aw["desktop_finished"] = True
+        try:
+            self._desktop_run_finished.emit()
+        except Exception as exc:
+            self._log(f"终态通知失败: {exc}")
 
     def poll_once(self) -> None:
         # 仪器控制（连接/输出/德威创构造）优先于试验任务，与自动化同路径
@@ -1554,7 +1566,11 @@ class IotUiHandoffService(QObject):
             return
 
         if status == "已结束":
-            if not aw.get("seen_running") and elapsed < start_grace:
+            if (
+                not aw.get("seen_running")
+                and not aw.get("desktop_finished")
+                and elapsed < start_grace
+            ):
                 # 可能仍是上一轮残留状态，再等片刻看是否进入「进行中」
                 return
             self._finish_job(
@@ -1579,7 +1595,11 @@ class IotUiHandoffService(QObject):
             return
 
         if status in ("已中止", "失败"):
-            if not aw.get("seen_running") and elapsed < start_grace:
+            if (
+                not aw.get("seen_running")
+                and not aw.get("desktop_finished")
+                and elapsed < start_grace
+            ):
                 return
             self._finish_job(
                 job_id=job_id,

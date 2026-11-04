@@ -40,6 +40,24 @@ def shared_settle_state() -> HeartbeatSettleState:
     return _shared
 
 
+def heartbeat_should_settle_terminal(
+    *,
+    status: str,
+    settle_terminal: bool,
+    seen_running: bool,
+) -> bool:
+    """桌面已是终态时是否调用 done。
+
+    交接过程里平时不结案，避免把上一单残留的「已结束」安到新任务上。
+    这一单已经进过进行中、桌面又写成终态时必须结案，否则网页一直停在执行中。
+    """
+    if str(status or "").strip() not in LOCAL_TERMINAL:
+        return False
+    if settle_terminal:
+        return True
+    return bool(seen_running)
+
+
 def note_job_status(state: HeartbeatSettleState, job_id: int, status: str) -> None:
     """非终态说明这单还没结完，不能沿用上一轮的「已结案」记忆。"""
     st = str(status or "").strip()
@@ -54,6 +72,34 @@ def note_job_status(state: HeartbeatSettleState, job_id: int, status: str) -> No
 
 def cloud_status_is_terminal(status: str) -> bool:
     return str(status or "").strip().lower() in CLOUD_TERMINAL
+
+
+def publish_terminal_result_if_missing(repo_root: Path, job_id: int, status: str) -> bool:
+    """交接线程还堵在 wait_result 时，先落下终态结果，避免超时后再把成功改成失败。"""
+    from agent.job_inbox import result_path, write_result
+
+    jid = int(job_id)
+    if jid <= 0:
+        return False
+    path = result_path(Path(repo_root), jid)
+    if path.is_file():
+        return False
+    st = str(status or "").strip()
+    write_result(
+        Path(repo_root),
+        jid,
+        {
+            "status": local_status_to_done(st),
+            "fail_reason": "" if st == "已结束" else f"台架状态={st}",
+            "result_summary": {
+                "source": "agent_heartbeat_status_json",
+                "run_status": st,
+            },
+            "report_meta": [],
+        },
+    )
+    logger.info("交接终态已写入 results job=%s status=%s", jid, st)
+    return True
 
 
 def local_status_to_done(status: str) -> str:
