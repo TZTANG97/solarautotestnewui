@@ -3247,8 +3247,58 @@ class IotUiHandoffService(QObject):
                                     continue
                                 filtered.append((slot, plan, dev))
                             jobs = filtered
-                        prepared = (jobs, [])
-                        if not had_cloud_jobs:
+
+                        # 云端常把 WT 写成 pending:wt（会被丢掉），AC/DC 有地址时不会整单回退；
+                        # 功率分析仪模式且本机未连 WT 时，只补扫本机 wt 槽位。
+                        want_wt = False
+                        for item in cloud_inst or []:
+                            if not isinstance(item, dict):
+                                continue
+                            if str(item.get("slot") or "").strip().lower() == "wt":
+                                want_wt = True
+                                break
+                        if not want_wt and isinstance(widgets, dict):
+                            if widgets.get("checkBox_S2") in (True, "1", 1, "true", "True"):
+                                want_wt = True
+                            if widgets.get("radio_wt") in (True, "1", 1, "true", "True") or widgets.get(
+                                "radio_wt3000"
+                            ) in (True, "1", 1, "true", "True"):
+                                want_wt = True
+                        wt_ok = False
+                        try:
+                            wt_ok = bool(self.session_ok("wt")) if self.session_ok else False
+                        except Exception:
+                            wt_ok = False
+                        has_wt_job = any(
+                            str(slot or "").strip().lower() == "wt" for slot, _p, _d in (jobs or [])
+                        )
+                        if (
+                            want_wt
+                            and not wt_ok
+                            and not has_wt_job
+                            and self.prepare_auto_connect
+                        ):
+                            try:
+                                local_jobs, local_devs = self.prepare_auto_connect()
+                                local_jobs = local_jobs or []
+                                wt_only = [
+                                    (s, p, d)
+                                    for s, p, d in local_jobs
+                                    if str(s or "").strip().lower() == "wt"
+                                ]
+                                if wt_only:
+                                    jobs = list(jobs or []) + wt_only
+                                    self._log("云端无有效 WT 地址，已本机补扫功率分析仪")
+                                    prepared = (jobs, local_devs or [])
+                                else:
+                                    prepared = (jobs, [])
+                            except Exception as wt_exc:
+                                self._log(f"本机补扫 WT 失败: {wt_exc}")
+                                prepared = (jobs, [])
+                        else:
+                            prepared = (jobs, [])
+
+                        if not had_cloud_jobs and not (prepared and prepared[0]):
                             err = ValueError("云端仪器配置无有效槽位/地址，将尝试本机扫连")
                         # had_cloud_jobs 但过滤后为空：全部已连，正常跳过连接
                     except Exception as exc:
