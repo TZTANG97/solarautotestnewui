@@ -2083,13 +2083,28 @@ def _emit_run_progress(persist=True, **kwargs):
 
 
 def _parse_progress_file_names():
-    """从 config_dict / 全局提取轮次文件名列表。"""
+    """从 config_dict / Upper_WT_Config 行提取轮次文件名列表。
+
+    OVUF 等项目把 FileNameList 写在命令队列的 Upper_WT_Config 里，
+    开跑时全局 config_dict 往往还是空的，不能只读全局，否则会退化成「轮次1..N」。
+    """
     names = []
     try:
         cfg = globals().get("config_dict") or {}
         raw = ""
         if isinstance(cfg, dict):
             raw = cfg.get("textEdit_FileNameList") or cfg.get("FileNameList") or ""
+        if not raw:
+            for row in globals().get("strArrayTest") or []:
+                if not row or len(row) < 5:
+                    continue
+                if row[0] != "Upper_WT_Config":
+                    continue
+                payload = row[4]
+                if isinstance(payload, dict):
+                    raw = payload.get("textEdit_FileNameList") or payload.get("FileNameList") or ""
+                    if raw:
+                        break
         if raw:
             names = [x.strip() for x in re.split(r",|，", str(raw)) if x.strip()]
     except Exception:
@@ -21541,6 +21556,17 @@ def thaiguoqianya_pinSend():
                 "[过欠压_过欠频] 分开录，共 %d 个文件：%s"
                 % (len(_ovuf_names), ",".join(_ovuf_names))
             )
+        # 进度轮次表依赖 config_dict.FileNameList；IOT 开跑时若只写在 WT 配置行会退化成「轮次1..N」
+        try:
+            global config_dict
+            if not isinstance(config_dict, dict):
+                config_dict = {}
+            _names_for_progress = list(_ovuf_names or [])
+            if _names_for_progress:
+                _names_for_progress = _finalize_recording_file_names(_names_for_progress)
+                config_dict["textEdit_FileNameList"] = ",".join(_names_for_progress)
+        except Exception as _e:
+            _append_debug_log(f"[过欠压_过欠频] sync FileNameList to config_dict failed: {_e}")
 
     if strShowErrorMessageBoxFlag == "1":
         QMessageBox.information(None, "错误提示信息", "DC电源1赋值错误,请重新输入", QMessageBox.Ok, QMessageBox.Ok)
@@ -26423,11 +26449,24 @@ def RunProject():
             try:
                 _detail = f"[{_dev}] {_op} {str(_scpi)[:80]}".strip()
                 _sync_queue_for_cmd(i + 1)
+                _cr = (
+                    (int(now_save_file) + 1)
+                    if int(globals().get("total_save_file") or 0) > 0
+                    else int(_run_progress_state.get("current_round") or 0)
+                )
+                # 进入某一轮时把该行标成进行中，避免 IOT 一直显示「等待」
+                try:
+                    _rounds = _run_progress_state.get("rounds") or []
+                    if _cr > 0 and _rounds and 0 <= (_cr - 1) < len(_rounds):
+                        if str(_rounds[_cr - 1].get("status") or "") == "等待":
+                            _set_run_progress_round(_cr - 1, "进行中", note="执行中")
+                except Exception:
+                    pass
                 _emit_run_progress(
                     status="进行中",
                     cmd_index=i + 1,
                     cmd_total=len(strArrayTest),
-                    current_round=(int(now_save_file) + 1) if int(globals().get("total_save_file") or 0) > 0 else int(_run_progress_state.get("current_round") or 0),
+                    current_round=_cr,
                     current_detail=_detail,
                     persist=(i % 5 == 0 or i + 1 == len(strArrayTest)),
                 )

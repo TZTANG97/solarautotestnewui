@@ -197,6 +197,7 @@ def test_rewrite_ac_idn_queries_as_wait():
     rows = [
         ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
         ["AC", "query", "*IDN?", "", "", "", "", "", "", 1200],
+        ["AC", "query", "*IDN?", "", "", "", 50, "", "", ""],  # 段首 col6 测量触发
         ["AC", "query", "MEAS:VOLT?", "", "", "", "", "", "", ""],
         ["DC1", "query", "*IDN?", "", "", "", "", "", "", ""],
     ]
@@ -204,5 +205,6 @@ def test_rewrite_ac_idn_queries_as_wait():
     assert rows[1][1] == "wait"
     assert rows[1][2] == "IDN_NOP"
     assert rows[1][9] == 1200
-    assert rows[2][1] == "query"
+    assert rows[2][1] == "query" and rows[2][2] == "*IDN?" and rows[2][6] == 50
     assert rows[3][1] == "query"
+    assert rows[4][1] == "query"

@@ -267,11 +267,11 @@ def _is_idn_query(row) -> bool:
 
 
 def rewrite_ac_idn_queries_as_wait(commands) -> int:
-    """把试验队列里所有 AC query *IDN? 改成 wait，避免半开 TCP 把跑环卡死。
+    """把「纯驻留」AC query *IDN? 改成 wait，避免半开 TCP 把跑环卡死。
 
-    *IDN? 在队列里从不读返回值，只当驻留/锚点。改成 wait 后：
-    - 进度文案不再长期停在 ``[AC] query *IDN?``；
-    - 中止能在驻留循环里立刻生效（query 阻塞时连结束标志都读不到）。
+    *IDN? 在队列里从不读返回值。但分开录时段首点把驻留放在 col6/col7
+    触发 WT 测量——这类行必须留在 query 分支（由 run_loop 跳过真查询），
+    若改成 wait 会丢掉测量触发，录波轮次会一直停在「等待」（job108）。
     """
     if not commands:
         return 0
@@ -281,6 +281,12 @@ def rewrite_ac_idn_queries_as_wait(commands) -> int:
             continue
         while len(row) < 10:
             row.append("")
+        # 测量触发锚点：保留 query，真 *IDN? 由 is_idn_nop / 硬超时跳过
+        if _numeric_slot(row[6]) is not None or _numeric_slot(row[7]) is not None:
+            continue
+        marker = str(row[6] or "").strip().upper()
+        if marker in ("ASYNC_START", "WAIT_END", "WT_ASYNC_START", "WT_WAIT_END"):
+            continue
         row[1] = "wait"
         row[2] = "IDN_NOP"
         n += 1
