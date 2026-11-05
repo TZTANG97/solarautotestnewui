@@ -3548,10 +3548,31 @@ class IotUiHandoffService(QObject):
                         still_bad = apply_ovuf_critical_widgets(
                             real_ui, widgets, log=self._log, rounds=2
                         )
-                        if still_bad:
-                            self._log(f"追加前过欠压字段仍不一致: {still_bad}")
                     except Exception as _pre_exc:
                         self._log(f"追加前过欠压强制写入跳过: {_pre_exc}")
+                        still_bad = ["__apply_exc__"]
+                    if still_bad:
+                        # 禁止带着 181.7/11 等脏 Dialog 生成命令
+                        self._write_result_all(
+                            pending_path,
+                            job_id,
+                            {
+                                "status": "failed",
+                                "fail_reason": (
+                                    "过欠压关键字段写入后回读不一致，已中止追加以免用本机旧值跑扫段: "
+                                    + ",".join(str(x) for x in still_bad[:12])
+                                )[:500],
+                                "result_summary": {
+                                    "handoff": True,
+                                    "appended": False,
+                                    "started": False,
+                                    "missingWidgets": missing,
+                                    "ovuf_mismatch": list(still_bad)[:20],
+                                },
+                            },
+                        )
+                        self._move_pending_done(pending_path)
+                        return
                 # 队列已空且自动开跑：覆盖，防残留计数叠第二套。
                 # 桌面已追加（队列非空）或本机已在跑：保留队列，交给 apply_append_mode。
                 from utils.iot_force_overwrite_append import (
