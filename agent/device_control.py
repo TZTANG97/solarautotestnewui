@@ -14,10 +14,17 @@ def _repo_root() -> Path:
 
 
 def control_timeout_sec(action_payload: Dict[str, Any], *, default: float = 25.0) -> float:
-    """discover_lan 扫网可能远超普通 connect；与云端 CTRL_DISCOVER_EXPIRE_SEC 对齐。"""
+    """discover_lan / WT 连接可能远超普通 connect；与云端超时对齐。"""
     act = str(action_payload.get("action") or "").strip().lower()
     if act == "discover_lan":
         return 180.0
+    if act == "connect":
+        inst = action_payload.get("instrument") if isinstance(action_payload.get("instrument"), dict) else {}
+        slot = str((inst or {}).get("slot") or "").strip().lower()
+        kind = str((inst or {}).get("kind") or "").strip().lower()
+        # WT VISA 多后端×多资源串试连，单次可能 >25s
+        if slot == "wt" or kind == "wt":
+            return 90.0
     return float(default)
 
 

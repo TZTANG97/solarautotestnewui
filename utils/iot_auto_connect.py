@@ -256,6 +256,22 @@ def explain_ac_brand_port_mismatch(
     return ""
 
 
+def explain_wt_port_mismatch(*, port: Optional[int] = None) -> str:
+    """WT 误填电源端口时返回说明。502/2101 会让 VISA 连很久，Agent 表现为「等待桌面超时」。"""
+    if port is None:
+        return ""
+    try:
+        port_i = int(port)
+    except (TypeError, ValueError):
+        return ""
+    if port_i in (502, 2101):
+        return (
+            f"WT 端口 {port_i} 不对：502/2101 是电源口；"
+            "横河 WT 请改成 5025（常见）或 10001"
+        )
+    return ""
+
+
 def prepare_jobs_from_cloud_instruments(
     instruments: Sequence[Dict[str, Any]],
 ) -> List[Tuple[str, dict, Any]]:

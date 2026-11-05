@@ -35562,15 +35562,26 @@ if __name__ == "__main__":
                     from utils.iot_auto_connect import (
                         apply_prepared_connect_jobs,
                         explain_ac_brand_port_mismatch,
+                        explain_wt_port_mismatch,
                         prepare_jobs_from_cloud_instruments,
                     )
 
                     inst = instrument or {}
                     widgets_in = inst.get("widgets") if isinstance(inst.get("widgets"), dict) else {}
+                    slot_l = str(inst.get("slot") or "").strip().lower()
+                    kind_l = str(inst.get("kind") or "").strip().lower()
+
+                    # 桌面 Soft Panel 已连上：IOT 再点「连接」直接成功，勿重连拖到超时
+                    if slot_l and _iot_slot_session_ok(slot_l):
+                        return {
+                            "ok": True,
+                            "message": f"{slot_l} 桌面已连接，无需重复连接",
+                            "connected": [slot_l],
+                            "errors": [],
+                        }
 
                     # AC/DC：兼容 Soft Panel 键与试验 Dialog 的 S1_*（Web 重连表单）
                     try:
-                        slot_l = str(inst.get("slot") or "").strip().lower()
                         if slot_l in ("", "ac") or slot_l.startswith("dc"):
                             _iot_sync_boot_params_to_soft_panel(
                                 widgets_in,
@@ -35610,8 +35621,11 @@ if __name__ == "__main__":
                         brand=str(inst.get("brand") or ""),
                         port=port_i,
                     )
-                    if mismatch and str(inst.get("slot") or "").strip().lower() in ("", "ac"):
+                    if mismatch and slot_l in ("", "ac"):
                         return {"ok": False, "message": mismatch}
+                    wt_mismatch = explain_wt_port_mismatch(port=port_i)
+                    if wt_mismatch and (slot_l == "wt" or kind_l == "wt"):
+                        return {"ok": False, "message": wt_mismatch}
 
                     jobs = prepare_jobs_from_cloud_instruments([inst])
                     if not jobs:
