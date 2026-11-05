@@ -26486,17 +26486,18 @@ def RunProject():
                                 )
 
                 if strArrayTest[i][1] == "query":
-                    is_idn_nop = False
                     query_ok = False
                     try:
                         if strTestStatusFlag == "结束":
                             break
                         command = strArrayTest[i][2]
-                        # 爱科 Modbus：用 _itech.translate()；其他：用 handle.query()
-                        # *IDN? 常被当 nop/延时锚点；AC TCP 半开时 query 会永久卡住，
-                        # 进度一直停在「[AC] query *IDN?」。启机/点间 nop 限 2s 超时。
+                        # *IDN? 在试验队列里只是 nop/驻留/触发测量的锚点，从不读返回值。
+                        # AC TCP 半开时 handle.query 会无视 timeout 永久卡住（job105/106）。
+                        # 直接跳过真查询，继续走 [9]/[8]/[7]/[6]。
                         is_idn_nop = str(command or "").strip().upper() in ("*IDN?", "IDN?")
-                        if ac_controller is None:
+                        if is_idn_nop:
+                            result = "IDN nop skipped (no AC query)"
+                        elif ac_controller is None:
                             result = "AC not connected"
                         elif getattr(ac_controller, "_itech", None) is not None:
                             result = f"Modbus query: {command}"
@@ -26505,24 +26506,7 @@ def RunProject():
                             if handle is None:
                                 result = "AC handle missing"
                             else:
-                                old_timeout = getattr(handle, "timeout", None)
-                                try:
-                                    if is_idn_nop:
-                                        try:
-                                            handle.timeout = 2000
-                                        except Exception:
-                                            pass
-                                    result = handle.query(command)
-                                finally:
-                                    if is_idn_nop:
-                                        try:
-                                            handle.timeout = (
-                                                old_timeout
-                                                if old_timeout is not None
-                                                else 10000
-                                            )
-                                        except Exception:
-                                            pass
+                                result = handle.query(command)
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "AC "+ command)
                         logger.info(f"AC query result: {result}")
@@ -26531,23 +26515,6 @@ def RunProject():
                     except Exception as e:
                         print(e)
                         logger.error(f"AC query error: {e}")
-                        # *IDN? nop 超时后仍要走 [9]/[8] 驻留，避免点间等待被吃掉
-                        if is_idn_nop:
-                            if strArrayTest[i][9] != '':
-                                _wait_command_dwell_01s(
-                                    i + 1, strArrayTest[i][9], log_tag="query,col9,idn-fail"
-                                )
-                            if strArrayTest[i][8] != '':
-                                try:
-                                    iTestTime = int(strArrayTest[i][8])
-                                except (TypeError, ValueError):
-                                    iTestTime = 0
-                                for x in range(max(0, iTestTime)):
-                                    if strTestStatusFlag == "结束":
-                                        break
-                                    while strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    time.sleep(0.1)
                     if query_ok:
                         # query 后的 [9]/[8] 仍作为等待字段使用
                         if strArrayTest[i][9] != '':
