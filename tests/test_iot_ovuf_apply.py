@@ -97,3 +97,30 @@ def test_float_format_182_vs_182_0_equal(ovuf_ui):
     )
     assert bad == []
     assert read_named_widget(ovuf_ui, "textEdit_S4_AC_VOLT_End") in ("182", "182.0")
+
+
+def test_iot_min_unit_maps_to_chinese_combo(ovuf_ui):
+    """job110：IOT 下发 min，Dialog 只有「分钟」——必须写进并回读通过。"""
+    from utils.iot_ovuf_apply import (
+        apply_ovuf_critical_widgets,
+        normalize_time_unit,
+        read_named_widget,
+    )
+
+    assert normalize_time_unit("min") == "分钟"
+    assert normalize_time_unit("sec") == "秒"
+    ovuf_ui.comboBox_S1_TIME.setCurrentText("秒")
+    ovuf_ui.comboBox_ovuf_grid_wait.setCurrentText("秒")
+    bad = apply_ovuf_critical_widgets(
+        ovuf_ui,
+        {
+            "comboBox_S1_TIME": "min",
+            "textEdit_S1_TIME": "2",
+            "comboBox_ovuf_grid_wait": "min",
+            "textEdit_ovuf_grid_wait": "2",
+        },
+        rounds=2,
+    )
+    assert bad == []
+    assert read_named_widget(ovuf_ui, "comboBox_S1_TIME") == "分钟"
+    assert read_named_widget(ovuf_ui, "comboBox_ovuf_grid_wait") == "分钟"

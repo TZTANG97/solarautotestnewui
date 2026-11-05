@@ -51,10 +51,67 @@ def _norm(val: Any) -> str:
     return str(val if val is not None else "").strip()
 
 
-def _values_equal(want: str, got: str) -> bool:
-    """字符串相等；数值字段允许 182 vs 182.0。"""
+# IOT/Blockly 常下发 min|sec|ms；Dialog 选项只有 分钟|秒|毫秒
+_TIME_UNIT_ALIASES = {
+    "min": "分钟",
+    "mins": "分钟",
+    "minute": "分钟",
+    "minutes": "分钟",
+    "分钟": "分钟",
+    "sec": "秒",
+    "secs": "秒",
+    "second": "秒",
+    "seconds": "秒",
+    "s": "秒",
+    "秒": "秒",
+    "ms": "毫秒",
+    "msec": "毫秒",
+    "millis": "毫秒",
+    "millisecond": "毫秒",
+    "milliseconds": "毫秒",
+    "毫秒": "毫秒",
+}
+
+_TIME_UNIT_KEYS = frozenset(
+    {
+        "comboBox_S1_TIME",
+        "comboBox_S3_TIME",
+        "comboBox_S4_TIME",
+        "comboBox_S5_TIME",
+        "comboBox_S6_TIME",
+        "comboBox_S7_TIME",
+        "comboBox_S8_TIME",
+        "comboBox_ovuf_grid_wait",
+    }
+)
+
+
+def normalize_time_unit(val: Any) -> str:
+    """把 min/sec/ms 等归一成 Dialog 上的 分钟/秒/毫秒。"""
+    s = _norm(val)
+    if not s:
+        return s
+    return _TIME_UNIT_ALIASES.get(s.lower(), _TIME_UNIT_ALIASES.get(s, s))
+
+
+def time_unit_aliases(val: Any) -> List[str]:
+    """供 QComboBox.findText 尝试的候选（含原文与中文）。"""
+    raw = _norm(val)
+    canon = normalize_time_unit(raw)
+    out: List[str] = []
+    for x in (raw, canon, "分钟", "秒", "毫秒"):
+        if x and x not in out:
+            out.append(x)
+    return out
+
+
+def _values_equal(want: str, got: str, *, key: str = "") -> bool:
+    """字符串相等；数值字段允许 182 vs 182.0；时间单位允许 min≈分钟。"""
     if want == got:
         return True
+    if key in _TIME_UNIT_KEYS or key.endswith("_TIME") or "grid_wait" in key:
+        if normalize_time_unit(want) == normalize_time_unit(got):
+            return True
     try:
         return abs(float(want) - float(got)) < 1e-9
     except (TypeError, ValueError):
@@ -100,6 +157,9 @@ def critical_payload(widgets: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         v = src.get(k)
         if v is None or _norm(v) == "":
             continue
+        # 写入前先把 min→分钟，否则 QComboBox.findText("min") 失败，回读永远不一致
+        if k in _TIME_UNIT_KEYS:
+            v = normalize_time_unit(v)
         out[k] = v
     return out
 
@@ -120,7 +180,7 @@ def readback_mismatch(
         want = _norm(expected.get(k))
         got = read_named_widget(root, k)
         snap[k] = got
-        if want and not _values_equal(want, got):
+        if want and not _values_equal(want, got, key=k):
             bad.append(k)
     return snap, bad
 

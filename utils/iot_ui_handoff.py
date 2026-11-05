@@ -378,6 +378,21 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
                                     break
                         except Exception:
                             pass
+                    # IOT 常下发 min|sec|ms；Dialog 选项是 分钟|秒|毫秒（job110 因此回读失败）
+                    if idx < 0 and (
+                        key.endswith("_TIME")
+                        or key in ("comboBox_ovuf_grid_wait",)
+                        or "TIME" in key
+                    ):
+                        try:
+                            from utils.iot_ovuf_apply import time_unit_aliases
+
+                            for cand in time_unit_aliases(text):
+                                idx = w.findText(str(cand))
+                                if idx >= 0:
+                                    break
+                        except Exception:
+                            pass
                     # Web/Blockly 写 ON|OFF|true；Dialog 选项是 开启|关闭
                     if idx < 0 and (
                         key.startswith("comboBox_S1_AC")
