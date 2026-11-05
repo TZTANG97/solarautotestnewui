@@ -369,6 +369,36 @@ def _move_wait_to_col9(row):
     return wait
 
 
+def ovuf_split_collect_sec(commands) -> int:
+    """分开录：WT StopTime 应等于扫点驻留（col6/col9），禁止沿用 Soft Panel 默认 5 分钟。
+
+    首点 col6 触发测量并阻塞到结束；若 StopTime 仍是 00:05:00，进度会停在
+    「第16条 [AC] query *IDN?」空等整五分钟（job112）。
+    """
+    max_01s = 0
+    for row in commands or []:
+        if not row or len(row) < 3:
+            continue
+        # 扫点测量锚点（query *IDN? / wait IDN_NOP）上的驻留
+        action = str(row[1] or "").strip().lower()
+        cmd = str(row[2] or "").strip().upper()
+        if action == "query" and cmd in ("*IDN?", "IDN?"):
+            pass
+        elif action == "wait" and cmd in ("IDN_NOP", "*IDN?", "IDN?"):
+            pass
+        else:
+            continue
+        for slot in (6, 7, 9):
+            if len(row) <= slot:
+                continue
+            wait = _numeric_slot(row[slot])
+            if wait is not None and wait > max_01s:
+                max_01s = wait
+    if max_01s <= 0:
+        return 2
+    return max(1, int(round(max_01s / 10.0)))
+
+
 def apply_ovuf_recording_mode(commands, ui, *, continuous: bool, wt_on: bool) -> int:
     """按录波方式改写扫点测量触发。返回应累加的 total_save_file 增量。"""
     segs = enabled_ovuf_segments(ui)

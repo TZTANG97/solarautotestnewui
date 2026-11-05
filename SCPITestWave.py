@@ -21506,25 +21506,32 @@ def thaiguoqianya_pinSend():
         continuous=wt_continuous,
         wt_on=wt_on,
     )
-    # 连续录：按扫段总驻留写入 WT StopTime，避免沿用 IOT/界面残留的 00:05:00 等旧值，
-    # 也避免 ASYNC 重算时漏计驻留只剩「步数×0.3s+余量≈26s」误导 Soft Panel。
+    # 连续录：按扫段总驻留写入 WT StopTime。
+    # 分开录：StopTime 必须等于扫点驻留（与谐波一致），禁止沿用 Soft Panel 默认 5 分钟，
+    # 否则首点 col6 会卡在「第16条 [AC] query *IDN?」空等整段 StopTime（job112）。
     _ovuf_stop_str = ""
-    if wt_on and wt_continuous and _ovuf_file_inc > 0:
+    if wt_on and _ovuf_file_inc > 0:
         try:
-            from utils.voltage_adaptability_commands import (
-                extract_continuous_band_rows,
-                recalculate_stoptime_from_band_rows,
-            )
-
-            _band = extract_continuous_band_rows(strArrayTest)
-            if _band:
-                _ovuf_stop_str, _ovuf_stop_sec, *_ = recalculate_stoptime_from_band_rows(
-                    _band
+            if wt_continuous:
+                from utils.voltage_adaptability_commands import (
+                    extract_continuous_band_rows,
+                    recalculate_stoptime_from_band_rows,
                 )
+
+                _band = extract_continuous_band_rows(strArrayTest)
+                if _band:
+                    _ovuf_stop_str, _ovuf_stop_sec, *_ = recalculate_stoptime_from_band_rows(
+                        _band
+                    )
+                else:
+                    _ovuf_stop_sec = int(round(float(total_test_time) + 60))
+                    if _ovuf_stop_sec < 20:
+                        _ovuf_stop_sec = 20
+                    _ovuf_stop_str = _seconds_to_stoptime_str(_ovuf_stop_sec)
             else:
-                _ovuf_stop_sec = int(round(float(total_test_time) + 60))
-                if _ovuf_stop_sec < 20:
-                    _ovuf_stop_sec = 20
+                from utils.ovuf_recording import ovuf_split_collect_sec
+
+                _ovuf_stop_sec = ovuf_split_collect_sec(strArrayTest)
                 _ovuf_stop_str = _seconds_to_stoptime_str(_ovuf_stop_sec)
             for _cfg_row in strArrayTest:
                 if (
@@ -21553,8 +21560,8 @@ def thaiguoqianya_pinSend():
             )
         else:
             ui.textEdit_ReturnMessage.append(
-                "[过欠压_过欠频] 分开录，共 %d 个文件：%s"
-                % (len(_ovuf_names), ",".join(_ovuf_names))
+                "[过欠压_过欠频] 分开录，共 %d 个文件：%s，StopTime %s"
+                % (len(_ovuf_names), ",".join(_ovuf_names), _ovuf_stop_str or "-")
             )
         # 进度轮次表依赖 config_dict.FileNameList；IOT 开跑时若只写在 WT 配置行会退化成「轮次1..N」
         try:
@@ -26258,12 +26265,27 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
     台架实情：③「数据采集」常写成 5 分钟塞进 col6，而 WT StopTime 可能更短
     （例如 2 分钟）。旧逻辑先 sleep 满 col6 再查 test_status，会出现
     「停止时间早就到了、试验还在空等」。
+    进度文案必须写成「等待WT录波」，避免一直显示 [AC] query *IDN? 像卡死。
     """
-    global test_status, strTestStatusFlag
+    global test_status, strTestStatusFlag, WT_auto_messure_status
     try:
         ticks = max(0, int(float(dwell_01s)))
     except (TypeError, ValueError):
         ticks = 0
+
+    def _progress_measure(waited_s, total_s, note=""):
+        try:
+            detail = f"等待WT录波 {waited_s:.0f}/{total_s:.0f}s"
+            if note:
+                detail = f"{detail}（{note}）"
+            _emit_run_progress(
+                status="进行中",
+                cmd_index=int(cmd_no),
+                current_detail=detail,
+                persist=True,
+            )
+        except Exception:
+            pass
 
     # 1) 最长等到数据采集时长，但录波一结束（test_status=0）马上跳出
     for x in range(ticks):
@@ -26282,6 +26304,8 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
             )
             test_status = ''
             return
+        if x % 10 == 0:
+            _progress_measure(x * 0.1, max(ticks * 0.1, 0.1))
         if x % 100 == 0 and ticks > 100:
             logger.info(
                 f"等待测量/采集: 第{cmd_no}条({log_tag}), "
@@ -26295,10 +26319,31 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
                 pass
         time.sleep(0.1)
 
-    # 2) 采集时长已满但录波可能仍未停：再等到 testing_stop
+    # 触发位仍是 1：测量线程从未进门（WT 未就绪），勿再空等一小时
+    if str(WT_auto_messure_status or "") == "1":
+        logger.error(
+            f"WT 未启动录波（门闩未满足），跳过等待: 第{cmd_no}条({log_tag})"
+        )
+        _append_debug_log(
+            f"[run_loop] WT trigger not consumed at command#{cmd_no} ({log_tag}); "
+            f"setting_status/messure_status may be not ready"
+        )
+        WT_auto_messure_status = ""
+        test_status = "0"
+        _progress_measure(ticks * 0.1, ticks * 0.1, note="WT未启动已跳过")
+        try:
+            if ui is not None:
+                ui.textEdit_ReturnMessage.append(
+                    f"[功率分析仪] 第{cmd_no}条触发后 WT 未启动录波，已跳过等待"
+                )
+        except Exception:
+            pass
+        return
+
+    # 2) 采集时长已满但录波可能仍未停：再等到 testing_stop（上限 180s，旧 3600 像卡死）
     wait_start = time.time()
     last_log_sec = -1
-    wait_timeout_sec = 3600
+    wait_timeout_sec = 180
     while True:
         if strTestStatusFlag == "结束":
             break
@@ -26309,6 +26354,11 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
                 f"test_status={test_status}, 已等待{elapsed}s"
             )
             last_log_sec = elapsed
+            _progress_measure(
+                ticks * 0.1 + elapsed,
+                ticks * 0.1 + wait_timeout_sec,
+                note="收尾",
+            )
             try:
                 from utils.iot_run_snapshot import touch_running_project
 
@@ -26326,9 +26376,17 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
                 f"等待测量完成超时: 第{cmd_no}条命令({log_tag}), "
                 f"test_status={test_status}, 超时{wait_timeout_sec}s"
             )
-            _show_connect_message(
-                f"自动化等待测量结果超时（第{cmd_no}条,{log_tag}）", ui
+            _append_debug_log(
+                f"[run_loop] measure wait timeout at command#{cmd_no} ({log_tag}); force clear"
             )
+            test_status = "0"
+            try:
+                if ui is not None:
+                    ui.textEdit_ReturnMessage.append(
+                        f"[功率分析仪] 第{cmd_no}条等待录波超时 {wait_timeout_sec}s，已强制继续"
+                    )
+            except Exception:
+                pass
             break
         time.sleep(0.05)
 
@@ -30135,38 +30193,65 @@ def messure_testing():
                 _append_debug_log(
                     f"[messure_testing][warn] file_list_count({len(test_count)}) != total_save_file({total_save_file})"
                 )
-            if len(test_count) == 0:
+            if len(test_count) == 0 or (
+                len(test_count) == 1 and not str(test_count[0] or "").strip()
+            ):
                 _append_debug_log(
                     "[messure_testing][error] empty file list, skip this round (WT trigger consumed; check UI filename list)"
                 )
+                # 必须放行 run_loop，否则会卡在第16条 [AC] query *IDN? 空等
+                test_status = "0"
+                WT_auto_messure_status = ""
             else:
                 # 计算 loop_time（单位：0.1 秒）
                 # 原因：后面用 for + sleep(0.1) 计时，因此秒数要乘以 10
                 stop_raw = ""
-                # 连续录（ASYNC…WAIT_END）：一律用 Append/ASYNC 按区间×步长×驻留重算后的
-                # config_dict.StopTime。过欠压旧分支若走 test_time_list（常残留 00:05:00），
-                # Soft Panel 会按 5 分钟空等，阶梯早跑完却卡在停表；试验员误以为「采集没同步」。
+                # 优先用 Append 写入的 config_dict.StopTime（过欠压分开录已同步为扫点驻留）。
+                # 旧分支走 test_time_list 常残留 Soft Panel 00:05:00，首点空等 5 分钟（job112）。
                 _use_cfg_stop = bool(_wt_async_session_active)
-                if not _use_cfg_stop and (
-                    test_program[0][0] == '7' or test_program[0][0] == '11'
+                try:
+                    if isinstance(config_dict, dict):
+                        stop_raw = config_dict.get("textEdit_StopTime") or ""
+                except Exception:
+                    stop_raw = ""
+                loop_from_cfg = _stoptime_to_loop_01s(stop_raw, fallback_hms=None)
+                if loop_from_cfg is not None and loop_from_cfg > 0:
+                    loop_time = loop_from_cfg
+                    if volt_fz_first_status == 0 and (
+                        not test_program
+                        or test_program[0][0] in ("7", "11")
+                    ):
+                        volt_fz_first_status = 1
+                elif not _use_cfg_stop and test_program and (
+                    test_program[0][0] == "7" or test_program[0][0] == "11"
                 ):
-                    # 项目 7/11 分开录：首轮/后续轮仍用历史时长表
+                    # 无同步 StopTime 时的旧兜底
                     if volt_fz_first_status == 0:
-                        loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
+                        loop_time = int(
+                            test_time_list[0] * 3600
+                            + test_time_list[1] * 60
+                            + test_time_list[2]
+                        ) * 10
                         volt_fz_first_status = 1
                     else:
-                        loop_time = int(per_test_time_list[now_save_file]) * 10
+                        try:
+                            loop_time = int(per_test_time_list[now_save_file]) * 10
+                        except Exception:
+                            loop_time = int(
+                                test_time_list[0] * 3600
+                                + test_time_list[1] * 60
+                                + test_time_list[2]
+                            ) * 10
                 else:
-                    try:
-                        if isinstance(config_dict, dict):
-                            stop_raw = config_dict.get("textEdit_StopTime") or ""
-                    except Exception:
-                        stop_raw = ""
                     loop_time = _stoptime_to_loop_01s(stop_raw, fallback_hms=test_time_list)
                     if loop_time is None:
-                        loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
-                    if _use_cfg_stop and volt_fz_first_status == 0 and (
-                        test_program[0][0] == '7' or test_program[0][0] == '11'
+                        loop_time = int(
+                            test_time_list[0] * 3600
+                            + test_time_list[1] * 60
+                            + test_time_list[2]
+                        ) * 10
+                    if _use_cfg_stop and volt_fz_first_status == 0 and test_program and (
+                        test_program[0][0] == "7" or test_program[0][0] == "11"
                     ):
                         volt_fz_first_status = 1
 

@@ -19,6 +19,7 @@ from utils.ovuf_recording import (
     build_ovuf_sweep_points,
     enabled_ovuf_segments,
     make_ovuf_boot_wait_row,
+    ovuf_split_collect_sec,
     ovuf_sweep_project,
     recommended_ovuf_names,
     rewrite_ac_idn_queries_as_wait,
@@ -231,3 +232,14 @@ def test_rewrite_ac_idn_queries_as_wait():
     assert rows[2][1] == "query" and rows[2][2] == "*IDN?" and rows[2][6] == 50
     assert rows[3][1] == "query"
     assert rows[4][1] == "query"
+
+def test_ovuf_split_collect_sec_from_point_dwell():
+    """分开录 StopTime 取扫点驻留，勿沿用 Soft Panel 默认 5 分钟。"""
+    rows = [
+        ["AC", "write", "VOLT 230", "", "", "", "", "", "", ""],
+        ["AC", "query", "*IDN?", "", "", "", 20, "", "", ""],
+        ["AC", "write", "VOLT 231.15", "", "", "", "", "", "", ""],
+        ["AC", "query", "*IDN?", "", "", "", "", "", "", 30],
+    ]
+    assert ovuf_split_collect_sec(rows) == 3
+    assert ovuf_split_collect_sec([]) == 2
