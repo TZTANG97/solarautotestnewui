@@ -66,3 +66,17 @@ def test_job_wants_dewetron_respects_wt_mode():
     assert job_wants_dewetron(instruments=[{'slot': 'wt'}]) is False
     assert job_wants_dewetron(instruments=[{'slot': 'dew'}]) is True
     assert job_wants_dewetron() is False
+    # ac/dc + 残留 dew、未勾德威创 → 不得当要连德威创（否则过欠压乱弹连接失败）
+    assert (
+        job_wants_dewetron(
+            instruments=[{"slot": "ac"}, {"slot": "dc1"}, {"slot": "dew"}]
+        )
+        is False
+    )
+    assert (
+        job_wants_dewetron(
+            widgets={"radioButton_S2_WT3000": True},
+            instruments=[{"slot": "dew"}],
+        )
+        is False
+    )

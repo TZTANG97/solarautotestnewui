@@ -31660,22 +31660,18 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
                     equ_list = list(str1) if str1 else []
                 except Exception as exc:
                     print(f"[DEBUG_STARTUP]    boot list_resources fail: {exc}", flush=True)
-            from utils.iot_auto_connect import has_remembered_slot, prepare_auto_connect_jobs
+            from utils.iot_auto_connect import prepare_auto_connect_jobs
 
             _status_path = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "status.json"
             )
-            # 从未用过的德威创跳过（连失败很慢）；以前连成功过 / status 有记忆则自动重连
-            _skip_dew = (
-                ()
-                if has_remembered_slot("dew", status_json_path=_status_path)
-                else ("dew",)
-            )
+            # 启动一律跳过德威创：台架常残留 dew IP/status，自动重连失败会弹窗；
+            # 真要用时在 Soft Panel 点连接，或 IOT 勾选 radio_dewetron 再由 handoff 连。
             jobs, devices = prepare_auto_connect_jobs(
                 visa_rm=_rm,
                 status_json_path=_status_path,
                 scan_lan=False,
-                skip_slots=_skip_dew,
+                skip_slots=("dew",),
             )
         except Exception as exc:
             print(f"[DEBUG_STARTUP]    boot prepare fail: {exc}", flush=True)

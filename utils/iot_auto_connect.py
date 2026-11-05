@@ -339,7 +339,11 @@ def job_wants_dewetron(
     params: Any = None,
     instruments: Any = None,
 ) -> bool:
-    """开测是否显式要求德威创。未勾选时 IOT 自动连应跳过 dew，避免弹连接失败挡试验。"""
+    """开测是否显式要求德威创。
+
+    未勾选时必须跳过：台架 status/仪器表常残留 dew，自动连失败会弹「德威创连接失败」，
+    即使用户从没练过德威创、当前是 WT 过欠压也会被打断。
+    """
     w = widgets if isinstance(widgets, dict) else {}
     p = params if isinstance(params, dict) else {}
     if not w and isinstance(p.get("widgets"), dict):
@@ -358,20 +362,32 @@ def job_wants_dewetron(
             "radioButton_WT3000",
             "radio_S2_WT3000",
             "radioButton_S2_WT3000",
+            "radioButton_S2_WT1800",
+            "radioButton_S2_WT1806E",
+            "radioButton_S2_WT5000",
         )
     ):
         return False
+    # 必须显式勾德威创 / analyzerMode=dew，才自动连
     if any(
         _truthy(w.get(k))
-        for k in ("radio_dewetron", "radioButton_DEWETRON", "radio_S2_DEWETRON")
+        for k in (
+            "radio_dewetron",
+            "radioButton_DEWETRON",
+            "radio_S2_DEWETRON",
+            "radioButton_S2_DEWETRON",
+        )
     ):
         return True
-    mode = str(w.get("_mode") or w.get("analyzerMode") or p.get("analyzerMode") or "").strip().lower()
+    mode = str(
+        w.get("_mode") or w.get("analyzerMode") or p.get("analyzerMode") or ""
+    ).strip().lower()
     if mode in ("dewetron", "dew"):
         return True
     if mode in ("wt", "wt3000", "wt1800", "wt5000"):
         return False
-    # 云端仪器表：只有 dew、没有 wt 时才视为要德威创
+    # 云端仪器表残留 dew：仅「整表只有 dew、且无 AC/DC 试验槽」才视为德威创专项。
+    # ac/dc + dew 残留、未勾 radio → 一律不连（途哲过欠压常见误连）。
     inst = instruments if isinstance(instruments, list) else p.get("instruments")
     if isinstance(inst, list) and inst:
         slots = {
@@ -379,10 +395,10 @@ def job_wants_dewetron(
             for it in inst
             if isinstance(it, dict)
         }
-        if "dew" in slots and "wt" not in slots:
-            return True
         if "wt" in slots:
             return False
+        if slots and slots <= {"dew"}:
+            return True
     return False
 
 
