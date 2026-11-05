@@ -25584,6 +25584,61 @@ def _note_live_supply_command(device_name, command) -> None:
         pass
 
 
+def _sync_soft_panel_ac_setpoint_from_scpi(command) -> None:
+    """把成功下发的 VOLT/FREQ 写回 Soft Panel 显示，避免爱科面板仍停在过频末点。"""
+    try:
+        raw = str(command or "").strip()
+        up = raw.upper()
+        ui_ac = globals().get("uiACSetting")
+        if ui_ac is None:
+            return
+        if up.startswith("FREQ ") or up.startswith("FREQUENCY "):
+            parts = raw.split(None, 1)
+            if len(parts) >= 2 and hasattr(ui_ac, "textEdit_AC_FR"):
+                ui_ac.textEdit_AC_FR.setPlainText(str(parts[1]).strip())
+        elif up.startswith("VOLT ") or up.startswith("VOLTAGE "):
+            parts = raw.split(None, 1)
+            if len(parts) >= 2 and hasattr(ui_ac, "textEdit_AC_VOLT"):
+                ui_ac.textEdit_AC_VOLT.setPlainText(str(parts[1]).strip())
+    except Exception:
+        pass
+
+
+def _recover_ac_nominal_before_stop(*, reason: str = "") -> None:
+    """中止/远程停机前尽量回 230V/50Hz，避免爱科 Soft Panel 卡在过频末点（如 51.7）。"""
+    try:
+        volt, freq = "230", "50"
+        # 优先用过欠压 Dialog 的 S1 额定；没有则 Soft Panel；再退回 230/50
+        try:
+            ui_ovuf = globals().get("uiThaiGuoQianYa_Pin")
+            if ui_ovuf is not None:
+                v = str(ui_ovuf.textEdit_S1_AC_VOLT.toPlainText() or "").strip()
+                f = str(ui_ovuf.textEdit_S1_AC_FR.toPlainText() or "").strip()
+                if v:
+                    volt = v
+                if f:
+                    freq = f
+        except Exception:
+            pass
+        msg = f"[AC] 停机前回额定 VOLT {volt} FREQ {freq}"
+        if reason:
+            msg += f"（{reason}）"
+        try:
+            ui = globals().get("ui")
+            if ui is not None and hasattr(ui, "textEdit_ReturnMessage"):
+                ui.textEdit_ReturnMessage.append(msg)
+        except Exception:
+            pass
+        print(msg, flush=True)
+        for cmd in (f"VOLT {volt}", f"FREQ {freq}"):
+            try:
+                _ac_execute_write_command(cmd)
+            except Exception as exc:
+                _append_debug_log(f"[AC] 回额定失败 {cmd}: {exc}")
+    except Exception as exc:
+        _append_debug_log(f"[AC] 停机前回额定跳过: {exc}")
+
+
 def _ac_execute_write_command(command) -> None:
     """执行一条 AC write；失败时自动重连并最多再试 2 次。"""
     global ac_controller
@@ -25609,6 +25664,7 @@ def _ac_execute_write_command(command) -> None:
                 except Exception:
                     pass
                 print(f"SendCommandToAC:{command}")
+                _sync_soft_panel_ac_setpoint_from_scpi(command)
             else:
                 send_cmd = command
                 if ac_controller.is_chroma_61800():
@@ -25619,6 +25675,7 @@ def _ac_execute_write_command(command) -> None:
                 except Exception:
                     pass
                 print(f"SendCommandToAC:{send_cmd}")
+                _sync_soft_panel_ac_setpoint_from_scpi(send_cmd)
             _note_live_supply_command("交流电源", command)
             return
         except Exception as exc:
@@ -25629,6 +25686,7 @@ def _ac_execute_write_command(command) -> None:
             need_retry = (
                 "未连接" in msg
                 or "发送失败" in msg
+                or "保存参数" in msg
                 or "10053" in msg
                 or "10054" in msg
                 or "ConnectionAborted" in msg
@@ -35621,6 +35679,11 @@ if __name__ == "__main__":
                         "[IOT交接] 远程停机按关电源规则（直流先关→交流）",
                         flush=True,
                     )
+                    # 过频扫段中被中止时，先回 230/50 再关电源，否则爱科 Soft Panel 会停在 51.7
+                    try:
+                        _recover_ac_nominal_before_stop(reason="远程停机")
+                    except Exception:
+                        pass
                     EndProjectPush(force=True, silent_if_idle=True)
 
                 global _iot_ui_handoff_svc
