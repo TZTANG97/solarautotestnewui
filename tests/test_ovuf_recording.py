@@ -157,8 +157,8 @@ def test_ovuf_apply_recording_continuous_vs_split(ovuf_ui):
     assert len(col6_nums) == 2
 
 
-def test_ovuf_segment_recovery_full_setpoint_and_forced_wait(ovuf_ui, monkeypatch):
-    """过频→欠频前：完整回压回频 + 不可跳过的并网等待行。"""
+def test_ovuf_segment_recovery_after_freq_only_freq(ovuf_ui, monkeypatch):
+    """过频结束后只回 FREQ（与扫频同路径），禁止 VOLT+SAVE 紧接 FREQ。"""
     monkeypatch.setattr(
         "utils.ac_scpi_commands.resolve_chroma_61800", lambda *a, **k: False
     )
@@ -178,19 +178,42 @@ def test_ovuf_segment_recovery_full_setpoint_and_forced_wait(ovuf_ui, monkeypatc
     assert wait == 50
     cmds_txt = [str(r[2]) for r in cmds if r and r[1] == "write"]
     assert any("EDIT ALL" in c for c in cmds_txt)
-    assert any(c.startswith("VOLT") for c in cmds_txt)
     assert any(c.startswith("FREQ 50") for c in cmds_txt)
+    assert not any(c.startswith("VOLT") for c in cmds_txt)
     wait_rows = [r for r in cmds if r[1] == "wait" and r[2] == "OVUF_GRID_RECOVERY"]
     assert len(wait_rows) == 1
     assert wait_rows[0][9] == 50
 
-    # 末段：仍回额定，但不再插并网等待
+    # 末段过频：仍只回频，不再插并网等待
     tail = []
     assert append_ovuf_segment_recovery(tail, None, ovuf_ui, "三相", after_step=6) == 0
     tail_txt = [str(r[2]) for r in tail if r and r[1] == "write"]
     assert any(c.startswith("FREQ 50") for c in tail_txt)
-    assert any(c.startswith("VOLT") for c in tail_txt)
+    assert not any(c.startswith("VOLT") for c in tail_txt)
     assert not any(r[1] == "wait" for r in tail)
+
+
+def test_ovuf_segment_recovery_after_volt_settles_before_freq(ovuf_ui, monkeypatch):
+    """扫压后：先 VOLT，短驻留，再 FREQ，避免爱科连续 SAVE。"""
+    monkeypatch.setattr(
+        "utils.ac_scpi_commands.resolve_chroma_61800", lambda *a, **k: False
+    )
+    ovuf_ui.checkBox_S3.setChecked(True)
+    ovuf_ui.checkBox_S5.setChecked(True)
+    ovuf_ui.textEdit_S1_AC_VOLT.setPlainText("230")
+    ovuf_ui.textEdit_S1_AC_FR.setPlainText("50")
+
+    cmds = []
+    append_ovuf_segment_recovery(cmds, None, ovuf_ui, "三相", after_step=3, dwell_01s=50)
+    kinds = [(r[1], str(r[2])) for r in cmds if r]
+    assert any(op == "write" and cmd.startswith("VOLT") for op, cmd in kinds)
+    assert any(op == "wait" and cmd == "OVUF_VOLT_SETTLE" for op, cmd in kinds)
+    assert any(op == "write" and cmd.startswith("FREQ 50") for op, cmd in kinds)
+    # FREQ 必须在 VOLT settle 之后
+    volt_i = next(i for i, (op, cmd) in enumerate(kinds) if op == "write" and cmd.startswith("VOLT"))
+    settle_i = next(i for i, (op, cmd) in enumerate(kinds) if cmd == "OVUF_VOLT_SETTLE")
+    freq_i = next(i for i, (op, cmd) in enumerate(kinds) if op == "write" and cmd.startswith("FREQ"))
+    assert volt_i < settle_i < freq_i
 
 
 def test_rewrite_ac_idn_queries_as_wait():
