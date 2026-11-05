@@ -179,8 +179,14 @@ def _do_done(job_id: int, aborted: bool) -> None:
                 _state["exper_id"] = None
 
 
+_QUEUE_OPEN = frozenset({"等待", "进行中", "暂停", "运行", "测试中"})
+
+
 def clear_status_job_binding() -> None:
-    """去掉 status.json 上的任务号，避免心跳继续把新进度写到上一单。"""
+    """去掉 status.json 上的任务号，避免心跳继续把新进度写到上一单。
+
+    本机未在跑时顺带丢掉已结束/已中止的 queue 段，避免新云任务详情挂上上一局。
+    """
     with _lock:
         _state["job_id"] = None
         _state["exper_id"] = None
@@ -197,6 +203,18 @@ def clear_status_job_binding() -> None:
         proj.pop("jobId", None)
         proj.pop("job_id", None)
         proj.pop("experId", None)
+        # 空闲换绑：清终态队列；仍在跑则只解绑 jobId
+        if not desktop_run_in_progress():
+            queue = proj.get("queue")
+            if isinstance(queue, list):
+                kept = [
+                    it
+                    for it in queue
+                    if isinstance(it, dict)
+                    and str(it.get("status") or "").strip() in _QUEUE_OPEN
+                ]
+                if kept != queue:
+                    proj["queue"] = kept
         data["project"] = proj
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
@@ -384,6 +402,26 @@ def notify_local_run_started(
     """
     if handoff_start_in_progress():
         logger.info("[iot_local_run] handoff 正在开测，跳过本地登记")
+        return
+    # 云端正在等本局结束：本局归属该云任务。若此时再 local_run_start，
+    # 会把云单按「本机已另行开测」秒成功，并再新建一条 local_ui（job100/101 双单）。
+    if handoff_has_awaiting_job():
+        jid = None
+        try:
+            import SCPITestWave as sw
+
+            aw = getattr(getattr(sw, "_iot_ui_handoff_svc", None), "_awaiting", None) or {}
+            jid = int(aw.get("job_id") or 0) or None
+        except Exception:
+            jid = current_local_job_id() or _job_id_from_status_json()
+        logger.info(
+            "[iot_local_run] handoff 等待结案中，跳过本地登记（沿用云任务 #%s）",
+            jid or "?",
+        )
+        _ui_log(
+            f"[IOT] 云端任务执行中"
+            f"{f' #{jid}' if jid else ''}，不另建本机任务"
+        )
         return
     if not desktop_run_in_progress():
         # 进度已经写成进行中时，RunProject 里已经摘过上一单。
