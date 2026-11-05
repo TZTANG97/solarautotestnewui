@@ -334,6 +334,58 @@ def prepare_jobs_from_cloud_instruments(
     return jobs
 
 
+def job_wants_dewetron(
+    widgets: Any = None,
+    params: Any = None,
+    instruments: Any = None,
+) -> bool:
+    """开测是否显式要求德威创。未勾选时 IOT 自动连应跳过 dew，避免弹连接失败挡试验。"""
+    w = widgets if isinstance(widgets, dict) else {}
+    p = params if isinstance(params, dict) else {}
+    if not w and isinstance(p.get("widgets"), dict):
+        w = p.get("widgets") or {}
+
+    def _truthy(v: Any) -> bool:
+        return v in (True, "1", 1, "true", "True", "yes", "YES")
+
+    # 明示 WT → 不要德威创
+    if any(
+        _truthy(w.get(k))
+        for k in (
+            "radio_wt",
+            "radio_wt3000",
+            "radioButton_WT",
+            "radioButton_WT3000",
+            "radio_S2_WT3000",
+            "radioButton_S2_WT3000",
+        )
+    ):
+        return False
+    if any(
+        _truthy(w.get(k))
+        for k in ("radio_dewetron", "radioButton_DEWETRON", "radio_S2_DEWETRON")
+    ):
+        return True
+    mode = str(w.get("_mode") or w.get("analyzerMode") or p.get("analyzerMode") or "").strip().lower()
+    if mode in ("dewetron", "dew"):
+        return True
+    if mode in ("wt", "wt3000", "wt1800", "wt5000"):
+        return False
+    # 云端仪器表：只有 dew、没有 wt 时才视为要德威创
+    inst = instruments if isinstance(instruments, list) else p.get("instruments")
+    if isinstance(inst, list) and inst:
+        slots = {
+            str(it.get("slot") or "").strip().lower()
+            for it in inst
+            if isinstance(it, dict)
+        }
+        if "dew" in slots and "wt" not in slots:
+            return True
+        if "wt" in slots:
+            return False
+    return False
+
+
 def has_remembered_slot(
     slot: str,
     *,

@@ -3236,8 +3236,13 @@ class IotUiHandoffService(QObject):
                     try:
                         from utils.iot_auto_connect import prepare_jobs_from_cloud_instruments
 
+                        from utils.iot_auto_connect import job_wants_dewetron
+
                         jobs = prepare_jobs_from_cloud_instruments(cloud_inst)
                         had_cloud_jobs = bool(jobs)
+                        want_dew = job_wants_dewetron(
+                            widgets=widgets, params=params, instruments=cloud_inst
+                        )
                         # 已连槽位不再点 Connect（按钮文案是「取消连接」会误断开）
                         if self.session_ok and jobs:
                             filtered = []
@@ -3250,6 +3255,16 @@ class IotUiHandoffService(QObject):
                                     continue
                                 filtered.append((slot, plan, dev))
                             jobs = filtered
+                        # WT 试验勿强连德威创（台架仪器表常残留 dew，失败弹窗会卡死开测）
+                        if not want_dew and jobs:
+                            before = len(jobs)
+                            jobs = [
+                                (s, p, d)
+                                for s, p, d in jobs
+                                if str(s or "").strip().lower() != "dew"
+                            ]
+                            if len(jobs) < before:
+                                self._log("本试验为 WT 模式，已跳过德威创自动连接")
 
                         # 云端常把 WT 写成 pending:wt（会被丢掉），AC/DC 有地址时不会整单回退；
                         # 功率分析仪模式且本机未连 WT 时，只补扫本机 wt 槽位。
@@ -3267,6 +3282,8 @@ class IotUiHandoffService(QObject):
                                 "radio_wt3000"
                             ) in (True, "1", 1, "true", "True"):
                                 want_wt = True
+                        if not want_dew:
+                            want_wt = True
                         wt_ok = False
                         try:
                             wt_ok = bool(self.session_ok("wt")) if self.session_ok else False
@@ -3310,7 +3327,7 @@ class IotUiHandoffService(QObject):
                         err = None
                     try:
                         if err is not None and not (prepared and prepared[0]):
-                            # 回退本机扫连
+                            # 回退本机扫连（仍跳过德威创，除非试验明确要）
                             if self.prepare_auto_connect:
                                 try:
                                     prepared = self.prepare_auto_connect()
@@ -3318,6 +3335,26 @@ class IotUiHandoffService(QObject):
                                     self._log("云端配置无效，已回退本机扫连计划")
                                 except Exception as exc2:
                                     err = exc2
+                        # 回退计划里再滤一次 dew
+                        try:
+                            from utils.iot_auto_connect import job_wants_dewetron as _want_dew
+
+                            if (
+                                prepared
+                                and isinstance(prepared, tuple)
+                                and prepared[0]
+                                and not _want_dew(
+                                    widgets=widgets, params=params, instruments=cloud_inst
+                                )
+                            ):
+                                jobs2 = [
+                                    (s, p, d)
+                                    for s, p, d in (prepared[0] or [])
+                                    if str(s or "").strip().lower() != "dew"
+                                ]
+                                prepared = (jobs2, prepared[1] if len(prepared) > 1 else [])
+                        except Exception:
+                            pass
                         self._auto_connect_finished.emit(prepared, err)
                     except Exception:
                         QTimer.singleShot(
@@ -3401,10 +3438,13 @@ class IotUiHandoffService(QObject):
             self._log(f"自动连接探测异常（尽力继续）: {err}")
             self._continue_job_after_connect(None)
             return
-        # prepare 返回 (jobs, devices) 时在主线程 apply
+        from utils.iot_remote_ui import silent_remote_connect
+
+        # prepare 返回 (jobs, devices) 时在主线程 apply；静默连接，禁止德威创失败模态框挡试验
         if self.apply_auto_connect and prepared is not None and not isinstance(prepared, dict):
             try:
-                summary = self.apply_auto_connect(prepared)
+                with silent_remote_connect():
+                    summary = self.apply_auto_connect(prepared)
                 self._log(f"自动连接结果: {_format_auto_connect_summary(summary)}")
             except Exception as exc:
                 self._log(f"自动连接执行异常（尽力继续）: {exc}")

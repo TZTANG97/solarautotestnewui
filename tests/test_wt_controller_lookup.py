@@ -57,3 +57,12 @@ def test_has_remembered_dew_from_success_map(monkeypatch):
     )
     assert has_remembered_slot("dew") is True
     assert has_remembered_slot("wt") is False
+
+def test_job_wants_dewetron_respects_wt_mode():
+    from utils.iot_auto_connect import job_wants_dewetron
+
+    assert job_wants_dewetron(widgets={'radio_wt': True}, instruments=[{'slot': 'dew'}, {'slot': 'wt'}]) is False
+    assert job_wants_dewetron(widgets={'radio_dewetron': True}) is True
+    assert job_wants_dewetron(instruments=[{'slot': 'wt'}]) is False
+    assert job_wants_dewetron(instruments=[{'slot': 'dew'}]) is True
+    assert job_wants_dewetron() is False

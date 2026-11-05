@@ -3796,13 +3796,21 @@ def ConnectEQUDEWETRON():
         ctx.dewetron_collector = dewetron_collector
         ctx.dewetron_coordinator = dewetron_coordinator
     else:
-        QMessageBox.warning(
-            None,
-            "连接失败",
+        fail_msg = (
             "DEWETRON连接失败或SCPI无应答。\n\n"
             "请确认 OXYGEN 未另开 SCPI 占用（仅允许 1 客户端），"
-            "再检查 IP/网线后重连。",
+            "再检查 IP/网线后重连。"
         )
+        # IOT 下发/自动连：禁止模态框卡住主界面（WT 试验不需要德威创时尤甚）
+        try:
+            from utils.iot_remote_ui import remote_connect_silent
+
+            if remote_connect_silent():
+                print(f"[连接提示] {fail_msg.replace(chr(10), ' ')}")
+                return
+        except Exception:
+            pass
+        QMessageBox.warning(None, "连接失败", fail_msg)
 
 def is_ip_address_format(addr):
     """判断输入是否为IPv4地址，支持可选端口（如 192.168.40.1:5000）。"""
@@ -35278,10 +35286,12 @@ if __name__ == "__main__":
                     import os
 
                     status_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
+                    # IOT 开测默认不自动连德威创；要连时由云端 instruments + job_wants_dewetron 显式带上
                     return prepare_auto_connect_jobs(
                         visa_rm=globals().get("rm"),
                         status_json_path=status_path,
                         scan_lan=False,
+                        skip_slots=("dew",),
                     )
 
                 def _iot_apply_auto_connect(prepared):
