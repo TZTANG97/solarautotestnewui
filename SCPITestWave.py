@@ -25109,11 +25109,15 @@ def RunProjectPush():
             box.exec_()
             return
 
-        # 云端 handoff 占用本台架时拦截本机开测（双开测并存互斥）
+        # 云端 handoff 占用本台架时拦截本机开测（双开测并存互斥）。
+        # 注意：云任务自己调用 start_test 时 _job_ctx 仍在，必须放行，否则会自锁。
         try:
-            from utils.iot_local_run import handoff_has_awaiting_job
+            from utils.iot_local_run import (
+                handoff_has_awaiting_job,
+                handoff_start_in_progress,
+            )
 
-            if handoff_has_awaiting_job():
+            if handoff_has_awaiting_job() and not handoff_start_in_progress():
                 msg = "云端任务占用本台架，请先结束/中止云端任务后再本机开测"
                 ui.textEdit_ReturnMessage.append("[开始试验] " + msg)
                 logger.info(msg)
@@ -31973,6 +31977,9 @@ def translate_to_bluesight(text, value=None):
 
 
 if __name__ == "__main__":
+    # 直接 python 本文件时运行态在 __main__；其它模块若 import SCPITestWave
+    # 会再加载空壳，读不到 _iot_ui_handoff_svc → 云单秒成功并另建 local_ui（如 job111/112）。
+    sys.modules["SCPITestWave"] = sys.modules[__name__]
     print("[DEBUG_STARTUP] 1/9 进入 __main__ 入口", flush=True)
     try:
         from utils.startup_update import maybe_apply_startup_update

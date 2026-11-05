@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -23,6 +24,35 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def _scpi_mod():
+    """取正在跑的主程序模块。
+
+    ``python SCPITestWave.py`` 时运行态在 ``__main__``；若再 ``import SCPITestWave``
+    会加载第二份空壳，读不到 ``_iot_ui_handoff_svc``，云单会被秒成功并另建 local_ui。
+    """
+    preferred = None
+    for name in ("__main__", "SCPITestWave"):
+        mod = sys.modules.get(name)
+        if mod is None:
+            continue
+        if getattr(mod, "_iot_ui_handoff_svc", None) is not None:
+            return mod
+        if preferred is None and (
+            getattr(mod, "ui", None) is not None
+            or hasattr(mod, "strArrayTest")
+            or hasattr(mod, "RunProjectPush")
+        ):
+            preferred = mod
+    if preferred is not None:
+        return preferred
+    try:
+        import SCPITestWave as sw  # noqa: WPS433 — 仅测试/非桌面入口兜底
+
+        return sw
+    except Exception:
+        return None
+
+
 def handoff_has_awaiting_job() -> bool:
     """云端 handoff 正在处理或已占用当前试验局时返回 True。
 
@@ -30,8 +60,9 @@ def handoff_has_awaiting_job() -> bool:
     两者任一存在都说明本局由云端任务登记，本地勿再创建实验。
     """
     try:
-        import SCPITestWave as sw
-
+        sw = _scpi_mod()
+        if sw is None:
+            return False
         svc = getattr(sw, "_iot_ui_handoff_svc", None)
         if svc is None:
             return False
@@ -223,8 +254,9 @@ def clear_status_job_binding() -> None:
 
 def _local_run_flag() -> str:
     try:
-        import SCPITestWave as sw
-
+        sw = _scpi_mod()
+        if sw is None:
+            return ""
         return str(getattr(sw, "strTestStatusFlag", "") or "").strip()
     except Exception:
         return ""
@@ -252,8 +284,9 @@ def bench_is_running(progress_status: str = "") -> bool:
 def desktop_queue_nonempty() -> bool:
     """桌面已经追加过、命令还在队列里（含尚未点开始）。"""
     try:
-        import SCPITestWave as sw
-
+        sw = _scpi_mod()
+        if sw is None:
+            return False
         return bool(getattr(sw, "strArrayTest", None))
     except Exception:
         return False
@@ -278,9 +311,8 @@ def release_previous_cloud_job_for_new_round() -> Optional[int]:
     否则中途追加再点开始会把还在跑的上一单（如静态QU）误标成成功。
     """
     try:
-        import SCPITestWave as sw
-
-        svc = getattr(sw, "_iot_ui_handoff_svc", None)
+        sw = _scpi_mod()
+        svc = getattr(sw, "_iot_ui_handoff_svc", None) if sw is not None else None
     except Exception:
         svc = None
     if desktop_run_in_progress():
@@ -339,8 +371,9 @@ def release_previous_cloud_job_for_new_round() -> Optional[int]:
 def handoff_start_in_progress() -> bool:
     """云端交接正在调用开始试验。此时不要再登记一条本地任务。"""
     try:
-        import SCPITestWave as sw
-
+        sw = _scpi_mod()
+        if sw is None:
+            return False
         svc = getattr(sw, "_iot_ui_handoff_svc", None)
         if svc is None:
             return False
@@ -353,8 +386,9 @@ def handoff_start_in_progress() -> bool:
 def _handoff_keep_job_id() -> int:
     """云端正在交接/等待结束的任务号；开跑时不能把它当「上一单」摘掉。"""
     try:
-        import SCPITestWave as sw
-
+        sw = _scpi_mod()
+        if sw is None:
+            return 0
         svc = getattr(sw, "_iot_ui_handoff_svc", None)
         if svc is None:
             return 0
@@ -453,8 +487,7 @@ def notify_local_run_started(
     if handoff_has_awaiting_job():
         jid = None
         try:
-            import SCPITestWave as sw
-
+            sw = _scpi_mod()
             aw = getattr(getattr(sw, "_iot_ui_handoff_svc", None), "_awaiting", None) or {}
             jid = int(aw.get("job_id") or 0) or None
         except Exception:
@@ -555,9 +588,8 @@ def notify_local_run_finished(*, aborted: bool = False) -> None:
     if handoff_has_awaiting_job():
         logger.info("[iot_local_run] handoff 等待结案，跳过本地 done，改为立刻查终态")
         try:
-            import SCPITestWave as sw
-
-            svc = getattr(sw, "_iot_ui_handoff_svc", None)
+            sw = _scpi_mod()
+            svc = getattr(sw, "_iot_ui_handoff_svc", None) if sw is not None else None
             notify = getattr(svc, "notify_desktop_run_finished", None)
             if callable(notify):
                 notify()

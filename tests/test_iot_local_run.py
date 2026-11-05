@@ -22,7 +22,34 @@ def test_active_awaiting_skips_local_register(monkeypatch):
         _iot_ui_handoff_svc=SimpleNamespace(_awaiting={"job_id": 42}, _job_ctx=None)
     )
     monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake_sw)
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "__main__",
+        SimpleNamespace(_iot_ui_handoff_svc=None),
+    )
     assert handoff_has_awaiting_job() is True
+
+
+def test_handoff_visible_when_running_as_main(monkeypatch):
+    """python SCPITestWave.py 时 svc 在 __main__；空壳 SCPITestWave 不得掩盖。"""
+    import utils.iot_local_run as mod
+
+    live = SimpleNamespace(
+        _iot_ui_handoff_svc=SimpleNamespace(_awaiting={"job_id": 111}, _job_ctx=None),
+        ui=object(),
+        strArrayTest=[],
+    )
+    shell = SimpleNamespace(_iot_ui_handoff_svc=None)
+    monkeypatch.setitem(__import__("sys").modules, "__main__", live)
+    monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", shell)
+    assert mod._scpi_mod() is live
+    assert handoff_has_awaiting_job() is True
+
+    called = []
+    monkeypatch.setattr(mod, "_do_start", lambda *_a, **_k: called.append(1))
+    monkeypatch.setattr(mod, "release_previous_cloud_job_for_new_round", lambda: called.append("rel"))
+    notify_local_run_started("过欠压_过欠频")
+    assert called == []
 
     called = []
     released = []
