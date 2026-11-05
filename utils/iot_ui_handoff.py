@@ -2740,17 +2740,38 @@ class IotUiHandoffService(QObject):
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
             # 过欠压：关键字段强制对齐 + 钉死字段记忆，避免 Dialog 仍显示 181.7 / 11 秒
-            if (handler.get("key") or "") == "ovuf" and isinstance(_wt_apply_payload, dict):
+            # 以 IOT job.widgets 为准（勿用可能被 WT 预处理裁掉的 payload）
+            if (handler.get("key") or "") == "ovuf" and isinstance(widgets, dict) and widgets:
                 try:
                     from utils.iot_ovuf_apply import apply_ovuf_critical_widgets
 
                     still_bad = apply_ovuf_critical_widgets(
-                        real_ui, _wt_apply_payload, log=self._log, rounds=2
+                        real_ui, widgets, log=self._log, rounds=2
                     )
-                    if still_bad:
-                        self._log(f"过欠压关键字段仍不一致: {still_bad}")
                 except Exception as _rb_exc:
                     self._log(f"过欠压强制写入跳过: {_rb_exc}")
+                    still_bad = ["__apply_exc__"]
+                if still_bad:
+                    self._write_result_all(
+                        pending_path,
+                        job_id,
+                        {
+                            "status": "failed",
+                            "fail_reason": (
+                                "过欠压关键字段写入后回读不一致，已中止以免本机旧值进扫段: "
+                                + ",".join(str(x) for x in still_bad[:12])
+                            )[:500],
+                            "result_summary": {
+                                "handoff": True,
+                                "appended": False,
+                                "started": False,
+                                "missingWidgets": missing,
+                                "ovuf_mismatch": list(still_bad)[:20],
+                            },
+                        },
+                    )
+                    self._move_pending_done(pending_path)
+                    return
             try:
                 from utils.wt_job_save import apply_wt_save_to_dialog
 

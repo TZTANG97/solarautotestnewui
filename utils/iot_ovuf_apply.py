@@ -51,6 +51,16 @@ def _norm(val: Any) -> str:
     return str(val if val is not None else "").strip()
 
 
+def _values_equal(want: str, got: str) -> bool:
+    """字符串相等；数值字段允许 182 vs 182.0。"""
+    if want == got:
+        return True
+    try:
+        return abs(float(want) - float(got)) < 1e-9
+    except (TypeError, ValueError):
+        return False
+
+
 def read_named_widget(root: Any, name: str) -> str:
     """读 Dialog 控件文本；优先 getattr（Ui 对象），再 findChild。"""
     if root is None or not name:
@@ -110,7 +120,7 @@ def readback_mismatch(
         want = _norm(expected.get(k))
         got = read_named_widget(root, k)
         snap[k] = got
-        if want and got != want:
+        if want and not _values_equal(want, got):
             bad.append(k)
     return snap, bad
 
@@ -145,7 +155,12 @@ def apply_ovuf_critical_widgets(
     from utils.iot_ui_handoff import apply_widget_values
 
     payload = critical_payload(widgets)
-    if root is None or not payload:
+    if root is None:
+        return ["__no_root__"]
+    # widgets 有内容却抽不出任何关键键：禁止当成成功（否则会用 Dialog 旧 181.7/11 进命令）
+    if not payload:
+        if isinstance(widgets, dict) and widgets:
+            return ["__empty_critical__"]
         return []
     _log = log or (lambda _m: None)
     last_bad: List[str] = []

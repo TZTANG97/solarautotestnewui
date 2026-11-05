@@ -78,3 +78,22 @@ def test_uv_ladder_keeps_user_end_182():
     assert pts.count(182.0) == 1
     # 181.7 = 230-42*1.15，是越过终点后的瞬时 cur，不应单独作为终点写回 Dialog
     assert abs((230.0 - 42 * 1.15) - 181.7) < 1e-9
+
+
+def test_empty_critical_payload_is_not_success():
+    from utils.iot_ovuf_apply import apply_ovuf_critical_widgets
+
+    # widgets 有内容但没有过欠压关键键 → 必须失败，禁止静默成功
+    bad = apply_ovuf_critical_widgets(object(), {"radio_wt3000": "1"}, rounds=1)
+    assert bad == ["__empty_critical__"]
+
+
+def test_float_format_182_vs_182_0_equal(ovuf_ui):
+    from utils.iot_ovuf_apply import apply_ovuf_critical_widgets, read_named_widget
+
+    ovuf_ui.textEdit_S4_AC_VOLT_End.setPlainText("182")
+    bad = apply_ovuf_critical_widgets(
+        ovuf_ui, {"textEdit_S4_AC_VOLT_End": "182.0"}, rounds=1
+    )
+    assert bad == []
+    assert read_named_widget(ovuf_ui, "textEdit_S4_AC_VOLT_End") in ("182", "182.0")
