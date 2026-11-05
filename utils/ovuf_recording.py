@@ -73,6 +73,25 @@ def _to_01s(value: Any, unit: str) -> int:
     return max(0, int(round(sec * 10.0)))
 
 
+def make_ovuf_boot_wait_row(boot_01s: Any) -> List[Any]:
+    """启机等待：用 AC wait，禁止再用 query *IDN? 充当延时。
+
+    历史实现把启机做成 ``AC query *IDN? + [9]=启机时长``；途哲台上 AC 句柄
+    若 TCP 半开，``handle.query('*IDN?')`` 会永久卡住，进度一直停在
+    ``[AC] query *IDN?``，表现为「设了 2 分钟启机却一直不进过欠压扫段」。
+    """
+    row: List[Any] = ["" for _ in range(10)]
+    row[0] = "AC"
+    row[1] = "wait"
+    row[2] = "OVUF_BOOT"
+    try:
+        ticks = max(0, int(float(boot_01s)))
+    except (TypeError, ValueError):
+        ticks = 0
+    row[9] = ticks
+    return row
+
+
 def ovuf_grid_wait_01s(ui) -> int:
     """段间回压后的并网等待（0.1s）。优先 textEdit_ovuf_grid_wait，其次 _ovufDwellSec，再退回启机时间。"""
     raw = _plain(ui, "textEdit_ovuf_grid_wait", "")

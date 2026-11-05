@@ -18,9 +18,11 @@ from utils.ovuf_recording import (
     apply_ovuf_recording_mode,
     build_ovuf_sweep_points,
     enabled_ovuf_segments,
+    make_ovuf_boot_wait_row,
     ovuf_sweep_project,
     recommended_ovuf_names,
 )
+from utils.time_helpers import SetTimeFunction
 from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT
 
 
@@ -45,6 +47,18 @@ def test_step_kind_does_not_follow_the_project_combo():
     assert ovuf_sweep_project(6) == "过欠频"
     assert ovuf_sweep_project(7) == "过欠频"
     assert ovuf_sweep_project(8) == "过欠频"
+
+
+def test_ovuf_boot_wait_is_wait_not_idn_query():
+    """启机 2 分钟 → AC wait OVUF_BOOT=1200（0.1s），禁止 query *IDN?。"""
+    assert SetTimeFunction(2, "分钟") == 1200
+    row = make_ovuf_boot_wait_row(SetTimeFunction(2, "分钟"))
+    assert row[0] == "AC"
+    assert row[1] == "wait"
+    assert row[2] == "OVUF_BOOT"
+    assert row[9] == 1200
+    assert row[1] != "query"
+    assert "*IDN?" not in str(row[2])
 
 
 def test_ovuf_has_recording_mode_on_filename_list(ovuf_ui):

@@ -19499,14 +19499,19 @@ def thaiguoqianya_pinSend():
             strArrayTest.append(strArraySingle)
             strArrayTestStepSingle.append(strArraySingle)
 
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = "*IDN?"
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "query"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = fS1SetTime
+        # 启机等待：必须用 wait，禁止 query *IDN?（AC 半开时 query 会永久卡住）
+        from utils.ovuf_recording import make_ovuf_boot_wait_row
+
+        strArraySingle = make_ovuf_boot_wait_row(fS1SetTime)
         strArrayTest.append(strArraySingle)
         strArrayTestStepSingle.append(strArraySingle)
+        try:
+            ui.textEdit_ReturnMessage.append(
+                f"[过欠压_过欠频] 启机等待 {max(0, int(fS1SetTime)) * 0.1:.0f}s"
+                f"（S1={S1_TIME_VALUE}{S1_TIME_UNIT}）"
+            )
+        except Exception:
+            pass
 
         strArrayTestStep.append(strArrayTestStepSingle)
 
@@ -26092,6 +26097,23 @@ def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9", force_full_dwe
                 touch_project_activity()
             except Exception:
                 pass
+            # 长驻留刷新进度文案，避免一直显示上一条 *IDN? 像“卡死”
+            try:
+                tag_u = str(log_tag or "").upper()
+                if "OVUF_BOOT" in tag_u:
+                    label = "启机等待"
+                elif "OVUF_GRID" in tag_u:
+                    label = "段间并网等待"
+                else:
+                    label = "命令等待"
+                _emit_run_progress(
+                    status="进行中",
+                    cmd_index=int(cmd_no),
+                    current_detail=f"{label} {waited_sec:.0f}/{total_sec:.0f}s",
+                    persist=True,
+                )
+            except Exception:
+                pass
         time.sleep(0.1)
 
 
@@ -26469,10 +26491,32 @@ def RunProject():
                             break
                         command = strArrayTest[i][2]
                         # 爱科 Modbus：用 _itech.translate()；其他：用 handle.query()
-                        if ac_controller._itech is not None:
+                        # *IDN? 常被当 nop/延时锚点；AC TCP 半开时 query 会永久卡住，
+                        # 进度一直停在「[AC] query *IDN?」。启机/点间 nop 限 2s 超时。
+                        is_idn_nop = str(command or "").strip().upper() in ("*IDN?", "IDN?")
+                        if ac_controller is None:
+                            result = "AC not connected"
+                        elif getattr(ac_controller, "_itech", None) is not None:
                             result = f"Modbus query: {command}"
                         else:
-                            result = ac_controller.handle.query(command)
+                            handle = getattr(ac_controller, "handle", None)
+                            if handle is None:
+                                result = "AC handle missing"
+                            else:
+                                old_timeout = getattr(handle, "timeout", None)
+                                try:
+                                    if is_idn_nop:
+                                        try:
+                                            handle.timeout = 2000
+                                        except Exception:
+                                            pass
+                                    result = handle.query(command)
+                                finally:
+                                    if is_idn_nop and old_timeout is not None:
+                                        try:
+                                            handle.timeout = old_timeout
+                                        except Exception:
+                                            pass
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "AC "+ command)
                         logger.info(f"AC query result: {result}")
@@ -26636,16 +26680,21 @@ def RunProject():
                         break
                     strtimenow = now_to_datenow()
                     wait_reason = str(strArrayTest[i][2] or "").strip()
+                    reason_u = wait_reason.upper()
                     logger.info(strtimenow + "AC "+ "wait for next project" + (f" ({wait_reason})" if wait_reason else ""))
                     print(strtimenow + "AC "+ "wait for next project" + (f" ({wait_reason})" if wait_reason else ""))
                     if strArrayTest[i][9] != '':
                         _wait_command_dwell_01s(
                             i + 1,
                             strArrayTest[i][9],
-                            log_tag="wait,col9",
-                            force_full_dwell=(wait_reason.upper() == "OVUF_GRID_RECOVERY"),
+                            log_tag=f"wait,{reason_u or 'col9'}",
+                            force_full_dwell=reason_u
+                            in ("OVUF_GRID_RECOVERY", "OVUF_BOOT"),
                         )
-                        if len(test_program) != 0 and flicker_is_test == '1':
+                        # OVUF 启机/段间并网：纯驻留，禁止误切 WT 工程 / pop test_program
+                        if reason_u.startswith("OVUF_"):
+                            pass
+                        elif len(test_program) != 0 and flicker_is_test == '1':
                             total_save_file = total_save_file
                             now_save_file = 0
                             wt_is_select = wt_upper_auto()
@@ -28520,17 +28569,40 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
     elif dc_type and dc_type == "Bluesight":
         # 蓝点：设备页「发送曲线」写入 100% 基准 STC；各工况点再乘功率%。
         # 缓存不得按某一次 strPF 覆盖，否则 75/50/30/20 会全部沿用第一次的 Pmpp。
+        # FF：优先 Soft Panel / IOT 显式填充因子。Sandia 按 0.85 拆四点后，
+        # 经典 Vmp×Imp/(Voc×Isc) 常≈0.87；若反算会把用户 0.85 顶掉。
         idx = int(DCNumber)
+        ff_hint = None
+        try:
+            if idx == 0:
+                _bs = globals().get("_dc1_bs_ref")
+                if isinstance(_bs, dict) and _bs.get("sp_ff") is not None:
+                    ff_hint = float(_bs["sp_ff"].value())
+            if ff_hint is None:
+                _ui_dc = globals().get("uiDC1Setting") if idx == 0 else None
+                _ff_w = getattr(_ui_dc, "textEdit_FF", None) if _ui_dc is not None else None
+                if _ff_w is not None and hasattr(_ff_w, "toPlainText"):
+                    _ff_txt = str(_ff_w.toPlainText() or "").strip()
+                    if _ff_txt:
+                        ff_hint = float(_ff_txt)
+        except (TypeError, ValueError):
+            ff_hint = None
         params = bluesight_stc_params.get(idx) or bluesight_stc_params.get(idx + 1) or {}
         pmpp = params.get("pmpp", 0)
         umpp = params.get("umpp", 0)
         ff = params.get("ff", 0.8)
+        if ff_hint is not None and 0.25 <= ff_hint <= 0.95:
+            ff = ff_hint
         if pmpp <= 0 or umpp <= 0:
             from utils.guochan_sim_matrix import bluesight_stc_from_iv
-            derived = bluesight_stc_from_iv(strVmp, strImp, strVoc, strIsc, "100")
+            derived = bluesight_stc_from_iv(
+                strVmp, strImp, strVoc, strIsc, "100", ff=ff_hint
+            )
             if derived is None:
                 return "1"
             pmpp, umpp, ff = derived
+            bluesight_stc_params[idx] = {"pmpp": pmpp, "umpp": umpp, "ff": ff}
+        elif ff_hint is not None and 0.25 <= ff_hint <= 0.95:
             bluesight_stc_params[idx] = {"pmpp": pmpp, "umpp": umpp, "ff": ff}
         try:
             fPf = _parse_percent(strPF)
