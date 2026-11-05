@@ -276,6 +276,17 @@ def test_bluesight_stc_from_iv_dialog_points():
     assert abs(forced[2] - 0.85) < 1e-9
 
 
+def test_sandia_ff_085_classical_derive_is_087():
+    """Sandia FF=0.85 金标四点：经典公式会≈0.87；必须显式传 ff 才能保住 0.85。"""
+    # 与 chromaSandiaIv / Soft Panel 金标一致
+    derived = bluesight_stc_from_iv("650", "10.768", "726.9", "11.120", "100")
+    assert derived is not None
+    assert abs(derived[2] - 0.87) < 0.01
+    kept = bluesight_stc_from_iv("650", "10.768", "726.9", "11.120", "100", ff="0.85")
+    assert kept is not None
+    assert abs(kept[2] - 0.85) < 1e-9
+
+
 def test_bluesight_dcgetiv_scales_device_page_cache():
     """设备页缓存为 100% 基准时，工况点功率%必须改写 Pmpp（固定PF/无功阶梯）。"""
     pytest.importorskip("PyQt5.QtWidgets")
