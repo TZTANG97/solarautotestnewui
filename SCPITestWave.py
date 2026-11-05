@@ -26486,6 +26486,8 @@ def RunProject():
                                 )
 
                 if strArrayTest[i][1] == "query":
+                    is_idn_nop = False
+                    query_ok = False
                     try:
                         if strTestStatusFlag == "结束":
                             break
@@ -26512,19 +26514,41 @@ def RunProject():
                                             pass
                                     result = handle.query(command)
                                 finally:
-                                    if is_idn_nop and old_timeout is not None:
+                                    if is_idn_nop:
                                         try:
-                                            handle.timeout = old_timeout
+                                            handle.timeout = (
+                                                old_timeout
+                                                if old_timeout is not None
+                                                else 10000
+                                            )
                                         except Exception:
                                             pass
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "AC "+ command)
                         logger.info(f"AC query result: {result}")
                         print(strtimenow + "AC "+ command)
+                        query_ok = True
                     except Exception as e:
                         print(e)
                         logger.error(f"AC query error: {e}")
-                    else:
+                        # *IDN? nop 超时后仍要走 [9]/[8] 驻留，避免点间等待被吃掉
+                        if is_idn_nop:
+                            if strArrayTest[i][9] != '':
+                                _wait_command_dwell_01s(
+                                    i + 1, strArrayTest[i][9], log_tag="query,col9,idn-fail"
+                                )
+                            if strArrayTest[i][8] != '':
+                                try:
+                                    iTestTime = int(strArrayTest[i][8])
+                                except (TypeError, ValueError):
+                                    iTestTime = 0
+                                for x in range(max(0, iTestTime)):
+                                    if strTestStatusFlag == "结束":
+                                        break
+                                    while strTestStatusFlag == "暂停":
+                                        time.sleep(0.01)
+                                    time.sleep(0.1)
+                    if query_ok:
                         # query 后的 [9]/[8] 仍作为等待字段使用
                         if strArrayTest[i][9] != '':
                             _wait_command_dwell_01s(
