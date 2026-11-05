@@ -46,19 +46,36 @@ class _Ok:
         return False
 
 
+class _Regs:
+    def __init__(self, registers: list[int]) -> None:
+        self.registers = registers
+
+    def isError(self) -> bool:
+        return False
+
+
 class FakeModbusClient:
     """记录 write_register / write_registers，供 Translator 离线映射。"""
 
     def __init__(self) -> None:
         self.writes: list[tuple[str, int, Any]] = []
+        self.holding: dict[int, list[int]] = {}
 
     def write_register(self, address: int, value: int, device_id: int = 1, **_kw) -> _Ok:
         self.writes.append(("reg", address, value))
+        self.holding[address] = [int(value)]
         return _Ok()
 
     def write_registers(self, address: int, values: list[int], device_id: int = 1, **_kw) -> _Ok:
         self.writes.append(("regs", address, list(values)))
+        self.holding[address] = [int(v) for v in values]
         return _Ok()
+
+    def read_holding_registers(self, address: int, count: int = 2, device_id: int = 1, **_kw) -> _Regs:
+        words = list(self.holding.get(address) or [])
+        while len(words) < int(count):
+            words.append(0)
+        return _Regs(words[: int(count)])
 
 
 _SCPI_OK = re.compile(
@@ -173,6 +190,21 @@ def test_itech_freq_save_failure_is_hard_fail():
         ok, _ = tr.translate("FREQ 50")
     finally:
         tr._save_parameters = orig  # type: ignore[method-assign]
+    assert ok is False
+
+
+def test_itech_freq_readback_mismatch_is_hard_fail():
+    """过频回 50Hz：写寄存器成功但读回仍是 51.7 时必须失败，禁止空等并网。"""
+    client = FakeModbusClient()
+    tr = ItechTranslator(client)
+    tr.auto_save = True
+
+    def _lie_read(_addr: int, count: int = 2, **_kw):
+        # 模拟源仍停在过频末点
+        return _Regs([0, 51700])
+
+    client.read_holding_registers = _lie_read  # type: ignore[method-assign]
+    ok, _ = tr.translate("FREQ 50")
     assert ok is False
 
 

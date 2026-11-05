@@ -26546,6 +26546,18 @@ def RunProject():
                         print(e)
                         logger.error(f"解析第{i+1}条命令失败: {e}")
                         _show_connect_message(f"自动化执行失败（第{i+1}条）：{e}", ui)
+                        # VOLT/FREQ 失败不得假成功继续：过频回 50Hz 若未生效，
+                        # 并网等待只会空耗，欠频也无法并网（爱科仍停在 51.7）。
+                        _cmd_u = str(command or "").strip().upper()
+                        if _cmd_u.startswith(("FREQ ", "FREQUENCY ", "VOLT ", "VOLTAGE ")):
+                            try:
+                                ui.textEdit_ReturnMessage.append(
+                                    f"[AC] 设定失败已中止，避免带错误频率/电压继续：{command}"
+                                )
+                            except Exception:
+                                pass
+                            strTestStatusFlag = "结束"
+                            break
                     else:
                         # 标记命令为已执行
                         if dewetron_collector is not None and dewetron_collector.current_run():

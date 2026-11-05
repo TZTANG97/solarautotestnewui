@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -323,24 +324,94 @@ class ItechTranslator:
             logger.warning("爱科: 电压已写入但保存参数失败，按成功继续")
         return True
 
+    def _read_holding_registers(self, address: int, count: int = 2) -> list[int] | None:
+        """FC03 读保持寄存器；兼容 pymodbus device_id/slave 两种签名。"""
+        c = self.AC_client
+        if c is None or not hasattr(c, "read_holding_registers"):
+            return None
+        rr = None
+        try:
+            try:
+                rr = c.read_holding_registers(address, count=count, device_id=1)
+            except TypeError:
+                try:
+                    rr = c.read_holding_registers(address, count=count, slave=1)
+                except TypeError:
+                    rr = c.read_holding_registers(address, count)
+        except Exception as exc:
+            logger.error("爱科: 读寄存器 0x%04X 异常: %s", address, exc)
+            return None
+        if rr is None:
+            return None
+        is_err = getattr(rr, "isError", None)
+        if callable(is_err) and is_err():
+            return None
+        regs = getattr(rr, "registers", None)
+        if not isinstance(regs, list) or not regs:
+            return None
+        return [int(x) for x in regs]
+
+    def _read_frequency(self) -> float | None:
+        """读回已保存/当前频率设定（0.001Hz）。读失败返回 None。"""
+        regs = self._read_holding_registers(self.REG_FREQ, 2)
+        if not regs:
+            return None
+        if len(regs) >= 2:
+            return int(regs[1]) / 1000.0
+        return int(regs[0]) / 1000.0
+
     def _set_frequency(self, freq_val: float) -> bool:
         """设置频率。
 
-        爱科 Soft Panel 读的是“已保存设定”；只写 REG_FREQ 不 SAVE，面板会一直停在
-        上一次频率（过频末点如 51.7）。SAVE 失败时必须当失败，让上层重试。
+        爱科输出跟的是“已保存设定”；只写 REG_FREQ 不 SAVE，源会一直停在
+        上一次频率（过频末点如 51.7）。必须 SAVE 成功，并且读回校验，
+        否则上层不得进入段间并网等待 / 欠频扫段。
         """
-        reg_val = int(freq_val * 1000)  # 0.001Hz精度
+        target = float(freq_val)
+        reg_val = int(round(target * 1000))  # 0.001Hz精度
         regs = [0x0000, reg_val]
-        self._modbus_trace.append(self._format_fc10_pdu(self.REG_FREQ, regs, device_id=1))
-        if self.AC_client.write_registers(self.REG_FREQ, regs, device_id=1) is None:
-            logger.error(f"爱科: 设置频率 Modbus 失败")
-            return False
-        logger.info(f"爱科: 设置频率 {freq_val}Hz")
+        for attempt in range(1, 4):
+            self._modbus_trace.append(
+                self._format_fc10_pdu(self.REG_FREQ, regs, device_id=1)
+            )
+            if self.AC_client.write_registers(self.REG_FREQ, regs, device_id=1) is None:
+                logger.error("爱科: 设置频率 Modbus 失败 (attempt %s/3)", attempt)
+                recover = getattr(self.AC_client, "_silent_recover", None)
+                if callable(recover):
+                    try:
+                        recover()
+                    except Exception:
+                        pass
+                time.sleep(0.15)
+                continue
+            logger.info("爱科: 设置频率 %sHz (attempt %s/3)", target, attempt)
 
-        if self.auto_save and not self._save_parameters():
-            logger.error("爱科: 频率已写入但保存参数失败，上位机不会切到新频率")
-            return False
-        return True
+            if self.auto_save:
+                time.sleep(0.05)
+                if not self._save_parameters():
+                    logger.error(
+                        "爱科: 频率已写入但保存参数失败 (attempt %s/3)，输出不会切到新频率",
+                        attempt,
+                    )
+                    time.sleep(0.2)
+                    continue
+
+            actual = self._read_frequency()
+            if actual is None:
+                # 部分链路读回不稳定；SAVE 已成功时不挡，但打警告便于台架对照
+                logger.warning("爱科: 频率 %sHz 已保存，但读回失败，无法校验", target)
+                return True
+            if abs(actual - target) <= 0.051:
+                logger.info("爱科: 频率读回确认 %.3fHz", actual)
+                return True
+            logger.error(
+                "爱科: 频率读回 %.3fHz != 设定 %.3fHz (attempt %s/3)",
+                actual,
+                target,
+                attempt,
+            )
+            time.sleep(0.2)
+        return False
 
     def _save_parameters(self) -> bool:
         """保存参数到设备（失败时静默恢复后再试一次）。"""
