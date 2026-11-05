@@ -19252,7 +19252,7 @@ def thaiguoqianya_pinSend():
     global per_test_time_list
     global uiThiaWT3000E, uiThiaWT1800, uiThiaWT1806E, uiThiaWT5000
     global command_save_file_path, wt_type
-    global guoqianya_pin_append_count
+    global guoqianya_pin_append_count, config_dict
     if 'guoqianya_pin_append_count' not in globals():
         guoqianya_pin_append_count = 0
 
@@ -21558,7 +21558,6 @@ def thaiguoqianya_pinSend():
             )
         # 进度轮次表依赖 config_dict.FileNameList；IOT 开跑时若只写在 WT 配置行会退化成「轮次1..N」
         try:
-            global config_dict
             if not isinstance(config_dict, dict):
                 config_dict = {}
             _names_for_progress = list(_ovuf_names or [])
