@@ -26029,6 +26029,35 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=180):
     _wt_async_session_active = False
 
 
+_ac_query_executor = None
+
+
+def _safe_ac_handle_query(handle, command, *, timeout_s=3.0):
+    """AC handle.query 硬超时：VISA 半开时原生 timeout 无效，会拖死整条跑环与 IOT 中止。"""
+    global _ac_query_executor
+    import concurrent.futures
+
+    cmd = str(command or "").strip()
+    if cmd.upper() in ("*IDN?", "IDN?"):
+        return "IDN nop skipped (no AC query)"
+    if handle is None:
+        return "AC handle missing"
+    if _ac_query_executor is None:
+        _ac_query_executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="ac-query"
+        )
+    fut = _ac_query_executor.submit(handle.query, cmd)
+    try:
+        return fut.result(timeout=float(timeout_s))
+    except concurrent.futures.TimeoutError:
+        msg = f"AC query timeout {timeout_s:.0f}s: {cmd}"
+        try:
+            logger.error(msg)
+        except Exception:
+            pass
+        return msg
+
+
 def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9", force_full_dwell=False):
     """命令后驻留（0.1s 单位）。
 
@@ -26329,6 +26358,22 @@ def RunProject():
         _append_debug_log(
             f"[run_loop] reset on start: now_save_file=0, save_file_name='', total_save_file={total_save_file}"
         )
+        # 开跑前把 AC query *IDN? 全部改成 wait：半开 TCP 下 handle.query 会无视 timeout
+        # 永久卡住，IOT 中止也进不了驻留循环（job105/106/107 卡在 16/517）。
+        try:
+            from utils.ovuf_recording import rewrite_ac_idn_queries_as_wait
+
+            _idn_rewritten = rewrite_ac_idn_queries_as_wait(strArrayTest)
+            if _idn_rewritten:
+                logger.info(
+                    "[run_loop] 已将 %s 条 AC query *IDN? 改为 wait IDN_NOP",
+                    _idn_rewritten,
+                )
+                _append_debug_log(
+                    f"[run_loop] rewrite AC *IDN? query -> wait: {_idn_rewritten}"
+                )
+        except Exception:
+            logger.debug("rewrite AC *IDN? 失败", exc_info=True)
         # [6] 分支内部使用的"一次性门闩"状态
         auto_end_status = '0'
         # 逐条解释命令。用 while 而不是固定 range：开始后中途追加的下一项也能接着跑。
@@ -26492,8 +26537,8 @@ def RunProject():
                             break
                         command = strArrayTest[i][2]
                         # *IDN? 在试验队列里只是 nop/驻留/触发测量的锚点，从不读返回值。
-                        # AC TCP 半开时 handle.query 会无视 timeout 永久卡住（job105/106）。
-                        # 直接跳过真查询，继续走 [9]/[8]/[7]/[6]。
+                        # AC TCP 半开时 handle.query 会无视 timeout 永久卡住（job105/106/107）。
+                        # 直接跳过真查询；其余 query 也必须带硬超时，否则中止进不了循环。
                         is_idn_nop = str(command or "").strip().upper() in ("*IDN?", "IDN?")
                         if is_idn_nop:
                             result = "IDN nop skipped (no AC query)"
@@ -26506,7 +26551,7 @@ def RunProject():
                             if handle is None:
                                 result = "AC handle missing"
                             else:
-                                result = handle.query(command)
+                                result = _safe_ac_handle_query(handle, command)
                         strtimenow = now_to_datenow()
                         logger.info(strtimenow + "AC "+ command)
                         logger.info(f"AC query result: {result}")

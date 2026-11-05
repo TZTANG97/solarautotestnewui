@@ -21,6 +21,7 @@ from utils.ovuf_recording import (
     make_ovuf_boot_wait_row,
     ovuf_sweep_project,
     recommended_ovuf_names,
+    rewrite_ac_idn_queries_as_wait,
 )
 from utils.time_helpers import SetTimeFunction
 from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT
@@ -190,3 +191,18 @@ def test_ovuf_segment_recovery_full_setpoint_and_forced_wait(ovuf_ui, monkeypatc
     assert any(c.startswith("FREQ 50") for c in tail_txt)
     assert any(c.startswith("VOLT") for c in tail_txt)
     assert not any(r[1] == "wait" for r in tail)
+
+
+def test_rewrite_ac_idn_queries_as_wait():
+    rows = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "query", "*IDN?", "", "", "", "", "", "", 1200],
+        ["AC", "query", "MEAS:VOLT?", "", "", "", "", "", "", ""],
+        ["DC1", "query", "*IDN?", "", "", "", "", "", "", ""],
+    ]
+    assert rewrite_ac_idn_queries_as_wait(rows) == 1
+    assert rows[1][1] == "wait"
+    assert rows[1][2] == "IDN_NOP"
+    assert rows[1][9] == 1200
+    assert rows[2][1] == "query"
+    assert rows[3][1] == "query"

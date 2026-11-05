@@ -266,6 +266,27 @@ def _is_idn_query(row) -> bool:
     return row[0] == "AC" and row[1] == "query" and str(row[2] or "").strip().upper() == "*IDN?"
 
 
+def rewrite_ac_idn_queries_as_wait(commands) -> int:
+    """把试验队列里所有 AC query *IDN? 改成 wait，避免半开 TCP 把跑环卡死。
+
+    *IDN? 在队列里从不读返回值，只当驻留/锚点。改成 wait 后：
+    - 进度文案不再长期停在 ``[AC] query *IDN?``；
+    - 中止能在驻留循环里立刻生效（query 阻塞时连结束标志都读不到）。
+    """
+    if not commands:
+        return 0
+    n = 0
+    for row in commands:
+        if not _is_idn_query(row):
+            continue
+        while len(row) < 10:
+            row.append("")
+        row[1] = "wait"
+        row[2] = "IDN_NOP"
+        n += 1
+    return n
+
+
 def _numeric_slot(val):
     if val in ("", None):
         return None
