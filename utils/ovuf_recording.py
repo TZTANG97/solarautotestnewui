@@ -112,18 +112,14 @@ def append_ovuf_segment_recovery(
     after_step: int,
     dwell_01s: Optional[int] = None,
 ) -> int:
-    """段间恢复到 S1 额定电压/频率，并等待并网。
+    """段后恢复到 S1 额定电压/频率；有下一段时再等并网。
 
     用完整启机序列（PHAS + EDIT ALL + VOLT + FREQ），避免过频扫完后爱科仍停在
-    末点频率（如 51.7）。并网等待单独成 AC wait 行（OVUF_GRID_RECOVERY），
+    末点频率（如 51.7）。末段也必须回额定，否则试验结束 Soft Panel 会一直显示 51.7。
+    并网等待单独成 AC wait 行（OVUF_GRID_RECOVERY），仅在还有后续段时插入；
     连续录提前放行时也不得跳过，否则逆变器未并网就进下一段。
-    返回追加的等待（0.1s），未插入时返回 0。
+    返回追加的等待（0.1s）；只回压回频、无等待时返回 0。
     """
-    if not ovuf_has_later_segment(ui, after_step):
-        return 0
-    wait = int(dwell_01s) if dwell_01s is not None else ovuf_grid_wait_01s(ui)
-    if wait <= 0:
-        wait = 50
     from utils.ac_scpi_commands import append_ac_startup_setpoints
 
     volt_a = _plain(ui, "textEdit_S1_AC_VOLT", "230") or "230"
@@ -132,13 +128,21 @@ def append_ovuf_segment_recovery(
     freq = _plain(ui, "textEdit_S1_AC_FR", "50") or "50"
     batch_start = len(commands)
     append_ac_startup_setpoints(commands, phase_mode, volt_a, volt_b, volt_c, freq)
-    # 强制等待：勿挂在 FREQ write 的 col9（连续录会提前跳过驻留）
-    wait_row = ["" for _ in range(10)]
-    wait_row[0] = "AC"
-    wait_row[1] = "wait"
-    wait_row[2] = "OVUF_GRID_RECOVERY"
-    wait_row[9] = wait
-    commands.append(wait_row)
+
+    has_later = ovuf_has_later_segment(ui, after_step)
+    wait = 0
+    if has_later:
+        wait = int(dwell_01s) if dwell_01s is not None else ovuf_grid_wait_01s(ui)
+        if wait <= 0:
+            wait = 50
+        # 强制等待：勿挂在 FREQ write 的 col9（连续录会提前跳过驻留）
+        wait_row = ["" for _ in range(10)]
+        wait_row[0] = "AC"
+        wait_row[1] = "wait"
+        wait_row[2] = "OVUF_GRID_RECOVERY"
+        wait_row[9] = wait
+        commands.append(wait_row)
+
     if step_rows is not None:
         step_rows.extend(commands[batch_start:])
     return wait

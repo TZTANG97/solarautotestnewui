@@ -14,8 +14,8 @@ from utils.iot_local_run import (
 )
 
 
-def test_stale_awaiting_registers_a_new_local_job(monkeypatch):
-    """上一云任务还挂着时，本机再点开始应先结案再新建，而不是跳过登记。"""
+def test_active_awaiting_skips_local_register(monkeypatch):
+    """云端仍在等本局结束时，禁止再登记 local_ui（否则会秒成功云单并双开）。"""
     import utils.iot_local_run as mod
 
     fake_sw = SimpleNamespace(
@@ -31,8 +31,8 @@ def test_stale_awaiting_registers_a_new_local_job(monkeypatch):
         mod, "release_previous_cloud_job_for_new_round", lambda: released.append(42) or 42
     )
     notify_local_run_started("过载能力测试")
-    assert released == [42]
-    assert called == [1]
+    assert released == []
+    assert called == []
 
 
 def test_handoff_job_ctx_skips_during_start_test(monkeypatch):

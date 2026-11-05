@@ -561,7 +561,9 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         gLayout.addWidget(te_ss, 3, 2)
         gLayout.addWidget(self._make_label("V|Hz"), 3, 3)
 
-        gLayout.addWidget(self._make_label("数据采集"), 4, 0)
+        # 每点驻留：扫到该电压/频率点后保持多久；Soft Panel 停表总时长 =
+        # 区间÷步长×驻留 + 开销，由 Append/ASYNC 自动填，勿与停表混淆。
+        gLayout.addWidget(self._make_label("每点驻留"), 4, 0)
         te_time = QtWidgets.QTextEdit()
         te_time.setObjectName(time_obj)
         te_time.setMaximumHeight(31)
@@ -729,7 +731,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         g14Layout.addWidget(self.textEdit_S7_Step_Size, 3, 2)
         g14Layout.addWidget(self._make_label("V|Hz"), 3, 3)
 
-        g14Layout.addWidget(self._make_label("数据采集"), 4, 0)
+        g14Layout.addWidget(self._make_label("每点驻留"), 4, 0)
         self.textEdit_S7_TIME = QtWidgets.QTextEdit()
         self.textEdit_S7_TIME.setObjectName("textEdit_S7_TIME")
         self.textEdit_S7_TIME.setMaximumHeight(31)
@@ -793,7 +795,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         g15Layout.addWidget(self.textEdit_S8_Step_Size, 3, 2)
         g15Layout.addWidget(self._make_label("V|Hz"), 3, 3)
 
-        g15Layout.addWidget(self._make_label("数据采集"), 4, 0)
+        g15Layout.addWidget(self._make_label("每点驻留"), 4, 0)
         self.textEdit_S8_TIME = QtWidgets.QTextEdit()
         self.textEdit_S8_TIME.setObjectName("textEdit_S8_TIME")
         self.textEdit_S8_TIME.setMaximumHeight(31)

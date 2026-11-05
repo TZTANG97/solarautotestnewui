@@ -324,7 +324,11 @@ class ItechTranslator:
         return True
 
     def _set_frequency(self, freq_val: float) -> bool:
-        """设置频率"""
+        """设置频率。
+
+        爱科 Soft Panel 读的是“已保存设定”；只写 REG_FREQ 不 SAVE，面板会一直停在
+        上一次频率（过频末点如 51.7）。SAVE 失败时必须当失败，让上层重试。
+        """
         reg_val = int(freq_val * 1000)  # 0.001Hz精度
         regs = [0x0000, reg_val]
         self._modbus_trace.append(self._format_fc10_pdu(self.REG_FREQ, regs, device_id=1))
@@ -334,7 +338,8 @@ class ItechTranslator:
         logger.info(f"爱科: 设置频率 {freq_val}Hz")
 
         if self.auto_save and not self._save_parameters():
-            logger.warning("爱科: 频率已写入但保存参数失败，按成功继续")
+            logger.error("爱科: 频率已写入但保存参数失败，上位机不会切到新频率")
+            return False
         return True
 
     def _save_parameters(self) -> bool:

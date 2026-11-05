@@ -57,3 +57,18 @@ def test_apply_ovuf_standard_to_ui_meta():
     sid = apply_ovuf_standard_to_ui(ui, "br_ord140", apply_defaults=True)
     assert sid == "br_ord140"
     assert ui._solar_standard == "br_ord140"
+
+
+def test_grid_wait_minute_typo_normalized_to_seconds():
+    fixed = apply_ovuf_standard_to_widgets(
+        {
+            "textEdit_ovuf_grid_wait": "2",
+            "comboBox_ovuf_grid_wait": "分钟",
+            "textEdit_S5_TIME": "1",
+        },
+        "thai",
+        force=False,
+    )
+    assert fixed["comboBox_ovuf_grid_wait"] == "秒"
+    assert fixed["textEdit_ovuf_grid_wait"] == "2"
+    assert fixed["textEdit_S5_TIME"] == "1"

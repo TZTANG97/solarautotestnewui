@@ -2707,6 +2707,17 @@ class IotUiHandoffService(QObject):
                 except Exception:
                     pass
             _wt_apply_payload = widgets_for_ui
+            # 过欠压连续录：IOT 常残留 textEdit_StopTime=00:05:00；若写进 Soft Panel，
+            # ASYNC 重算失败时 Soft Panel 停表会显示「约步数×0.3s≈21s」或空等 5 分钟，
+            # 试验员易把停表当成「数据采集」。StopTime 改由 Append/ASYNC 按扫段重算。
+            if (handler.get("key") or "") == "ovuf" and isinstance(widgets_for_ui, dict):
+                _stale_stop = str(widgets_for_ui.get("textEdit_StopTime") or "").strip()
+                if _stale_stop:
+                    widgets_for_ui = {**widgets_for_ui, "textEdit_StopTime": ""}
+                    self._log(
+                        f"过欠压: 忽略 IOT StopTime={_stale_stop!r}，"
+                        "由 Append/ASYNC 按扫段驻留重算"
+                    )
             try:
                 from utils.wt_job_save import prepare_wt_save_widgets, widgets_for_standard_apply
 
@@ -2728,6 +2739,65 @@ class IotUiHandoffService(QObject):
             missing = apply_widget_values(real_ui, _wt_apply_payload)
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
+            # 过欠压 S3–S6：写后回读，防止 LazyDialog/字段记忆把 IOT 步长/采集盖掉
+            if (handler.get("key") or "") == "ovuf" and isinstance(_wt_apply_payload, dict):
+                try:
+                    _ovuf_keys = (
+                        "textEdit_S3_Step_Size",
+                        "textEdit_S3_TIME",
+                        "textEdit_S3_AC_VOLT_End",
+                        "textEdit_S4_Step_Size",
+                        "textEdit_S4_TIME",
+                        "textEdit_S4_AC_VOLT_End",
+                        "textEdit_S5_Step_Size",
+                        "textEdit_S5_TIME",
+                        "textEdit_S5_AC_FR_End",
+                        "textEdit_S6_Step_Size",
+                        "textEdit_S6_TIME",
+                        "textEdit_S6_AC_FR_End",
+                        "textEdit_ovuf_grid_wait",
+                        "comboBox_ovuf_grid_wait",
+                    )
+                    _mismatch = []
+                    _snap = {}
+                    for _k in _ovuf_keys:
+                        if _k not in _wt_apply_payload:
+                            continue
+                        _want = str(_wt_apply_payload.get(_k) if _wt_apply_payload.get(_k) is not None else "").strip()
+                        _w = getattr(real_ui, _k, None)
+                        if _w is None and hasattr(real_ui, "findChild"):
+                            try:
+                                _w = real_ui.findChild(QWidget, _k)
+                            except Exception:
+                                _w = None
+                        _got = ""
+                        if _w is not None:
+                            try:
+                                if isinstance(_w, (QTextEdit, QPlainTextEdit)):
+                                    _got = str(_w.toPlainText() or "").strip()
+                                elif isinstance(_w, QLineEdit):
+                                    _got = str(_w.text() or "").strip()
+                                elif isinstance(_w, QComboBox):
+                                    _got = str(_w.currentText() or "").strip()
+                                elif isinstance(_w, QCheckBox):
+                                    _got = "1" if _w.isChecked() else "0"
+                            except Exception:
+                                _got = ""
+                        _snap[_k] = _got
+                        if _want and _got != _want:
+                            _mismatch.append(_k)
+                    self._log(
+                        "过欠压回读 S3–S6: "
+                        + ", ".join(f"{k}={_snap.get(k)!r}" for k in _ovuf_keys if k in _snap)
+                    )
+                    if _mismatch:
+                        self._log(f"过欠压控件回读不一致，重写: {_mismatch}")
+                        apply_widget_values(
+                            real_ui,
+                            {k: _wt_apply_payload[k] for k in _mismatch if k in _wt_apply_payload},
+                        )
+                except Exception as _rb_exc:
+                    self._log(f"过欠压控件回读跳过: {_rb_exc}")
             try:
                 from utils.wt_job_save import apply_wt_save_to_dialog
 

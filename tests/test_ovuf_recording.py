@@ -169,7 +169,10 @@ def test_ovuf_segment_recovery_full_setpoint_and_forced_wait(ovuf_ui, monkeypatc
     assert len(wait_rows) == 1
     assert wait_rows[0][9] == 50
 
-    # 末段后不应再插恢复
+    # 末段：仍回额定，但不再插并网等待
     tail = []
     assert append_ovuf_segment_recovery(tail, None, ovuf_ui, "三相", after_step=6) == 0
-    assert tail == []
+    tail_txt = [str(r[2]) for r in tail if r and r[1] == "write"]
+    assert any(c.startswith("FREQ 50") for c in tail_txt)
+    assert any(c.startswith("VOLT") for c in tail_txt)
+    assert not any(r[1] == "wait" for r in tail)

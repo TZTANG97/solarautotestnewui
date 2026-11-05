@@ -21486,10 +21486,50 @@ def thaiguoqianya_pinSend():
         continuous=wt_continuous,
         wt_on=wt_on,
     )
+    # 连续录：按扫段总驻留写入 WT StopTime，避免沿用 IOT/界面残留的 00:05:00 等旧值，
+    # 也避免 ASYNC 重算时漏计驻留只剩「步数×0.3s+余量≈26s」误导 Soft Panel。
+    _ovuf_stop_str = ""
+    if wt_on and wt_continuous and _ovuf_file_inc > 0:
+        try:
+            from utils.voltage_adaptability_commands import (
+                extract_continuous_band_rows,
+                recalculate_stoptime_from_band_rows,
+            )
+
+            _band = extract_continuous_band_rows(strArrayTest)
+            if _band:
+                _ovuf_stop_str, _ovuf_stop_sec, *_ = recalculate_stoptime_from_band_rows(
+                    _band
+                )
+            else:
+                _ovuf_stop_sec = int(round(float(total_test_time) + 60))
+                if _ovuf_stop_sec < 20:
+                    _ovuf_stop_sec = 20
+                _ovuf_stop_str = _seconds_to_stoptime_str(_ovuf_stop_sec)
+            for _cfg_row in strArrayTest:
+                if (
+                    _cfg_row
+                    and _cfg_row[0] == "Upper_WT_Config"
+                    and isinstance(_cfg_row[4], dict)
+                ):
+                    _cfg_row[4]["textEdit_StopTime"] = _ovuf_stop_str
+                    break
+            try:
+                for _pi in range(uiThaiGuoQianYa_Pin._wtStacked.count()):
+                    _page = uiThaiGuoQianYa_Pin._wtStacked.widget(_pi)
+                    _st = _page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                    if _st is not None:
+                        _st.setPlainText(_ovuf_stop_str)
+            except Exception as _e:
+                _append_debug_log(f"[过欠压_过欠频] update WT StopTime failed: {_e}")
+        except Exception as _e:
+            _append_debug_log(f"[过欠压_过欠频] StopTime recalc failed: {_e}")
+            _ovuf_stop_str = ""
     if _ovuf_file_inc > 0:
         if wt_continuous:
             ui.textEdit_ReturnMessage.append(
-                "[过欠压_过欠频] 一条线连续录，单文件 %s" % (_ovuf_names[0] if _ovuf_names else "OVUF_BR")
+                "[过欠压_过欠频] 一条线连续录，单文件 %s，StopTime %s"
+                % (_ovuf_names[0] if _ovuf_names else "OVUF_BR", _ovuf_stop_str or "-")
             )
         else:
             ui.textEdit_ReturnMessage.append(
@@ -25534,6 +25574,11 @@ def _ac_execute_write_command(command) -> None:
                 ok, _ = ac_controller._itech.translate(command)
                 if not ok:
                     raise RuntimeError(f"AC Modbus 命令发送失败: {command}")
+                try:
+                    logger.info(f"SendCommandToAC:{command}")
+                except Exception:
+                    pass
+                print(f"SendCommandToAC:{command}")
             else:
                 send_cmd = command
                 if ac_controller.is_chroma_61800():
@@ -25979,12 +26024,13 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=180):
     _wt_async_session_active = False
 
 
-def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9"):
+def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9", force_full_dwell=False):
     """命令后驻留（0.1s 单位）。
 
     一条线连续录（ASYNC_START…WAIT_END）期间：录波结束 / 截止时刻到 / 已请求停表
     时立刻跳过剩余驻留，避免「WT 已停、软件还在 60s×N 空等」。
     提前放行时不把 test_status 清掉，留给 WAIT_END / messure_testing 收尾。
+    force_full_dwell：OVUF 段间并网等待等，禁止被连续录提前跳过。
     """
     global test_status, strTestStatusFlag, _wt_async_session_active
     global _wt_async_stop_requested, _wt_async_deadline_ts
@@ -25995,7 +26041,7 @@ def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9"):
     if ticks <= 0:
         return
 
-    follow_measure = bool(_wt_async_session_active)
+    follow_measure = bool(_wt_async_session_active) and not force_full_dwell
     _log = globals().get("logger")
 
     def _should_skip_dwell():
@@ -26589,11 +26635,15 @@ def RunProject():
                     if strTestStatusFlag == "结束":
                         break
                     strtimenow = now_to_datenow()
-                    logger.info(strtimenow + "AC "+ "wait for next project")
-                    print(strtimenow + "AC "+ "wait for next project")
+                    wait_reason = str(strArrayTest[i][2] or "").strip()
+                    logger.info(strtimenow + "AC "+ "wait for next project" + (f" ({wait_reason})" if wait_reason else ""))
+                    print(strtimenow + "AC "+ "wait for next project" + (f" ({wait_reason})" if wait_reason else ""))
                     if strArrayTest[i][9] != '':
                         _wait_command_dwell_01s(
-                            i + 1, strArrayTest[i][9], log_tag="wait,col9"
+                            i + 1,
+                            strArrayTest[i][9],
+                            log_tag="wait,col9",
+                            force_full_dwell=(wait_reason.upper() == "OVUF_GRID_RECOVERY"),
                         )
                         if len(test_program) != 0 and flicker_is_test == '1':
                             total_save_file = total_save_file
@@ -29873,17 +29923,20 @@ def messure_testing():
                 # 计算 loop_time（单位：0.1 秒）
                 # 原因：后面用 for + sleep(0.1) 计时，因此秒数要乘以 10
                 stop_raw = ""
-                if test_program[0][0] == '7' or test_program[0][0] == '11':
-                    # 项目 7/11：过欠压/过欠频，首轮和后续轮次时长规则不同
+                # 连续录（ASYNC…WAIT_END）：一律用 Append/ASYNC 按区间×步长×驻留重算后的
+                # config_dict.StopTime。过欠压旧分支若走 test_time_list（常残留 00:05:00），
+                # Soft Panel 会按 5 分钟空等，阶梯早跑完却卡在停表；试验员误以为「采集没同步」。
+                _use_cfg_stop = bool(_wt_async_session_active)
+                if not _use_cfg_stop and (
+                    test_program[0][0] == '7' or test_program[0][0] == '11'
+                ):
+                    # 项目 7/11 分开录：首轮/后续轮仍用历史时长表
                     if volt_fz_first_status == 0:
-                        # 首轮沿用界面配置的 h/m/s
                         loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
                         volt_fz_first_status = 1
                     else:
-                        # 非首轮按每轮配置表 per_test_time_list[now_save_file]
                         loop_time = int(per_test_time_list[now_save_file]) * 10
                 else:
-                    # 普通项目：优先读当前 config_dict 的 StopTime（追加改时立刻生效）
                     try:
                         if isinstance(config_dict, dict):
                             stop_raw = config_dict.get("textEdit_StopTime") or ""
@@ -29892,9 +29945,14 @@ def messure_testing():
                     loop_time = _stoptime_to_loop_01s(stop_raw, fallback_hms=test_time_list)
                     if loop_time is None:
                         loop_time = int(test_time_list[0] * 3600 + test_time_list[1] * 60 + test_time_list[2]) * 10
+                    if _use_cfg_stop and volt_fz_first_status == 0 and (
+                        test_program[0][0] == '7' or test_program[0][0] == '11'
+                    ):
+                        volt_fz_first_status = 1
 
                 _append_debug_log(
-                    f"[messure_testing] computed loop_time={loop_time} (0.1s unit), StopTime={stop_raw!r}"
+                    f"[messure_testing] computed loop_time={loop_time} (0.1s unit), "
+                    f"StopTime={stop_raw!r}, async={_use_cfg_stop}"
                 )
 
                 # 发起"开始测量"动作（点击 WT 的开始按钮）
@@ -29967,6 +30025,18 @@ def messure_testing():
                     # 标记：当前轮已结束，等待后续流程重新置为 '1'
                     messure_status = '0'
 
+                    # 阶梯已结束 / 手点结束：先放行 WAIT_END（*IDN?），再去做 Soft Panel 停表存盘。
+                    # 旧顺序先 testing_stop 再清 test_status，Soft Panel 一点卡就整单 99% 挂死。
+                    if aborted or early_stop:
+                        test_status = '0'
+                        WT_auto_messure_status = ''
+                        _wt_async_stop_requested = False
+                        _wt_async_deadline_ts = 0.0
+                        _append_debug_log(
+                            f"[messure_testing] release WAIT_END before testing_stop "
+                            f"aborted={aborted} early_stop={early_stop}"
+                        )
+
                     # 停止测量 + 保存处理 + 决定是否进入下一轮
                     _append_debug_log(
                         f"[messure_testing] call testing_stop, aborted={aborted}, "
@@ -29982,11 +30052,6 @@ def messure_testing():
                         messsure_deatil_cofig = '0'
                         messure_status = '0'
                         test_status = '0'
-                    if aborted or early_stop:
-                        test_status = '0'
-                        WT_auto_messure_status = ''
-                        _wt_async_stop_requested = False
-                        _wt_async_deadline_ts = 0.0
                 else:
                     _append_debug_log("[messure_testing] testing_start failed, set status to reconfigure")
                     # 启动失败时同样把状态置回"待重配"，让后续流程有机会恢复
@@ -30059,6 +30124,8 @@ def testing_stop(test_count, count_now):
         now_h = _find_wtviewer_hwnd(now_handle_dict)
         if now_h is None:
             _append_debug_log("[testing_stop][error] WTViewerEfree window not found")
+            # 找不到 Soft Panel 也必须放行 run_loop，否则卡在 *IDN?/WAIT_END
+            test_status = '0'
             return
         win32gui.ShowWindow(now_h, win32con.SW_SHOWMAXIMIZED)
         win32gui.SetForegroundWindow(now_h)

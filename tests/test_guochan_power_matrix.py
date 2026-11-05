@@ -162,6 +162,20 @@ def test_itech_freq_scale_x1000():
     assert freq_writes[0][2][1] == 50500
 
 
+def test_itech_freq_save_failure_is_hard_fail():
+    """SAVE 失败不得伪装成功，否则 Soft Panel 会一直停在过频末点。"""
+    client = FakeModbusClient()
+    tr = ItechTranslator(client)
+    tr.auto_save = True
+    orig = tr._save_parameters
+    tr._save_parameters = lambda: False  # type: ignore[method-assign]
+    try:
+        ok, _ = tr.translate("FREQ 50")
+    finally:
+        tr._save_parameters = orig  # type: ignore[method-assign]
+    assert ok is False
+
+
 def test_itech_rejects_chroma_volt_extensions():
     """致茂 VOLT:* / LIST 等不得被误解析为设压（曾误把 VOLT:OFFS 0 写成 0V）。"""
     client = FakeModbusClient()
