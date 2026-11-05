@@ -258,10 +258,10 @@ def _device_ui_busy(reason="device_io"):
         app.setOverrideCursor(Qt.WaitCursor)
     try:
         if not remote:
-        try:
-            QApplication.processEvents()
-        except Exception:
-            pass
+            try:
+                QApplication.processEvents()
+            except Exception:
+                pass
         yield
     finally:
         if app is not None and not remote:
@@ -519,8 +519,8 @@ def SendACMessage():
             if not ok:
                 try:
                     QMessageBox.warning(None, "下发失败", "交流参数未成功下发，请查看操作日志")
-            except Exception:
-                pass
+                except Exception:
+                    pass
             return
     return ac_controller.send_message(uiACSetting)
 
@@ -556,14 +556,14 @@ def _send_dc_iv_curve(ui_setting, selected_dc, silent=False):
             rm=rm,
             configure_scpi_resource=_configure_scpi_resource,
         )
-    if selected_dc == "DC1":
-        dc1_controller = controller
-    elif selected_dc == "DC2":
-        dc2_controller = controller
-    elif selected_dc == "DC3":
-        dc3_controller = controller
+        if selected_dc == "DC1":
+            dc1_controller = controller
+        elif selected_dc == "DC2":
+            dc2_controller = controller
+        elif selected_dc == "DC3":
+            dc3_controller = controller
         else:
-        dc4_controller = controller
+            dc4_controller = controller
 
     if controller.handle is None:
         _show_connect_message(f"{selected_dc}未连接，请先连接{selected_dc}设备", ui_setting)
@@ -765,7 +765,7 @@ def SaveDEWETRONConfig(silent=False):
     if not dewetron_controller.connected:
         _log("DEWETRON未连接")
         if not silent:
-        _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
+            _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
         return False
     channel_id_map, xml_string = dewetron_controller.read_channel_id_map()
 
@@ -786,7 +786,7 @@ def SaveDEWETRONConfig(silent=False):
         else:
             _log("引导模板不存在，无法继续")
             if not silent:
-            _show_connect_message("无可用配置，请先在 OXYGEN 中配置设备", uiDewetronSetting)
+                _show_connect_message("无可用配置，请先在 OXYGEN 中配置设备", uiDewetronSetting)
             return False
     else:
         _log(f"从设备读取配置: {len(xml_string)} 字符, {len(channel_id_map)} 个通道ID")
@@ -823,7 +823,7 @@ def SaveDEWETRONConfig(silent=False):
     if empty_slots:
         _log(f"以下通道未填写: {', '.join(empty_slots)}")
         if not silent:
-        _show_connect_message(f"请填写所有通道，以下槽位为空: {', '.join(empty_slots)}", uiDewetronSetting)
+            _show_connect_message(f"请填写所有通道，以下槽位为空: {', '.join(empty_slots)}", uiDewetronSetting)
         return False
 
     # 3. 从设备 XML 中读取 InputChannels 映射
@@ -866,10 +866,10 @@ def SaveDEWETRONConfig(silent=False):
     if dewetron_controller.send_apply_config(modified_xml):
         _log("配置已应用")
         if not silent:
-        from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.information(None, "保存成功", "DEWETRON 配置已应用")
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.information(None, "保存成功", "DEWETRON 配置已应用")
         return True
-        _log("APPLY 发送失败")
+    _log("APPLY 发送失败")
     if not silent:
         from PyQt5.QtWidgets import QMessageBox
         if dewetron_controller.connected:
@@ -909,8 +909,8 @@ def BuildDEWETRONTestPage(silent=False):
 
     if dewetron_controller is None or not dewetron_controller.connected:
         if not silent:
-        _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
-        QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
+            _show_connect_message("DEWETRON未连接，请先连接设备", uiDewetronSetting)
+            QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
         return False
 
     log_fn = uiDewetronSetting.log if uiDewetronSetting is not None else None
@@ -925,11 +925,11 @@ def BuildDEWETRONTestPage(silent=False):
 
         if build_test_page_from_device(dewetron_controller, log_fn=log_fn):
             if not silent:
-            QMessageBox.information(None, "构造完成", "测试界面已构造")
+                QMessageBox.information(None, "构造完成", "测试界面已构造")
             return True
 
     if not silent:
-    QMessageBox.warning(None, "构造失败", "测试界面构造失败，请检查设备连接")
+        QMessageBox.warning(None, "构造失败", "测试界面构造失败，请检查设备连接")
     return False
 
 
@@ -3906,7 +3906,7 @@ def ConnectEQUWT3000():
 # 启动期后台加载 VISA RM，避免打开窗口前卡在 dll/驱动初始化
 _VISA_RM_BOOT = {"rm": None, "done": False, "error": None}
 
- 
+
 def _create_visa_resource_manager(local_file_path):
     """创建 VISA ResourceManager。
 
@@ -4431,7 +4431,7 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
     """Apply generic AutoTest collection/export settings to DEWETRON."""
     if dewetron_controller is None or not dewetron_controller.connected:
         if show_dialogs:
-        QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
+            QMessageBox.warning(None, "连接错误", "DEWETRON未连接，请先连接设备")
         else:
             _append_return_message("[DEWETRON] 未连接，无法自动应用配置")
         return False
@@ -4439,14 +4439,14 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
     spec = get_project_spec(project_name)
     if section is None or spec is None:
         if show_dialogs:
-        QMessageBox.warning(None, "配置错误", f"{project_name}未注册DEWETRON模式")
+            QMessageBox.warning(None, "配置错误", f"{project_name}未注册DEWETRON模式")
         return False
 
     config = section.get_dewetron_config()
     errors = config.validation_errors(require_export_fields=True)
     if errors:
         if show_dialogs:
-        QMessageBox.warning(None, "参数不完整", "\n".join(errors))
+            QMessageBox.warning(None, "参数不完整", "\n".join(errors))
         else:
             for error in errors:
                 _append_return_message(f"[DEWETRON] {error}")
@@ -4476,7 +4476,7 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
         result = _run_device_io("ApplyDEWETRONConfig", _work)
     except Exception as exc:
         if show_dialogs:
-        QMessageBox.warning(None, "应用失败", f"DEWETRON配置异常: {exc}")
+            QMessageBox.warning(None, "应用失败", f"DEWETRON配置异常: {exc}")
         else:
             _append_return_message(f"[DEWETRON] 配置异常: {exc}")
         return False
@@ -4488,12 +4488,12 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
         stage = result.get("stage")
         if stage == "read":
             if show_dialogs:
-            QMessageBox.warning(None, "读取失败", "无法从设备读取当前配置")
-        else:
+                QMessageBox.warning(None, "读取失败", "无法从设备读取当前配置")
+            else:
                 _append_return_message("[DEWETRON] 无法从设备读取当前配置")
         else:
             if show_dialogs:
-            QMessageBox.warning(None, "应用失败", "DEWETRON配置发送失败")
+                QMessageBox.warning(None, "应用失败", "DEWETRON配置发送失败")
             else:
                 _append_return_message("[DEWETRON] 配置发送失败")
         return False
@@ -4508,7 +4508,7 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
         f"[{project_name}] DEWETRON配置已应用: {len(config.export_fields)}个字段, {config.rate_text}ms"
     )
     if show_dialogs:
-    QMessageBox.information(None, "测试生效", f"{project_name} DEWETRON配置已应用")
+        QMessageBox.information(None, "测试生效", f"{project_name} DEWETRON配置已应用")
     return True
 
 
@@ -4653,7 +4653,7 @@ def _snapshot_dewetron_append(project_name):
     previous_setting_flag = strSettingTestFlag
     # Every Send sets this flag on success. Clear first so a failed validation
     # cannot look like success from a prior append (WT / DEW 同理).
-        strSettingTestFlag = "0"
+    strSettingTestFlag = "0"
     return {
         'project_name': project_name,
         'segment_start': 0 if overwrite else len(strArrayTest),
@@ -4707,20 +4707,20 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             del test_program[snapshot['program_start']:]
             strSettingTestFlag = snapshot['previous_setting_flag']
             return False
-    fingerprint = config_fingerprint(
-        config,
-        test_type=get_project_spec(project_name).test_type,
-        profile=get_project_spec(project_name).profile,
-    )
-    if (
-        getattr(section, '_dew_config_dirty', True)
-        or getattr(section, '_dew_applied_fingerprint', None) != fingerprint
-    ):
-        ui.textEdit_ReturnMessage.append("[DEWETRON] 配置已变更，请先点击测试生效")
-        del strArrayTest[snapshot['segment_start']:]
-        del test_program[snapshot['program_start']:]
-        strSettingTestFlag = snapshot['previous_setting_flag']
-        return False
+        fingerprint = config_fingerprint(
+            config,
+            test_type=get_project_spec(project_name).test_type,
+            profile=get_project_spec(project_name).profile,
+        )
+        if (
+            getattr(section, '_dew_config_dirty', True)
+            or getattr(section, '_dew_applied_fingerprint', None) != fingerprint
+        ):
+            ui.textEdit_ReturnMessage.append("[DEWETRON] 配置已变更，请先点击测试生效")
+            del strArrayTest[snapshot['segment_start']:]
+            del test_program[snapshot['program_start']:]
+            strSettingTestFlag = snapshot['previous_setting_flag']
+            return False
     remembered = getattr(section, '_dew_append_fingerprint', None)
     if remembered is not None and remembered != fingerprint:
         ui.textEdit_ReturnMessage.append("[DEWETRON] 追加配置已变化，请重置计数后重新追加")
@@ -4845,7 +4845,7 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
     if len(normalized) != before_n:
         ui.textEdit_ReturnMessage.append(
             f"[{project_name}] DEWETRON 已补齐缺失的 START/STOP 边界"
-    )
+        )
     spec = get_project_spec(project_name)
     test_type = spec.test_type if spec else project_name
     file_names = _finalize_recording_file_names(file_names)
@@ -6219,11 +6219,11 @@ def thaidianyashanbianSend():
         strArrayTestStepSingle = []
         # WT 模式在本段重读 step2；德威创已在函数前部读过 DEW 字段，勿覆盖
         if not is_dewetron:
-        S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentText()
-        S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText()
-        S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
-        fS2SetTime = float(S2_TIME_VALUE)
-        fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
+            S2_PER_FLICK_COUNT = uiThaiDianYaShanBian.comboBox_S2_PER_FLICK_COUNT.currentText()
+            S2_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S2_TIME.toPlainText()
+            S2_TIME_UNIT = uiThaiDianYaShanBian.comboBox_S2_TIME.currentText()
+            fS2SetTime = float(S2_TIME_VALUE)
+            fS2SetTime = SetTimeFunction(fS2SetTime, S2_TIME_UNIT)
         S2_FLICKER_COUNT = "12"
         if uiThaiDianYaShanBian.checkBox_S3.isChecked():
             S3_CYCLE_TIME_VALUE = uiThaiDianYaShanBian.textEdit_S3_CYCLE_TIME.toPlainText().strip()
@@ -7596,12 +7596,12 @@ def thaidianyashanbianSend():
 
 
                 if _flicker_img_cmd:
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
                     strArraySingle[2] = _flicker_img_cmd
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -7631,12 +7631,12 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
                 if _flicker_img_cmd:
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
                     strArraySingle[2] = _flicker_img_cmd
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -7665,12 +7665,12 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
                 if _flicker_img_cmd:
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
                     strArraySingle[2] = _flicker_img_cmd
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -7699,12 +7699,12 @@ def thaidianyashanbianSend():
                 strArrayTestStepSingle.append(strArraySingle)
 
                 if _flicker_img_cmd:
-                strArraySingle = ["" for _ in range(10)]
-                strArraySingle[0] = "WT3000"
-                strArraySingle[1] = "write"
+                    strArraySingle = ["" for _ in range(10)]
+                    strArraySingle[0] = "WT3000"
+                    strArraySingle[1] = "write"
                     strArraySingle[2] = _flicker_img_cmd
-                strArrayTest.append(strArraySingle)
-                strArrayTestStepSingle.append(strArraySingle)
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
                 strArrayTestStep.append(strArrayTestStepSingle)
 
                 strArraySingle = ["" for _ in range(10)]
@@ -7874,10 +7874,10 @@ def thaidianyashanbianSend():
         # 那时还没有 prepare 的字段表头，会留下空 run，开测导出易成空 CSV）
         if dewetron_collector is not None and getattr(dewetron_collector, "_run_id", None):
             try:
-            dewetron_collector.save_commands(strArrayTest)
+                dewetron_collector.save_commands(strArrayTest)
                 ui.textEdit_ReturnMessage.append(
                     f"[闪变] 命令已保存到数据库，共{len(strArrayTest)}条，"
-                                           f"批次: {dewetron_collector.get_batch_uid()}, "
+                    f"批次: {dewetron_collector.get_batch_uid()}, "
                     f"run_id={dewetron_collector._run_id}"
                 )
             except Exception as exc:
@@ -7889,16 +7889,16 @@ def thaidianyashanbianSend():
                     f"[闪变] 命令已生成共{len(strArrayTest)}条（开测时再写入采集库）"
                 )
             else:
-            now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
-            commands_file_name = f'dianyashanbian_commands{now_time}.csv'
-            directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
-            if directory1[0] != '':
+                now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+                commands_file_name = f'dianyashanbian_commands{now_time}.csv'
+                directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+                if directory1[0] != '':
                     file_mode = 'w+'  # 始终整表重写，避免同项重复追加把整队命令再 a+ 一遍
-                out = open(directory1[0], file_mode, newline='')
-                csv_write = csv.writer(out, dialect="excel")
-                for i in range(len(strArrayTest)):
-                    csv_write.writerow(strArrayTest[i])
-                out.close()
+                    out = open(directory1[0], file_mode, newline='')
+                    csv_write = csv.writer(out, dialect="excel")
+                    for i in range(len(strArrayTest)):
+                        csv_write.writerow(strArrayTest[i])
+                    out.close()
                     ui.textEdit_ReturnMessage.append(
                         f"[闪变] 命令生成完成，共{len(strArrayTest)}条，已写入 {commands_file_name}"
                     )
@@ -9036,83 +9036,83 @@ def thaixiebodianliuSend():
 
         S3DCPF = uiThaiXieBoDianLiu.textEdit_S1_DC1_PF_2.toPlainText()
         print(f'S3DCPF---{S3DCPF}')
-            # DC1
-            if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_2.isChecked():
-                a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF,0)
+        # DC1
+        if uiThaiXieBoDianLiu.checkBox_S1_DC1.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC1_2.isChecked():
+            a = DCGetIVValueFunction(S1DC1Vmp,S1DC1Imp,S1DC1Voc,S1DC1Isc,S3DCPF,0)
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "1"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "2"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
+            if a == "1":
+                strShowErrorMessageBoxFlag = "1"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "2"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC1")
 
-            if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_2.isChecked():
-                a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
+        if uiThaiXieBoDianLiu.checkBox_S1_DC2.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC2_2.isChecked():
+            a = DCGetIVValueFunction(S1DC2Vmp, S1DC2Imp, S1DC2Voc, S1DC2Isc, S3DCPF, 1)
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "3"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "4"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
+            if a == "1":
+                strShowErrorMessageBoxFlag = "3"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "4"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC2")
 
-            if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_2.isChecked():
-                a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
+        if uiThaiXieBoDianLiu.checkBox_S1_DC3.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC3_2.isChecked():
+            a = DCGetIVValueFunction(S1DC3Vmp, S1DC3Imp, S1DC3Voc, S1DC3Isc, S3DCPF, 2)
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "5"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "6"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
+            if a == "1":
+                strShowErrorMessageBoxFlag = "5"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "6"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC3")
 
-            if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_2.isChecked():
-                a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
+        if uiThaiXieBoDianLiu.checkBox_S1_DC4.isChecked() and uiThaiXieBoDianLiu.checkBox_S1_DC4_2.isChecked():
+            a = DCGetIVValueFunction(S1DC4Vmp, S1DC4Imp, S1DC4Voc, S1DC4Isc, S3DCPF, 3)
 
-                if a == "1":
-                    strShowErrorMessageBoxFlag = "7"
-                elif a == "2":
-                    strShowErrorMessageBoxFlag = "8"
-                elif a == "3":
-                    strShowErrorMessageBoxFlag = "brand"
-                else:
-                    strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
+            if a == "1":
+                strShowErrorMessageBoxFlag = "7"
+            elif a == "2":
+                strShowErrorMessageBoxFlag = "8"
+            elif a == "3":
+                strShowErrorMessageBoxFlag = "brand"
+            else:
+                strArrayTestStepSingle = DC_IV_Commands_Set(strArrayTestStepSingle, a, "DC4")
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[9] = fS1ACWaitTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[9] = fS1ACWaitTime
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[7] = fS3SetTime
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[7] = fS3SetTime
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            strArraySingle = ["" for _ in range(10)]
-            S1Command = "*IDN?"
-            strArraySingle[0] = "AC"
-            strArraySingle[1] = "query"
-            strArraySingle[2] = S1Command
-            strArraySingle[8] = 10
-            strArrayTest.append(strArraySingle)
-            strArrayTestStepSingle.append(strArraySingle)
+        strArraySingle = ["" for _ in range(10)]
+        S1Command = "*IDN?"
+        strArraySingle[0] = "AC"
+        strArraySingle[1] = "query"
+        strArraySingle[2] = S1Command
+        strArraySingle[8] = 10
+        strArrayTest.append(strArraySingle)
+        strArrayTestStepSingle.append(strArraySingle)
 
-            strArrayTestStep.append(strArrayTestStepSingle)
+        strArrayTestStep.append(strArrayTestStepSingle)
 
     # step4
     if uiThaiXieBoDianLiu.checkBox_S3_2.isChecked():
@@ -9982,28 +9982,28 @@ def thaixiebodianliuSend():
             )
             has_start = True
         if has_start:
-        harmonic_step_cbs = [
-            'checkBox_S3', 'checkBox_S3_2', 'checkBox_S3_3', 'checkBox_S3_4', 'checkBox_S3_5',
-            'checkBox_S3_10', 'checkBox_S3_6', 'checkBox_S3_7', 'checkBox_S3_9', 'checkBox_S3_8',
-            'checkBox_S3_11',
-        ]
-        enabled_harmonic_steps = sum(
-            1 for cb_name in harmonic_step_cbs
-            if getattr(uiThaiXieBoDianLiu, cb_name).isChecked()
-        )
-        dew_wait_seconds = int(fS3SetTime * max(enabled_harmonic_steps, 1))
+            harmonic_step_cbs = [
+                'checkBox_S3', 'checkBox_S3_2', 'checkBox_S3_3', 'checkBox_S3_4', 'checkBox_S3_5',
+                'checkBox_S3_10', 'checkBox_S3_6', 'checkBox_S3_7', 'checkBox_S3_9', 'checkBox_S3_8',
+                'checkBox_S3_11',
+            ]
+            enabled_harmonic_steps = sum(
+                1 for cb_name in harmonic_step_cbs
+                if getattr(uiThaiXieBoDianLiu, cb_name).isChecked()
+            )
+            dew_wait_seconds = int(fS3SetTime * max(enabled_harmonic_steps, 1))
 
-        s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "AC", "query", "*IDN?"
-        s[8] = dew_wait_seconds * 10
-        strArrayTest.append(s)
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "AC", "query", "*IDN?"
+            s[8] = dew_wait_seconds * 10
+            strArrayTest.append(s)
 
-        s = ["" for _ in range(10)]
-        s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
-        strArrayTest.append(s)
+            s = ["" for _ in range(10)]
+            s[0], s[1], s[2] = "DEWETRON", "write", ":ACQUISITION:STOP"
+            strArrayTest.append(s)
 
-        ui.textEdit_ReturnMessage.append(
-            f"[谐波] 德威创模式：采集完成，等待 {dew_wait_seconds}s，停止录制")
+            ui.textEdit_ReturnMessage.append(
+                f"[谐波] 德威创模式：采集完成，等待 {dew_wait_seconds}s，停止录制")
 
     try:
         from utils.wt_recording_mode import (
@@ -10171,11 +10171,11 @@ def thaixiebodianliuSend():
             dewetron_collector, "_run_id", None
         ):
             try:
-            dewetron_collector.save_commands(strArrayTest)
-            ui.textEdit_ReturnMessage.append(
-                f"[谐波] 命令已保存到数据库，共{len(strArrayTest)}条，"
-                f"批次: {dewetron_collector.get_batch_uid()}, "
-                f"run_id={dewetron_collector._run_id}")
+                dewetron_collector.save_commands(strArrayTest)
+                ui.textEdit_ReturnMessage.append(
+                    f"[谐波] 命令已保存到数据库，共{len(strArrayTest)}条，"
+                    f"批次: {dewetron_collector.get_batch_uid()}, "
+                    f"run_id={dewetron_collector._run_id}")
             except Exception as exc:
                 ui.textEdit_ReturnMessage.append(f"[谐波] 命令入库跳过: {exc}")
         elif is_dewetron and dewetron_collector is not None:
@@ -13764,7 +13764,7 @@ def thaistaticQUAppend():
     before_count = staticQU_append_count
     _seg = 0 if strAddTestFlag == "0" else len(strArrayTest)
     try:
-    thaistaticQUSend()
+        thaistaticQUSend()
     except Exception as exc:
         if strAddTestFlag == "0":
             strArrayTest[:] = []
@@ -14587,7 +14587,7 @@ def thaidynamicQUAppend():
     before_count = dynamicQU_append_count
     _seg = 0 if strAddTestFlag == "0" else len(strArrayTest)
     try:
-    thaidynamicQUSend()
+        thaidynamicQUSend()
     except Exception as exc:
         if strAddTestFlag == "0":
             strArrayTest[:] = []
@@ -14685,13 +14685,13 @@ def thaidynamicQUSend():
             target_cfg = cfg_rows[-1] if cfg_rows else None
             existing_names = []
             if target_cfg is not None:
-                    existing_names = [
-                        p.strip()
+                existing_names = [
+                    p.strip()
                     for p in re.split(
                         r"[,，]", str(target_cfg[4].get("textEdit_FileNameList") or "")
                     )
-                        if p.strip()
-                    ]
+                    if p.strip()
+                ]
             if not existing_names:
                 try:
                     for page_idx in range(uiThaiDynamicQU._wtStacked.count()):
@@ -15152,19 +15152,19 @@ def thaistaticcosPhiSend():
         cb = getattr(uiThaiStaticCosPhi, cb_name, None)
         if cb is not None and hasattr(cb, "isChecked") and not cb.isChecked():
             continue
-            enabled_cos_steps.append((step_num, cos_label, pf_name, dc_names))
+        enabled_cos_steps.append((step_num, cos_label, pf_name, dc_names))
 
     point_plan = []
-            if use_ladder:
+    if use_ladder:
         dc_names = cos_step_defs[0][4]
         for power_pct in power_levels:
             point_plan.append((3, "pwr", "textEdit_PowerLadder", dc_names, power_pct))
-            else:
+    else:
         for step_num, cos_label, pf_name, dc_names in enabled_cos_steps:
-                pf_widget = getattr(uiThaiStaticCosPhi, pf_name, None)
-                point_power = pf_widget.toPlainText().strip() if pf_widget is not None else "100"
-                if not point_power:
-                    point_power = "100"
+            pf_widget = getattr(uiThaiStaticCosPhi, pf_name, None)
+            point_power = pf_widget.toPlainText().strip() if pf_widget is not None else "100"
+            if not point_power:
+                point_power = "100"
             point_plan.append((step_num, cos_label, pf_name, dc_names, point_power))
 
     n_points = len(point_plan)
@@ -15215,7 +15215,7 @@ def thaistaticcosPhiSend():
             if use_ladder:
                 staticcos_file_names.append(f"P{safe_power}")
             else:
-            staticcos_file_names.append(f"P{safe_power}_{cos_label}")
+                staticcos_file_names.append(f"P{safe_power}_{cos_label}")
 
     measure_names, stop_sec, n_rounds, mode_label = plan_stop_and_names(
         uiThaiStaticCosPhi,
@@ -15241,20 +15241,20 @@ def thaistaticcosPhiSend():
         apply_segment_recording(
             strArrayTest, file_list_text, stop_str, continuous=wt_continuous
         )
-                if not wt_continuous:
+        if not wt_continuous:
             for row in reversed(strArrayTest):
                 if row and row[0] == "Upper_WT_Config" and isinstance(row[4], dict):
                     from utils.wt_save_path import ensure_wt_save_dir
 
                     save_path = ensure_wt_save_dir(str(row[4].get("textEdit_SavePath") or "").strip())
-                        row[4]["textEdit_SavePath"] = save_path
+                    row[4]["textEdit_SavePath"] = save_path
                     from datetime import datetime as _dt
 
                     merge_name = f"staticcosPhi_{_dt.now().strftime('%Y%m%d_%H%M%S')}.CSV"
                     merge_path = os.path.join(save_path, merge_name)
                     row[4]["wt_merge_single_file"] = "1"
                     row[4]["wt_merge_output_path"] = merge_path
-                break
+                    break
         try:
             for page_idx in range(uiThaiStaticCosPhi._wtStacked.count()):
                 page = uiThaiStaticCosPhi._wtStacked.widget(page_idx)
@@ -17677,13 +17677,13 @@ def thaiguopinjiangzaiSend():
     from utils.wt_job_save import apply_split_freq_filenames, dialog_recording_is_continuous
 
     if dialog_recording_is_continuous(uiThaiGuoPinJiangZai):
-    _enable_freq_step_continuous_record(
-        strArrayTest,
-        uiThaiGuoPinJiangZai,
-        file_default="OF_curve",
-        log_label="过频降载",
-        ladder_start_index=ladder_start,
-    )
+        _enable_freq_step_continuous_record(
+            strArrayTest,
+            uiThaiGuoPinJiangZai,
+            file_default="OF_curve",
+            log_label="过频降载",
+            ladder_start_index=ladder_start,
+        )
     else:
         apply_split_freq_filenames(
             strArrayTest,
@@ -18126,13 +18126,13 @@ def thaiqianpinshengzaiSend():
     from utils.wt_job_save import apply_split_freq_filenames, dialog_recording_is_continuous
 
     if dialog_recording_is_continuous(uiThaiQianPinShengZai):
-    _enable_freq_step_continuous_record(
-        strArrayTest,
-        uiThaiQianPinShengZai,
-        file_default="UF_curve",
-        log_label="欠频升载",
-        ladder_start_index=ladder_start,
-    )
+        _enable_freq_step_continuous_record(
+            strArrayTest,
+            uiThaiQianPinShengZai,
+            file_default="UF_curve",
+            log_label="欠频升载",
+            ladder_start_index=ladder_start,
+        )
     else:
         apply_split_freq_filenames(
             strArrayTest,
@@ -18583,18 +18583,18 @@ def thaitestPUSend():
     for _step in _pu_ladder.get("steps") or []:
         strArrayTestStep.append(_step)
     if use_voltage_ladder and u_pct_list:
-            total_save_file = total_save_file + 1
+        total_save_file = total_save_file + 1
         f_ladder_dwell = _pu_ladder.get("dwell_01s") or 0
         n_powers = len(_pu_ladder.get("power_levels") or []) or 1
         dwell_raw = _pu_ladder.get("dwell_raw") or ""
         dwell_unit = _pu_ladder.get("dwell_unit") or ""
         stop_sec = int(round(len(u_pct_list) * n_powers * (float(f_ladder_dwell) / 10.0) + 5))
-            if stop_sec < 10:
-                stop_sec = 10
-            hh, rem = divmod(stop_sec, 3600)
-            mm, ss = divmod(rem, 60)
-            stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-            file_list_text = "PU_curve"
+        if stop_sec < 10:
+            stop_sec = 10
+        hh, rem = divmod(stop_sec, 3600)
+        mm, ss = divmod(rem, 60)
+        stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
+        file_list_text = "PU_curve"
         cfg_rows = [
             cfg_row for cfg_row in strArrayTest
             if cfg_row and len(cfg_row) > 4 and cfg_row[0] == "Upper_WT_Config"
@@ -18606,24 +18606,24 @@ def thaitestPUSend():
             target_cfg[4]["textEdit_StopTime"] = stop_str
             if target_cfg[4].get("comboBox_AutoSave", 0) == 0:
                 target_cfg[4]["comboBox_AutoSave"] = 1
-            try:
-                for page_idx in range(uiThaiTestPU._wtStacked.count()):
-                    page = uiThaiTestPU._wtStacked.widget(page_idx)
-                    te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
-                    if te is not None:
-                        te.setPlainText(file_list_text)
-                    st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
-                    if st is not None:
-                        st.setPlainText(stop_str)
-                    combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
-                    if combo is not None and combo.currentIndex() == 0:
-                        combo.setCurrentIndex(1)
-            except Exception as e:
-                _append_debug_log(f"[Test_PU] update WT continuous config failed: {e}")
-            ui.textEdit_ReturnMessage.append(
-                f"[Test_PU] 连续录 1 条 PU_curve，电压 {len(u_pct_list)} 点，"
+        try:
+            for page_idx in range(uiThaiTestPU._wtStacked.count()):
+                page = uiThaiTestPU._wtStacked.widget(page_idx)
+                te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                if te is not None:
+                    te.setPlainText(file_list_text)
+                st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                if st is not None:
+                    st.setPlainText(stop_str)
+                combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                if combo is not None and combo.currentIndex() == 0:
+                    combo.setCurrentIndex(1)
+        except Exception as e:
+            _append_debug_log(f"[Test_PU] update WT continuous config failed: {e}")
+        ui.textEdit_ReturnMessage.append(
+            f"[Test_PU] 连续录 1 条 PU_curve，电压 {len(u_pct_list)} 点，"
             f"功率 {n_powers} 档，每点驻留 {dwell_raw}{dwell_unit}，WT停机 {stop_str}"
-            )
+        )
 
     # step3..22 legacy（电压 list 为空时）
     if (not use_voltage_ladder) and uiThaiTestPU.checkBox_S3.isChecked():
@@ -24884,8 +24884,8 @@ def _prepare_dewetron_collector(project_name):
                     getattr(section, '_dew_config_dirty', True)
                     or getattr(section, '_dew_applied_fingerprint', None)
                     != current_fingerprint
-        ):
-            errors.append("DEWETRON配置尚未应用，请先点击测试生效")
+                ):
+                    errors.append("DEWETRON配置尚未应用，请先点击测试生效")
         if errors:
             for error in errors:
                 ui.textEdit_ReturnMessage.append(f"[DEWETRON] {error}")
@@ -25031,15 +25031,11 @@ def RunProjectPush():
             box.exec_()
             return
 
-        # 云端 handoff 占用本台架时拦截本机开测（双开测并存互斥）。
-        # 注意：云任务自己调用 start_test 时 _job_ctx 仍在，必须放行，否则会自锁。
+        # 云端 handoff 占用本台架时拦截本机开测（双开测并存互斥）
         try:
-            from utils.iot_local_run import (
-                handoff_has_awaiting_job,
-                handoff_start_in_progress,
-            )
+            from utils.iot_local_run import handoff_has_awaiting_job
 
-            if handoff_has_awaiting_job() and not handoff_start_in_progress():
+            if handoff_has_awaiting_job():
                 msg = "云端任务占用本台架，请先结束/中止云端任务后再本机开测"
                 ui.textEdit_ReturnMessage.append("[开始试验] " + msg)
                 logger.info(msg)
@@ -25353,28 +25349,28 @@ def EndProjectPush(*, force=False, silent_if_idle=False, off_reason="manual"):
                 )
                 if reply != QMessageBox.Yes:
                     return
-                strTestStatusFlag = "结束"
-                strtimenow = now_to_datenow()
-                logger.info(strtimenow + "    结束试验!")
-                print(strtimenow + "    结束试验!")
+            strTestStatusFlag = "结束"
+            strtimenow = now_to_datenow()
+            logger.info(strtimenow + "    结束试验!")
+            print(strtimenow + "    结束试验!")
             _abort_wt_side_effects(off_reason)
             _force_hardware_safe_off(off_reason)
-                currentSecond = ui.comboBox_PS.currentText()
-                _finish_run_progress(aborted=True)
-                _update_project_status(currentSecond, "已中止")
-                _reset_current_project_count()
-                _sync_start_end_buttons()
+            currentSecond = ui.comboBox_PS.currentText()
+            _finish_run_progress(aborted=True)
+            _update_project_status(currentSecond, "已中止")
+            _reset_current_project_count()
+            _sync_start_end_buttons()
             _finish_dewetron_session(off_reason, send_stop=True)
-                reset_wt_automation_state()
-                # reset 会清空 first_test；RunProject 若仍卡在 Upper_WT_Config 返回途中，
-                # 必须再置位，避免再次拉起整段 WTViewer 自动配置。
-                first_test = "1"
+            reset_wt_automation_state()
+            # reset 会清空 first_test；RunProject 若仍卡在 Upper_WT_Config 返回途中，
+            # 必须再置位，避免再次拉起整段 WTViewer 自动配置。
+            first_test = "1"
             # 结束试验必须放 UI 锁，否则 Agent 一直「本机 UI 占用中，本轮不领任务」
         elif not silent_if_idle:
             QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
     except NameError:
         if not silent_if_idle:
-        QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
+            QMessageBox.warning(None, "提示", "项目未运行，无法结束试验")
     finally:
         # 无论是否在跑，结束按钮都尝试放 UI 锁，避免 Agent 永久跳过领任务
         try:
@@ -25916,12 +25912,10 @@ def _wt_async_start_measure(cmd_no):
         _log.info(f"WT 连续测量已启动(ASYNC_START), command#{cmd_no}")
 
 
-def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600, force_release_sec=300):
+def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600):
     """阻塞直到本轮 WT 测量结束（test_status 回 '0'）。
 
     阶梯命令已跑完：立刻请求 messure_testing 停表，避免再空等剩余 StopTime。
-    若停表请求后超过 force_release_sec 仍未回 '0'，强制放行，避免扫段已结束却一直卡住。
-    默认 300s：兼顾 OVUF 末段卡住与慢盘/大 StopTime 的长测落盘，避免 120s 过早截断录波。
     """
     global test_status, strTestStatusFlag, _wt_async_session_active
     _wt_request_async_measure_stop(f"WAIT_END@{cmd_no}")
@@ -25929,10 +25923,6 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600, force_release_sec=300):
     wait_start = time.time()
     last_log_sec = -1
     _log = globals().get("logger")
-    try:
-        force_after = max(60, int(force_release_sec))
-    except (TypeError, ValueError):
-        force_after = 300
     while True:
         if strTestStatusFlag == "结束":
             break
@@ -25953,17 +25943,6 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600, force_release_sec=300):
             test_status = ''
             _append_debug_log(f"[run_loop] WT WAIT_END done at command#{cmd_no}")
             break
-        if elapsed >= force_after:
-            if _log is not None:
-                _log.warning(
-                    f"WAIT_END 停表后 {force_after}s 仍未结束，强制放行: 第{cmd_no}条, "
-                    f"test_status={test_status}"
-                )
-            _append_debug_log(
-                f"[run_loop] WT WAIT_END force-release at command#{cmd_no} after {force_after}s"
-            )
-            test_status = ''
-            break
         if elapsed >= wait_timeout_sec:
             if _log is not None:
                 _log.error(
@@ -25975,14 +25954,12 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600, force_release_sec=300):
     _wt_async_session_active = False
 
 
-def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9", allow_async_skip=True):
+def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9"):
     """命令后驻留（0.1s 单位）。
 
     一条线连续录（ASYNC_START…WAIT_END）期间：录波结束 / 截止时刻到 / 已请求停表
     时立刻跳过剩余驻留，避免「WT 已停、软件还在 60s×N 空等」。
     提前放行时不把 test_status 清掉，留给 WAIT_END / messure_testing 收尾。
-
-    allow_async_skip=False：段间并网等待等关键驻留，禁止被连续录提前跳过。
     """
     global test_status, strTestStatusFlag, _wt_async_session_active
     global _wt_async_stop_requested, _wt_async_deadline_ts
@@ -25993,7 +25970,7 @@ def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9", allow_async_sk
     if ticks <= 0:
         return
 
-    follow_measure = bool(_wt_async_session_active) and bool(allow_async_skip)
+    follow_measure = bool(_wt_async_session_active)
     _log = globals().get("logger")
 
     def _should_skip_dwell():
@@ -26587,17 +26564,11 @@ def RunProject():
                     if strTestStatusFlag == "结束":
                         break
                     strtimenow = now_to_datenow()
-                    wait_tag = str(strArrayTest[i][2] or "").strip() or "next project"
-                    logger.info(strtimenow + "AC "+ "wait " + wait_tag)
-                    print(strtimenow + "AC "+ "wait " + wait_tag)
+                    logger.info(strtimenow + "AC "+ "wait for next project")
+                    print(strtimenow + "AC "+ "wait for next project")
                     if strArrayTest[i][9] != '':
-                        # 段间并网等待必须跑满，不可被连续录提前跳过
-                        _force_wait = "OVUF_GRID" in wait_tag.upper()
                         _wait_command_dwell_01s(
-                            i + 1,
-                            strArrayTest[i][9],
-                            log_tag="wait,col9",
-                            allow_async_skip=not _force_wait,
+                            i + 1, strArrayTest[i][9], log_tag="wait,col9"
                         )
                         if len(test_program) != 0 and flicker_is_test == '1':
                             total_save_file = total_save_file
@@ -27282,10 +27253,10 @@ def RunProject():
                             else:
                                 if wt3000_controller is None or wt3000_controller.handle is None:
                                     raise RuntimeError("WT3000 未连接，无法发送命令")
-                        wt3000_controller.handle.write(command)
-                        strtimenow = now_to_datenow()
-                        logger.info(strtimenow + "WT3000 " + command)
-                        print(strtimenow + "WT3000 " + command)
+                                wt3000_controller.handle.write(command)
+                                strtimenow = now_to_datenow()
+                                logger.info(strtimenow + "WT3000 " + command)
+                                print(strtimenow + "WT3000 " + command)
 
                     except Exception as e:
                         print(e)
@@ -28218,7 +28189,7 @@ def ThreadSendDCCommandInfomationTimer():
                             strtimenow + "SendMessageToDC4:" + strCurrMessage)
                         print(
                             strtimenow + "SendMessageToDC4:" + strCurrMessage)
-                    
+
         # Soft Panel 写完主从电流上限后，刷 status 供 IOT 按工控机实际额定电流校验
         try:
             _refresh_dc_curr_max_status()
@@ -29625,12 +29596,12 @@ def messured_set(messure_handle):
                                 )
                             value_key = alias
                         if value_key not in START_AND_STOP_COORD:
-                                _append_debug_log(
+                            _append_debug_log(
                                 f"[messured_set][error] unknown START_AND_STOP key '{value}', "
                                 f"use DC/1/50 (0→DC, 51→50)."
-                                )
+                            )
                             pyautogui.press('esc')
-                                continue
+                            continue
                         if value_key == '50':
                             pyautogui.scroll(START_AND_STOP_COORD[value_key][0])
                             pyautogui.sleep(0.2)
@@ -31526,8 +31497,8 @@ def system_error_info():
             _reconcile_ticks = 0
             try:
                 _reconcile_status_json_with_sessions()
-        except Exception:
-            pass
+            except Exception:
+                pass
         if _should_poll_equ_ctrl_for_syst_err(ac_controller, ui.pushButton_ConnectEQUAC):
             # Modbus TCP（ModbusVISA）：句柄为 SOCKET，不支持 SCPI SYST:ERR?；勿用下拉框原文 open_resource（含中文会触发 PyVISA ascii 错误）
             if ac_controller.client is not None:
@@ -31943,7 +31914,7 @@ if __name__ == "__main__":
             print("[DEBUG_STARTUP] 4/9 VISA ResourceManager (background)...", flush=True)
             # 后台加载 VISA RM + 延后 list_resources，避免打开前卡数秒
             rm = None
-                EQUList = ['未发现可连接设备']
+            EQUList = ['未发现可连接设备']
             _start_visa_rm_boot(local_file_path)
             print(
                 "[DEBUG_STARTUP]    VISA RM boot thread started (non-blocking)",
@@ -34452,7 +34423,7 @@ if __name__ == "__main__":
             _safe_click(uiThaiOverLoads, "pushButton_ReadSettingFile", OpenFileDialogThaiOverLoads)
             _safe_click(uiThaiOverLoads, "pushButton_SaveSettingFile", SaveFileDialogThaiOverLoads)
             _safe_click(uiThaiOverLoads, "pushButton_ExportIotTemplate", ExportIotOverloadTemplate)
-            
+
             # 直流分量
             _when_ui_ready(uiThaiZhiLiuFenLiang, lambda u: u.pushButton_Send.clicked.connect(thaizhiliufenliangSend))
             # 追加测试
@@ -35013,10 +34984,10 @@ if __name__ == "__main__":
                 from PyQt5.QtCore import QTimer as _QT
 
                 def _polish_main():
-            try:
-                from utils.ui_field_helpers import polish_input_widgets
+                    try:
+                        from utils.ui_field_helpers import polish_input_widgets
 
-                _n = polish_input_widgets(main_window)
+                        _n = polish_input_widgets(main_window)
                         print(
                             f"[DEBUG_STARTUP]    deferred polish main done (~{_n})",
                             flush=True,
@@ -35032,11 +35003,11 @@ if __name__ == "__main__":
                     try:
                         from utils.ui_field_helpers import polish_input_widgets
 
-                _wt3000_page = ui.stackedWidget.widget(7)
+                        _wt3000_page = ui.stackedWidget.widget(7)
                         for _extra in getattr(
                             _wt3000_page, "_extra_widgets_comboBox_WT3000", {}
                         ).values():
-                    polish_input_widgets(_extra)
+                            polish_input_widgets(_extra)
                         try:
                             from utils.wt_channel_scale import load_saved_scales
 
@@ -35048,7 +35019,7 @@ if __name__ == "__main__":
                                     _edit.setText(str(_text))
                         except Exception as _scale_exc:
                             print(f"[WT] 回填比例系数失败: {_scale_exc}")
-                for _name in (
+                        for _name in (
                             "uiACSetting",
                             "uiDC1Setting",
                             "uiDC2Setting",
@@ -35058,24 +35029,24 @@ if __name__ == "__main__":
                             "uiDewetronSetting",
                         ):
                             _f = globals().get(_name)
-                    if _f is None:
-                        continue
-                    try:
-                        for _attr in dir(_f):
+                            if _f is None:
+                                continue
+                            try:
+                                for _attr in dir(_f):
                                     if _attr.startswith(
                                         ("textEdit_", "lineEdit_", "comboBox_")
                                     ) or _attr in ("combo_phase",):
-                                _w = getattr(_f, _attr, None)
-                                if _w is not None:
-                                    polish_input_widgets(_w)
-                    except Exception as _pe:
-                        print(f"[UI] polish skip {_name}: {_pe}", flush=True)
+                                        _w = getattr(_f, _attr, None)
+                                        if _w is not None:
+                                            polish_input_widgets(_w)
+                            except Exception as _pe:
+                                print(f"[UI] polish skip {_name}: {_pe}", flush=True)
                         _itch = globals().get("_ac_itch_ref") or {}
                         _phase_w = _itch.get("combo_phase") if isinstance(_itch, dict) else None
                         if _phase_w is not None:
                             polish_input_widgets(_phase_w)
                         print("[DEBUG_STARTUP]    deferred polish extras done", flush=True)
-            except Exception as _polish_exc:
+                    except Exception as _polish_exc:
                         print(
                             f"[DEBUG_STARTUP]    deferred polish extras fail: {_polish_exc}",
                             flush=True,
@@ -35084,7 +35055,7 @@ if __name__ == "__main__":
                 def _db_worker():
                     try:
                         print("[DEBUG_STARTUP]    deferred init DEWETRON database...", flush=True)
-            init_database()
+                        init_database()
                     except Exception as _db_exc:
                         print(
                             f"[DEBUG_STARTUP]    deferred init_database fail: {_db_exc}",
