@@ -218,11 +218,51 @@ def load_scanned_resources() -> List[Dict[str, str]]:
 def _with_scanned(items: List[Dict[str, str]]) -> List[Dict[str, str]]:
     out = list(items)
     _merge(out, load_scanned_resources())
+    _merge(out, _endpoints_from_status_json())
+    return out
+
+
+def status_json_path() -> Path:
+    return Path(__file__).resolve().parent.parent / "status.json"
+
+
+def _endpoints_from_status_json() -> List[Dict[str, str]]:
+    """把 status.json 里已配置/曾连接的网口·串口地址并进上报，避免网页「上报 0」却左侧已有交流源。"""
+    path = status_json_path()
+    try:
+        if not path.is_file():
+            return []
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    rows = data.get("devices") if isinstance(data, dict) else None
+    if not isinstance(rows, list):
+        return []
+    out: List[Dict[str, str]] = []
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        resource = str(row.get("resource") or "").strip()
+        if not _usable_scanned_resource(resource):
+            continue
+        # 残缺 IP 不上报
+        if re.match(r"^\d{1,3}(\.\d{1,3}){0,2}$", resource):
+            continue
+        key = resource.upper()
+        if key in seen:
+            continue
+        seen.add(key)
+        item = _resource_to_endpoint(resource)
+        name = str(row.get("name") or "").strip()
+        if name:
+            item["label"] = f"{name} · {item.get('label') or resource}"
+        out.append(item)
     return out
 
 
 def collect_local_endpoints(*, min_interval_sec: float = 15.0, force: bool = False) -> List[Dict[str, str]]:
-    """枚举本机 COM，并带上桌面已扫描的 USB/网口。不在心跳里打开 VISA。"""
+    """枚举本机 COM，并带上桌面已扫描的 USB/网口与 status.json 已知地址。不在心跳里打开 VISA。"""
     global _cache, _cache_at, _last_error
     now = time.time()
     if not force and _cache and (now - _cache_at) < float(min_interval_sec):
@@ -241,6 +281,7 @@ def collect_local_endpoints(*, min_interval_sec: float = 15.0, force: bool = Fal
         errors.append(ser_err)
     _merge(out, ser_items)
     _merge(out, load_scanned_resources())
+    _merge(out, _endpoints_from_status_json())
 
     _last_error = "; ".join(errors) if errors and not out else ""
     if out:

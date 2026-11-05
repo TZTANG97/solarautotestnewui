@@ -13,10 +13,18 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def control_timeout_sec(action_payload: Dict[str, Any], *, default: float = 25.0) -> float:
+    """discover_lan 扫网可能远超普通 connect；与云端 CTRL_DISCOVER_EXPIRE_SEC 对齐。"""
+    act = str(action_payload.get("action") or "").strip().lower()
+    if act == "discover_lan":
+        return 180.0
+    return float(default)
+
+
 def run_control_via_desktop(
     action_payload: Dict[str, Any],
     *,
-    timeout_sec: float = 25.0,
+    timeout_sec: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Agent 侧：写 device_cmds pending，阻塞等待桌面 results。"""
     from utils.iot_device_cmd_inbox import wait_result, write_pending
@@ -26,6 +34,12 @@ def run_control_via_desktop(
     ).strip()
     if not request_id:
         return {"ok": False, "message": "缺少 requestId"}
+
+    wait_sec = (
+        float(timeout_sec)
+        if timeout_sec is not None
+        else control_timeout_sec(action_payload)
+    )
 
     root = _repo_root()
     write_pending(
@@ -38,11 +52,12 @@ def run_control_via_desktop(
         },
     )
     logger.info(
-        "已写入仪器控制命令 requestId=%s action=%s",
+        "已写入仪器控制命令 requestId=%s action=%s timeout=%.0fs",
         request_id,
         action_payload.get("action"),
+        wait_sec,
     )
-    result = wait_result(root, request_id, timeout_sec=timeout_sec)
+    result = wait_result(root, request_id, timeout_sec=wait_sec)
     if not result:
         return {
             "ok": False,

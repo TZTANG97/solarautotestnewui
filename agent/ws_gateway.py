@@ -412,7 +412,7 @@ class SolarWsPresence:
         try:
             from agent.device_control import run_control_via_desktop
 
-            result = run_control_via_desktop(data, timeout_sec=25.0)
+            result = run_control_via_desktop(data)
         except Exception as exc:
             logger.warning("WS 仪器控制失败: %s", exc)
             result = {"ok": False, "message": str(exc)[:500], "requestId": request_id}

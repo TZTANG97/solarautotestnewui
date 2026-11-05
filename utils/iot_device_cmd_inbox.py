@@ -81,6 +81,7 @@ def execute_device_cmd(
     dew_build: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     switch_flicker: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     apply_setpoints: Optional[Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]]] = None,
+    discover_lan: Optional[Callable[[], Dict[str, Any]]] = None,
     log: Optional[Callable[[str], None]] = None,
 ) -> Dict[str, Any]:
     """在桌面主线程执行一条控制命令。"""
@@ -91,6 +92,21 @@ def execute_device_cmd(
     widgets = payload.get("widgets") if isinstance(payload.get("widgets"), dict) else {}
 
     try:
+        if action == "discover_lan":
+            if not discover_lan:
+                return {
+                    "ok": False,
+                    "message": "桌面未注册局域网扫描回调（请升级 SolarAutoTest）",
+                }
+            summary = discover_lan()
+            ok = bool((summary or {}).get("ok", False))
+            msg = str(
+                (summary or {}).get("message")
+                or ("局域网扫描完成" if ok else "局域网扫描失败")
+            )
+            _log(f"[仪器控制] discover_lan: {msg}")
+            return {"ok": ok, "message": msg, "detail": summary or {}}
+
         if action == "connect":
             if not apply_connect:
                 return {"ok": False, "message": "桌面未注册连接回调"}

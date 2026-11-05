@@ -120,6 +120,27 @@ def test_collect_includes_scanned_visa_when_no_com(monkeypatch, tmp_path):
     assert {item["resource"] for item in again} == resources
 
 
+def test_collect_includes_status_json_network(monkeypatch, tmp_path):
+    import agent.local_endpoints as mod
+
+    mod._cache = []
+    mod._cache_at = 0.0
+    monkeypatch.setattr(mod, "_enumerate_winreg", lambda: ([], None))
+    monkeypatch.setattr(mod, "_enumerate_pyserial", lambda: ([], None))
+    monkeypatch.setattr(mod, "scanned_resources_path", lambda: tmp_path / "scanned_resources.json")
+    status = tmp_path / "status.json"
+    status.write_text(
+        '{"devices":[{"name":"交流电源","resource":"192.168.40.10:2101","connected":false,'
+        '"last_connected":"2026-11-05 10:00:00"}]}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "status_json_path", lambda: status)
+    items = mod.collect_local_endpoints(force=True)
+    resources = {item["resource"] for item in items}
+    assert "192.168.40.10:2101" in resources
+    assert any(item.get("kind") == "network" for item in items)
+
+
 def test_serialcomm_missing_key_is_empty_not_error(monkeypatch):
     """无串口时 SERIALCOMM 键不存在（WinError 2）应视为空列表，不报故障。"""
     import agent.local_endpoints as mod
