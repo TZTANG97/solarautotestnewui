@@ -402,15 +402,20 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.comboBox_S1_TIME.addItems(["分钟", "秒", "毫秒"])
         g4Layout.addWidget(self.comboBox_S1_TIME, 1, 2)
 
-        g4Layout.addWidget(self._make_label("段间并网等待:"), 2, 0)
+        g4Layout.addWidget(self._make_label("段间并网等待(回压回频后):"), 2, 0)
         self.textEdit_ovuf_grid_wait = QtWidgets.QTextEdit()
         self.textEdit_ovuf_grid_wait.setObjectName("textEdit_ovuf_grid_wait")
         self.textEdit_ovuf_grid_wait.setMaximumHeight(31)
         self.textEdit_ovuf_grid_wait.setHtml("5")
+        self.textEdit_ovuf_grid_wait.setToolTip(
+            "过压/欠压/过频扫完后先回到启机 230V/50Hz，再按此时间等待并网，然后才进下一段。"
+            "单位请用「秒」；误选「分钟」会导致段间空等很久、试验看似扫完仍在等。"
+        )
         g4Layout.addWidget(self.textEdit_ovuf_grid_wait, 2, 1)
         self.comboBox_ovuf_grid_wait = QtWidgets.QComboBox()
         self.comboBox_ovuf_grid_wait.setObjectName("comboBox_ovuf_grid_wait")
         self.comboBox_ovuf_grid_wait.addItems(["秒", "分钟", "毫秒"])
+        self.comboBox_ovuf_grid_wait.setCurrentIndex(0)  # 默认秒
         g4Layout.addWidget(self.comboBox_ovuf_grid_wait, 2, 2)
 
         layout.addWidget(self.groupBox_4)

@@ -14,6 +14,7 @@ from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
 from components.wt_recording_mode_row import WtRecordingModeRow
 from utils.matrix_recording_commands import get_record_mode
 from utils.ovuf_recording import (
+    append_ovuf_segment_recovery,
     apply_ovuf_recording_mode,
     build_ovuf_sweep_points,
     enabled_ovuf_segments,
@@ -139,3 +140,36 @@ def test_ovuf_apply_recording_continuous_vs_split(ovuf_ui):
         if r[6] not in ("", None, "ASYNC_START", "WAIT_END")
     ]
     assert len(col6_nums) == 2
+
+
+def test_ovuf_segment_recovery_full_setpoint_and_forced_wait(ovuf_ui, monkeypatch):
+    """过频→欠频前：完整回压回频 + 不可跳过的并网等待行。"""
+    monkeypatch.setattr(
+        "utils.ac_scpi_commands.resolve_chroma_61800", lambda *a, **k: False
+    )
+    ovuf_ui.checkBox_S5.setChecked(True)
+    ovuf_ui.checkBox_S6.setChecked(True)
+    ovuf_ui.textEdit_S1_AC_VOLT.setPlainText("230")
+    ovuf_ui.textEdit_S1_AC_VOLT_2.setPlainText("230")
+    ovuf_ui.textEdit_S1_AC_VOLT_3.setPlainText("230")
+    ovuf_ui.textEdit_S1_AC_FR.setPlainText("50")
+    ovuf_ui.textEdit_ovuf_grid_wait.setPlainText("5")
+    ovuf_ui.comboBox_ovuf_grid_wait.setCurrentText("秒")
+
+    cmds = []
+    wait = append_ovuf_segment_recovery(
+        cmds, None, ovuf_ui, "三相", after_step=5, dwell_01s=50
+    )
+    assert wait == 50
+    cmds_txt = [str(r[2]) for r in cmds if r and r[1] == "write"]
+    assert any("EDIT ALL" in c for c in cmds_txt)
+    assert any(c.startswith("VOLT") for c in cmds_txt)
+    assert any(c.startswith("FREQ 50") for c in cmds_txt)
+    wait_rows = [r for r in cmds if r[1] == "wait" and r[2] == "OVUF_GRID_RECOVERY"]
+    assert len(wait_rows) == 1
+    assert wait_rows[0][9] == 50
+
+    # 末段后不应再插恢复
+    tail = []
+    assert append_ovuf_segment_recovery(tail, None, ovuf_ui, "三相", after_step=6) == 0
+    assert tail == []

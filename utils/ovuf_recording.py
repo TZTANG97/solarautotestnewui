@@ -86,11 +86,7 @@ def ovuf_grid_wait_01s(ui) -> int:
         wait = _to_01s(meta, "秒")
         if wait > 0:
             return wait
-    s1 = _plain(ui, "textEdit_S1_TIME", "")
-    if s1:
-        wait = _to_01s(s1, _combo_text(ui, "comboBox_S1_TIME", "分钟"))
-        if wait > 0:
-            return wait
+    # 勿回落到 S1 启机时间：默认单位常为「分钟」，会把段间等待拉成数分钟假死。
     return 50  # 默认 5s
 
 
@@ -118,7 +114,9 @@ def append_ovuf_segment_recovery(
 ) -> int:
     """段间恢复到 S1 额定电压/频率，并等待并网。
 
-    等待写在 FREQ 命令的 col9，避免产生 *IDN? 扫点占位，干扰录波方式改写。
+    用完整启机序列（PHAS + EDIT ALL + VOLT + FREQ），避免过频扫完后爱科仍停在
+    末点频率（如 51.7）。并网等待单独成 AC wait 行（OVUF_GRID_RECOVERY），
+    连续录提前放行时也不得跳过，否则逆变器未并网就进下一段。
     返回追加的等待（0.1s），未插入时返回 0。
     """
     if not ovuf_has_later_segment(ui, after_step):
@@ -126,17 +124,21 @@ def append_ovuf_segment_recovery(
     wait = int(dwell_01s) if dwell_01s is not None else ovuf_grid_wait_01s(ui)
     if wait <= 0:
         wait = 50
-    from utils.ac_scpi_commands import append_freq_set, append_volt_set
+    from utils.ac_scpi_commands import append_ac_startup_setpoints
 
-    volt = _plain(ui, "textEdit_S1_AC_VOLT", "230") or "230"
+    volt_a = _plain(ui, "textEdit_S1_AC_VOLT", "230") or "230"
+    volt_b = _plain(ui, "textEdit_S1_AC_VOLT_2", "") or volt_a
+    volt_c = _plain(ui, "textEdit_S1_AC_VOLT_3", "") or volt_a
     freq = _plain(ui, "textEdit_S1_AC_FR", "50") or "50"
     batch_start = len(commands)
-    append_volt_set(commands, phase_mode, volt)
-    append_freq_set(commands, phase_mode, freq)
-    last = commands[-1]
-    while len(last) < 10:
-        last.append("")
-    last[9] = wait
+    append_ac_startup_setpoints(commands, phase_mode, volt_a, volt_b, volt_c, freq)
+    # 强制等待：勿挂在 FREQ write 的 col9（连续录会提前跳过驻留）
+    wait_row = ["" for _ in range(10)]
+    wait_row[0] = "AC"
+    wait_row[1] = "wait"
+    wait_row[2] = "OVUF_GRID_RECOVERY"
+    wait_row[9] = wait
+    commands.append(wait_row)
     if step_rows is not None:
         step_rows.extend(commands[batch_start:])
     return wait

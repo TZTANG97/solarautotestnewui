@@ -25920,10 +25920,11 @@ def _wt_async_start_measure(cmd_no):
         _log.info(f"WT 连续测量已启动(ASYNC_START), command#{cmd_no}")
 
 
-def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600):
+def _wt_wait_measure_end(cmd_no, wait_timeout_sec=180):
     """阻塞直到本轮 WT 测量结束（test_status 回 '0'）。
 
     阶梯命令已跑完：立刻请求 messure_testing 停表，避免再空等剩余 StopTime。
+    超时默认 180s（旧 3600s 会让界面长期停在 *IDN?/WAIT_END，云任务卡 99%）。
     """
     global test_status, strTestStatusFlag, _wt_async_session_active
     _wt_request_async_measure_stop(f"WAIT_END@{cmd_no}")
@@ -25931,6 +25932,7 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600):
     wait_start = time.time()
     last_log_sec = -1
     _log = globals().get("logger")
+    timed_out = False
     while True:
         if strTestStatusFlag == "结束":
             break
@@ -25952,13 +25954,28 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=3600):
             _append_debug_log(f"[run_loop] WT WAIT_END done at command#{cmd_no}")
             break
         if elapsed >= wait_timeout_sec:
+            timed_out = True
             if _log is not None:
                 _log.error(
                     f"等待连续测量结束超时: 第{cmd_no}条, test_status={test_status}, 超时{wait_timeout_sec}s"
                 )
-            _show_connect_message(f"自动化等待连续测量超时（第{cmd_no}条）", ui)
+            try:
+                from utils.iot_remote_ui import remote_connect_silent
+
+                if not remote_connect_silent():
+                    _show_connect_message(f"自动化等待连续测量超时（第{cmd_no}条）", ui)
+                else:
+                    print(f"[连接提示] 自动化等待连续测量超时（第{cmd_no}条）")
+            except Exception:
+                print(f"[连接提示] 自动化等待连续测量超时（第{cmd_no}条）")
             break
         time.sleep(0.05)
+    if timed_out or str(test_status) not in ("", "0"):
+        # 强制收口，避免后续命令/云任务一直 99% 挂在 WAIT_END
+        test_status = "0"
+        _append_debug_log(
+            f"[run_loop] WT WAIT_END force clear test_status at command#{cmd_no} timed_out={timed_out}"
+        )
     _wt_async_session_active = False
 
 
