@@ -332,6 +332,35 @@ def test_superseded_stop_does_not_stop_fresh_run(tmp_path: Path) -> None:
     assert any("上一单" in m and "80" in m for m in logs)
 
 
+def test_mis_superseded_current_job_still_stops(tmp_path: Path) -> None:
+    """开跑误把本单写入 superseded 后，IOT 中止当前任务仍必须停机。"""
+    from agent.job_inbox import (
+        is_superseded_job,
+        list_stop_requests,
+        remember_superseded_job,
+        write_stop_request,
+    )
+
+    root = Path(tmp_path)
+    write_stop_request(root, 106, reason="IOT中止")
+    remember_superseded_job(root, 106)
+    stopped = {"n": 0}
+    logs: list[str] = []
+    svc = IotUiHandoffService(
+        repo_root=root,
+        stop_test=lambda: stopped.__setitem__("n", stopped["n"] + 1),
+        log=lambda m: logs.append(m),
+        interval_ms=200,
+    )
+    svc._awaiting = {"job_id": 106, "started_at": time.time(), "start_grace_sec": 30}
+    svc.get_run_status = lambda: "进行中"
+    svc.poll_once()
+    assert stopped["n"] == 1
+    assert list_stop_requests(root) == []
+    assert not is_superseded_job(root, 106)
+    assert any("误标" in m and "106" in m for m in logs)
+
+
 def test_stop_request_invokes_stop_test(tmp_path: Path) -> None:
     from agent.job_inbox import list_stop_requests, write_stop_request
 

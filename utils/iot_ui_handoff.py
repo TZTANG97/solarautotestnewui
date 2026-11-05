@@ -1031,23 +1031,32 @@ class IotUiHandoffService(QObject):
                     continue
                 # 云端收口的是上一单（例如 58 已被心跳标已中止）。
                 # 下一单尚未写入 _awaiting 时 current_job 为 0，也不能拿来停 59/60。
-                try:
-                    from agent.job_inbox import is_superseded_job
-
-                    if is_superseded_job(self.repo_root, job_id):
-                        self._log(f"忽略上一单停机 job={job_id}（本机已新开试验）")
-                        ack_stop_request(self.repo_root, job_id)
-                        if legacy.resolve() != self.repo_root.resolve():
-                            ack_stop_request(legacy, job_id)
-                        continue
-                except Exception:
-                    pass
-                if not stop_request_should_execute(
+                # 但若停机单就是本机正在交接/正在跑的任务，绝不能当「上一单」忽略
+                # （开跑时误把本单写入 superseded 会导致 IOT 中止 106 无效）。
+                is_current = stop_request_should_execute(
                     current_job=current_job,
                     stop_job=job_id,
                     running_job=running_job,
                     running=running,
-                ):
+                )
+                try:
+                    from agent.job_inbox import forget_superseded_job, is_superseded_job
+
+                    if is_superseded_job(self.repo_root, job_id):
+                        if is_current:
+                            forget_superseded_job(self.repo_root, job_id)
+                            self._log(
+                                f"停机 job={job_id} 曾误标为上一单，仍是当前任务，继续停机"
+                            )
+                        else:
+                            self._log(f"忽略上一单停机 job={job_id}（本机已新开试验）")
+                            ack_stop_request(self.repo_root, job_id)
+                            if legacy.resolve() != self.repo_root.resolve():
+                                ack_stop_request(legacy, job_id)
+                            continue
+                except Exception:
+                    pass
+                if not is_current:
                     self._log(
                         f"忽略过期停机 job={job_id}（当前任务 {current_job or running_job or 0}）"
                     )

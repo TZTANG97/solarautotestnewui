@@ -98,6 +98,30 @@ def test_sync_skips_job_replaced_by_a_fresh_start(tmp_path: Path):
     assert written == []
 
 
+def test_sync_writes_when_active_was_mis_superseded(tmp_path: Path):
+    """当前交接任务被误标上一单时，IOT 中止仍要写停机单。"""
+    reset_remote_abort_state()
+    from agent.job_inbox import is_superseded_job, remember_superseded_job
+
+    remember_superseded_job(tmp_path, 106)
+    written = []
+
+    def _get_job(_jid):
+        return {"status": "aborted", "failReason": "IOT中止"}
+
+    got = sync_cloud_abort_to_stop_inbox(
+        client=SimpleNamespace(),
+        repo_root=tmp_path,
+        run_snapshot={"jobId": 106, "status": "进行中"},
+        get_job=_get_job,
+        write_stop=lambda *a, **k: written.append(a),
+        active_job_id=106,
+    )
+    assert got is not None
+    assert len(written) == 1
+    assert not is_superseded_job(tmp_path, 106)
+
+
 def test_sync_skips_when_not_aborted(tmp_path: Path):
     reset_remote_abort_state()
     written = []

@@ -171,9 +171,13 @@ def test_fresh_start_drops_previous_job_and_its_stop(monkeypatch, tmp_path):
     import json
 
     import utils.iot_local_run as mod
-    from agent.job_inbox import list_stop_requests, write_stop_request
+    from agent.job_inbox import is_superseded_job, list_stop_requests, write_stop_request
 
-    fake_sw = SimpleNamespace(strTestStatusFlag="", strArrayTest=[])
+    fake_sw = SimpleNamespace(
+        strTestStatusFlag="",
+        strArrayTest=[],
+        _iot_ui_handoff_svc=None,
+    )
     monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake_sw)
     monkeypatch.setattr(mod, "_repo_root", lambda: tmp_path)
     (tmp_path / "status.json").write_text(
@@ -188,6 +192,47 @@ def test_fresh_start_drops_previous_job_and_its_stop(monkeypatch, tmp_path):
     assert "jobId" not in saved["project"]
     assert list_stop_requests(tmp_path) == []
     assert mod.current_local_job_id() is None
+    assert is_superseded_job(tmp_path, 80)
+
+
+def test_fresh_start_keeps_current_handoff_job(monkeypatch, tmp_path):
+    """云任务开跑时 status 已是本单：不可记进 superseded，否则 IOT 中止无效。"""
+    import json
+
+    import utils.iot_local_run as mod
+    from agent.job_inbox import (
+        is_superseded_job,
+        list_stop_requests,
+        remember_superseded_job,
+        write_stop_request,
+    )
+
+    fake_sw = SimpleNamespace(
+        strTestStatusFlag="",
+        strArrayTest=[],
+        _iot_ui_handoff_svc=SimpleNamespace(
+            _awaiting={"job_id": 106},
+            _job_ctx=None,
+            _current_handoff_job_id=lambda: 106,
+        ),
+    )
+    monkeypatch.setitem(__import__("sys").modules, "SCPITestWave", fake_sw)
+    monkeypatch.setattr(mod, "_repo_root", lambda: tmp_path)
+    (tmp_path / "status.json").write_text(
+        json.dumps({"project": {"jobId": 106, "status": "进行中"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    remember_superseded_job(tmp_path, 106)  # 模拟历史误标
+    write_stop_request(tmp_path, 106, reason="IOT中止")
+    with mod._lock:
+        mod._state["job_id"] = 106
+    assert mod.detach_previous_job_for_fresh_start() == 106
+    saved = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    assert saved["project"]["jobId"] == 106
+    assert not is_superseded_job(tmp_path, 106)
+    # 本单停机单必须保留给 handoff
+    assert [r.get("job_id") for r in list_stop_requests(tmp_path)] == [106]
+    assert mod.current_local_job_id() == 106
 
 
 def test_notify_started_skips_while_desktop_running(monkeypatch):

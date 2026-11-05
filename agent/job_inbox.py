@@ -177,6 +177,41 @@ def is_superseded_job(repo_root: Path, job_id: int) -> bool:
     return False
 
 
+def forget_superseded_job(repo_root: Path, job_id: int) -> bool:
+    """当前正在跑/交接的任务号若被误记为「上一单」，必须摘掉，否则 IOT 中止会被忽略。"""
+    try:
+        jid = int(job_id)
+    except (TypeError, ValueError):
+        return False
+    if jid <= 0:
+        return False
+    path = _superseded_path(repo_root)
+    if not path.is_file():
+        return False
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+    if not isinstance(raw, list):
+        return False
+    kept: List[int] = []
+    removed = False
+    for item in raw:
+        try:
+            n = int(item)
+        except (TypeError, ValueError):
+            continue
+        if n == jid:
+            removed = True
+            continue
+        if n > 0 and n not in kept:
+            kept.append(n)
+    if not removed:
+        return False
+    path.write_text(json.dumps(kept[-40:]), encoding="utf-8")
+    return True
+
+
 def ack_stop_request(repo_root: Path, job_id: int) -> bool:
     """确认已处理停机请求：移到 stop_requests/done/，不存在则返回 False。"""
     d = inbox_root(repo_root) / "stop_requests"

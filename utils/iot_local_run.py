@@ -350,41 +350,86 @@ def handoff_start_in_progress() -> bool:
         return False
 
 
-def detach_previous_job_for_fresh_start() -> Optional[int]:
+def _handoff_keep_job_id() -> int:
+    """云端正在交接/等待结束的任务号；开跑时不能把它当「上一单」摘掉。"""
+    try:
+        import SCPITestWave as sw
+
+        svc = getattr(sw, "_iot_ui_handoff_svc", None)
+        if svc is None:
+            return 0
+        fn = getattr(svc, "_current_handoff_job_id", None)
+        if callable(fn):
+            return int(fn() or 0)
+        for src in (getattr(svc, "_awaiting", None), getattr(svc, "_job_ctx", None)):
+            if isinstance(src, dict):
+                jid = int(src.get("job_id") or 0)
+                if jid > 0:
+                    return jid
+    except Exception:
+        return 0
+    return 0
+
+
+def detach_previous_job_for_fresh_start(*, keep_job_id: int = 0) -> Optional[int]:
     """新开一局之前摘掉上一单号，并清掉它留下的远程停机。
 
     软件重新打开后，status.json 往往还挂着途哲这台的上一单。
     点开始会先把进度写成「进行中」。若这时心跳仍读到旧任务号，
     而云端那一单已经是 aborted，就会写成远程停机，把刚开始的闪变停掉。
+
+    注意：IOT 云任务开跑时 status/awaiting 已是本单 jobId（如 106）。
+    若把本单记进 superseded，随后网页中止 106 会被「忽略上一单停机」。
     """
     if desktop_run_in_progress():
         return None
+    try:
+        keep = int(keep_job_id or 0)
+    except (TypeError, ValueError):
+        keep = 0
+    if keep <= 0:
+        keep = _handoff_keep_job_id()
     old = current_local_job_id() or _job_id_from_status_json()
     from agent.job_inbox import (
         ack_stop_request,
+        forget_superseded_job,
         is_superseded_job,
         list_stop_requests,
         remember_superseded_job,
     )
 
     root = _repo_root()
-    if old:
-        remember_superseded_job(root, int(old))
+    try:
+        old_i = int(old) if old else 0
+    except (TypeError, ValueError):
+        old_i = 0
+    if old_i > 0 and old_i != keep:
+        remember_superseded_job(root, old_i)
+    elif old_i > 0 and old_i == keep:
+        # 本单被误记为上一单时摘掉，保证 IOT 中止生效
+        forget_superseded_job(root, old_i)
     for req in list_stop_requests(root):
         try:
             jid = int(req.get("job_id") or 0)
         except (TypeError, ValueError):
             jid = 0
-        if jid <= 0 or is_superseded_job(root, jid):
-            if jid > 0:
-                ack_stop_request(root, jid)
+        if jid <= 0:
+            continue
+        if keep > 0 and jid == keep:
+            # 保留当前任务的停机单，交给 handoff 执行
+            continue
+        if is_superseded_job(root, jid):
+            ack_stop_request(root, jid)
             continue
         remember_superseded_job(root, jid)
         ack_stop_request(root, jid)
-    clear_status_job_binding()
-    if old:
-        _ui_log(f"[IOT] 新开试验前已摘掉上一单 #{old}，它的远程停机不再作用到这一局")
-    return int(old) if old else None
+    if keep <= 0 or (old_i > 0 and old_i != keep):
+        clear_status_job_binding()
+    if old_i > 0 and old_i != keep:
+        _ui_log(f"[IOT] 新开试验前已摘掉上一单 #{old_i}，它的远程停机不再作用到这一局")
+    elif old_i > 0 and old_i == keep:
+        _ui_log(f"[IOT] 保持当前云任务 #{keep}，不将其标为上一单")
+    return old_i if old_i > 0 else None
 
 
 def notify_local_run_started(
@@ -496,6 +541,12 @@ def adopt_cloud_job(job_id: int, exper_id: Optional[int] = None) -> None:
         if prev_id and prev_id != jid:
             _state["job_id"] = None
             _state["exper_id"] = None
+    try:
+        from agent.job_inbox import forget_superseded_job
+
+        forget_superseded_job(_repo_root(), jid)
+    except Exception:
+        logger.debug("adopt 时摘掉误标上一单失败", exc_info=True)
     _persist_local_job_ids(jid, exper_id)
 
 

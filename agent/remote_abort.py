@@ -66,17 +66,22 @@ def sync_cloud_abort_to_stop_inbox(
     if jid <= 0:
         return None
     try:
-        from agent.job_inbox import is_superseded_job
-
-        if is_superseded_job(Path(repo_root), jid):
-            logger.info("跳过上一单远程停机 job=%s（本机已新开试验）", jid)
-            return None
-    except Exception:
-        logger.debug("读取已替换任务号失败", exc_info=True)
-    try:
         active = int(active_job_id or 0)
     except (TypeError, ValueError):
         active = 0
+    try:
+        from agent.job_inbox import forget_superseded_job, is_superseded_job
+
+        if is_superseded_job(Path(repo_root), jid):
+            # 误把当前任务写入 superseded 时仍要写停机，否则 IOT 中止无效
+            if active > 0 and jid == active:
+                forget_superseded_job(Path(repo_root), jid)
+                logger.info("当前任务 job=%s 曾误标上一单，仍写远程停机", jid)
+            else:
+                logger.info("跳过上一单远程停机 job=%s（本机已新开试验）", jid)
+                return None
+    except Exception:
+        logger.debug("读取已替换任务号失败", exc_info=True)
     # status.json 里往往还是上一单。正在交接 61 时不能再为 58 写停机，
     # 否则宏刚 moveTo 一下就被结束试验打断。
     if active > 0 and jid != active:
