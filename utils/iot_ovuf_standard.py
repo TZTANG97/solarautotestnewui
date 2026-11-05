@@ -347,15 +347,7 @@ def apply_ovuf_standard_to_widgets(
             out["textEdit_ovuf_grid_wait"] = str(dwell)
         if force or out.get("comboBox_ovuf_grid_wait") in (None, ""):
             out["comboBox_ovuf_grid_wait"] = "秒"
-    # 防呆：段间等待常见 1~30「秒」；若单位误成「分钟」会把 2 秒拖成 2 分钟，
-    # Soft Panel/段间空等会被当成「采集时长没生效」。
-    try:
-        gw = float(str(out.get("textEdit_ovuf_grid_wait") or "").strip() or "0")
-    except (TypeError, ValueError):
-        gw = 0.0
-    unit = str(out.get("comboBox_ovuf_grid_wait") or "").strip()
-    if gw > 0 and gw <= 30 and unit in ("分钟", "分", "min", "minute", "minutes"):
-        out["comboBox_ovuf_grid_wait"] = "秒"
+    # 不再把「N 分钟」强改成「秒」：试验员常故意设段间并网 2 分钟等逆变器并网。
     return out
 
 

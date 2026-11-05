@@ -2739,65 +2739,18 @@ class IotUiHandoffService(QObject):
             missing = apply_widget_values(real_ui, _wt_apply_payload)
             if missing:
                 self._log(f"部分控件未写入: {missing[:12]}")
-            # 过欠压 S3–S6：写后回读，防止 LazyDialog/字段记忆把 IOT 步长/采集盖掉
+            # 过欠压：关键字段强制对齐 + 钉死字段记忆，避免 Dialog 仍显示 181.7 / 11 秒
             if (handler.get("key") or "") == "ovuf" and isinstance(_wt_apply_payload, dict):
                 try:
-                    _ovuf_keys = (
-                        "textEdit_S3_Step_Size",
-                        "textEdit_S3_TIME",
-                        "textEdit_S3_AC_VOLT_End",
-                        "textEdit_S4_Step_Size",
-                        "textEdit_S4_TIME",
-                        "textEdit_S4_AC_VOLT_End",
-                        "textEdit_S5_Step_Size",
-                        "textEdit_S5_TIME",
-                        "textEdit_S5_AC_FR_End",
-                        "textEdit_S6_Step_Size",
-                        "textEdit_S6_TIME",
-                        "textEdit_S6_AC_FR_End",
-                        "textEdit_ovuf_grid_wait",
-                        "comboBox_ovuf_grid_wait",
+                    from utils.iot_ovuf_apply import apply_ovuf_critical_widgets
+
+                    still_bad = apply_ovuf_critical_widgets(
+                        real_ui, _wt_apply_payload, log=self._log, rounds=2
                     )
-                    _mismatch = []
-                    _snap = {}
-                    for _k in _ovuf_keys:
-                        if _k not in _wt_apply_payload:
-                            continue
-                        _want = str(_wt_apply_payload.get(_k) if _wt_apply_payload.get(_k) is not None else "").strip()
-                        _w = getattr(real_ui, _k, None)
-                        if _w is None and hasattr(real_ui, "findChild"):
-                            try:
-                                _w = real_ui.findChild(QWidget, _k)
-                            except Exception:
-                                _w = None
-                        _got = ""
-                        if _w is not None:
-                            try:
-                                if isinstance(_w, (QTextEdit, QPlainTextEdit)):
-                                    _got = str(_w.toPlainText() or "").strip()
-                                elif isinstance(_w, QLineEdit):
-                                    _got = str(_w.text() or "").strip()
-                                elif isinstance(_w, QComboBox):
-                                    _got = str(_w.currentText() or "").strip()
-                                elif isinstance(_w, QCheckBox):
-                                    _got = "1" if _w.isChecked() else "0"
-                            except Exception:
-                                _got = ""
-                        _snap[_k] = _got
-                        if _want and _got != _want:
-                            _mismatch.append(_k)
-                    self._log(
-                        "过欠压回读 S3–S6: "
-                        + ", ".join(f"{k}={_snap.get(k)!r}" for k in _ovuf_keys if k in _snap)
-                    )
-                    if _mismatch:
-                        self._log(f"过欠压控件回读不一致，重写: {_mismatch}")
-                        apply_widget_values(
-                            real_ui,
-                            {k: _wt_apply_payload[k] for k in _mismatch if k in _wt_apply_payload},
-                        )
+                    if still_bad:
+                        self._log(f"过欠压关键字段仍不一致: {still_bad}")
                 except Exception as _rb_exc:
-                    self._log(f"过欠压控件回读跳过: {_rb_exc}")
+                    self._log(f"过欠压强制写入跳过: {_rb_exc}")
             try:
                 from utils.wt_job_save import apply_wt_save_to_dialog
 
@@ -3587,6 +3540,18 @@ class IotUiHandoffService(QObject):
             desktop_running = False
             project_append = handler.get("append")
             if auto_append and project_append:
+                # Append 前再钉一次过欠压关键字段（连接/就绪检查期间 Dialog 可能被 polish 盖回旧值）
+                if (handler.get("key") or "") == "ovuf" and isinstance(widgets, dict) and widgets:
+                    try:
+                        from utils.iot_ovuf_apply import apply_ovuf_critical_widgets
+
+                        still_bad = apply_ovuf_critical_widgets(
+                            real_ui, widgets, log=self._log, rounds=2
+                        )
+                        if still_bad:
+                            self._log(f"追加前过欠压字段仍不一致: {still_bad}")
+                    except Exception as _pre_exc:
+                        self._log(f"追加前过欠压强制写入跳过: {_pre_exc}")
                 # 队列已空且自动开跑：覆盖，防残留计数叠第二套。
                 # 桌面已追加（队列非空）或本机已在跑：保留队列，交给 apply_append_mode。
                 from utils.iot_force_overwrite_append import (

@@ -59,7 +59,8 @@ def test_apply_ovuf_standard_to_ui_meta():
     assert ui._solar_standard == "br_ord140"
 
 
-def test_grid_wait_minute_typo_normalized_to_seconds():
+def test_grid_wait_minutes_kept_when_user_set():
+    """段间并网可故意设 2 分钟；勿再强改成秒。"""
     fixed = apply_ovuf_standard_to_widgets(
         {
             "textEdit_ovuf_grid_wait": "2",
@@ -69,6 +70,6 @@ def test_grid_wait_minute_typo_normalized_to_seconds():
         "thai",
         force=False,
     )
-    assert fixed["comboBox_ovuf_grid_wait"] == "秒"
+    assert fixed["comboBox_ovuf_grid_wait"] == "分钟"
     assert fixed["textEdit_ovuf_grid_wait"] == "2"
     assert fixed["textEdit_S5_TIME"] == "1"
