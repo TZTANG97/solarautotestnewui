@@ -908,7 +908,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
         list_widget.setFont(QtGui.QFont("Consolas", 10))
         for f in files:
             # 解析日期显示
-            from DialogFileManager import _parse_date_from_filename
+            from dialogs.DialogFileManager import _parse_date_from_filename
             dt = _parse_date_from_filename(f)
             date_str = dt.strftime("%Y-%m-%d %H:%M") if dt else "未知日期"
             item = QListWidgetItem(f"  {f}    ({date_str})")
@@ -939,7 +939,7 @@ class Ui_Dialog_DEWETRON_Setting(object):
                      if f.startswith('dewetron_') and not f.startswith('dewetron_verify_') and f.endswith('.xml')]
             files.sort(reverse=True)
             for f in files:
-                from DialogFileManager import _parse_date_from_filename
+                from dialogs.DialogFileManager import _parse_date_from_filename
                 dt = _parse_date_from_filename(f)
                 date_str = dt.strftime("%Y-%m-%d %H:%M") if dt else "未知日期"
                 item = QListWidgetItem(f"  {f}    ({date_str})")

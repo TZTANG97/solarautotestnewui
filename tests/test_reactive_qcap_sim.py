@@ -12,7 +12,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaireactiveQcap import Ui_Dialog_thaireactiveQcap
+from dialogs.Dialog_thaireactiveQcap import Ui_Dialog_thaireactiveQcap
 from utils.reactive_qcap_commands import (
     build_reactive_qcap_plan,
     default_dc_iv_resolver,

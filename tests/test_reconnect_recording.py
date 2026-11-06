@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaichonglian import Ui_Dialog_thaichonglian
+from dialogs.Dialog_thaichonglian import Ui_Dialog_thaichonglian
 from components.wt_recording_mode_row import WtRecordingModeRow
 from utils.reconnect_commands import (
     append_reconnect_measure,

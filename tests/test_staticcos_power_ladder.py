@@ -23,7 +23,7 @@ def qapp():
 
 
 def test_dialog_has_power_ladder_and_visible_dwell(qapp):
-    from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
+    from dialogs.Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
 
     ui = Ui_Dialog_thaistaticcosPhi()
     dialog = QDialog()
@@ -38,7 +38,7 @@ def test_dialog_has_power_ladder_and_visible_dwell(qapp):
 
 def test_staticcos_send_runs_each_ladder_point_once(qapp, monkeypatch):
     import SCPITestWave as sw
-    from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
+    from dialogs.Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
 
     ui = Ui_Dialog_thaistaticcosPhi()
     dialog = QDialog()

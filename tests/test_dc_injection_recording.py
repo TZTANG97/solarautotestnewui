@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaizhiliufenliang import Ui_Dialog_thaizhiliufenliang
+from dialogs.Dialog_thaizhiliufenliang import Ui_Dialog_thaizhiliufenliang
 from components.wt_recording_mode_row import WtRecordingModeRow
 from utils.dc_injection_commands import append_dc_injection_measure, enabled_dc_injection_steps
 from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT, dc_injection_recommended_filenames

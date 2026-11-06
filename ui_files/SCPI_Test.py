@@ -1037,7 +1037,7 @@ class Ui_Dialog(object):
 
         # ── 页面 10: 命令文件（嵌入 FileManagerDialog 内容） ──
         import os as _os
-        from DialogFileManager import FileListWidget
+        from dialogs.DialogFileManager import FileListWidget
         cmdPage = QtWidgets.QWidget()
         cmdPage.setStyleSheet(_pageStyle)
         cmdPageLayout = QtWidgets.QVBoxLayout(cmdPage)

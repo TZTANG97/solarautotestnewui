@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5 import QtWidgets
 
-from Dialog_thaiqianpinshengzai import Ui_Dialog_thaiqianpinshengzai
+from dialogs.Dialog_thaiqianpinshengzai import Ui_Dialog_thaiqianpinshengzai
 
 
 def test_underfreq_default_ladder_and_controls():

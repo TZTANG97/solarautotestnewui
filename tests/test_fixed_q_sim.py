@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaifixedQ import Ui_Dialog_thaifixedQ
+from dialogs.Dialog_thaifixedQ import Ui_Dialog_thaifixedQ
 from utils.fixed_q_commands import build_fixed_q_plan
 from utils.Open_Save_ThaiFixedQ import FILE_TAG, HEADERS, _apply_csv_value, _widget_to_csv
 

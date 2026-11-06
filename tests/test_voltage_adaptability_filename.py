@@ -48,7 +48,7 @@ def _enable_brazil_band(ui):
 
 
 def test_plan_brazil_rate_sweep_continuous(qapp):
-    from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
+    from dialogs.Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
     from utils.voltage_adaptability_commands import build_voltage_adaptability_plan
 
     ui = Ui_Dialog_thaivoltageadaptability()
@@ -76,7 +76,7 @@ def test_plan_brazil_rate_sweep_continuous(qapp):
 
 def test_send_replaces_stale_filename(qapp, monkeypatch):
     import SCPITestWave as sw
-    from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
+    from dialogs.Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
 
     ui = Ui_Dialog_thaivoltageadaptability()
     dialog = QDialog()
@@ -133,7 +133,7 @@ def test_send_replaces_stale_filename(qapp, monkeypatch):
 
 def test_send_keeps_voltadapt_custom_filename(qapp, monkeypatch):
     import SCPITestWave as sw
-    from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
+    from dialogs.Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
 
     ui = Ui_Dialog_thaivoltageadaptability()
     dialog = QDialog()

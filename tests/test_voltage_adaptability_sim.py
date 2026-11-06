@@ -16,7 +16,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
+from dialogs.Dialog_thaivoltageadaptability import Ui_Dialog_thaivoltageadaptability
 from utils.voltage_adaptability_commands import (
     build_voltage_adaptability_plan,
     default_dc_iv_resolver,

@@ -32,28 +32,28 @@ from PyQt5.QtWidgets import (QApplication, QDialog, QFileDialog, QMainWindow,
                              QGridLayout, QComboBox, QLabel, QPushButton,
                              QWidget, QHBoxLayout, QVBoxLayout, QScrollArea,
                              QTextEdit)
-from Dialog_AC_Setting import Ui_Dialog_AC_Setting
-from Dialog_DC1_Setting import Ui_Dialog_DC1_Setting
-from Dialog_DC2_Setting import Ui_Dialog_DC2_Setting
-from Dialog_DC3_Setting import Ui_Dialog_DC3_Setting
-from Dialog_DC4_Setting import Ui_Dialog_DC4_Setting
-from Dialog_Bluesight_DC_Setting import run_bluesight_dc_setting_dialog
-from Dialog_DL850_Setting import Ui_Dialog_DL850_Setting
-from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
-from Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
-from Dialog_thaidynamiccosPhi import Ui_Dialog_thaidynamiccosPhi
-from Dialog_thaidynamicQU import Ui_Dialog_thaidynamicQU
-from Dialog_thaireactiveQcap import Ui_Dialog_thaireactiveQcap
-from Dialog_thaifixedQ import Ui_Dialog_thaifixedQ
-from Dialog_thaireactiveQin import Ui_Dialog_thaireactiveQin
-from Dialog_thaireactiveQacc import Ui_Dialog_thaireactiveQacc
-from Dialog_thaiactiveP import Ui_Dialog_thaiactiveP
-from Dialog_thaantibackflow import Ui_Dialog_thaantibackflow
-from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
-from Dialog_thaiguopinjiangzai import Ui_Dialog_thaiguopinjiangzai
-from Dialog_thaiqianpinshengzai import Ui_Dialog_thaiqianpinshengzai
-from Dialog_thaitestPU import Ui_Dialog_thaitestPU
-from Dialog_thaiWT3000_Setting import Ui_Dialog_thai_WT3000_Setting
+from dialogs.Dialog_AC_Setting import Ui_Dialog_AC_Setting
+from dialogs.Dialog_DC1_Setting import Ui_Dialog_DC1_Setting
+from dialogs.Dialog_DC2_Setting import Ui_Dialog_DC2_Setting
+from dialogs.Dialog_DC3_Setting import Ui_Dialog_DC3_Setting
+from dialogs.Dialog_DC4_Setting import Ui_Dialog_DC4_Setting
+from dialogs.Dialog_Bluesight_DC_Setting import run_bluesight_dc_setting_dialog
+from dialogs.Dialog_DL850_Setting import Ui_Dialog_DL850_Setting
+from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+from dialogs.Dialog_thaistaticcosPhi import Ui_Dialog_thaistaticcosPhi
+from dialogs.Dialog_thaidynamiccosPhi import Ui_Dialog_thaidynamiccosPhi
+from dialogs.Dialog_thaidynamicQU import Ui_Dialog_thaidynamicQU
+from dialogs.Dialog_thaireactiveQcap import Ui_Dialog_thaireactiveQcap
+from dialogs.Dialog_thaifixedQ import Ui_Dialog_thaifixedQ
+from dialogs.Dialog_thaireactiveQin import Ui_Dialog_thaireactiveQin
+from dialogs.Dialog_thaireactiveQacc import Ui_Dialog_thaireactiveQacc
+from dialogs.Dialog_thaiactiveP import Ui_Dialog_thaiactiveP
+from dialogs.Dialog_thaantibackflow import Ui_Dialog_thaantibackflow
+from dialogs.Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
+from dialogs.Dialog_thaiguopinjiangzai import Ui_Dialog_thaiguopinjiangzai
+from dialogs.Dialog_thaiqianpinshengzai import Ui_Dialog_thaiqianpinshengzai
+from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
+from dialogs.Dialog_thaiWT3000_Setting import Ui_Dialog_thai_WT3000_Setting
 from enums.wt_auto_enums import (CELLS_COORD_WT1800, CELLS_COORD_WT1806E, CELLS_COORD_WT3000, CELLS_COORD_WT5000,
                                  START_AND_STOP_COORD, START_AND_STOP_ALIASES, DC_STATIC_MPPT_TEST,
                                  INTEGRAL_COORD)
@@ -4600,7 +4600,7 @@ def _open_shared_dewetron_viewer(project_name):
     if dewetron_collector is None:
         QMessageBox.warning(None, "提示", "DEWETRON采集器未初始化")
         return
-    from Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
+    from dialogs.Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
     spec = get_project_spec(project_name)
     DialogDEWETRONDataViewer(
         dewetron_collector,
@@ -7977,7 +7977,7 @@ def OpenFileDialogThaiDianYaShanBian():
                 return
 
             # 从设备 XML 获取当前电力组所有可用字段（叶子节点名）
-            from Dialog_thaiguodianyashanbian import parse_power_group_tree
+            from dialogs.Dialog_thaiguodianyashanbian import parse_power_group_tree
             tree_data = parse_power_group_tree(xml_string)
             device_available_fields = set()
             if tree_data:
@@ -10385,7 +10385,7 @@ def OpenFileDialogThaiXieBoDianLiu():
                 ui.textEdit_ReturnMessage.append("[DEWETRON] 无法读取设备配置")
                 return
 
-            from Dialog_thaiguodianyashanbian import parse_power_group_tree
+            from dialogs.Dialog_thaiguodianyashanbian import parse_power_group_tree
             tree_data = parse_power_group_tree(xml_string)
             device_available_fields = set()
             if tree_data:
@@ -34494,7 +34494,7 @@ if __name__ == "__main__":
                 if dewetron_collector is None:
                     QMessageBox.warning(None, "提示", "DEWETRON 采集器未初始化")
                     return
-                from Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
+                from dialogs.Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
                 dlg = DialogDEWETRONDataViewer(dewetron_collector, parent=None)
                 dlg.exec_()
             _safe_click(uiThaiDianYaShanBian, "pushButton_DEW_DataViewer", open_dewetron_data_viewer)
@@ -34605,7 +34605,7 @@ if __name__ == "__main__":
                 if dewetron_collector is None:
                     QMessageBox.warning(None, "提示", "DEWETRON 采集器未初始化")
                     return
-                from Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
+                from dialogs.Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
                 dlg = DialogDEWETRONDataViewer(dewetron_collector, parent=None)
                 dlg.exec_()
             _safe_click(uiThaiXieBoDianLiu, "pushButton_DEW_DataViewer", open_dewetron_harmonic_data_viewer)

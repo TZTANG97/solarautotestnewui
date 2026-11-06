@@ -38,7 +38,7 @@ def _parse_list(text):
 
 
 def test_dialog_voltage_list_only(qapp):
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -144,7 +144,7 @@ def _col6_markers(sw):
 
 def test_send_short_voltage_list(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -170,7 +170,7 @@ def test_send_short_voltage_list(qapp, monkeypatch, tmp_path):
 
 def test_send_default_rise_fall_points(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -197,7 +197,7 @@ def test_send_default_rise_fall_points(qapp, monkeypatch, tmp_path):
 
 def test_send_three_phase_scales_all_phases(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -229,7 +229,7 @@ def test_send_three_phase_scales_all_phases(qapp, monkeypatch, tmp_path):
 def test_send_wt_smoke_list_three_points(qapp, monkeypatch, tmp_path):
     """短 list：100,107,93 → 单文件连续录。"""
     import SCPITestWave as sw
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -278,7 +278,7 @@ def test_stoptime_to_loop_01s_prefers_config_dict():
 
 def test_send_chinese_comma_and_spaces(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -304,7 +304,7 @@ def test_send_chinese_comma_and_spaces(qapp, monkeypatch, tmp_path):
 def test_send_decimal_pct_filename(qapp, monkeypatch, tmp_path):
     """小数 Un%：仍单文件 QU_curve（连续录不按点拆文件名）。"""
     import SCPITestWave as sw
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -319,7 +319,7 @@ def test_send_decimal_pct_filename(qapp, monkeypatch, tmp_path):
 def test_send_empty_ladder_no_point_files(qapp, monkeypatch, tmp_path):
     """电压 list 为空：不走阶梯连续录；旧逻辑仍记 1 轮。"""
     import SCPITestWave as sw
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
 
     ui = Ui_Dialog_thaiStaticQU()
     dialog = QDialog()
@@ -339,7 +339,7 @@ def test_send_empty_ladder_no_point_files(qapp, monkeypatch, tmp_path):
 def test_voltage_ladder_settings_csv_roundtrip(qapp, tmp_path):
     """Open/Save 字段：VoltageLadder / Un / 驻留可往返。"""
     import csv
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
     from utils.Open_Save_ThaiStaticQU import arrayRow1
 
     ui = Ui_Dialog_thaiStaticQU()

@@ -26,6 +26,6 @@
 | 录波/文件名/命令构造纯函数 | `utils/` |
 | WT/录波 UI 行 | `components/` |
 | 设备读写 | `devices/` |
-| Dialog UI | `dialogs/`（根目录保留同名兼容导入） |
+| Dialog UI | `dialogs/`（调用方 `from dialogs.Dialog_xxx import …`；根目录不再留兼容壳） |
 | 正式测试 | `tests/` |
 | 一次性补丁/台架冒烟 | `code_example/` 分筐子目录 |

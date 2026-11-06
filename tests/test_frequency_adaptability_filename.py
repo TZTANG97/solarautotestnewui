@@ -43,7 +43,7 @@ def _enable_brazil_band(ui):
 
 
 def test_plan_brazil_rate_sweep_continuous(qapp):
-    from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
+    from dialogs.Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
     from utils.frequency_adaptability_commands import build_frequency_adaptability_plan
 
     ui = Ui_Dialog_thaifrequencyadaptability()
@@ -66,7 +66,7 @@ def test_plan_brazil_rate_sweep_continuous(qapp):
 
 def test_send_keeps_custom_single_filename(qapp, monkeypatch):
     import SCPITestWave as sw
-    from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
+    from dialogs.Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
 
     ui = Ui_Dialog_thaifrequencyadaptability()
     dialog = QDialog()

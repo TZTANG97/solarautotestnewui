@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thairapidvolt import Ui_Dialog_thairapidvolt
+from dialogs.Dialog_thairapidvolt import Ui_Dialog_thairapidvolt
 from utils.rapid_volt_commands import build_rapid_volt_plan, resolve_rapid_volt_file_name_list
 
 

@@ -124,7 +124,7 @@ def _fill_power_ladder(ui, percents):
 
 def test_harmonic_send_includes_5pct_dc_iv(qapp, monkeypatch):
     import SCPITestWave as sw
-    from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
+    from dialogs.Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
 
     ui = Ui_Dialog_thaixiebodianliu()
     dialog = QDialog()
@@ -181,7 +181,7 @@ def test_harmonic_send_includes_5pct_dc_iv(qapp, monkeypatch):
 def test_first_card_same_as_step1_still_sends_iv(qapp, monkeypatch):
     """首卡功率与启机相同也必须再下发一次 IV（避免首点看起来没发）。"""
     import SCPITestWave as sw
-    from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
+    from dialogs.Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
 
     ui = Ui_Dialog_thaixiebodianliu()
     dialog = QDialog()

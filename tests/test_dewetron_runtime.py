@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5.QtWidgets import QApplication
 
-from Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
+from dialogs.Dialog_DEWETRON_DataViewer import DialogDEWETRONDataViewer
 from devices.dewetron_controller import DewetronController
 from devices.dewetron_data_collector import (
     DewetronDataCollector,

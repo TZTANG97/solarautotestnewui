@@ -7,8 +7,8 @@ text = path.read_text(encoding="utf-8")
 orig = text
 
 # 1) import Dialog
-needle = "from Dialog_thaiactiveP import Ui_Dialog_thaiactiveP\n"
-insert = needle + "from Dialog_thaantibackflow import Ui_Dialog_thaantibackflow\n"
+needle = "from dialogs.Dialog_thaiactiveP import Ui_Dialog_thaiactiveP\n"
+insert = needle + "from dialogs.Dialog_thaantibackflow import Ui_Dialog_thaantibackflow\n"
 if "from Dialog_thaantibackflow import" not in text:
     text = text.replace(needle, insert, 1)
 

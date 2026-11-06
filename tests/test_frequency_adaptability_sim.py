@@ -16,7 +16,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
+from dialogs.Dialog_thaifrequencyadaptability import Ui_Dialog_thaifrequencyadaptability
 from utils.frequency_adaptability_commands import (
     build_frequency_adaptability_plan,
     default_dc_iv_resolver,

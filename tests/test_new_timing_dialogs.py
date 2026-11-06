@@ -11,9 +11,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5 import QtWidgets
 
-from Dialog_thailvrt import Ui_Dialog_thailvrt
-from Dialog_thaiphasejump import Ui_Dialog_thaiphasejump
-from Dialog_thaidynamicmppt import Ui_Dialog_thaidynamicmppt
+from dialogs.Dialog_thailvrt import Ui_Dialog_thailvrt
+from dialogs.Dialog_thaiphasejump import Ui_Dialog_thaiphasejump
+from dialogs.Dialog_thaidynamicmppt import Ui_Dialog_thaidynamicmppt
 
 
 @pytest.fixture(scope="module")

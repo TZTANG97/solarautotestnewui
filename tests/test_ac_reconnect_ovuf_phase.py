@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
+from dialogs.Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
 from modbus_visa import ModbusVISA
 from utils.ovuf_recording import build_ovuf_phase_check_list
 

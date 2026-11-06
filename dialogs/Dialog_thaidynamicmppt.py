@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from PyQt5 import QtWidgets
 
-from Dialog_thailvrt import _BaseTimingProfileDialogUi
+from dialogs.Dialog_thailvrt import _BaseTimingProfileDialogUi
 from utils.timing_profile import DYNAMIC_MPPT_SCHEMA
 
 

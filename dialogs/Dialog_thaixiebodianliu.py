@@ -5,7 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from components.timeline import TimelineWidget
 from components.wt_config_content import build_wt3000_content, build_wt1800_content, build_wt1806e_content, build_wt5000_content
 from components.dewetron_autotest_panel import DEFAULT_RATE_OPTIONS, HARMONIC_RATE_OPTION
-from Dialog_thaiguodianyashanbian import parse_power_group_tree
+from dialogs.Dialog_thaiguodianyashanbian import parse_power_group_tree
 
 # 12 个谐波步骤的 widget objectName 规格（保持原有命名不变）
 _HARMONIC_SPECS = [

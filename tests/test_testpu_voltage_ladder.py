@@ -38,7 +38,7 @@ def _parse_list(text):
 
 
 def test_dialog_voltage_list_defaults(qapp):
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = Ui_Dialog_thaitestPU()
     dialog = QDialog()
@@ -144,7 +144,7 @@ def _prep_send(ui, sw, monkeypatch, tmp_path, u_text):
 
 def test_send_short_voltage_list(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = Ui_Dialog_thaitestPU()
     dialog = QDialog()
@@ -168,7 +168,7 @@ def test_send_short_voltage_list(qapp, monkeypatch, tmp_path):
 
 def test_send_default_rise_fall_points(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = Ui_Dialog_thaitestPU()
     dialog = QDialog()
@@ -189,7 +189,7 @@ def test_send_default_rise_fall_points(qapp, monkeypatch, tmp_path):
 
 def test_send_three_phase_scales_all_phases(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = Ui_Dialog_thaitestPU()
     dialog = QDialog()
@@ -215,7 +215,7 @@ def test_send_three_phase_scales_all_phases(qapp, monkeypatch, tmp_path):
 def test_send_legacy_cards_when_list_empty(qapp, monkeypatch, tmp_path):
     """电压 list 为空时回退旧逐点卡片，且不再注入 ASYNC_START。"""
     import SCPITestWave as sw
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = Ui_Dialog_thaitestPU()
     dialog = QDialog()
@@ -237,7 +237,7 @@ def test_send_legacy_cards_when_list_empty(qapp, monkeypatch, tmp_path):
 
 def test_send_wt_smoke_list_three_points(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = Ui_Dialog_thaitestPU()
     dialog = QDialog()
@@ -265,7 +265,7 @@ def test_voltage_math_matrix():
 def test_send_each_power_then_voltage_still_one_recording(qapp, monkeypatch, tmp_path):
     """每个功率档先改已勾选直流，再扫电压；全程只录一条。"""
     import SCPITestWave as sw
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = Ui_Dialog_thaitestPU()
     dialog = QDialog()
@@ -294,7 +294,7 @@ def test_send_each_power_then_voltage_still_one_recording(qapp, monkeypatch, tmp
 
 
 def test_empty_power_ladder_does_not_rewrite_dc(qapp):
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
     from utils.dynamic_qu_commands import default_dc_iv_resolver
     from utils.test_pu_commands import build_pu_voltage_power_rows
 

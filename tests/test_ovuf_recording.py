@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
+from dialogs.Dialog_thaiguoqianya_pin import Ui_Dialog_thaiguoqianya_pin
 from components.wt_recording_mode_row import WtRecordingModeRow
 from utils.matrix_recording_commands import get_record_mode
 from utils.ovuf_recording import (

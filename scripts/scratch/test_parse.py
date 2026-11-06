@@ -4,7 +4,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from Dialog_thaiguodianyashanbian import parse_power_group_tree
+from dialogs.Dialog_thaiguodianyashanbian import parse_power_group_tree
 
 with open('config_files/dewetron.xml', 'r', encoding='utf-8') as f:
     xml = f.read()

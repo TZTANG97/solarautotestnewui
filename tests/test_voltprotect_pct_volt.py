@@ -43,7 +43,7 @@ def test_resolve_rejects_bad_input():
 
 
 def test_dialog_labels_show_percent_hint(qapp):
-    from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
+    from dialogs.Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
 
     ui = Ui_Dialog_thaivoltprotect10min()
     dialog = QDialog()
@@ -164,7 +164,7 @@ def _prep_voltprotect_send(ui, sw, monkeypatch, tmp_path):
 
 def test_send_percent_112_becomes_257_6(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
+    from dialogs.Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
 
     ui = Ui_Dialog_thaivoltprotect10min()
     dialog = QDialog()
@@ -208,7 +208,7 @@ def test_send_percent_112_becomes_257_6(qapp, monkeypatch, tmp_path):
 
 def test_send_absolute_still_works(qapp, monkeypatch, tmp_path):
     import SCPITestWave as sw
-    from Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
+    from dialogs.Dialog_thaivoltprotect10min import Ui_Dialog_thaivoltprotect10min
 
     ui = Ui_Dialog_thaivoltprotect10min()
     dialog = QDialog()

@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thairocof import Ui_Dialog_thairocof
+from dialogs.Dialog_thairocof import Ui_Dialog_thairocof
 from utils.rocof_commands import build_rocof_plan, build_rocof_step_list
 
 

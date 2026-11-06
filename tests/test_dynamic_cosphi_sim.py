@@ -15,7 +15,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaidynamiccosPhi import Ui_Dialog_thaidynamiccosPhi
+from dialogs.Dialog_thaidynamiccosPhi import Ui_Dialog_thaidynamiccosPhi
 from utils.dynamic_cosphi_commands import (
     DEFAULT_FILE_NAME,
     build_dynamic_cosphi_plan,

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Three-phase Chroma phase-jump timing dialog."""
 
-from Dialog_thailvrt import _BaseTimingProfileDialogUi
+from dialogs.Dialog_thailvrt import _BaseTimingProfileDialogUi
 from utils.timing_profile import PHASE_JUMP_SCHEMA
 
 

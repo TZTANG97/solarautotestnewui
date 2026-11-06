@@ -13,7 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaidynamicQU import Ui_Dialog_thaidynamicQU
+from dialogs.Dialog_thaidynamicQU import Ui_Dialog_thaidynamicQU
 from utils.dynamic_qu_commands import (
     DEFAULT_FILE_NAME,
     build_dynamic_qu_plan,

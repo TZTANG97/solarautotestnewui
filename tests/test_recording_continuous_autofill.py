@@ -48,9 +48,9 @@ def test_default_names_continuous_uses_registry():
 def test_dialog_open_continuous_autofill(qtbot=None):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
-    from Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
-    from Dialog_thaichonglian import Ui_Dialog_thaichonglian
-    from Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
+    from dialogs.Dialog_thaiguoqianpin_immun import Ui_Dialog_thaiguoqianpin_immun
+    from dialogs.Dialog_thaichonglian import Ui_Dialog_thaichonglian
+    from dialogs.Dialog_thaistaticQU import Ui_Dialog_thaiStaticQU
     from components.wt_recording_mode_row import WtRecordingModeRow
 
     cases = [
@@ -86,7 +86,7 @@ def test_dialog_open_continuous_autofill(qtbot=None):
 
 def test_fixedpf_continuous_still_single_file():
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    from Dialog_thaifixedPF import Ui_Dialog_thaifixedPF
+    from dialogs.Dialog_thaifixedPF import Ui_Dialog_thaifixedPF
     from components.wt_recording_mode_row import WtRecordingModeRow
     from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT
 
@@ -123,7 +123,7 @@ def test_fixedpf_continuous_still_single_file():
 
 def test_harmonic_split_filenames_follow_power_points():
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-    from Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
+    from dialogs.Dialog_thaixiebodianliu import Ui_Dialog_thaixiebodianliu
     from utils.wt_recording_mode import (
         MODE_CONTINUOUS,
         MODE_SPLIT,

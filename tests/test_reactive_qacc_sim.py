@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PyQt5 import QtWidgets
 
-from Dialog_thaireactiveQacc import Ui_Dialog_thaireactiveQacc
+from dialogs.Dialog_thaireactiveQacc import Ui_Dialog_thaireactiveQacc
 from utils.reactive_qacc_commands import build_reactive_qacc_plan
 
 MAIN_PATH = Path(__file__).resolve().parents[1] / "SCPITestWave.py"

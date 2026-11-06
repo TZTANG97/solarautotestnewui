@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from Dialog_thaiguodianyashanbian import parse_power_group_tree
+from dialogs.Dialog_thaiguodianyashanbian import parse_power_group_tree
 from components.dewetron_autotest_panel import parse_power_group_tree as shared
 
 assert parse_power_group_tree is shared

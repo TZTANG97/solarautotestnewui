@@ -42,7 +42,7 @@ def test_connect_button_not_fixed_90(qapp):
 def test_dewetron_params_expanding(qapp):
     from PyQt5.QtWidgets import QDialog
 
-    from Dialog_DEWETRON_Setting import Ui_Dialog_DEWETRON_Setting
+    from dialogs.Dialog_DEWETRON_Setting import Ui_Dialog_DEWETRON_Setting
 
     dlg = QDialog()
     ui = Ui_Dialog_DEWETRON_Setting()

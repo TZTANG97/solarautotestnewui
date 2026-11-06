@@ -90,8 +90,7 @@ Agent（独立进程）── HTTPS 令牌/心跳/报告；MQTT 进度结案
 | 位置 | 职责 |
 |------|------|
 | `devices/` `utils/` `components/` `agent/` | 设备 / 纯逻辑 / 控件 / IOT Agent |
-| `Dialog_*.py` | **兼容 shim**（实现在 `dialogs/`） |
-| `dialogs/` | 试验/设备对话框 UI 实现 |
+| `dialogs/` | 试验/设备对话框 UI（`from dialogs.Dialog_xxx import …`） |
 | `tests/` | 正式单测 |
 | `code_example/patches\|audits\|smoke\|ops/` | 一次性补丁 / 审计 / 冒烟 / 运维脚本 |
 | `docs/` | 说明文档 |

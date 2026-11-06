@@ -71,7 +71,7 @@ def test_saved_voltage_list_survives_reopen_and_standard_force(
 
 def test_cleared_voltage_list_is_remembered(qapp, tmp_path, monkeypatch):
     monkeypatch.setenv("SOLARAUTOTEST_TEST_PRESET_DIR", str(tmp_path))
-    from Dialog_thaitestPU import Ui_Dialog_thaitestPU
+    from dialogs.Dialog_thaitestPU import Ui_Dialog_thaitestPU
 
     ui = _fresh(Ui_Dialog_thaitestPU)
     ui.textEdit_VoltageLadder.setPlainText("")
