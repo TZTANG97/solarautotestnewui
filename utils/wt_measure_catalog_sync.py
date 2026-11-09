@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from utils.wt_scpi_items import WT_CATALOG_MODELS, clear_catalog_token_overrides, set_catalog_token_overrides
+from utils.wt_setup_catalog_overrides import set_rate_scpi_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,9 @@ def apply_wt_measure_catalog_from_client(client: Any, *, models: Optional[tuple]
                 continue
             if tokens:
                 set_catalog_token_overrides(model, tokens)
+                rate_tok = tokens.get("comboBox_ReplaceRate")
+                if rate_tok is not None and str(rate_tok).strip():
+                    set_rate_scpi_prefix(str(rate_tok).strip())
                 loaded[model] = len(tokens)
                 any_ok = True
             else:

@@ -3581,6 +3581,13 @@ class IotUiHandoffService(QObject):
                     self._move_pending_done(pending_path)
                     return
 
+            try:
+                from utils.instrument_catalog_bootstrap import bootstrap_instrument_catalogs
+
+                bootstrap_instrument_catalogs()
+            except Exception:
+                self._log("设备命令库 bootstrap（追加前）跳过")
+
             appended = False
             desktop_running = False
             project_append = handler.get("append")

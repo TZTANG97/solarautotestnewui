@@ -3,6 +3,18 @@
 
 from __future__ import annotations
 
+from utils.ac_source_catalog_sync import get_ac_scpi_verb
+
+
+def _ac_volt_verb(*, chroma_61800: bool) -> str:
+    default = "VOLT:AC" if chroma_61800 else "VOLT"
+    fam = "61800" if chroma_61800 else "AC_GENERIC"
+    return get_ac_scpi_verb("VOLT", default, family=fam)
+
+
+def _fmt_volt_cmd(value, *, chroma_61800: bool) -> str:
+    return f"{_ac_volt_verb(chroma_61800=chroma_61800)} {value}"
+
 
 def _empty_row():
     return ["" for _ in range(10)]
@@ -70,13 +82,22 @@ def append_legacy_three_phase_setpoints(out_rows, volt_a, volt_b, volt_c, freq):
     fr = str(freq).strip()
     # 与 devices/ac_controller._generic_scpi_three_phase_command_list / 国产矩阵一致
     if ra == rb == rc:
-        for cmd in ("INST:PHAS THREE", "INST:EDIT ALL", f"VOLT {ra}", f"FREQ {fr}"):
+        for cmd in (
+            "INST:PHAS THREE",
+            "INST:EDIT ALL",
+            _fmt_volt_cmd(ra, chroma_61800=False),
+            f"FREQ {fr}",
+        ):
             out_rows.append(_row_ac_write(cmd))
         return
     for cmd in ("INST:PHAS THREE", "INST:EDIT EACH"):
         out_rows.append(_row_ac_write(cmd))
     for idx, volt in enumerate((ra, rb, rc), start=1):
-        for cmd in (f"INST:NSEL {idx}", f"VOLT {volt}", f"FREQ {fr}"):
+        for cmd in (
+            f"INST:NSEL {idx}",
+            _fmt_volt_cmd(volt, chroma_61800=False),
+            f"FREQ {fr}",
+        ):
             out_rows.append(_row_ac_write(cmd))
     # 恢复三相联动，避免爱科 0x0C48 留在独立模式导致只跟一相
     out_rows.append(_row_ac_write("INST:EDIT ALL"))
@@ -95,11 +116,11 @@ def append_chroma_three_phase_setpoints(out_rows, volt_a, volt_b, volt_c, freq):
         out_rows.append(_row_ac_write(cmd))
     for nsel, v in ((1, va), (2, vb), (3, vc)):
         out_rows.append(_row_ac_write(f"INST:NSEL {nsel}"))
-        out_rows.append(_row_ac_write(f"VOLT:AC {v}"))
+        out_rows.append(_row_ac_write(_fmt_volt_cmd(v, chroma_61800=True)))
         out_rows.append(_row_ac_write(f"FREQ {fr}"))
     if va == vb == vc:
         out_rows.append(_row_ac_write("INST:EDIT ALL"))
-        out_rows.append(_row_ac_write(f"VOLT:AC {va}"))
+        out_rows.append(_row_ac_write(_fmt_volt_cmd(va, chroma_61800=True)))
         out_rows.append(_row_ac_write(f"FREQ {fr}"))
 
 
@@ -108,11 +129,11 @@ def append_single_phase_setpoints(out_rows, volt, freq, chroma_61800=False):
     if chroma_61800:
         for cmd in ("CONF:COUP AC", "INST:PHAS SINGLE", "INST:EDIT ALL"):
             out_rows.append(_row_ac_write(cmd))
-        volt_cmd = "VOLT:AC " + fmt_ac_volt(volt, chroma_61800=True)
+        volt_cmd = _fmt_volt_cmd(fmt_ac_volt(volt, chroma_61800=True), chroma_61800=True)
     else:
         for cmd in ("INST:PHAS SINGLE", "INST:EDIT ALL"):
             out_rows.append(_row_ac_write(cmd))
-        volt_cmd = "VOLT " + str(volt).strip()
+        volt_cmd = _fmt_volt_cmd(str(volt).strip(), chroma_61800=False)
     for cmd in (volt_cmd, "FREQ " + fr):
         out_rows.append(_row_ac_write(cmd))
 
@@ -150,7 +171,7 @@ def append_volt_set(
     if chroma_61800 is None:
         chroma_61800 = resolve_chroma_61800()
     v = fmt_ac_volt(volt_v, chroma_61800=chroma_61800)
-    volt_cmd = ("VOLT:AC " + v) if chroma_61800 else ("VOLT " + v)
+    volt_cmd = _fmt_volt_cmd(v, chroma_61800=chroma_61800)
     if phase_mode == "单相":
         out_rows.append(_row_ac_write(volt_cmd))
         return

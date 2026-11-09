@@ -56,10 +56,20 @@ def snap_rate_ms(rate_ms: int, choices: Tuple[int, ...] = WT_RATE_MS_CHOICES) ->
 
 def rate_command(rate_ms: int) -> str:
     """Build ``:RATE`` write command (milliseconds unit)."""
+    from utils.wt_setup_catalog_overrides import get_rate_scpi_prefix, get_rate_scpi_template
+
     snapped = snap_rate_ms(rate_ms)
     if snapped >= 1000 and snapped % 1000 == 0:
-        return f":RATE {snapped // 1000}S"
-    return f":RATE {snapped}MS"
+        ms_part = f"{snapped // 1000}S"
+    else:
+        ms_part = f"{snapped}MS"
+
+    template = get_rate_scpi_template()
+    if template:
+        return template.format(ms=ms_part, snapped=snapped)
+
+    prefix = get_rate_scpi_prefix()
+    return f"{prefix} {ms_part}"
 
 
 def rates_match_ms(expected_ms: int, actual_ms: int, tol_ms: int = 5) -> bool:

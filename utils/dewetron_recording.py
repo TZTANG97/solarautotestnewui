@@ -13,6 +13,7 @@ from dewetron_autotest import (
     WAIT_ACTION,
     make_command_row,
 )
+from utils.dew_catalog_sync import get_dew_acq_command
 from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT
 
 
@@ -42,11 +43,13 @@ def is_measure_wait_row(row: Sequence[Any], *, min_01s: int = _MIN_MEASURE_WAIT_
 
 
 def make_acq_start_row() -> List[Any]:
-    return make_command_row(DEWETRON_DEVICE, "write", DEWETRON_START_COMMAND)
+    cmd = get_dew_acq_command("start", DEWETRON_START_COMMAND)
+    return make_command_row(DEWETRON_DEVICE, "write", cmd)
 
 
 def make_acq_stop_row() -> List[Any]:
-    return make_command_row(DEWETRON_DEVICE, "write", DEWETRON_STOP_COMMAND)
+    cmd = get_dew_acq_command("stop", DEWETRON_STOP_COMMAND)
+    return make_command_row(DEWETRON_DEVICE, "write", cmd)
 
 
 def _is_dew_start_row(row: Sequence[Any]) -> bool:

@@ -13,7 +13,7 @@ DC_MODE_PREAMBLE = {
     "Chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"],
     "Itech": ["SOL 0", "SOL 1"],
     "Bluesight": ["SYST:MODE SAS"],  # 先切 SAS 再写 STC 曲线块
-    "Keysight": [],
+    "Keysight": ["SAS:MODE TABL", "SAS:TABL:ACT 1"],
 }
 
 # P0 冒烟菜单：典型 AC 启停序列（菜单生成命令的公共子集）

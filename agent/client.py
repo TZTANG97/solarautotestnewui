@@ -232,6 +232,23 @@ class IotSolarClient:
             f"/api/solar-autotest/agent/wt-measure-commands?model={m}",
         )
 
+    def get_ac_source_commands(self, family: str = "AC_GENERIC") -> Dict[str, Any]:
+        fam = str(family or "AC_GENERIC").strip() or "AC_GENERIC"
+        return self._request(
+            "GET",
+            f"/api/solar-autotest/agent/ac-source-commands?family={fam}",
+        )
+
+    def get_dc_source_commands(self, firm: str) -> Dict[str, Any]:
+        f = str(firm or "").strip()
+        return self._request(
+            "GET",
+            f"/api/solar-autotest/agent/dc-source-commands?firm={f}",
+        )
+
+    def get_dew_commands(self) -> Dict[str, Any]:
+        return self._request("GET", "/api/solar-autotest/agent/dew-commands")
+
     def sync_dc1_widgets(self, widgets: Dict[str, Any]) -> Dict[str, Any]:
         """蓝点曲线换算的直流四点，写进本台架进行中实验和记住的参数。"""
         return self._request(

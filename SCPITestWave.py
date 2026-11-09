@@ -585,7 +585,13 @@ def _send_dc_iv_curve(ui_setting, selected_dc, silent=False):
         return []
 
     dc_vendor = per_dc_factor.get(dc_key, "")
-    order_list.extend(command_list_DC.get(dc_vendor, []))
+    try:
+        from utils.instrument_catalog_bootstrap import refresh_command_list_dc
+
+        _dc_list = refresh_command_list_dc()
+    except Exception:
+        _dc_list = command_list_DC
+    order_list.extend(_dc_list.get(dc_vendor, []))
 
     for command in order_list:
         try:
@@ -10247,7 +10253,12 @@ def DC_IV_Commands_Set(strArrayTestStepSingle: list, a: list, DC: str):
             pass
         return strArrayTestStepSingle
 
-    command_array = command_list_DC.get(dc_factor, [])
+    try:
+        from utils.instrument_catalog_bootstrap import refresh_command_list_dc
+
+        command_array = refresh_command_list_dc().get(dc_factor, [])
+    except Exception:
+        command_array = command_list_DC.get(dc_factor, [])
     if not command_array:
         strtimenow = now_to_datenow()
         logger.warning(
@@ -32240,13 +32251,27 @@ if __name__ == "__main__":
             per_dc_factor = {"0": "", "1": "", "2": "", "3": ""}
             # DC编号
             DC_num = {"DC1": "0", "DC2": "1", "DC3": "2", "DC4": "3"}
-            # PV模拟器I-V曲线命令
-            command_list_DC = {
-                "Chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"],
-                "Keysight": ["SAS:MODE TABL", "SAS:TABL:ACT 1"],
-                "Itech": ["SOL 0", "SOL 1"],
-                "Bluesight": ["SYST:MODE SAS"],
-            }
+            # PV模拟器I-V曲线命令（优先 IOT 命令库；启动后再 bootstrap 刷新）
+            try:
+                from utils.instrument_catalog_bootstrap import refresh_command_list_dc
+
+                command_list_DC = refresh_command_list_dc()
+            except Exception:
+                command_list_DC = {
+                    "Chroma": ["OUTP:MODE TABLE", "IVCurve:SELect 1"],
+                    "Keysight": ["SAS:MODE TABL", "SAS:TABL:ACT 1"],
+                    "Itech": ["SOL 0", "SOL 1"],
+                    "Bluesight": ["SYST:MODE SAS"],
+                }
+            try:
+                from utils.instrument_catalog_bootstrap import bootstrap_instrument_catalogs
+
+                bootstrap_instrument_catalogs()
+                from utils.instrument_catalog_bootstrap import refresh_command_list_dc as _refresh_dc
+
+                command_list_DC = _refresh_dc()
+            except Exception:
+                pass
 
             # with open(f'.\config_files\{FILE_NAME}', 'r', encoding='utf-8') as f:
             #     result = csv.DictReader(f)
