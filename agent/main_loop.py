@@ -784,6 +784,13 @@ def main(argv: Optional[list] = None) -> int:
 
     client = IotSolarClient(cfg.iot_base, cfg.agent_token, pythonid=pythonid)
     _client_ref = client
+    try:
+        from utils.wt_measure_catalog_sync import apply_wt_measure_catalog_from_client
+
+        loaded = apply_wt_measure_catalog_from_client(client)
+        logger.info("WT 采集命令库同步 %s", loaded)
+    except Exception:
+        logger.debug("WT 采集命令库同步跳过", exc_info=True)
     mutex = LocalMutex(cfg.mutex_file)
     try:
         from agent.config import _repo_root as _agent_repo_root

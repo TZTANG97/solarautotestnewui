@@ -224,6 +224,14 @@ class IotSolarClient:
     def put_prefs(self, body: dict) -> Dict[str, Any]:
         return self._request("PUT", "/api/solar-autotest/agent/prefs", body or {})
 
+    def get_wt_measure_commands(self, model: str) -> Dict[str, Any]:
+        """功率仪采集命令库：checkbox → NUMERIC token（按型号）。"""
+        m = str(model or "").strip()
+        return self._request(
+            "GET",
+            f"/api/solar-autotest/agent/wt-measure-commands?model={m}",
+        )
+
     def sync_dc1_widgets(self, widgets: Dict[str, Any]) -> Dict[str, Any]:
         """蓝点曲线换算的直流四点，写进本台架进行中实验和记住的参数。"""
         return self._request(

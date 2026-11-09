@@ -382,11 +382,11 @@ def selected_functions(config: Mapping) -> List[str]:
     model = model_of(config)
     found: List[str] = []
     seen = set()
-    for key, func in _FUNCTION_BY_CHECKBOX.items():
+    for key in _FUNCTION_BY_CHECKBOX:
         if not _is_checked(config, key):
             continue
-        if model == "3000":
-            func = _WT3000_FUNCTION_ALIAS.get(key, func)
+        # 优先命令库/覆盖表 token，否则走内置型号别名
+        func = base_token_for_checkbox(model, key) or _FUNCTION_BY_CHECKBOX[key]
         if func in seen:
             continue
         seen.add(func)
@@ -406,9 +406,11 @@ def selected_functions(config: Mapping) -> List[str]:
 def selected_singles(config: Mapping) -> List[str]:
     out: List[str] = []
     seen = set()
-    for key, token in _SINGLE_BY_CHECKBOX.items():
+    model = model_of(config)
+    for key in _SINGLE_BY_CHECKBOX:
         if not _is_checked(config, key):
             continue
+        token = base_token_for_checkbox(model, key) or _SINGLE_BY_CHECKBOX[key]
         if token in seen:
             continue
         seen.add(token)
@@ -522,7 +524,7 @@ def items_from_wt_config(
     for key, (on_3000, on_other) in _HARMONIC_BY_CHECKBOX.items():
         if not _is_checked(config, key):
             continue
-        func = on_3000 if model == "3000" else on_other
+        func = base_token_for_checkbox(model, key) or (on_3000 if model == "3000" else on_other)
         for target in element_targets:
             for order in orders:
                 _add(f"{func},{target},{order}")
@@ -530,7 +532,7 @@ def items_from_wt_config(
     for key, (on_3000, on_other, sigma_only_on_5000) in _PHASE_BY_CHECKBOX.items():
         if not _is_checked(config, key):
             continue
-        func = on_3000 if model == "3000" else on_other
+        func = base_token_for_checkbox(model, key) or (on_3000 if model == "3000" else on_other)
         if model == "5000" and sigma_only_on_5000:
             phase_targets = sigma_targets or ["SIGMA"]
         elif model == "3000":
@@ -538,28 +540,23 @@ def items_from_wt_config(
         else:
             # 1800/1806 相位差按已选元素发完整功能名，不带仪器不认的 PHIUiii。
             phase_targets = element_targets
-            if model != "5000" and key == "checkBox_SetPhiUi_Ij":
-                func = "PHI_U1I2"
-            if model != "5000" and key == "checkBox_SetPhiUi_Ik":
-                func = "PHI_U1I3"
+            # 无命令库覆盖时保留旧默认；有覆盖则尊重 com_content
+            if key not in (_CATALOG_TOKEN_OVERRIDES.get(model) or {}):
+                if model != "5000" and key == "checkBox_SetPhiUi_Ij":
+                    func = "PHI_U1I2"
+                if model != "5000" and key == "checkBox_SetPhiUi_Ik":
+                    func = "PHI_U1I3"
         for target in phase_targets:
             _add(f"{func},{target}")
 
+    # singles 已在 selected_singles / base_token_for_checkbox 做过型号别名；
+    # DELTA* 等仍要按目标拼「功能,Σ」
+    delta_names = set(_WT5000_DELTA_SINGLE.values()) | set(_WT5000_DELTA_SINGLE.keys())
     for token in singles:
-        if model in ("1800", "1806") and token == "SYNCSP":
-            # 手册电机项是 SYNC，不是界面上的 SyncSp。
-            _add("SYNC")
-            continue
-        if model in ("5000", "1800", "1806") and token in _WT5000_DELTA_SINGLE:
-            name = _WT5000_DELTA_SINGLE[token]
+        if token in delta_names or token in _WT5000_DELTA_SINGLE:
+            name = _WT5000_DELTA_SINGLE.get(token, token)
             for target in sigma_targets or ["SIGMA"]:
                 _add(f"{name},{target}")
-            continue
-        if model == "5000" and token in _WT5000_SINGLE_ALIAS:
-            _add(_WT5000_SINGLE_ALIAS[token])
-            continue
-        if model == "3000" and token.startswith("DELTAF") and token[6:].isdigit():
-            _add("DELTA" + token[6:])
             continue
         _add(token)
 
@@ -785,3 +782,98 @@ def describe_mapping(config: Mapping) -> Dict[str, Any]:
         "harmonic_start": str(config.get("textEdit_SetStart") or "").strip(),
         "harmonic_stop": str(config.get("textEdit_SetStop") or "").strip(),
     }
+
+
+# ---------------------------------------------------------------------------
+# 命令库联动：blockly_name(checkBox_*) → 型号基础 NUMERIC token（不含元素展开）
+# IOT「功率仪采集」灌库 / Agent 读库覆盖共用此口径。
+# ---------------------------------------------------------------------------
+WT_CATALOG_MODELS: Tuple[str, ...] = ("3000", "1800", "1806", "5000")
+
+# Agent / 测试可注入：model -> { checkBox_SetU: "URMS", ... }
+_CATALOG_TOKEN_OVERRIDES: Dict[str, Dict[str, str]] = {}
+
+
+def set_catalog_token_overrides(model: str, mapping: Optional[Mapping[str, str]]) -> None:
+    """覆盖某型号 checkbox→token；mapping 为空则清除。"""
+    key = str(model or "").strip()
+    if not key:
+        return
+    if not mapping:
+        _CATALOG_TOKEN_OVERRIDES.pop(key, None)
+        return
+    _CATALOG_TOKEN_OVERRIDES[key] = {
+        str(k): str(v).strip() for k, v in mapping.items() if str(k).strip() and str(v).strip()
+    }
+
+
+def clear_catalog_token_overrides() -> None:
+    _CATALOG_TOKEN_OVERRIDES.clear()
+
+
+def get_catalog_token_overrides(model: str = "") -> Dict[str, Dict[str, str]]:
+    if model:
+        one = _CATALOG_TOKEN_OVERRIDES.get(str(model).strip()) or {}
+        return {str(model).strip(): dict(one)} if one else {}
+    return {m: dict(mp) for m, mp in _CATALOG_TOKEN_OVERRIDES.items()}
+
+
+def base_token_for_checkbox(model: str, checkbox: str) -> Optional[str]:
+    """单型号下 checkbox 对应的基础 token（命令库 com_content / 覆盖表）。"""
+    m = str(model or "").strip()
+    key = str(checkbox or "").strip()
+    if not key or key in _SKIP_CHECKBOXES:
+        return None
+    ov = _CATALOG_TOKEN_OVERRIDES.get(m) or {}
+    if key in ov:
+        return ov[key]
+    if key in _SINGLE_BY_CHECKBOX:
+        token = _SINGLE_BY_CHECKBOX[key]
+        if m in ("1800", "1806") and token == "SYNCSP":
+            return "SYNC"
+        if m in ("5000", "1800", "1806") and token in _WT5000_DELTA_SINGLE:
+            return _WT5000_DELTA_SINGLE[token]
+        if m == "5000" and token in _WT5000_SINGLE_ALIAS:
+            return _WT5000_SINGLE_ALIAS[token]
+        if m == "3000" and token.startswith("DELTAF") and token[6:].isdigit():
+            return "DELTA" + token[6:]
+        return token
+    if key in _FUNCTION_BY_CHECKBOX:
+        if m == "3000":
+            return _WT3000_FUNCTION_ALIAS.get(key, _FUNCTION_BY_CHECKBOX[key])
+        return _FUNCTION_BY_CHECKBOX[key]
+    if key in _HARMONIC_BY_CHECKBOX:
+        on_3000, on_other = _HARMONIC_BY_CHECKBOX[key]
+        return on_3000 if m == "3000" else on_other
+    if key in _PHASE_BY_CHECKBOX:
+        on_3000, on_other, _sigma_only = _PHASE_BY_CHECKBOX[key]
+        return on_3000 if m == "3000" else on_other
+    return None
+
+
+def catalog_seed_rows() -> List[Dict[str, str]]:
+    """灌库种子：每型号 × 每测量勾选 → blockly_name + com_content。"""
+    keys = sorted(
+        (set(_SINGLE_BY_CHECKBOX) | set(_FUNCTION_BY_CHECKBOX) | set(_HARMONIC_BY_CHECKBOX) | set(_PHASE_BY_CHECKBOX))
+        - _SKIP_CHECKBOXES
+    )
+    rows: List[Dict[str, str]] = []
+    for model in WT_CATALOG_MODELS:
+        for checkbox in keys:
+            token = base_token_for_checkbox(model, checkbox)
+            if not token:
+                continue
+            short = checkbox
+            if short.startswith("checkBox_Set"):
+                short = short[len("checkBox_Set") :]
+            elif short.startswith("checkBox_"):
+                short = short[len("checkBox_") :]
+            rows.append(
+                {
+                    "model": model,
+                    "blockly_name": checkbox,
+                    "com_content": token,
+                    "com_name": short[:20],
+                }
+            )
+    return rows
