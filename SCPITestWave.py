@@ -525,6 +525,13 @@ def SendACMessage():
     return ac_controller.send_message(uiACSetting)
 
 
+def _format_dc_cmd_for_log(cmd, limit: int = 96) -> str:
+    """是德 SAS:TABL 约 9KB，整段打进 Qt 日志易闪退；日志只留摘要。"""
+    from utils.dc_cmd_log import format_dc_cmd_for_log
+
+    return format_dc_cmd_for_log(cmd, limit=limit)
+
+
 def _send_dc_iv_curve(ui_setting, selected_dc, silent=False):
     """从指定直流设置页读取 IV 四点并下发到对应 DC 通道。"""
     global dc1_controller, dc2_controller, dc3_controller, dc4_controller
@@ -598,16 +605,20 @@ def _send_dc_iv_curve(ui_setting, selected_dc, silent=False):
             controller.write_command(command, label=selected_dc)
         except Exception as e:
             strtimenow = now_to_datenow()
-            logger.info(f"Send message {command} to {selected_dc} error :{e}")
-            print(f'{strtimenow} Send message {command} to {selected_dc} error :{e}')
+            _dc_log = _format_dc_cmd_for_log(command)
+            logger.info(f"Send message {_dc_log} to {selected_dc} error :{e}")
+            print(f"{strtimenow} Send message {_dc_log} to {selected_dc} error :{e}")
             _show_connect_message(f"{selected_dc}参数下发失败：{e}", ui_setting)
             return []
         else:
             strtimenow = now_to_datenow()
-            logger.info(f"SendMessageTo{selected_dc}:{command}")
-            print(strtimenow + f"SendMessageTo{selected_dc}:{command}")
+            _dc_log = _format_dc_cmd_for_log(command)
+            logger.info(f"SendMessageTo{selected_dc}:{_dc_log}")
+            print(strtimenow + f"SendMessageTo{selected_dc}:{_dc_log}")
             if hasattr(ui_setting, "textEdit_ReturnMessage"):
-                ui_setting.textEdit_ReturnMessage.append(f"SendMessageTo{selected_dc}:{command}")
+                ui_setting.textEdit_ReturnMessage.append(
+                    f"SendMessageTo{selected_dc}:{_dc_log}"
+                )
         time.sleep(0.8)
 
     return order_list
@@ -26575,7 +26586,10 @@ def RunProject():
             _dev = strArrayTest[i][0] if len(strArrayTest[i]) > 0 else ""
             _op = strArrayTest[i][1] if len(strArrayTest[i]) > 1 else ""
             _scpi = strArrayTest[i][2] if len(strArrayTest[i]) > 2 else ""
-            _append_return_message(f"[执行] {i+1}. [{_dev}] {_op} {_scpi}")
+            # 是德 SAS:TABL 整表勿打进操作日志（约 9KB 会闪退）
+            _append_return_message(
+                f"[执行] {i+1}. [{_dev}] {_op} {_format_dc_cmd_for_log(_scpi)}"
+            )
             try:
                 _detail = f"[{_dev}] {_op} {str(_scpi)[:80]}".strip()
                 _sync_queue_for_cmd(i + 1)
@@ -27068,8 +27082,9 @@ def RunProject():
                         dc1_controller.write_command(strArrayTest[i][2], label="DC1")
                         _note_live_supply_command("直流电源1", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
-                        logger.info(strtimenow + "DC1 " + strArrayTest[i][2])
-                        print(strtimenow + "DC1 " + strArrayTest[i][2])
+                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
+                        logger.info(strtimenow + "DC1 " + _dc_log)
+                        print(strtimenow + "DC1 " + _dc_log)
                     except Exception as e:
                         print(e)
                     else:
@@ -27112,8 +27127,9 @@ def RunProject():
                         dc2_controller.write_command(strArrayTest[i][2], label="DC2")
                         _note_live_supply_command("直流电源2", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
-                        logger.info(strtimenow + "DC2 " + strArrayTest[i][2])
-                        print(strtimenow + "DC2 " + strArrayTest[i][2])
+                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
+                        logger.info(strtimenow + "DC2 " + _dc_log)
+                        print(strtimenow + "DC2 " + _dc_log)
                     except Exception as e:
                         print(e)
                     else:
@@ -27156,8 +27172,9 @@ def RunProject():
                         dc3_controller.write_command(strArrayTest[i][2], label="DC3")
                         _note_live_supply_command("直流电源3", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
-                        logger.info(strtimenow + "DC3 " + strArrayTest[i][2])
-                        print(strtimenow + "DC3 " + strArrayTest[i][2])
+                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
+                        logger.info(strtimenow + "DC3 " + _dc_log)
+                        print(strtimenow + "DC3 " + _dc_log)
                     except Exception as e:
                         print(e)
                     else:
@@ -27200,8 +27217,9 @@ def RunProject():
                         dc4_controller.write_command(strArrayTest[i][2], label="DC4")
                         _note_live_supply_command("直流电源4", strArrayTest[i][2])
                         strtimenow = now_to_datenow()
-                        logger.info(strtimenow + "DC4 " + strArrayTest[i][2])
-                        print(strtimenow + "DC4 " + strArrayTest[i][2])
+                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
+                        logger.info(strtimenow + "DC4 " + _dc_log)
+                        print(strtimenow + "DC4 " + _dc_log)
                     except Exception as e:
                         print(e)
                     else:
@@ -28163,11 +28181,11 @@ def ThreadSendDCCommandInfomationTimer():
         strArraySetting.append("CONF:OUTP:MODE CCCV")
         strArraySettingFlag.append("0")
 
+        # 勿 *RST：HiSLIP/Soft Panel 会话会被拆掉，重连试验写 SAS 表时易闪退
         strArraySettingKeysight = [
             "OUTP OFF",
             "*CLS",
-            "*RST",
-            "SAS:MODE TABL"
+            "SAS:MODE TABL",
         ]
 
         strArraySettingItech = [
@@ -28236,6 +28254,8 @@ def ThreadSendDCCommandInfomationTimer():
                         #time.sleep(0.2)
             elif per_dc_factor.get("0") == "Keysight":
                 for i in range(len(strArraySettingKeysight)):
+                    if dc1_controller is None or dc1_controller.handle is None:
+                        break
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
                         dc1_controller.handle.write(strCurrMessage)
@@ -28323,6 +28343,8 @@ def ThreadSendDCCommandInfomationTimer():
                         time.sleep(0.2)
             elif per_dc_factor.get("1") == "Keysight":
                 for i in range(len(strArraySettingKeysight)):
+                    if dc2_controller is None or dc2_controller.handle is None:
+                        break
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
                         dc2_controller.handle.write(strCurrMessage)
@@ -28413,6 +28435,8 @@ def ThreadSendDCCommandInfomationTimer():
                         time.sleep(0.2)
             elif per_dc_factor.get("2") == "Keysight":
                 for i in range(len(strArraySettingKeysight)):
+                    if dc3_controller is None or dc3_controller.handle is None:
+                        break
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
                         dc3_controller.handle.write(strCurrMessage)
@@ -28504,6 +28528,8 @@ def ThreadSendDCCommandInfomationTimer():
                         time.sleep(0.2)
             elif per_dc_factor.get("3") == "Keysight":
                 for i in range(len(strArraySettingKeysight)):
+                    if dc4_controller is None or dc4_controller.handle is None:
+                        break
                     strCurrMessage = strArraySettingKeysight[i]
                     try:
                         dc4_controller.handle.write(strCurrMessage)
@@ -28712,7 +28738,6 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
                 fParC2 = (fDCVmp / fDCVoc - 1) / math.log(1 - fDCImp / fDCIsc)
 
                 fParC1 = (1 - fDCImp / fDCIsc) * math.exp(-1 * fDCVmp / (fParC2 * fDCVoc))
-                print(1)
                 fFF = (fDCVmp * fDCImp) / (fDCVoc * fDCIsc)
                 for i in range(1024):
                     DCParArray[i] = 0 + i * (1 / 1023)
@@ -28742,9 +28767,13 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
                         str2 = str2 + strDCArray[1][i]
                     else:
                         str2 = str2 + "," + strDCArray[1][i]
-                print(str2)
+                # 禁止 print 整表（约 9KB×2），试验线程打进 UI 日志会闪退
+                print(
+                    f"[Keysight IV] DC{DCNumber} FF={fFF:.4f} "
+                    f"volt_cmd={len(str2)}B curr_cmd={len(str1)}B pts=1024",
+                    flush=True,
+                )
                 strArrayIVValue.append(str2)
-                print(str1)
                 strArrayIVValue.append(str1)
                 return strArrayIVValue
             except (ValueError, ZeroDivisionError, OverflowError) as e:
