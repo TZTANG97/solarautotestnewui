@@ -461,13 +461,23 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
 
 
 def _append_with_message_capture(project_append: Callable[[], None]) -> Tuple[Optional[str], Optional[BaseException]]:
-    """Call append; capture QMessageBox.information texts that look like brand/assign errors."""
+    """Call append; capture QMessageBox.information as append failure.
+
+    试验 Send 失败一律 ``information(..., \"错误提示信息\", ...)``。
+    旧逻辑只认「厂家/赋值/IVC」等关键词，漏掉「请至少勾选一个极限 cosφ」等文案，
+    会把失败追加当成成功再点开始，桌面就弹出「还没有可执行的试验命令」。
+    """
     captured: List[str] = []
     orig = QMessageBox.information
 
     def _info(parent, title, text, *args, **kwargs):
         try:
-            captured.append(str(text or ""))
+            title_s = str(title or "").strip()
+            text_s = str(text or "").strip()
+            if title_s and text_s:
+                captured.append(f"{title_s}: {text_s}")
+            else:
+                captured.append(text_s or title_s)
         except Exception:
             pass
         try:
@@ -486,9 +496,12 @@ def _append_with_message_capture(project_append: Callable[[], None]) -> Tuple[Op
         QMessageBox.information = orig  # type: ignore[method-assign]
     fail_reason = None
     for msg in captured:
-        if any(k in msg for k in ("厂家", "错误", "赋值", "超范围", "IVC")):
-            fail_reason = msg.strip() or "追加时弹窗报错"
-            break
+        text = (msg or "").strip()
+        if not text:
+            continue
+        # 追加成功路径只写操作日志，不走 information；凡弹 information 即失败
+        fail_reason = text
+        break
     return fail_reason, err
 
 
@@ -3913,6 +3926,33 @@ class IotUiHandoffService(QObject):
                     )
                     self._move_pending_done(pending_path)
                     return
+                # 追加弹窗未捕获时仍可能空队列；开跑前再确认，避免「无可执行命令」
+                try:
+                    from utils.iot_local_run import desktop_queue_nonempty
+
+                    if appended and not desktop_queue_nonempty():
+                        self._write_result_all(
+                            pending_path,
+                            job_id,
+                            {
+                                "status": "failed",
+                                "fail_reason": (
+                                    "追加后本机仍无试验命令（常见：未勾极限 cosφ / 工况未启用）。"
+                                    "请在能力工况勾选 cosφ 后重开测。"
+                                ),
+                                "result_summary": {
+                                    "handoff": True,
+                                    "appended": False,
+                                    "started": False,
+                                    "empty_queue_after_append": True,
+                                    "missingWidgets": missing,
+                                },
+                            },
+                        )
+                        self._move_pending_done(pending_path)
+                        return
+                except Exception as _q_exc:
+                    self._log(f"开跑前队列检查跳过: {_q_exc}")
                 self.start_test()
                 self._log("已调用开始试验")
 

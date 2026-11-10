@@ -111,6 +111,18 @@ def resolve_reactiveqcap_standard_id(
     return "thai"
 
 
+def ensure_reactiveqcap_capability_widgets(widgets: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """开测前保证能力工况可生成命令：总开关开、至少一种极限 cosφ。"""
+    out = dict(widgets or {})
+    out["checkBox_S3"] = True
+    cos_keys = ("checkBox_cos_pos09", "checkBox_cos_neg09", "checkBox_cos_1")
+    if not any(bool(out.get(k)) for k in cos_keys):
+        out["checkBox_cos_pos09"] = True
+        out["checkBox_cos_neg09"] = True
+        out["checkBox_cos_1"] = False
+    return out
+
+
 def apply_reactiveqcap_standard_to_widgets(
     widgets: Optional[Dict[str, Any]],
     standard_id: str,
@@ -128,7 +140,7 @@ def apply_reactiveqcap_standard_to_widgets(
         cur = out.get(k)
         if cur is None or cur == "":
             out[k] = v
-    return out
+    return ensure_reactiveqcap_capability_widgets(out)
 
 
 def apply_reactiveqcap_standard_to_ui(
