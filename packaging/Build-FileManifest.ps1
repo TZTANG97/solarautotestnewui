@@ -59,9 +59,18 @@ $entries = New-Object System.Collections.ArrayList
 $blobMap = @{}
 
 # App tree -> install root
-Get-ChildItem -LiteralPath $appRoot -Recurse -File -Force | ForEach-Object {
-    $rel = $_.FullName.Substring($appRoot.Length).TrimStart('\', '/')
-    Add-ManifestEntry -List $entries -BlobMap $blobMap -AbsPath $_.FullName -RelPath $rel
+$appRootFull = [IO.Path]::GetFullPath($appRoot).TrimEnd('\', '/')
+Get-ChildItem -LiteralPath $appRootFull -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+    if (-not $_ -or -not $_.FullName) { return }
+    $full = [string]$_.FullName
+    if ($full.Length -le $appRootFull.Length) { return }
+    $rel = $full.Substring($appRootFull.Length).TrimStart('\', '/')
+    if ([string]::IsNullOrWhiteSpace($rel)) { return }
+    try {
+        Add-ManifestEntry -List $entries -BlobMap $blobMap -AbsPath $full -RelPath $rel
+    } catch {
+        Write-Host ("[WARN] skip manifest entry: " + $full + " :: " + $_)
+    }
 }
 
 # Package scripts that live in install root
