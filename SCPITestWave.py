@@ -26296,6 +26296,8 @@ def _enable_freq_step_continuous_record(
 _wt_async_session_active = False
 _wt_async_stop_requested = False
 _wt_async_deadline_ts = 0.0
+# messure_testing 是否已真正进入本轮采集（ASYNC 后必须变 True，否则只是空挂 test_status）
+_wt_measure_flow_entered = False
 
 
 def _wt_request_async_measure_stop(reason=""):
@@ -26317,11 +26319,52 @@ def _wt_request_async_measure_stop(reason=""):
         _append_debug_log(f"[run_loop] SCPI request_stop skipped: {exc}")
 
 
+def _wt_gates_ready_for_measure() -> bool:
+    return (
+        str(globals().get("setting_status") or "") == "1"
+        and str(globals().get("messure_status") or "") == "1"
+    )
+
+
+def _wt_emergency_stop_and_export(reason=""):
+    """WAIT_END 超时/录波未启动时的最后一次停表导出，避免强制收口后无 CSV。"""
+    csv_path = ""
+    try:
+        from utils.wt_acquire_mode import is_scpi_mode
+        from utils import wt_scpi_session
+
+        cfg = globals().get("config_dict") if isinstance(globals().get("config_dict"), dict) else {}
+        if is_scpi_mode(cfg):
+            idx = max(0, int(globals().get("now_save_file") or 0))
+            csv_path = wt_scpi_session.stop_and_export(cfg, file_index=idx) or ""
+            _append_debug_log(
+                f"[run_loop] emergency SCPI stop/export reason={reason or '-'} csv={csv_path or '-'}"
+            )
+            return csv_path
+    except Exception as exc:
+        _append_debug_log(f"[run_loop] emergency SCPI export failed: {exc}")
+    # Soft Panel：尽量点停并走 testing_stop 落盘
+    try:
+        names = []
+        cfg = globals().get("config_dict") if isinstance(globals().get("config_dict"), dict) else {}
+        raw = str((cfg or {}).get("textEdit_FileNameList") or "")
+        if raw.strip():
+            names = [x.strip() for x in re.split(r",|，", raw) if str(x).strip()]
+        idx = max(0, int(globals().get("now_save_file") or 0))
+        if not names:
+            names = [str(globals().get("save_file_name") or "QCap").strip() or "QCap"]
+        testing_stop(names, min(idx, len(names) - 1))
+        _append_debug_log(f"[run_loop] emergency Soft Panel testing_stop reason={reason or '-'}")
+    except Exception as exc:
+        _append_debug_log(f"[run_loop] emergency Soft Panel stop failed: {exc}")
+    return csv_path
+
+
 def _wt_async_start_measure(cmd_no):
     """触发一轮 WT 测量但不阻塞；供扫压期间连续录波。"""
     global now_save_file, save_file_name, WT_auto_messure_status, test_status, strTestStatusFlag
     global config_dict, strArrayTest, _wt_async_session_active
-    global _wt_async_stop_requested, _wt_async_deadline_ts
+    global _wt_async_stop_requested, _wt_async_deadline_ts, _wt_measure_flow_entered
     prev_index = now_save_file
     if not (now_save_file == 0 and save_file_name == ''):
         now_save_file = now_save_file + 1
@@ -26390,10 +26433,35 @@ def _wt_async_start_measure(cmd_no):
         except Exception:
             stop_sec_for_deadline = None
 
+    # 门闩未就绪（常见：SCPI :RATE? 超时后没回落）时禁止空挂 test_status=1
+    if not _wt_gates_ready_for_measure():
+        _append_debug_log(
+            f"[run_loop] ASYNC_START aborted: gates not ready "
+            f"setting={globals().get('setting_status')!r} "
+            f"messure={globals().get('messure_status')!r} cmd#{cmd_no}"
+        )
+        try:
+            ui_obj = globals().get("ui")
+            if ui_obj is not None:
+                ui_obj.textEdit_ReturnMessage.append(
+                    "[功率分析仪] 连续录未启动：WT 配置门闩未就绪"
+                    "（SCPI 准备失败或 Soft Panel 未配完），跳过本段录波"
+                )
+        except Exception:
+            pass
+        test_status = "0"
+        WT_auto_messure_status = ""
+        _wt_async_session_active = False
+        _wt_async_stop_requested = False
+        _wt_async_deadline_ts = 0.0
+        _wt_measure_flow_entered = False
+        return
+
     test_status = '1'
     WT_auto_messure_status = '1'
     _wt_async_session_active = True
     _wt_async_stop_requested = False
+    _wt_measure_flow_entered = False
     # 含 ASYNC 后等待 messure_testing 点开始的约 5s
     if stop_sec_for_deadline is not None and stop_sec_for_deadline > 0:
         _wt_async_deadline_ts = time.time() + float(stop_sec_for_deadline) + 5.0
@@ -26403,11 +26471,32 @@ def _wt_async_start_measure(cmd_no):
         f"[run_loop] WT ASYNC_START at command#{cmd_no}, index {prev_index}->{now_save_file}, "
         f"save_file_name={save_file_name}, deadline_in={stop_sec_for_deadline}s"
     )
-    # 给 messure_testing 一点时间点下「开始」
-    for _ in range(50):
+    # 等 messure_testing 真正进门；空等满 8s 仍未进入则清掉僵尸 test_status
+    entered = False
+    for _ in range(80):
         if strTestStatusFlag == "结束":
             return
+        if bool(globals().get("_wt_measure_flow_entered")):
+            entered = True
+            break
         time.sleep(0.1)
+    if not entered:
+        _append_debug_log(
+            f"[run_loop] ASYNC_START: messure_testing 未在 8s 内进入采集 cmd#{cmd_no}"
+        )
+        try:
+            ui_obj = globals().get("ui")
+            if ui_obj is not None:
+                ui_obj.textEdit_ReturnMessage.append(
+                    "[功率分析仪] 连续录触发后未开始采集，请检查 Soft Panel/SCPI 连接"
+                )
+        except Exception:
+            pass
+        test_status = "0"
+        WT_auto_messure_status = ""
+        _wt_async_session_active = False
+        _wt_async_deadline_ts = 0.0
+        return
     _log = globals().get("logger")
     if _log is not None:
         _log.info(f"WT 连续测量已启动(ASYNC_START), command#{cmd_no}")
@@ -26420,9 +26509,30 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=12):
     超时默认 12s（旧 180/3600s 会让界面长期停在 *IDN?/WAIT_END）。
     """
     global test_status, strTestStatusFlag, _wt_async_session_active
-    global _wt_async_stop_requested, WT_auto_messure_status
+    global _wt_async_stop_requested, WT_auto_messure_status, _wt_measure_flow_entered
+    never_started = not bool(globals().get("_wt_measure_flow_entered"))
+    if never_started:
+        # 录波从未启动（SCPI 准备失败 / Soft Panel 未进门）：不必空等 12s
+        try:
+            ui_obj = globals().get("ui")
+            if ui_obj is not None and str(test_status or "") == "1":
+                ui_obj.textEdit_ReturnMessage.append(
+                    "[功率分析仪] WAIT_END：本段录波从未启动，跳过等待（无 CSV）"
+                )
+        except Exception:
+            pass
+        test_status = "0"
+        WT_auto_messure_status = ""
+        _wt_async_stop_requested = False
+        _wt_async_session_active = False
+        _wt_measure_flow_entered = False
+        _append_debug_log(f"[run_loop] WT WAIT_END never-started clear cmd#{cmd_no}")
+        return
     _wt_request_async_measure_stop(f"WAIT_END@{cmd_no}")
-    _append_debug_log(f"[run_loop] WT WAIT_END at command#{cmd_no}, test_status={test_status}")
+    _append_debug_log(
+        f"[run_loop] WT WAIT_END at command#{cmd_no}, test_status={test_status}, "
+        f"entered={bool(globals().get('_wt_measure_flow_entered'))}"
+    )
     wait_start = time.time()
     last_log_sec = -1
     _log = globals().get("logger")
@@ -26457,14 +26567,18 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=12):
                 ui_obj = globals().get("ui")
                 if ui_obj is not None:
                     ui_obj.textEdit_ReturnMessage.append(
-                        f"[功率分析仪] WAIT_END 超时{wait_timeout_sec}s，强制收口继续关机"
+                        f"[功率分析仪] WAIT_END 超时{wait_timeout_sec}s，尝试紧急停表导出后继续关机"
                     )
             except Exception:
                 pass
             break
         time.sleep(0.05)
     if timed_out or str(test_status) not in ("", "0"):
-        # 强制收口，避免后续命令/云任务一直 99% 挂在 WAIT_END
+        # 先尽量导出，再清状态，避免「强制收口 + 无 CSV」
+        try:
+            _wt_emergency_stop_and_export(f"WAIT_END_timeout@{cmd_no}")
+        except Exception as exc:
+            _append_debug_log(f"[run_loop] WAIT_END emergency export failed: {exc}")
         test_status = "0"
         WT_auto_messure_status = ""
         _wt_async_stop_requested = True
@@ -26472,6 +26586,7 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=12):
             f"[run_loop] WT WAIT_END force clear test_status at command#{cmd_no} timed_out={timed_out}"
         )
     _wt_async_session_active = False
+    _wt_measure_flow_entered = False
 
 
 _ac_query_executor = None
@@ -27352,6 +27467,7 @@ def RunProject():
                     is_scpi_mode = lambda *_a, **_k: False  # noqa: E731
                     wt_scpi_session = None
                     _append_debug_log(f"[Upper_WT_Config][warn] scpi helpers import failed: {e}")
+                _scpi_ready = False
                 if is_scpi_mode(config_dict if isinstance(config_dict, dict) else {}):
                     _append_debug_log("[Upper_WT_Config] acquire_mode=scpi → skip WTViewer auto_config")
                     if ui is not None:
@@ -27366,18 +27482,34 @@ def RunProject():
                         ok, err = wt_scpi_session.prepare_from_config(
                             config_dict, logger=logger
                         )
-                    if not ok:
-                        _append_debug_log(f"[Upper_WT_Config][error] SCPI prepare failed: {err}")
-                        print(f"[Upper_WT_Config] SCPI prepare 失败: {err}")
-                        if ui is not None:
-                            try:
-                                ui.textEdit_ReturnMessage.append(f"[功率分析仪] SCPI 准备失败: {err}")
-                            except Exception:
-                                pass
-                    else:
+                    if ok:
                         setting_status = "1"
                         messure_status = "1"
                         first_test = "1"
+                        _scpi_ready = True
+                    else:
+                        # Soft Panel 占口 / 地址错时 :RATE? 会 TMO。旧逻辑仍 continue，
+                        # 门闩永远不立 → ASYNC 空挂 → WAIT_END 12s 强制收口、无 CSV。
+                        _append_debug_log(f"[Upper_WT_Config][error] SCPI prepare failed: {err}")
+                        print(f"[Upper_WT_Config] SCPI prepare 失败: {err}")
+                        if isinstance(config_dict, dict):
+                            config_dict["wt_acquire_mode"] = "macro"
+                            try:
+                                strArrayTest[i][4] = config_dict
+                            except Exception:
+                                pass
+                        if ui is not None:
+                            try:
+                                ui.textEdit_ReturnMessage.append(
+                                    f"[功率分析仪] SCPI 准备失败: {err}"
+                                )
+                                ui.textEdit_ReturnMessage.append(
+                                    "[功率分析仪] 已回落 Soft Panel 宏模式继续录波"
+                                    "（请确认 WTViewer 已开；或改端口后重选 SCPI）"
+                                )
+                            except Exception:
+                                pass
+                if _scpi_ready:
                     if strTestStatusFlag == "结束":
                         break
                     i += 1
@@ -27393,6 +27525,18 @@ def RunProject():
                         break
                     time.sleep(0.5)
                     first_test = '1'
+                    if not _wt_gates_ready_for_measure():
+                        _append_debug_log(
+                            "[Upper_WT_Config][error] Soft Panel 配置后门闩未就绪 "
+                            f"setting={setting_status!r} messure={messure_status!r}"
+                        )
+                        if ui is not None:
+                            try:
+                                ui.textEdit_ReturnMessage.append(
+                                    "[功率分析仪] Soft Panel 配置未完成，后续连续录可能无 CSV"
+                                )
+                            except Exception:
+                                pass
                 if strTestStatusFlag == "结束":
                     break
             # ---------------- DC1 分支 ----------------
@@ -30488,6 +30632,7 @@ def messure_testing():
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
     global test_status, save_file_name, strTestStatusFlag
     global _wt_async_stop_requested, _wt_async_deadline_ts, _wt_async_session_active
+    global _wt_measure_flow_entered
 
     # 仅在关键状态变化时记录日志，避免定时器每 0.5 秒刷屏
     current_state = (setting_status, messure_status, WT_auto_messure_status, now_save_file, total_save_file)
@@ -30503,6 +30648,7 @@ def messure_testing():
         # 只有"三个门闩"都满足时才进入本轮自动测量
         if setting_status == '1' and messure_status == '1' and WT_auto_messure_status == '1':
             _append_debug_log("[messure_testing] enter measure flow")
+            _wt_measure_flow_entered = True
             # 进门后立即清空触发位，避免定时器下一拍重复进入同一轮
             WT_auto_messure_status = ''
             # 置位"测量进行中"，供 run_loop(col6/col7) 阻塞等待
