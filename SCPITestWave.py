@@ -4076,6 +4076,7 @@ def _finder_set_combo(combo_name: str, text: str) -> None:
 
 def _iot_slot_session_ok(slot: str) -> bool:
     """云端回传用：以控制器真实会话为准，不看 TCP 是否通。"""
+    sl = str(slot or "").strip().lower()
     name = {
         "ac": "ac_controller",
         "dc1": "dc1_controller",
@@ -4085,11 +4086,28 @@ def _iot_slot_session_ok(slot: str) -> bool:
         "wt": "wt3000_controller",
         "scope": "dl850_controller",
         "dew": "dewetron_controller",
-    }.get(str(slot or "").strip().lower())
+    }.get(sl)
     if not name:
         return False
     ctrl = globals().get(name)
-    return ctrl is not None and bool(getattr(ctrl, "connected", False))
+    if ctrl is not None and bool(getattr(ctrl, "connected", False)):
+        return True
+    # WT：首页按钮已是「取消连接」/会话旗标=1 时也算已连，避免 Soft Panel/宏
+    # 看着连着但 status.json 不上报，网页一直「未连接」
+    if sl == "wt":
+        try:
+            ctx = globals().get("app_ctx")
+            if ctx is not None and str(getattr(ctx, "strConnectWT3000", "0") or "0") == "1":
+                return True
+        except Exception:
+            pass
+        try:
+            btn = getattr(globals().get("ui"), "pushButton_ConnectEQUWT3000", None)
+            if btn is not None and "取消" in str(btn.text() or ""):
+                return True
+        except Exception:
+            pass
+    return False
 
 
 def _reconcile_status_json_with_sessions(*, on_cold_start: bool = False) -> None:
@@ -4183,8 +4201,40 @@ def _reconcile_status_json_with_sessions(*, on_cold_start: bool = False) -> None
     )
     for name, slot in mapping:
         try:
-            extra = _dewetron_status_extra() if slot == "dew" and _iot_slot_session_ok(slot) else None
-            _save_device_status(name, bool(_iot_slot_session_ok(slot)), extra=extra)
+            ok = bool(_iot_slot_session_ok(slot))
+            extra = _dewetron_status_extra() if slot == "dew" and ok else None
+            resource = ""
+            if ok and slot == "wt":
+                try:
+                    ctrl = globals().get("wt3000_controller")
+                    resource = str(getattr(ctrl, "resource", "") or "").strip()
+                except Exception:
+                    resource = ""
+                if not resource:
+                    try:
+                        resource = _normalize_equ_resource_text(
+                            ui.comboBox_WT3000.currentText()
+                        )
+                        if resource == _default_equ_placeholder():
+                            resource = ""
+                    except Exception:
+                        resource = ""
+                if not resource:
+                    try:
+                        page = getattr(ui, "stackedWidget", None)
+                        page = page.widget(7) if page is not None and page.count() > 7 else None
+                        extras = getattr(page, "_extra_widgets_comboBox_WT3000", {}) or {}
+                        ip_t = extras.get("lineEdit_WT3000_IP")
+                        port_t = extras.get("lineEdit_WT3000_Port")
+                        ip_s = str(ip_t.text() or "").strip() if ip_t is not None else ""
+                        port_s = str(port_t.text() or "").strip() if port_t is not None else ""
+                        if ip_s and port_s:
+                            resource = f"{ip_s}:{port_s}"
+                        elif ip_s:
+                            resource = ip_s
+                    except Exception:
+                        resource = ""
+            _save_device_status(name, ok, resource, extra=extra)
         except Exception:
             pass
 
@@ -26112,6 +26162,15 @@ def _wt_request_async_measure_stop(reason=""):
         from utils import wt_scpi_session
 
         wt_scpi_session.request_stop(str(reason or "async_stop"))
+        # 立刻停采+尽量导出，避免 WAIT_END 干等 messure_testing 线程卡在 export
+        try:
+            cfg = globals().get("config_dict")
+            if isinstance(cfg, dict):
+                wt_scpi_session.stop_and_export(
+                    cfg, file_index=max(0, int(globals().get("now_save_file") or 0))
+                )
+        except Exception as exp_exc:
+            _append_debug_log(f"[run_loop] SCPI stop_and_export skipped: {exp_exc}")
     except Exception as exc:
         _append_debug_log(f"[run_loop] SCPI request_stop skipped: {exc}")
 
@@ -26212,13 +26271,14 @@ def _wt_async_start_measure(cmd_no):
         _log.info(f"WT 连续测量已启动(ASYNC_START), command#{cmd_no}")
 
 
-def _wt_wait_measure_end(cmd_no, wait_timeout_sec=180):
+def _wt_wait_measure_end(cmd_no, wait_timeout_sec=12):
     """阻塞直到本轮 WT 测量结束（test_status 回 '0'）。
 
     阶梯命令已跑完：立刻请求 messure_testing 停表，避免再空等剩余 StopTime。
-    超时默认 180s（旧 3600s 会让界面长期停在 *IDN?/WAIT_END，云任务卡 99%）。
+    超时默认 12s（旧 180/3600s 会让界面长期停在 *IDN?/WAIT_END）。
     """
     global test_status, strTestStatusFlag, _wt_async_session_active
+    global _wt_async_stop_requested, WT_auto_messure_status
     _wt_request_async_measure_stop(f"WAIT_END@{cmd_no}")
     _append_debug_log(f"[run_loop] WT WAIT_END at command#{cmd_no}, test_status={test_status}")
     wait_start = time.time()
@@ -26229,7 +26289,7 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=180):
         if strTestStatusFlag == "结束":
             break
         elapsed = int(time.time() - wait_start)
-        if elapsed != last_log_sec and elapsed % 5 == 0:
+        if elapsed != last_log_sec and elapsed % 2 == 0:
             if _log is not None:
                 _log.info(
                     f"等待连续测量结束: 第{cmd_no}条, test_status={test_status}, 已等待{elapsed}s"
@@ -26252,19 +26312,20 @@ def _wt_wait_measure_end(cmd_no, wait_timeout_sec=180):
                     f"等待连续测量结束超时: 第{cmd_no}条, test_status={test_status}, 超时{wait_timeout_sec}s"
                 )
             try:
-                from utils.iot_remote_ui import remote_connect_silent
-
-                if not remote_connect_silent():
-                    _show_connect_message(f"自动化等待连续测量超时（第{cmd_no}条）", ui)
-                else:
-                    print(f"[连接提示] 自动化等待连续测量超时（第{cmd_no}条）")
+                ui_obj = globals().get("ui")
+                if ui_obj is not None:
+                    ui_obj.textEdit_ReturnMessage.append(
+                        f"[功率分析仪] WAIT_END 超时{wait_timeout_sec}s，强制收口继续关机"
+                    )
             except Exception:
-                print(f"[连接提示] 自动化等待连续测量超时（第{cmd_no}条）")
+                pass
             break
         time.sleep(0.05)
     if timed_out or str(test_status) not in ("", "0"):
         # 强制收口，避免后续命令/云任务一直 99% 挂在 WAIT_END
         test_status = "0"
+        WT_auto_messure_status = ""
+        _wt_async_stop_requested = True
         _append_debug_log(
             f"[run_loop] WT WAIT_END force clear test_status at command#{cmd_no} timed_out={timed_out}"
         )

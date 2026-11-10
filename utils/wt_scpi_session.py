@@ -243,7 +243,9 @@ def run_measure_blocking(
             pass
 
     stop_sec = _stoptime_seconds(config)
-    _stop_requested = False
+    # 若 WAIT_END 已先打停，勿清掉；否则会把 StopTime 余量再空跑一遍
+    pending_stop = bool(_stop_requested)
+    _stop_requested = bool(pending_stop)
     _active = True
     _deadline_ts = time.time() + max(stop_sec, 0.5) + 0.5
     print(
@@ -255,6 +257,7 @@ def run_measure_blocking(
         _last_error = collector.last_error() or "start_gathering 失败"
         return False
 
+    exported_ok = False
     try:
         while True:
             if callable(stop_event_check) and stop_event_check():
@@ -270,6 +273,8 @@ def run_measure_blocking(
         collector.stop_gathering()
         exported = None
         try:
+            if collector.total_rows() <= 0:
+                collector.sample_once()
             exported = collector.export_to_csv(csv_path or None)
         except Exception as exc:
             _last_error = f"export failed: {exc}"
@@ -280,9 +285,22 @@ def run_measure_blocking(
             stats = collector.sample_interval_stats()
         except Exception:
             pass
-        print(f"[wt_scpi_session] done rows={collector.total_rows()} stats={stats} csv={_last_csv}")
+        rows = 0
+        try:
+            rows = collector.total_rows()
+        except Exception:
+            rows = 0
+        print(f"[wt_scpi_session] done rows={rows} stats={stats} csv={_last_csv or csv_path}")
+        if not _last_csv:
+            _last_error = (
+                collector.last_error()
+                or f"采到 {rows} 行，未生成 CSV（目标 {csv_path or '-'}）"
+            )
+            print(f"[wt_scpi_session] {_last_error}")
+        else:
+            exported_ok = True
         _active = False
-    return True
+    return exported_ok
 
 
 def stop_and_export(config: Optional[Mapping] = None, file_index: int = 0) -> Optional[str]:

@@ -103,7 +103,10 @@ def test_wait_end_requests_measure_stop(sw_module, monkeypatch):
     sw._wt_async_stop_requested = False
     scpi_stops = []
 
-    fake = SimpleNamespace(request_stop=lambda reason="": scpi_stops.append(reason))
+    fake = SimpleNamespace(
+        request_stop=lambda reason="": scpi_stops.append(reason),
+        stop_and_export=lambda *a, **k: None,
+    )
     monkeypatch.setitem(sys.modules, "utils.wt_scpi_session", fake)
     # ``from utils import wt_scpi_session`` 走 package 属性
     import utils as utils_pkg
@@ -118,3 +121,32 @@ def test_wait_end_requests_measure_stop(sw_module, monkeypatch):
     assert sw._wt_async_stop_requested is True
     assert sw._wt_async_session_active is False
     assert scpi_stops  # SCPI 路径也必须收到停表
+
+
+def test_wait_end_force_clears_when_measure_stuck(sw_module, monkeypatch):
+    sw = sw_module
+    sw.test_status = "1"
+    sw.strTestStatusFlag = ""
+    sw._wt_async_session_active = True
+    sw.WT_auto_messure_status = "1"
+    fake = SimpleNamespace(
+        request_stop=lambda reason="": None,
+        stop_and_export=lambda *a, **k: None,
+    )
+    monkeypatch.setitem(sys.modules, "utils.wt_scpi_session", fake)
+    import utils as utils_pkg
+
+    monkeypatch.setattr(utils_pkg, "wt_scpi_session", fake, raising=False)
+    monkeypatch.setattr(time, "sleep", lambda _s: None)
+    # time.time 快进超过超时
+    t0 = {"n": 0}
+
+    def _fake_time():
+        t0["n"] += 1
+        return 1000.0 + t0["n"] * 3.0
+
+    monkeypatch.setattr(time, "time", _fake_time)
+    sw._wt_wait_measure_end(39, wait_timeout_sec=5)
+    assert sw.test_status in ("", "0")
+    assert sw._wt_async_session_active is False
+    assert sw.WT_auto_messure_status == ""
