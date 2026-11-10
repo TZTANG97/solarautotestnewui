@@ -4075,7 +4075,13 @@ def _finder_set_combo(combo_name: str, text: str) -> None:
 
 
 def _iot_slot_session_ok(slot: str) -> bool:
-    """云端回传用：以控制器真实会话为准，不看 TCP 是否通。"""
+    """云端回传用：以控制器真实会话为准，不看 TCP 是否通。
+
+    WT 额外认三种「桌面已连」（空闲也要上报，不只试验中）：
+    1) wt3000_controller.connected（SCPI）
+    2) 首页「取消连接」/ strConnectWT3000=1
+    3) WTViewerEfree Soft Panel 窗口在（宏模式不建 SCPI 会话）
+    """
     sl = str(slot or "").strip().lower()
     name = {
         "ac": "ac_controller",
@@ -4092,8 +4098,6 @@ def _iot_slot_session_ok(slot: str) -> bool:
     ctrl = globals().get(name)
     if ctrl is not None and bool(getattr(ctrl, "connected", False)):
         return True
-    # WT：首页按钮已是「取消连接」/会话旗标=1 时也算已连，避免 Soft Panel/宏
-    # 看着连着但 status.json 不上报，网页一直「未连接」
     if sl == "wt":
         try:
             ctx = globals().get("app_ctx")
@@ -4104,6 +4108,19 @@ def _iot_slot_session_ok(slot: str) -> bool:
         try:
             btn = getattr(globals().get("ui"), "pushButton_ConnectEQUWT3000", None)
             if btn is not None and "取消" in str(btn.text() or ""):
+                return True
+        except Exception:
+            pass
+        try:
+            from utils.wtviewer_session import wtviewer_window_alive
+
+            if wtviewer_window_alive():
+                return True
+        except Exception:
+            pass
+        # handle 还在但 connected 旗标被清掉：仍算已连
+        try:
+            if ctrl is not None and getattr(ctrl, "handle", None) is not None:
                 return True
         except Exception:
             pass
