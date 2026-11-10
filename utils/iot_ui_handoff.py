@@ -93,6 +93,25 @@ def collect_widget_values(root_widget) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     if root_widget is None:
         return out
+    # 与 apply_widget_values 对称：WT 叠页同名控件只采当前型号页。
+    # Dialog 未显示时全部 isVisible()==False，单靠可见性会退化为「遍历顺序第一页」。
+    skip_wt_ids: set = set()
+    try:
+        stacked = getattr(root_widget, "_wtStacked", None)
+        if stacked is not None and hasattr(stacked, "currentWidget") and hasattr(stacked, "count"):
+            active = stacked.currentWidget()
+            for i in range(int(stacked.count())):
+                page = stacked.widget(i)
+                if page is None or page is active:
+                    continue
+                skip_wt_ids.add(id(page))
+                try:
+                    for child in page.findChildren(QWidget):
+                        skip_wt_ids.add(id(child))
+                except Exception:
+                    pass
+    except Exception:
+        skip_wt_ids = set()
     try:
         widgets = root_widget.findChildren(QWidget) if hasattr(root_widget, "findChildren") else []
     except Exception:
@@ -104,6 +123,8 @@ def collect_widget_values(root_widget) -> Dict[str, Any]:
         pass
     for w in widgets:
         try:
+            if id(w) in skip_wt_ids:
+                continue
             name = str(w.objectName() or "").strip()
         except Exception:
             continue
@@ -114,6 +135,13 @@ def collect_widget_values(root_widget) -> Dict[str, Any]:
         ):
             continue
         try:
+            # 无 _wtStacked 时仍用可见性：后扫到的隐藏同名控件不覆盖已有值
+            try:
+                visible = bool(w.isVisible())
+            except Exception:
+                visible = True
+            if name in out and not visible:
+                continue
             if isinstance(w, (QTextEdit, QPlainTextEdit)):
                 out[name] = w.toPlainText()
             elif isinstance(w, QLineEdit):
@@ -1933,12 +1961,20 @@ class IotUiHandoffService(QObject):
                 "useSavedTestParams",
                 "useSavedInstruments",
                 "blocklyCode",
+                "blockly_code",
                 "blocklyXml",
+                "blockly_xml",
                 "blocklyPreserved",
                 "blocklySource",
                 "procedureSteps",
                 "procedureSource",
                 "solarStandard",
+                # 执行模式元数据：勿写入 Dialog 控件
+                "executionMode",
+                "execution_mode",
+                "blocklyShadowCompare",
+                "blockly_shadow_compare",
+                "fallbackDialogAppend",
             )
             if isinstance(widgets, dict):
                 widgets = {
@@ -1951,14 +1987,62 @@ class IotUiHandoffService(QObject):
                 n_steps = len(steps) if isinstance(steps, list) else 0
                 src = str((params or {}).get("procedureSource") or "")
                 bsrc = str((params or {}).get("blocklySource") or "")
-                if n_steps or bsrc:
+                from utils.iot_blockly_interpreter import (
+                    format_plan_log_lines,
+                    normalize_execution_mode,
+                    plan_from_blockly,
+                    shadow_compare_plan,
+                )
+
+                exec_mode = normalize_execution_mode(
+                    (params or {}).get("executionMode")
+                    or (params or {}).get("execution_mode")
+                )
+                _shadow_raw = (params or {}).get("blocklyShadowCompare")
+                if _shadow_raw is None:
+                    _shadow_raw = (params or {}).get("blockly_shadow_compare")
+                if isinstance(_shadow_raw, bool):
+                    shadow_on = _shadow_raw
+                else:
+                    shadow_on = str(_shadow_raw or "").strip().lower() in (
+                        "1",
+                        "true",
+                        "yes",
+                        "on",
+                    )
+                if n_steps or bsrc or exec_mode != "dialog_append":
                     self._log(
                         f"Blockly 步骤包 steps={n_steps} source={src or '-'} "
                         f"blockly={bsrc or '-'} "
-                        f"preserved={bool((params or {}).get('blocklyPreserved'))}"
+                        f"preserved={bool((params or {}).get('blocklyPreserved'))} "
+                        f"executionMode={exec_mode} shadow={shadow_on}"
                     )
-            except Exception:
-                pass
+                # 影子对照只打日志，不改变执行路径
+                if shadow_on:
+                    code = str(
+                        (params or {}).get("blocklyCode")
+                        or (params or {}).get("blockly_code")
+                        or ""
+                    )
+                    plan = plan_from_blockly(
+                        code,
+                        procedure_steps=steps if isinstance(steps, list) else None,
+                    )
+                    cmp_ = shadow_compare_plan(
+                        plan,
+                        procedure_steps=steps if isinstance(steps, list) else None,
+                        widgets=widgets if isinstance(widgets, dict) else None,
+                    )
+                    for line in format_plan_log_lines(plan, limit=24):
+                        self._log(f"[shadow] {line}")
+                    self._log(
+                        f"[shadow] compare missingInProc={len(cmp_.get('missingInProcedure') or [])} "
+                        f"extraInProc={len(cmp_.get('extraInProcedure') or [])} "
+                        f"widgetMismatch={len(cmp_.get('widgetMismatches') or [])} "
+                        f"ovufSeg={cmp_.get('ovufSegmentOrder')}"
+                    )
+            except Exception as _blk_exc:
+                self._log(f"Blockly 执行模式/影子对照日志跳过: {_blk_exc}")
 
             if (handler.get("key") or "") == "overload":
                 try:
@@ -3672,10 +3756,68 @@ class IotUiHandoffService(QObject):
                         "保留现有命令队列（桌面已追加或只追加；跨项/同项由 apply_append_mode 判定）"
                     )
                 append_mode_label = "覆盖模式" if do_overwrite else "保留队列追加"
-                if self.wrap_append_errors:
-                    fail_msg, append_err = _append_with_message_capture(project_append)
-                    if fail_msg or append_err:
-                        reason = fail_msg or str(append_err)
+
+                def _invoke_project_append() -> None:
+                    if self.wrap_append_errors:
+                        fail_msg, append_err = _append_with_message_capture(project_append)
+                        if fail_msg or append_err:
+                            raise RuntimeError(fail_msg or str(append_err))
+                    else:
+                        project_append()
+
+                # 双路径：默认 dialog_append；仅显式 blockly_interpret 才进解释器。
+                # 未勾选 / 非 OVUF / 解释失败 → 原样 Append，不破坏现网。
+                used_blockly = False
+                try:
+                    from utils.iot_blockly_interpreter import try_run_blockly_interpret
+
+                    handled, _msg, _detail = try_run_blockly_interpret(
+                        ui=real_ui,
+                        test_type=str(handler.get("key") or test_type or ""),
+                        params=params if isinstance(params, dict) else {},
+                        append_fn=_invoke_project_append,
+                        log=self._log,
+                        apply_widget_values=apply_widget_values,
+                    )
+                    used_blockly = bool(handled)
+                    if handled:
+                        appended = bool((_detail or {}).get("appended"))
+                        self._log(
+                            f"blockly_interpret handled msg={_msg} "
+                            f"appended={appended} detail_keys={list((_detail or {}).keys())}"
+                        )
+                        # fallbackDialogAppend=False 且未追加：勿当成成功继续开测
+                        if not appended and (params or {}).get("fallbackDialogAppend") is False:
+                            self._write_result_all(
+                                pending_path,
+                                job_id,
+                                {
+                                    "status": "failed",
+                                    "fail_reason": (
+                                        f"blockly_interpret 未追加且禁止回退 Append: {_msg}"
+                                    )[:500],
+                                    "result_summary": {
+                                        "handoff": True,
+                                        "appended": False,
+                                        "started": False,
+                                        "blockly_interpret": True,
+                                        "missingWidgets": missing,
+                                    },
+                                },
+                            )
+                            self._move_pending_done(pending_path)
+                            return
+                except Exception as _bi_exc:
+                    self._log(f"blockly_interpret 分支异常，改走 Append: {_bi_exc}")
+                    used_blockly = False
+
+                if not used_blockly:
+                    try:
+                        _invoke_project_append()
+                        appended = True
+                        self._log(f"已调用{handler['label']}追加（{append_mode_label}）")
+                    except Exception as append_exc:
+                        reason = str(append_exc)
                         self._write_result_all(
                             pending_path,
                             job_id,
@@ -3693,12 +3835,10 @@ class IotUiHandoffService(QObject):
                         )
                         self._move_pending_done(pending_path)
                         return
-                    appended = True
-                    self._log(f"已调用{handler['label']}追加（{append_mode_label}）")
-                else:
-                    project_append()
-                    appended = True
-                    self._log(f"已调用{handler['label']}追加（{append_mode_label}）")
+                elif appended:
+                    self._log(
+                        f"已按积木解释追加{handler['label']}（{append_mode_label}）"
+                    )
 
             if desktop_running:
                 if not appended:
