@@ -32112,14 +32112,7 @@ def system_error_info():
         if _is_device_ui_busy():
             time.sleep(0.25)
             continue
-        # 试验运行中不要 SYST:ERR?/自动重连，避免与 RunProject 抢同一句柄
-        try:
-            if "strTestStatusFlag" in globals() and strTestStatusFlag in ("运行", "暂停"):
-                time.sleep(1.0)
-                continue
-        except Exception:
-            pass
-        # 约每 5 秒按真实会话纠偏 status.json，供 Agent equdata 上报「已连才 on」
+        # 约每 5 秒按真实会话纠偏 status.json（试验运行中也要写，否则网页 WT 一直「未连接」）
         _reconcile_ticks += 1
         if _reconcile_ticks >= 5:
             _reconcile_ticks = 0
@@ -32127,6 +32120,13 @@ def system_error_info():
                 _reconcile_status_json_with_sessions()
             except Exception:
                 pass
+        # 试验运行中不要 SYST:ERR?/自动重连，避免与 RunProject 抢同一句柄
+        try:
+            if "strTestStatusFlag" in globals() and strTestStatusFlag in ("运行", "暂停"):
+                time.sleep(1.0)
+                continue
+        except Exception:
+            pass
         if _should_poll_equ_ctrl_for_syst_err(ac_controller, ui.pushButton_ConnectEQUAC):
             # Modbus TCP（ModbusVISA）：句柄为 SOCKET，不支持 SCPI SYST:ERR?；勿用下拉框原文 open_resource（含中文会触发 PyVISA ascii 错误）
             if ac_controller.client is not None:
