@@ -135,8 +135,12 @@ foreach ($c in $analysisCandidates) {
 if ($analysisSrc) {
     Write-Host "Bundling analysis CEI from $analysisSrc ..."
     New-Item -ItemType Directory -Path $analysisDest -Force | Out-Null
-    $aXd = @("/XD", ".venv", ".pytest_cache", "__pycache__", ".git", ".idea", ".vscode", "code_example", "media")
-    $aXf = @("/XF", "*.pyc", "*.pyo", "*.log")
+    # 勿打进 command_save_files / _unpack：只会撑大增量清单，逼工控机反复全量。
+    $aXd = @(
+        "/XD", ".venv", ".pytest_cache", "__pycache__", ".git", ".idea", ".vscode",
+        "code_example", "media", "command_save_files", "_unpack"
+    )
+    $aXf = @("/XF", "*.pyc", "*.pyo", "*.log", "*.svn000.tmp.doc", "*.svn000.tmp.docx")
     $aArgs = @($analysisSrc, $analysisDest, "/E", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP", "/R:1", "/W:1") + $aXd + $aXf
     & robocopy @aArgs | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "robocopy analysis failed: $LASTEXITCODE" }

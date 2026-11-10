@@ -175,10 +175,31 @@ function Install-PortableUv([string]$InstallRoot) {
 }
 
 function Ensure-Uv([string]$InstallRoot) {
+    $local = Join-Path $InstallRoot "tools\uv.exe"
+    $bundled = Join-Path (Get-PackageRoot) "bundled\uv.exe"
+    # 全量 zip 的 app/ 不含 tools\uv.exe；若保留旧 uv，下次增量会因 ~60MB 对不上又逼全量。
+    if ($bundled -and (Test-Path -LiteralPath $bundled)) {
+        Ensure-Directory (Split-Path $local)
+        $needCopy = $true
+        if (Test-Path -LiteralPath $local) {
+            try {
+                $a = (Get-FileHash -Algorithm SHA256 -LiteralPath $local).Hash
+                $b = (Get-FileHash -Algorithm SHA256 -LiteralPath $bundled).Hash
+                if ($a -eq $b) { $needCopy = $false }
+            } catch {
+                $needCopy = $true
+            }
+        }
+        if ($needCopy) {
+            Write-Step "Sync tools\uv.exe from package bundled (keeps incremental updates working)"
+            Copy-Item -Force $bundled $local
+        }
+        Write-Ok ("Found uv: " + $local)
+        return $local
+    }
     $uv = Find-UvExe $InstallRoot
     if ($uv) {
         Write-Ok ("Found uv: " + $uv)
-        $local = Join-Path $InstallRoot "tools\uv.exe"
         if ($uv -ne $local) {
             Ensure-Directory (Split-Path $local)
             try { Copy-Item -Force $uv $local; $uv = $local } catch { }

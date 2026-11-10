@@ -742,11 +742,21 @@ function Invoke-IncrementalUpdate {
     $zipMb = 0.0
     try { $zipMb = [double]$Manifest.size_mb } catch { $zipMb = 0.0 }
     $needMb = [math]::Round($needBytes / 1MB, 1)
-    Info ("Incremental: {0} files / {1} MB to download (full zip ~{2} MB)" -f $need.Count, $needMb, $zipMb)
+    # 用「未压缩清单总量」做阈值：tools/uv.exe(~60MB) 单独对不上时，
+    # 旧逻辑 needMb>=0.85*zip(~51MB) 会每次都逼全量，全量又不覆盖旧 uv → 死循环。
+    $payloadBytes = [long]0
+    try { $payloadBytes = [long]$filesManifest.total_bytes } catch { $payloadBytes = 0 }
+    if ($payloadBytes -le 0) {
+        foreach ($fe in $filesManifest.files) {
+            try { $payloadBytes += [long]$fe.size } catch {}
+        }
+    }
+    $payloadMb = [math]::Round($payloadBytes / 1MB, 1)
+    Info ("Incremental: {0} files / {1} MB to download (payload ~{2} MB, zip ~{3} MB)" -f `
+        $need.Count, $needMb, $payloadMb, $zipMb)
 
-    # If almost everything changed, full zip is simpler / similar cost
-    if ($zipMb -gt 5 -and $needMb -ge ($zipMb * 0.85)) {
-        throw ("Incremental not worth it ({0} MB ~= full zip); use zip" -f $needMb)
+    if ($payloadMb -gt 20 -and $needMb -ge ($payloadMb * 0.85)) {
+        throw ("Incremental not worth it ({0} MB of {1} MB payload); use zip" -f $needMb, $payloadMb)
     }
 
     if ($need.Count -eq 0) {
@@ -1069,7 +1079,12 @@ try {
             exit 10
         } catch {
             Warn ("Incremental update failed, falling back to full zip: " + $_.Exception.Message)
-            Set-UpdateUi "增量失败，改为全量下载安装包..."
+            $msg = [string]$_.Exception.Message
+            if ($msg -match 'not worth it') {
+                Set-UpdateUi "变更较大，改为全量下载安装包..."
+            } else {
+                Set-UpdateUi "增量失败，改为全量下载安装包..."
+            }
         }
     }
 
