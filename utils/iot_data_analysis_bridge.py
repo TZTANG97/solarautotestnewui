@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 _DEFAULT_ANALYSIS_ROOTS = (
     Path(r"E:\MyProject\SolarTestDataAnalysisApp"),
     Path(r"E:\SolarTestDataAnalysisApp"),
+    Path(r"D:\SolarTestDataAnalysisApp"),
+    Path(r"C:\SolarTestDataAnalysisApp"),
 )
 
 
@@ -32,9 +34,23 @@ def _analysis_root() -> Optional[Path]:
         p = Path(env)
         if p.is_dir():
             return p
-    for cand in _DEFAULT_ANALYSIS_ROOTS:
-        if cand.is_dir():
-            return cand
+    # 与 SolarAutoTest 同盘兄弟目录 / 安装目录旁
+    here = Path(__file__).resolve()
+    sibling_guesses = [
+        here.parents[2] / "SolarTestDataAnalysisApp",
+        here.parents[1] / "SolarTestDataAnalysisApp",
+        here.parents[1] / "bundled_analysis",
+        Path(sys.executable).resolve().parent.parent / "SolarTestDataAnalysisApp",
+    ]
+    for cand in list(sibling_guesses) + list(_DEFAULT_ANALYSIS_ROOTS):
+        try:
+            if cand.is_dir() and (
+                (cand / "CEI" / "run_headless.py").is_file()
+                or (cand / "CEI" / "src" / "mypkg").is_dir()
+            ):
+                return cand
+        except OSError:
+            continue
     return None
 
 
@@ -158,6 +174,8 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "analysis_SampleNo": "sample_no",
         "analysis_Tester": "tested_by",
         "analysis_TestDate": "test_date",
+        "textEdit_PowerLadder": "power_levels",
+        "textEdit_S3_PowerLadder": "power_levels",
     }
     for src_k, dst_k in alias.items():
         if dst_k not in out and widgets.get(src_k) not in (None, ""):
@@ -208,9 +226,23 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
 
 def _dir_has_csv(path: Path) -> bool:
     try:
-        return path.is_dir() and any(path.glob("*.csv"))
+        return path.is_dir() and any(
+            p for p in path.glob("*.csv") if _is_measurement_csv(p.name)
+        )
     except OSError:
         return False
+
+
+def _is_measurement_csv(name: str) -> bool:
+    """录波/量测 CSV 才可做数据处理输入；命令队列导出不算。"""
+    low = str(name or "").strip().lower()
+    if not low.endswith(".csv"):
+        return False
+    if "commands" in low:
+        return False
+    if low in {"status.csv"}:
+        return False
+    return True
 
 
 def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
@@ -236,6 +268,8 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
             prefer_keys = ("qu_curve", "staticqu", "q(u)")
         elif tt in ("dynamicqu", "动态qu"):
             prefer_keys = ("qu_dyn_curve", "dynamicqu")
+        elif tt in ("ovuf", "guoqianya_pin", "过欠压", "过欠压_过欠频", "volt_freq"):
+            prefer_keys = ("ovuf", "guoqianya", "over_under", "volt_freq")
         else:
             prefer_keys = (tt,) if tt else ()
     files = summary.get("report_files") or summary.get("reportFiles") or []
@@ -250,7 +284,7 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
         if not p.is_absolute():
             p = repo_root / p
         name_l = p.name.lower()
-        if p.is_file() and p.suffix.lower() == ".csv":
+        if p.is_file() and _is_measurement_csv(p.name):
             csv_parents.append(p.parent)
             if prefer_keys and any(k.lower() in name_l for k in prefer_keys):
                 preferred.append(p.parent)
@@ -262,10 +296,9 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
     if csv_parents:
         csv_parents.sort(key=lambda d: d.stat().st_mtime if d.exists() else 0, reverse=True)
         return csv_parents[0]
-    # 兜底：wt_save（静态/动态 QU 连续录常落这里）+ command_data / dewetron
+    # 兜底：wt_save / dewetron（录波落点）。勿扫 command_data——那里只有 *commands*.csv
     for base in (
         repo_root / "wt_save",
-        repo_root / "command_save_files" / "command_data",
         repo_root / "command_save_files" / "dewetron_data",
     ):
         if not base.is_dir():
@@ -275,12 +308,17 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
         dirs = [p for p in base.iterdir() if p.is_dir()]
         dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
         for d in dirs[:12]:
-            if _dir_has_csv(d) or any(d.rglob("*.csv")):
-                # 若 csv 在子目录，取含 csv 的最近子目录
+            if _dir_has_csv(d) or any(
+                p for p in d.rglob("*.csv") if _is_measurement_csv(p.name)
+            ):
                 if _dir_has_csv(d):
                     return d
                 nested = sorted(
-                    (p.parent for p in d.rglob("*.csv")),
+                    (
+                        p.parent
+                        for p in d.rglob("*.csv")
+                        if _is_measurement_csv(p.name)
+                    ),
                     key=lambda x: x.stat().st_mtime if x.exists() else 0,
                     reverse=True,
                 )
@@ -389,7 +427,10 @@ def run_analysis_after_job(
 
     root = _analysis_root()
     if root is None:
-        info["reason"] = "未找到 SolarTestDataAnalysisApp（设 SOLAR_DATA_ANALYSIS_ROOT）"
+        info["reason"] = (
+            "未找到 SolarTestDataAnalysisApp："
+            "请在工控机安装分析软件，或设置环境变量 SOLAR_DATA_ANALYSIS_ROOT"
+        )
         _store_analysis_meta(result, info)
         return info
 
@@ -535,6 +576,7 @@ def run_analysis_after_job(
             "5.9",
             "5.10.3.2",
             "5.10.3.3",
+            "reactive.qcap",
         }
         need_un = code in {
             "5.3.3",

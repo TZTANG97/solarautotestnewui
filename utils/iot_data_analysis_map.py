@@ -68,7 +68,9 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("guopinjiangzai", "CEI_Nbis_BeiDe_50549"): "5.4.3.2",
     ("qianpinshengzai", "CEI_Nbis_BeiDe_50549"): "5.4.3.3",
     ("guoqianpin_immun", "CEI_Nbis_BeiDe_50549"): "5.4.3.3",
-    ("reactiveqcap", "CEI_Nbis_BeiDe_50549"): "5.5.1.3",
+    # 台架无功能力范围产出 QCap_BR 连续单文件，走 reactive.qcap；
+    # 实验室分文件夹 Q=0/MIN/MAX 仍用 5.5.1.3。
+    ("reactiveqcap", "CEI_Nbis_BeiDe_50549"): "reactive.qcap",
     ("reactiveqacc", "CEI_Nbis_BeiDe_50549"): "5.5.2.3.2",
     ("fixedq", "CEI_Nbis_BeiDe_50549"): "5.5.2.3.2",
     ("flicker", "CEI_Nbis_BeiDe_50549"): "5.7.2.3.3",

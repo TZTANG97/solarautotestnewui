@@ -5,6 +5,7 @@ from utils.test_queue_markers import (
     parse_queue_segments,
     row_pause_after,
     segment_at_command,
+    settle_finished_round_note,
     stamp_queue_times,
 )
 
@@ -45,6 +46,21 @@ def test_stamp_queue_start_and_finish():
     assert q[1]["finished_at"] == "2026-10-28 10:00:00"
 
 
+def test_seal_unstarted_queue_items_stops_counting():
+    from utils.test_queue_markers import seal_unstarted_queue_items
+
+    q = [
+        {"name": "电压闪变", "status": "完成", "started_at": "2026-10-30 18:04:48"},
+        {"name": "过载", "status": "等待"},
+        {"name": "谐波", "status": "等待"},
+    ]
+    seal_unstarted_queue_items(q)
+    assert q[0]["status"] == "完成"
+    assert "started_at" not in q[1]
+    assert q[1]["status"] == "中止"
+    assert q[2]["status"] == "中止"
+
+
 def test_close_queue_clocks_keeps_unstarted():
     from utils.test_queue_markers import close_queue_clocks
 
@@ -63,3 +79,10 @@ def test_close_queue_clocks_keeps_unstarted():
     close_queue_clocks(missing_start, now_text="2026-10-30 22:17:22", aborted=False)
     assert "started_at" not in missing_start[0]
     assert missing_start[0]["finished_at"] == "2026-10-30 22:17:22"
+
+
+def test_finished_round_drops_inflight_note():
+    assert settle_finished_round_note("执行中") == ""
+    assert settle_finished_round_note("测量中: QCap_BR") == ""
+    assert settle_finished_round_note("本轮完成") == "本轮完成"
+    assert settle_finished_round_note("") == ""

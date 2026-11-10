@@ -203,6 +203,52 @@ def snapshot_implies_busy(snap: Optional[Dict[str, Any]]) -> bool:
     return st in ("进行中", "暂停")
 
 
+_TERMINAL_SNAPSHOT_STATUS = frozenset({"已结束", "已中止", "未开始", "失败", ""})
+_OPEN_SNAPSHOT_QUEUE = frozenset({"等待", "进行中", "暂停", "待开始", "运行", "测试中"})
+
+
+def snapshot_without_stale_open_queue(
+    snap: Optional[Dict[str, Any]],
+) -> Tuple[Optional[Dict[str, Any]], bool]:
+    """试验已经收口时，未跑完的队列项不再上报。待开始的计划保留。"""
+    if not isinstance(snap, dict):
+        return snap, False
+    if str(snap.get("status") or "").strip() not in _TERMINAL_SNAPSHOT_STATUS:
+        return snap, False
+    queue = snap.get("queue")
+    if not isinstance(queue, list) or not queue:
+        return snap, False
+    kept = [
+        it
+        for it in queue
+        if not (
+            isinstance(it, dict)
+            and str(it.get("status") or "").strip() in _OPEN_SNAPSHOT_QUEUE
+        )
+    ]
+    if len(kept) == len(queue):
+        return snap, False
+    out = dict(snap)
+    out["queue"] = kept
+    return out, True
+
+
+def snapshot_after_desktop_closed(snap: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """自动化界面进程已经没了：本机队列清掉。没跑完的状态改成已中止。"""
+    if not isinstance(snap, dict):
+        return snap
+    out = dict(snap)
+    out["queue"] = []
+    out["operator_pause"] = False
+    st = str(out.get("status") or "").strip()
+    if st in ("进行中", "暂停", "待开始"):
+        out["status"] = "已中止"
+        out["remain_text"] = ""
+        out["remain_s"] = 0.0
+        out["current_detail"] = "自动化软件已关闭，本机队列已清空"
+    return out
+
+
 # 锁文件丢了，但 status.json 仍在被桌面刷新时，不要把活着的试验收成已中止。
 # 静态 Cos 连续录 / WT 宏等待可以远长于单点驻留，进度落盘若只靠命令边界，
 # 3 分钟就会把正在跑的局收成已中止（任务 58：进度停在 2%）。

@@ -180,6 +180,23 @@ def _do_heartbeat(
                     logger.debug("收口状态写回 status.json 失败: %s", exc)
         elif snapshot_implies_busy(run_snapshot):
             busy = True
+        try:
+            from agent.process_control import gui_has_exited
+            from utils.iot_run_snapshot import (
+                snapshot_after_desktop_closed,
+                snapshot_without_stale_open_queue,
+            )
+
+            if gui_has_exited():
+                from utils.status_json_devices import persist_queue_cleared_for_closed_app
+
+                persist_queue_cleared_for_closed_app(status_json_path)
+                run_snapshot = snapshot_after_desktop_closed(run_snapshot)
+                busy = False
+            else:
+                run_snapshot, _queue_dropped = snapshot_without_stale_open_queue(run_snapshot)
+        except Exception as exc:
+            logger.debug("关闭后清本机队列跳过: %s", exc)
     except Exception:
         run_snapshot = None
     error_logs = []

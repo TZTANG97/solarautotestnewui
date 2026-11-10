@@ -17,6 +17,38 @@ def pid_file() -> Path:
     return repo_root() / ".solar_agent.pid"
 
 
+def gui_pid_file() -> Path:
+    return repo_root() / ".solar_gui.pid"
+
+
+def write_gui_pid() -> None:
+    """主界面起来时记下本进程。异常退出会留下这个文件，Agent 用来判断软件已关。"""
+    gui_pid_file().write_text(str(os.getpid()), encoding="utf-8")
+
+
+def clear_gui_pid() -> None:
+    try:
+        gui_pid_file().unlink(missing_ok=True)
+    except TypeError:
+        path = gui_pid_file()
+        if path.is_file():
+            path.unlink()
+    except OSError:
+        pass
+
+
+def gui_has_exited() -> bool:
+    """pid 文件还在、进程已经没了：界面是异常退出，不是「还没写过 pid」。"""
+    path = gui_pid_file()
+    if not path.is_file():
+        return False
+    try:
+        pid = int(path.read_text(encoding="utf-8").strip().splitlines()[0])
+    except (ValueError, OSError, IndexError):
+        return False
+    return not _pid_alive(pid)
+
+
 def log_file() -> Path:
     """Agent 标准输出/错误落盘路径（供桌面「Agent 日志」页查看）。"""
     return repo_root() / ".solar_agent.log"

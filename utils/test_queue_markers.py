@@ -119,6 +119,15 @@ def parse_queue_segments(
 QUEUE_DONE_STATUS = frozenset({"完成", "已结束", "已中止", "中止", "失败"})
 
 
+def seal_unstarted_queue_items(queue: Sequence[Dict[str, Any]]) -> None:
+    """整段命令已经结束：没开跑的段不再占本机队列。不补开始/结束时间。"""
+    for item in queue or []:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("status") or "").strip() in ("等待", "", "运行", "测试中"):
+            item["status"] = "中止"
+
+
 def close_queue_clocks(
     queue: Sequence[Dict[str, Any]], *, now_text: str, aborted: bool = False
 ) -> None:
@@ -156,6 +165,14 @@ def stamp_queue_times(queue: Sequence[Dict[str, Any]], *, now_text: str) -> None
             item["finished_at"] = now
             if not str(item.get("started_at") or "").strip():
                 item["started_at"] = now
+
+
+def settle_finished_round_note(note: Any) -> str:
+    """轮次已经结束时，去掉开录时写下的「执行中 / 测量中」。其它备注保留。"""
+    text = str(note or "").strip()
+    if text == "执行中" or text.startswith("测量中"):
+        return ""
+    return "" if note is None else str(note)
 
 
 def segment_at_command(

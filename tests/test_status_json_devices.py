@@ -51,6 +51,44 @@ def test_live_run_is_not_a_cold_start_leftover():
     assert status_when_binding_new_job("暂停") == "暂停"
 
 
+def test_drop_open_queue_when_run_already_finished():
+    from utils.status_json_devices import (
+        clear_queue_for_closed_app,
+        drop_open_queue_if_terminal,
+    )
+
+    raw = {
+        "devices": [],
+        "project": {
+            "status": "已结束",
+            "queue": [
+                {"name": "电压闪变", "status": "完成"},
+                {"name": "过载", "status": "等待"},
+                {"name": "谐波", "status": "等待"},
+            ],
+        },
+    }
+    data, changed = drop_open_queue_if_terminal(raw)
+    assert changed is True
+    assert [it["name"] for it in data["project"]["queue"]] == ["电压闪变"]
+
+    pending = {
+        "devices": [],
+        "project": {
+            "status": "待开始",
+            "queue": [{"name": "过载", "status": "等待"}, {"name": "谐波", "status": "等待"}],
+        },
+    }
+    kept, changed = drop_open_queue_if_terminal(pending)
+    assert changed is False
+    assert len(kept["project"]["queue"]) == 2
+
+    closed, changed = clear_queue_for_closed_app(raw)
+    assert changed is True
+    assert closed["project"]["queue"] == []
+    assert closed["project"]["status"] == "已结束"
+
+
 def test_mark_stale_leaves_finished_alone():
     raw = {
         "devices": [],

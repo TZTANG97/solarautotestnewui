@@ -180,12 +180,30 @@ class _DeviceIoBridge(QtCore.QObject):
     finished = QtCore.pyqtSignal(str, object)  # job_id, {"result"|"error"}
     ui_message = QtCore.pyqtSignal(str)
     log_line = QtCore.pyqtSignal(str)  # 操作日志：采集线程等勿直接 append Qt 控件
+    # 试验线程回写 Soft Panel VOLT/FREQ；勿在后台直接 setPlainText
+    ac_setpoint = QtCore.pyqtSignal(str, str)  # kind(volt|freq), value
 
 
 def _append_return_message_ui(msg):
     """主线程写入操作日志。"""
     try:
         ui.textEdit_ReturnMessage.append(str(msg or ""))
+    except Exception:
+        pass
+
+
+def _apply_soft_panel_ac_setpoint_ui(kind, value):
+    """主线程：把 VOLT/FREQ 写回 Soft Panel 文本框。"""
+    try:
+        ui_ac = globals().get("uiACSetting")
+        if ui_ac is None:
+            return
+        k = str(kind or "").strip().lower()
+        v = str(value or "").strip()
+        if k == "freq" and hasattr(ui_ac, "textEdit_AC_FR"):
+            ui_ac.textEdit_AC_FR.setPlainText(v)
+        elif k == "volt" and hasattr(ui_ac, "textEdit_AC_VOLT"):
+            ui_ac.textEdit_AC_VOLT.setPlainText(v)
     except Exception:
         pass
 
@@ -201,19 +219,36 @@ def _append_return_message(msg):
         _append_return_message_ui(msg)
         return
     try:
-        _ensure_device_io_bridge().log_line.emit(str(msg or ""))
+        bridge = _device_io_bridge
+        if bridge is None:
+            print(str(msg or ""))
+            return
+        bridge.log_line.emit(str(msg or ""))
     except Exception:
         print(str(msg or ""))
 
 
 def _ensure_device_io_bridge():
+    """仅在 UI 线程创建桥。PyQt 连到普通函数默认 DirectConnection，必须显式 Queued。"""
     global _device_io_bridge
-    if _device_io_bridge is None:
-        _device_io_bridge = _DeviceIoBridge()
-        _device_io_bridge.ui_message.connect(
-            lambda msg: _show_connect_message_ui(msg, None)
-        )
-        _device_io_bridge.log_line.connect(_append_return_message_ui)
+    if _device_io_bridge is not None:
+        return _device_io_bridge
+    app = QApplication.instance()
+    try:
+        if app is not None and QThread.currentThread() != app.thread():
+            # 禁止在试验/采集线程 new QObject；调用方应降级 print
+            return None
+    except Exception:
+        pass
+    _device_io_bridge = _DeviceIoBridge()
+    # 槽是普通函数时 AutoConnection≈Direct；跨线程必须 Queued，否则写 QTextDocument 闪退
+    _device_io_bridge.ui_message.connect(
+        lambda msg: _show_connect_message_ui(msg, None), Qt.QueuedConnection
+    )
+    _device_io_bridge.log_line.connect(_append_return_message_ui, Qt.QueuedConnection)
+    _device_io_bridge.ac_setpoint.connect(
+        _apply_soft_panel_ac_setpoint_ui, Qt.QueuedConnection
+    )
     return _device_io_bridge
 
 
@@ -526,7 +561,7 @@ def SendACMessage():
 
 
 def _format_dc_cmd_for_log(cmd, limit: int = 96) -> str:
-    """是德 SAS:TABL 约 9KB，整段打进 Qt 日志易闪退；日志只留摘要。"""
+    """是德/致茂长表 SCPI，整段打进 Qt 日志易闪退；日志只留摘要。"""
     from utils.dc_cmd_log import format_dc_cmd_for_log
 
     return format_dc_cmd_for_log(cmd, limit=limit)
@@ -1670,8 +1705,13 @@ def _ensure_progress_bridge():
     global _run_progress_bridge
     if _run_progress_bridge is None:
         _run_progress_bridge = _RunProgressBridge()
-        _run_progress_bridge.snapshot.connect(_apply_run_progress_ui)
-        _run_progress_bridge.operator_pause.connect(_show_operator_pause_dialog)
+        # 普通函数槽默认 Direct；试验 Timer 线程 emit 必须 Queued
+        _run_progress_bridge.snapshot.connect(
+            _apply_run_progress_ui, Qt.QueuedConnection
+        )
+        _run_progress_bridge.operator_pause.connect(
+            _show_operator_pause_dialog, Qt.QueuedConnection
+        )
     return _run_progress_bridge
 
 
@@ -2397,19 +2437,26 @@ def _finish_run_progress(aborted=False):
     try:
         from datetime import datetime
 
-        from utils.test_queue_markers import close_queue_clocks
+        from utils.test_queue_markers import close_queue_clocks, seal_unstarted_queue_items
 
         close_queue_clocks(
             queue,
             now_text=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             aborted=bool(aborted),
         )
+        seal_unstarted_queue_items(queue)
     except Exception:
         pass
+    try:
+        from utils.test_queue_markers import settle_finished_round_note
+    except Exception:
+        settle_finished_round_note = None
     if aborted:
         for r in rounds:
             if r.get("status") in ("等待", "进行中"):
                 r["status"] = "中止"
+            if settle_finished_round_note is not None and r.get("status") in ("中止", "完成"):
+                r["note"] = settle_finished_round_note(r.get("note"))
         _emit_run_progress(
             rounds=rounds,
             queue=queue,
@@ -2423,6 +2470,8 @@ def _finish_run_progress(aborted=False):
                 r["status"] = "完成"
             elif r.get("status") == "等待":
                 r["status"] = "完成"
+            if settle_finished_round_note is not None and r.get("status") == "完成":
+                r["note"] = settle_finished_round_note(r.get("note"))
         _emit_run_progress(
             rounds=rounds,
             queue=queue,
@@ -4043,13 +4092,15 @@ def _iot_slot_session_ok(slot: str) -> bool:
     return ctrl is not None and bool(getattr(ctrl, "connected", False))
 
 
-def _reconcile_status_json_with_sessions() -> None:
+def _reconcile_status_json_with_sessions(*, on_cold_start: bool = False) -> None:
     """启动时按真实控制器纠偏 status.json，避免假已连接被 Agent 上报上去。"""
     import json
     import os
 
     from utils.status_json_devices import (
         empty_status_payload,
+        clear_queue_for_closed_app,
+        drop_open_queue_if_terminal,
         ensure_device_rows,
         mark_stale_in_flight_project,
     )
@@ -4074,8 +4125,13 @@ def _reconcile_status_json_with_sessions() -> None:
         )
     except Exception:
         live = False
+    queue_cleared = False
     if not live:
         data, stale_cleared = mark_stale_in_flight_project(data)
+        if on_cold_start:
+            data, queue_cleared = clear_queue_for_closed_app(data)
+        else:
+            data, queue_cleared = drop_open_queue_if_terminal(data)
     try:
         with open(status_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -4098,6 +4154,20 @@ def _reconcile_status_json_with_sessions() -> None:
                 persist=False,
             )
             _reload_home_status(data)
+        except Exception:
+            pass
+    elif queue_cleared:
+        try:
+            proj = data.get("project") or {}
+            _emit_run_progress(
+                project=str(proj.get("name") or ""),
+                status=str(proj.get("status") or "已结束"),
+                progress=int(proj.get("progress") or 0),
+                queue=list(proj.get("queue") or []),
+                current_detail=str(proj.get("current_detail") or ""),
+                operator_pause=False,
+                persist=False,
+            )
         except Exception:
             pass
 
@@ -4508,8 +4578,14 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
         )
         if not dewetron_controller.send_apply_config(xml_string):
             return {"ok": False, "stage": "apply"}
-        # APPLY 写成功即视为测试生效。不要在此处查 CHANNELLIST/STATE：
-        # Oxygen 重载期间 query 超时曾被当成断线，弹「连接失败」并把会话掐死。
+        # APPLY 后 Oxygen 忙；用 STATE? 软等待（wait_scpi_ready 超时不重连），
+        # 避免用户点完「测试生效」立刻开跑时 START 写成功但未进入 Started。
+        try:
+            dewetron_controller.wait_scpi_ready(
+                attempts=10, delay_seconds=0.7, timeout_ms=3000
+            )
+        except Exception:
+            pass
         return {"ok": True, "error_queue": None}
 
     try:
@@ -11238,8 +11314,8 @@ def thaireactiveQcapSend():
                 len(plan.get("power_levels") or []) * len(plan.get("cos_labels") or []),
             )
             dwell_01s = int(plan.get("dwell_01s") or 0)
-            # 余量要盖住启机抖动 + 关机；并避免 Viewer StopTime 比软件短导致「面板先停、命令还在跑」
-            stop_sec = int(round(n_pts * dwell_01s / 10.0 + 90))
+            # 余量盖启机抖动 + 少量 DC IV；阶梯结束后 WAIT_END 强制停 SCPI，勿再 +90s 空等。
+            stop_sec = int(round(n_pts * dwell_01s / 10.0 + 45))
             if stop_sec < 20:
                 stop_sec = 20
             stop_str = _seconds_to_stoptime_str(stop_sec)
@@ -24925,6 +25001,12 @@ def _prepare_dewetron_collector(project_name):
     save_path = ''
     test_type = ''  # SQLite 测试类型
     decimal_places = 4
+    export_abs_time = False
+    keep_oxygen_dmd = False
+
+    def _dew_checkbox_checked(owner, name):
+        box = getattr(owner, name, None) if owner is not None else None
+        return bool(box.isChecked()) if box is not None else False
 
     if project_name == '电压闪变':
         print("[_prepare_dewetron_collector] 项目: 电压闪变")
@@ -24939,6 +25021,12 @@ def _prepare_dewetron_collector(project_name):
         spin = getattr(uiThaiDianYaShanBian, 'spinBox_DEW_DecimalPlaces', None)
         if spin is not None:
             decimal_places = spin.value()
+        export_abs_time = _dew_checkbox_checked(
+            uiThaiDianYaShanBian, 'checkBox_DEW_ExportAbsTime'
+        )
+        keep_oxygen_dmd = _dew_checkbox_checked(
+            uiThaiDianYaShanBian, 'checkBox_DEW_KeepOxygenDmd'
+        )
         # 数据直接入 db，导出时再选择路径，这里生成默认路径供参考
         from utils.dewetron_recording import resolve_dewetron_save_paths
 
@@ -24958,6 +25046,12 @@ def _prepare_dewetron_collector(project_name):
         spin = getattr(uiThaiXieBoDianLiu, 'spinBox_DEW_DecimalPlaces', None)
         if spin is not None:
             decimal_places = spin.value()
+        export_abs_time = _dew_checkbox_checked(
+            uiThaiXieBoDianLiu, 'checkBox_DEW_ExportAbsTime'
+        )
+        keep_oxygen_dmd = _dew_checkbox_checked(
+            uiThaiXieBoDianLiu, 'checkBox_DEW_KeepOxygenDmd'
+        )
         # 数据直接入 db，导出时再选择路径
         from utils.dewetron_recording import resolve_dewetron_save_paths
 
@@ -25000,6 +25094,8 @@ def _prepare_dewetron_collector(project_name):
         fields = config.export_fields
         rate_text = config.rate_text
         decimal_places = getattr(config, 'decimal_places', 4)
+        export_abs_time = bool(getattr(config, 'export_abs_time', False))
+        keep_oxygen_dmd = bool(getattr(config, 'keep_oxygen_dmd', False))
         test_type = spec.test_type
         paths = list(getattr(section, "_dew_save_paths", None) or [])
         if paths:
@@ -25027,10 +25123,17 @@ def _prepare_dewetron_collector(project_name):
 
     # 2. 调用采集器的 prepare 方法（校验字段、映射 RATE、初始化 SQLite）
     print(f"[_prepare_dewetron_collector] 调用 prepare: fields={len(fields)} 个, rate={rate_text}, "
-          f"test_type={test_type}, path={save_path}, decimal_places={decimal_places}")
+          f"test_type={test_type}, path={save_path}, decimal_places={decimal_places}, "
+          f"abs_time={export_abs_time}, keep_dmd={keep_oxygen_dmd}")
     def _prepare_work():
         return dewetron_collector.prepare(
-            fields, rate_text, test_type, save_path, decimal_places=decimal_places
+            fields,
+            rate_text,
+            test_type,
+            save_path,
+            decimal_places=decimal_places,
+            export_abs_time=export_abs_time,
+            keep_oxygen_dmd=keep_oxygen_dmd,
         )
 
     try:
@@ -25618,21 +25721,38 @@ def _note_live_supply_command(device_name, command) -> None:
 
 
 def _sync_soft_panel_ac_setpoint_from_scpi(command) -> None:
-    """把成功下发的 VOLT/FREQ 写回 Soft Panel 显示，避免爱科面板仍停在过频末点。"""
+    """把成功下发的 VOLT/FREQ 写回 Soft Panel 显示，避免爱科面板仍停在过频末点。
+
+    必须线程安全：RunProject 在 Timer/工作线程里跑，直接改 Soft Panel 文本框会触发
+    QTextDocument 跨线程建子对象 → 0xC0000005 闪退（重连 VOLT 230 即此路径）。
+    """
     try:
         raw = str(command or "").strip()
         up = raw.upper()
-        ui_ac = globals().get("uiACSetting")
-        if ui_ac is None:
-            return
+        kind = ""
+        value = ""
         if up.startswith("FREQ ") or up.startswith("FREQUENCY "):
             parts = raw.split(None, 1)
-            if len(parts) >= 2 and hasattr(ui_ac, "textEdit_AC_FR"):
-                ui_ac.textEdit_AC_FR.setPlainText(str(parts[1]).strip())
+            if len(parts) >= 2:
+                kind, value = "freq", str(parts[1]).strip()
         elif up.startswith("VOLT ") or up.startswith("VOLTAGE "):
             parts = raw.split(None, 1)
-            if len(parts) >= 2 and hasattr(ui_ac, "textEdit_AC_VOLT"):
-                ui_ac.textEdit_AC_VOLT.setPlainText(str(parts[1]).strip())
+            if len(parts) >= 2:
+                kind, value = "volt", str(parts[1]).strip()
+        if not kind:
+            return
+        app = QApplication.instance()
+        try:
+            on_ui = app is None or QThread.currentThread() == app.thread()
+        except Exception:
+            on_ui = True
+        if on_ui:
+            _apply_soft_panel_ac_setpoint_ui(kind, value)
+            return
+        bridge = _device_io_bridge
+        if bridge is None:
+            return
+        bridge.ac_setpoint.emit(kind, value)
     except Exception:
         pass
 
@@ -25656,12 +25776,7 @@ def _recover_ac_nominal_before_stop(*, reason: str = "") -> None:
         msg = f"[AC] 停机前回额定 VOLT {volt} FREQ {freq}"
         if reason:
             msg += f"（{reason}）"
-        try:
-            ui = globals().get("ui")
-            if ui is not None and hasattr(ui, "textEdit_ReturnMessage"):
-                ui.textEdit_ReturnMessage.append(msg)
-        except Exception:
-            pass
+        _append_return_message(msg)
         print(msg, flush=True)
         for cmd in (f"VOLT {volt}", f"FREQ {freq}"):
             try:
@@ -25984,10 +26099,21 @@ _wt_async_deadline_ts = 0.0
 
 
 def _wt_request_async_measure_stop(reason=""):
-    """请求 messure_testing 提前停连续录（阶梯结束或截止）。"""
+    """请求 messure_testing 提前停连续录（阶梯结束或截止）。
+
+    Soft Panel 路径看 ``_wt_async_stop_requested``；SCPI 路径还要打
+    ``wt_scpi_session.request_stop``，否则会把 StopTime 余量空跑完（约 +90s，
+    驻留 120s 时体感像「最后一档后又等了两分钟」）。
+    """
     global _wt_async_stop_requested
     _wt_async_stop_requested = True
     _append_debug_log(f"[run_loop] request async measure stop: {reason or '-'}")
+    try:
+        from utils import wt_scpi_session
+
+        wt_scpi_session.request_stop(str(reason or "async_stop"))
+    except Exception as exc:
+        _append_debug_log(f"[run_loop] SCPI request_stop skipped: {exc}")
 
 
 def _wt_async_start_measure(cmd_no):
@@ -26637,12 +26763,9 @@ def RunProject():
                         # 并网等待只会空耗，欠频也无法并网（爱科仍停在 51.7）。
                         _cmd_u = str(command or "").strip().upper()
                         if _cmd_u.startswith(("FREQ ", "FREQUENCY ", "VOLT ", "VOLTAGE ")):
-                            try:
-                                ui.textEdit_ReturnMessage.append(
-                                    f"[AC] 设定失败已中止，避免带错误频率/电压继续：{command}"
-                                )
-                            except Exception:
-                                pass
+                            _append_return_message(
+                                f"[AC] 设定失败已中止，避免带错误频率/电压继续：{command}"
+                            )
                             strTestStatusFlag = "结束"
                             break
                     else:
@@ -27335,13 +27458,20 @@ def RunProject():
                                 except Exception:
                                     pass
                             if not dewetron_collector.start_gathering():
-                                raise RuntimeError("DEWETRON NUMERIC/RATE配置失败")
+                                why = str(
+                                    getattr(dewetron_collector, "_last_gather_error", "")
+                                    or "NUMERIC/RATE配置失败"
+                                )
+                                raise RuntimeError(f"DEWETRON采集准备失败: {why}")
                             sent = dewetron_controller.start_acquisition()
                             if not sent:
                                 raise RuntimeError("DEWETRON START发送失败")
                             if not dewetron_collector.on_acquisition_started():
                                 dewetron_controller.stop_acquisition()
-                                raise RuntimeError("DEWETRON未进入Started状态")
+                                raise RuntimeError(
+                                    "DEWETRON未进入Started状态（测试生效后若秒失败，"
+                                    "多为 Oxygen 尚未就绪；已轮询并补发 START 仍失败）"
+                                )
                             _append_return_message("[DEWETRON] 采集已开始")
                         elif DEWETRON_STOP_COMMAND in cmd_upper or ':STORE:STOP' in cmd_upper:
                             if str(globals().get("flicker_is_test") or "") == "1":
@@ -28712,9 +28842,12 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
                     pass
                 return "1"
     elif dc_type and dc_type == "Keysight":
-        DCParArray = ["" for ii in range(1024)]
-        DCArray = [["" for ii in range(1024)] for jj in range(2)]
-        strDCArray = [["" for ii in range(1024)] for jj in range(2)]
+        # E4360 SAS:TABL 允许 3～1024 点。1024 点约 9KB 一次 viWrite 会打掉 HiSLIP/Soft Panel
+        # 导致工况机闪退；与致茂同公式改用 128 点（约 1KB）。
+        _ks_n = 128
+        DCParArray = ["" for ii in range(_ks_n)]
+        DCArray = [["" for ii in range(_ks_n)] for jj in range(2)]
+        strDCArray = [["" for ii in range(_ks_n)] for jj in range(2)]
         strArrayIVValue = []
         try:
             fDCVmp = float(strVmp)
@@ -28739,14 +28872,15 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
 
                 fParC1 = (1 - fDCImp / fDCIsc) * math.exp(-1 * fDCVmp / (fParC2 * fDCVoc))
                 fFF = (fDCVmp * fDCImp) / (fDCVoc * fDCIsc)
-                for i in range(1024):
-                    DCParArray[i] = 0 + i * (1 / 1023)
+                _den = float(_ks_n - 1) if _ks_n > 1 else 1.0
+                for i in range(_ks_n):
+                    DCParArray[i] = 0 + i * (1 / _den)
 
-                for j in range(1024):
+                for j in range(_ks_n):
                     DCArray[0][j] = round((1 - DCParArray[j]) * fDCIsc, 3)
                     strDCArray[0][j] = '%.3f' % DCArray[0][j]
 
-                for k in range(1024):
+                for k in range(_ks_n):
                     ratio = 1.0 - (DCArray[0][k] / fDCIsc)
                     inner = (ratio / fParC1) + 1.0
                     if abs(inner) < 1e-15:
@@ -28767,10 +28901,9 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
                         str2 = str2 + strDCArray[1][i]
                     else:
                         str2 = str2 + "," + strDCArray[1][i]
-                # 禁止 print 整表（约 9KB×2），试验线程打进 UI 日志会闪退
                 print(
                     f"[Keysight IV] DC{DCNumber} FF={fFF:.4f} "
-                    f"volt_cmd={len(str2)}B curr_cmd={len(str1)}B pts=1024",
+                    f"volt_cmd={len(str2)}B curr_cmd={len(str1)}B pts={_ks_n}",
                     flush=True,
                 )
                 strArrayIVValue.append(str2)
@@ -31765,7 +31898,8 @@ def _schedule_startup_auto_connect(*, visa_rm=None) -> None:
         try:
             _rm = visa_rm
             if _rm is None:
-                _rm = _wait_visa_rm_boot(timeout_s=15.0)
+                # 多数工控机 RM 1～3s 内就绪；15s 空等会让「启动自动连」体感很慢
+                _rm = _wait_visa_rm_boot(timeout_s=6.0)
             if _rm is None:
                 try:
                     _rm = rm
@@ -34321,8 +34455,32 @@ if __name__ == "__main__":
             def _stop_iot_agent_on_exit():
                 """关主界面 / 退出进程时同步停掉 Agent，避免仍 WS 上线显示待机。"""
                 try:
-                    from agent.process_control import stop_agent_for_app_exit
+                    import os
 
+                    from utils.status_json_devices import persist_queue_cleared_for_closed_app
+
+                    _status = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)), "status.json"
+                    )
+                    persist_queue_cleared_for_closed_app(_status)
+                except Exception as _q_exc:
+                    print(f"[IOT-Agent] 退出清队列失败: {_q_exc}", flush=True)
+                try:
+                    if isinstance(_run_progress_state, dict):
+                        _run_progress_state["queue"] = []
+                        if str(_run_progress_state.get("status") or "") in (
+                            "进行中",
+                            "暂停",
+                            "待开始",
+                        ):
+                            _run_progress_state["status"] = "已中止"
+                            _run_progress_state["operator_pause"] = False
+                except Exception:
+                    pass
+                try:
+                    from agent.process_control import clear_gui_pid, stop_agent_for_app_exit
+
+                    clear_gui_pid()
                     _ok, msg = stop_agent_for_app_exit()
                     print(f"[IOT-Agent] 退出同步停止: {msg}", flush=True)
                 except Exception as _e:
@@ -34404,6 +34562,12 @@ if __name__ == "__main__":
                 _QTimerIot.singleShot(1200, _auto_start_iot_agent)
                 # 关软件 → 同步停 Agent（aboutToQuit + 关窗）
                 try:
+                    from agent.process_control import write_gui_pid
+
+                    write_gui_pid()
+                except Exception as _gui_pid_exc:
+                    print(f"[IOT-Agent] 记录界面进程失败: {_gui_pid_exc}", flush=True)
+                try:
                     app.aboutToQuit.connect(_stop_iot_agent_on_exit)
                 except Exception:
                     pass
@@ -34442,8 +34606,9 @@ if __name__ == "__main__":
             #ui.pushButton_SendWCommand.clicked.connect(SendWMessage)
             #ui.pushButton_SendRCommand.clicked.connect(SendRMessage)
             ui.pushButton_StartTest.clicked.connect(RunProjectPush)
-            # 初始化多轮进度桥接（必须在主线程创建，供后台 Timer 发信号）
+            # 初始化多轮进度/设备 I/O 桥（必须在主线程创建；普通函数槽需 Queued）
             _ensure_progress_bridge()
+            _ensure_device_io_bridge()
             ui.pushButton_EndTest.clicked.connect(EndProjectPush)
             ui.pushButton_StopTest.clicked.connect(PauseProjectPush)
             ui.pushButton_ConTest.clicked.connect(ConProjectPush)
@@ -36382,7 +36547,7 @@ if __name__ == "__main__":
                 _iot_ui_handoff_svc.device_discover_lan = _iot_device_discover_lan
                 _iot_ui_handoff_svc.device_sync_boot_params = _iot_sync_boot_params_to_soft_panel
                 try:
-                    _reconcile_status_json_with_sessions()
+                    _reconcile_status_json_with_sessions(on_cold_start=True)
                 except Exception as _rec_exc:
                     print(f"[DEBUG_STARTUP]    status.json 会话纠偏失败: {_rec_exc}", flush=True)
                 print("[DEBUG_STARTUP]    IOT UI handoff 已挂载（含仪器控制）", flush=True)

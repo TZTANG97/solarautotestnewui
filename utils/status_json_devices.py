@@ -36,6 +36,11 @@ def empty_status_payload() -> Dict[str, Any]:
 
 # 进程退出后不可能仍在跑的状态（内存试验线程已没了）
 _STALE_IN_FLIGHT_STATUSES = frozenset({"进行中", "暂停", "待开始"})
+# 试验已经收口：队列里还挂着的「等待」是上一轮没清掉的，不能再算本机队列
+_TERMINAL_PROJECT_STATUSES = frozenset({"已结束", "已中止", "未开始", "失败", ""})
+_OPEN_QUEUE_ITEM_STATUSES = frozenset(
+    {"等待", "进行中", "暂停", "待开始", "运行", "测试中"}
+)
 
 
 def project_status_is_live_local_run(progress_state: Optional[Dict[str, Any]], run_flag: str = "") -> bool:
@@ -117,6 +122,69 @@ def mark_stale_in_flight_project(data: Optional[Dict[str, Any]]) -> tuple[Dict[s
     payload = dict(payload)
     payload["project"] = proj
     return payload, True
+
+
+def drop_open_queue_if_terminal(data: Optional[Dict[str, Any]]) -> tuple[Dict[str, Any], bool]:
+    """试验已结束/已中止时，丢掉还开着的队列项。待开始的计划不动。"""
+    payload = ensure_device_rows(data)
+    proj = payload.get("project")
+    if not isinstance(proj, dict):
+        return payload, False
+    if str(proj.get("status") or "").strip() not in _TERMINAL_PROJECT_STATUSES:
+        return payload, False
+    queue = proj.get("queue")
+    if not isinstance(queue, list) or not queue:
+        return payload, False
+    kept: List[Any] = []
+    for item in queue:
+        if (
+            isinstance(item, dict)
+            and str(item.get("status") or "").strip() in _OPEN_QUEUE_ITEM_STATUSES
+        ):
+            continue
+        kept.append(item)
+    if len(kept) == len(queue):
+        return payload, False
+    proj = dict(proj)
+    proj["queue"] = kept
+    payload = dict(payload)
+    payload["project"] = proj
+    return payload, True
+
+
+def clear_queue_for_closed_app(data: Optional[Dict[str, Any]]) -> tuple[Dict[str, Any], bool]:
+    """软件已关闭：本机队列整表清掉。没跑完的试验改成已中止。"""
+    payload, changed = mark_stale_in_flight_project(data)
+    proj = payload.get("project")
+    if not isinstance(proj, dict):
+        return payload, changed
+    queue = proj.get("queue")
+    if isinstance(queue, list) and queue:
+        proj = dict(proj)
+        proj["queue"] = []
+        payload = dict(payload)
+        payload["project"] = proj
+        changed = True
+    return payload, changed
+
+
+def persist_queue_cleared_for_closed_app(status_path: str) -> bool:
+    """把 status.json 的本机队列清掉，供退出和 Agent 发现界面进程已死时调用。"""
+    path = str(status_path or "").strip()
+    if not path:
+        return False
+    with status_json_lock(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+        data, changed = clear_queue_for_closed_app(data if isinstance(data, dict) else {})
+        if not changed:
+            return False
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
 
 
 def ensure_device_rows(data: Optional[Dict[str, Any]]) -> Dict[str, Any]:

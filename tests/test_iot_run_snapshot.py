@@ -9,7 +9,9 @@ from pathlib import Path
 from utils.iot_run_snapshot import (
     build_run_snapshot_from_status,
     heartbeat_should_push_progress,
+    snapshot_after_desktop_closed,
     snapshot_implies_busy,
+    snapshot_without_stale_open_queue,
 )
 
 
@@ -50,6 +52,58 @@ def test_idle_not_busy(tmp_path: Path):
     )
     snap = build_run_snapshot_from_status(str(p))
     assert snapshot_implies_busy(snap) is False
+
+
+def test_finished_snapshot_drops_waiting_queue_items():
+    snap, changed = snapshot_without_stale_open_queue(
+        {
+            "status": "已结束",
+            "queue": [
+                {"name": "电压闪变", "status": "完成"},
+                {"name": "过载", "status": "等待"},
+                {"name": "谐波", "status": "等待"},
+            ],
+        }
+    )
+    assert changed is True
+    assert [it["name"] for it in snap["queue"]] == ["电压闪变"]
+    pending, changed = snapshot_without_stale_open_queue(
+        {
+            "status": "待开始",
+            "queue": [{"name": "过载", "status": "等待"}, {"name": "谐波", "status": "等待"}],
+        }
+    )
+    assert changed is False
+    assert len(pending["queue"]) == 2
+
+
+def test_desktop_closed_clears_queue_and_aborts_running():
+    out = snapshot_after_desktop_closed(
+        {
+            "status": "进行中",
+            "queue": [{"name": "过载", "status": "等待"}, {"name": "谐波", "status": "进行中"}],
+        }
+    )
+    assert out["queue"] == []
+    assert out["status"] == "已中止"
+    idle = snapshot_after_desktop_closed(
+        {"status": "已结束", "queue": [{"name": "过载", "status": "等待"}]}
+    )
+    assert idle["queue"] == []
+    assert idle["status"] == "已结束"
+
+
+def test_gui_pid_file_means_exited_only_when_process_is_dead(tmp_path: Path, monkeypatch):
+    import agent.process_control as pc
+
+    pid_path = tmp_path / "gui.pid"
+    monkeypatch.setattr(pc, "gui_pid_file", lambda: pid_path)
+    assert pc.gui_has_exited() is False
+    pid_path.write_text("424242", encoding="utf-8")
+    monkeypatch.setattr(pc, "_pid_alive", lambda pid: False)
+    assert pc.gui_has_exited() is True
+    monkeypatch.setattr(pc, "_pid_alive", lambda pid: True)
+    assert pc.gui_has_exited() is False
 
 
 def test_missing_file_returns_idle():

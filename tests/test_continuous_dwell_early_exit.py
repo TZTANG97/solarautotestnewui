@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import sys
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -99,6 +101,14 @@ def test_wait_end_requests_measure_stop(sw_module, monkeypatch):
     sw.strTestStatusFlag = ""
     sw._wt_async_session_active = True
     sw._wt_async_stop_requested = False
+    scpi_stops = []
+
+    fake = SimpleNamespace(request_stop=lambda reason="": scpi_stops.append(reason))
+    monkeypatch.setitem(sys.modules, "utils.wt_scpi_session", fake)
+    # ``from utils import wt_scpi_session`` 走 package 属性
+    import utils as utils_pkg
+
+    monkeypatch.setattr(utils_pkg, "wt_scpi_session", fake, raising=False)
 
     def _fake_sleep(_sec):
         sw.test_status = "0"
@@ -107,3 +117,4 @@ def test_wait_end_requests_measure_stop(sw_module, monkeypatch):
     sw._wt_wait_measure_end(35, wait_timeout_sec=2)
     assert sw._wt_async_stop_requested is True
     assert sw._wt_async_session_active is False
+    assert scpi_stops  # SCPI 路径也必须收到停表

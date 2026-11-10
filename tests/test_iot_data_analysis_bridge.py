@@ -81,7 +81,7 @@ def test_map_en50549_core_codes():
     )["test_code"] == "5.4.3"
     assert resolve_analysis_target(test_type="reactiveqcap", solar_standard="en50549")[
         "test_code"
-    ] == "5.5.1.3"
+    ] == "reactive.qcap"
     assert resolve_analysis_target(test_type="reactiveqacc", solar_standard="en50549")[
         "test_code"
     ] == "5.5.2.3.2"
