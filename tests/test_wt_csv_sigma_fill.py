@@ -40,3 +40,41 @@ def test_stage_qcap_ignores_harmonic_noise(tmp_path: Path):
     )
     names = sorted(p.name for p in out.glob("*.csv"))
     assert names == ["QCap_BR_222708.csv"]
+
+
+def test_short_qcap_does_not_fallback_to_harmonic(tmp_path: Path, monkeypatch):
+    src = tmp_path / "save"
+    src.mkdir()
+    (src / "Harmonic_33.csv").write_text(
+        "Time [s],U\n" + "\n".join(f"{i},230" for i in range(10)),
+        encoding="utf-8",
+    )
+    (src / "QCap_BR_short.csv").write_text(
+        "Time [s],P-SIGMA\n0.1,1000\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "utils.iot_data_analysis_bridge._analysis_root",
+        lambda: tmp_path,
+    )
+    (tmp_path / "run_headless.py").write_text("# stub\n", encoding="utf-8")
+    from utils.iot_data_analysis_bridge import run_analysis_after_job
+
+    result = {
+        "status": "success",
+        "result_summary": {
+            "testType": "reactiveqcap",
+            "analysis_input_dir": str(src),
+            "report_files": [{"path": str(src / "QCap_BR_short.csv")}],
+        },
+    }
+    job = {
+        "id": 127,
+        "testType": "reactiveqcap",
+        "widgets": {"analysis_Pn": "10000", "solarStandard": "en50549"},
+        "params": {},
+    }
+    info = run_analysis_after_job(repo_root=tmp_path, job=job, result=result)
+    assert info.get("ran") is False
+    assert info.get("quality") == "too_few_rows"
+    assert "QCap_BR_short" in str(info.get("reason") or "")

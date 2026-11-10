@@ -1632,10 +1632,13 @@ class IotUiHandoffService(QObject):
                     result["fail_reason"] = (
                         f"数据处理失败: {ana.get('reason') or 'exit!=0'}"
                     )[:512]
-                elif (not ana.get("ran")) and ana.get("quality") == "too_few_rows":
+                elif (not ana.get("ran")) and ana.get("quality") in (
+                    "too_few_rows",
+                    "wrong_csv",
+                ):
                     result["status"] = "failed"
                     result["fail_reason"] = (
-                        f"录波无效: {ana.get('reason') or 'CSV 数据行不足'}"
+                        f"录波无效: {ana.get('reason') or 'CSV 不适用'}"
                     )[:512]
         except Exception as exc:
             self._log(f"数据处理跳过: {exc}")

@@ -335,6 +335,9 @@ def _stage_clean_analysis_input(
         for p, _n in usable
         if keys and any(k in p.name.lower() for k in keys)
     ]
+    # 有 prefer_keys 时绝不回退到无关 CSV（否则谐波会冒充 QCap）
+    if keys and not preferred:
+        return Path(input_dir)
     chosen = preferred or [p for p, _n in usable]
     # 同名优先最新
     chosen = sorted(
@@ -561,15 +564,45 @@ def run_analysis_after_job(
     if summary_early.get("analysis_csv_prefer_keys"):
         prefer_keys = tuple(summary_early.get("analysis_csv_prefer_keys") or prefer_keys)
 
-    usable = _usable_measurement_csvs(Path(input_dir))
+    all_usable = _usable_measurement_csvs(Path(input_dir))
+    usable = list(all_usable)
     if prefer_keys:
         preferred_usable = [
             (p, n)
-            for p, n in usable
+            for p, n in all_usable
             if any(k.lower() in p.name.lower() for k in prefer_keys)
         ]
         if preferred_usable:
             usable = preferred_usable
+        else:
+            # 禁止回退到同目录谐波/其它试验 CSV（共享 SavePath 常见）
+            short_notes = []
+            try:
+                for p in sorted(Path(input_dir).glob("*.csv")):
+                    if not _is_measurement_csv(p.name):
+                        continue
+                    if not any(k.lower() in p.name.lower() for k in prefer_keys):
+                        continue
+                    n = _csv_data_row_count(p)
+                    short_notes.append(f"{p.name}:{n}行")
+            except OSError:
+                pass
+            if short_notes:
+                info["reason"] = (
+                    f"本试验录波 CSV 数据行不足（需>={_MIN_MEASUREMENT_DATA_ROWS}）: "
+                    + "；".join(short_notes[:6])
+                )
+                info["quality"] = "too_few_rows"
+            else:
+                info["reason"] = (
+                    f"未找到本试验录波 CSV（prefer={','.join(prefer_keys)}），"
+                    f"拒绝使用目录内其它文件: {input_dir}"
+                )
+                info["quality"] = "wrong_csv"
+            info["input_dir"] = str(input_dir)
+            logger.warning("结案分析跳过: %s", info["reason"])
+            _store_analysis_meta(result, info)
+            return info
     if not usable:
         # 典型：QCap_BR_*.csv 仅 header+1 行（Soft Panel/SCPI 极短停表）
         short_notes = []

@@ -60,16 +60,15 @@ def fill_empty_sigma_freq_columns(csv_path: str | Path) -> bool:
                     el_idx.append(i)
         if not el_idx:
             return
-        # 已有非空 SIGMA 则不动
-        for row in rows[1:]:
-            if si < len(row) and str(row[si]).strip():
-                return
+        # 按行回填空 SIGMA（不要因首行偶发有值就跳过整列）
         for row in rows[1:]:
             while len(row) < len(header):
                 row.append("")
+            if str(row[si]).strip():
+                continue
             vals = [row[i] if i < len(row) else "" for i in el_idx]
             filled = _mean_or_blank(vals)
-            if filled and not str(row[si]).strip():
+            if filled:
                 row[si] = filled
                 changed = True
 

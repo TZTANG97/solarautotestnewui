@@ -31008,7 +31008,8 @@ def testing_stop(test_count, count_now):
         # 鼠标移动至停止按钮并点击
         pyautogui.moveTo(left + 626, top + 98, duration= 0.1)
         pyautogui.click()
-        pyautogui.sleep(0.1)
+        # Soft Panel 异步落盘：稍等再 merge / 回填 Freq*-SIGMA
+        pyautogui.sleep(0.8)
         # 本轮刚停下：立刻并入合并 CSV（静态 Cos 等开启 wt_merge_single_file 时）
         try:
             _round = ""
@@ -31027,7 +31028,12 @@ def testing_stop(test_count, count_now):
                     _cfg.get("textEdit_SavePath") or "",
                     extra=[os.path.abspath("."), os.getcwd()],
                 )
-                _filled = fill_recent_csvs_in_dirs(_dirs, name_hint=_round, limit=4)
+                _filled = []
+                for _ in range(5):
+                    _filled = fill_recent_csvs_in_dirs(_dirs, name_hint=_round, limit=4)
+                    if _filled:
+                        break
+                    time.sleep(0.4)
                 if _filled:
                     _append_debug_log(
                         f"[testing_stop] filled empty Freq*-SIGMA in: {_filled}"
