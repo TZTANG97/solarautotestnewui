@@ -1211,9 +1211,8 @@ def _save_device_status(device_name, connected, resource="", extra=None):
     )
     with open(_status_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    # 刷新首页
+    # 刷新首页（任意线程：由 _reload_home_status 投递到 UI，勿在此碰 QWidget）
     if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
-        ui.stackedWidget.widget(0).update() if hasattr(ui.stackedWidget.widget(0), 'update') else None
         _reload_home_status(data)
 
 
@@ -1588,8 +1587,77 @@ def _update_project_status_locked(_status_file, project_name, status):
     return data
 
 
+class _HomeStatusBridge(QtCore.QObject):
+    """后台线程写 status.json 后，把首页刷新投递到 UI 线程。"""
+    reload = QtCore.pyqtSignal(object)
+
+
+_home_status_bridge = None
+
+
+def _ensure_home_status_bridge():
+    """仅在 UI 线程创建桥（与 _ensure_device_io_bridge 同契约）。"""
+    global _home_status_bridge
+    if _home_status_bridge is not None:
+        return _home_status_bridge
+    app = QtWidgets.QApplication.instance()
+    try:
+        if app is not None and QtCore.QThread.currentThread() is not app.thread():
+            return None
+    except Exception:
+        return None
+    _home_status_bridge = _HomeStatusBridge()
+    _home_status_bridge.reload.connect(
+        _reload_home_status_ui, Qt.QueuedConnection
+    )
+    return _home_status_bridge
+
+
 def _reload_home_status(data):
-    """用已加载的 status 数据刷新首页卡片。"""
+    """任意线程可调用：非 UI 线程则排队，避免 deviceStatusBadge 闪退。"""
+    payload = data
+    try:
+        import copy
+
+        if isinstance(data, dict):
+            payload = copy.deepcopy(data)
+    except Exception:
+        payload = data
+
+    try:
+        app = QtWidgets.QApplication.instance()
+        on_ui = app is None or QtCore.QThread.currentThread() is app.thread()
+    except Exception:
+        on_ui = False
+
+    if not on_ui:
+        bridge = _ensure_home_status_bridge()
+        if bridge is None:
+            # 桥未在主线程预热时宁可不刷首页，也不要跨线程碰 QLabel
+            return
+        try:
+            bridge.reload.emit(payload)
+        except Exception:
+            return
+        return
+    _reload_home_status_ui(payload)
+
+
+def _badge_stylesheet(color: str) -> str:
+    """首页连接徽标：只用 Qt 稳妥属性，避免后台竞态写出非法 QSS。"""
+    c = str(color or "").strip() or "#dc2626"
+    if not c.startswith("#") or len(c) not in (4, 7):
+        c = "#dc2626"
+    return (
+        f"QLabel#deviceStatusBadge {{ color: {c}; font-size: 11px; font-weight: bold; "
+        f"background-color: transparent; padding: 0px; }}"
+    )
+
+
+def _reload_home_status_ui(data):
+    """UI 线程：用已加载的 status 数据刷新首页卡片。"""
+    if not isinstance(data, dict):
+        return
     # 试验进行中以刚下发的命令为准，不用设置页旧电压盖回去
     _running_now = str(globals().get("strTestStatusFlag") or "") in ("运行", "暂停")
     # refresh connected AC/DC measures from live UI (for IOT bench cards)
@@ -1621,48 +1689,68 @@ def _reload_home_status(data):
     except Exception:
         pass
     for dev in data.get("devices", []):
-        name = dev["name"]
+        if not isinstance(dev, dict):
+            continue
+        name = dev.get("name")
         if name in getattr(ui, '_home_dots', {}):
             ok = bool(dev.get("connected"))
             color = "#059669" if ok else "#dc2626"
             text = "已连接" if ok else "未连接"
             badge = ui._home_dots[name]
-            badge.setText(text)
-            # Text badge only — never solid fill (became huge red blocks)
-            badge.setStyleSheet(
-                f"color: {color}; font-size: 11px; font-weight: 700; "
-                f"background: transparent; padding: 0;"
-            )
             try:
+                badge.setText(text)
+                # Text badge only — never solid fill (became huge red blocks)
+                badge.setStyleSheet(_badge_stylesheet(color))
                 badge.setMinimumSize(0, 0)
                 badge.setMaximumSize(16777215, 16777215)
             except Exception:
                 pass
         if name in getattr(ui, '_home_res_labels', {}):
             res = dev.get("resource", "") or "未配置"
-            ui._home_res_labels[name].setText(res)
+            try:
+                ui._home_res_labels[name].setText(res)
+            except Exception:
+                pass
         if name in getattr(ui, '_home_time_labels', {}):
             last = dev.get("last_connected", "")
-            ui._home_time_labels[name].setText(f"上次连接: {last}" if last else "")
+            try:
+                ui._home_time_labels[name].setText(f"上次连接: {last}" if last else "")
+            except Exception:
+                pass
     proj = data.get("project", {}) or {}
     if proj:
         if hasattr(ui, "home_project_name"):
             name = proj.get("name") or "暂无测试项目"
-            ui.home_project_name.setText(name)
-            ui.home_project_name.setStyleSheet(
-                "font-size: 13px; font-weight: bold; color: #1e293b; background: transparent;"
-            )
+            try:
+                ui.home_project_name.setText(name)
+                ui.home_project_name.setStyleSheet(
+                    "font-size: 13px; font-weight: bold; color: #1e293b; "
+                    "background-color: transparent;"
+                )
+            except Exception:
+                pass
         if hasattr(ui, "home_status"):
             status = proj.get("status", "未开始")
             color_map = {"未开始": "#9ca3af", "进行中": "#3b82f6", "已结束": "#22c55e", "已中止": "#ef4444"}
-            ui.home_status.setText(status)
-            ui.home_status.setStyleSheet(
-                f"font-size: 12px; font-weight: bold; color: {color_map.get(status, '#9ca3af')}; background: transparent;"
-            )
+            try:
+                ui.home_status.setText(status)
+                ui.home_status.setStyleSheet(
+                    f"font-size: 12px; font-weight: bold; "
+                    f"color: {color_map.get(status, '#9ca3af')}; "
+                    f"background-color: transparent;"
+                )
+            except Exception:
+                pass
         if hasattr(ui, "home_progress"):
-            ui.home_progress.setValue(int(proj.get("progress", 0) or 0))
+            try:
+                ui.home_progress.setValue(int(proj.get("progress", 0) or 0))
+            except Exception:
+                pass
         if hasattr(ui, "home_start_time"):
-            ui.home_start_time.setText(proj.get("start_time") or "--")
+            try:
+                ui.home_start_time.setText(proj.get("start_time") or "--")
+            except Exception:
+                pass
         if hasattr(ui, "home_estimated_end_time"):
             round_txt = ""
             cr = proj.get("current_round") or 0
@@ -1670,7 +1758,19 @@ def _reload_home_status(data):
             if tr:
                 round_txt = f"第{cr}/{tr}轮"
             est = proj.get("estimated_end_time") or "--"
-            ui.home_estimated_end_time.setText(f"{est}" if not round_txt else f"{est} ({round_txt})")
+            try:
+                ui.home_estimated_end_time.setText(
+                    f"{est}" if not round_txt else f"{est} ({round_txt})"
+                )
+            except Exception:
+                pass
+    try:
+        if hasattr(ui, "stackedWidget") and ui.stackedWidget is not None:
+            page0 = ui.stackedWidget.widget(0)
+            if page0 is not None:
+                page0.update()
+    except Exception:
+        pass
 
 
 # ── 多轮试验进度表 ──────────────────────────────────────────────
@@ -2125,13 +2225,23 @@ def _emit_run_progress(persist=True, **kwargs):
         **eta,
     }
     try:
-        _ensure_progress_bridge().snapshot.emit(snapshot)
+        bridge = _ensure_progress_bridge()
+        if bridge is not None:
+            bridge.snapshot.emit(snapshot)
+        else:
+            raise RuntimeError("progress bridge unavailable off UI thread")
     except Exception:
-        # 启动极早期 ui 未就绪时兜底
+        # 仅 UI 线程兜底直刷；后台线程宁可不更新进度条，避免首页 QSS 闪退
         try:
-            _apply_run_progress_ui(snapshot)
+            app = QtWidgets.QApplication.instance()
+            on_ui = app is None or QtCore.QThread.currentThread() is app.thread()
         except Exception:
-            pass
+            on_ui = False
+        if on_ui:
+            try:
+                _apply_run_progress_ui(snapshot)
+            except Exception:
+                pass
     if persist:
         try:
             _persist_run_progress(snapshot)
@@ -34702,9 +34812,10 @@ if __name__ == "__main__":
             #ui.pushButton_SendWCommand.clicked.connect(SendWMessage)
             #ui.pushButton_SendRCommand.clicked.connect(SendRMessage)
             ui.pushButton_StartTest.clicked.connect(RunProjectPush)
-            # 初始化多轮进度/设备 I/O 桥（必须在主线程创建；普通函数槽需 Queued）
+            # 初始化多轮进度/设备 I/O/首页状态桥（必须在主线程创建；普通函数槽需 Queued）
             _ensure_progress_bridge()
             _ensure_device_io_bridge()
+            _ensure_home_status_bridge()
             ui.pushButton_EndTest.clicked.connect(EndProjectPush)
             ui.pushButton_StopTest.clicked.connect(PauseProjectPush)
             ui.pushButton_ConTest.clicked.connect(ConProjectPush)

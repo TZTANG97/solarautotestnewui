@@ -731,8 +731,8 @@ class Ui_Dialog(object):
             _dot.setObjectName("deviceStatusBadge")
             _dot.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             _dot.setStyleSheet(
-                f"color: {theme.DANGER}; font-size: 11px; font-weight: 700; "
-                f"background: transparent; padding: 0;"
+                f"QLabel#deviceStatusBadge {{ color: {theme.DANGER}; font-size: 11px; "
+                f"font-weight: bold; background-color: transparent; padding: 0px; }}"
             )
             _tr.addWidget(_dot)
             _cl.addLayout(_tr)
@@ -856,8 +856,8 @@ class Ui_Dialog(object):
                     _text = "已连接" if _ok else "未连接"
                     self._home_dots[_name].setText(_text)
                     self._home_dots[_name].setStyleSheet(
-                        f"color: {_color}; font-size: 11px; font-weight: 700; "
-                        f"background: transparent; padding: 0;"
+                        f"QLabel#deviceStatusBadge {{ color: {_color}; font-size: 11px; "
+                        f"font-weight: bold; background-color: transparent; padding: 0px; }}"
                     )
                 if _name in self._home_res_labels:
                     _res = _dev.get("resource", "") or "未配置"
