@@ -2897,6 +2897,12 @@ def DisconnectEQUDEWETRON():
 
 def DisconnectEQUWT3000():
     """断开 WT3000 并解锁选择框。"""
+    try:
+        from utils.wtviewer_session import clear_wtviewer_alive_latch
+
+        clear_wtviewer_alive_latch()
+    except Exception:
+        pass
     global wt3000_controller
     try:
         panel = getattr(ui, "widget_wt_scale", None)
@@ -4187,10 +4193,11 @@ def _finder_set_combo(combo_name: str, text: str) -> None:
 def _iot_slot_session_ok(slot: str) -> bool:
     """云端回传用：以控制器真实会话为准，不看 TCP 是否通。
 
-    WT 额外认三种「桌面已连」（空闲也要上报，不只试验中）：
+    WT 额外认这些「桌面已连」（空闲 + 开跑都不能抖成网页未连接）：
     1) wt3000_controller.connected（SCPI）
     2) 首页「取消连接」/ strConnectWT3000=1
     3) WTViewerEfree Soft Panel 窗口在（宏模式不建 SCPI 会话）
+    4) 正在连续录/ASYNC（_wt_async_session_active / test_status / WT_auto_messure）
     """
     sl = str(slot or "").strip().lower()
     name = {
@@ -4218,6 +4225,22 @@ def _iot_slot_session_ok(slot: str) -> bool:
         try:
             btn = getattr(globals().get("ui"), "pushButton_ConnectEQUWT3000", None)
             if btn is not None and "取消" in str(btn.text() or ""):
+                return True
+        except Exception:
+            pass
+        # 开跑录波中：Soft Panel 主窗可能短暂不可见，仍算已连
+        try:
+            if bool(globals().get("_wt_async_session_active")):
+                return True
+        except Exception:
+            pass
+        try:
+            if str(globals().get("test_status") or "") == "1":
+                return True
+        except Exception:
+            pass
+        try:
+            if str(globals().get("WT_auto_messure_status") or "") == "1":
                 return True
         except Exception:
             pass
