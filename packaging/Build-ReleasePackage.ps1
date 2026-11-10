@@ -115,6 +115,40 @@ foreach ($bad in @("solar_agent.json", "solar_agent.sim.json", "solar_machine_id
     if (Test-Path $p) { Remove-Item -Force $p }
 }
 
+# Bundle CEI headless analysis (结案自动出报告，不必另装分析软件)
+$analysisDest = Join-Path $appDest "bundled_analysis"
+$analysisCandidates = @(
+    (Join-Path $repoRoot "..\SolarTestDataAnalysisApp"),
+    (Join-Path $repoRoot "..\..\MyProject\SolarTestDataAnalysisApp"),
+    "E:\MyProject\SolarTestDataAnalysisApp",
+    "E:\SolarTestDataAnalysisApp"
+)
+$analysisSrc = $null
+foreach ($c in $analysisCandidates) {
+    $full = [System.IO.Path]::GetFullPath($c)
+    $cei = Join-Path $full "CEI"
+    if ((Test-Path (Join-Path $cei "run_headless.py")) -or (Test-Path (Join-Path $cei "src\mypkg"))) {
+        $analysisSrc = $cei
+        break
+    }
+}
+if ($analysisSrc) {
+    Write-Host "Bundling analysis CEI from $analysisSrc ..."
+    New-Item -ItemType Directory -Path $analysisDest -Force | Out-Null
+    $aXd = @("/XD", ".venv", ".pytest_cache", "__pycache__", ".git", ".idea", ".vscode", "code_example", "media")
+    $aXf = @("/XF", "*.pyc", "*.pyo", "*.log")
+    $aArgs = @($analysisSrc, $analysisDest, "/E", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP", "/R:1", "/W:1") + $aXd + $aXf
+    & robocopy @aArgs | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "robocopy analysis failed: $LASTEXITCODE" }
+    if (-not (Test-Path (Join-Path $analysisDest "run_headless.py"))) {
+        Write-Host "[WARN] bundled_analysis missing run_headless.py"
+    } else {
+        Write-Host "[OK] bundled_analysis ready"
+    }
+} else {
+    Write-Host "[WARN] SolarTestDataAnalysisApp not found nearby; skip bundled_analysis"
+}
+
 # Bundle uv.exe for offline-friendly install
 $bundleUv = Join-Path $stage "bundled\uv.exe"
 if (-not $SkipBundleUv) {

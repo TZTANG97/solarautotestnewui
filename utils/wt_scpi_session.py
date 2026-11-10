@@ -215,11 +215,13 @@ def run_measure_blocking(
     file_index: int = 0,
     stop_event_check=None,
     async_stop_check=None,
+    on_stopped=None,
     logger=None,
 ) -> bool:
     """Start SCPI gathering, wait StopTime / stop flags, export CSV.
 
     ``stop_event_check`` / ``async_stop_check`` are zero-arg callables returning bool.
+    ``on_stopped``：停采后、导出前回调（用于先放行 WAIT_END，避免慢导出堵关机）。
     Sets module ``_active`` while running. Caller should set external ``test_status``.
     """
     global _active, _stop_requested, _deadline_ts, _last_csv, _last_error
@@ -271,6 +273,11 @@ def run_measure_blocking(
             time.sleep(0.05)
     finally:
         collector.stop_gathering()
+        if callable(on_stopped):
+            try:
+                on_stopped()
+            except Exception as cb_exc:
+                print(f"[wt_scpi_session] on_stopped failed: {cb_exc}")
         exported = None
         try:
             if collector.total_rows() <= 0:

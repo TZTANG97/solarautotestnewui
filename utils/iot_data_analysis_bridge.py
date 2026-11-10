@@ -28,36 +28,57 @@ _DEFAULT_ANALYSIS_ROOTS = (
 )
 
 
+def _looks_like_analysis_root(cand: Path) -> bool:
+    try:
+        return cand.is_dir() and (
+            (cand / "CEI" / "run_headless.py").is_file()
+            or (cand / "CEI" / "src" / "mypkg").is_dir()
+            or (cand / "run_headless.py").is_file()
+            or (cand / "src" / "mypkg").is_dir()
+        )
+    except OSError:
+        return False
+
+
 def _analysis_root() -> Optional[Path]:
     env = str(os.environ.get("SOLAR_DATA_ANALYSIS_ROOT") or "").strip()
     if env:
         p = Path(env)
-        if p.is_dir():
+        if _looks_like_analysis_root(p):
             return p
-    # 与 SolarAutoTest 同盘兄弟目录 / 安装目录旁
+    # 安装包内置 bundled_analysis（与桌面结案钩子一体，不必另装分析软件）
     here = Path(__file__).resolve()
+    local_app = Path(os.environ.get("LOCALAPPDATA") or "").expanduser()
     sibling_guesses = [
-        here.parents[2] / "SolarTestDataAnalysisApp",
-        here.parents[1] / "SolarTestDataAnalysisApp",
         here.parents[1] / "bundled_analysis",
+        here.parents[1] / "SolarTestDataAnalysisApp",
+        here.parents[2] / "SolarTestDataAnalysisApp",
+        Path(sys.executable).resolve().parent.parent / "bundled_analysis",
         Path(sys.executable).resolve().parent.parent / "SolarTestDataAnalysisApp",
+        local_app / "SolarAutoTest" / "bundled_analysis",
+        local_app / "SolarAutoTest" / "SolarTestDataAnalysisApp",
+        local_app / "SolarTestDataAnalysisApp",
     ]
     for cand in list(sibling_guesses) + list(_DEFAULT_ANALYSIS_ROOTS):
-        try:
-            if cand.is_dir() and (
-                (cand / "CEI" / "run_headless.py").is_file()
-                or (cand / "CEI" / "src" / "mypkg").is_dir()
-            ):
+        if _looks_like_analysis_root(cand):
+            # bundled_analysis 可能直接是 CEI 内容，也可能是含 CEI/ 的分析根
+            if (cand / "CEI" / "run_headless.py").is_file() or (
+                cand / "CEI" / "src" / "mypkg"
+            ).is_dir():
                 return cand
-        except OSError:
-            continue
+            if (cand / "run_headless.py").is_file() or (cand / "src" / "mypkg").is_dir():
+                return cand
     return None
 
 
 def _analysis_python(root: Path) -> Path:
-    # 优先分析项目自己的 .venv
-    for rel in (".venv/Scripts/python.exe", "CEI/.venv/Scripts/python.exe"):
-        p = root / rel
+    # 优先分析项目自己的 .venv；bundled_analysis 无 venv 时用桌面同款解释器
+    for rel in (
+        ".venv/Scripts/python.exe",
+        "CEI/.venv/Scripts/python.exe",
+        "../.venv/Scripts/python.exe",
+    ):
+        p = (root / rel).resolve()
         if p.is_file():
             return p
     return Path(sys.executable)
@@ -428,8 +449,8 @@ def run_analysis_after_job(
     root = _analysis_root()
     if root is None:
         info["reason"] = (
-            "未找到 SolarTestDataAnalysisApp："
-            "请在工控机安装分析软件，或设置环境变量 SOLAR_DATA_ANALYSIS_ROOT"
+            "未找到结案分析引擎（bundled_analysis / SolarTestDataAnalysisApp）："
+            "请升级到含 bundled_analysis 的安装包，或设置 SOLAR_DATA_ANALYSIS_ROOT"
         )
         _store_analysis_meta(result, info)
         return info
@@ -641,8 +662,14 @@ def run_analysis_after_job(
     py = _analysis_python(root)
     script = root / "CEI" / "run_headless.py"
     if not script.is_file():
-        info["reason"] = f"缺少无头脚本: {script}"
+        # 安装包可能把 CEI 内容直接放进 bundled_analysis/
+        script = root / "run_headless.py"
+    if not script.is_file():
+        info["reason"] = f"缺少无头脚本: {root / 'CEI' / 'run_headless.py'}"
+        _store_analysis_meta(result, info)
         return info
+    # cwd 必须是 CEI 目录（含 src/mypkg）
+    cei_cwd = script.parent
 
     result_json = out_dir / "headless_result.json"
     cmd = [
@@ -673,7 +700,8 @@ def run_analysis_after_job(
         }
     )
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(root / "CEI" / "src") + (
+    src_path = cei_cwd / "src"
+    env["PYTHONPATH"] = str(src_path) + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
     )
     try:
@@ -682,7 +710,7 @@ def run_analysis_after_job(
             capture_output=True,
             text=True,
             timeout=timeout_sec,
-            cwd=str(root / "CEI"),
+            cwd=str(cei_cwd),
             encoding="utf-8",
             errors="replace",
             env=env,

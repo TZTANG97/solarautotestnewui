@@ -26168,9 +26168,10 @@ _wt_async_deadline_ts = 0.0
 def _wt_request_async_measure_stop(reason=""):
     """请求 messure_testing 提前停连续录（阶梯结束或截止）。
 
-    Soft Panel 路径看 ``_wt_async_stop_requested``；SCPI 路径还要打
-    ``wt_scpi_session.request_stop``，否则会把 StopTime 余量空跑完（约 +90s，
-    驻留 120s 时体感像「最后一档后又等了两分钟」）。
+    Soft Panel 路径看 ``_wt_async_stop_requested``；SCPI 路径打
+    ``wt_scpi_session.request_stop``。停采+导出由 messure_testing 线程收尾，
+    勿在 RunProject 线程里同步 ``stop_and_export``（会和采集线程抢导出，
+    WAIT_END 还要干等 test_status，反而更容易 12s 超时）。
     """
     global _wt_async_stop_requested
     _wt_async_stop_requested = True
@@ -26179,15 +26180,6 @@ def _wt_request_async_measure_stop(reason=""):
         from utils import wt_scpi_session
 
         wt_scpi_session.request_stop(str(reason or "async_stop"))
-        # 立刻停采+尽量导出，避免 WAIT_END 干等 messure_testing 线程卡在 export
-        try:
-            cfg = globals().get("config_dict")
-            if isinstance(cfg, dict):
-                wt_scpi_session.stop_and_export(
-                    cfg, file_index=max(0, int(globals().get("now_save_file") or 0))
-                )
-        except Exception as exp_exc:
-            _append_debug_log(f"[run_loop] SCPI stop_and_export skipped: {exp_exc}")
     except Exception as exc:
         _append_debug_log(f"[run_loop] SCPI request_stop skipped: {exc}")
 
@@ -30398,6 +30390,23 @@ def messure_testing():
                 except Exception:
                     pass
                 ok = False
+                released = {"done": False}
+
+                def _release_wait_end_for_export():
+                    # 停采后先放行 WAIT_END，慢导出不堵关机命令
+                    global test_status, WT_auto_messure_status
+                    global _wt_async_stop_requested, _wt_async_deadline_ts
+                    if released["done"]:
+                        return
+                    released["done"] = True
+                    test_status = "0"
+                    WT_auto_messure_status = ""
+                    _wt_async_stop_requested = False
+                    _wt_async_deadline_ts = 0.0
+                    _append_debug_log(
+                        "[messure_testing] SCPI release WAIT_END before export"
+                    )
+
                 if wt_scpi_session is not None:
                     ok = wt_scpi_session.run_measure_blocking(
                         config_dict if isinstance(config_dict, dict) else {},
@@ -30406,6 +30415,7 @@ def messure_testing():
                         async_stop_check=lambda: bool(
                             globals().get("_wt_async_stop_requested")
                         ),
+                        on_stopped=_release_wait_end_for_export,
                         logger=logger,
                     )
                 if ok:
@@ -30432,7 +30442,7 @@ def messure_testing():
                             )
                     except Exception:
                         pass
-                test_status = '0'
+                _release_wait_end_for_export()
                 messsure_deatil_cofig = ''
                 return
 
@@ -30581,16 +30591,21 @@ def messure_testing():
                     # 标记：当前轮已结束，等待后续流程重新置为 '1'
                     messure_status = '0'
 
-                    # 阶梯已结束 / 手点结束：先放行 WAIT_END（*IDN?），再去做 Soft Panel 停表存盘。
-                    # 旧顺序先 testing_stop 再清 test_status，Soft Panel 一点卡就整单 99% 挂死。
-                    if aborted or early_stop:
+                    # 先放行 WAIT_END，再去做 Soft Panel 停表存盘。
+                    # 连续录自然跑满 StopTime 时也会卡在 testing_stop（点停/存盘），
+                    # 若不先清 test_status，WAIT_END 会空等 12s 再「强制收口」。
+                    release_before_stop = bool(
+                        aborted or early_stop or _wt_async_session_active
+                    )
+                    if release_before_stop:
                         test_status = '0'
                         WT_auto_messure_status = ''
                         _wt_async_stop_requested = False
                         _wt_async_deadline_ts = 0.0
                         _append_debug_log(
                             f"[messure_testing] release WAIT_END before testing_stop "
-                            f"aborted={aborted} early_stop={early_stop}"
+                            f"aborted={aborted} early_stop={early_stop} "
+                            f"async={_wt_async_session_active}"
                         )
 
                     # 停止测量 + 保存处理 + 决定是否进入下一轮
@@ -30608,6 +30623,9 @@ def messure_testing():
                         messsure_deatil_cofig = '0'
                         messure_status = '0'
                         test_status = '0'
+                    else:
+                        if not release_before_stop:
+                            test_status = '0'
                 else:
                     _append_debug_log("[messure_testing] testing_start failed, set status to reconfigure")
                     # 启动失败时同样把状态置回"待重配"，让后续流程有机会恢复
