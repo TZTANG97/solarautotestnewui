@@ -1644,12 +1644,26 @@ class IotUiHandoffService(QObject):
             if isinstance(summary, dict):
                 rf = summary.get("report_files") or summary.get("reportFiles") or []
                 paths = []
-                for item in rf[:8]:
+                for item in rf:
                     if isinstance(item, dict):
-                        paths.append(str(item.get("path") or item.get("file") or ""))
+                        raw = str(item.get("path") or item.get("file") or "")
                     else:
-                        paths.append(str(item or ""))
-                paths = [p for p in paths if p]
+                        raw = str(item or "")
+                    if not raw:
+                        continue
+                    name = raw.replace("\\", "/").rsplit("/", 1)[-1].lower()
+                    # 日志不要刷 status.json / job_*.json 等交接元数据
+                    if name == "status.json" or (
+                        name.startswith("job_") and name.endswith(".json")
+                    ):
+                        continue
+                    if not name.endswith(
+                        (".csv", ".xlsx", ".xls", ".docx", ".pdf", ".png", ".jpg")
+                    ):
+                        continue
+                    paths.append(raw)
+                    if len(paths) >= 8:
+                        break
                 if paths:
                     self._log("导出文件: " + " | ".join(paths))
                 elif summary.get("analysis_input_dir") or summary.get("analysisInputDir"):

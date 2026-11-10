@@ -292,6 +292,13 @@ def run_measure_blocking(
             if rows_before <= 0 and allow_sample_once:
                 collector.sample_once()
             exported = collector.export_to_csv(csv_path or None)
+            if exported:
+                try:
+                    from utils.wt_csv_sigma_fill import fill_empty_sigma_freq_columns
+
+                    fill_empty_sigma_freq_columns(exported)
+                except Exception as _sig_exc:
+                    print(f"[wt_scpi_session] sigma fill skipped: {_sig_exc}")
         except Exception as exc:
             _last_error = f"export failed: {exc}"
             print(f"[wt_scpi_session] {_last_error}")

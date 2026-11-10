@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from utils.iot_data_analysis_map import (
     PHASE1_AUTO_PACKS,
@@ -300,6 +300,71 @@ def _usable_measurement_csvs(input_dir: Path) -> List[tuple]:
     return out
 
 
+def _prefer_keys_for_test(tt: str) -> tuple:
+    low = str(tt or "").strip().lower()
+    if low in ("harmonic", "harmonics", "谐波", "谐波电流"):
+        return ("33%", "66%", "100%", "harmonic", "voltage")
+    if low in ("overload", "overloads", "过载"):
+        return ("overload", "过载", "542", "5.4.2")
+    if low in ("staticqu", "静态qu"):
+        return ("qu_curve", "staticqu", "q(u)")
+    if low in ("dynamicqu", "动态qu"):
+        return ("qu_dyn_curve", "dynamicqu")
+    if low in ("ovuf", "guoqianya_pin", "过欠压", "过欠压_过欠频", "volt_freq"):
+        return ("ovuf", "guoqianya", "over_under", "volt_freq")
+    if low in ("reactiveqcap", "无功能力范围", "qcap"):
+        return ("qcap_br", "qcap", "reactiveqcap")
+    return (low,) if low else ()
+
+
+def _stage_clean_analysis_input(
+    input_dir: Path,
+    *,
+    prefer_keys: Sequence[str],
+    staging_dir: Path,
+) -> Path:
+    """把本试验相关 CSV 拷到干净目录，避免 D:\\xiebodianliu_test 里旧谐波文件搅局。"""
+    import shutil
+
+    usable = _usable_measurement_csvs(Path(input_dir))
+    if not usable:
+        return Path(input_dir)
+    keys = [str(k).lower() for k in (prefer_keys or ()) if str(k).strip()]
+    preferred = [
+        p
+        for p, _n in usable
+        if keys and any(k in p.name.lower() for k in keys)
+    ]
+    chosen = preferred or [p for p, _n in usable]
+    # 同名优先最新
+    chosen = sorted(
+        chosen,
+        key=lambda p: p.stat().st_mtime if p.exists() else 0,
+        reverse=True,
+    )
+    # 连续录通常只要最新一份 QCap_BR
+    if keys and any("qcap" in k for k in keys):
+        br = [p for p in chosen if "qcap_br" in p.name.lower()]
+        if br:
+            chosen = [br[0]]
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    for old in staging_dir.glob("*.csv"):
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    copied = 0
+    for p in chosen[:12]:
+        try:
+            shutil.copy2(p, staging_dir / p.name)
+            copied += 1
+        except OSError:
+            continue
+    if copied <= 0:
+        return Path(input_dir)
+    return staging_dir
+
+
 def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
     summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
     # 显式目录
@@ -315,20 +380,7 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
     prefer_keys = summary.get("analysis_csv_prefer_keys") or ()
     if not prefer_keys:
         tt = str(summary.get("testType") or summary.get("test_type") or "").lower()
-        if tt in ("harmonic", "harmonics", "谐波", "谐波电流"):
-            prefer_keys = ("33%", "66%", "100%", "harmonic", "voltage")
-        elif tt in ("overload", "overloads", "过载"):
-            prefer_keys = ("overload", "过载", "542", "5.4.2")
-        elif tt in ("staticqu", "静态qu"):
-            prefer_keys = ("qu_curve", "staticqu", "q(u)")
-        elif tt in ("dynamicqu", "动态qu"):
-            prefer_keys = ("qu_dyn_curve", "dynamicqu")
-        elif tt in ("ovuf", "guoqianya_pin", "过欠压", "过欠压_过欠频", "volt_freq"):
-            prefer_keys = ("ovuf", "guoqianya", "over_under", "volt_freq")
-        elif tt in ("reactiveqcap", "无功能力范围", "qcap"):
-            prefer_keys = ("qcap", "reactiveqcap", "无功")
-        else:
-            prefer_keys = (tt,) if tt else ()
+        prefer_keys = _prefer_keys_for_test(tt)
     files = summary.get("report_files") or summary.get("reportFiles") or []
     csv_parents: List[Path] = []
     preferred: List[Path] = []
@@ -500,7 +552,24 @@ def run_analysis_after_job(
         _store_analysis_meta(result, info)
         return info
 
+    prefer_keys = _prefer_keys_for_test(tt)
+    summary_early = (
+        result.get("result_summary")
+        if isinstance(result.get("result_summary"), dict)
+        else {}
+    )
+    if summary_early.get("analysis_csv_prefer_keys"):
+        prefer_keys = tuple(summary_early.get("analysis_csv_prefer_keys") or prefer_keys)
+
     usable = _usable_measurement_csvs(Path(input_dir))
+    if prefer_keys:
+        preferred_usable = [
+            (p, n)
+            for p, n in usable
+            if any(k.lower() in p.name.lower() for k in prefer_keys)
+        ]
+        if preferred_usable:
+            usable = preferred_usable
     if not usable:
         # 典型：QCap_BR_*.csv 仅 header+1 行（Soft Panel/SCPI 极短停表）
         short_notes = []
@@ -721,6 +790,27 @@ def run_analysis_after_job(
     # subprocess cwd 在分析项目 CEI/ 下，必须用绝对路径，否则报告落到错误目录
     input_dir = Path(input_dir).resolve()
     out_dir = out_dir.resolve()
+    # Soft Panel SavePath 常共用（如 D:\xiebodianliu_test）：只 staging 本试验 CSV
+    try:
+        from utils.wt_csv_sigma_fill import fill_empty_sigma_freq_columns
+
+        for p, _n in usable:
+            try:
+                fill_empty_sigma_freq_columns(p)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    staged = _stage_clean_analysis_input(
+        input_dir,
+        prefer_keys=prefer_keys,
+        staging_dir=out_dir / "_input_staging",
+    )
+    input_dir = Path(staged).resolve()
+    info["input_dir"] = str(input_dir)
+    info["csv_files"] = [
+        str(p) for p in sorted(input_dir.glob("*.csv")) if _is_measurement_csv(p.name)
+    ]
 
     py = _analysis_python(root)
     script = root / "CEI" / "run_headless.py"
@@ -808,7 +898,15 @@ def run_analysis_after_job(
     ok = bool(payload.get("success")) and proc.returncode == 0
     info["success"] = ok
     if not ok:
-        info["reason"] = str(payload.get("message") or f"exit={proc.returncode}")
+        msg = str(payload.get("message") or "").strip()
+        err_tail = (proc.stderr or "").strip().splitlines()
+        err_hint = err_tail[-1] if err_tail else ""
+        if msg:
+            info["reason"] = msg
+        elif err_hint:
+            info["reason"] = f"exit={proc.returncode}: {err_hint[:240]}"
+        else:
+            info["reason"] = f"exit={proc.returncode}"
         logger.warning("数据处理未成功: %s", info["reason"])
     else:
         files = [Path(p) for p in (payload.get("output_files") or []) if p]

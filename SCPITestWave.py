@@ -31017,6 +31017,23 @@ def testing_stop(test_count, count_now):
             if not _round:
                 _round = str(globals().get("save_file_name") or "").strip()
             _merge_wt_round_csv_if_needed(_round)
+            # Soft Panel 常留空 FreqU-SIGMA：用元素频率均值回填
+            try:
+                from utils.wt_csv_merge import candidate_save_dirs
+                from utils.wt_csv_sigma_fill import fill_recent_csvs_in_dirs
+
+                _cfg = config_dict if isinstance(config_dict, dict) else {}
+                _dirs = candidate_save_dirs(
+                    _cfg.get("textEdit_SavePath") or "",
+                    extra=[os.path.abspath("."), os.getcwd()],
+                )
+                _filled = fill_recent_csvs_in_dirs(_dirs, name_hint=_round, limit=4)
+                if _filled:
+                    _append_debug_log(
+                        f"[testing_stop] filled empty Freq*-SIGMA in: {_filled}"
+                    )
+            except Exception as _sig_exc:
+                _append_debug_log(f"[testing_stop][warn] sigma fill skipped: {_sig_exc}")
         except Exception as e:
             _append_debug_log(f"[testing_stop][warn] merge hook failed: {e}")
         
