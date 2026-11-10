@@ -81,19 +81,23 @@ foreach ($name in @(
 $bundledUv = Join-Path $StageRoot "bundled\uv.exe"
 Add-ManifestEntry -List $entries -BlobMap $blobMap -AbsPath $bundledUv -RelPath "tools/uv.exe"
 
-# Materialize blobs (skip copy if already present with same size)
+# Materialize blobs (skip copy if already present with same size).
+# Use .NET FileInfo: Get-Item -LiteralPath can throw ItemNotFound on some
+# existing blob paths under long worktree roots (cmd/[IO.File] still see them).
 $copied = 0
 $skipped = 0
 foreach ($sha in $blobMap.Keys) {
     $src = [string]$blobMap[$sha]
     $dst = Join-Path $blobsDir $sha
-    if (Test-Path -LiteralPath $dst) {
-        if ((Get-Item -LiteralPath $dst).Length -eq (Get-Item -LiteralPath $src).Length) {
+    if ([IO.File]::Exists($dst) -and [IO.File]::Exists($src)) {
+        $dstLen = (New-Object IO.FileInfo $dst).Length
+        $srcLen = (New-Object IO.FileInfo $src).Length
+        if ($dstLen -eq $srcLen) {
             $skipped++
             continue
         }
     }
-    Copy-Item -Force -LiteralPath $src -Destination $dst
+    [IO.File]::Copy($src, $dst, $true)
     $copied++
 }
 
