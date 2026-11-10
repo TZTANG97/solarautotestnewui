@@ -26298,6 +26298,8 @@ _wt_async_stop_requested = False
 _wt_async_deadline_ts = 0.0
 # messure_testing 是否已真正进入本轮采集（ASYNC 后必须变 True，否则只是空挂 test_status）
 _wt_measure_flow_entered = False
+# Soft Panel 开录墙钟（unix），CSV Abs Time = 开录时刻 + Time[s]（对齐德威创）
+_wt_gather_start_wall = 0.0
 
 
 def _wt_request_async_measure_stop(reason=""):
@@ -30632,7 +30634,7 @@ def messure_testing():
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
     global test_status, save_file_name, strTestStatusFlag
     global _wt_async_stop_requested, _wt_async_deadline_ts, _wt_async_session_active
-    global _wt_measure_flow_entered
+    global _wt_measure_flow_entered, _wt_gather_start_wall
 
     # 仅在关键状态变化时记录日志，避免定时器每 0.5 秒刷屏
     current_state = (setting_status, messure_status, WT_auto_messure_status, now_save_file, total_save_file)
@@ -30649,6 +30651,8 @@ def messure_testing():
         if setting_status == '1' and messure_status == '1' and WT_auto_messure_status == '1':
             _append_debug_log("[messure_testing] enter measure flow")
             _wt_measure_flow_entered = True
+            # Soft Panel 真正点开始后再刷新；SCPI 路径以 collector._gather_start 为准
+            _wt_gather_start_wall = time.time()
             # 进门后立即清空触发位，避免定时器下一拍重复进入同一轮
             WT_auto_messure_status = ''
             # 置位"测量进行中"，供 run_loop(col6/col7) 阻塞等待
@@ -30831,6 +30835,8 @@ def messure_testing():
                 if status == '1':
                     current_name = test_count[now_save_file] if now_save_file < len(test_count) else f"INDEX_{now_save_file}"
                     _append_debug_log(f"[messure_testing] testing_start success, current_file={current_name}, index={now_save_file}")
+                    # Soft Panel 点开始成功：绝对时间锚点
+                    _wt_gather_start_wall = time.time()
                     try:
                         _set_run_progress_round(now_save_file, "进行中", note=f"测量中: {current_name}")
                     except Exception:
@@ -31018,10 +31024,11 @@ def testing_stop(test_count, count_now):
             if not _round:
                 _round = str(globals().get("save_file_name") or "").strip()
             _merge_wt_round_csv_if_needed(_round)
-            # Soft Panel 常留空 FreqU-SIGMA：用元素频率均值回填
+            # Soft Panel：回填空 Freq*-SIGMA，并写入 Abs Time（对齐德威创）
             try:
                 from utils.wt_csv_merge import candidate_save_dirs
                 from utils.wt_csv_sigma_fill import fill_recent_csvs_in_dirs
+                from utils.wt_csv_abs_time import inject_abs_time_in_dirs
 
                 _cfg = config_dict if isinstance(config_dict, dict) else {}
                 _dirs = candidate_save_dirs(
@@ -31038,8 +31045,17 @@ def testing_stop(test_count, count_now):
                     _append_debug_log(
                         f"[testing_stop] filled empty Freq*-SIGMA in: {_filled}"
                     )
+                _wall = float(globals().get("_wt_gather_start_wall") or 0.0)
+                if _wall > 0:
+                    _absed = inject_abs_time_in_dirs(
+                        _dirs, _wall, name_hint=_round, limit=4
+                    )
+                    if _absed:
+                        _append_debug_log(
+                            f"[testing_stop] injected Abs Time in: {_absed}"
+                        )
             except Exception as _sig_exc:
-                _append_debug_log(f"[testing_stop][warn] sigma fill skipped: {_sig_exc}")
+                _append_debug_log(f"[testing_stop][warn] sigma/abs fill skipped: {_sig_exc}")
         except Exception as e:
             _append_debug_log(f"[testing_stop][warn] merge hook failed: {e}")
         

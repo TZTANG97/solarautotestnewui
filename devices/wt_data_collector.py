@@ -125,7 +125,8 @@ class WtScpiCollector:
             headers = [macro_column_name(tok, header_style) for tok in accepted]
         except Exception:
             headers = list(accepted)
-        self._header = ["Time [s]"] + headers
+        # 与德威创一致：Abs Time + Time [s]
+        self._header = ["Abs Time", "Time [s]"] + headers
         self._info(
             f"WT SCPI prepare OK: rate={self._rate_ms}ms, items={len(accepted)}"
         )
@@ -155,6 +156,20 @@ class WtScpiCollector:
     def total_rows(self) -> int:
         with self._rows_lock:
             return len(self._rows)
+
+    def sample_once(self) -> bool:
+        """后台线程没采到点时，停表前再读一次 VALUE?。"""
+        raw = self._query(":NUMERIC:NORMAL:VALUE?")
+        if not raw:
+            return False
+        values = self._parse_values(raw)
+        if values is None:
+            return False
+        start = self._gather_start or time.time()
+        elapsed = max(0.0, time.time() - start)
+        with self._rows_lock:
+            self._rows.append((elapsed, values))
+        return True
 
     def get_rows(self) -> List[Tuple[float, List[float]]]:
         with self._rows_lock:
@@ -269,14 +284,33 @@ class WtScpiCollector:
         folder = os.path.dirname(path)
         if folder:
             os.makedirs(folder, exist_ok=True)
+        try:
+            from utils.wt_csv_abs_time import format_wall_time_for_csv
+        except Exception:
+            format_wall_time_for_csv = None  # type: ignore
+        start = float(self._gather_start or 0.0)
+        header = list(self._header or [])
+        if not header or str(header[0]).strip().casefold() not in (
+            "abs time",
+            "abs_time",
+            "absolute time",
+        ):
+            header = ["Abs Time", "Time [s]"] + list(self._items or [])
         with open(path, "w", newline="", encoding="utf-8-sig") as handle:
             writer = csv.writer(handle)
-            writer.writerow(self._header or (["Time [s]"] + self._items))
+            writer.writerow(header)
             for t_s, values in rows:
+                abs_cell = ""
+                if format_wall_time_for_csv is not None and start > 0:
+                    try:
+                        abs_cell = format_wall_time_for_csv(start + float(t_s))
+                    except (TypeError, ValueError):
+                        abs_cell = ""
                 writer.writerow(
-                    [f"{t_s:.4f}"] + [f"{v:.7f}" if v == v else "" for v in values]
+                    [abs_cell, f"{t_s:.4f}"]
+                    + [f"{v:.7f}" if v == v else "" for v in values]
                 )
-        self._info(f"WT SCPI CSV exported: {path} ({len(rows)} rows)")
+        self._info(f"WT SCPI CSV exported: {path} ({len(rows)} rows, Abs Time)")
         return path
 
     def last_error(self) -> str:
