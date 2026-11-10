@@ -69,6 +69,8 @@ _ALIASES = {
     # UI 中文名 → 连续录文件名表 key（心跳结案扫 wt_save 依赖）
     "静态qu": "staticqu",
     "动态qu": "dynamicqu",
+    "无功能力范围": "reactiveqcap",
+    "无功能力": "reactiveqcap",
     "test_pu": "testpu",
     "静态cos(φ)": "staticcosphi",
     "静态cosφ": "staticcosphi",

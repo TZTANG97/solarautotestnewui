@@ -266,6 +266,40 @@ def _is_measurement_csv(name: str) -> bool:
     return True
 
 
+# Soft Panel/SCPI 极短打断常写出 header+1 行；这种文件跑 headless 必失败却曾被当 success。
+_MIN_MEASUREMENT_DATA_ROWS = 3
+
+
+def _csv_data_row_count(path: Path) -> int:
+    """量测 CSV 的数据行数（不含表头）。读失败返回 -1。"""
+    try:
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as f:
+            lines = 0
+            for i, line in enumerate(f):
+                if i == 0:
+                    continue
+                if str(line).strip():
+                    lines += 1
+            return lines
+    except OSError:
+        return -1
+
+
+def _usable_measurement_csvs(input_dir: Path) -> List[tuple]:
+    """目录内数据行数达标的量测 CSV。"""
+    out: List[tuple] = []
+    try:
+        for p in sorted(input_dir.glob("*.csv")):
+            if not _is_measurement_csv(p.name):
+                continue
+            n = _csv_data_row_count(p)
+            if n >= _MIN_MEASUREMENT_DATA_ROWS:
+                out.append((p, n))
+    except OSError:
+        return []
+    return out
+
+
 def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
     summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
     # 显式目录
@@ -291,6 +325,8 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
             prefer_keys = ("qu_dyn_curve", "dynamicqu")
         elif tt in ("ovuf", "guoqianya_pin", "过欠压", "过欠压_过欠频", "volt_freq"):
             prefer_keys = ("ovuf", "guoqianya", "over_under", "volt_freq")
+        elif tt in ("reactiveqcap", "无功能力范围", "qcap"):
+            prefer_keys = ("qcap", "reactiveqcap", "无功")
         else:
             prefer_keys = (tt,) if tt else ()
     files = summary.get("report_files") or summary.get("reportFiles") or []
@@ -407,7 +443,10 @@ def run_analysis_after_job(
     timeout_sec: float = 600.0,
 ) -> Dict[str, Any]:
     """
-    结案成功时尝试跑数据处理。失败只记日志/摘要，不改写任务 success/failed。
+    结案成功时尝试跑数据处理。
+
+    本函数只写 ``result_summary.data_analysis``；是否把任务从 success 降为 failed
+    由 ``iot_ui_handoff._finish_job`` 根据返回值决定（避免单帧 CSV 仍报 success）。
     """
     info: Dict[str, Any] = {"ran": False, "skipped": True, "reason": ""}
     status = str(result.get("status") or "").lower()
@@ -460,6 +499,30 @@ def run_analysis_after_job(
         info["reason"] = "未找到 CSV 输入目录"
         _store_analysis_meta(result, info)
         return info
+
+    usable = _usable_measurement_csvs(Path(input_dir))
+    if not usable:
+        # 典型：QCap_BR_*.csv 仅 header+1 行（Soft Panel/SCPI 极短停表）
+        short_notes = []
+        try:
+            for p in sorted(Path(input_dir).glob("*.csv")):
+                if not _is_measurement_csv(p.name):
+                    continue
+                n = _csv_data_row_count(p)
+                short_notes.append(f"{p.name}:{n}行")
+        except OSError:
+            pass
+        detail = ("；".join(short_notes[:6]) if short_notes else str(input_dir))
+        info["reason"] = (
+            f"录波 CSV 数据行不足（需>={_MIN_MEASUREMENT_DATA_ROWS}）: {detail}"
+        )
+        info["input_dir"] = str(input_dir)
+        info["quality"] = "too_few_rows"
+        logger.warning("结案分析跳过: %s", info["reason"])
+        _store_analysis_meta(result, info)
+        return info
+    info["input_dir"] = str(input_dir)
+    info["csv_files"] = [str(p) for p, _n in usable]
 
     params = _collect_analysis_params(job)
     summary0 = (

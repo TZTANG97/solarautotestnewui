@@ -260,6 +260,7 @@ def run_measure_blocking(
         return False
 
     exported_ok = False
+    gather_started = time.time()
     try:
         while True:
             if callable(stop_event_check) and stop_event_check():
@@ -279,8 +280,16 @@ def run_measure_blocking(
             except Exception as cb_exc:
                 print(f"[wt_scpi_session] on_stopped failed: {cb_exc}")
         exported = None
+        rows_before = 0
         try:
-            if collector.total_rows() <= 0:
+            rows_before = int(collector.total_rows() or 0)
+        except Exception:
+            rows_before = 0
+        # 极短打断（WAIT_END 几乎立刻到）时不要 sample_once 造「单帧有效」CSV
+        gathered_sec = max(0.0, time.time() - gather_started)
+        allow_sample_once = rows_before <= 0 and gathered_sec >= 0.4
+        try:
+            if rows_before <= 0 and allow_sample_once:
                 collector.sample_once()
             exported = collector.export_to_csv(csv_path or None)
         except Exception as exc:
@@ -297,13 +306,26 @@ def run_measure_blocking(
             rows = collector.total_rows()
         except Exception:
             rows = 0
-        print(f"[wt_scpi_session] done rows={rows} stats={stats} csv={_last_csv or csv_path}")
+        print(
+            f"[wt_scpi_session] done rows={rows} gathered={gathered_sec:.2f}s "
+            f"stats={stats} csv={_last_csv or csv_path}"
+        )
+        # 单帧/空表不算成功：否则 IOT 会拿去跑分析 → exit=1 却仍写 success
+        min_ok_rows = 2
         if not _last_csv:
             _last_error = (
                 collector.last_error()
                 or f"采到 {rows} 行，未生成 CSV（目标 {csv_path or '-'}）"
             )
             print(f"[wt_scpi_session] {_last_error}")
+        elif rows < min_ok_rows:
+            _last_error = (
+                f"录波过短仅 {rows} 行（需>={min_ok_rows}），拒绝作为有效 CSV: "
+                f"{_last_csv}"
+            )
+            print(f"[wt_scpi_session] {_last_error}")
+            _last_csv = ""
+            exported_ok = False
         else:
             exported_ok = True
         _active = False

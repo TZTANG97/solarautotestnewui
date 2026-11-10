@@ -1614,13 +1614,54 @@ class IotUiHandoffService(QObject):
             ana = run_analysis_after_job(
                 repo_root=self.repo_root, job=job_snap, result=result
             )
+            csv_hint = (
+                ana.get("input_dir")
+                or (ana.get("csv_files") or [None])[0]
+                or ""
+            )
             if ana.get("ran") or ana.get("reason"):
                 self._log(
                     f"数据处理 {'OK' if ana.get('success') else 'skip'}: "
                     f"{ana.get('reason') or ana.get('target')}"
+                    + (f" csv={csv_hint}" if csv_hint else "")
                 )
+            # 试验队列跑完曾一律 success；单帧/分析失败时要降级，避免云端误判合格
+            if str(result.get("status") or "").lower() in ("success", "ok"):
+                if ana.get("ran") and not ana.get("success"):
+                    result["status"] = "failed"
+                    result["fail_reason"] = (
+                        f"数据处理失败: {ana.get('reason') or 'exit!=0'}"
+                    )[:512]
+                elif (not ana.get("ran")) and ana.get("quality") == "too_few_rows":
+                    result["status"] = "failed"
+                    result["fail_reason"] = (
+                        f"录波无效: {ana.get('reason') or 'CSV 数据行不足'}"
+                    )[:512]
         except Exception as exc:
             self._log(f"数据处理跳过: {exc}")
+        try:
+            summary = result.get("result_summary")
+            if isinstance(summary, dict):
+                rf = summary.get("report_files") or summary.get("reportFiles") or []
+                paths = []
+                for item in rf[:8]:
+                    if isinstance(item, dict):
+                        paths.append(str(item.get("path") or item.get("file") or ""))
+                    else:
+                        paths.append(str(item or ""))
+                paths = [p for p in paths if p]
+                if paths:
+                    self._log("导出文件: " + " | ".join(paths))
+                elif summary.get("analysis_input_dir") or summary.get("analysisInputDir"):
+                    self._log(
+                        "导出目录: "
+                        + str(
+                            summary.get("analysis_input_dir")
+                            or summary.get("analysisInputDir")
+                        )
+                    )
+        except Exception:
+            pass
         for root in self._write_roots_for(pending_path):
             try:
                 write_result(root, job_id, result)

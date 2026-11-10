@@ -30838,7 +30838,9 @@ def messure_testing():
                     # 成功开始后，按 loop_time 等待；结束试验 / 连续录 WAIT_END / 截止时刻应立刻停表
                     aborted = False
                     early_stop = False
+                    waited_ticks = 0
                     for j in range(loop_time):
+                        waited_ticks = j
                         if strTestStatusFlag == "结束":
                             aborted = True
                             _append_debug_log(
@@ -30864,6 +30866,23 @@ def messure_testing():
                             time.sleep(0.1)
                             continue
                         time.sleep(0.1)
+                    else:
+                        waited_ticks = loop_time
+                    if early_stop and waited_ticks <= 1:
+                        # Soft Panel 几乎未采点就 testing_stop，常落成 header+1 行 CSV
+                        try:
+                            ui_obj = globals().get("ui")
+                            if ui_obj is not None:
+                                ui_obj.textEdit_ReturnMessage.append(
+                                    "[功率分析仪] 连续录几乎未采点即停表，CSV 可能只有 1 帧，"
+                                    "请检查 ASYNC/WAIT_END 间距与 Soft Panel 连接"
+                                )
+                        except Exception:
+                            pass
+                        _append_debug_log(
+                            f"[messure_testing][warn] early_stop at tick={waited_ticks}/"
+                            f"{loop_time} — expect short CSV"
+                        )
 
                     # 标记：下一轮进入前需要重新写入详细参数（如文件名/时间）
                     messsure_deatil_cofig = '0'
