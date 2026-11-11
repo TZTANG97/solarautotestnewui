@@ -84,6 +84,32 @@ def _analysis_python(root: Path) -> Path:
     return Path(sys.executable)
 
 
+def _analysis_deps_ok(py: Path) -> bool:
+    """结案最小依赖：openpyxl + pandas（写报告必须）。"""
+    try:
+        proc = subprocess.run(
+            [str(py), "-c", "import openpyxl, pandas"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace",
+        )
+        return proc.returncode == 0
+    except Exception:
+        return False
+
+
+def _ensure_analysis_deps(py: Path) -> Optional[str]:
+    """结案前只检查依赖，不在任务线程里 pip/uv 安装（工控机会卡数分钟）。"""
+    if _analysis_deps_ok(py):
+        return None
+    return (
+        f"分析环境缺少 openpyxl/pandas（解释器 {py}）。"
+        "请更新到含这些依赖的安装包后重开软件，让启动更新完成 uv sync"
+    )
+
+
 def _job_params(job: Dict[str, Any]) -> Dict[str, Any]:
     return job.get("params") if isinstance(job.get("params"), dict) else {}
 
@@ -852,6 +878,13 @@ def run_analysis_after_job(
         script = root / "run_headless.py"
     if not script.is_file():
         info["reason"] = f"缺少无头脚本: {root / 'CEI' / 'run_headless.py'}"
+        _store_analysis_meta(result, info)
+        return info
+    dep_err = _ensure_analysis_deps(py)
+    if dep_err:
+        info["reason"] = dep_err
+        info["python"] = str(py)
+        logger.warning("结案分析跳过: %s", dep_err)
         _store_analysis_meta(result, info)
         return info
     # cwd 必须是 CEI 目录（含 src/mypkg）
