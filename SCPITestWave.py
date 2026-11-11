@@ -31035,9 +31035,14 @@ def testing_stop(test_count, count_now):
                     _cfg.get("textEdit_SavePath") or "",
                     extra=[os.path.abspath("."), os.getcwd()],
                 )
+                _wall = float(globals().get("_wt_gather_start_wall") or 0.0)
+                # 没记到开录时刻时，只看停录前 90 秒内的文件，避免扫到上一轮 QCap
+                _floor = _wall if _wall > 0 else (time.time() - 90.0)
                 _filled = []
                 for _ in range(5):
-                    _filled = fill_recent_csvs_in_dirs(_dirs, name_hint=_round, limit=4)
+                    _filled = fill_recent_csvs_in_dirs(
+                        _dirs, name_hint=_round, limit=1, min_mtime=_floor
+                    )
                     if _filled:
                         break
                     time.sleep(0.4)
@@ -31045,10 +31050,9 @@ def testing_stop(test_count, count_now):
                     _append_debug_log(
                         f"[testing_stop] filled empty Freq*-SIGMA in: {_filled}"
                     )
-                _wall = float(globals().get("_wt_gather_start_wall") or 0.0)
                 if _wall > 0:
                     _absed = inject_abs_time_in_dirs(
-                        _dirs, _wall, name_hint=_round, limit=4
+                        _dirs, _wall, name_hint=_round, limit=1, min_mtime=_floor
                     )
                     if _absed:
                         _append_debug_log(

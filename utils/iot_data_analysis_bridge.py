@@ -365,12 +365,10 @@ def _stage_clean_analysis_input(
     if keys and not preferred:
         return Path(input_dir)
     chosen = preferred or [p for p, _n in usable]
-    # 同名优先最新
-    chosen = sorted(
-        chosen,
-        key=lambda p: p.stat().st_mtime if p.exists() else 0,
-        reverse=True,
-    )
+    from utils.wt_csv_sigma_fill import recording_rank
+
+    # 文件名时刻优先于 mtime（旧 QCap 被回填后 mtime 会比本轮文件更新）
+    chosen = sorted(chosen, key=recording_rank, reverse=True)
     # 连续录通常只要最新一份 QCap_BR
     if keys and any("qcap" in k for k in keys):
         br = [p for p in chosen if "qcap_br" in p.name.lower()]
@@ -849,23 +847,25 @@ def run_analysis_after_job(
     # subprocess cwd 在分析项目 CEI/ 下，必须用绝对路径，否则报告落到错误目录
     input_dir = Path(input_dir).resolve()
     out_dir = out_dir.resolve()
-    # Soft Panel SavePath 常共用（如 D:\xiebodianliu_test）：只 staging 本试验 CSV
-    try:
-        from utils.wt_csv_sigma_fill import fill_empty_sigma_freq_columns
-
-        for p, _n in usable:
-            try:
-                fill_empty_sigma_freq_columns(p)
-            except Exception:
-                pass
-    except Exception:
-        pass
+    staging_dir = out_dir / "_input_staging"
+    # Soft Panel SavePath 常共用：只拷本试验最新 CSV，再在副本上回填 SIGMA，不改源目录旧文件
     staged = _stage_clean_analysis_input(
         input_dir,
         prefer_keys=prefer_keys,
-        staging_dir=out_dir / "_input_staging",
+        staging_dir=staging_dir,
     )
     input_dir = Path(staged).resolve()
+    if input_dir == staging_dir.resolve():
+        try:
+            from utils.wt_csv_sigma_fill import fill_empty_sigma_freq_columns
+
+            for p in input_dir.glob("*.csv"):
+                try:
+                    fill_empty_sigma_freq_columns(p)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     info["input_dir"] = str(input_dir)
     info["csv_files"] = [
         str(p) for p in sorted(input_dir.glob("*.csv")) if _is_measurement_csv(p.name)

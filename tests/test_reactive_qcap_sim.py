@@ -182,6 +182,37 @@ def test_continuous_async_single_file(qcap_ui):
     assert len(slot9_waits) >= 4  # 2 power × 2 cos
 
 
+def test_later_power_points_reselect_chroma_curve(qcap_ui):
+    """100/66/33 每一档都要重发 IVCurve:SELect，否则致茂输出停在第一档。"""
+    ui, _dialog = qcap_ui
+    _fill_step1_single(ui, dc1=True)
+    ui.checkBox_S2.setChecked(False)
+    _fill_ladder(ui, "100,66,33", dwell="60", unit="秒", record_mode="continuous")
+    ui.checkBox_cos_pos09.setChecked(False)
+    ui.checkBox_cos_neg09.setChecked(False)
+    ui.checkBox_cos_1.setChecked(True)
+    ui.checkBox_S_END.setChecked(False)
+
+    plan = build_reactive_qcap_plan(
+        ui,
+        wt_config_dict={},
+        str_add_flag="0",
+        dc_iv_resolver=default_dc_iv_resolver,
+    )
+    assert plan["ok"] is True
+    dc_writes = [str(r[2]) for r in plan["commands"] if r[0] == "DC1" and r[1] == "write"]
+    selects = [w for w in dc_writes if "SELect" in w]
+    modes = [w for w in dc_writes if w == "OUTP:MODE TABLE"]
+    its = [w for w in dc_writes if w.startswith("IVC:IT")]
+    # 启机 100% + 阶梯三档
+    assert len(selects) == 4
+    assert len(modes) == 2
+    assert len(its) == 4
+    assert "10.000" in its[1] and "12.000" in its[1]
+    assert "6.600" in its[2] and "7.920" in its[2]
+    assert "3.300" in its[3] and "3.960" in its[3]
+
+
 def test_requires_cos_selection(qcap_ui):
     ui, _dialog = qcap_ui
     _fill_step1_single(ui)

@@ -8,8 +8,20 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
+
+
+def recording_rank(path: Path) -> tuple:
+    """文件名末尾 HHMMSS 优先于 mtime。旧录波被改写后 mtime 会变成最新。"""
+    match = re.search(r"(\d{6})$", Path(path).stem)
+    stamp = int(match.group(1)) if match else -1
+    try:
+        mtime = Path(path).stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    return (stamp, mtime)
 
 
 def _mean_or_blank(vals: Sequence[str]) -> str:
@@ -97,9 +109,14 @@ def fill_recent_csvs_in_dirs(
     *,
     name_hint: str = "",
     limit: int = 8,
+    min_mtime: float = 0.0,
 ) -> List[str]:
-    """在保存目录里找最近 CSV（可按文件名 hint）并回填空 SIGMA。"""
+    """在保存目录里找最近 CSV（可按文件名 hint）并回填空 SIGMA。
+
+    min_mtime>0 时只处理本轮开录之后的文件，避免改写同目录旧录波并把它的 mtime 刷进本轮。
+    """
     hint = str(name_hint or "").strip().lower()
+    floor = float(min_mtime or 0.0)
     cands: List[Path] = []
     for d in dirs:
         root = Path(d) if d else None
@@ -111,10 +128,16 @@ def fill_recent_csvs_in_dirs(
                     continue
                 if hint and hint not in p.name.lower():
                     continue
+                if floor > 0:
+                    try:
+                        if p.stat().st_mtime < floor - 2.0:
+                            continue
+                    except OSError:
+                        continue
                 cands.append(p)
         except OSError:
             continue
-    cands.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
+    cands.sort(key=recording_rank, reverse=True)
     filled: List[str] = []
     for p in cands[: max(1, int(limit))]:
         try:

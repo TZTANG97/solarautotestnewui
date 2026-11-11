@@ -125,9 +125,14 @@ def inject_abs_time_in_dirs(
     *,
     name_hint: str = "",
     limit: int = 8,
+    min_mtime: float = 0.0,
 ) -> List[str]:
-    """对保存目录内最近 CSV 注入 Abs Time。"""
+    """对保存目录内最近 CSV 注入 Abs Time。
+
+    min_mtime>0 时只处理本轮开录之后的文件。
+    """
     hint = str(name_hint or "").strip().lower()
+    floor = float(min_mtime or 0.0)
     cands: List[Path] = []
     for d in dirs:
         root = Path(d) if d else None
@@ -137,12 +142,20 @@ def inject_abs_time_in_dirs(
             for p in root.glob("*.csv"):
                 if not p.is_file():
                     continue
+                if floor > 0:
+                    try:
+                        if p.stat().st_mtime < floor - 2.0:
+                            continue
+                    except OSError:
+                        continue
                 if hint and hint not in p.name.lower():
                     continue
                 cands.append(p)
         except OSError:
             continue
-    cands.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
+    from utils.wt_csv_sigma_fill import recording_rank
+
+    cands.sort(key=recording_rank, reverse=True)
     done: List[str] = []
     for p in cands[: max(1, int(limit))]:
         try:

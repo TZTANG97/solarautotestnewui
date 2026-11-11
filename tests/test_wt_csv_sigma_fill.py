@@ -22,6 +22,69 @@ def test_fill_empty_frequ_sigma(tmp_path: Path):
     assert abs(float(row1[-1]) - 49.9983333) < 1e-5
 
 
+def test_stage_qcap_prefers_filename_stamp_over_touched_mtime(tmp_path: Path):
+    import os
+    import time
+
+    src = tmp_path / "save"
+    src.mkdir()
+    old = src / "QCap_BR_222708.csv"
+    new = src / "QCap_BR_224530.csv"
+    body = "Time [s],P-SIGMA\n" + "\n".join(f"{i},1000" for i in range(10))
+    old.write_text(body, encoding="utf-8")
+    new.write_text(body, encoding="utf-8")
+    now = time.time()
+    os.utime(new, (now - 30, now - 30))
+    os.utime(old, (now, now))
+    staging = tmp_path / "stage"
+    out = _stage_clean_analysis_input(
+        src, prefer_keys=_prefer_keys_for_test("reactiveqcap"), staging_dir=staging
+    )
+    names = sorted(p.name for p in out.glob("*.csv"))
+    assert names == ["QCap_BR_224530.csv"]
+
+
+def test_fill_recent_prefers_filename_stamp_when_both_in_window(tmp_path: Path):
+    import os
+    import time
+
+    from utils.wt_csv_sigma_fill import fill_recent_csvs_in_dirs
+
+    header = "Time [s],FreqU-1,FreqU-2,FreqU-3,FreqU-SIGMA\n"
+    rows = "0.1,50,50,50,\n0.2,50,50,50,\n0.3,50,50,50,\n"
+    old = tmp_path / "QCap_BR_222708.csv"
+    new = tmp_path / "QCap_BR_224530.csv"
+    old.write_text(header + rows, encoding="utf-8-sig")
+    new.write_text(header + rows, encoding="utf-8-sig")
+    now = time.time()
+    os.utime(new, (now - 20, now - 20))
+    os.utime(old, (now, now))
+    filled = fill_recent_csvs_in_dirs(
+        [tmp_path], name_hint="QCap_BR", limit=1, min_mtime=now - 60
+    )
+    assert [Path(p).name for p in filled] == ["QCap_BR_224530.csv"]
+    assert old.read_text(encoding="utf-8-sig").splitlines()[1].endswith(",")
+
+
+def test_fill_recent_skips_files_before_gather(tmp_path: Path):
+    import time
+
+    from utils.wt_csv_sigma_fill import fill_recent_csvs_in_dirs
+
+    old = tmp_path / "QCap_BR_222708.csv"
+    old.write_text(
+        "Time [s],FreqU-1,FreqU-2,FreqU-3,FreqU-SIGMA\n"
+        "0.1,50,50,50,\n0.2,50,50,50,\n0.3,50,50,50,\n",
+        encoding="utf-8-sig",
+    )
+    before = old.stat().st_mtime
+    filled = fill_recent_csvs_in_dirs(
+        [tmp_path], name_hint="QCap_BR", limit=4, min_mtime=time.time() + 5
+    )
+    assert filled == []
+    assert old.stat().st_mtime == before
+
+
 def test_stage_qcap_ignores_harmonic_noise(tmp_path: Path):
     src = tmp_path / "save"
     src.mkdir()

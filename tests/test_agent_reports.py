@@ -82,6 +82,36 @@ def test_collect_includes_staticqu_wt_save_csv(tmp_path: Path) -> None:
     assert "QU_curve_old.csv" not in names
 
 
+def test_collect_keeps_only_latest_qcap_csv(tmp_path: Path) -> None:
+    job_id = 128
+    save = tmp_path / "save"
+    save.mkdir()
+    body = "Time [s],P\n" + "\n".join(f"{i},1000" for i in range(5))
+    for name in ("QCap_BR_193903.csv", "QCap_BR_222708.csv", "QCap_BR_224530.csv"):
+        (save / name).write_text(body, encoding="utf-8")
+    write_result(
+        tmp_path,
+        job_id,
+        {"status": "failed", "result_summary": {"elapsed_sec": 300}},
+    )
+    files = collect_report_files(
+        tmp_path,
+        job_id,
+        {
+            "result_summary": {
+                "elapsed_sec": 300,
+                "testType": "reactiveqcap",
+                "widgets": {"textEdit_SavePath": str(save)},
+                "report_files": [str(save / "QCap_BR_224530.csv")],
+            }
+        },
+    )
+    names = {p.name for p in files}
+    assert "QCap_BR_224530.csv" in names
+    assert "QCap_BR_222708.csv" not in names
+    assert "QCap_BR_193903.csv" not in names
+
+
 def test_collect_includes_recent_flicker_image(tmp_path: Path) -> None:
     import os
     import time

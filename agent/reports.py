@@ -179,6 +179,45 @@ def _flicker_image_roots(repo_root: Path, result: Dict[str, Any] | None = None) 
     return uniq
 
 
+def _keep_latest_token_csv(paths: List[Path], token: str) -> List[Path]:
+    """连续录波同名多份时只留本轮那一份，避免把 SavePath 里的旧 CSV 都当成报告。"""
+    token_l = str(token or "").strip().lower()
+    if not token_l:
+        return paths
+    matched = [
+        p
+        for p in paths
+        if p.suffix.lower() == ".csv" and token_l in p.name.lower()
+    ]
+    if len(matched) <= 1:
+        return paths
+    from utils.wt_csv_sigma_fill import recording_rank
+
+    best = max(matched, key=recording_rank)
+    try:
+        best_key = best.resolve()
+    except OSError:
+        best_key = best
+    drop = set()
+    for path in matched:
+        try:
+            key = path.resolve()
+        except OSError:
+            key = path
+        if key != best_key:
+            drop.add(key)
+    kept: List[Path] = []
+    for path in paths:
+        try:
+            key = path.resolve()
+        except OSError:
+            key = path
+        if key in drop:
+            continue
+        kept.append(path)
+    return kept
+
+
 def recording_token_for_test(test_name: str) -> str:
     """已知试验的连续录波文件名片段。对不上返回空，避免误收其它任务文件。"""
     raw = str(test_name or "").strip()
@@ -406,5 +445,6 @@ def collect_report_files(
             continue
         seen.add(resolved)
         resolved_list.append(resolved)
+    resolved_list = _keep_latest_token_csv(resolved_list, token)
     resolved_list.sort(key=_priority)
     return resolved_list[:_MAX_FILES]

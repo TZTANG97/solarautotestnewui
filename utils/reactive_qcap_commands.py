@@ -64,6 +64,17 @@ def _row_device_write(device, cmd):
     return row
 
 
+def _skip_on_later_power_point(cmd):
+    """后续功率档不再重发「进入表格模式」，但必须重发曲线生效命令。
+
+    致茂改完 IVC:IT / IVC:VT 后若不重发 IVCurve:SELect，输出口仍停在上一档。
+    """
+    text = str(cmd or "").upper()
+    if "SELECT" in text:
+        return False
+    return "MODE" in text
+
+
 def parse_power_ladder(text):
     vals = []
     for tok in re.split(r"[,，\s]+", (text or "").strip()):
@@ -346,9 +357,7 @@ def build_reactive_qcap_plan(
                         dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
                     elif code == "ok" and iv_cmds:
                         for cmd in iv_cmds:
-                            if point_index > 0 and (
-                                "MODE" in cmd or "SELect" in cmd or "SAS:MODE" in cmd
-                            ):
+                            if point_index > 0 and _skip_on_later_power_point(cmd):
                                 continue
                             row = _row_device_write(device, cmd)
                             commands.append(row)
