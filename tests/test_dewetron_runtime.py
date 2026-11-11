@@ -95,6 +95,14 @@ class FakeController:
         self.state = 'Stopped'
         return True
 
+    def start_acquisition(self):
+        self.sent.append(':ACQUISITION:START')
+        # 默认不改 state，由用例控制「延迟进入 Started」
+        return True
+
+    def wait_scpi_ready(self, attempts=6, delay_seconds=0.8, timeout_ms=3000):
+        return True
+
 
 @pytest.fixture(scope='module')
 def qapp():
@@ -264,11 +272,15 @@ def test_start_state_validation_and_idempotent_lifecycle(runtime):
     assert len(collector.get_batch_runs(collector.current_batch()['id'])) == 1
 
     controller.state = 'Stopped'
-    assert not collector.on_acquisition_started()
+    assert not collector.on_acquisition_started(
+        timeout_s=0.5, poll_s=0.05, retry_start=False
+    )
     assert not collector.is_gather.is_set()
+    # start_gathering 在失败后会清 ready；再采需重新准备
+    assert collector.start_gathering()
 
     controller.state = 'Started'
-    assert collector.on_acquisition_started()
+    assert collector.on_acquisition_started(timeout_s=1.0, poll_s=0.05)
     assert collector.is_gather.is_set()
     assert collector.stop_gathering()
     assert collector.current_run() is None
@@ -623,7 +635,7 @@ def test_export_truncates_values_to_header(tmp_path):
     with open(out, encoding='utf-8-sig', newline='') as source:
         rows = list(csv.reader(source))
     assert rows[0] == ['Time [s]', 'U1_tRMS [V]@AC']
-    assert rows[1] == ['1.0000', '12.5000000']
+    assert rows[1] == ['1.0000', '12.5000']
     collector.stop()
 
 
@@ -657,6 +669,75 @@ def test_channel_values_json_roundtrip_with_nan():
     assert legacy[2] == pytest.approx(2.0)
 
 
+def test_channel_values_json_keeps_abs_time():
+    from devices.dewetron_data_collector import (
+        dumps_channel_values,
+        loads_abs_time,
+        loads_channel_values,
+    )
+
+    raw = dumps_channel_values([230.0, 10.0], abs_time="2026-03-21T10:11:12.345")
+    assert loads_abs_time(raw) == "2026-03-21T10:11:12.345"
+    assert loads_channel_values(raw)[0] == pytest.approx(230.0)
+    # 旧纯数组无 abs
+    assert loads_abs_time("[1.0, 2.0]") == ""
+
+
+def test_export_csv_includes_abs_time_column(tmp_path):
+    controller = FakeController(channels=["U1_tRMS@AC", "I1_tRMS@AC"])
+    collector = DewetronDataCollector(
+        controller, FakeLogger(), str(tmp_path / "abs_export.sqlite")
+    )
+    assert collector.prepare(
+        ["U1_tRMS", "I1_tRMS"],
+        "100",
+        "flicker",
+        str(tmp_path / "abs.csv"),
+        export_abs_time=True,
+    ).success
+    assert collector._csv_header[0] == "Abs Time"
+    assert collector._csv_header[1] == "Time [s]"
+    run_id = collector.begin_run()
+    with collector._db_lock:
+        from devices.dewetron_data_collector import dumps_channel_values
+
+        collector._conn.execute(
+            "INSERT INTO de_data (run_id, seq, time, channel_values) VALUES (?, ?, ?, ?)",
+            (
+                run_id,
+                0,
+                0.1,
+                dumps_channel_values(
+                    [float("nan"), float("nan")], abs_time="T0"
+                ),
+            ),
+        )
+        collector._conn.execute(
+            "INSERT INTO de_data (run_id, seq, time, channel_values) VALUES (?, ?, ?, ?)",
+            (
+                run_id,
+                1,
+                0.3,
+                dumps_channel_values(
+                    [230.0, 10.0], abs_time="2026-01-02T03:04:05.678+08:00"
+                ),
+            ),
+        )
+        collector._conn.commit()
+    out = tmp_path / "with_abs.csv"
+    assert collector.export_run_to_csv(run_id, str(out))
+    with open(out, encoding="utf-8-sig", newline="") as source:
+        rows = list(csv.reader(source))
+    assert rows[0][0] == "Abs Time"
+    assert rows[0][1] == "Time [s]"
+    # 开头全 NaN 行被 trim；Abs Time 跟剩余行对齐，并规范成 Excel 友好格式
+    assert len(rows) == 2
+    assert rows[1][0] == "2026/01/02 03:04:05.678"
+    assert rows[1][1] == "0.0000"
+    assert rows[1][2].startswith("230.")
+    collector.stop()
+
+
 def test_export_keeps_rows_that_contain_nan(tmp_path):
     import math
 
@@ -686,6 +767,6 @@ def test_export_keeps_rows_that_contain_nan(tmp_path):
     with open(out, encoding="utf-8-sig", newline="") as source:
         rows = list(csv.reader(source))
     assert len(rows) == 3  # header + 2 data
-    assert rows[1][1] == "230.0000000"
-    assert rows[2][1] == "231.0000000"
+    assert rows[1][1] == "230.0000"
+    assert rows[2][1] == "231.0000"
     collector.stop()

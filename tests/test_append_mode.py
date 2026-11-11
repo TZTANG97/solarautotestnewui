@@ -10,6 +10,7 @@ from utils.append_mode import (
     ensure_queue_end_marker,
     finalize_successful_append,
     resolve_append_mode,
+    should_refresh_progress_on_project_switch,
 )
 from utils.test_queue_markers import is_queue_end_row, parse_queue_segments
 
@@ -92,6 +93,89 @@ def test_cross_project_does_not_wipe():
     assert flag == "1"
     assert change == "1"
     assert label == "跨项追加"
+
+
+def test_open_other_dialog_must_not_rewrite_project_now():
+    """回归：开「过欠压」页不得把 project_now 改成过欠压，否则下一追加覆盖谐波队列。"""
+    g = {
+        "strArrayTest": [
+            ["AC", "write", "OUTP ON"],
+            ["QUEUE", "end_test", "谐波电流", "0", "", "", "", "", "", ""],
+        ],
+        "project_now": "谐波电流",
+        "strAddTestFlag": "1",
+    }
+    # 模拟旧 bug：chooseDetailDialog 把 project_now 写成当前下拉
+    poisoned = dict(g)
+    poisoned["project_now"] = "过欠压_过欠频"
+    poisoned["strAddTestFlag"] = "0"
+    bad = resolve_append_mode(
+        project_name="过欠压_过欠频",
+        local_count=0,
+        queue=poisoned["strArrayTest"],
+        project_now=poisoned["project_now"],
+    )
+    assert bad[2] == "覆盖"
+
+    # 正确：开页不改 project_now
+    good = resolve_append_mode(
+        project_name="过欠压_过欠频",
+        local_count=0,
+        queue=g["strArrayTest"],
+        project_now=g["project_now"],
+    )
+    assert good == ("1", "1", "跨项追加")
+
+
+def test_switch_project_keeps_queue_progress_action():
+    assert (
+        should_refresh_progress_on_project_switch(
+            current_count=0, queue=[["AC"]], running=False
+        )
+        == "keep_queue"
+    )
+    assert (
+        should_refresh_progress_on_project_switch(
+            current_count=0, queue=[], running=False
+        )
+        == "clear"
+    )
+    assert (
+        should_refresh_progress_on_project_switch(
+            current_count=2, queue=[["AC"]], running=False
+        )
+        == "rebuild"
+    )
+
+
+def test_cross_project_two_segments_then_run_order():
+    """谐波 → 过欠压：两段 QUEUE 标记保留，命令顺序不断档。"""
+    g = {"strArrayTest": [], "project_now": "", "strSettingTestFlag": "0"}
+    g["strArrayTest"].extend([["AC", "write", "HARM1"], ["WT", "write", "h.csv"]])
+    prev = begin_append_attempt(g)
+    g["strSettingTestFlag"] = "1"
+    assert commit_append_if_success(g, "谐波电流", prev)
+    assert g["project_now"] == "谐波电流"
+
+    flag, change, label = apply_append_mode(
+        g, project_name="过欠压_过欠频", local_count=0
+    )
+    assert (flag, change, label) == ("1", "1", "跨项追加")
+    before = len(g["strArrayTest"])
+    g["strArrayTest"].extend([["AC", "write", "OVUF1"], ["WT", "write", "o.csv"]])
+    prev2 = begin_append_attempt(g)
+    g["strSettingTestFlag"] = "1"
+    assert commit_append_if_success(g, "过欠压_过欠频", prev2)
+
+    segs = parse_queue_segments(g["strArrayTest"])
+    assert [s["name"] for s in segs] == ["谐波电流", "过欠压_过欠频"]
+    assert before >= 2
+    assert any(r[2] == "HARM1" for r in g["strArrayTest"])
+    assert any(r[2] == "OVUF1" for r in g["strArrayTest"])
+    # 谐波命令仍在过欠压之前
+    i_h = next(i for i, r in enumerate(g["strArrayTest"]) if r[2] == "HARM1")
+    i_o = next(i for i, r in enumerate(g["strArrayTest"]) if r[2] == "OVUF1")
+    assert i_h < i_o
 
 
 def test_cross_when_count_positive_but_switching():

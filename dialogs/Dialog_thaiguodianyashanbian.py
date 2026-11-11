@@ -330,6 +330,7 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         # Step 4: DEWETRON 导出设置
         s4_dew_children = [
             self.spinBox_DEW_DecimalPlaces, self.checkBox_DEW_RealtimeWaveform,
+            self.checkBox_DEW_ExportAbsTime, self.checkBox_DEW_KeepOxygenDmd,
             self.treeWidget_DEW_ExportFields,
         ]
 
@@ -973,6 +974,26 @@ class Ui_Dialog_thaiguodianyashanbian(object):
         self.checkBox_DEW_RealtimeWaveform.setChecked(False)
         self.checkBox_DEW_RealtimeWaveform.setObjectName("checkBox_DEW_RealtimeWaveform")
         dew_form.addRow("实时波形:", self.checkBox_DEW_RealtimeWaveform)
+
+        self.checkBox_DEW_ExportAbsTime = QtWidgets.QCheckBox(
+            "CSV 增加绝对时间戳列（设备 ABS-TIME）"
+        )
+        self.checkBox_DEW_ExportAbsTime.setChecked(False)
+        self.checkBox_DEW_ExportAbsTime.setObjectName("checkBox_DEW_ExportAbsTime")
+        self.checkBox_DEW_ExportAbsTime.setToolTip(
+            "导出时在 Time [s] 前增加 Abs Time 列，来自 Oxygen NUMERIC 的 ABS-TIME。"
+        )
+        dew_form.addRow("绝对时间:", self.checkBox_DEW_ExportAbsTime)
+
+        self.checkBox_DEW_KeepOxygenDmd = QtWidgets.QCheckBox(
+            "保留 Oxygen 原始 .dmd 录波到保存目录"
+        )
+        self.checkBox_DEW_KeepOxygenDmd.setChecked(False)
+        self.checkBox_DEW_KeepOxygenDmd.setObjectName("checkBox_DEW_KeepOxygenDmd")
+        self.checkBox_DEW_KeepOxygenDmd.setToolTip(
+            "试验过程中启动 :STORE 录波；结束后把 .dmd 复制/保留到与 CSV 相同的保存目录。"
+        )
+        dew_form.addRow("原始录波:", self.checkBox_DEW_KeepOxygenDmd)
 
         # 字段选择树
         self.treeWidget_DEW_ExportFields = QtWidgets.QTreeWidget()

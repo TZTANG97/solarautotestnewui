@@ -150,12 +150,14 @@ def test_ovuf_apply_recording_continuous_vs_split(ovuf_ui):
     split = [list(r) for r in cmds]
     n2 = apply_ovuf_recording_mode(split, ovuf_ui, continuous=False, wt_on=True)
     assert n2 == 2
-    col6_nums = [
-        r[6]
+    assert sum(1 for r in split if r[6] == "ASYNC_START") == 2
+    assert sum(1 for r in split if r[6] == "WAIT_END") == 2
+    # 扫点驻留不能再塞进 col6，否则 StopTime 会被收成单点秒数
+    assert all(
+        r[6] in ("", None, "ASYNC_START", "WAIT_END")
         for r in split
-        if r[6] not in ("", None, "ASYNC_START", "WAIT_END")
-    ]
-    assert len(col6_nums) == 2
+        if r[1] == "query"
+    )
 
 
 def test_ovuf_segment_recovery_after_freq_only_freq(ovuf_ui, monkeypatch):

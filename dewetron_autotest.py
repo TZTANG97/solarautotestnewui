@@ -431,6 +431,20 @@ def parse_dewetron_config(
             "treeWidget_DEW_ExportFields",
             default=fallback.export_fields,
         )
+        abs_time = _mapping_value(
+            value,
+            "export_abs_time",
+            "abs_time",
+            "checkBox_DEW_ExportAbsTime",
+            default=fallback.export_abs_time,
+        )
+        keep_dmd = _mapping_value(
+            value,
+            "keep_oxygen_dmd",
+            "keep_dmd",
+            "checkBox_DEW_KeepOxygenDmd",
+            default=fallback.keep_oxygen_dmd,
+        )
         try:
             precision_value = int(precision)
         except (TypeError, ValueError):
@@ -440,6 +454,8 @@ def parse_dewetron_config(
             decimal_places=precision_value,
             realtime_waveform=_parse_bool(waveform, fallback.realtime_waveform),
             export_fields=_parse_fields(fields),
+            export_abs_time=_parse_bool(abs_time, fallback.export_abs_time),
+            keep_oxygen_dmd=_parse_bool(keep_dmd, fallback.keep_oxygen_dmd),
         )
 
     if isinstance(value, (list, tuple)):
@@ -586,6 +602,8 @@ def config_fingerprint(
         "rate_text": value.rate_text.strip(),
         "decimal_places": value.decimal_places,
         "realtime_waveform": bool(value.realtime_waveform),
+        "export_abs_time": bool(getattr(value, "export_abs_time", False)),
+        "keep_oxygen_dmd": bool(getattr(value, "keep_oxygen_dmd", False)),
         # Export order has no device semantic and must not create false changes.
         "export_fields": sorted(set(value.export_fields)),
     }
@@ -638,6 +656,8 @@ def extract_ui_config(ui: Any) -> DewetronUiConfig:
             getattr(ui, "waveform_checkbox", None),
         )
     )
+    abs_time = _read_widget_value(getattr(ui, "checkBox_DEW_ExportAbsTime", None))
+    keep_dmd = _read_widget_value(getattr(ui, "checkBox_DEW_KeepOxygenDmd", None))
     fields: List[str] = []
     getter = getattr(ui, "get_checked_export_fields", None)
     if callable(getter):
@@ -650,6 +670,8 @@ def extract_ui_config(ui: Any) -> DewetronUiConfig:
         decimal_places=3 if precision is None else int(precision),
         realtime_waveform=False if waveform is None else bool(waveform),
         export_fields=fields,
+        export_abs_time=False if abs_time is None else bool(abs_time),
+        keep_oxygen_dmd=False if keep_dmd is None else bool(keep_dmd),
     )
 
 

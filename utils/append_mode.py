@@ -79,6 +79,40 @@ def clear_append_session(g: MutableMapping[str, Any]) -> None:
     g["wt_config_nums"] = 0
 
 
+def keep_append_session_when_opening_dialog(g: MutableMapping[str, Any]) -> None:
+    """打开/切换试验对话框时：不要改 project_now，也不要把追加标志打回覆盖。
+
+    旧 chooseDetailDialog 每次开页都写 ``project_now=当前下拉``、``strAddTestFlag=0``，
+    换项后再追加会被判成「同项覆盖」，把上一试验命令清掉，主界面累计队列也没了。
+    """
+    # 显式不做任何写入；保留函数便于调用点与单测对准「禁止改会话」约定
+    _ = g
+
+
+def should_refresh_progress_on_project_switch(
+    *,
+    current_count: int,
+    queue: Any,
+    running: bool,
+) -> str:
+    """切换下拉项目时进度表怎么刷。
+
+    返回 ``rebuild`` / ``keep_queue`` / ``clear``。
+    """
+    if running:
+        return "keep_queue"
+    has_queue = bool(queue)
+    try:
+        count = int(current_count or 0)
+    except (TypeError, ValueError):
+        count = 0
+    if count >= 1:
+        return "rebuild"
+    if has_queue:
+        return "keep_queue"
+    return "clear"
+
+
 def mark_project_now(g: MutableMapping[str, Any], project_name: str) -> None:
     """追加成功后记住当前项目，供下次换项判断。"""
     name = str(project_name or "").strip()

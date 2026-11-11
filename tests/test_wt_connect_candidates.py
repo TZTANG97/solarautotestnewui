@@ -18,3 +18,17 @@ def test_wt_candidates_for_bare_ip():
     cands = ctrl._candidate_resources("192.168.40.19")
     assert "TCPIP0::192.168.40.19::5025::SOCKET" in cands
     assert "TCPIP0::192.168.40.19::INSTR" in cands
+
+
+def test_wt_candidates_skip_power_port():
+    ctrl = WT3000Controller(lambda *a, **k: None, lambda *a, **k: None, rm=None)
+    cands = ctrl._candidate_resources("192.168.40.100:502")
+    assert all("::502::" not in item for item in cands)
+    assert cands[0] == "TCPIP0::192.168.40.100::5025::SOCKET"
+
+
+def test_wt_candidates_rewrite_power_visa():
+    ctrl = WT3000Controller(lambda *a, **k: None, lambda *a, **k: None, rm=None)
+    cands = ctrl._candidate_resources("TCPIP0::192.168.40.100::502::SOCKET")
+    assert "TCPIP0::192.168.40.100::502::SOCKET" not in cands
+    assert "TCPIP0::192.168.40.100::5025::SOCKET" in cands

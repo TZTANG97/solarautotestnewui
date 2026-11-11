@@ -9,6 +9,7 @@ from unittest.mock import patch
 from devices.dewetron_data_collector import DewetronDataCollector
 from utils.dewetron_oxygen_store import (
     build_oxygen_store_path,
+    format_abs_time_for_csv,
     oxygen_store_path_candidates,
     parse_store_file_name_response,
     parse_store_state_response,
@@ -79,6 +80,12 @@ class FakeController:
         if command.startswith(":STORE:FILE:NAME "):
             if '"' in command:
                 self.store_file = command.split('"', 2)[1]
+        if command in (
+            ":STORE:WAVEFORM:CONTINUOUS",
+            ":STORE:SAFTer OFF",
+            ":STORE:RACQuisition OFF",
+        ):
+            return True
         if command == ":STORE:START":
             if self.store_file:
                 self.store_state = "Started"
@@ -97,8 +104,11 @@ def test_build_oxygen_store_path_beside_csv(tmp_path):
     path = build_oxygen_store_path(csv_path)
     assert path.endswith("voltage-frequency-protection_20260921_141738_oxygen")
     assert "\\" in path or path.startswith(str(tmp_path))
-    assert scpi_store_file_name(path).startswith(':STORE:FILE:NAME "')
-    assert "\\" in scpi_store_file_name(path)
+    cmd = scpi_store_file_name(path)
+    assert cmd.startswith(':STORE:FILE:NAME "')
+    # 官方示例用正斜杠绝对路径
+    assert "/" in cmd
+    assert "\\" not in cmd.split('"', 2)[1]
 
 
 def test_parse_store_responses_match_docs():
@@ -111,13 +121,24 @@ def test_parse_store_responses_match_docs():
     assert store_state_is_active("Started")
     assert store_state_is_active("Armed")
     assert not store_state_is_active("Stopped")
+    assert not store_state_is_active("Stopping")
 
 
-def test_candidates_prefer_simple_filename(tmp_path):
+def test_candidates_prefer_csv_absolute_path(tmp_path):
     csv_path = str(tmp_path / "ovuf_demo.csv")
     cands = oxygen_store_path_candidates(csv_path)
-    assert cands[0] == "ovuf_demo_oxygen"
-    assert any(str(tmp_path) in c.replace("/", "\\") for c in cands[1:])
+    assert cands[0].replace("\\", "/").endswith("ovuf_demo_oxygen")
+    assert "/" in cands[0]
+    assert cands[-1] == "ovuf_demo_oxygen"
+
+
+def test_format_abs_time_for_csv_excel_friendly():
+    assert (
+        format_abs_time_for_csv("2017-08-28T13:17:26.9715+00:00")
+        == "2017/08/28 13:17:26.9715"
+    )
+    assert format_abs_time_for_csv("2025-12-17T16:58:07.6") == "2025/12/17 16:58:07.6"
+    assert format_abs_time_for_csv("2025/12/17 16:58:07") == "2025/12/17 16:58:07"
 
 
 def test_format_trip_value_log_shows_uf():
@@ -170,6 +191,58 @@ def test_collector_does_not_start_oxygen_store_by_default(tmp_path):
     assert not collector._oxygen_store_active
     collector.stop_gathering()
     collector.stop()
+
+
+def test_collector_starts_oxygen_store_when_keep_dmd(tmp_path):
+    ctrl = FakeController()
+    ui_lines = []
+    collector = DewetronDataCollector(
+        ctrl, FakeLogger(), db_path=str(tmp_path / "keep_dmd.sqlite")
+    )
+    collector.set_ui_notify(ui_lines.append)
+    csv_path = str(tmp_path / "keep.csv")
+    assert collector.prepare(
+        ["U1_tRMS", "I1_tRMS", "I2_tRMS", "I3_tRMS"],
+        "100",
+        "voltage-frequency-protection",
+        csv_path,
+        keep_oxygen_dmd=True,
+    ).success
+    assert collector.begin_run()
+    with patch("devices.dewetron_data_collector.time.sleep"):
+        assert collector.start_gathering()
+        ctrl.state = "Started"
+        assert collector.on_acquisition_started()
+    assert any(c == ":STORE:START" for c in ctrl.sent)
+    assert any(c == ":STORE:WAVEFORM:CONTINUOUS" for c in ctrl.sent)
+    assert any(c == ":STORE:SAFTer OFF" for c in ctrl.sent)
+    assert collector._oxygen_store_active
+    # 路径应优先落在 CSV 同目录，而不是仅文件名
+    assert "/" in (ctrl.store_file or "") or "\\" in (ctrl.store_file or "")
+    with patch("devices.dewetron_data_collector.time.sleep"), patch(
+        "utils.dewetron_oxygen_store.preserve_oxygen_dmd_beside_csv",
+        return_value=(True, str(tmp_path / "keep_oxygen.dmd")),
+    ):
+        collector.stop_gathering()
+    assert any("已保留原始 .dmd" in line for line in ui_lines)
+    # stop 后再调 stop() 不应重复发 STORE:STOP
+    stop_count = sum(1 for c in ctrl.sent if c == ":STORE:STOP")
+    collector.stop()
+    assert sum(1 for c in ctrl.sent if c == ":STORE:STOP") == stop_count
+
+
+def test_preserve_oxygen_dmd_beside_csv(tmp_path):
+    from utils.dewetron_oxygen_store import preserve_oxygen_dmd_beside_csv
+
+    src_dir = tmp_path / "oxygen_src"
+    src_dir.mkdir()
+    src = src_dir / "run_oxygen.dmd"
+    src.write_bytes(b"oxygen")
+    csv_path = str(tmp_path / "out" / "run.csv")
+    ok, msg = preserve_oxygen_dmd_beside_csv(str(src.with_suffix("")), csv_path)
+    assert ok
+    assert Path(msg).is_file()
+    assert Path(msg).read_bytes() == b"oxygen"
 
 
 def test_trip_writes_value_log_without_png_or_marker(tmp_path):

@@ -121,9 +121,11 @@ def classify_idn(idn: str) -> Tuple[str, str]:
     if "BLUESIGHT" in u or "蓝电" in u or "LANDAIAN" in u:
         return "dc", "bluesight"
     if "KEYSIGHT" in u or "AGILENT" in u:
-        if any(k in u for k in ("AC", "681", "N67")):
+        # 裸 "AC" 太宽（会误伤 E4360 等字符串）；交流源用更具体关键字
+        if any(k in u for k in ("681", "AC SOURCE", "ACPOWER", "AC POWER")):
             return "ac", "keysight"
-        return "unknown", "keysight"
+        # 台架是德直流：E4360 SAS / 一般电源默认归 dc（示波器已在上方排除）
+        return "dc", "keysight"
     return "unknown", ""
 
 
@@ -1057,7 +1059,11 @@ def connect_plan(slot: str, dev: FoundDevice) -> Dict[str, object]:
         addr = resource if visa_like else (f"TCPIP0::{host}::INSTR" if host else resource)
         return {"target": "scope", "resource": addr}
     if slot == "wt":
-        return {"target": "wt", "host": host, "port": int(port or 5025) if host else None, "resource": resource}
+        wt_port = int(port or 5025) if host else None
+        # 同 IP 上的 502 是电源 Modbus，不能拿来连横河。
+        if wt_port in (502, 2101, 8080):
+            wt_port = 5025
+        return {"target": "wt", "host": host, "port": wt_port, "resource": resource}
     if slot == "dew":
         return {
             "target": "dew",

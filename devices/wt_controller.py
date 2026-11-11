@@ -9,6 +9,10 @@ from devices.wt_scpi_rate import (
 )
 
 
+# 502/2101/8080 是电源口。写一串 ASCII 也能“成功”，不能当成 WT 已连接。
+_WT_POWER_PORTS = frozenset({502, 2101, 8080})
+
+
 class WT3000Controller:
     """WT3000 控制器，统一管理连接、断开和基础命令。"""
 
@@ -29,19 +33,29 @@ class WT3000Controller:
         text = str(tcp_addr).strip()
         resources = []
         upper = text.upper()
-        if upper.startswith(("TCPIP", "GPIB", "ASRL", "USB")):
-            resources.append(text)
-
         ip, port = "", ""
-        if ":" in text and not upper.startswith("TCPIP"):
+        if upper.startswith("TCPIP"):
+            parts = [p.strip() for p in text.split("::") if p.strip()]
+            if len(parts) >= 2:
+                ip = parts[1]
+            if len(parts) >= 3 and parts[2].isdigit():
+                port = parts[2]
+        elif ":" in text:
             ip, port = text.split(":", 1)
             ip, port = ip.strip(), port.strip()
-        elif text.count(".") == 3 and not upper.startswith("TCPIP"):
+        elif text.count(".") == 3:
             ip, port = text.strip(), ""
+
+        given_port = int(port) if str(port).isdigit() else None
+        keep_given = upper.startswith(("GPIB", "ASRL", "USB")) or (
+            upper.startswith("TCPIP") and given_port not in _WT_POWER_PORTS
+        )
+        if keep_given:
+            resources.append(text)
 
         if ip:
             ports = []
-            if port and port.isdigit():
+            if port and port.isdigit() and int(port) not in _WT_POWER_PORTS:
                 ports.append(port)
             for p in ("5025", "10001", "5024"):
                 if p not in ports:
@@ -84,6 +98,34 @@ class WT3000Controller:
             print(f"WT3000串口参数设置失败: {serial_cfg_err}")
         return handle
 
+    def _close_quiet(self, handle):
+        if handle is None:
+            return
+        try:
+            handle.close()
+        except Exception:
+            pass
+
+    def _idn_is_wt(self, handle) -> bool:
+        """电源口会接受 TCP 写入。必须读到横河功率分析仪 IDN 才算连上。"""
+        try:
+            handle.timeout = 2000
+        except Exception:
+            pass
+        try:
+            idn = str(handle.query("*IDN?")).strip()
+        except Exception as exc:
+            self.logger.info(f"WT3000 *IDN? 失败: {exc}")
+            print(f"WT3000 *IDN? 失败: {exc}")
+            return False
+        upper = idn.upper()
+        if "WT" in upper or "YOKOGAWA" in upper:
+            self.logger.info(f"WT3000 IDN: {idn}")
+            print(f"WT3000 IDN: {idn}")
+            return True
+        print(f"WT3000 拒绝非功率分析仪: {idn}")
+        return False
+
     def connect(self, tcp_addr):
         """连接 WT3000，并应用串口参数。"""
         last_error = None
@@ -108,6 +150,13 @@ class WT3000Controller:
                     self.logger.info(f"WT3000尝试连接[{backend_name}]: {resource_string}")
                     print(f"WT3000尝试连接[{backend_name}]: {resource_string}")
                     handle = self._try_open(rm, resource_string)
+                    if not self._idn_is_wt(handle):
+                        self._close_quiet(handle)
+                        handle = None
+                        last_error = Exception(
+                            f"端口不是功率分析仪（502/2101 是电源口）: {resource_string}"
+                        )
+                        continue
                     used_resource = resource_string
                     break
                 except Exception as e:

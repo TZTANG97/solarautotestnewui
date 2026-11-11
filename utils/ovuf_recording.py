@@ -421,27 +421,62 @@ def apply_ovuf_recording_mode(commands, ui, *, continuous: bool, wt_on: bool) ->
         commands.insert(last + 2, row_wt_async_marker("WAIT_END"))
         return 1
 
-    # 分开录：每段首点 col6，其余 col9
+    # 分开录：每一段单独一条连续录（段首 ASYNC_START，段尾 WAIT_END）。
+    # 扫点驻留留在 col9，电压在录波过程中继续变。
+    # 禁止段首 col6 = 单点驻留：StopTime 会被收成 2 秒，第 16 条报
+    # 「WT未启动录波，已跳过等待」，整段 CSV 不会出现（job114）。
     if not measures:
         return len(segs)
 
+    ranges = []
     cursor = 0
     for seg in segs:
         n = len(seg["points"]) or 1
-        for j in range(n):
-            if cursor >= len(measures):
-                break
-            row = _ensure_row10(commands[measures[cursor]])
-            wait = _move_wait_to_col9(row)
-            if j == 0:
-                row[9] = ""
-                row[6] = wait
-            else:
-                row[6] = ""
-                row[9] = wait
-            cursor += 1
-    # 若实际测量行多于期望，剩余保持 col9
+        if cursor >= len(measures):
+            break
+        last = min(cursor + n, len(measures)) - 1
+        ranges.append((measures[cursor], measures[last]))
+        for j in range(cursor, last + 1):
+            _move_wait_to_col9(commands[measures[j]])
+        cursor = last + 1
     while cursor < len(measures):
         _move_wait_to_col9(commands[measures[cursor]])
         cursor += 1
-    return len(segs)
+
+    for first_i, last_i in reversed(ranges):
+        commands.insert(last_i + 1, row_wt_async_marker("WAIT_END"))
+        commands.insert(first_i, row_wt_async_marker("ASYNC_START"))
+    return len(ranges)
+
+
+def ovuf_split_stop_str(commands) -> str:
+    """分开录 StopTime：取最长那一段的扫点驻留合计，不是单点 2 秒。"""
+    from utils.voltage_adaptability_commands import (
+        estimate_continuous_record_01s,
+        stoptime_str_from_wall_01s,
+    )
+
+    spans = []
+    start = None
+    for row in commands or []:
+        marker = ""
+        if row and len(row) > 6:
+            marker = str(row[6] or "").strip().upper()
+        if marker == "ASYNC_START":
+            start = len(spans)
+            spans.append([row])
+        elif start is not None:
+            spans[-1].append(row)
+            if marker == "WAIT_END":
+                start = None
+    best = ""
+    best_sec = 0
+    for span in spans:
+        if not any(str(r[6] if len(r) > 6 else "").strip().upper() == "WAIT_END" for r in span):
+            continue
+        wall, *_rest = estimate_continuous_record_01s(span)
+        stop_str, stop_sec = stoptime_str_from_wall_01s(wall)
+        if stop_sec >= best_sec:
+            best_sec = stop_sec
+            best = stop_str
+    return best

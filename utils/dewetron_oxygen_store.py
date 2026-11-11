@@ -28,30 +28,41 @@ def build_oxygen_store_path(save_path: str, *, stamp: Optional[str] = None) -> s
     return os.path.abspath(os.path.join(folder, f"{stem}_oxygen"))
 
 
+def oxygen_store_scpi_path(path: str) -> str:
+    """文档示例用正斜杠绝对路径：``D:/DATA/Testrun_1``。"""
+    cleaned = (path or "").strip().strip('"').replace("\\", "/")
+    if cleaned.lower().endswith(".dmd"):
+        cleaned = cleaned[:-4]
+    return cleaned
+
+
 def oxygen_store_path_candidates(save_path: str, *, stamp: Optional[str] = None) -> List[str]:
     """
-    按官方文档优先级生成候选：
-    1) 仅文件名（写到 Oxygen 默认目录）——最稳
-    2) CSV 同目录绝对路径（反斜杠）
-    3) 常见台架盘符 D:/E: 短路径
+    生成 :STORE:FILE:NAME 候选（优先级从高到低）：
+
+    1) CSV 同目录绝对路径（用户保存目录，正斜杠）——与官方 ``D:/DATA/Testrun_1`` 一致
+    2) 台架盘符短路径 D:/E:
+    3) 仅文件名（Oxygen 默认 data 目录）——兜底，不再优先（避免落到未知默认目录）
     """
     stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
     primary = build_oxygen_store_path(save_path, stamp=stamp)
     stem = os.path.splitext(os.path.basename(primary))[0] or f"dewetron_{stamp}"
-    # 文档示例：:STORE:FILE:NAME "Testrun_1"
     simple_name = stem[:80]
-    candidates: List[str] = [simple_name, primary]
+    candidates: List[str] = [oxygen_store_scpi_path(primary)]
     for root in (r"D:\SolarAutoTest_Dew", r"E:\SolarAutoTest_Dew", r"D:\dxl"):
         try:
             os.makedirs(root, exist_ok=True)
-            candidates.append(os.path.abspath(os.path.join(root, stem)))
+            candidates.append(
+                oxygen_store_scpi_path(os.path.abspath(os.path.join(root, stem)))
+            )
         except OSError:
             continue
+    candidates.append(simple_name)
     # 去重保序
     out: List[str] = []
     seen = set()
     for c in candidates:
-        key = c.replace("/", "\\").casefold()
+        key = c.replace("\\", "/").casefold()
         if key in seen:
             continue
         seen.add(key)
@@ -60,9 +71,28 @@ def oxygen_store_path_candidates(save_path: str, *, stamp: Optional[str] = None)
 
 
 def scpi_store_file_name(path: str) -> str:
-    """生成 :STORE:FILE:NAME 命令（Windows 反斜杠，与官方示例一致）。"""
-    cleaned = (path or "").strip().replace("/", "\\")
+    """生成 :STORE:FILE:NAME 命令（正斜杠绝对路径，与官方示例一致）。"""
+    cleaned = oxygen_store_scpi_path(path)
     return f':STORE:FILE:NAME "{cleaned}"'
+
+
+def format_abs_time_for_csv(raw: Optional[str]) -> str:
+    """把 Oxygen ABS-TIME 规范成 Excel 友好绝对时间。
+
+    官方示例：``2017-08-28T13:17:26.9715+00:00``
+    导出目标：``2025/12/17 16:58:07.971``（去 T、去时区偏移；保留小数秒）
+    """
+    text = str(raw or "").strip().strip('"').strip("'")
+    if not text:
+        return ""
+    # 去掉 SCPI 偶发前缀
+    text = re.sub(r"^:[^\s,]+\s*", "", text).strip()
+    # 去掉末尾时区 +08:00 / Z
+    text = re.sub(r"(Z|[+-]\d{2}:?\d{2})$", "", text, flags=re.IGNORECASE).strip()
+    text = text.replace("T", " ").replace("-", "/")
+    # 压缩多余空白
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 def parse_store_file_name_response(raw: Optional[str]) -> Optional[str]:
@@ -115,9 +145,12 @@ def parse_store_state_response(raw: Optional[str]) -> str:
 
 
 def store_state_is_active(state: str) -> bool:
-    """Started / Armed 视为录波已武装或进行中。"""
+    """Started / Armed / Paused 视为录波已武装或进行中。
+
+    ``Stopping`` 不算成功：上一轮 STOP 尚未结束时不能当成本次已开录。
+    """
     s = (state or "").strip().casefold()
-    return s in {"started", "armed", "paused", "stopping"}
+    return s in {"started", "armed", "paused"}
 
 
 def scpi_marker_add(
@@ -176,3 +209,77 @@ def trip_wall_clock_from_gather_start(
     """由采集起点 + 相对秒算出墙钟时间字符串。"""
     wall = float(gather_start_unix) + float(elapsed_s)
     return time.strftime("%H:%M:%S", time.localtime(wall)), wall
+
+
+def resolve_oxygen_dmd_path(store_path: str) -> Optional[str]:
+    """根据 :STORE:FILE:NAME 结果定位本地 .dmd（可带或不带后缀）。"""
+    text = (store_path or "").strip().strip('"').replace("/", "\\")
+    if not text or text.upper() == "NONE":
+        return None
+    candidates = []
+    if text.lower().endswith(".dmd"):
+        candidates.append(text)
+    else:
+        candidates.append(text + ".dmd")
+        candidates.append(text)
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    # Oxygen 有时只回文件名：在常见目录里找
+    name = os.path.basename(text)
+    if not name.lower().endswith(".dmd"):
+        name = name + ".dmd"
+    search_roots = [
+        os.path.dirname(text),
+        r"D:\SolarAutoTest_Dew",
+        r"E:\SolarAutoTest_Dew",
+        r"D:\dxl",
+    ]
+    try:
+        from utils.wt_save_path import default_dewetron_save_dir, ensure_dewetron_save_dir
+
+        search_roots.extend(
+            [ensure_dewetron_save_dir(), default_dewetron_save_dir()]
+        )
+    except Exception:
+        pass
+    for root in search_roots:
+        if not root:
+            continue
+        cand = os.path.join(root, name)
+        if os.path.isfile(cand):
+            return cand
+    return candidates[0] if candidates else None
+
+
+def preserve_oxygen_dmd_beside_csv(
+    store_path: str,
+    csv_path: str,
+) -> Tuple[bool, str]:
+    """把 Oxygen .dmd 保留到 CSV 同目录；已在目标处则直接返回成功。
+
+    返回 ``(ok, message)``。
+    """
+    import shutil
+
+    src = resolve_oxygen_dmd_path(store_path)
+    if not src or not os.path.isfile(src):
+        return False, f"未找到 .dmd（STORE 路径={store_path!r}）"
+    folder = ""
+    if csv_path:
+        folder = os.path.dirname(os.path.abspath(csv_path))
+    if not folder:
+        from utils.wt_save_path import ensure_dewetron_save_dir
+
+        folder = ensure_dewetron_save_dir()
+    os.makedirs(folder, exist_ok=True)
+    dest = os.path.join(folder, os.path.basename(src))
+    try:
+        src_abs = os.path.abspath(src)
+        dest_abs = os.path.abspath(dest)
+        if src_abs.casefold() == dest_abs.casefold():
+            return True, dest_abs
+        shutil.copy2(src_abs, dest_abs)
+        return True, dest_abs
+    except OSError as exc:
+        return False, f"复制 .dmd 失败: {exc}"

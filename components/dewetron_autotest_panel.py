@@ -59,6 +59,8 @@ class DewetronUiConfig:
     realtime_waveform: bool
     export_fields: List[str]
     save_dir: str
+    export_abs_time: bool
+    keep_oxygen_dmd: bool
 
     def __init__(
         self,
@@ -67,6 +69,8 @@ class DewetronUiConfig:
         realtime_waveform: bool = False,
         export_fields: Optional[Iterable[Any]] = None,
         save_dir: str = "",
+        export_abs_time: bool = False,
+        keep_oxygen_dmd: bool = False,
         **aliases: Any,
     ) -> None:
         if "rate" in aliases:
@@ -79,6 +83,10 @@ class DewetronUiConfig:
             export_fields = aliases.pop("fields")
         if "save_path" in aliases:
             save_dir = aliases.pop("save_path")
+        if "abs_time" in aliases:
+            export_abs_time = aliases.pop("abs_time")
+        if "keep_dmd" in aliases:
+            keep_oxygen_dmd = aliases.pop("keep_dmd")
         if aliases:
             unknown = ", ".join(sorted(aliases))
             raise TypeError(f"Unknown DewetronUiConfig arguments: {unknown}")
@@ -88,6 +96,8 @@ class DewetronUiConfig:
         self.realtime_waveform = bool(realtime_waveform)
         self.export_fields = _normalise_fields(export_fields)
         self.save_dir = str(save_dir or "").strip()
+        self.export_abs_time = bool(export_abs_time)
+        self.keep_oxygen_dmd = bool(keep_oxygen_dmd)
 
     @property
     def rate(self) -> str:
@@ -128,6 +138,8 @@ class DewetronUiConfig:
             "realtime_waveform": self.realtime_waveform,
             "export_fields": list(self.export_fields),
             "save_dir": self.save_dir,
+            "export_abs_time": bool(self.export_abs_time),
+            "keep_oxygen_dmd": bool(self.keep_oxygen_dmd),
         }
 
     @classmethod
@@ -146,6 +158,12 @@ class DewetronUiConfig:
             ),
             export_fields=data.get("export_fields", data.get("fields", ())),
             save_dir=data.get("save_dir", data.get("save_path", "")),
+            export_abs_time=data.get(
+                "export_abs_time", data.get("abs_time", False)
+            ),
+            keep_oxygen_dmd=data.get(
+                "keep_oxygen_dmd", data.get("keep_dmd", False)
+            ),
         )
 
     @classmethod
@@ -482,6 +500,25 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         )
         form.addRow("实时波形:", self.checkBox_DEW_RealtimeWaveform)
 
+        self.checkBox_DEW_ExportAbsTime = QtWidgets.QCheckBox(
+            "CSV 增加绝对时间戳列（设备 ABS-TIME）"
+        )
+        self.checkBox_DEW_ExportAbsTime.setObjectName("checkBox_DEW_ExportAbsTime")
+        self.checkBox_DEW_ExportAbsTime.setToolTip(
+            "导出时在 Time [s] 前增加 Abs Time 列，来自 Oxygen NUMERIC 的 ABS-TIME。"
+        )
+        form.addRow("绝对时间:", self.checkBox_DEW_ExportAbsTime)
+
+        self.checkBox_DEW_KeepOxygenDmd = QtWidgets.QCheckBox(
+            "保留 Oxygen 原始 .dmd 录波到保存目录"
+        )
+        self.checkBox_DEW_KeepOxygenDmd.setObjectName("checkBox_DEW_KeepOxygenDmd")
+        self.checkBox_DEW_KeepOxygenDmd.setToolTip(
+            "试验过程中启动 :STORE 录波；结束后把 .dmd 复制/保留到与 CSV 相同的保存目录，"
+            "可用 Oxygen 打开原始波形。"
+        )
+        form.addRow("原始录波:", self.checkBox_DEW_KeepOxygenDmd)
+
         path_row = QtWidgets.QHBoxLayout()
         self.lineEdit_DEW_SaveDir = QtWidgets.QLineEdit()
         self.lineEdit_DEW_SaveDir.setObjectName("lineEdit_DEW_SaveDir")
@@ -495,7 +532,7 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
             r"%LOCALAPPDATA%\SolarAutoTest\dewetron_save"
         )
         self.lineEdit_DEW_SaveDir.setToolTip(
-            "德威创 CSV / 录波保存目录。目录不存在会自动创建。"
+            "德威创 CSV / 可选 .dmd 录波保存目录。目录不存在会自动创建。"
         )
         path_row.addWidget(self.lineEdit_DEW_SaveDir, 1)
         self.pushButton_DEW_BrowseSaveDir = QtWidgets.QPushButton("浏览…")
@@ -615,6 +652,8 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.checkBox_DEW_RealtimeWaveform.toggled.connect(
             self._emit_config_changed
         )
+        self.checkBox_DEW_ExportAbsTime.toggled.connect(self._emit_config_changed)
+        self.checkBox_DEW_KeepOxygenDmd.toggled.connect(self._emit_config_changed)
         self.lineEdit_DEW_SaveDir.textChanged.connect(self._emit_config_changed)
         self.treeWidget_DEW_ExportFields.itemChanged.connect(
             self._on_tree_item_changed
@@ -1007,6 +1046,8 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
             realtime_waveform=self.checkBox_DEW_RealtimeWaveform.isChecked(),
             export_fields=self.get_checked_export_fields(),
             save_dir=(self.lineEdit_DEW_SaveDir.text() or "").strip(),
+            export_abs_time=self.checkBox_DEW_ExportAbsTime.isChecked(),
+            keep_oxygen_dmd=self.checkBox_DEW_KeepOxygenDmd.isChecked(),
         )
 
     # Common short aliases used by coordinator and persistence helpers.
@@ -1022,6 +1063,8 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.comboBox_DEW_MaxRefreshRate.setCurrentText(rate)
         self.spinBox_DEW_DecimalPlaces.setValue(value.decimal_places)
         self.checkBox_DEW_RealtimeWaveform.setChecked(value.realtime_waveform)
+        self.checkBox_DEW_ExportAbsTime.setChecked(bool(value.export_abs_time))
+        self.checkBox_DEW_KeepOxygenDmd.setChecked(bool(value.keep_oxygen_dmd))
         if value.save_dir:
             try:
                 from utils.wt_save_path import ensure_dewetron_save_dir

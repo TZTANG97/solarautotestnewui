@@ -17,6 +17,8 @@ from utils.device_discovery import (
 from utils.device_finder_connect import build_connect_jobs
 
 _SLOT_MAP_KEY = "device.finder.slot_map"
+# 槽位 → 最近一次成功资源（后写覆盖）。重开自动连优先用它，避免多台 DC 抢错槽。
+_SLOT_PREF_KEY = "device.finder.slot_pref"
 
 
 def load_slot_map() -> Dict[str, str]:
@@ -34,6 +36,54 @@ def load_slot_map() -> Dict[str, str]:
     return {}
 
 
+def _prefs_from_success_map() -> Dict[str, str]:
+    """从 success_map 反推 slot→resource（兼容升级前只写了 slot_map 的工控机）。"""
+    prefs: Dict[str, str] = {}
+    try:
+        for res, snap in load_success_device_map().items():
+            if not isinstance(snap, dict):
+                continue
+            sl = str(snap.get("slot") or "").strip().lower()
+            key = str(res or "").strip()
+            if not sl or not key:
+                continue
+            # 跳过纯 host:port 副本，优先完整 VISA/HISLIP
+            if key.count(":") == 1 and not key.upper().startswith(
+                ("TCPIP", "USB", "GPIB", "ASRL")
+            ):
+                if sl not in prefs:
+                    prefs[sl] = key
+                continue
+            prev = prefs.get(sl, "")
+            if not prev or len(key) >= len(prev):
+                prefs[sl] = key
+    except Exception:
+        pass
+    return prefs
+
+
+def load_slot_prefs() -> Dict[str, str]:
+    """slot → 最近成功连接的 resource。"""
+    out: Dict[str, str] = {}
+    try:
+        from utils.ui_field_helpers import last_value
+
+        raw = last_value(_SLOT_PREF_KEY, "") or ""
+        if raw.strip():
+            data = json.loads(raw)
+            if isinstance(data, dict):
+                out = {
+                    str(k).strip().lower(): str(v).strip()
+                    for k, v in data.items()
+                    if str(k or "").strip() and str(v or "").strip()
+                }
+    except Exception:
+        out = {}
+    if out:
+        return out
+    return _prefs_from_success_map()
+
+
 def remember_slot_for_resource(resource: str, slot: str) -> None:
     res = (resource or "").strip()
     sl = (slot or "").strip().lower()
@@ -45,6 +95,9 @@ def remember_slot_for_resource(resource: str, slot: str) -> None:
         m = load_slot_map()
         m[res] = sl
         remember_value(_SLOT_MAP_KEY, json.dumps(m, ensure_ascii=False))
+        prefs = load_slot_prefs()
+        prefs[sl] = res
+        remember_value(_SLOT_PREF_KEY, json.dumps(prefs, ensure_ascii=False))
     except Exception:
         pass
 
@@ -56,6 +109,7 @@ def _default_slot_for_kind(kind: str) -> Optional[str]:
 
 def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDevice]]:
     slot_map = load_slot_map()
+    slot_prefs = load_slot_prefs()
     success = load_success_device_map()
     online = [d for d in devices if not (d.extra or {}).get("offline")]
     by_kind: Dict[str, List[FoundDevice]] = {}
@@ -65,6 +119,53 @@ def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDe
 
     used_slots = set()
     jobs: List[Tuple[str, FoundDevice]] = []
+    claimed_ids = set()
+
+    def _res_keys(dev: FoundDevice) -> List[str]:
+        keys = []
+        res = getattr(dev, "resource", "") or ""
+        if res:
+            keys.append(res)
+        if getattr(dev, "host", None) and getattr(dev, "port", None):
+            keys.append(f"{dev.host}:{dev.port}")
+        return keys
+
+    def _match_pref(pref_res: str) -> Optional[FoundDevice]:
+        from utils.device_discovery import parse_host_port
+
+        pref = (pref_res or "").strip()
+        if not pref:
+            return None
+        pref_u = pref.upper()
+        pref_host, pref_port = parse_host_port(pref)
+
+        def _ports_conflict(other) -> bool:
+            if pref_port is None or other is None:
+                return False
+            try:
+                return int(other) != int(pref_port)
+            except (TypeError, ValueError):
+                return False
+
+        for d in online:
+            if id(d) in claimed_ids:
+                continue
+            keys = _res_keys(d)
+            if pref in keys:
+                return d
+            res = getattr(d, "resource", "") or ""
+            if res.upper() == pref_u:
+                return d
+            # 同一主机才放宽格式（HISLIP / TCPIP）。端口都有且不同则是另一台，
+            # 例如 WT 5025 不能绑到同 IP 的电源口 502。
+            if pref_host and getattr(d, "host", None) and str(d.host) == pref_host:
+                if not _ports_conflict(getattr(d, "port", None)):
+                    return d
+                continue
+            dh, dp = parse_host_port(res)
+            if pref_host and dh and pref_host == dh and not _ports_conflict(dp):
+                return d
+        return None
 
     def _slot_for(dev: FoundDevice) -> str:
         res = getattr(dev, "resource", "") or ""
@@ -80,15 +181,30 @@ def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDe
             slot = str(snap.get("slot") or "").strip().lower()
         return slot
 
+    # 1) 槽位偏好：上次成功连到该槽的资源优先（是德 HISLIP vs 另一台致茂）
+    for slot, pref_res in sorted(slot_prefs.items()):
+        if slot in used_slots:
+            continue
+        hit = _match_pref(pref_res)
+        if hit is None:
+            continue
+        jobs.append((slot, hit))
+        used_slots.add(slot)
+        claimed_ids.add(id(hit))
+
+    # 2) 其余带记忆槽位的在线设备
     for d in online:
+        if id(d) in claimed_ids:
+            continue
         slot = _slot_for(d)
         if slot and slot not in used_slots:
             jobs.append((slot, d))
             used_slots.add(slot)
+            claimed_ids.add(id(d))
 
-    claimed = {id(d) for _, d in jobs}
+    # 3) 无记忆的唯一类型兜底
     for kind, group in by_kind.items():
-        remain = [d for d in group if id(d) not in claimed]
+        remain = [d for d in group if id(d) not in claimed_ids]
         if not remain:
             continue
         if kind == "dc":
@@ -101,6 +217,7 @@ def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDe
                 if free:
                     jobs.append((free, remain[0]))
                     used_slots.add(free)
+                    claimed_ids.add(id(remain[0]))
             continue
         if kind == "modbus":
             continue
@@ -108,6 +225,7 @@ def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDe
         if default and default not in used_slots and len(remain) == 1:
             jobs.append((default, remain[0]))
             used_slots.add(default)
+            claimed_ids.add(id(remain[0]))
     return jobs
 
 
@@ -178,11 +296,13 @@ def discover_for_auto_connect(
     for d in base:
         upper = (d.resource or "").upper()
         known_kind = (d.kind_hint or "").lower() not in ("", "unknown")
-        # USB/GPIB：已有槽位/类型时不要先 *IDN? 占住会话，否则随后正式连接常失败
-        if upper.startswith(("USB", "GPIB")) and (
-            known_kind or (d.extra or {}).get("last_slot")
-        ):
-            if live_set and d.resource not in live_set:
+        known_brand = bool(str(d.brand_hint or "").strip())
+        known_slot = bool(str((d.extra or {}).get("last_slot") or "").strip())
+        # 已有槽位/品牌/类型：跳过 enrich(*IDN?/端口扫)，启动自动连可省数秒
+        # USB/GPIB/TCPIP(HISLIP) 均适用；先探测会占会话且拖慢开机
+        skip_probe = known_kind or known_brand or known_slot
+        if upper.startswith(("USB", "GPIB", "TCPIP")) and skip_probe:
+            if upper.startswith(("USB", "GPIB")) and live_set and d.resource not in live_set:
                 extra = dict(d.extra or {})
                 extra["offline"] = True
                 extra["detail"] = "VISA 列表中未找到该 USB/GPIB 资源"

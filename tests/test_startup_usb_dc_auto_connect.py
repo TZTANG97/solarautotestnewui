@@ -35,6 +35,7 @@ def test_devices_from_status_json_usb_dc(tmp_path):
 
 def test_suggest_uses_status_last_slot(monkeypatch):
     monkeypatch.setattr("utils.iot_auto_connect.load_slot_map", lambda: {})
+    monkeypatch.setattr("utils.iot_auto_connect.load_slot_prefs", lambda: {})
     monkeypatch.setattr("utils.iot_auto_connect.load_success_device_map", lambda: {})
     devices = [
         FoundDevice(
@@ -92,3 +93,51 @@ def test_discover_skips_idn_for_known_usb(monkeypatch, tmp_path):
     assert not devices[0].extra.get("offline")
     jobs = dict(suggest_auto_jobs(devices))
     assert "dc1" in jobs
+
+
+def test_discover_skips_idn_for_known_keysight_hislip(monkeypatch, tmp_path):
+    path = tmp_path / "status.json"
+    hislip = "TCPIP0::169.254.1.2::hislip0::INSTR"
+    path.write_text(
+        json.dumps(
+            {
+                "devices": [
+                    {"name": "直流电源1", "resource": hislip, "connected": False}
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    class _RM:
+        def list_resources(self):
+            return (hislip,)
+
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.last_known_resources", lambda _p=None: []
+    )
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.devices_from_last_resources", lambda *_a, **_k: []
+    )
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.list_visa_resources", lambda *_a, **_k: [hislip]
+    )
+    monkeypatch.setattr(
+        "utils.iot_auto_connect.load_success_device_map",
+        lambda: {
+            hislip: {
+                "slot": "dc1",
+                "kind_hint": "dc",
+                "brand_hint": "keysight",
+            }
+        },
+    )
+
+    def _enrich(*_a, **_k):
+        raise AssertionError("已知是德 HISLIP 不得再 probe *IDN?")
+
+    monkeypatch.setattr("utils.iot_auto_connect.enrich_device", _enrich)
+    devices = discover_for_auto_connect(visa_rm=_RM(), status_json_path=str(path))
+    assert devices
+    assert all(not d.extra.get("offline") for d in devices)

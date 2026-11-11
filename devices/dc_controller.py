@@ -267,7 +267,7 @@ class DCController:
             return ok
         if self.handle is not None:
             cmd = str(command or "")
-            # 仅长表（VOLT/CURR 千点）加 timeout/sleep；短令如 SAS:TABL:ACT 不拖
+            # 仅长表加 timeout/sleep；短令如 SAS:TABL:ACT 不拖
             u = cmd.upper()
             long_sas = ("SAS:TABL" in u) and (len(cmd) > 200 or cmd.count(",") >= 32)
             old_timeout = None
@@ -278,7 +278,17 @@ class DCController:
                         self.handle.timeout = max(float(old_timeout or 2000), 30000.0)
                     except Exception:
                         old_timeout = None
-                self.handle.write(cmd)
+                # 优先 write_raw，避免部分 PyVISA 路径对超长 write 在 DLL 内崩进程
+                payload = (cmd + "\n").encode("ascii", errors="ignore")
+                try:
+                    if hasattr(self.handle, "write_raw"):
+                        self.handle.write_raw(payload)
+                    else:
+                        self.handle.write(cmd)
+                except Exception as exc:
+                    self.logger.warning(f"{label} SCPI 写失败 ({len(cmd)}B): {exc}")
+                    print(f"{label} SCPI 写失败 ({len(cmd)}B): {exc}")
+                    return False
                 if long_sas:
                     import time as _time
 

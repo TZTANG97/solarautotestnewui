@@ -298,6 +298,18 @@ def should_refresh_wt_config(str_add_flag, project_change="0") -> bool:
     return str(project_change or "0").strip() == "1"
 
 
+def should_merge_append_filenames(str_add_flag, project_change="0") -> bool:
+    """同项追加才把上一轮 FileNameList 拼进来；跨项（project_change=1）禁止合并。
+
+    跨项若仍 merge，第二段 Upper_WT_Config 会带上一项 basename，
+    SCPI/分开录可能写错文件或覆盖上一试验 CSV。
+    """
+    return (
+        str(str_add_flag or "0").strip() == "1"
+        and str(project_change or "0").strip() != "1"
+    )
+
+
 def finalize_append_file_names(
     new_names,
     existing_commands=None,
@@ -353,6 +365,40 @@ def previous_wt_filename_list(commands) -> list:
             continue
         last = [p.strip() for p in re.split(r"[,，]", raw) if p.strip()]
     return last
+
+
+def collect_progress_file_names(commands=None, config_dict=None) -> list:
+    """进度轮次表文件名：优先按段拼齐所有 Upper_WT_Config，再回退 config_dict。
+
+    跨项时 config_dict 常只剩最后一项名单；若先读全局会盖住前面段。
+    同名 basename 保留多次（连续录/重复模板各自算一轮）。
+    """
+    import re
+
+    names = []
+    for row in commands or []:
+        if not row or row[0] != "Upper_WT_Config":
+            continue
+        cfg = row[4] if len(row) > 4 else None
+        if not isinstance(cfg, dict):
+            continue
+        raw = str(
+            cfg.get("textEdit_FileNameList") or cfg.get("FileNameList") or ""
+        ).strip()
+        if not raw:
+            continue
+        names.extend(p.strip() for p in re.split(r"[,，]", raw) if p.strip())
+    if names:
+        return names
+    if isinstance(config_dict, dict):
+        raw = str(
+            config_dict.get("textEdit_FileNameList")
+            or config_dict.get("FileNameList")
+            or ""
+        ).strip()
+        if raw:
+            return [p.strip() for p in re.split(r"[,，]", raw) if p.strip()]
+    return []
 
 
 def collect_harmonic_power_percents(ui):

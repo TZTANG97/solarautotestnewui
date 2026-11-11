@@ -278,8 +278,11 @@ def rates_match_ms(expected_ms, actual_ms, tolerance_ms=1):
         return False
 
 
-def dumps_channel_values(values):
-    """Serialize channel values for SQLite. NaN/Inf → null（标准 JSON，可读回）。"""
+def dumps_channel_values(values, abs_time=None):
+    """Serialize channel values for SQLite. NaN/Inf → null（标准 JSON，可读回）。
+
+    需要保留绝对时间时写成 ``{"v":[...],"abs":"..."}``，旧行仍是纯数组。
+    """
     cleaned = []
     for value in list(values or []):
         try:
@@ -291,6 +294,11 @@ def dumps_channel_values(values):
             cleaned.append(None)
         else:
             cleaned.append(number)
+    if abs_time not in (None, ""):
+        return json.dumps(
+            {"v": cleaned, "abs": str(abs_time)},
+            ensure_ascii=False,
+        )
     return json.dumps(cleaned, ensure_ascii=False)
 
 
@@ -308,6 +316,8 @@ def loads_channel_values(raw):
             data = json.loads(fixed)
         except json.JSONDecodeError:
             return []
+    if isinstance(data, dict):
+        data = data.get("v")
     if not isinstance(data, list):
         return []
     out = []
@@ -320,6 +330,20 @@ def loads_channel_values(raw):
         except (TypeError, ValueError):
             out.append(float("nan"))
     return out
+
+
+def loads_abs_time(raw):
+    """从 channel_values JSON 取出 Abs Time；旧纯数组返回空串。"""
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return ""
+    if isinstance(data, dict):
+        return str(data.get("abs") or "").strip()
+    return ""
 
 
 @dataclass
@@ -425,6 +449,7 @@ class DewetronDataCollector:
 
         # 采集准备状态
         self._ready_to_gather = False
+        self._last_gather_error = ""
 
         # 跳脱值自动抓取：默认关闭（10min 电压保护等试验也会断流，易误报）
         self._trip_screenshot_enabled = False
@@ -445,6 +470,8 @@ class DewetronDataCollector:
         self._oxygen_store_enabled = False
         self._oxygen_store_path = ""
         self._oxygen_store_active = False
+        self._export_abs_time = False
+        self._last_sample_abs_time = ""
         self._ui_notify = None
 
 
@@ -554,16 +581,31 @@ class DewetronDataCollector:
         self._csv_decimal_places = self._clamp_csv_decimal_places(decimal_places)
         return self._csv_decimal_places
 
-    def prepare(self, fields, rate_text, test_type, save_path, decimal_places=None):
+    def prepare(
+        self,
+        fields,
+        rate_text,
+        test_type,
+        save_path,
+        decimal_places=None,
+        *,
+        export_abs_time=False,
+        keep_oxygen_dmd=False,
+    ):
         """校验采集配置并返回结构化、可兼容解包的结果。"""
         self._ready_to_gather = False
         warnings = []
         fields = list(fields or [])
+        self._export_abs_time = bool(export_abs_time)
+        self._oxygen_store_enabled = bool(keep_oxygen_dmd)
         if decimal_places is not None:
             self.set_csv_decimal_places(decimal_places)
-        print(f"[Collector][prepare] fields={fields}, rate={rate_text}, "
-              f"test_type={test_type}, save_path={save_path}, "
-              f"decimal_places={self._csv_decimal_places}")
+        print(
+            f"[Collector][prepare] fields={fields}, rate={rate_text}, "
+            f"test_type={test_type}, save_path={save_path}, "
+            f"decimal_places={self._csv_decimal_places}, "
+            f"abs_time={self._export_abs_time}, keep_dmd={self._oxygen_store_enabled}"
+        )
 
         if self._ctrl is None:
             return self._prepare_failure("DEWETRON 控制器不可用")
@@ -644,6 +686,8 @@ class DewetronDataCollector:
             self._csv_header.append(
                 mapped_header[0] + suffix if mapped_header else channel
             )
+        if self._export_abs_time:
+            self._csv_header = ['Abs Time'] + list(self._csv_header)
 
         self._rate_ms = parse_rate_ms(rate_text)
         self._save_path = save_path or ''
@@ -661,11 +705,24 @@ class DewetronDataCollector:
     @staticmethod
     def _normalize_state(state):
         """Normalize SCPI-prefixed state responses for exact validation."""
-        if state is None:
-            return ''
-        value = str(state).strip().strip('"')
-        match = re.search(r'(Started|Stopped)\s*$', value, re.IGNORECASE)
-        return match.group(1).casefold() if match else value.casefold()
+        from utils.dewetron_acq_state import normalize_acq_state
+
+        return normalize_acq_state(state)
+
+    def _wait_acq_state(self, expected, *, timeout_s=12.0, poll_s=0.35, label=""):
+        """轮询 :ACQUISITION:STATE? 直到归一态等于 expected；超时返回末次原文。"""
+        want = str(expected or "").casefold()
+        deadline = time.time() + max(0.5, float(timeout_s or 0.5))
+        last = None
+        tag = label or want
+        while time.time() < deadline:
+            last = self._query_controller(":ACQUISITION:STATE?", timeout_ms=5000)
+            got = self._normalize_state(last)
+            print(f"[Collector][_wait_acq_state] {tag}: raw={last!r} -> {got}")
+            if got == want:
+                return True, last
+            time.sleep(max(0.05, float(poll_s or 0.05)))
+        return False, last
 
     def _setup_rate(self):
         """Set and verify the device numeric update rate."""
@@ -698,29 +755,89 @@ class DewetronDataCollector:
             return True
         return False
     def start_gathering(self):
-        """配置采集并创建当前 run；成功返回 True。"""
+        """配置采集并创建当前 run；成功返回 True。
+
+        失败时 ``self._last_gather_error`` 写明阶段，避免一律报成 NUMERIC/RATE。
+        STATE? 空/STOP 未确认不得硬失败——旧版只 sleep 0.5s 就继续配通道；
+        1453 把「等不到 Stopped」误杀成配置失败，重连+测试生效后秒挂即此路径。
+        """
         print("[Collector][start_gathering] === 开始采集准备 ===")
+        self._last_gather_error = ""
         if not self._controller_connected() or not self._conn or not self._fields:
+            self._last_gather_error = "未连接或未 prepare 字段"
             self._ready_to_gather = False
             return False
         run_exists = self._run_id is not None
         if run_exists and (self._ready_to_gather or self.is_gather.is_set()):
             return True
 
+        # 测试生效(:SETUP:APPLY) 后 Oxygen 会忙一阵；先等 STATE? 能答再配 NUMERIC
+        waiter = getattr(self._ctrl, "wait_scpi_ready", None)
+        if callable(waiter):
+            try:
+                ready = bool(waiter(attempts=8, delay_seconds=0.6, timeout_ms=3000))
+                print(f"[Collector][start_gathering] wait_scpi_ready={ready}")
+            except Exception as exc:
+                print(f"[Collector][start_gathering] wait_scpi_ready 跳过: {exc}")
+
         acq_state = self._query_controller(":ACQUISITION:STATE?")
         if not acq_state:
-            return False
-        print(f"[Collector][start_gathering] 当前采集状态: {acq_state}")
-        if self._normalize_state(acq_state) == 'started':
-            stop_acquisition = getattr(self._ctrl, 'stop_acquisition', None)
-            stopped = bool(stop_acquisition()) if stop_acquisition else self._send_controller(
-                ":ACQUISITION:STOP", "停止采集", "ACQUISITION STOP"
+            # 短等任意应答；仍空也不 return——可能设备在跑但 query 暂时超时
+            _ok, acq_state = self._wait_acq_state(
+                "stopped", timeout_s=3.0, poll_s=0.4, label="pre-start-soft"
             )
-            if not stopped:
-                return False
-            time.sleep(0.5)
+        print(f"[Collector][start_gathering] 当前采集状态: {acq_state!r}")
+        norm = self._normalize_state(acq_state)
+        need_stop = norm in ("started", "armed", "paused", "stopping") or not acq_state
+        if need_stop:
+            stop_acquisition = getattr(self._ctrl, "stop_acquisition", None)
+            stopped = (
+                bool(stop_acquisition())
+                if stop_acquisition
+                else self._send_controller(
+                    ":ACQUISITION:STOP", "停止采集", "ACQUISITION STOP"
+                )
+            )
+            print(f"[Collector][start_gathering] 预停采集 sent={stopped} norm={norm!r}")
+            if norm in ("started", "armed", "paused", "stopping"):
+                ok_stop, last_stop = self._wait_acq_state(
+                    "stopped", timeout_s=8.0, poll_s=0.4, label="after-stop-soft"
+                )
+                if not ok_stop:
+                    # 不硬失败：Oxygen 有时长时间 Stopping，仍尝试配 NUMERIC
+                    print(
+                        f"[Collector][start_gathering] STOP 未确认 Stopped"
+                        f"（{last_stop!r}），继续配 NUMERIC"
+                    )
+                    time.sleep(0.5)
+            else:
+                time.sleep(0.5)
 
-        if not self._setup_numeric() or not self._setup_rate():
+        setup_ok = False
+        for attempt in range(1, 4):
+            num_ok = self._setup_numeric()
+            rate_ok = bool(num_ok) and self._setup_rate()
+            if num_ok and rate_ok:
+                setup_ok = True
+                break
+            which = "NUMERIC" if not num_ok else "RATE"
+            self._last_gather_error = f"{which} 配置失败(第{attempt}/3次)"
+            print(f"[Collector][start_gathering] {self._last_gather_error}")
+            # 可能仍在 Started，再停一次再试
+            stop_acquisition = getattr(self._ctrl, "stop_acquisition", None)
+            if stop_acquisition:
+                try:
+                    stop_acquisition()
+                except Exception:
+                    pass
+            else:
+                self._send_controller(
+                    ":ACQUISITION:STOP", "重试前停止", "ACQUISITION STOP"
+                )
+            time.sleep(0.8)
+        if not setup_ok:
+            if not self._last_gather_error:
+                self._last_gather_error = "NUMERIC/RATE 配置失败"
             self._ready_to_gather = False
             return False
 
@@ -731,25 +848,72 @@ class DewetronDataCollector:
         self._gather_start_time = 0.0
         self._sample_deadline = 0.0
         if not run_exists and not self.begin_run():
+            self._last_gather_error = "无法创建采集 run"
+            self._ready_to_gather = False
             return False
 
         self._ready_to_gather = True
+        self._last_gather_error = ""
         print("[Collector][start_gathering] 准备完成，等待 :ACQUISITION:START")
         return True
 
-    def on_acquisition_started(self):
-        """验证设备确实 Started 后启动采集查询，成功返回 True。"""
+    def on_acquisition_started(self, *, timeout_s=12.0, poll_s=0.4, retry_start=True):
+        """验证设备确实 Started 后启动采集查询，成功返回 True。
+
+        首轮试验结束后再「测试生效」再开跑时，Oxygen 对 START 常有 1～数秒延迟；
+        旧逻辑只 sleep 0.2s 查一次 STATE，会误报「未进入Started状态」并秒结束。
+        """
         if not self._ready_to_gather or self._run_id is None:
             return False
 
-        # 短稳定即可；过长会导致 Time[s] 与真实录波起点错位
-        time.sleep(0.2)
-        acq_state = self._query_controller(":ACQUISITION:STATE?", timeout_ms=5000)
-        print(f"[Collector][on_acquisition_started] 采集状态: {acq_state}")
-        if self._normalize_state(acq_state) != 'started':
+        time.sleep(min(0.2, max(0.0, float(poll_s or 0.2))))
+        ok, acq_state = self._wait_acq_state(
+            "started",
+            timeout_s=timeout_s,
+            poll_s=poll_s,
+            label="after-start",
+        )
+        if not ok and retry_start:
+            # START 写成功但设备仍 Stopped：补发一次再等（APPLY 后常见）
+            if self._normalize_state(acq_state) in ("", "stopped", "armed"):
+                print(
+                    f"[Collector][on_acquisition_started] 未 Started({acq_state!r})，补发 START"
+                )
+                start_fn = getattr(self._ctrl, "start_acquisition", None)
+                resent = False
+                if callable(start_fn):
+                    try:
+                        resent = bool(start_fn())
+                    except Exception as exc:
+                        print(f"[Collector][on_acquisition_started] 补发 START 异常: {exc}")
+                else:
+                    resent = bool(
+                        self._send_controller(
+                            ":ACQUISITION:START",
+                            "补发 START",
+                            "ACQUISITION START retry",
+                        )
+                    )
+                if resent:
+                    ok, acq_state = self._wait_acq_state(
+                        "started",
+                        timeout_s=max(2.0, float(timeout_s or 2.0) * 0.8),
+                        poll_s=poll_s,
+                        label="after-restart",
+                    )
+            if not ok:
+                print(
+                    f"[Collector][on_acquisition_started] 放弃: 仍非 Started ({acq_state!r})"
+                )
+                self.is_gather.clear()
+                self._ready_to_gather = False
+                return False
+        elif not ok:
             self.is_gather.clear()
+            self._ready_to_gather = False
             return False
 
+        print(f"[Collector][on_acquisition_started] 采集状态: {acq_state}")
         items = self._query_controller(":NUM:NORM:ITEMs?", timeout_ms=5000)
         print(f"[Collector][on_acquisition_started] NUMERIC 通道: {items[:100] if items else '空'}")
 
@@ -758,6 +922,12 @@ class DewetronDataCollector:
         self._sample_deadline = now
         poll_s = scpi_poll_interval_s(self._rate_ms)
         self._emit_ui(f"[DEWETRON] 采集抽点 {int(poll_s * 1000)}ms（与设备刷新率一致）")
+        # 勾选「保留 .dmd」时同步开 Oxygen :STORE（失败只告警）
+        if self._oxygen_store_enabled:
+            try:
+                self._start_oxygen_store()
+            except Exception as exc:
+                self._emit_ui(f"[DEWETRON] Oxygen 录波启动异常: {exc}")
         self.is_gather.set()
         self._ready_to_gather = False
         if self._trip_screenshot_enabled and self._trip_monitor is not None:
@@ -811,8 +981,56 @@ class DewetronDataCollector:
                 )
         return was_active
 
+    def _wait_store_stopped(self, *, timeout_s=8.0, poll_s=0.3):
+        """等到 :STORE:STATE? 为 Stopped（Stopping 期间不要开新录）。"""
+        try:
+            from utils.dewetron_oxygen_store import parse_store_state_response
+        except Exception:
+            time.sleep(0.5)
+            return False
+        deadline = time.time() + max(0.5, float(timeout_s or 0.5))
+        last = ""
+        while time.time() < deadline:
+            raw = self._query_controller(":STORE:STATE?", timeout_ms=3000)
+            last = parse_store_state_response(raw)
+            if last.casefold() == "stopped":
+                return True
+            time.sleep(max(0.1, float(poll_s or 0.3)))
+        print(f"[Collector][_wait_store_stopped] 超时 last={last!r}")
+        return last.casefold() == "stopped"
+
+    def _prepare_oxygen_store_mode(self):
+        """官方整段录波前置：Continuous + 关闭「录后自动停」。
+
+        台架 Oxygen 常默认 Eventbased + SAFTer≈0.5s，不改就会只录半秒。
+        """
+        # 文档：:STORe:WAVEform:CONTinuous / :STORe:WAVEform:MODE Continuous
+        self._send_controller(
+            ":STORE:WAVEFORM:CONTINUOUS",
+            "Oxygen 录波改为 Continuous",
+            "STORE WAVEFORM CONTINUOUS",
+            timeout_ms=5000,
+        )
+        self._send_controller(
+            ":STORE:SAFTer OFF",
+            "关闭 Oxygen 录后自动停止",
+            "STORE SAFER OFF",
+            timeout_ms=5000,
+        )
+        # 避免 STORE 自己再踢一脚 ACQUISITION
+        self._send_controller(
+            ":STORE:RACQuisition OFF",
+            "关闭 STORE 重启采集",
+            "STORE RACQ OFF",
+            timeout_ms=3000,
+        )
+
     def _start_oxygen_store(self):
-        """启动 Oxygen :STORE 录波（失败只告警，不阻断 NUMERIC）。"""
+        """启动 Oxygen :STORE 录波（失败只告警，不阻断 NUMERIC）。
+
+        官方顺序（Acquisition 已 Started 后）：
+        ``:STORE:FILE:NAME "D:/DATA/Testrun_1"`` → ``:STORE:START``
+        """
         self._oxygen_store_active = False
         self._oxygen_store_path = ""
         if not self._oxygen_store_enabled:
@@ -829,9 +1047,13 @@ class DewetronDataCollector:
             self._emit_ui(f"[DEWETRON] Oxygen 录波模块加载失败: {exc}")
             return False
 
-        # 先停掉可能残留的 STORE
+        # 先停掉可能残留的 STORE，并等到真正 Stopped
         self._send_controller(":STORE:STOP", "停止残留 STORE", "STORE STOP", timeout_ms=5000)
-        time.sleep(0.3)
+        self._wait_store_stopped(timeout_s=6.0, poll_s=0.3)
+        try:
+            self._prepare_oxygen_store_mode()
+        except Exception as exc:
+            self._emit_ui(f"[DEWETRON] Oxygen 录波模式准备告警: {exc}")
 
         candidates = oxygen_store_path_candidates(self._save_path or "")
         last_state = ""
@@ -860,17 +1082,17 @@ class DewetronDataCollector:
                 self._send_controller(
                     ":STORE:STOP", "停止失败的 STORE", "STORE STOP", timeout_ms=3000
                 )
-                time.sleep(0.2)
+                self._wait_store_stopped(timeout_s=4.0, poll_s=0.25)
                 continue
 
             # 录波已开始后再查路径（停着时 NAME? 固定返回 NONE，这是文档行为）
             actual_raw = self._query_controller(":STORE:FILE:NAME?", timeout_ms=5000)
             actual = parse_store_file_name_response(actual_raw) or path
-            self._oxygen_store_path = actual.replace("/", "\\")
+            self._oxygen_store_path = str(actual).replace("/", "\\")
             self._oxygen_store_active = True
             self._emit_ui(
                 f"[DEWETRON] 整段 Oxygen 录波已开始: {self._oxygen_store_path} "
-                f"(STATE={state}；跳脱时会自动打标记，此刻不是跳脱)"
+                f"(STATE={state}；Continuous；跳脱时会自动打标记，此刻不是跳脱)"
             )
             return True
 
@@ -879,24 +1101,42 @@ class DewetronDataCollector:
         self._emit_ui(
             f"[DEWETRON] Oxygen 录波未真正开始 STATE={last_state or 'Unknown'} "
             f"末次路径={last_path}{err_hint}；"
-            f"已尝试默认目录文件名及 D:/E: 短路径。请在 Oxygen 里手动点一次存储确认默认可写目录"
+            f"已优先尝试 CSV 同目录绝对路径及 D:/E: 短路径。请确认 Oxygen 对该目录可写"
         )
         return False
 
     def _stop_oxygen_store(self):
-        """停止 Oxygen :STORE 录波。"""
-        if not self._oxygen_store_active and not self._oxygen_store_enabled:
+        """停止本采集器启动的 Oxygen :STORE，并尽量把 .dmd 保留到 CSV 同目录。
+
+        仅当 ``_oxygen_store_active`` 时发 STOP，避免误停台架上其它手动录波。
+        """
+        if not self._oxygen_store_active:
             return False
+        store_path = self._oxygen_store_path
         ok = self._send_controller(
             ":STORE:STOP", "停止 Oxygen 录波", "STORE STOP", timeout_ms=5000
         )
-        was = self._oxygen_store_active
         self._oxygen_store_active = False
-        if was and ok:
-            self._emit_ui(
-                f"[DEWETRON] Oxygen 录波已停止: {self._oxygen_store_path or ''}"
-            )
+        self._wait_store_stopped(timeout_s=8.0, poll_s=0.3)
+        if ok:
+            self._emit_ui(f"[DEWETRON] Oxygen 录波已停止: {store_path or ''}")
+        if self._oxygen_store_enabled and store_path:
+            try:
+                from utils.dewetron_oxygen_store import preserve_oxygen_dmd_beside_csv
+
+                # Oxygen 落盘稍等
+                time.sleep(0.6)
+                kept, msg = preserve_oxygen_dmd_beside_csv(
+                    store_path, self._save_path or ""
+                )
+                if kept:
+                    self._emit_ui(f"[DEWETRON] 已保留原始 .dmd: {msg}")
+                else:
+                    self._emit_ui(f"[DEWETRON] 保留 .dmd 未成功: {msg}")
+            except Exception as exc:
+                self._emit_ui(f"[DEWETRON] 保留 .dmd 异常: {exc}")
         return bool(ok)
+
     def finish_batch(self):
         """结束当前批次，更新批次结束时间；重复调用安全。"""
         if not self._conn or not self._batch_id:
@@ -925,28 +1165,43 @@ class DewetronDataCollector:
         if not self.has_database() or not run_id or not csv_path:
             return None
         try:
-            header = self.get_run_header(run_id)
+            header = list(self.get_run_header(run_id) or [])
             if not header:
                 return None
-            rows = self.get_run_rows(run_id)
+            has_abs = bool(header) and str(header[0]).strip().casefold() in (
+                "abs time",
+                "abs_time",
+                "absolute time",
+            )
+            if has_abs:
+                raw_rows = self.get_run_rows_with_abs(run_id)
+                base = [(t, v) for _a, t, v in raw_rows]
+                abs_list = [a for a, _t, _v in raw_rows]
+            else:
+                base = self.get_run_rows(run_id)
+                abs_list = []
             try:
                 from utils.dewetron_recording import trim_leading_all_nan_samples
 
-                trimmed = trim_leading_all_nan_samples(rows, rebase_time=True)
-                dropped = max(0, len(rows) - len(trimmed))
+                trimmed = trim_leading_all_nan_samples(base, rebase_time=True)
+                dropped = max(0, len(base) - len(trimmed))
             except Exception:
-                trimmed = list(rows or [])
+                trimmed = list(base or [])
                 dropped = 0
             # 若裁掉开头空点后变成 0 行、但库里其实有行：保留原始行，避免「空 CSV」
-            if not trimmed and rows:
+            if not trimmed and base:
                 trimmed = []
-                for time_val, values in rows:
+                for time_val, values in base:
                     try:
                         tt = float(time_val)
                     except (TypeError, ValueError):
                         tt = 0.0
                     trimmed.append((tt, list(values or [])))
                 dropped = 0
+            # trim 按前缀丢行；Abs Time 用同索引切片（rebase 后不可按相对时间反查）
+            trimmed_abs = list(abs_list[dropped:] if has_abs else [])
+            if has_abs and len(trimmed_abs) < len(trimmed):
+                trimmed_abs.extend([""] * (len(trimmed) - len(trimmed_abs)))
             if not trimmed:
                 raw_count = 0
                 try:
@@ -962,7 +1217,7 @@ class DewetronDataCollector:
                     raw_count = 0
                 self._emit_ui(
                     f"[DEWETRON] 导出无有效测点: run_id={run_id} "
-                    f"库内原始行={raw_count} 解码行={len(rows)} "
+                    f"库内原始行={raw_count} 解码行={len(base)} "
                     f"（请查操作日志是否出现过 START/采集已开始）"
                 )
             csv_dir = os.path.dirname(csv_path)
@@ -971,19 +1226,31 @@ class DewetronDataCollector:
             with open(csv_path, 'w', newline='', encoding='utf-8-sig') as output:
                 writer = csv.writer(output)
                 writer.writerow(header)
-                expect_n = max(len(header) - 1, 0)
+                expect_n = max(len(header) - (2 if has_abs else 1), 0)
                 places = self._clamp_csv_decimal_places(
                     getattr(self, "_csv_decimal_places", 4)
                 )
                 value_fmt = f"{{:.{places}f}}"
-                for time_val, values in trimmed:
+                for idx, (time_val, values) in enumerate(trimmed):
                     aligned = list(values or [])[:expect_n]
                     if len(aligned) < expect_n:
                         aligned.extend([float("nan")] * (expect_n - len(aligned)))
-                    writer.writerow(
-                        [f"{float(time_val):.4f}"]
-                        + [value_fmt.format(float(value)) for value in aligned]
-                    )
+                    cells = []
+                    if has_abs:
+                        try:
+                            from utils.dewetron_oxygen_store import format_abs_time_for_csv
+
+                            abs_cell = format_abs_time_for_csv(
+                                trimmed_abs[idx] if idx < len(trimmed_abs) else ""
+                            )
+                        except Exception:
+                            abs_cell = str(
+                                trimmed_abs[idx] if idx < len(trimmed_abs) else ""
+                            ) or ""
+                        cells.append(abs_cell)
+                    cells.append(f"{float(time_val):.4f}")
+                    cells.extend(value_fmt.format(float(value)) for value in aligned)
+                    writer.writerow(cells)
             msg = f"[Collector][export_run_to_csv] 导出完成: {csv_path} ({len(trimmed)} 行)"
             if dropped:
                 msg += f"，已去掉开头空测点 {dropped} 行"
@@ -1073,6 +1340,23 @@ class DewetronDataCollector:
                 # 非空原文却解不出 → 记一条，避免静默丢光
                 continue
             decoded.append((time_val, values))
+        return decoded
+
+    def get_run_rows_with_abs(self, run_id):
+        """Return ``[(abs_time, time, values), ...]``。"""
+        if not self.has_database() or not run_id:
+            return []
+        with self._db_lock:
+            rows = self._conn.execute(
+                "SELECT time, channel_values FROM de_data WHERE run_id = ? ORDER BY seq",
+                (run_id,),
+            ).fetchall()
+        decoded = []
+        for time_val, values_json in rows:
+            values = loads_channel_values(values_json)
+            if not values and values_json not in (None, "", "[]"):
+                continue
+            decoded.append((loads_abs_time(values_json), time_val, values))
         return decoded
 
     def get_run_state(self):
@@ -1569,7 +1853,12 @@ class DewetronDataCollector:
                 row = self._align_numeric_row(self._parse_value(raw_val))
                 if row and self._conn and self._run_id is not None:
                     elapsed = time.time() - float(self._gather_start_time or time.time())
-                    values_json = dumps_channel_values(row)
+                    abs_tok = (
+                        self._last_sample_abs_time
+                        if self._export_abs_time
+                        else None
+                    )
+                    values_json = dumps_channel_values(row, abs_time=abs_tok)
                     with self._db_lock:
                         self._conn.execute(
                             "INSERT INTO de_data (run_id, seq, time, channel_values) "
@@ -1856,7 +2145,16 @@ class DewetronDataCollector:
 
         values = [v.strip() for v in clean.split(",")]
 
-        # 第一个值是 ABS-TIME（字符串），跳过
+        # 第一个值是 ABS-TIME（字符串），记下后跳过
+        if values:
+            try:
+                from utils.dewetron_oxygen_store import format_abs_time_for_csv
+
+                self._last_sample_abs_time = format_abs_time_for_csv(values[0])
+            except Exception:
+                self._last_sample_abs_time = values[0].strip().strip('"').strip("'")
+        else:
+            self._last_sample_abs_time = ""
         nums = []
         for v in values[1:]:
             v_clean = v.strip('"').strip("'")

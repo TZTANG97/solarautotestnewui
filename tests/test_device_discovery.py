@@ -32,6 +32,15 @@ def test_classify_idn_scope_and_wt():
     assert kind == "dew"
 
 
+def test_classify_idn_keysight_dc_not_unknown():
+    kind, brand = classify_idn("Keysight Technologies,E4360A,MY123,1.0")
+    assert kind == "dc"
+    assert brand == "keysight"
+    kind, brand = classify_idn("AGILENT TECHNOLOGIES,E4360A,1,1")
+    assert kind == "dc"
+    assert brand == "keysight"
+
+
 def test_classify_idn_chroma_ac_dc():
     kind, brand = classify_idn("CHROMA,61815,0,0")
     assert kind == "ac" and brand == "chroma"
@@ -146,6 +155,10 @@ def test_connect_plan_routes_without_auto_slot():
     assert plan["target"] == "dc_modbus" and plan["n"] == 2
     scope = FoundDevice(resource="USB0::0x0B21::DL850::INSTR")
     assert connect_plan("scope", scope)["target"] == "scope"
+    wt = FoundDevice(resource="192.168.40.100:502", host="192.168.40.100", port=502)
+    wt_plan = connect_plan("wt", wt)
+    assert wt_plan["target"] == "wt"
+    assert wt_plan["port"] == 5025
 
 
 def test_list_visa_skips_asrl_by_default():
