@@ -27,9 +27,9 @@ TEST_CODE_BY_PACK: Dict[Tuple[str, str], str] = {
     ("overload", "CEI_Nbis_DeKai"): "A.4.9",
     ("flicker", "BRAZIL_140"): "5.4.16",
     ("flicker", "CEI_Nbis_NanDe"): "voltage.fluctuation",
-    # 北德包默认走 0-21（de_vde）；CEI 0-16 见 TEST_CODE_BY_STANDARD
-    ("flicker", "CEI_Nbis_BeiDe"): "21.3",
-    ("flicker", "CEI_Nbis_DeKai"): "21.3",
+    # 北德包 0-21 闪变是 3.c / processor_21_3c。21.3 是谐波电流，不能当闪变跑。
+    # CEI 0-16 的 3.3 见 TEST_CODE_BY_STANDARD。德凯包没有闪变处理器，不挂。
+    ("flicker", "CEI_Nbis_BeiDe"): "21.3c",
     ("harmonic", "BRAZIL_140"): "5.10",
     ("harmonic", "CEI_Nbis_NanDe"): "harmonic",
     ("dccomponent", "BRAZIL_140"): "5.9",

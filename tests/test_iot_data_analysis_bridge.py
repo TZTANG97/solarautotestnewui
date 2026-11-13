@@ -50,7 +50,7 @@ def test_map_en50549_uses_50549_pack():
     assert t["test_code"] == "5.7.2.3.3"
     t2 = resolve_analysis_target(test_type="flicker", solar_standard="de_vde")
     assert t2["standard_pack"] == "CEI_Nbis_BeiDe"
-    assert t2["test_code"] == "21.3"
+    assert t2["test_code"] == "21.3c"
 
 
 def test_map_en50549_core_codes():
@@ -175,6 +175,19 @@ def test_map_brazil_phase2_codes():
     )["test_code"] == "5.4.19"
 
 
+def test_collect_flicker_analysis_aliases():
+    p = _collect_analysis_params(
+        {
+            "widgets": {
+                "analysis_Sk_fic": "800",
+                "analysis_reconnect_time": "300",
+            }
+        }
+    )
+    assert p["Sk_fic"] == 800
+    assert p["reconnect_time"] == 300
+
+
 def test_collect_params_from_job():
     job = {
         "params": {"Pn": "10000", "analysisParams": {"SeMax": 11000}},
@@ -215,3 +228,16 @@ def test_skip_when_not_success(tmp_path: Path):
     )
     assert info["skipped"] is True
     assert info["ran"] is False
+
+
+def test_loads_json_object_tolerates_extra_data():
+    """并发写坏的 headless_result.json：Extra data 时取第一段对象。"""
+    from utils.iot_data_analysis_bridge import _loads_json_object
+
+    raw = (
+        '{\n  "success": true,\n  "message": "ok",\n  "output_files": []\n}\n'
+        '{\n  "success": false,\n  "message": "dup"\n}\n'
+    )
+    obj = _loads_json_object(raw)
+    assert obj.get("success") is True
+    assert obj.get("message") == "ok"

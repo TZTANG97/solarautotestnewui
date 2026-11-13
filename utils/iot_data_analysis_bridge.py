@@ -71,6 +71,19 @@ def _analysis_root() -> Optional[Path]:
     return None
 
 
+def _processor_py(root: Path, pack: str, code: str) -> Optional[Path]:
+    """标准包里要有对应 processor_*.py，才允许结案跑数据处理。"""
+    stem = "processor_" + str(code or "").replace(".", "_") + ".py"
+    for rel in (
+        Path("CEI") / "src" / "mypkg" / "test_standards" / pack / "processors" / stem,
+        Path("src") / "mypkg" / "test_standards" / pack / "processors" / stem,
+    ):
+        path = root / rel
+        if path.is_file():
+            return path
+    return None
+
+
 def _analysis_python(root: Path) -> Path:
     # 优先分析项目自己的 .venv；bundled_analysis 无 venv 时用桌面同款解释器
     for rel in (
@@ -211,6 +224,8 @@ def _collect_analysis_params(job: Dict[str, Any]) -> Dict[str, Any]:
         "analysis_Pmax": "Srated",
         "analysis_Qmax": "Qmax",
         "analysis_Qmin": "Qmin",
+        "analysis_Sk_fic": "Sk_fic",
+        "analysis_reconnect_time": "reconnect_time",
         "analysisPn": "Pn",
         "analysisSeMax": "SeMax",
         "analysisSrated": "Srated",
@@ -338,8 +353,9 @@ def _prefer_keys_for_test(tt: str) -> tuple:
         return ("qu_dyn_curve", "dynamicqu")
     if low in ("ovuf", "guoqianya_pin", "过欠压", "过欠压_过欠频", "volt_freq"):
         return ("ovuf", "guoqianya", "over_under", "volt_freq")
-    if low in ("reactiveqcap", "无功能力范围", "qcap"):
-        return ("qcap_br", "qcap", "reactiveqcap")
+    if low in ("reactiveqcap", "无功能力范围", "qcap", "reactive-qcap", "reactive_qcap"):
+        # 桌面德威创连续录常落成 reactive-qcap_*.csv；WT 侧多为 QCap_BR
+        return ("qcap_br", "qcap", "reactiveqcap", "reactive-qcap", "reactive_qcap")
     return (low,) if low else ()
 
 
@@ -394,6 +410,38 @@ def _stage_clean_analysis_input(
 
 def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
     summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
+    # 0) 德威创刚导出的路径（内存 / sidecar / summary 显式字段）
+    try:
+        from utils.last_dew_export import last_dew_csv, last_dew_dir, read_sidecar
+
+        for raw in (
+            summary.get("last_dew_csv"),
+            summary.get("lastDewCsv"),
+            last_dew_csv(),
+            read_sidecar()[0],
+        ):
+            text = str(raw or "").strip()
+            if not text:
+                continue
+            p = Path(text)
+            if not p.is_absolute():
+                p = repo_root / p
+            if p.is_file():
+                return p.parent
+            if p.is_dir() and _dir_has_csv(p):
+                return p
+        for raw in (summary.get("analysis_input_dir"), last_dew_dir(), read_sidecar()[1]):
+            text = str(raw or "").strip()
+            if not text:
+                continue
+            p = Path(text)
+            if not p.is_absolute():
+                p = repo_root / p
+            # 只认含量测 CSV 的目录，空目录继续走硬扫兜底
+            if p.is_dir() and _dir_has_csv(p):
+                return p
+    except Exception:
+        pass
     # 显式目录
     for key in ("analysis_input_dir", "analysisInputDir", "data_dir", "dataDir"):
         raw = summary.get(key)
@@ -401,8 +449,14 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
             p = Path(str(raw))
             if not p.is_absolute():
                 p = repo_root / p
-            if p.exists():
-                return p if p.is_dir() else p.parent
+            if p.is_file() and _is_measurement_csv(p.name):
+                return p.parent
+            if p.is_dir() and _dir_has_csv(p):
+                return p
+            if p.exists() and not p.is_dir():
+                parent = p.parent
+                if parent.is_dir() and _dir_has_csv(parent):
+                    return parent
     # report_files 里找 CSV 父目录（按试验关键词优先，勿永远偏向 overload）
     prefer_keys = summary.get("analysis_csv_prefer_keys") or ()
     if not prefer_keys:
@@ -432,23 +486,70 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
     if csv_parents:
         csv_parents.sort(key=lambda d: d.stat().st_mtime if d.exists() else 0, reverse=True)
         return csv_parents[0]
-    # 兜底：wt_save / dewetron（录波落点）。勿扫 command_data——那里只有 *commands*.csv
-    for base in (
+    # 兜底：wt_save / 本机 dewetron_save（硬扫 LOCALAPPDATA，不依赖 data_root）/
+    # 仓库内 dewetron。勿扫 command_data——那里只有 *commands*.csv。
+    fallback_bases = [
         repo_root / "wt_save",
         repo_root / "command_save_files" / "dewetron_data",
-    ):
+    ]
+    try:
+        from utils.last_dew_export import hard_dewetron_save_dirs
+
+        fallback_bases.extend(hard_dewetron_save_dirs())
+    except Exception:
+        pass
+    try:
+        from utils.wt_save_path import default_dewetron_save_dir, default_wt_save_path
+
+        fallback_bases.extend(
+            [
+                Path(default_dewetron_save_dir()),
+                Path(default_wt_save_path()),
+            ]
+        )
+    except Exception:
+        pass
+    # prefer_keys 命中优先；否则任意含量测 CSV 的目录
+    prefer_hit: List[Path] = []
+    any_hit: List[Path] = []
+    seen_bases = set()
+
+    def _note_dir(d: Path) -> None:
+        if not d.is_dir():
+            return
+        keys = [str(k).lower() for k in (prefer_keys or ()) if str(k).strip()]
+        try:
+            csvs = [p for p in d.glob("*.csv") if _is_measurement_csv(p.name)]
+        except OSError:
+            return
+        if not csvs:
+            return
+        if keys and any(any(k in p.name.lower() for k in keys) for p in csvs):
+            prefer_hit.append(d)
+        else:
+            any_hit.append(d)
+
+    for base in fallback_bases:
+        try:
+            key = str(base.resolve()) if base.exists() else str(base)
+        except OSError:
+            key = str(base)
+        if key in seen_bases:
+            continue
+        seen_bases.add(key)
         if not base.is_dir():
             continue
-        if _dir_has_csv(base):
-            return base
-        dirs = [p for p in base.iterdir() if p.is_dir()]
+        _note_dir(base)
+        try:
+            dirs = [p for p in base.iterdir() if p.is_dir()]
+        except OSError:
+            continue
         dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
         for d in dirs[:12]:
-            if _dir_has_csv(d) or any(
-                p for p in d.rglob("*.csv") if _is_measurement_csv(p.name)
-            ):
-                if _dir_has_csv(d):
-                    return d
+            _note_dir(d)
+            if _dir_has_csv(d):
+                continue
+            try:
                 nested = sorted(
                     (
                         p.parent
@@ -458,8 +559,14 @@ def _pick_input_dir(repo_root: Path, result: Dict[str, Any]) -> Optional[Path]:
                     key=lambda x: x.stat().st_mtime if x.exists() else 0,
                     reverse=True,
                 )
-                if nested:
-                    return nested[0]
+            except OSError:
+                nested = []
+            for n in nested[:3]:
+                _note_dir(n)
+    pool = prefer_hit or any_hit
+    if pool:
+        pool.sort(key=lambda d: d.stat().st_mtime if d.exists() else 0, reverse=True)
+        return pool[0]
     return None
 
 
@@ -496,6 +603,26 @@ def _append_report_files(result: Dict[str, Any], paths: List[Path]) -> None:
     summary["report_files"] = listed
 
 
+def _loads_json_object(text: str) -> Dict[str, Any]:
+    """解析单个 JSON 对象；若文件被并发写成「多段 JSON」则取第一段。"""
+    raw = (text or "").strip()
+    if not raw:
+        return {}
+    try:
+        obj = json.loads(raw)
+        return obj if isinstance(obj, dict) else {}
+    except json.JSONDecodeError:
+        pass
+    # Extra data / 尾部脏数据：raw_decode 只吃第一个完整值
+    try:
+        obj, _end = json.JSONDecoder().raw_decode(raw)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+    return _parse_trailing_json(raw)
+
+
 def _parse_trailing_json(text: str) -> Dict[str, Any]:
     """从混有日志的 stdout 中提取最后一段完整 JSON 对象。"""
     raw = (text or "").strip()
@@ -506,7 +633,7 @@ def _parse_trailing_json(text: str) -> Dict[str, Any]:
     for start in reversed(starts):
         chunk = raw[start:]
         try:
-            obj = json.loads(chunk)
+            obj, _end = json.JSONDecoder().raw_decode(chunk)
         except json.JSONDecodeError:
             continue
         if isinstance(obj, dict):
@@ -569,6 +696,13 @@ def run_analysis_after_job(
         info["reason"] = (
             "未找到结案分析引擎（bundled_analysis / SolarTestDataAnalysisApp）："
             "请升级到含 bundled_analysis 的安装包，或设置 SOLAR_DATA_ANALYSIS_ROOT"
+        )
+        _store_analysis_meta(result, info)
+        return info
+
+    if _processor_py(root, target["standard_pack"], target["test_code"]) is None:
+        info["reason"] = (
+            f"分析包没有处理器 {target['standard_pack']}/{target['test_code']}，不跑数据处理"
         )
         _store_analysis_meta(result, info)
         return info
@@ -729,6 +863,14 @@ def run_analysis_after_job(
             "Un", 230, reason=f"南德 {target['test_code']} 缺少 Un（analysis_Un / 交流电压）"
         ):
             return info
+        if (
+            target["test_code"] == "response.to.utility.recover"
+            and params.get("reconnect_time") in (None, "")
+        ):
+            info["reason"] = "南德重连缺少 reconnect_time（analysis_reconnect_time）"
+            logger.warning("结案分析跳过: %s", info["reason"])
+            _store_analysis_meta(result, info)
+            return info
         # 南德处理器普遍按 kW 读 Pn：网页填 10000(W) 时自动换算
         if need_pn and params.get("Pn") is not None:
             try:
@@ -740,7 +882,7 @@ def run_analysis_after_job(
     # 北德 / CEI 0-16（图喆麦田报告）
     if target["standard_pack"] == "CEI_Nbis_BeiDe":
         code = target["test_code"]
-        need_in = code in {"3.1"}
+        need_in = code in {"3.1", "A.4.9"}
         need_pn = code in {
             "3.2",
             "3.3",
@@ -753,7 +895,6 @@ def run_analysis_after_job(
             "6.8",
             "7.1",
             "8.1",
-            "A.4.9",
             "A.4.3.4",
         }
         need_un = code in {"3.2", "4", "5", "6.5", "6.7", "6.8", "7.1", "8.1"}
@@ -768,6 +909,11 @@ def run_analysis_after_job(
         if need_un and not _ensure_param(
             "Un", 230, reason=f"北德 CEI0-16 {code} 缺少 Un（analysis_Un）"
         ):
+            return info
+        if code == "3.3" and params.get("Sk_fic") in (None, ""):
+            info["reason"] = "北德 3.3 缺少 Sk_fic（analysis_Sk_fic，试验平台短路容量）"
+            logger.warning("结案分析跳过: %s", info["reason"])
+            _store_analysis_meta(result, info)
             return info
         # 北德部分条款 Pn 按 W；若网页填 kW 小数则保持，填 100000(W) 不换算
         # （与南德 kW 习惯不同，避免误除 1000）
@@ -837,11 +983,12 @@ def run_analysis_after_job(
         result["result_summary"] = summary
     summary.setdefault("testType", tt)
 
+    # 用 time_ns，避免同秒两次结案撞同一目录、写坏 headless_result.json
     out_dir = (
         Path(repo_root).resolve()
         / "command_save_files"
         / "analysis_reports"
-        / f"job_{job.get('id') or job.get('jobId') or 'x'}_{int(time.time())}"
+        / f"job_{job.get('id') or job.get('jobId') or 'x'}_{time.time_ns()}"
     )
     out_dir.mkdir(parents=True, exist_ok=True)
     # subprocess cwd 在分析项目 CEI/ 下，必须用绝对路径，否则报告落到错误目录
@@ -944,14 +1091,21 @@ def run_analysis_after_job(
     payload: Dict[str, Any] = {}
     if result_json.is_file():
         try:
-            payload = json.loads(result_json.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            payload = {"success": False, "message": f"result-json 解析失败: {exc}"}
+            raw_txt = result_json.read_text(encoding="utf-8")
+            payload = _loads_json_object(raw_txt)
+            if not payload:
+                payload = {
+                    "success": False,
+                    "message": "result-json 为空或非对象",
+                    "raw": raw_txt[:800],
+                }
+        except OSError as exc:
+            payload = {"success": False, "message": f"result-json 读取失败: {exc}"}
     if not payload:
         stdout = (proc.stdout or "").strip()
         if stdout:
             # 日志后可能跟一段 JSON；勿用 rfind('{')（会命中 calculated_values: {}）
-            payload = _parse_trailing_json(stdout)
+            payload = _loads_json_object(stdout) or _parse_trailing_json(stdout)
             if not payload:
                 payload = {
                     "success": False,

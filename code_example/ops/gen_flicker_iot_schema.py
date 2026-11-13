@@ -7,8 +7,8 @@
   - 可选拷贝到 IOT（见 --iot-out）
 
 Usage:
-  uv run python code_example/gen_flicker_iot_schema.py
-  uv run python code_example/gen_flicker_iot_schema.py --iot-out E:/IOT/iot/app/services/solar_test_schemas/flicker_fields.json
+  uv run python code_example/ops/gen_flicker_iot_schema.py
+  uv run python code_example/ops/gen_flicker_iot_schema.py --iot-out E:/IOT/iot/app/services/solar_test_schemas/flicker_fields.json
 """
 from __future__ import annotations
 
@@ -17,93 +17,97 @@ import json
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-DIALOG = ROOT / "Dialog_thaiguodianyashanbian.py"
+ROOT = Path(__file__).resolve().parents[2]
+DIALOG = ROOT / "dialogs" / "Dialog_thaiguodianyashanbian.py"
 OUT_SW = ROOT / "utils" / "iot_flicker_schema_data.json"
-OVERLOAD_SW = ROOT / "utils" / "iot_overload_schema_data.json"
 
+# 文案与 Dialog_thaiguodianyashanbian 上的 QLabel / 复选框原文一致
 LABELS = {
-    "checkBox_S1": "启用步骤1 AC/DC",
-    "comboBox_S1_AC": "AC 开关",
-    "comboBox_S1_AC_2": "AC 单相/三相",
-    "textEdit_S1_AC_VOLT": "A相电压(V)",
-    "textEdit_S1_AC_VOLT_2": "B相电压(V)",
-    "textEdit_S1_AC_VOLT_3": "C相电压(V)",
-    "textEdit_S1_AC_FR": "AC 频率(Hz)",
-    "checkBox_S1_DC1": "启用直流电源1",
-    "comboBox_S1_DC1": "直流1 开关",
-    "textEdit_S1_DC1_VOLT": "直流1 Vmp(V)",
-    "textEdit_S1_DC1_CURR": "直流1 Imp(A)",
-    "textEdit_S1_DC1_Voc": "直流1 Voc(V)",
-    "textEdit_S1_DC1_Isc": "直流1 Isc(A)",
-    "textEdit_S1_DC1_PF": "直流1 功率(%)",
-    "checkBox_S1_DC2": "启用直流电源2",
-    "comboBox_S1_DC2": "直流2 开关",
-    "textEdit_S1_DC2_VOLT": "直流2 Vmp(V)",
-    "textEdit_S1_DC2_CURR": "直流2 Imp(A)",
-    "textEdit_S1_DC2_Voc": "直流2 Voc(V)",
-    "textEdit_S1_DC2_Isc": "直流2 Isc(A)",
-    "textEdit_S1_DC2_PF": "直流2 功率(%)",
-    "checkBox_S1_DC3": "启用直流电源3",
-    "comboBox_S1_DC3": "直流3 开关",
-    "textEdit_S1_DC3_VOLT": "直流3 Vmp(V)",
-    "textEdit_S1_DC3_CURR": "直流3 Imp(A)",
-    "textEdit_S1_DC3_Voc": "直流3 Voc(V)",
-    "textEdit_S1_DC3_Isc": "直流3 Isc(A)",
-    "textEdit_S1_DC3_PF": "直流3 功率(%)",
-    "checkBox_S1_DC4": "启用直流电源4",
-    "comboBox_S1_DC4": "直流4 开关",
-    "textEdit_S1_DC4_VOLT": "直流4 Vmp(V)",
-    "textEdit_S1_DC4_CURR": "直流4 Imp(A)",
-    "textEdit_S1_DC4_Voc": "直流4 Voc(V)",
-    "textEdit_S1_DC4_Isc": "直流4 Isc(A)",
-    "textEdit_S1_DC4_PF": "直流4 功率(%)",
+    "checkBox_S1": "step1",
+    "comboBox_S1_AC": "交流电压1",
+    "comboBox_S1_AC_2": "接线",
+    "textEdit_S1_AC_VOLT": "交流电压1(V)",
+    "textEdit_S1_AC_VOLT_2": "交流电压2(V)",
+    "textEdit_S1_AC_VOLT_3": "交流电压3(V)",
+    "textEdit_S1_AC_FR": "频率(Hz)",
+    "checkBox_S1_DC1": "直流电源1",
+    "comboBox_S1_DC1": "直流电源1 开关",
+    "textEdit_S1_DC1_VOLT": "直流电源1 Vmp(V)",
+    "textEdit_S1_DC1_CURR": "直流电源1 Imp(A)",
+    "textEdit_S1_DC1_Voc": "直流电源1 Voc(V)",
+    "textEdit_S1_DC1_Isc": "直流电源1 Isc(A)",
+    "textEdit_S1_DC1_PF": "直流电源1 功率(%)",
+    "checkBox_S1_DC2": "直流电源2",
+    "comboBox_S1_DC2": "直流电源2 开关",
+    "textEdit_S1_DC2_VOLT": "直流电源2 Vmp(V)",
+    "textEdit_S1_DC2_CURR": "直流电源2 Imp(A)",
+    "textEdit_S1_DC2_Voc": "直流电源2 Voc(V)",
+    "textEdit_S1_DC2_Isc": "直流电源2 Isc(A)",
+    "textEdit_S1_DC2_PF": "直流电源2 功率(%)",
+    "checkBox_S1_DC3": "直流电源3",
+    "comboBox_S1_DC3": "直流电源3 开关",
+    "textEdit_S1_DC3_VOLT": "直流电源3 Vmp(V)",
+    "textEdit_S1_DC3_CURR": "直流电源3 Imp(A)",
+    "textEdit_S1_DC3_Voc": "直流电源3 Voc(V)",
+    "textEdit_S1_DC3_Isc": "直流电源3 Isc(A)",
+    "textEdit_S1_DC3_PF": "直流电源3 功率(%)",
+    "checkBox_S1_DC4": "直流电源4",
+    "comboBox_S1_DC4": "直流电源4 开关",
+    "textEdit_S1_DC4_VOLT": "直流电源4 Vmp(V)",
+    "textEdit_S1_DC4_CURR": "直流电源4 Imp(A)",
+    "textEdit_S1_DC4_Voc": "直流电源4 Voc(V)",
+    "textEdit_S1_DC4_Isc": "直流电源4 Isc(A)",
+    "textEdit_S1_DC4_PF": "直流电源4 功率(%)",
     "textEdit_S1_ACWaitTIME": "等待时间",
     "comboBox_S1_ACWaitTIME": "等待时间单位",
     "textEdit_S1_TIME": "启机时间",
     "comboBox_S1_TIME": "启机时间单位",
-    "checkBox_S2": "启用步骤2 闪变",
-    "comboBox_S2_WT": "WT 单相/三相",
-    "comboBox_S2_WT3000_Setting": "WT ELEMENT",
-    "comboBox_S2_PER_FLICK_COUNT": "每组闪变次数",
+    "checkBox_S2": "step2",
+    "comboBox_S2_WT": "WT3000",
+    "comboBox_S2_WT3000_Setting": "ELEMENT",
+    "comboBox_S2_PER_FLICK_COUNT": "每组闪变",
     "textEdit_S2_TIME": "首次闪变间隔",
     "comboBox_S2_TIME": "首次闪变间隔单位",
-    "checkBox_S2_DEW": "启用德威创闪变",
-    "checkBox_DEW_FlickerStandard": "闪变标准",
+    "checkBox_S2_DEW": "step2",
+    "checkBox_DEW_FlickerStandard": "闪变计算依照IEC61000-4-15: 2011",
     "comboBox_DEW_WeightingType": "加权类型",
-    "comboBox_DEW_MaxRefreshRate": "最大刷新率 (ms)",
-    "textEdit_DEW_NominalVoltage": "额定电压(V)",
-    "textEdit_DEW_ShortFlickerTime": "短时闪变(min)",
-    "textEdit_DEW_LongFlickerTime": "长时闪变(min)",
-    "textEdit_DEW_S2_TIME": "德威创首次间隔",
-    "comboBox_DEW_S2_TIME": "德威创首次间隔单位",
-    "comboBox_DEW_S2_PER_FLICK_COUNT": "德威创每组次数",
-    "textEdit_DEW_ShortCircuitPower": "短路容量(MVA)",
-    "checkBox_DEW_RollingCalc": "滚动计算",
-    "checkBox_S3": "启用步骤3 DC 开关循环",
+    "comboBox_DEW_MaxRefreshRate": "最大刷新率",
+    "textEdit_DEW_NominalVoltage": "标称电压",
+    "textEdit_DEW_ShortFlickerTime": "短时闪变计算时间",
+    "textEdit_DEW_LongFlickerTime": "长时闪变计算时间",
+    "textEdit_DEW_S2_TIME": "首次闪变间隔",
+    "comboBox_DEW_S2_TIME": "首次闪变间隔单位",
+    "comboBox_DEW_S2_PER_FLICK_COUNT": "每组闪变次数",
+    "textEdit_DEW_ShortCircuitPower": "短路视在功率",
+    "checkBox_DEW_RollingCalc": "打开滚动计算",
+    "spinBox_DEW_DecimalPlaces": "保留小数位数",
+    "checkBox_DEW_RealtimeWaveform": "启用实时波形显示",
+    "checkBox_DEW_ExportAbsTime": "CSV 增加绝对时间戳列（设备 ABS-TIME）",
+    "checkBox_DEW_KeepOxygenDmd": "保留 Oxygen 原始 .dmd 录波到保存目录",
+    "checkBox_S3": "step3",
     "textEdit_S3_TIME": "持续时间",
     "comboBox_S3_TIME": "持续时间单位",
     "textEdit_S3_TIME_2": "闪变间隔",
     "comboBox_S3_TIME_2": "闪变间隔单位",
     "textEdit_S3_CYCLE_TIME": "循环次数",
-    "checkBox_S4": "启用步骤4 判定结果",
-    "comboBox_S4_WT3000_1": "判定结束条件",
-    "comboBox_S4_WT3000_2": "是否保存图片",
-    "comboBox_S4_WT3000_3": "图片保存位置",
-    "checkBox_S4_DEW": "启用德威创判定/导出",
-    "checkBox_S5": "启用步骤5 关机",
-    "comboBox_S5_AC": "关机 AC",
-    "checkBox_S5_DC1": "关机 DC1",
-    "comboBox_S5_DC1": "关机 DC1 动作",
-    "checkBox_S5_DC2": "关机 DC2",
-    "comboBox_S5_DC2": "关机 DC2 动作",
-    "checkBox_S5_DC3": "关机 DC3",
-    "comboBox_S5_DC3": "关机 DC3 动作",
-    "checkBox_S5_DC4": "关机 DC4",
-    "comboBox_S5_DC4": "关机 DC4 动作",
+    "checkBox_S4": "step4",
+    "comboBox_S4_WT3000_1": "判断是结束",
+    "comboBox_S4_WT3000_2": "保存图片",
+    "comboBox_S4_WT3000_3": "保存至本地",
+    "checkBox_S4_DEW": "step4",
+    "checkBox_S5": "step5",
+    "comboBox_S5_AC": "交流电源",
+    "checkBox_S5_DC1": "直流电源1",
+    "comboBox_S5_DC1": "直流电源1 开关",
+    "checkBox_S5_DC2": "直流电源2",
+    "comboBox_S5_DC2": "直流电源2 开关",
+    "checkBox_S5_DC3": "直流电源3",
+    "comboBox_S5_DC3": "直流电源3 开关",
+    "checkBox_S5_DC4": "直流电源4",
+    "comboBox_S5_DC4": "直流电源4 开关",
     "radio_wt3000": "WT3000闪变",
-    "radio_dewetron": "德威创",
-    "radio_wt": "功率分析仪",
+    "radio_dewetron": "德威创模式",
+    "radio_wt": "WT3000闪变",
 }
 
 GROUP_RULES = [
@@ -259,8 +263,9 @@ def parse_dialog(src: str) -> dict:
     if "radio_wt" in cleaned and cleaned["radio_wt"].get("default") is None:
         cleaned["radio_wt"]["default"] = True
 
+    _apply_loop_fields(cleaned)
+
     groups = [{"id": gid, "title": title} for gid, title, _ in GROUP_RULES]
-    groups.append({"id": "step2_wt_cfg", "title": "② 功率分析仪 · 测量/存盘"})
     groups.append({"id": "other", "title": "其它"})
 
     return {
@@ -277,35 +282,64 @@ def parse_dialog(src: str) -> dict:
     }
 
 
-def _merge_wt_fields_from_overload(schema: dict) -> dict:
-    """闪变 Dialog 未内嵌 WT3000 测量页；复用过载 schema 的 WT/德威创可填字段。"""
-    if not OVERLOAD_SW.is_file():
-        return schema
-    ov = json.loads(OVERLOAD_SW.read_text(encoding="utf-8"))
-    have = {f["name"] for f in schema.get("fields") or []}
-    extra = []
-    for f in ov.get("fields") or []:
-        name = f.get("name") or ""
-        group = f.get("group") or ""
-        if name in have:
-            continue
-        if group in ("step2_wt_cfg", "step2_dew") or name.startswith(
-            ("checkBox_Set", "comboBox_Sigm", "comboBox_Unit", "comboBox_Wiring",
-             "comboBox_Replace", "comboBox_Project", "comboBox_Auto", "textEdit_Stop",
-             "textEdit_Save", "textEdit_File", "checkBox_AutoName", "radio_S2_WT",
-             "spinBox_DEW", "dew_export")
-        ):
-            # 避免覆盖闪变自有 DEW 闪变参数
-            if name.startswith(("checkBox_DEW_Flicker", "comboBox_DEW_Weight", "textEdit_DEW_",
-                                "comboBox_DEW_S2", "checkBox_DEW_Rolling", "checkBox_S2_DEW")):
-                continue
-            extra.append(dict(f))
-            have.add(name)
-    schema["fields"] = sorted(
-        list(schema.get("fields") or []) + extra,
-        key=lambda x: (x.get("group") or "", x["name"]),
-    )
-    return schema
+def _blank(name: str, *, typ: str, group: str, default, options=None) -> dict:
+    return {
+        "name": name,
+        "label": LABELS.get(name, name),
+        "type": typ,
+        "group": group,
+        "default": default,
+        "options": list(options or []),
+    }
+
+
+def _apply_loop_fields(cleaned: dict) -> None:
+    """Dialog 用循环 setObjectName(变量)，静态扫描扫不到第一次/第二次状态和关机直流。"""
+    on_off = ["开启", "关闭"]
+    off_on = ["关闭", "开启"]
+    for i in range(1, 5):
+        checked = i == 1
+        cleaned[f"checkBox_S3_DC{i}"] = _blank(
+            f"checkBox_S3_DC{i}", typ="checkbox", group="step3_cycle", default=checked
+        )
+        cleaned[f"checkBox_S3_DC{i}"]["label"] = f"第一次状态 直流电源{i}"
+        cleaned[f"comboBox_S3_DC{i}"] = _blank(
+            f"comboBox_S3_DC{i}",
+            typ="select",
+            group="step3_cycle",
+            default="关闭",
+            options=off_on,
+        )
+        cleaned[f"comboBox_S3_DC{i}"]["label"] = f"第一次状态 直流电源{i} 开关"
+        cleaned[f"checkBox_S3_DC{i}_2"] = _blank(
+            f"checkBox_S3_DC{i}_2", typ="checkbox", group="step3_cycle", default=checked
+        )
+        cleaned[f"checkBox_S3_DC{i}_2"]["label"] = f"第二次状态 直流电源{i}"
+        cleaned[f"comboBox_S3_DC{i}_2"] = _blank(
+            f"comboBox_S3_DC{i}_2",
+            typ="select",
+            group="step3_cycle",
+            default="开启",
+            options=on_off,
+        )
+        cleaned[f"comboBox_S3_DC{i}_2"]["label"] = f"第二次状态 直流电源{i} 开关"
+        cleaned[f"checkBox_S5_DC{i}"] = _blank(
+            f"checkBox_S5_DC{i}", typ="checkbox", group="step5_off", default=checked
+        )
+        cleaned[f"comboBox_S5_DC{i}"] = _blank(
+            f"comboBox_S5_DC{i}",
+            typ="select",
+            group="step5_off",
+            default="关闭",
+            options=off_on,
+        )
+    if "spinBox_DEW_DecimalPlaces" in cleaned:
+        cleaned["spinBox_DEW_DecimalPlaces"]["type"] = "number"
+        cleaned["spinBox_DEW_DecimalPlaces"]["default"] = 3
+    rate = cleaned.get("comboBox_DEW_MaxRefreshRate")
+    if rate is not None and not rate.get("options"):
+        rate["options"] = ["Default", "1000", "500", "200", "100", "50", "20", "10", "5", "2", "1"]
+        rate["default"] = "Default"
 
 
 def main(argv=None) -> int:
@@ -313,7 +347,6 @@ def main(argv=None) -> int:
     ap.add_argument("--iot-out", type=str, default="", help="额外写入 IOT 仓库路径")
     args = ap.parse_args(argv)
     schema = parse_dialog(DIALOG.read_text(encoding="utf-8"))
-    schema = _merge_wt_fields_from_overload(schema)
     OUT_SW.parent.mkdir(parents=True, exist_ok=True)
     OUT_SW.write_text(json.dumps(schema, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"wrote {OUT_SW} fields={len(schema['fields'])}")
