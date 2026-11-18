@@ -560,13 +560,33 @@ class Ui_Dialog_thailvrt(_BaseTimingProfileDialogUi):
         from utils.lvrt_commands import pea_lvrt_template_profile
 
         tip = QtWidgets.QLabel(
-            "表格上方点「新增工况」加一行。"
+            "表格上方点「新增工况」加一行；Ctrl/Shift 多选后改一格可批量改前置/保持/后置等。"
             "每行可勾选 L1/L2/L3：全勾=三相同比例跌落；只勾部分相=勾选相跟电压(p.u.)，"
-            "未勾选相保持步骤①额定（PEA 单相/两相故障）。前置/保持/后置时间照旧。"
+            "未勾选相保持步骤①额定（PEA 单相/两相故障）。"
+            "每行跌落后会先回到步骤①额定，若还有后续工况再等「段间并网等待」（与过欠压一致）。"
         )
         tip.setWordWrap(True)
         tip.setStyleSheet("color:#64748b; font-size: 13px;")
         group_layout.addWidget(tip)
+
+        grid_row = QtWidgets.QHBoxLayout()
+        grid_row.addWidget(QtWidgets.QLabel("段间并网等待(回额定后):"))
+        self.textEdit_lvrt_grid_wait = QtWidgets.QTextEdit()
+        self.textEdit_lvrt_grid_wait.setObjectName("textEdit_lvrt_grid_wait")
+        self.textEdit_lvrt_grid_wait.setMaximumHeight(31)
+        self.textEdit_lvrt_grid_wait.setMaximumWidth(80)
+        self.textEdit_lvrt_grid_wait.setPlainText("5")
+        self.textEdit_lvrt_grid_wait.setToolTip(
+            "上一工况回到步骤①额定后、下一工况跌落前的并网等待；末行不再插入。"
+        )
+        grid_row.addWidget(self.textEdit_lvrt_grid_wait)
+        self.comboBox_lvrt_grid_wait = QtWidgets.QComboBox()
+        self.comboBox_lvrt_grid_wait.setObjectName("comboBox_lvrt_grid_wait")
+        self.comboBox_lvrt_grid_wait.addItems(["秒", "毫秒", "分钟"])
+        self.comboBox_lvrt_grid_wait.setCurrentIndex(0)
+        grid_row.addWidget(self.comboBox_lvrt_grid_wait)
+        grid_row.addStretch()
+        group_layout.addLayout(grid_row)
 
         btn_row = QtWidgets.QHBoxLayout()
         self.pushButton_PeaLvrtTemplate = QtWidgets.QPushButton(

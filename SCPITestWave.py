@@ -27212,11 +27212,18 @@ def RunProject():
                             i + 1,
                             strArrayTest[i][9],
                             log_tag=f"wait,{reason_u or 'col9'}",
-                            force_full_dwell=reason_u
-                            in ("OVUF_GRID_RECOVERY", "OVUF_BOOT"),
+                            force_full_dwell=(
+                                reason_u
+                                in (
+                                    "OVUF_GRID_RECOVERY",
+                                    "OVUF_BOOT",
+                                    "LVRT_GRID_RECOVERY",
+                                )
+                                or reason_u.endswith("_GRID_RECOVERY")
+                            ),
                         )
-                        # OVUF 启机/段间并网：纯驻留，禁止误切 WT 工程 / pop test_program
-                        if reason_u.startswith("OVUF_"):
+                        # OVUF/LVRT 启机/段间并网：纯驻留，禁止误切 WT 工程 / pop test_program
+                        if reason_u.startswith("OVUF_") or reason_u.startswith("LVRT_"):
                             pass
                         elif len(test_program) != 0 and flicker_is_test == '1':
                             total_save_file = total_save_file

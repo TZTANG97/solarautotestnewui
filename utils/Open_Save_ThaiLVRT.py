@@ -5,19 +5,37 @@ from __future__ import annotations
 
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 
-from utils.timing_profile import LVRT_SCHEMA
+from utils.timing_profile import LVRT_SCHEMA, TIMING_PROFILE_JSON_COLUMN
 from utils.timing_profile_adapters import (
     append_dewetron_settings_tail,
     build_settings_headers,
+    read_settings_csv,
     restore_dewetron_settings_tail,
     write_settings_csv,
-    read_settings_csv,
 )
 
 
 FILE_TAG = "ThaiLVRT"
 TEST_TYPE = "lvrt"
-arrayRow1 = build_settings_headers()
+GRID_WAIT_HEADERS = (
+    "textEdit_lvrt_grid_wait",
+    "comboBox_lvrt_grid_wait",
+)
+
+
+def _lvrt_settings_headers():
+    headers = build_settings_headers()
+    insert_at = len(headers)
+    if TIMING_PROFILE_JSON_COLUMN in headers:
+        insert_at = headers.index(TIMING_PROFILE_JSON_COLUMN) + 1
+    for name in GRID_WAIT_HEADERS:
+        if name not in headers:
+            headers.insert(insert_at, name)
+            insert_at += 1
+    return headers
+
+
+arrayRow1 = _lvrt_settings_headers()
 HEADERS = arrayRow1
 
 
@@ -48,7 +66,7 @@ def Save_File_ThaiLVRT(kwargs):
         result = write_settings_csv(
             directory[0],
             ui,
-            arrayRow1,
+            _lvrt_settings_headers(),
             file_tag=FILE_TAG,
             schema=LVRT_SCHEMA,
             test_type=TEST_TYPE,

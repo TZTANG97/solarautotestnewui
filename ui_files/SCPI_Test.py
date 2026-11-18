@@ -219,6 +219,7 @@ class Ui_Dialog(object):
         for i, name in enumerate(["交流电源", "直流电源1", "直流电源2", "直流电源3",
                                     "直流电源4", "DL850", "WT3000", "DEWETRON"]):
             _dev_layout.addWidget(_make_item(name, i + 1, key=name))
+        _dev_layout.addWidget(_make_item("数据测量", 13, key="数据测量"))
         _scrollLayout.addWidget(_dev_container)
         _bind_toggle(_sec_dev, _dev_container, "设备管理")
 
@@ -1192,6 +1193,12 @@ class Ui_Dialog(object):
 
         self.iotAgentLogPage = IotAgentLogPage()
         self.stackedWidget.addWidget(self.iotAgentLogPage)
+
+        # ── 页面 13: 数据测量（不改前面页码）──
+        from components.live_measure_page import LiveMeasurePage
+
+        self.liveMeasurePage = LiveMeasurePage()
+        self.stackedWidget.addWidget(self.liveMeasurePage)
 
         rightLayout.addWidget(self.stackedWidget, 1)
         mainLayout.addWidget(rightPanel, 1)

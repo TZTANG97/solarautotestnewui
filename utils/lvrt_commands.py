@@ -12,6 +12,7 @@ from utils.timing_profile_adapters import (
     append_acquisition_start,
     baseline_ac_voltages,
     build_plan_context,
+    command_row,
     ensure_ten_column_rows,
     finalize_plan,
     format_number,
@@ -65,6 +66,36 @@ def phase_masked_voltages(
     if all(flags):
         return scaled
     return [scaled[i] if flags[i] else nom[i] for i in range(3)]
+
+
+def lvrt_grid_wait_01s(ui: Any = None, *, default_s: float = 5.0) -> int:
+    """段间回额定后的并网等待（0.1s 刻度）。默认 5s。"""
+    raw = ""
+    unit = "秒"
+    if ui is not None:
+        te = getattr(ui, "textEdit_lvrt_grid_wait", None)
+        if te is not None and hasattr(te, "toPlainText"):
+            raw = str(te.toPlainText() or "").strip()
+        elif te is not None and hasattr(te, "text"):
+            raw = str(te.text() or "").strip()
+        cmb = getattr(ui, "comboBox_lvrt_grid_wait", None)
+        if cmb is not None and hasattr(cmb, "currentText"):
+            unit = str(cmb.currentText() or "秒").strip() or "秒"
+    if raw:
+        try:
+            ticks = time_to_ticks(float(raw), unit)
+            if ticks > 0:
+                return int(ticks)
+        except (TypeError, ValueError):
+            pass
+    return max(1, int(round(float(default_s) * 10.0)))
+
+
+def _named_wait_row(name: str, wait_01s: int) -> List[Any]:
+    """AC wait with a stable marker in col2 (same shape as OVUF_GRID_RECOVERY)."""
+    row = command_row("AC", "wait", str(name))
+    row[9] = int(wait_01s)
+    return row
 
 
 def pea_lvrt_template_profile() -> List[Dict[str, Any]]:
@@ -122,18 +153,23 @@ def append_lvrt_profile(
     phase_mode: str,
     nominal_voltages: Sequence[float],
     chroma_61800: Optional[bool] = None,
+    grid_wait_01s: int = 50,
 ) -> List[Dict[str, Any]]:
     """Append nominal→dip→nominal events with optional per-row phase mask.
 
     This adapter intentionally has no LIST path.  Every disturbance is a direct
     ``VOLT`` write plus executor waits; three-phase channel-selection writes are
     emitted when phase voltages differ (partial L1/L2/L3 or unequal nominal).
+
+    After each dip recovers to step① rated voltages, if another dip follows
+    (next repeat or later enabled row), append ``LVRT_GRID_RECOVERY`` wait —
+    same idea as OVUF segment grid wait.
     """
 
+    enabled = [p for p in profile if p.get("enabled", True)]
     metas: List[Dict[str, Any]] = []
-    for index, point in enumerate(profile, 1):
-        if not point.get("enabled", True):
-            continue
+    grid_wait = max(0, int(grid_wait_01s or 0))
+    for index, point in enumerate(enabled, 1):
         u_pu = float(point["u_pu"])
         pre = time_to_ticks(point["t_pre"], point["t_pre_unit"])
         dwell = time_to_ticks(point["t_dwell"], point["t_dwell_unit"])
@@ -156,7 +192,9 @@ def append_lvrt_profile(
             while len(recover) < 3:
                 recover.append(recover[0] if recover else 230.0)
             recover = recover[:3]
-        for _repeat in range(repeats):
+        has_later_row = index < len(enabled)
+        extra_grid = 0
+        for repeat_i in range(repeats):
             if pre:
                 out_rows.append(wait_row(pre))
             append_ac_voltage(
@@ -164,11 +202,16 @@ def append_lvrt_profile(
             )
             if dwell:
                 out_rows.append(wait_row(dwell))
+            # Always return to step① rated before post / next dip.
             append_ac_voltage(
                 out_rows, phase_mode, recover, chroma_61800=chroma_61800
             )
             if post:
                 out_rows.append(wait_row(post))
+            has_later = has_later_row or (repeat_i < repeats - 1)
+            if has_later and grid_wait > 0:
+                out_rows.append(_named_wait_row("LVRT_GRID_RECOVERY", grid_wait))
+                extra_grid += grid_wait
         metas.append(
             {
                 "name": label,
@@ -179,7 +222,7 @@ def append_lvrt_profile(
                 "l3": flags[2],
                 "phase_tag": _phase_tag(flags),
                 "repeats": repeats,
-                "duration_01s": (pre + dwell + post) * repeats,
+                "duration_01s": (pre + dwell + post) * repeats + extra_grid,
             }
         )
     if any("LIST" in str(row[2]).upper() for row in out_rows):
@@ -245,6 +288,7 @@ def build_lvrt_plan(
                 phase_mode=phase_mode,
                 nominal_voltages=nominal,
                 chroma_61800=chroma_61800,
+                grid_wait_01s=lvrt_grid_wait_01s(ui),
             )
             append_acquisition_end(started, profile_rows)
         if any("LIST" in str(row[2]).upper() for row in profile_rows):
@@ -272,6 +316,7 @@ __all__ = [
     "append_lvrt_profile",
     "build_lvrt_plan",
     "build_thai_lvrt_plan",
+    "lvrt_grid_wait_01s",
     "pea_lvrt_template_profile",
     "phase_masked_voltages",
 ]

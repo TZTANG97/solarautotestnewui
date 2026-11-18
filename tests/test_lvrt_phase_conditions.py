@@ -115,6 +115,61 @@ def test_symmetric_profile_no_independ():
     assert "LIST" not in " | ".join(cmds).upper()
     assert "PHAS:THREE INDEPEND" not in cmds
     assert any("VOLT:AC 46" in c or c == "VOLT:AC 46" for c in cmds)
+    # 单行末尾不再插并网等待
+    assert "LVRT_GRID_RECOVERY" not in cmds
+
+
+def test_grid_recovery_between_two_rows():
+    profile = [
+        {
+            "enabled": True,
+            "label": "a",
+            "t_pre": 0,
+            "t_pre_unit": "秒",
+            "t_dwell": 1,
+            "t_dwell_unit": "秒",
+            "t_post": 0,
+            "t_post_unit": "秒",
+            "repeats": 1,
+            "u_pu": 0.9,
+            "l1": True,
+            "l2": True,
+            "l3": True,
+        },
+        {
+            "enabled": True,
+            "label": "b",
+            "t_pre": 0,
+            "t_pre_unit": "秒",
+            "t_dwell": 1,
+            "t_dwell_unit": "秒",
+            "t_post": 0,
+            "t_post_unit": "秒",
+            "repeats": 1,
+            "u_pu": 0.5,
+            "l1": True,
+            "l2": True,
+            "l3": True,
+        },
+    ]
+    rows = []
+    append_lvrt_profile(
+        rows,
+        profile,
+        phase_mode="三相",
+        nominal_voltages=(230.0, 230.0, 230.0),
+        chroma_61800=False,
+        grid_wait_01s=50,
+    )
+    markers = [str(r[2]) for r in rows if r and r[1] == "wait"]
+    assert markers.count("LVRT_GRID_RECOVERY") == 1
+    # 回额定在并网等待之前：最后一条 wait 前应有 VOLT 230
+    recovery_idx = next(
+        i for i, r in enumerate(rows) if r and r[2] == "LVRT_GRID_RECOVERY"
+    )
+    before = [str(r[2]) for r in rows[:recovery_idx] if r and r[1] == "write"]
+    assert "VOLT 230" in before
+    assert rows[recovery_idx][9] == 50
 
 
 def test_ab_profile_uses_independ_on_chroma():
