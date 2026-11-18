@@ -309,9 +309,126 @@ def test_file_names_include_phase_tag():
         }
     ]
     ui = _base_lvrt_ui(profile=profile)
+    ui._wt_record_mode_from_job = "split"
     plan = build_lvrt_plan(ui, chroma_61800=False)
     assert plan["ok"] is True
+    assert plan.get("wt_continuous") is False
     assert any("L12" in str(n) for n in plan.get("file_names") or [])
+
+
+def test_continuous_uses_single_lvrt_br_name():
+    profile = [
+        {
+            "enabled": True,
+            "label": "a",
+            "t_pre": 0,
+            "t_pre_unit": "秒",
+            "t_dwell": 1,
+            "t_dwell_unit": "秒",
+            "t_post": 0,
+            "t_post_unit": "秒",
+            "repeats": 1,
+            "u_pu": 0.9,
+            "l1": True,
+            "l2": True,
+            "l3": True,
+        },
+        {
+            "enabled": True,
+            "label": "b",
+            "t_pre": 0,
+            "t_pre_unit": "秒",
+            "t_dwell": 1,
+            "t_dwell_unit": "秒",
+            "t_post": 0,
+            "t_post_unit": "秒",
+            "repeats": 1,
+            "u_pu": 0.5,
+            "l1": True,
+            "l2": True,
+            "l3": True,
+        },
+    ]
+    ui = _base_lvrt_ui(profile=profile)
+    ui._wt_record_mode_from_job = "continuous"
+    ui.wt_continuous_filename = "LVRT_BR"
+    plan = build_lvrt_plan(ui, chroma_61800=False)
+    assert plan["ok"] is True
+    assert plan.get("file_names") == ["LVRT_BR"]
+    markers = [
+        str(r[6]).upper()
+        for r in plan["commands"]
+        if r and len(r) > 6 and r[6]
+    ]
+    # S2 off → no ASYNC; names still continuous single file
+    assert plan.get("wt_continuous") is False
+
+
+def test_split_wraps_each_row_with_async_when_analyzer_on():
+    profile = [
+        {
+            "enabled": True,
+            "label": "a",
+            "t_pre": 0,
+            "t_pre_unit": "秒",
+            "t_dwell": 1,
+            "t_dwell_unit": "秒",
+            "t_post": 0,
+            "t_post_unit": "秒",
+            "repeats": 1,
+            "u_pu": 0.9,
+            "l1": True,
+            "l2": True,
+            "l3": True,
+        },
+        {
+            "enabled": True,
+            "label": "b",
+            "t_pre": 0,
+            "t_pre_unit": "秒",
+            "t_dwell": 1,
+            "t_dwell_unit": "秒",
+            "t_post": 0,
+            "t_post_unit": "秒",
+            "repeats": 1,
+            "u_pu": 0.5,
+            "l1": True,
+            "l2": True,
+            "l3": True,
+        },
+    ]
+    ui = _base_lvrt_ui(profile=profile)
+    ui.checkBox_S2 = _checkbox(True)
+    ui._wt_record_mode_from_job = "split"
+    ui.textEdit_lvrt_grid_wait = _text("5")
+    ui.comboBox_lvrt_grid_wait = _combo("秒")
+    plan = build_lvrt_plan(ui, chroma_61800=False)
+    assert plan["ok"] is True
+    assert plan.get("wt_continuous") is False
+    assert len(plan.get("file_names") or []) == 2
+    markers = [
+        str(r[6]).strip().upper()
+        for r in plan["commands"]
+        if r and len(r) > 6 and str(r[6] or "").strip()
+    ]
+    assert markers.count("ASYNC_START") == 2
+    assert markers.count("WAIT_END") == 2
+    recovery = [
+        str(r[2])
+        for r in plan["commands"]
+        if r and len(r) > 2 and r[1] == "wait"
+    ]
+    assert recovery.count("LVRT_GRID_RECOVERY") == 1
+    # 段间并网等待应在两段 ASYNC 之间（WAIT_END 之后、下一 ASYNC_START 之前）
+    cmds = list(plan["commands"])
+    ends = [i for i, r in enumerate(cmds) if r and len(r) > 6 and str(r[6]).upper() == "WAIT_END"]
+    starts = [
+        i for i, r in enumerate(cmds) if r and len(r) > 6 and str(r[6]).upper() == "ASYNC_START"
+    ]
+    rec_idx = next(
+        i for i, r in enumerate(cmds) if r and len(r) > 2 and r[2] == "LVRT_GRID_RECOVERY"
+    )
+    assert ends[0] < rec_idx < starts[1]
 
 
 @pytest.fixture(scope="module")

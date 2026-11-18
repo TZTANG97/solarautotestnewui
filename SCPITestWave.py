@@ -24607,19 +24607,69 @@ def thailvrtSend():
     if plan["dc_errors"]:
         all_errors = "\n".join(["%d. %s" % (i + 1, msg) for i, msg in enumerate(plan["dc_errors"])])
         QMessageBox.information(None, "错误提示信息", all_errors, QMessageBox.Ok, QMessageBox.Ok)
-    else:
-        strSettingTestFlag = "1"
-        reset_wt_automation_state()
-        now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
-        commands_file_name = f'lvrt_commands{now_time}.csv'
-        directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
-        if directory1[0]:
-            out = open(directory1[0], 'w+', newline='')
-            csv_write = csv.writer(out, dialect="excel")
-            for i in range(len(strArrayTest)):
-                csv_write.writerow(strArrayTest[i])
-            out.close()
-        dialog_windowlvrt.close()
+        return
+
+    if strAddTestFlag == "0":
+        total_save_file = 0
+
+    file_names = plan.get("file_names") or []
+    if plan.get("wt_is_checked") == "1" and file_names:
+        file_names = _finalize_recording_file_names(file_names)
+        file_list_text = ",".join(file_names)
+        stop_str = ""
+        if plan.get("wt_continuous"):
+            dur_01s = int(plan.get("band_duration_01s") or 0)
+            stop_sec = int(round(dur_01s / 10.0 + 45))
+            if stop_sec < 20:
+                stop_sec = 20
+            stop_str = _seconds_to_stoptime_str(stop_sec)
+        for cfg_row in strArrayTest:
+            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
+                cfg_row[4]["textEdit_FileNameList"] = file_list_text
+                if stop_str:
+                    cfg_row[4]["textEdit_StopTime"] = stop_str
+                if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
+                    cfg_row[4]["comboBox_AutoSave"] = 1
+                break
+        try:
+            for page_idx in range(uiThaiLVRT._wtStacked.count()):
+                page = uiThaiLVRT._wtStacked.widget(page_idx)
+                te = page.findChild(QtWidgets.QTextEdit, "textEdit_FileNameList")
+                if te is not None:
+                    te.setPlainText(file_list_text)
+                if stop_str:
+                    st = page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime")
+                    if st is not None:
+                        st.setPlainText(stop_str)
+                combo = page.findChild(QtWidgets.QComboBox, "comboBox_AutoSave")
+                if combo is not None and combo.currentIndex() == 0:
+                    combo.setCurrentIndex(1)
+        except Exception as e:
+            _append_debug_log(f"[低电压穿越] update WT FileNameList failed: {e}")
+        wt_rounds = int(plan.get("wt_rounds") or len(file_names) or 0)
+        total_save_file = total_save_file + wt_rounds
+        if plan.get("wt_continuous"):
+            ui.textEdit_ReturnMessage.append(
+                "[低电压穿越] 一条线连续录，单文件 %s，StopTime %s"
+                % (file_names[0], stop_str or "-")
+            )
+        else:
+            ui.textEdit_ReturnMessage.append(
+                "[低电压穿越] 分开录，共 %d 段逐段存盘" % len(file_names)
+            )
+
+    strSettingTestFlag = "1"
+    reset_wt_automation_state()
+    now_time = time.strftime(r"%Y_%m_%d_%H", time.localtime(time.time()))
+    commands_file_name = f'lvrt_commands{now_time}.csv'
+    directory1 = [f"{command_save_file_path}/command_data/{commands_file_name}"]
+    if directory1[0]:
+        out = open(directory1[0], 'w+', newline='')
+        csv_write = csv.writer(out, dialect="excel")
+        for i in range(len(strArrayTest)):
+            csv_write.writerow(strArrayTest[i])
+        out.close()
+    dialog_windowlvrt.close()
 
     lvrt_append_count += 1
     uiThaiLVRT.label_append_count.setText(str(lvrt_append_count))

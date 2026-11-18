@@ -554,6 +554,18 @@ class Ui_Dialog_thailvrt(_BaseTimingProfileDialogUi):
         },
     )
 
+    def setupUi(self, dialog: QtWidgets.QDialog) -> None:
+        _BaseTimingProfileDialogUi.setupUi(self, dialog)
+        try:
+            from utils.lvrt_commands import recommended_lvrt_split_names
+            from utils.wt_recording_mode import wire_recording_mode_autofill
+
+            wire_recording_mode_autofill(
+                self, split_names_fn=lambda: recommended_lvrt_split_names(self)
+            )
+        except Exception:
+            pass
+
     def _mount_extra_profile_widgets(
         self, group_layout: QtWidgets.QVBoxLayout
     ) -> None:

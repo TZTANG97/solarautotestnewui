@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
+from utils.matrix_recording_commands import get_record_mode
 from utils.timing_profile import LVRT_SCHEMA, TimingProfileValidationError, time_to_ticks
 from utils.timing_profile_adapters import (
     append_ac_voltage,
@@ -19,6 +20,35 @@ from utils.timing_profile_adapters import (
     read_ui_profile,
     wait_row,
 )
+from utils.wt_recording_mode import MODE_CONTINUOUS, resolve_continuous_filename
+
+
+def lvrt_file_name_for_meta(meta: Mapping[str, Any]) -> str:
+    """Per-dip split filename: LVRT_<u_pu>_<phase_tag>."""
+    return "LVRT_%s_%s" % (
+        format_number(meta.get("u_pu")),
+        meta.get("phase_tag") or "L123",
+    )
+
+
+def recommended_lvrt_split_names(ui: Any) -> List[str]:
+    """UI autofill: one name per enabled timing-profile row."""
+    try:
+        profile = read_ui_profile(ui, LVRT_SCHEMA)
+    except Exception:
+        return ["LVRT"]
+    names: List[str] = []
+    for index, point in enumerate(
+        [p for p in profile if p.get("enabled", True)], 1
+    ):
+        flags = _phase_flags(point)
+        names.append(
+            "LVRT_%s_%s"
+            % (format_number(point.get("u_pu")), _phase_tag(flags) or "L123")
+        )
+        if not names[-1]:
+            names[-1] = "LVRT_%d" % index
+    return names or ["LVRT"]
 
 
 def _scaled_voltages(nominal: Sequence[float], u_pu: float) -> List[float]:
@@ -265,7 +295,12 @@ def build_lvrt_plan(
     dc_iv_resolver: Any = None,
     chroma_61800: Optional[bool] = None,
 ) -> Dict[str, Any]:
-    """Build a ten-column LVRT command plan from the timing profile table."""
+    """Build a ten-column LVRT command plan from the timing profile table.
+
+    Continuous recording: one ASYNC…WAIT_END around the whole profile, single
+    ``LVRT_BR`` (or ui override). Split: one ASYNC segment per enabled row;
+    ``LVRT_GRID_RECOVERY`` waits sit between segments (outside recording).
+    """
 
     try:
         context = build_plan_context(
@@ -278,32 +313,63 @@ def build_lvrt_plan(
         )
         profile_rows: List[List[Any]] = []
         metas: List[Dict[str, Any]] = []
+        continuous = get_record_mode(ui) == MODE_CONTINUOUS
         if getattr(ui, "checkBox_S3").isChecked():
             profile = read_ui_profile(ui, LVRT_SCHEMA)
             phase_mode, nominal = baseline_ac_voltages(ui)
-            started = append_acquisition_start(context, profile_rows)
-            metas = append_lvrt_profile(
-                profile_rows,
-                profile,
-                phase_mode=phase_mode,
-                nominal_voltages=nominal,
-                chroma_61800=chroma_61800,
-                grid_wait_01s=lvrt_grid_wait_01s(ui),
-            )
-            append_acquisition_end(started, profile_rows)
+            grid_wait = lvrt_grid_wait_01s(ui)
+            if continuous:
+                started = append_acquisition_start(context, profile_rows)
+                metas = append_lvrt_profile(
+                    profile_rows,
+                    profile,
+                    phase_mode=phase_mode,
+                    nominal_voltages=nominal,
+                    chroma_61800=chroma_61800,
+                    grid_wait_01s=grid_wait,
+                )
+                append_acquisition_end(started, profile_rows)
+            else:
+                enabled = [p for p in profile if p.get("enabled", True)]
+                for index, point in enumerate(enabled):
+                    started = append_acquisition_start(context, profile_rows)
+                    row_metas = append_lvrt_profile(
+                        profile_rows,
+                        [point],
+                        phase_mode=phase_mode,
+                        nominal_voltages=nominal,
+                        chroma_61800=chroma_61800,
+                        grid_wait_01s=0,
+                    )
+                    append_acquisition_end(started, profile_rows)
+                    metas.extend(row_metas)
+                    if index < len(enabled) - 1 and grid_wait > 0:
+                        profile_rows.append(
+                            _named_wait_row("LVRT_GRID_RECOVERY", grid_wait)
+                        )
         if any("LIST" in str(row[2]).upper() for row in profile_rows):
             raise TimingProfileValidationError("LVRT 禁止生成 LIST 命令")
-        names = [
-            "LVRT_%s_%s"
-            % (format_number(meta["u_pu"]), meta.get("phase_tag") or "L123")
-            for meta in metas
-        ]
-        return finalize_plan(
+        if continuous:
+            single = resolve_continuous_filename(ui) or "LVRT_BR"
+            names = [single] if metas else []
+        else:
+            names = [lvrt_file_name_for_meta(meta) for meta in metas]
+        fallback = ["LVRT_BR"] if continuous else ["LVRT"]
+        result = finalize_plan(
             context,
             profile_rows,
             profile_metas=metas,
-            file_names=names or ["LVRT"],
+            file_names=names or fallback,
         )
+        # finalize_plan always marks continuous; override for LVRT record mode.
+        result["file_names"] = list(names or fallback)
+        if context.get("analyzer_enabled") and metas:
+            result["wt_continuous"] = continuous
+            result["wt_rounds"] = 1 if continuous else max(1, len(result["file_names"]))
+        else:
+            result["wt_continuous"] = False
+            result["wt_rounds"] = 0
+        return result
     except (AttributeError, TypeError, ValueError, TimingProfileValidationError) as exc:
         return _error_result("LVRT 计划生成失败: %s" % exc, existing_commands)
 
@@ -316,7 +382,9 @@ __all__ = [
     "append_lvrt_profile",
     "build_lvrt_plan",
     "build_thai_lvrt_plan",
+    "lvrt_file_name_for_meta",
     "lvrt_grid_wait_01s",
     "pea_lvrt_template_profile",
     "phase_masked_voltages",
+    "recommended_lvrt_split_names",
 ]
