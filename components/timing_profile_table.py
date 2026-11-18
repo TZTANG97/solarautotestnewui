@@ -66,8 +66,15 @@ class TimingProfileTable(QtWidgets.QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(6)
 
-        toolbar = QtWidgets.QHBoxLayout()
-        toolbar.setContentsMargins(0, 0, 0, 0)
+        toolbar_host = QtWidgets.QWidget()
+        toolbar_host.setObjectName("timingProfileToolbar")
+        toolbar_host.setMinimumHeight(40)
+        toolbar_host.setSizePolicy(
+            QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed
+        )
+        toolbar = QtWidgets.QHBoxLayout(toolbar_host)
+        toolbar.setContentsMargins(0, 2, 0, 6)
+        toolbar.setSpacing(8)
         self.pushButton_ProfileAdd = self._button("pushButton_ProfileAdd", "新增工况")
         self.pushButton_ProfileDelete = self._button(
             "pushButton_ProfileDelete", "删除工况"
@@ -75,6 +82,14 @@ class TimingProfileTable(QtWidgets.QWidget):
         self.pushButton_ProfileUp = self._button("pushButton_ProfileUp", "上移")
         self.pushButton_ProfileDown = self._button("pushButton_ProfileDown", "下移")
         self.pushButton_ProfileClear = self._button("pushButton_ProfileClear", "清空")
+        # Soft Panel 主题下默认按钮易「白底白字」看不见；强制对比度
+        _btn_ss = (
+            "QPushButton { padding: 6px 12px; font-size: 13px; font-weight: bold; "
+            "color: #0f172a; background: #e2e8f0; border: 1px solid #64748b; "
+            "border-radius: 4px; min-height: 28px; min-width: 72px; }"
+            "QPushButton:hover { background: #cbd5e1; }"
+            "QPushButton:pressed { background: #94a3b8; }"
+        )
         for button in (
             self.pushButton_ProfileAdd,
             self.pushButton_ProfileDelete,
@@ -82,9 +97,10 @@ class TimingProfileTable(QtWidgets.QWidget):
             self.pushButton_ProfileDown,
             self.pushButton_ProfileClear,
         ):
+            button.setStyleSheet(_btn_ss)
             toolbar.addWidget(button)
         toolbar.addStretch()
-        root.addLayout(toolbar)
+        root.addWidget(toolbar_host)
 
         self.table = QtWidgets.QTableWidget(0, len(self._columns))
         self.table.setObjectName("tableWidget_TimingProfile")

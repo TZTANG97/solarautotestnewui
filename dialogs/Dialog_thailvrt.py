@@ -560,6 +560,7 @@ class Ui_Dialog_thailvrt(_BaseTimingProfileDialogUi):
         from utils.lvrt_commands import pea_lvrt_template_profile
 
         tip = QtWidgets.QLabel(
+            "表格上方点「新增工况」加一行。"
             "每行可勾选 L1/L2/L3：全勾=三相同比例跌落；只勾部分相=勾选相跟电压(p.u.)，"
             "未勾选相保持步骤①额定（PEA 单相/两相故障）。前置/保持/后置时间照旧。"
         )
