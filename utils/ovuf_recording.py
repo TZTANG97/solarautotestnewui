@@ -128,8 +128,10 @@ def append_ovuf_segment_recovery(
     ui,
     phase_mode: str,
     *,
-    after_step: int,
+    after_step: int = 3,
     dwell_01s: Optional[int] = None,
+    just_kind: Optional[str] = None,
+    has_later: Optional[bool] = None,
 ) -> int:
     """段后恢复到 S1 额定；有下一段时再等并网。
 
@@ -141,6 +143,9 @@ def append_ovuf_segment_recovery(
     ``VOLT``，短驻留后再 ``FREQ``，避免双 SAVE 撞车。
     并网等待单独成 AC wait 行（OVUF_GRID_RECOVERY），仅在还有后续段时插入。
     返回追加的等待（0.1s）；只回压回频、无等待时返回 0。
+
+    ``just_kind``: ``\"V\"`` / ``\"F\"`` 或中文；工况列表模式直接传入，不依赖 S3–S8。
+    ``has_later``: 显式指定是否还有后续工况；默认仍查 S3–S8 勾选。
     """
     from utils.ac_scpi_commands import (
         append_ac_startup_setpoints,
@@ -155,7 +160,11 @@ def append_ovuf_segment_recovery(
     volt_c = _plain(ui, "textEdit_S1_AC_VOLT_3", "") or volt_a
     freq = _plain(ui, "textEdit_S1_AC_FR", "50") or "50"
     batch_start = len(commands)
-    just_swept = ovuf_sweep_project(int(after_step))
+    if just_kind is not None:
+        jk = str(just_kind).strip().upper()
+        just_swept = "过欠频" if jk in ("F", "频率", "过欠频") else "过欠压"
+    else:
+        just_swept = ovuf_sweep_project(int(after_step))
     same_volt = str(volt_a).strip() == str(volt_b).strip() == str(volt_c).strip()
     chroma_61800 = resolve_chroma_61800()
     if just_swept == "过欠频":
@@ -189,7 +198,8 @@ def append_ovuf_segment_recovery(
         commands.append(settle)
         append_freq_set(commands, phase_mode, freq, chroma_61800=chroma_61800)
 
-    has_later = ovuf_has_later_segment(ui, after_step)
+    if has_later is None:
+        has_later = ovuf_has_later_segment(ui, after_step)
     wait = 0
     if has_later:
         wait = int(dwell_01s) if dwell_01s is not None else ovuf_grid_wait_01s(ui)
@@ -281,6 +291,112 @@ def append_ovuf_sweep_volt(
     append_ac_voltage(out_rows, phase_mode, targets, chroma_61800=chroma_61800)
 
 
+def read_ovuf_condition_rows(ui) -> List[dict]:
+    """读取工况列表启用行；无列表或空 → []（Send 回退旧 S3–S8）。"""
+    widget = getattr(ui, "ovufConditionList", None)
+    if widget is None:
+        return []
+    try:
+        rows = widget.get_rows(include_disabled=False)
+    except Exception:
+        return []
+    return list(rows or [])
+
+
+def _phase_flags_from_row(row: dict) -> list:
+    return [
+        "T" if row.get("l1", True) else "",
+        "T" if row.get("l2", True) else "",
+        "T" if row.get("l3", True) else "",
+    ]
+
+
+def _phase_tag(flags) -> str:
+    letters = []
+    for i, ch in enumerate(("1", "2", "3")):
+        if i < len(flags) and flags[i] == "T":
+            letters.append(ch)
+    return ("L" + "".join(letters)) if letters else "L123"
+
+
+def append_ovuf_condition_sequence(
+    commands: List[Any],
+    step_batches: List[Any],
+    ui,
+    phase_mode: str,
+    rows: Sequence[dict],
+    *,
+    chroma_61800=None,
+) -> float:
+    """按工况列表顺序下发；返回累计测试时长（秒）。
+
+    每行：改压/改频 → 驻留 →（非末行）回额定并网等待。
+    """
+    from utils.ac_scpi_commands import append_freq_set, resolve_chroma_61800
+    from utils.time_helpers import SetTimeFunction
+
+    if chroma_61800 is None:
+        chroma_61800 = resolve_chroma_61800()
+    rated = read_ovuf_rated_phase_volts(ui)
+    total_sec = 0.0
+    enabled = [r for r in rows if r.get("enabled", True)]
+    for idx, row in enumerate(enabled):
+        step_rows: List[Any] = []
+        kind = str(row.get("kind", "V")).strip().upper()
+        value = str(row.get("value", "")).strip() or ("50" if kind == "F" else "230")
+        flags = _phase_flags_from_row(row)
+        try:
+            dwell_raw = float(str(row.get("dwell", "3")).strip() or "3")
+        except (TypeError, ValueError):
+            dwell_raw = 3.0
+        unit = str(row.get("unit", "秒")).strip() or "秒"
+        dwell_01s = int(SetTimeFunction(dwell_raw, unit))
+        if dwell_01s <= 0:
+            dwell_01s = 1
+
+        _bs = len(commands)
+        if kind == "F":
+            append_freq_set(
+                commands, phase_mode, value, chroma_61800=chroma_61800
+            )
+        else:
+            append_ovuf_sweep_volt(
+                commands,
+                phase_mode,
+                value,
+                flags,
+                rated,
+                chroma_61800=chroma_61800,
+            )
+        step_rows.extend(commands[_bs:])
+
+        dwell_row = ["" for _ in range(10)]
+        dwell_row[0] = "AC"
+        dwell_row[1] = "wait"
+        dwell_row[2] = "OVUF_COND_DWELL"
+        dwell_row[9] = dwell_01s
+        commands.append(dwell_row)
+        step_rows.append(dwell_row)
+        total_sec += dwell_01s / 10.0
+
+        has_later = idx < len(enabled) - 1
+        _rec = []
+        wait = append_ovuf_segment_recovery(
+            commands,
+            _rec,
+            ui,
+            phase_mode,
+            after_step=3 if kind != "F" else 5,
+            just_kind=kind,
+            has_later=has_later,
+        )
+        step_rows.extend(_rec)
+        if wait:
+            total_sec += wait / 10.0
+        step_batches.append(step_rows)
+    return total_sec
+
+
 def ovuf_sweep_project(step_no: int) -> str:
     """步骤3/4扫电压，步骤5/6以及相位页附加段扫频率。
 
@@ -292,7 +408,31 @@ def ovuf_sweep_project(step_no: int) -> str:
 
 
 def enabled_ovuf_segments(ui):
-    """已勾选 S3~S8 段。过压/欠压取电压，过频/欠频和附加段取频率。"""
+    """优先工况列表；否则已勾选 S3~S8 扫段。"""
+    cond = read_ovuf_condition_rows(ui)
+    if cond:
+        segs = []
+        for i, row in enumerate(cond, start=1):
+            kind = "F" if str(row.get("kind", "V")).strip().upper() == "F" else "V"
+            try:
+                val = float(str(row.get("value", "0")).strip() or "0")
+            except (TypeError, ValueError):
+                val = 0.0
+            flags = _phase_flags_from_row(row)
+            # 频率行整机改频，文件名不带相标签
+            tag = "F" if kind == "F" else _phase_tag(flags)
+            segs.append(
+                {
+                    "step": i,
+                    "kind": kind,
+                    "start": val,
+                    "end": val,
+                    "points": [val],
+                    "phase_tag": tag,
+                    "from_list": True,
+                }
+            )
+        return segs
     segs = []
     for step_no in (3, 4, 5, 6, 7, 8):
         cb = getattr(ui, "checkBox_S%d" % step_no, None)
@@ -321,7 +461,7 @@ def enabled_ovuf_segments(ui):
 
 
 def recommended_ovuf_names(ui, mode: str = MODE_CONTINUOUS):
-    """连续录 OVUF_Volt_BR / OVUF_Freq_BR；分开录按勾选段生成 OVUF_S3_V230_253 等。"""
+    """连续录 OVUF_Volt_BR / OVUF_Freq_BR；分开录按列表行或旧扫段命名。"""
     segs = enabled_ovuf_segments(ui)
     if mode == MODE_CONTINUOUS:
         kinds = {seg["kind"] for seg in segs}
@@ -333,15 +473,32 @@ def recommended_ovuf_names(ui, mode: str = MODE_CONTINUOUS):
     names = []
     for seg in segs:
         prefix = seg["kind"]
-        names.append(
-            "OVUF_S%d_%s%s_%s"
-            % (
-                seg["step"],
-                prefix,
-                _format_setpoint_tag(seg["start"]),
-                _format_setpoint_tag(seg["end"]),
+        if seg.get("from_list"):
+            if prefix == "F":
+                names.append(
+                    "OVUF_R%02d_F%s"
+                    % (int(seg["step"]), _format_setpoint_tag(seg["start"]))
+                )
+            else:
+                names.append(
+                    "OVUF_R%02d_%s%s_%s"
+                    % (
+                        int(seg["step"]),
+                        prefix,
+                        _format_setpoint_tag(seg["start"]),
+                        seg.get("phase_tag") or "L123",
+                    )
+                )
+        else:
+            names.append(
+                "OVUF_S%d_%s%s_%s"
+                % (
+                    seg["step"],
+                    prefix,
+                    _format_setpoint_tag(seg["start"]),
+                    _format_setpoint_tag(seg["end"]),
+                )
             )
-        )
     return names or ["OVUF_S3_V230_230"]
 
 
@@ -351,7 +508,22 @@ def _is_volt_or_freq_write(row) -> bool:
     if row[0] != "AC" or row[1] != "write":
         return False
     cmd = str(row[2] or "").strip().upper()
-    return cmd.startswith("VOLT ") or cmd.startswith("FREQ ")
+    return (
+        cmd.startswith("VOLT ")
+        or cmd.startswith("VOLT:AC ")
+        or cmd.startswith("FREQ ")
+    )
+
+
+def _is_ovuf_cond_dwell(row) -> bool:
+    """工况列表行驻留：AC wait OVUF_COND_DWELL（col9=0.1s）。"""
+    if not row or len(row) < 3:
+        return False
+    return (
+        row[0] == "AC"
+        and str(row[1] or "").strip().lower() == "wait"
+        and str(row[2] or "").strip().upper() == "OVUF_COND_DWELL"
+    )
 
 
 def _is_idn_query(row) -> bool:
@@ -399,13 +571,26 @@ def _numeric_slot(val):
 
 
 def find_ovuf_sweep_measure_indices(commands):
-    """扫压/扫频写命令后紧跟的 *IDN? 驻留行下标。"""
+    """扫点测量锚点下标：旧扫段 *IDN?，或工况列表 OVUF_COND_DWELL。"""
     out = []
     for i, row in enumerate(commands):
+        if _is_ovuf_cond_dwell(row):
+            _ensure_row10(row)
+            out.append(i)
+            continue
         if i == 0 or not _is_idn_query(row):
             continue
         if not _is_volt_or_freq_write(commands[i - 1]):
-            continue
+            # 分相 EDIT EACH 末尾可能是 INST:EDIT ALL；向前找最近 VOLT/FREQ
+            prev_ok = False
+            for j in range(i - 1, max(-1, i - 12), -1):
+                if _is_volt_or_freq_write(commands[j]):
+                    prev_ok = True
+                    break
+                if commands[j] and commands[j][0] == "AC" and commands[j][1] == "wait":
+                    break
+            if not prev_ok:
+                continue
         while len(row) < 10:
             row.append("")
         if _numeric_slot(row[6]) is not None or _numeric_slot(row[9]) is not None or _numeric_slot(row[7]) is not None:
@@ -442,17 +627,23 @@ def ovuf_split_collect_sec(commands) -> int:
 
     首点 col6 触发测量并阻塞到结束；若 StopTime 仍是 00:05:00，进度会停在
     「第16条 [AC] query *IDN?」空等整五分钟（job112）。
+    工况列表行驻留 ``OVUF_COND_DWELL`` 同样计入。
     """
     max_01s = 0
     for row in commands or []:
         if not row or len(row) < 3:
             continue
-        # 扫点测量锚点（query *IDN? / wait IDN_NOP）上的驻留
+        # 扫点测量锚点（query *IDN? / wait IDN_NOP / OVUF_COND_DWELL）
         action = str(row[1] or "").strip().lower()
         cmd = str(row[2] or "").strip().upper()
         if action == "query" and cmd in ("*IDN?", "IDN?"):
             pass
-        elif action == "wait" and cmd in ("IDN_NOP", "*IDN?", "IDN?"):
+        elif action == "wait" and cmd in (
+            "IDN_NOP",
+            "*IDN?",
+            "IDN?",
+            "OVUF_COND_DWELL",
+        ):
             pass
         else:
             continue

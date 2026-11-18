@@ -111,7 +111,8 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 过压扫描", "④ 欠压扫描", "⑤ 过频扫描", "⑥ 欠频扫描", "⑦ 测试相位", "⑧ 关机设置"]
+        # ③ 工况列表；旧 S3–S8 扫段/相位控件仍创建但隐藏，供 IOT/回退
+        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 工况列表", "④ 关机设置"]
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
@@ -134,15 +135,23 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.stackedWidget.setStyleSheet("background-color: white;")
         mainLayout.addWidget(self.stackedWidget, 1)
 
+        # 隐藏宿主：旧扫段/相位控件仍挂树上，IOT schema 与空列表回退可用
+        self._legacy_host = QtWidgets.QWidget(Dialog_thaiguoqianya_pin)
+        self._legacy_host.setObjectName("ovuf_legacy_host")
+        self._legacy_host.hide()
+        self._legacy_layout = QtWidgets.QVBoxLayout(self._legacy_host)
+        self._legacy_layout.setContentsMargins(0, 0, 0, 0)
+
         # ── 构建各步骤页面 ──
         self._build_step1()
         self._build_step2()
-        self._build_step3()
-        self._build_step4()
-        self._build_step5()
-        self._build_step6()
-        self._build_step7()
+        self._build_condition_list_page()
         self._build_step8()
+        self._build_step3(legacy=True)
+        self._build_step4(legacy=True)
+        self._build_step5(legacy=True)
+        self._build_step6(legacy=True)
+        self._build_step7(legacy=True)
 
         # ── DC 联动（step1 → 关机步骤） ──
         self._connect_dc_linkage()
@@ -497,7 +506,8 @@ class Ui_Dialog_thaiguoqianya_pin(object):
                           fr_end_obj, fr_end_val,
                           step_size_obj, step_size_val,
                           time_obj, time_val,
-                          time_combo_obj, time_combo_items):
+                          time_combo_obj, time_combo_items,
+                          *, legacy=False):
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
@@ -579,12 +589,50 @@ class Ui_Dialog_thaiguoqianya_pin(object):
 
         layout.addWidget(gb)
         layout.addStretch()
-        self.stackedWidget.addWidget(page)
+        if legacy:
+            self._legacy_layout.addWidget(page)
+        else:
+            self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════
-    # Step 3: 过压扫描
+    # Step 3: 工况列表（可见）
     # ══════════════════════════════════════
-    def _build_step3(self):
+    def _build_condition_list_page(self):
+        from components.ovuf_condition_list import OvufConditionList
+
+        page = QtWidgets.QWidget()
+        page.setStyleSheet("background-color: white;")
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        self.groupBox_ovuf_conditions = QtWidgets.QGroupBox()
+        self.groupBox_ovuf_conditions.setObjectName("groupBox_ovuf_conditions")
+        self.groupBox_ovuf_conditions.setTitle("工况列表")
+        self.groupBox_ovuf_conditions.setStyleSheet(
+            "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
+            "padding-top: 8px; font-weight: bold; }"
+        )
+        gLayout = QtWidgets.QVBoxLayout(self.groupBox_ovuf_conditions)
+        gLayout.setContentsMargins(12, 20, 12, 12)
+
+        self.ovufConditionList = OvufConditionList()
+        self.ovufConditionList.set_un_provider(self._ovuf_rated_un)
+        gLayout.addWidget(self.ovufConditionList)
+        layout.addWidget(self.groupBox_ovuf_conditions)
+        self.stackedWidget.addWidget(page)
+
+    def _ovuf_rated_un(self):
+        te = getattr(self, "textEdit_S1_AC_VOLT", None)
+        try:
+            return float((te.toPlainText() or "230").strip() or "230")
+        except Exception:
+            return 230.0
+
+    # ══════════════════════════════════════
+    # Step 3: 过压扫描（legacy 隐藏）
+    # ══════════════════════════════════════
+    def _build_step3(self, *, legacy=False):
         self._build_sweep_page(
             2, "groupBox_3", "checkBox_S3", "过压扫描", "启用",
             "textEdit_S3_AC_VOLT_Start", 230,
@@ -594,12 +642,13 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S3_Step_Size", 5,
             "textEdit_S3_TIME", 3,
             "comboBox_S3_TIME", ["秒", "毫秒", "分钟"],
+            legacy=legacy,
         )
 
     # ══════════════════════════════════════
     # Step 4: 欠压扫描
     # ══════════════════════════════════════
-    def _build_step4(self):
+    def _build_step4(self, *, legacy=False):
         self._build_sweep_page(
             3, "groupBox_6", "checkBox_S4", "欠压扫描", "启用",
             "textEdit_S4_AC_VOLT_Start", 230,
@@ -609,12 +658,13 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S4_Step_Size", 5,
             "textEdit_S4_TIME", 3,
             "comboBox_S4_TIME", ["秒", "毫秒", "分钟"],
+            legacy=legacy,
         )
 
     # ══════════════════════════════════════
     # Step 5: 过频扫描
     # ══════════════════════════════════════
-    def _build_step5(self):
+    def _build_step5(self, *, legacy=False):
         self._build_sweep_page(
             4, "groupBox_7", "checkBox_S5", "过频扫描", "启用",
             "textEdit_S5_AC_VOLT_Start", 230,
@@ -624,12 +674,13 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S5_Step_Size", 5,
             "textEdit_S5_TIME", 3,
             "comboBox_S5_TIME", ["秒", "毫秒", "分钟"],
+            legacy=legacy,
         )
 
     # ══════════════════════════════════════
     # Step 6: 欠频扫描
     # ══════════════════════════════════════
-    def _build_step6(self):
+    def _build_step6(self, *, legacy=False):
         self._build_sweep_page(
             5, "groupBox_13", "checkBox_S6", "欠频扫描", "启用",
             "textEdit_S6_AC_VOLT_Start", 230,
@@ -639,12 +690,13 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S6_Step_Size", 5,
             "textEdit_S6_TIME", 3,
             "comboBox_S6_TIME", ["秒", "毫秒", "分钟"],
+            legacy=legacy,
         )
 
     # ══════════════════════════════════════
-    # Step 7: 测试相位
+    # Step 7: 测试相位（legacy 隐藏；列表模式按行分相）
     # ══════════════════════════════════════
-    def _build_step7(self):
+    def _build_step7(self, *, legacy=False):
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
@@ -819,7 +871,10 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         layout.addWidget(self.groupBox_15)
         layout.addStretch()
 
-        self.stackedWidget.addWidget(page)
+        if legacy:
+            self._legacy_layout.addWidget(page)
+        else:
+            self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════
     # Step 8: 关机设置
@@ -950,6 +1005,10 @@ class Ui_Dialog_thaiguoqianya_pin(object):
                 te = getattr(self, "textEdit_S%d_%s" % (step_no, suffix), None)
                 if te is not None:
                     te.textChanged.connect(lambda *_: _fill_wt_names())
+
+        cond = getattr(self, "ovufConditionList", None)
+        if cond is not None:
+            cond.rows_changed.connect(lambda *_: _fill_wt_names())
 
         _fill_wt_names()
 
