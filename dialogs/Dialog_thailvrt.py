@@ -445,8 +445,15 @@ class _BaseTimingProfileDialogUi(object):
             self.timingProfileTable.tableWidget_TimingProfile
         )
         group_layout.addWidget(self.timingProfileTable, 1)
+        self._mount_extra_profile_widgets(group_layout)
         layout.addWidget(group, 1)
         self.stackedWidget.addWidget(page)
+
+    def _mount_extra_profile_widgets(
+        self, group_layout: QtWidgets.QVBoxLayout
+    ) -> None:
+        """Hook for LVRT PEA phase-condition list; other timing dialogs no-op."""
+        return
 
     def _build_shutdown_page(self) -> None:
         page = QtWidgets.QWidget()
@@ -543,6 +550,33 @@ class Ui_Dialog_thailvrt(_BaseTimingProfileDialogUi):
             "repeats": 1,
         },
     )
+
+    def _lvrt_rated_un(self) -> float:
+        try:
+            raw = self.textEdit_S1_AC_VOLT.toPlainText().strip() or "230"
+            value = float(raw)
+            return value if value > 0 else 230.0
+        except (TypeError, ValueError, AttributeError):
+            return 230.0
+
+    def _mount_extra_profile_widgets(
+        self, group_layout: QtWidgets.QVBoxLayout
+    ) -> None:
+        from components.ovuf_condition_list import OvufConditionList
+
+        note = QtWidgets.QLabel(
+            "PEA 分相电压穿越（可选）：有启用行时优先于上方对称时序表。"
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet("color:#64748b; font-size: 13px;")
+        group_layout.addWidget(note)
+
+        self.lvrtConditionList = OvufConditionList(
+            voltage_only=True,
+            object_name="lvrtConditionList",
+        )
+        self.lvrtConditionList.set_un_provider(self._lvrt_rated_un)
+        group_layout.addWidget(self.lvrtConditionList)
 
 
 # Common capitalization aliases used by older integration branches.

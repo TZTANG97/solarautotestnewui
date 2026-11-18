@@ -83,24 +83,46 @@ def pea_vfrt_template_rows(un_v: float) -> List[Dict[str, Any]]:
 
 
 class OvufConditionList(QtWidgets.QWidget):
-    """工况表格 + 增删移动 / PEA 示例。"""
+    """工况表格 + 增删移动 / PEA 示例。
+
+    ``voltage_only=True`` 时只做电压穿越（隐藏频率类型），供低电压穿越复用。
+    """
 
     rows_changed = QtCore.pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        parent=None,
+        *,
+        voltage_only: bool = False,
+        tip_text: Optional[str] = None,
+        object_name: str = "ovufConditionList",
+    ):
         super().__init__(parent)
-        self.setObjectName("ovufConditionList")
+        self._voltage_only = bool(voltage_only)
+        self.setObjectName(object_name)
         root = QtWidgets.QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(8)
 
-        tip = QtWidgets.QLabel(
-            "每行一个工况，可同时启用多行顺序执行。"
-            "电压行：勾选相跟设定值，未勾选相保持步骤①额定（PEA 单相/两相故障）。"
-            "频率行：整机改频，相勾选无效。"
-            "本表有启用行时只跑列表；清空后请用顶部 ④过压～⑦欠频 的起止+步长（与以前一致）。"
-            "电压行请至少勾一相（全不勾视为三相同压）。"
-        )
+        if tip_text is not None:
+            tip_msg = tip_text
+        elif self._voltage_only:
+            tip_msg = (
+                "每行一个电压工况，可多行顺序执行。"
+                "勾选相跟设定值，未勾选相保持步骤①额定（PEA 单相/两相故障）。"
+                "本表有启用行时优先于上方对称时序表；清空后仍用上方 p.u. 时序。"
+                "请至少勾一相（全不勾视为三相同压）。"
+            )
+        else:
+            tip_msg = (
+                "每行一个工况，可同时启用多行顺序执行。"
+                "电压行：勾选相跟设定值，未勾选相保持步骤①额定（PEA 单相/两相故障）。"
+                "频率行：整机改频，相勾选无效。"
+                "本表有启用行时只跑列表；清空后请用顶部 ④过压～⑦欠频 的起止+步长（与以前一致）。"
+                "电压行请至少勾一相（全不勾视为三相同压）。"
+            )
+        tip = QtWidgets.QLabel(tip_msg)
         tip.setWordWrap(True)
         tip.setStyleSheet("color: #334155; font-size: 13px;")
         root.addWidget(tip)
@@ -186,8 +208,13 @@ class OvufConditionList(QtWidgets.QWidget):
         self.table.setCellWidget(r, COL_ENABLED, en)
 
         kind = QtWidgets.QComboBox()
-        kind.addItems(list(KIND_LABELS))
-        kind.setCurrentText(_kind_label(str(d.get("kind", "V"))))
+        if self._voltage_only:
+            kind.addItems([KIND_V])
+            kind.setCurrentText(KIND_V)
+            kind.setEnabled(False)
+        else:
+            kind.addItems(list(KIND_LABELS))
+            kind.setCurrentText(_kind_label(str(d.get("kind", "V"))))
         kind.currentIndexChanged.connect(lambda *_: self._emit())
         self.table.setCellWidget(r, COL_KIND, kind)
 
