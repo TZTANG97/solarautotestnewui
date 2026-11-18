@@ -679,6 +679,15 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.checkBox_AC_Test_L3.setObjectName("checkBox_AC_Test_L3")
         g9Layout.addWidget(self.checkBox_AC_Test_L3, 0, 3)
 
+        phase_hint = QtWidgets.QLabel(
+            "三相时：全选 L1/L2/L3 = 三相同压扫段（旧行为）。"
+            "只勾部分相 = 勾选相跟扫点电压，未勾选相保持步骤①额定"
+            "（可用于 PEA 等单相/两相电压故障穿越工况）。过欠频仍整机改频率。"
+        )
+        phase_hint.setWordWrap(True)
+        phase_hint.setStyleSheet("color: #64748b; font-size: 12px; font-weight: normal;")
+        g9Layout.addWidget(phase_hint, 1, 0, 1, 4)
+
         layout.addWidget(self.groupBox_9)
 
         # ── 过频扫描参数 ──

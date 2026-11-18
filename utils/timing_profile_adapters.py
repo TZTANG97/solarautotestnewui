@@ -231,14 +231,18 @@ def append_ac_voltage(
     if va == vb == vc:
         append_volt_set(out_rows, phase_mode, voltages[0], chroma_61800=chroma_61800)
         return
+    if chroma_61800:
+        # 异压必须切 INDEPEND，否则 NSEL+VOLT:AC 无法真正分相
+        from utils.ac_scpi_commands import append_chroma_phase_volts
+
+        append_chroma_phase_volts(out_rows, voltages[0], voltages[1], voltages[2])
+        return
     out_rows.append(ac_write_row("INST:EDIT EACH"))
     for index, voltage in enumerate(voltages, 1):
         out_rows.append(ac_write_row("INST:NSEL %d" % index))
         v = format_number(voltage)
-        volt_cmd = ("VOLT:AC " + v) if chroma_61800 else ("VOLT " + v)
-        out_rows.append(ac_write_row(volt_cmd))
-    if not chroma_61800:
-        out_rows.append(ac_write_row("INST:EDIT ALL"))
+        out_rows.append(ac_write_row("VOLT " + v))
+    out_rows.append(ac_write_row("INST:EDIT ALL"))
 
 
 def baseline_dc_values(ui: Any, channel: int) -> Dict[str, float]:

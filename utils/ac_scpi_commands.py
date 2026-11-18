@@ -103,6 +103,29 @@ def append_legacy_three_phase_setpoints(out_rows, volt_a, volt_b, volt_c, freq):
     out_rows.append(_row_ac_write("INST:EDIT ALL"))
 
 
+def append_chroma_phase_volts(out_rows, volt_a, volt_b, volt_c):
+    """Chroma 61800 仅写三相电压（扫压/恢复用，不改频率）。
+
+    同压：``PHAS:THREE SAMEFREQ`` + EACH 逐相 + ``EDIT ALL`` 再写一次；
+    异压：``PHAS:THREE INDEPEND`` + EACH 逐相（留在独立模式，便于下一步异压）。
+    """
+    ra, rb, rc = _resolve_three_phase_volts(volt_a, volt_b, volt_c)
+    if not ra:
+        return
+    va = fmt_ac_volt(ra, chroma_61800=True)
+    vb = fmt_ac_volt(rb, chroma_61800=True)
+    vc = fmt_ac_volt(rc, chroma_61800=True)
+    mode = "PHAS:THREE SAMEFREQ" if va == vb == vc else "PHAS:THREE INDEPEND"
+    for cmd in ("CONF:COUP AC", "INST:PHAS THREE", mode, "INST:EDIT EACH"):
+        out_rows.append(_row_ac_write(cmd))
+    for nsel, v in ((1, va), (2, vb), (3, vc)):
+        out_rows.append(_row_ac_write(f"INST:NSEL {nsel}"))
+        out_rows.append(_row_ac_write(_fmt_volt_cmd(v, chroma_61800=True)))
+    if va == vb == vc:
+        out_rows.append(_row_ac_write("INST:EDIT ALL"))
+        out_rows.append(_row_ac_write(_fmt_volt_cmd(va, chroma_61800=True)))
+
+
 def append_chroma_three_phase_setpoints(out_rows, volt_a, volt_b, volt_c, freq):
     ra, rb, rc = _resolve_three_phase_volts(volt_a, volt_b, volt_c)
     if not ra:

@@ -144,8 +144,10 @@ def append_ovuf_segment_recovery(
     """
     from utils.ac_scpi_commands import (
         append_ac_startup_setpoints,
+        append_chroma_phase_volts,
         append_freq_set,
         append_volt_set,
+        resolve_chroma_61800,
     )
 
     volt_a = _plain(ui, "textEdit_S1_AC_VOLT", "230") or "230"
@@ -155,24 +157,37 @@ def append_ovuf_segment_recovery(
     batch_start = len(commands)
     just_swept = ovuf_sweep_project(int(after_step))
     same_volt = str(volt_a).strip() == str(volt_b).strip() == str(volt_c).strip()
+    chroma_61800 = resolve_chroma_61800()
     if just_swept == "过欠频":
         # 与升频步进同一路径：EDIT ALL + FREQ，不要夹 VOLT+SAVE
-        append_freq_set(commands, phase_mode, freq)
+        append_freq_set(commands, phase_mode, freq, chroma_61800=chroma_61800)
     elif phase_mode == "三相" and not same_volt:
         # 异压三相：仍需完整 NSEL 序列
         append_ac_startup_setpoints(
-            commands, phase_mode, volt_a, volt_b, volt_c, freq
+            commands,
+            phase_mode,
+            volt_a,
+            volt_b,
+            volt_c,
+            freq,
+            chroma_61800=chroma_61800,
         )
     else:
         # 扫压后电压已偏离额定：先回压，短等后再回频（两次 SAVE 错开）
-        append_volt_set(commands, phase_mode, volt_a)
+        # Chroma 分相扫压可能留在 INDEPEND：对称额定也走 SAMEFREQ 回压
+        if phase_mode == "三相" and chroma_61800:
+            append_chroma_phase_volts(commands, volt_a, volt_b, volt_c)
+        else:
+            append_volt_set(
+                commands, phase_mode, volt_a, chroma_61800=chroma_61800
+            )
         settle = ["" for _ in range(10)]
         settle[0] = "AC"
         settle[1] = "wait"
         settle[2] = "OVUF_VOLT_SETTLE"
         settle[9] = 10  # 1s
         commands.append(settle)
-        append_freq_set(commands, phase_mode, freq)
+        append_freq_set(commands, phase_mode, freq, chroma_61800=chroma_61800)
 
     has_later = ovuf_has_later_segment(ui, after_step)
     wait = 0
@@ -211,6 +226,59 @@ def build_ovuf_phase_check_list(ui):
         if cb is not None and cb.isChecked():
             out[i] = "T"
     return out
+
+
+def read_ovuf_rated_phase_volts(ui) -> tuple:
+    """步骤1 A/B/C 额定电压；B/C 空则回退到 A。"""
+    va = _plain(ui, "textEdit_S1_AC_VOLT", "230") or "230"
+    vb = _plain(ui, "textEdit_S1_AC_VOLT_2", "") or va
+    vc = _plain(ui, "textEdit_S1_AC_VOLT_3", "") or va
+    return va, vb, vc
+
+
+def build_ovuf_phase_target_volts(step_volt, phase_check_list, rated_volts) -> tuple:
+    """勾选相用扫点电压，未勾选相保持额定（PEA 类单相/两相故障）。
+
+    三相全勾或一相都没勾 → 三相都用扫点（与旧「三相同压」一致）。
+    """
+    flags = list(phase_check_list or [])
+    while len(flags) < 3:
+        flags.append("")
+    flags = flags[:3]
+    rated = list(rated_volts or ())
+    while len(rated) < 3:
+        rated.append(rated[0] if rated else "230")
+    rated = [str(x).strip() or "230" for x in rated[:3]]
+    if "T" not in flags:
+        flags = ["T", "T", "T"]
+    step = str(step_volt).strip()
+    return tuple(step if flags[i] == "T" else rated[i] for i in range(3))
+
+
+def append_ovuf_sweep_volt(
+    out_rows,
+    phase_mode,
+    step_volt,
+    phase_check_list=None,
+    rated_volts=None,
+    *,
+    chroma_61800=None,
+) -> None:
+    """过欠压扫点写压：全选/同压走 EDIT ALL；部分相勾选走 EDIT EACH 分相。
+
+    不改变 ``append_volt_set`` 默认行为，其它试验不受影响。
+    """
+    from utils.ac_scpi_commands import append_volt_set
+    from utils.timing_profile_adapters import append_ac_voltage
+
+    if phase_mode == "单相":
+        append_volt_set(out_rows, phase_mode, step_volt, chroma_61800=chroma_61800)
+        return
+    targets = build_ovuf_phase_target_volts(step_volt, phase_check_list, rated_volts)
+    if targets[0] == targets[1] == targets[2]:
+        append_volt_set(out_rows, phase_mode, targets[0], chroma_61800=chroma_61800)
+        return
+    append_ac_voltage(out_rows, phase_mode, targets, chroma_61800=chroma_61800)
 
 
 def ovuf_sweep_project(step_no: int) -> str:

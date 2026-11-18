@@ -19844,9 +19844,15 @@ def thaiguoqianya_pinSend():
             test_program.append([test_project_now_index, wt_type])
 
     # extend_step
-    from utils.ovuf_recording import build_ovuf_phase_check_list, ovuf_sweep_project
+    from utils.ovuf_recording import (
+        append_ovuf_sweep_volt,
+        build_ovuf_phase_check_list,
+        ovuf_sweep_project,
+        read_ovuf_rated_phase_volts,
+    )
 
     phase_check_list = build_ovuf_phase_check_list(uiThaiGuoQianYa_Pin)
+    ovuf_rated_volts = read_ovuf_rated_phase_volts(uiThaiGuoQianYa_Pin)
 
     # step3 过压：固定扫电压
     extend_test_project = ovuf_sweep_project(3)
@@ -19953,110 +19959,26 @@ def thaiguoqianya_pinSend():
                 
         elif S1ACEACHStatus == "三相":
             if extend_test_project == "过欠压":
-                if '' not in phase_check_list:
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                for i in range(len(S3_test_step_list)):
+                    step = S3_test_step_list[i]
+                    _bs = len(strArrayTest)
+                    append_ovuf_sweep_volt(
+                        strArrayTest, S1ACEACHStatus, step, phase_check_list, ovuf_rated_volts
+                    )
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
+                    strArraySingle = ["" for _ in range(10)]
+                    S3Command = "*IDN?"
+                    strArraySingle[0] = "AC"
+                    strArraySingle[1] = "query"
+                    strArraySingle[2] = S3Command
+                    if i == 0:
+                        strArraySingle[6] = int(fS3SetTime)
+                    else:
+                        strArraySingle[9] = int(fS3SetTime)
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+                    strArrayTestStep.append(strArrayTestStepSingle)
             elif extend_test_project == "过欠频":
                 if '' not in phase_check_list:
                     for i in range(len(S3_test_step_list)):
@@ -20279,94 +20201,22 @@ def thaiguoqianya_pinSend():
                 
         elif S1ACEACHStatus == "三相":
             if extend_test_project == "过欠压":
-                if '' not in phase_check_list:
-                    for step in S4_test_step_list:
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
+                for step in S4_test_step_list:
+                    _bs = len(strArrayTest)
+                    append_ovuf_sweep_volt(
+                        strArrayTest, S1ACEACHStatus, step, phase_check_list, ovuf_rated_volts
+                    )
+                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
 
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
+                    strArraySingle = ["" for _ in range(10)]
+                    S4Command = "*IDN?"
+                    strArraySingle[0] = "AC"
+                    strArraySingle[1] = "query"
+                    strArraySingle[2] = S4Command
+                    strArraySingle[9] = int(fS4SetTime)
+                    strArrayTest.append(strArraySingle)
+                    strArrayTestStepSingle.append(strArraySingle)
+                    strArrayTestStep.append(strArrayTestStepSingle)
             elif extend_test_project == "过欠频":
                 if '' not in phase_check_list:
                     for step in S4_test_step_list:
