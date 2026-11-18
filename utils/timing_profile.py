@@ -55,6 +55,9 @@ COMMON_FIELDS: Tuple[str, ...] = (
 
 SUPPORTED_VALUE_FIELDS: Tuple[str, ...] = (
     "u_pu",
+    "l1",
+    "l2",
+    "l3",
     "phase_deg",
     "p_pct",
     "irr_wm2",
@@ -63,6 +66,9 @@ SUPPORTED_VALUE_FIELDS: Tuple[str, ...] = (
     "umpp",
     "ff",
 )
+
+# Schema fields stored/edited as booleans (checkbox columns).
+SUPPORTED_BOOL_FIELDS: Tuple[str, ...] = ("l1", "l2", "l3")
 
 
 class TimingProfileValidationError(ValueError):
@@ -82,6 +88,7 @@ class TimingProfileSchema:
     )
     defaults: Mapping[str, Any] = field(default_factory=dict)
     labels: Mapping[str, str] = field(default_factory=dict)
+    bool_fields: Tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.key or not str(self.key).strip():
@@ -89,6 +96,14 @@ class TimingProfileSchema:
         unknown = set(self.fields) - set(SUPPORTED_VALUE_FIELDS)
         if unknown:
             raise ValueError("unsupported schema fields: %s" % sorted(unknown))
+        bad_bool = set(self.bool_fields) - set(self.fields)
+        if bad_bool:
+            raise ValueError("bool_fields not in schema.fields: %s" % sorted(bad_bool))
+        bad_bool_support = set(self.bool_fields) - set(SUPPORTED_BOOL_FIELDS)
+        if bad_bool_support:
+            raise ValueError(
+                "unsupported bool fields: %s" % sorted(bad_bool_support)
+            )
         missing = set(self.required) - set(self.fields)
         if missing:
             raise ValueError("required fields not present in schema: %s" % sorted(missing))
@@ -103,11 +118,12 @@ class TimingProfileSchema:
 
 LVRT_SCHEMA = TimingProfileSchema(
     key="lvrt",
-    fields=("u_pu",),
+    fields=("u_pu", "l1", "l2", "l3"),
     required=("u_pu",),
     ranges={"u_pu": (0.0, 2.0)},
-    defaults={"u_pu": 0.2},
-    labels={"u_pu": "电压(p.u.)"},
+    defaults={"u_pu": 0.2, "l1": True, "l2": True, "l3": True},
+    labels={"u_pu": "电压(p.u.)", "l1": "L1", "l2": "L2", "l3": "L3"},
+    bool_fields=("l1", "l2", "l3"),
 )
 
 PHASE_JUMP_SCHEMA = TimingProfileSchema(
@@ -334,8 +350,20 @@ def validate_profile_row(
         )
     normalized["repeats"] = repeats
 
+    bool_names = set(schema_obj.bool_fields)
     for name in schema_obj.fields:
         raw = row.get(name, schema_obj.defaults.get(name))
+        if name in bool_names:
+            if raw in (None, ""):
+                default_bool = schema_obj.defaults.get(name, True)
+                normalized[name] = _strict_bool(
+                    default_bool, "第 %d 行 %s" % (row_number, name)
+                )
+            else:
+                normalized[name] = _strict_bool(
+                    raw, "第 %d 行 %s" % (row_number, name)
+                )
+            continue
         if raw in (None, ""):
             normalized[name] = None
             continue
@@ -367,6 +395,12 @@ def validate_profile_row(
                 raise TimingProfileValidationError(
                     "第 %d 行至少需要填写一个字段: %s"
                     % (row_number, ", ".join(group))
+                )
+        # LVRT phase mask: enabled rows must select at least one of L1/L2/L3
+        if {"l1", "l2", "l3"} <= set(schema_obj.bool_fields):
+            if not any(bool(normalized.get(name)) for name in ("l1", "l2", "l3")):
+                raise TimingProfileValidationError(
+                    "第 %d 行请至少勾选 L1/L2/L3 中的一相" % row_number
                 )
 
     extensions = _normalize_extensions(row.get("extensions"), row_number)

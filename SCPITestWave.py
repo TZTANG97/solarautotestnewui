@@ -19845,30 +19845,18 @@ def thaiguoqianya_pinSend():
 
     # extend_step
     from utils.ovuf_recording import (
-        append_ovuf_condition_sequence,
         append_ovuf_sweep_volt,
         build_ovuf_phase_check_list,
         ovuf_sweep_project,
-        read_ovuf_condition_rows,
         read_ovuf_rated_phase_volts,
     )
 
     phase_check_list = build_ovuf_phase_check_list(uiThaiGuoQianYa_Pin)
     ovuf_rated_volts = read_ovuf_rated_phase_volts(uiThaiGuoQianYa_Pin)
-    _ovuf_cond_rows = read_ovuf_condition_rows(uiThaiGuoQianYa_Pin)
-    _use_ovuf_condition_list = bool(_ovuf_cond_rows)
-    if _use_ovuf_condition_list:
-        total_test_time = total_test_time + append_ovuf_condition_sequence(
-            strArrayTest,
-            strArrayTestStep,
-            uiThaiGuoQianYa_Pin,
-            S1ACEACHStatus,
-            _ovuf_cond_rows,
-        )
 
-    # step3 过压：固定扫电压（工况列表非空时跳过旧 S3–S8）
+    # step3 过压：固定扫电压
     extend_test_project = ovuf_sweep_project(3)
-    if (not _use_ovuf_condition_list) and uiThaiGuoQianYa_Pin.checkBox_S3.isChecked():
+    if uiThaiGuoQianYa_Pin.checkBox_S3.isChecked():
         strArrayTestStepSingle = []
         S3_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S3_TIME.toPlainText()
         S3_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S3_TIME.currentText()
@@ -20118,7 +20106,7 @@ def thaiguoqianya_pinSend():
 
     # step4 欠压：固定扫电压
     extend_test_project = ovuf_sweep_project(4)
-    if (not _use_ovuf_condition_list) and uiThaiGuoQianYa_Pin.checkBox_S4.isChecked():
+    if uiThaiGuoQianYa_Pin.checkBox_S4.isChecked():
         strArrayTestStepSingle = []
         S4_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S4_TIME.toPlainText()
         S4_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S4_TIME.currentText()
@@ -20340,7 +20328,7 @@ def thaiguoqianya_pinSend():
 
     # step5 过频：固定扫频率
     extend_test_project = ovuf_sweep_project(5)
-    if (not _use_ovuf_condition_list) and uiThaiGuoQianYa_Pin.checkBox_S5.isChecked():
+    if uiThaiGuoQianYa_Pin.checkBox_S5.isChecked():
         strArrayTestStepSingle = []
         S5_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S5_TIME.toPlainText()
         S5_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S5_TIME.currentText()
@@ -20634,7 +20622,7 @@ def thaiguoqianya_pinSend():
 
     # step6 欠频：固定扫频率
     extend_test_project = ovuf_sweep_project(6)
-    if (not _use_ovuf_condition_list) and uiThaiGuoQianYa_Pin.checkBox_S6.isChecked():
+    if uiThaiGuoQianYa_Pin.checkBox_S6.isChecked():
         strArrayTestStepSingle = []
         S6_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S6_TIME.toPlainText()
         S6_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S6_TIME.currentText()
@@ -20928,7 +20916,7 @@ def thaiguoqianya_pinSend():
 
     # step7 相位页附加过频：固定扫频率
     extend_test_project = ovuf_sweep_project(7)
-    if (not _use_ovuf_condition_list) and uiThaiGuoQianYa_Pin.checkBox_S7.isChecked():
+    if uiThaiGuoQianYa_Pin.checkBox_S7.isChecked():
         strArrayTestStepSingle = []
         S7_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S7_TIME.toPlainText()
         S7_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S7_TIME.currentText()
@@ -21222,7 +21210,7 @@ def thaiguoqianya_pinSend():
 
     # step8 相位页附加欠频：固定扫频率
     extend_test_project = ovuf_sweep_project(8)
-    if (not _use_ovuf_condition_list) and uiThaiGuoQianYa_Pin.checkBox_S8.isChecked():
+    if uiThaiGuoQianYa_Pin.checkBox_S8.isChecked():
         strArrayTestStepSingle = []
         S8_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S8_TIME.toPlainText()
         S8_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S8_TIME.currentText()

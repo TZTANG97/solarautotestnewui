@@ -24,111 +24,95 @@ def _scaled_voltages(nominal: Sequence[float], u_pu: float) -> List[float]:
     return [float(value) * float(u_pu) for value in nominal]
 
 
-def _phase_flags_from_row(row: Mapping[str, Any]) -> List[str]:
+def _phase_flags(point: Mapping[str, Any]) -> List[bool]:
+    """Per-row L1/L2/L3; missing keys default True (symmetric)."""
     return [
-        "T" if row.get("l1", True) else "",
-        "T" if row.get("l2", True) else "",
-        "T" if row.get("l3", True) else "",
+        bool(point.get("l1", True)),
+        bool(point.get("l2", True)),
+        bool(point.get("l3", True)),
     ]
 
 
-def _phase_tag(flags: Sequence[str]) -> str:
+def _phase_tag(flags: Sequence[bool]) -> str:
     letters = []
     for i, ch in enumerate(("1", "2", "3")):
-        if i < len(flags) and flags[i] == "T":
+        if i < len(flags) and flags[i]:
             letters.append(ch)
     return ("L" + "".join(letters)) if letters else "L123"
 
 
-def read_lvrt_phase_condition_rows(ui: Any) -> List[dict]:
-    """Read enabled voltage rows from LVRT PEA condition list; empty → []."""
-    widget = getattr(ui, "lvrtConditionList", None)
-    if widget is None:
-        return []
-    try:
-        rows = widget.get_rows(include_disabled=False)
-    except Exception:
-        return []
-    out: List[dict] = []
-    for row in rows or []:
-        kind = str(row.get("kind", "V")).strip().upper()
-        if kind == "F":
-            continue
-        out.append(dict(row))
-    return out
-
-
-def append_lvrt_phase_conditions(
-    out_rows: List[List[Any]],
-    rows: Iterable[Mapping[str, Any]],
+def phase_masked_voltages(
+    nominal: Sequence[float],
+    u_pu: float,
     *,
-    phase_mode: str,
-    nominal_voltages: Sequence[float],
-    chroma_61800: Optional[bool] = None,
-) -> List[Dict[str, Any]]:
-    """Append PEA-style per-phase voltage faults: set → dwell → recover to nominal.
+    l1: bool = True,
+    l2: bool = True,
+    l3: bool = True,
+) -> List[float]:
+    """Apply u_pu to selected phases; unselected phases stay at nominal.
 
-    Reuses OVUF phase-target / sweep helpers for Chroma INDEPEND and Aitech EACH.
+    All selected → three-phase same scaled values (legacy).
+    None selected → raise (validate_profile should already reject this).
     """
-    from utils.ac_scpi_commands import resolve_chroma_61800
-    from utils.ovuf_recording import append_ovuf_sweep_volt
+    nom = [float(v) for v in nominal]
+    while len(nom) < 3:
+        nom.append(nom[0] if nom else 230.0)
+    nom = nom[:3]
+    scaled = _scaled_voltages(nom, u_pu)
+    flags = [bool(l1), bool(l2), bool(l3)]
+    if not any(flags):
+        raise TimingProfileValidationError("LVRT 工况请至少勾选 L1/L2/L3 中的一相")
+    if all(flags):
+        return scaled
+    return [scaled[i] if flags[i] else nom[i] for i in range(3)]
 
-    if chroma_61800 is None:
-        chroma_61800 = resolve_chroma_61800()
 
-    rated_str = tuple(format_number(v) for v in nominal_voltages)
-    while len(rated_str) < 3:
-        rated_str = rated_str + (rated_str[0] if rated_str else "230",)
-    rated_str = rated_str[:3]
+def pea_lvrt_template_profile() -> List[Dict[str, Any]]:
+    """PEA VFRT-style rows in LVRT timing-profile shape (p.u. + phase mask)."""
 
-    enabled = [
-        r
-        for r in rows
-        if r.get("enabled", True) and str(r.get("kind", "V")).strip().upper() != "F"
-    ]
-    metas: List[Dict[str, Any]] = []
-    for index, row in enumerate(enabled, 1):
-        value = str(row.get("value", "")).strip() or rated_str[0]
-        flags = _phase_flags_from_row(row)
-        try:
-            dwell_raw = float(str(row.get("dwell", "3")).strip() or "3")
-        except (TypeError, ValueError):
-            dwell_raw = 3.0
-        unit = str(row.get("unit", "秒")).strip() or "秒"
-        dwell = time_to_ticks(dwell_raw, unit)
-        if dwell <= 0:
-            dwell = 1
+    def _row(
+        label: str,
+        u_pu: float,
+        dwell: float,
+        *,
+        l1: bool = True,
+        l2: bool = True,
+        l3: bool = True,
+        t_pre: float = 1.0,
+        t_post: float = 3.0,
+    ) -> Dict[str, Any]:
+        return {
+            "enabled": True,
+            "label": label,
+            "t_pre": t_pre,
+            "t_pre_unit": "秒",
+            "t_dwell": dwell,
+            "t_dwell_unit": "秒",
+            "t_post": t_post,
+            "t_post_unit": "秒",
+            "u_pu": u_pu,
+            "l1": l1,
+            "l2": l2,
+            "l3": l3,
+            "repeats": 1,
+        }
 
-        append_ovuf_sweep_volt(
-            out_rows,
-            phase_mode,
-            value,
-            flags,
-            rated_str,
-            chroma_61800=chroma_61800,
+    rows: List[Dict[str, Any]] = []
+    for ratio, dwell in (
+        (0.90, 120.0),
+        (0.85, 120.0),
+        (0.50, 10.0),
+        (0.00, 0.16),
+        (1.10, 120.0),
+        (1.15, 120.0),
+        (1.20, 0.16),
+    ):
+        rows.append(_row("三相 %.2f p.u." % ratio, ratio, dwell))
+    for ratio, dwell in ((0.90, 120.0), (0.85, 120.0), (0.50, 10.0)):
+        rows.append(
+            _row("A-B %.2f p.u." % ratio, ratio, dwell, l1=True, l2=True, l3=False)
         )
-        out_rows.append(wait_row(dwell))
-        # Always recover to S1 nominal (LVRT-style), including last row.
-        append_ac_voltage(
-            out_rows, phase_mode, nominal_voltages, chroma_61800=chroma_61800
-        )
-
-        tag = _phase_tag(flags)
-        metas.append(
-            {
-                "name": "LVRT_R%02d_V%s_%s" % (index, format_number(value), tag),
-                "index": index,
-                "value": value,
-                "phase_tag": tag,
-                "repeats": 1,
-                "duration_01s": dwell,
-                "u_pu": value,
-            }
-        )
-
-    if any("LIST" in str(row[2]).upper() for row in out_rows):
-        raise TimingProfileValidationError("LVRT 禁止生成 LIST 命令")
-    return metas
+    return rows
 
 
 def append_lvrt_profile(
@@ -137,12 +121,13 @@ def append_lvrt_profile(
     *,
     phase_mode: str,
     nominal_voltages: Sequence[float],
+    chroma_61800: Optional[bool] = None,
 ) -> List[Dict[str, Any]]:
-    """Append nominal→dip→nominal events.
+    """Append nominal→dip→nominal events with optional per-row phase mask.
 
     This adapter intentionally has no LIST path.  Every disturbance is a direct
     ``VOLT`` write plus executor waits; three-phase channel-selection writes are
-    emitted only when individual nominal phase values require them.
+    emitted when phase voltages differ (partial L1/L2/L3 or unequal nominal).
     """
 
     metas: List[Dict[str, Any]] = []
@@ -155,15 +140,33 @@ def append_lvrt_profile(
         post = time_to_ticks(point["t_post"], point["t_post_unit"])
         repeats = int(point.get("repeats", 1))
         label = str(point.get("label") or "LVRT_%d" % index)
+        flags = _phase_flags(point)
+        dip = phase_masked_voltages(
+            nominal_voltages,
+            u_pu,
+            l1=flags[0],
+            l2=flags[1],
+            l3=flags[2],
+        )
+        if phase_mode == "单相":
+            dip = dip[:1]
+            recover = list(nominal_voltages)[:1]
+        else:
+            recover = list(nominal_voltages)
+            while len(recover) < 3:
+                recover.append(recover[0] if recover else 230.0)
+            recover = recover[:3]
         for _repeat in range(repeats):
             if pre:
                 out_rows.append(wait_row(pre))
             append_ac_voltage(
-                out_rows, phase_mode, _scaled_voltages(nominal_voltages, u_pu)
+                out_rows, phase_mode, dip, chroma_61800=chroma_61800
             )
             if dwell:
                 out_rows.append(wait_row(dwell))
-            append_ac_voltage(out_rows, phase_mode, nominal_voltages)
+            append_ac_voltage(
+                out_rows, phase_mode, recover, chroma_61800=chroma_61800
+            )
             if post:
                 out_rows.append(wait_row(post))
         metas.append(
@@ -171,6 +174,10 @@ def append_lvrt_profile(
                 "name": label,
                 "index": index,
                 "u_pu": u_pu,
+                "l1": flags[0],
+                "l2": flags[1],
+                "l3": flags[2],
+                "phase_tag": _phase_tag(flags),
                 "repeats": repeats,
                 "duration_01s": (pre + dwell + post) * repeats,
             }
@@ -215,11 +222,7 @@ def build_lvrt_plan(
     dc_iv_resolver: Any = None,
     chroma_61800: Optional[bool] = None,
 ) -> Dict[str, Any]:
-    """Build a ten-column LVRT command plan.
-
-    If the PEA phase-condition list has enabled voltage rows, those take
-    priority over the symmetric ``u_pu`` timing profile.
-    """
+    """Build a ten-column LVRT command plan from the timing profile table."""
 
     try:
         context = build_plan_context(
@@ -232,32 +235,25 @@ def build_lvrt_plan(
         )
         profile_rows: List[List[Any]] = []
         metas: List[Dict[str, Any]] = []
-        names: List[str] = []
         if getattr(ui, "checkBox_S3").isChecked():
+            profile = read_ui_profile(ui, LVRT_SCHEMA)
             phase_mode, nominal = baseline_ac_voltages(ui)
-            cond_rows = read_lvrt_phase_condition_rows(ui)
             started = append_acquisition_start(context, profile_rows)
-            if cond_rows:
-                metas = append_lvrt_phase_conditions(
-                    profile_rows,
-                    cond_rows,
-                    phase_mode=phase_mode,
-                    nominal_voltages=nominal,
-                    chroma_61800=chroma_61800,
-                )
-                names = [str(meta.get("name") or "LVRT") for meta in metas]
-            else:
-                profile = read_ui_profile(ui, LVRT_SCHEMA)
-                metas = append_lvrt_profile(
-                    profile_rows,
-                    profile,
-                    phase_mode=phase_mode,
-                    nominal_voltages=nominal,
-                )
-                names = ["LVRT_%s" % format_number(meta["u_pu"]) for meta in metas]
+            metas = append_lvrt_profile(
+                profile_rows,
+                profile,
+                phase_mode=phase_mode,
+                nominal_voltages=nominal,
+                chroma_61800=chroma_61800,
+            )
             append_acquisition_end(started, profile_rows)
         if any("LIST" in str(row[2]).upper() for row in profile_rows):
             raise TimingProfileValidationError("LVRT 禁止生成 LIST 命令")
+        names = [
+            "LVRT_%s_%s"
+            % (format_number(meta["u_pu"]), meta.get("phase_tag") or "L123")
+            for meta in metas
+        ]
         return finalize_plan(
             context,
             profile_rows,
@@ -273,9 +269,9 @@ build_thai_lvrt_plan = build_lvrt_plan
 
 
 __all__ = [
-    "append_lvrt_phase_conditions",
     "append_lvrt_profile",
     "build_lvrt_plan",
     "build_thai_lvrt_plan",
-    "read_lvrt_phase_condition_rows",
+    "pea_lvrt_template_profile",
+    "phase_masked_voltages",
 ]

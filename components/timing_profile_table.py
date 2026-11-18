@@ -141,18 +141,28 @@ class TimingProfileTable(QtWidgets.QWidget):
             return str(int(value))
         return str(value)
 
+    def _is_bool_field(self, field_name: str) -> bool:
+        if field_name == "enabled":
+            return True
+        return field_name in getattr(self.schema, "bool_fields", ())
+
     def _populate_row(self, row_index: int, row: Mapping[str, Any]) -> None:
         for field_name, _label in self._columns:
             column = self._column_index[field_name]
-            if field_name == "enabled":
+            if self._is_bool_field(field_name):
                 item = QtWidgets.QTableWidgetItem()
                 item.setFlags(
                     QtCore.Qt.ItemIsEnabled
                     | QtCore.Qt.ItemIsSelectable
                     | QtCore.Qt.ItemIsUserCheckable
                 )
+                default = True
+                if field_name != "enabled":
+                    default = bool(self.schema.defaults.get(field_name, True))
                 item.setCheckState(
-                    QtCore.Qt.Checked if bool(row.get(field_name, True)) else QtCore.Qt.Unchecked
+                    QtCore.Qt.Checked
+                    if bool(row.get(field_name, default))
+                    else QtCore.Qt.Unchecked
                 )
                 self.table.setItem(row_index, column, item)
             elif field_name.endswith("_unit"):
@@ -192,9 +202,11 @@ class TimingProfileTable(QtWidgets.QWidget):
         row: Dict[str, Any] = {}
         for field_name, _label in self._columns:
             column = self._column_index[field_name]
-            if field_name == "enabled":
+            if self._is_bool_field(field_name):
                 item = self.table.item(row_index, column)
-                row[field_name] = bool(item and item.checkState() == QtCore.Qt.Checked)
+                row[field_name] = bool(
+                    item and item.checkState() == QtCore.Qt.Checked
+                )
             elif field_name.endswith("_unit"):
                 combo = self.table.cellWidget(row_index, column)
                 row[field_name] = combo.currentText() if combo is not None else "秒"

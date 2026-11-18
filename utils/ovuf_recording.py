@@ -292,15 +292,8 @@ def append_ovuf_sweep_volt(
 
 
 def read_ovuf_condition_rows(ui) -> List[dict]:
-    """读取工况列表启用行；无列表或空 → []（Send 回退旧 S3–S8）。"""
-    widget = getattr(ui, "ovufConditionList", None)
-    if widget is None:
-        return []
-    try:
-        rows = widget.get_rows(include_disabled=False)
-    except Exception:
-        return []
-    return list(rows or [])
+    """工况列表已从过欠压 Dialog 移除；恒返回 []，始终走 S3–S8 扫段。"""
+    return []
 
 
 def _phase_flags_from_row(row: dict) -> list:

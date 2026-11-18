@@ -452,7 +452,7 @@ class _BaseTimingProfileDialogUi(object):
     def _mount_extra_profile_widgets(
         self, group_layout: QtWidgets.QVBoxLayout
     ) -> None:
-        """Hook for LVRT PEA phase-condition list; other timing dialogs no-op."""
+        """Optional toolbar under the timing table (LVRT: PEA 示例)."""
         return
 
     def _build_shutdown_page(self) -> None:
@@ -547,36 +547,47 @@ class Ui_Dialog_thailvrt(_BaseTimingProfileDialogUi):
             "t_post": 3,
             "t_post_unit": "秒",
             "u_pu": 0.2,
+            "l1": True,
+            "l2": True,
+            "l3": True,
             "repeats": 1,
         },
     )
 
-    def _lvrt_rated_un(self) -> float:
-        try:
-            raw = self.textEdit_S1_AC_VOLT.toPlainText().strip() or "230"
-            value = float(raw)
-            return value if value > 0 else 230.0
-        except (TypeError, ValueError, AttributeError):
-            return 230.0
-
     def _mount_extra_profile_widgets(
         self, group_layout: QtWidgets.QVBoxLayout
     ) -> None:
-        from components.ovuf_condition_list import OvufConditionList
+        from utils.lvrt_commands import pea_lvrt_template_profile
 
-        note = QtWidgets.QLabel(
-            "PEA 分相电压穿越（可选）：有启用行时优先于上方对称时序表。"
+        tip = QtWidgets.QLabel(
+            "每行可勾选 L1/L2/L3：全勾=三相同比例跌落；只勾部分相=勾选相跟电压(p.u.)，"
+            "未勾选相保持步骤①额定（PEA 单相/两相故障）。前置/保持/后置时间照旧。"
         )
-        note.setWordWrap(True)
-        note.setStyleSheet("color:#64748b; font-size: 13px;")
-        group_layout.addWidget(note)
+        tip.setWordWrap(True)
+        tip.setStyleSheet("color:#64748b; font-size: 13px;")
+        group_layout.addWidget(tip)
 
-        self.lvrtConditionList = OvufConditionList(
-            voltage_only=True,
-            object_name="lvrtConditionList",
+        btn_row = QtWidgets.QHBoxLayout()
+        self.pushButton_PeaLvrtTemplate = QtWidgets.QPushButton(
+            "填入 PEA 电压穿越示例（含 A-B）"
         )
-        self.lvrtConditionList.set_un_provider(self._lvrt_rated_un)
-        group_layout.addWidget(self.lvrtConditionList)
+        self.pushButton_PeaLvrtTemplate.setObjectName("pushButton_PeaLvrtTemplate")
+        self.pushButton_PeaLvrtTemplate.setStyleSheet(
+            "QPushButton { padding: 6px 12px; font-size: 13px; font-weight: bold; "
+            "color: #0f172a; background: #e2e8f0; border: 1px solid #64748b; "
+            "border-radius: 4px; min-height: 28px; }"
+            "QPushButton:hover { background: #cbd5e1; }"
+        )
+        btn_row.addWidget(self.pushButton_PeaLvrtTemplate)
+        btn_row.addStretch()
+        group_layout.addLayout(btn_row)
+
+        def _fill_pea() -> None:
+            self.timingProfileTable.set_profile(
+                pea_lvrt_template_profile(), validate=True, allow_empty=False
+            )
+
+        self.pushButton_PeaLvrtTemplate.clicked.connect(_fill_pea)
 
 
 # Common capitalization aliases used by older integration branches.

@@ -111,17 +111,15 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        # ③ 工况列表（新）；④–⑧ 仍是以前的过压/欠压/过频/欠频/相位（起止+步长）
         step_titles = [
             "① AC/DC 电源",
             "② 功率分析仪",
-            "③ 工况列表",
-            "④ 过压扫描",
-            "⑤ 欠压扫描",
-            "⑥ 过频扫描",
-            "⑦ 欠频扫描",
-            "⑧ 测试相位",
-            "⑨ 关机设置",
+            "③ 过压扫描",
+            "④ 欠压扫描",
+            "⑤ 过频扫描",
+            "⑥ 欠频扫描",
+            "⑦ 测试相位",
+            "⑧ 关机设置",
         ]
         # 步骤多时顶部可横向滚动，避免 Soft Panel 窄屏裁掉后面几步
         step_scroll = QtWidgets.QScrollArea()
@@ -168,7 +166,6 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         # ── 构建各步骤页面（顺序与顶部步骤条一致）──
         self._build_step1()
         self._build_step2()
-        self._build_condition_list_page()
         self._build_step3()
         self._build_step4()
         self._build_step5()
@@ -614,50 +611,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════
-    # Step 3: 工况列表（离散点；空则用后面④–⑦扫段）
-    # ══════════════════════════════════════
-    def _build_condition_list_page(self):
-        from components.ovuf_condition_list import OvufConditionList
-
-        page = QtWidgets.QWidget()
-        page.setStyleSheet("background-color: white;")
-        layout = QtWidgets.QVBoxLayout(page)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
-
-        mode_tip = QtWidgets.QLabel(
-            "本页可填离散工况（可分相，适合 PEA）。"
-            "若列表为空/无启用行：请点顶部 ④过压～⑦欠频，仍用以前的「起点~终点 + 步长 + 每点驻留」。"
-            "顶部步骤条可左右滑动；列表有启用行时优先跑列表。"
-        )
-        mode_tip.setWordWrap(True)
-        mode_tip.setStyleSheet("color: #0f172a; font-size: 13px; font-weight: bold;")
-        layout.addWidget(mode_tip)
-
-        self.groupBox_ovuf_conditions = QtWidgets.QGroupBox()
-        self.groupBox_ovuf_conditions.setObjectName("groupBox_ovuf_conditions")
-        self.groupBox_ovuf_conditions.setTitle("工况列表（离散点）")
-        self.groupBox_ovuf_conditions.setStyleSheet(
-            "QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; "
-            "padding-top: 10px; font-weight: bold; color: #0f172a; }"
-        )
-        gLayout = QtWidgets.QVBoxLayout(self.groupBox_ovuf_conditions)
-        gLayout.setContentsMargins(12, 20, 12, 12)
-        self.ovufConditionList = OvufConditionList()
-        self.ovufConditionList.set_un_provider(self._ovuf_rated_un)
-        gLayout.addWidget(self.ovufConditionList)
-        layout.addWidget(self.groupBox_ovuf_conditions, 1)
-        self.stackedWidget.addWidget(page)
-
-    def _ovuf_rated_un(self):
-        te = getattr(self, "textEdit_S1_AC_VOLT", None)
-        try:
-            return float((te.toPlainText() or "230").strip() or "230")
-        except Exception:
-            return 230.0
-
-    # ══════════════════════════════════════
-    # Step 4: 过压扫描（起止+步长）
+    # Step 3: 过压扫描（起止+步长）
     # ══════════════════════════════════════
     def _build_step3(self):
         self._build_sweep_page(
@@ -672,7 +626,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         )
 
     # ══════════════════════════════════════
-    # Step 5: 欠压扫描
+    # Step 4: 欠压扫描
     # ══════════════════════════════════════
     def _build_step4(self):
         self._build_sweep_page(
@@ -1024,10 +978,6 @@ class Ui_Dialog_thaiguoqianya_pin(object):
                 te = getattr(self, "textEdit_S%d_%s" % (step_no, suffix), None)
                 if te is not None:
                     te.textChanged.connect(lambda *_: _fill_wt_names())
-
-        cond = getattr(self, "ovufConditionList", None)
-        if cond is not None:
-            cond.rows_changed.connect(lambda *_: _fill_wt_names())
 
         _fill_wt_names()
 
