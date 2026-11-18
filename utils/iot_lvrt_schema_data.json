@@ -1377,7 +1377,7 @@
       "label": "工况 DC2",
       "type": "checkbox",
       "group": "step3_profile",
-      "default": true,
+      "default": false,
       "options": []
     },
     {
@@ -1385,7 +1385,7 @@
       "label": "工况 DC3",
       "type": "checkbox",
       "group": "step3_profile",
-      "default": true,
+      "default": false,
       "options": []
     },
     {
@@ -1393,7 +1393,7 @@
       "label": "工况 DC4",
       "type": "checkbox",
       "group": "step3_profile",
-      "default": true,
+      "default": false,
       "options": []
     },
     {
