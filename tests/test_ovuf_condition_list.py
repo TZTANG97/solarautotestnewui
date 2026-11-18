@@ -35,12 +35,15 @@ def ovuf_ui(qapp):
     return ui
 
 
-def test_dialog_has_four_visible_steps_and_condition_list(ovuf_ui):
-    assert len(ovuf_ui._step_labels) == 4
-    assert ovuf_ui.stackedWidget.count() == 4
+def test_dialog_has_nine_steps_list_and_legacy_sweeps(ovuf_ui):
+    assert len(ovuf_ui._step_labels) == 9
+    assert ovuf_ui.stackedWidget.count() == 9
     assert ovuf_ui.ovufConditionList is not None
-    assert ovuf_ui.checkBox_S3 is not None  # legacy still present
-    assert not ovuf_ui._legacy_host.isVisible()
+    assert ovuf_ui.checkBox_S3 is not None
+    assert ovuf_ui.textEdit_S3_Step_Size is not None  # 步长仍在④过压页
+    # ④ 过压页 = stacked index 3
+    ovuf_ui._switch_step(3)
+    assert ovuf_ui.stackedWidget.currentIndex() == 3
 
 
 def test_pea_template_rows_include_ab_fault():

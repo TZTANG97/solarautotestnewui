@@ -98,17 +98,26 @@ class OvufConditionList(QtWidgets.QWidget):
             "每行一个工况，可同时启用多行顺序执行。"
             "电压行：勾选相跟设定值，未勾选相保持步骤①额定（PEA 单相/两相故障）。"
             "频率行：整机改频，相勾选无效。"
-            "列表为空时回退旧扫段（IOT 标准默认）；填入列表后只跑列表。"
+            "本表有启用行时只跑列表；清空后请用顶部 ④过压～⑦欠频 的起止+步长（与以前一致）。"
             "电压行请至少勾一相（全不勾视为三相同压）。"
         )
         tip.setWordWrap(True)
-        tip.setStyleSheet("color: #64748b; font-size: 12px;")
+        tip.setStyleSheet("color: #334155; font-size: 13px;")
         root.addWidget(tip)
 
         self.table = QtWidgets.QTableWidget(0, 8)
         self.table.setObjectName("tableWidget_ovuf_conditions")
         self.table.setHorizontalHeaderLabels(
             ["启用", "类型", "设定值", "L1", "L2", "L3", "保持", "单位"]
+        )
+        self.table.setMinimumHeight(220)
+        self.table.setStyleSheet(
+            "QTableWidget { background: #ffffff; color: #0f172a; gridline-color: #cbd5e1; "
+            "border: 1px solid #94a3b8; font-size: 13px; }"
+            "QHeaderView::section { background: #e2e8f0; color: #0f172a; padding: 6px; "
+            "border: 1px solid #94a3b8; font-weight: bold; }"
+            "QTableWidget::item { color: #0f172a; padding: 4px; }"
+            "QTableWidget::item:selected { background: #bfdbfe; color: #0f172a; }"
         )
         self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
@@ -123,12 +132,15 @@ class OvufConditionList(QtWidgets.QWidget):
         self.btn_up = QtWidgets.QPushButton("上移")
         self.btn_down = QtWidgets.QPushButton("下移")
         self.btn_pea = QtWidgets.QPushButton("按步骤①额定填 PEA 电压穿越示例")
+        _btn_ss = (
+            "QPushButton { padding: 6px 12px; font-size: 13px; font-weight: bold; "
+            "color: #0f172a; background: #e2e8f0; border: 1px solid #64748b; "
+            "border-radius: 4px; min-height: 28px; }"
+            "QPushButton:hover { background: #cbd5e1; }"
+            "QPushButton:pressed { background: #94a3b8; }"
+        )
         for b in (self.btn_add, self.btn_del, self.btn_up, self.btn_down, self.btn_pea):
-            b.setStyleSheet(
-                "QPushButton { padding: 4px 10px; font-size: 12px; "
-                "background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; }"
-                "QPushButton:hover { background: #e2e8f0; }"
-            )
+            b.setStyleSheet(_btn_ss)
             btn_row.addWidget(b)
         btn_row.addStretch()
         root.addLayout(btn_row)

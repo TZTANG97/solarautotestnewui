@@ -111,23 +111,53 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         topLayout.addStretch()
 
         self._step_labels = []
-        # ③ 工况列表；旧 S3–S8 扫段/相位控件仍创建但隐藏，供 IOT/回退
-        step_titles = ["① AC/DC 电源", "② 功率分析仪", "③ 工况列表", "④ 关机设置"]
+        # ③ 工况列表（新）；④–⑧ 仍是以前的过压/欠压/过频/欠频/相位（起止+步长）
+        step_titles = [
+            "① AC/DC 电源",
+            "② 功率分析仪",
+            "③ 工况列表",
+            "④ 过压扫描",
+            "⑤ 欠压扫描",
+            "⑥ 过频扫描",
+            "⑦ 欠频扫描",
+            "⑧ 测试相位",
+            "⑨ 关机设置",
+        ]
+        # 步骤多时顶部可横向滚动，避免 Soft Panel 窄屏裁掉后面几步
+        step_scroll = QtWidgets.QScrollArea()
+        step_scroll.setObjectName("ovuf_step_scroll")
+        step_scroll.setWidgetResizable(True)
+        step_scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
+        step_scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+        step_scroll.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        step_scroll.setFixedHeight(44)
+        step_scroll.setStyleSheet(
+            "QScrollArea { background: transparent; border: none; }"
+            "QScrollBar:horizontal { height: 8px; }"
+        )
+        step_bar = QtWidgets.QWidget()
+        step_bar.setStyleSheet("background: transparent;")
+        step_layout = QtWidgets.QHBoxLayout(step_bar)
+        step_layout.setContentsMargins(0, 0, 0, 0)
+        step_layout.setSpacing(4)
         for i, title in enumerate(step_titles):
             lbl = QtWidgets.QLabel(title)
             lbl.setObjectName(f"step_indicator_{i}")
             lbl.setCursor(QtCore.Qt.PointingHandCursor)
             lbl.setStyleSheet("""
                 QLabel {
-                    padding: 6px 12px; font-size: 12px; color: #64748b;
+                    padding: 6px 10px; font-size: 12px; color: #334155;
                     border-bottom: 3px solid transparent; border-radius: 0;
                     background: transparent;
                 }
                 QLabel:hover { background-color: #f1f5f9; }
             """)
             lbl.mousePressEvent = lambda event, idx=i: self._switch_step(idx)
-            topLayout.addWidget(lbl)
+            step_layout.addWidget(lbl)
             self._step_labels.append(lbl)
+        step_layout.addStretch()
+        step_scroll.setWidget(step_bar)
+        topLayout.addWidget(step_scroll, 1)
 
         mainLayout.addWidget(topBar)
 
@@ -135,23 +165,16 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         self.stackedWidget.setStyleSheet("background-color: white;")
         mainLayout.addWidget(self.stackedWidget, 1)
 
-        # 隐藏宿主：旧扫段/相位控件仍挂树上，IOT schema 与空列表回退可用
-        self._legacy_host = QtWidgets.QWidget(Dialog_thaiguoqianya_pin)
-        self._legacy_host.setObjectName("ovuf_legacy_host")
-        self._legacy_host.hide()
-        self._legacy_layout = QtWidgets.QVBoxLayout(self._legacy_host)
-        self._legacy_layout.setContentsMargins(0, 0, 0, 0)
-
-        # ── 构建各步骤页面 ──
+        # ── 构建各步骤页面（顺序与顶部步骤条一致）──
         self._build_step1()
         self._build_step2()
         self._build_condition_list_page()
+        self._build_step3()
+        self._build_step4()
+        self._build_step5()
+        self._build_step6()
+        self._build_step7()
         self._build_step8()
-        self._build_step3(legacy=True)
-        self._build_step4(legacy=True)
-        self._build_step5(legacy=True)
-        self._build_step6(legacy=True)
-        self._build_step7(legacy=True)
 
         # ── DC 联动（step1 → 关机步骤） ──
         self._connect_dc_linkage()
@@ -506,8 +529,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
                           fr_end_obj, fr_end_val,
                           step_size_obj, step_size_val,
                           time_obj, time_val,
-                          time_combo_obj, time_combo_items,
-                          *, legacy=False):
+                          time_combo_obj, time_combo_items):
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
@@ -589,13 +611,10 @@ class Ui_Dialog_thaiguoqianya_pin(object):
 
         layout.addWidget(gb)
         layout.addStretch()
-        if legacy:
-            self._legacy_layout.addWidget(page)
-        else:
-            self.stackedWidget.addWidget(page)
+        self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════
-    # Step 3: 工况列表（可见）
+    # Step 3: 工况列表（离散点；空则用后面④–⑦扫段）
     # ══════════════════════════════════════
     def _build_condition_list_page(self):
         from components.ovuf_condition_list import OvufConditionList
@@ -606,20 +625,28 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
+        mode_tip = QtWidgets.QLabel(
+            "本页可填离散工况（可分相，适合 PEA）。"
+            "若列表为空/无启用行：请点顶部 ④过压～⑦欠频，仍用以前的「起点~终点 + 步长 + 每点驻留」。"
+            "顶部步骤条可左右滑动；列表有启用行时优先跑列表。"
+        )
+        mode_tip.setWordWrap(True)
+        mode_tip.setStyleSheet("color: #0f172a; font-size: 13px; font-weight: bold;")
+        layout.addWidget(mode_tip)
+
         self.groupBox_ovuf_conditions = QtWidgets.QGroupBox()
         self.groupBox_ovuf_conditions.setObjectName("groupBox_ovuf_conditions")
-        self.groupBox_ovuf_conditions.setTitle("工况列表")
+        self.groupBox_ovuf_conditions.setTitle("工况列表（离散点）")
         self.groupBox_ovuf_conditions.setStyleSheet(
-            "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
-            "padding-top: 8px; font-weight: bold; }"
+            "QGroupBox { border: 1px solid #94a3b8; border-radius: 6px; "
+            "padding-top: 10px; font-weight: bold; color: #0f172a; }"
         )
         gLayout = QtWidgets.QVBoxLayout(self.groupBox_ovuf_conditions)
         gLayout.setContentsMargins(12, 20, 12, 12)
-
         self.ovufConditionList = OvufConditionList()
         self.ovufConditionList.set_un_provider(self._ovuf_rated_un)
         gLayout.addWidget(self.ovufConditionList)
-        layout.addWidget(self.groupBox_ovuf_conditions)
+        layout.addWidget(self.groupBox_ovuf_conditions, 1)
         self.stackedWidget.addWidget(page)
 
     def _ovuf_rated_un(self):
@@ -630,9 +657,9 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             return 230.0
 
     # ══════════════════════════════════════
-    # Step 3: 过压扫描（legacy 隐藏）
+    # Step 4: 过压扫描（起止+步长）
     # ══════════════════════════════════════
-    def _build_step3(self, *, legacy=False):
+    def _build_step3(self):
         self._build_sweep_page(
             2, "groupBox_3", "checkBox_S3", "过压扫描", "启用",
             "textEdit_S3_AC_VOLT_Start", 230,
@@ -642,13 +669,12 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S3_Step_Size", 5,
             "textEdit_S3_TIME", 3,
             "comboBox_S3_TIME", ["秒", "毫秒", "分钟"],
-            legacy=legacy,
         )
 
     # ══════════════════════════════════════
-    # Step 4: 欠压扫描
+    # Step 5: 欠压扫描
     # ══════════════════════════════════════
-    def _build_step4(self, *, legacy=False):
+    def _build_step4(self):
         self._build_sweep_page(
             3, "groupBox_6", "checkBox_S4", "欠压扫描", "启用",
             "textEdit_S4_AC_VOLT_Start", 230,
@@ -658,13 +684,12 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S4_Step_Size", 5,
             "textEdit_S4_TIME", 3,
             "comboBox_S4_TIME", ["秒", "毫秒", "分钟"],
-            legacy=legacy,
         )
 
     # ══════════════════════════════════════
-    # Step 5: 过频扫描
+    # Step 6: 过频扫描
     # ══════════════════════════════════════
-    def _build_step5(self, *, legacy=False):
+    def _build_step5(self):
         self._build_sweep_page(
             4, "groupBox_7", "checkBox_S5", "过频扫描", "启用",
             "textEdit_S5_AC_VOLT_Start", 230,
@@ -674,13 +699,12 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S5_Step_Size", 5,
             "textEdit_S5_TIME", 3,
             "comboBox_S5_TIME", ["秒", "毫秒", "分钟"],
-            legacy=legacy,
         )
 
     # ══════════════════════════════════════
-    # Step 6: 欠频扫描
+    # Step 7: 欠频扫描
     # ══════════════════════════════════════
-    def _build_step6(self, *, legacy=False):
+    def _build_step6(self):
         self._build_sweep_page(
             5, "groupBox_13", "checkBox_S6", "欠频扫描", "启用",
             "textEdit_S6_AC_VOLT_Start", 230,
@@ -690,13 +714,12 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S6_Step_Size", 5,
             "textEdit_S6_TIME", 3,
             "comboBox_S6_TIME", ["秒", "毫秒", "分钟"],
-            legacy=legacy,
         )
 
     # ══════════════════════════════════════
-    # Step 7: 测试相位（legacy 隐藏；列表模式按行分相）
+    # Step 8: 测试相位
     # ══════════════════════════════════════
-    def _build_step7(self, *, legacy=False):
+    def _build_step7(self):
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
@@ -870,14 +893,10 @@ class Ui_Dialog_thaiguoqianya_pin(object):
 
         layout.addWidget(self.groupBox_15)
         layout.addStretch()
-
-        if legacy:
-            self._legacy_layout.addWidget(page)
-        else:
-            self.stackedWidget.addWidget(page)
+        self.stackedWidget.addWidget(page)
 
     # ══════════════════════════════════════
-    # Step 8: 关机设置
+    # Step 9: 关机设置
     # ══════════════════════════════════════
     def _build_step8(self):
         page = QtWidgets.QWidget()
