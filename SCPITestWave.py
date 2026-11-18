@@ -27269,25 +27269,44 @@ def RunProject():
                     reason_u = wait_reason.upper()
                     logger.info(strtimenow + "AC "+ "wait for next project" + (f" ({wait_reason})" if wait_reason else ""))
                     print(strtimenow + "AC "+ "wait for next project" + (f" ({wait_reason})" if wait_reason else ""))
+                    # col8/col9 都是 0.1s 驻留。闪变周期补齐常写在 *IDN? 的 col8；
+                    # rewrite_ac_idn_queries_as_wait 改成 wait 后若只跑 col9，会提前结束（约少 1 小时）。
+                    _wait_force_full = (
+                        reason_u
+                        in (
+                            "OVUF_GRID_RECOVERY",
+                            "OVUF_BOOT",
+                            "LVRT_GRID_RECOVERY",
+                            "IDN_NOP",
+                        )
+                        or reason_u.endswith("_GRID_RECOVERY")
+                    )
                     if strArrayTest[i][9] != '':
                         _wait_command_dwell_01s(
                             i + 1,
                             strArrayTest[i][9],
                             log_tag=f"wait,{reason_u or 'col9'}",
-                            force_full_dwell=(
-                                reason_u
-                                in (
-                                    "OVUF_GRID_RECOVERY",
-                                    "OVUF_BOOT",
-                                    "LVRT_GRID_RECOVERY",
-                                )
-                                or reason_u.endswith("_GRID_RECOVERY")
-                            ),
+                            force_full_dwell=_wait_force_full,
                         )
-                        # OVUF/LVRT 启机/段间并网：纯驻留，禁止误切 WT 工程 / pop test_program
-                        if reason_u.startswith("OVUF_") or reason_u.startswith("LVRT_"):
-                            pass
-                        elif len(test_program) != 0 and flicker_is_test == '1':
+                    if strTestStatusFlag == "结束":
+                        break
+                    if strArrayTest[i][8] != '':
+                        _wait_command_dwell_01s(
+                            i + 1,
+                            strArrayTest[i][8],
+                            log_tag=f"wait,{reason_u or 'col8'}",
+                            force_full_dwell=_wait_force_full,
+                        )
+                    # OVUF/LVRT/IDN_NOP：纯驻留，禁止误切 WT 工程 / pop test_program
+                    # （旧逻辑在闪变 IDN_NOP 驻留后也会 wt_is_check，打乱进行中的 FLICKER:COUNT）
+                    if (
+                        reason_u.startswith("OVUF_")
+                        or reason_u.startswith("LVRT_")
+                        or reason_u == "IDN_NOP"
+                    ):
+                        pass
+                    elif strArrayTest[i][9] != '' or strArrayTest[i][8] != '':
+                        if len(test_program) != 0 and flicker_is_test == '1':
                             total_save_file = total_save_file
                             now_save_file = 0
                             wt_is_select = wt_upper_auto()
