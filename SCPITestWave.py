@@ -5177,11 +5177,23 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             ).strip()
         except Exception:
             dew_save_dir = ""
+    segment_count = None
+    if not continuous:
+        try:
+            segment_count = sum(
+                1
+                for row in normalized
+                if str(row[0] or "").strip().upper() == "DEWETRON"
+                and DEWETRON_START_COMMAND in str(row[2] or "").upper()
+            )
+        except Exception:
+            segment_count = None
     save_paths = resolve_dewetron_save_paths(
         test_type=str(test_type or "dewetron"),
         continuous=continuous,
         file_names=file_names,
         base_dir=dew_save_dir or None,
+        segment_count=segment_count,
     )
     section._dew_record_continuous = continuous
     section._dew_save_paths = list(save_paths)
@@ -27648,8 +27660,24 @@ def RunProject():
                             section = _get_dewetron_section(project_now) if project_now else None
                             paths = list(getattr(section, "_dew_save_paths", None) or [])
                             idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
-                            if section is not None and paths:
-                                path = paths[min(idx, len(paths) - 1)]
+                            if section is not None:
+                                from utils.dewetron_recording import ensure_dewetron_path_at
+
+                                dew_base = ""
+                                try:
+                                    cfg = section.dewetron_panel.get_config()
+                                    dew_base = str(
+                                        getattr(cfg, "save_dir", "") or ""
+                                    ).strip()
+                                except Exception:
+                                    dew_base = ""
+                                paths, path = ensure_dewetron_path_at(
+                                    paths,
+                                    idx,
+                                    test_type=str(project_now or "dewetron"),
+                                    base_dir=dew_base or None,
+                                )
+                                section._dew_save_paths = list(paths)
                                 set_path = getattr(dewetron_collector, "set_save_path", None)
                                 if callable(set_path):
                                     set_path(path)
@@ -27689,8 +27717,15 @@ def RunProject():
                                 paths = list(getattr(section, "_dew_save_paths", None) or [])
                                 idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
                                 beside = ""
-                                if section is not None and paths:
-                                    beside = paths[min(idx, len(paths) - 1)]
+                                if section is not None:
+                                    from utils.dewetron_recording import ensure_dewetron_path_at
+
+                                    paths, beside = ensure_dewetron_path_at(
+                                        paths,
+                                        idx,
+                                        test_type=str(project_now or "flicker"),
+                                    )
+                                    section._dew_save_paths = list(paths)
                                 try:
                                     from utils.oxygen_screenshot import capture_flicker_result
 
@@ -27712,8 +27747,24 @@ def RunProject():
                             paths = list(getattr(section, "_dew_save_paths", None) or [])
                             idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
                             export_path = None
-                            if section is not None and paths:
-                                export_path = paths[min(idx, len(paths) - 1)]
+                            if section is not None:
+                                from utils.dewetron_recording import ensure_dewetron_path_at
+
+                                dew_base = ""
+                                try:
+                                    cfg = section.dewetron_panel.get_config()
+                                    dew_base = str(
+                                        getattr(cfg, "save_dir", "") or ""
+                                    ).strip()
+                                except Exception:
+                                    dew_base = ""
+                                paths, export_path = ensure_dewetron_path_at(
+                                    paths,
+                                    idx,
+                                    test_type=str(project_now or "dewetron"),
+                                    base_dir=dew_base or None,
+                                )
+                                section._dew_save_paths = list(paths)
                             csv_path = dewetron_collector.export_to_csv(export_path)
                             if csv_path:
                                 _append_return_message(f"[DEWETRON] 数据已导出: {csv_path}")

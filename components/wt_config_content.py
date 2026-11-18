@@ -137,6 +137,60 @@ def _default_save_path_text() -> str:
         return r"D:\EnergyTest\wt_file_save_path"
 
 
+def _add_save_path_row(parent, layout: QtWidgets.QVBoxLayout) -> None:
+    """保存路径 + 本机选文件夹（对齐德威创 Browse）。"""
+    pr = QtWidgets.QHBoxLayout()
+    pr.addWidget(_make_lbl("保存路径:"))
+    _make_te(
+        parent,
+        "textEdit_SavePath",
+        plain_text=_default_save_path_text(),
+        max_h=44,
+        min_w=260,
+    )
+    te = parent.textEdit_SavePath
+    te.setToolTip("功率分析仪 CSV 保存目录；点「浏览…」选择本机文件夹。")
+    pr.addWidget(te, 1)
+    btn = QtWidgets.QPushButton("浏览…")
+    btn.setObjectName("pushButton_BrowseSavePath")
+    btn.setToolTip("打开本机文件夹选择对话框")
+
+    def _browse(_checked=False, _te=te, _parent=parent):
+        start = (_te.toPlainText() or "").strip()
+        chosen = QtWidgets.QFileDialog.getExistingDirectory(
+            _te.window() if hasattr(_te, "window") else None,
+            "选择功率分析仪保存目录",
+            start or "",
+        )
+        if not chosen:
+            return
+        try:
+            from utils.wt_save_path import ensure_wt_save_dir
+
+            chosen = ensure_wt_save_dir(chosen)
+        except Exception:
+            pass
+        _te.setPlainText(chosen)
+        stacked = getattr(_parent, "_wtStacked", None)
+        if stacked is None:
+            return
+        try:
+            for page_idx in range(stacked.count()):
+                page = stacked.widget(page_idx)
+                if page is None:
+                    continue
+                other = page.findChild(QtWidgets.QTextEdit, "textEdit_SavePath")
+                if other is not None and other is not _te:
+                    other.setPlainText(chosen)
+        except Exception:
+            pass
+
+    btn.clicked.connect(_browse)
+    pr.addWidget(btn)
+    setattr(parent, "pushButton_BrowseSavePath", btn)
+    layout.addLayout(pr)
+
+
 def _finish_save_grid(sg: QtWidgets.QGridLayout) -> None:
     """保存设置三列随窗口变宽，字体/控件高度保持设计尺寸。"""
     sg.setColumnStretch(0, 1)
@@ -363,11 +417,7 @@ def build_wt3000_content(parent):
     g15l = QtWidgets.QVBoxLayout(g15)
     g15l.setSpacing(4)
     g15l.setContentsMargins(8, 8, 8, 8)
-    pr = QtWidgets.QHBoxLayout()
-    pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
-    pr.addWidget(parent.textEdit_SavePath, 1)
-    g15l.addLayout(pr)
+    _add_save_path_row(parent, g15l)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)
@@ -657,11 +707,7 @@ def build_wt1800_content(parent):
     g15l = QtWidgets.QVBoxLayout(g15)
     g15l.setSpacing(4)
     g15l.setContentsMargins(8, 8, 8, 8)
-    pr = QtWidgets.QHBoxLayout()
-    pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
-    pr.addWidget(parent.textEdit_SavePath, 1)
-    g15l.addLayout(pr)
+    _add_save_path_row(parent, g15l)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)
@@ -956,11 +1002,7 @@ def build_wt1806e_content(parent):
     g15l = QtWidgets.QVBoxLayout(g15)
     g15l.setSpacing(4)
     g15l.setContentsMargins(8, 8, 8, 8)
-    pr = QtWidgets.QHBoxLayout()
-    pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
-    pr.addWidget(parent.textEdit_SavePath, 1)
-    g15l.addLayout(pr)
+    _add_save_path_row(parent, g15l)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)
@@ -1244,11 +1286,7 @@ def build_wt5000_content(parent):
     g15l = QtWidgets.QVBoxLayout(g15)
     g15l.setSpacing(4)
     g15l.setContentsMargins(8, 8, 8, 8)
-    pr = QtWidgets.QHBoxLayout()
-    pr.addWidget(_make_lbl("保存路径:"))
-    _make_te(parent, "textEdit_SavePath", plain_text=_default_save_path_text(), max_h=44, min_w=260)
-    pr.addWidget(parent.textEdit_SavePath, 1)
-    g15l.addLayout(pr)
+    _add_save_path_row(parent, g15l)
     cb_auto = QtWidgets.QCheckBox("自动命名")
     cb_auto.setObjectName("checkBox_AutoName")
     cb_auto.setEnabled(False)

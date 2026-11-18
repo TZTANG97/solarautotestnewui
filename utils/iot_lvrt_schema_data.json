@@ -1,7 +1,7 @@
 {
   "testType": "lvrt",
   "title": "低电压穿越",
-  "version": 1,
+  "version": 2,
   "groups": [
     {
       "id": "step1_ac",
@@ -1147,7 +1147,7 @@
       "label": "自动保存",
       "type": "select",
       "group": "step2_wt_cfg",
-      "default": "OFF",
+      "default": "自动保存",
       "options": [
         "OFF",
         "自动保存",
@@ -1272,11 +1272,23 @@
       "uiHint": "wt_cfg"
     },
     {
+      "name": "comboBox_S3_record_mode",
+      "label": "录波方式",
+      "type": "select",
+      "group": "step2_wt_cfg",
+      "default": "一条线连续录（单文件）",
+      "options": [
+        "一条线连续录（单文件）",
+        "分开录（多文件/逐点存盘）"
+      ],
+      "uiHint": "wt_cfg"
+    },
+    {
       "name": "textEdit_FileNameList",
       "label": "文件名列表",
       "type": "text",
       "group": "step2_wt_cfg",
-      "default": "",
+      "default": "LVRT_BR",
       "options": [],
       "uiHint": "wt_cfg"
     },
@@ -1318,11 +1330,31 @@
     },
     {
       "name": "TIMING_PROFILE_JSON",
-      "label": "时序工况 JSON",
+      "label": "时序工况 JSON（含 L1/L2/L3 分相）",
       "type": "text",
       "group": "step3_profile",
-      "default": "[{\"enabled\": true, \"label\": \"LVRT 0.20 p.u.\", \"t_pre\": 1, \"t_pre_unit\": \"秒\", \"t_dwell\": 0.15, \"t_dwell_unit\": \"秒\", \"t_post\": 3, \"t_post_unit\": \"秒\", \"u_pu\": 0.2, \"repeats\": 1}]",
+      "default": "[{\"enabled\": true, \"label\": \"LVRT 0.20 p.u.\", \"t_pre\": 1, \"t_pre_unit\": \"秒\", \"t_dwell\": 0.15, \"t_dwell_unit\": \"秒\", \"t_post\": 3, \"t_post_unit\": \"秒\", \"u_pu\": 0.2, \"l1\": true, \"l2\": true, \"l3\": true, \"repeats\": 1}]",
       "options": []
+    },
+    {
+      "name": "textEdit_lvrt_grid_wait",
+      "label": "工况间并网等待(回额定后)",
+      "type": "text",
+      "group": "step3_profile",
+      "default": "5",
+      "options": []
+    },
+    {
+      "name": "comboBox_lvrt_grid_wait",
+      "label": "工况间并网等待单位",
+      "type": "select",
+      "group": "step3_profile",
+      "default": "秒",
+      "options": [
+        "秒",
+        "分钟",
+        "毫秒"
+      ]
     },
     {
       "name": "checkBox_S3",
@@ -1537,6 +1569,12 @@
             "label": "保存路径:",
             "names": [
               "textEdit_SavePath"
+            ]
+          },
+          {
+            "label": "录波方式:",
+            "names": [
+              "comboBox_S3_record_mode"
             ]
           },
           {

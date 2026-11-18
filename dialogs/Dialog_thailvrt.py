@@ -582,7 +582,7 @@ class Ui_Dialog_thailvrt(_BaseTimingProfileDialogUi):
         grid_row.addWidget(self.textEdit_lvrt_grid_wait)
         self.comboBox_lvrt_grid_wait = QtWidgets.QComboBox()
         self.comboBox_lvrt_grid_wait.setObjectName("comboBox_lvrt_grid_wait")
-        self.comboBox_lvrt_grid_wait.addItems(["秒", "毫秒", "分钟"])
+        self.comboBox_lvrt_grid_wait.addItems(["秒", "分钟", "毫秒"])
         self.comboBox_lvrt_grid_wait.setCurrentIndex(0)
         grid_row.addWidget(self.comboBox_lvrt_grid_wait)
         grid_row.addStretch()

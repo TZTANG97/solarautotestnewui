@@ -41,6 +41,28 @@ def test_continuous_wraps_whole_segment():
     assert len(rows) == 3
 
 
+def test_continuous_starts_after_startup_wait_not_at_head():
+    """缺 ASYNC_START 时也不能把 START 插到启机前（否则启机阶段狂采）。"""
+    body = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["DC1", "write", "SAS:MODE TABL", "", "", "", "", "", "", ""],
+        ["DC1", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        # 启机等待 10s（query *IDN? col9）
+        ["AC", "query", "*IDN?", "", "", "", "", "", "", 100],
+        ["DC1", "write", "SAS:TABL:ACT 1", "", "", "", "", "", "", ""],
+        # 测量驻留
+        ["AC", "query", "*IDN?", "", "", "", "", "", "", 50],
+    ]
+    rows = apply_dewetron_recording_boundaries(body, continuous=True)
+    starts = [i for i, r in enumerate(rows) if r[2] == DEWETRON_START_COMMAND]
+    assert len(starts) == 1
+    assert rows[0][2] == "OUTP ON"
+    # START 在启机等待之后、测量之前
+    assert starts[0] == 4
+    assert rows[3][2] == "*IDN?"
+    assert rows[4][2] == DEWETRON_START_COMMAND
+
+
 def test_continuous_keeps_existing_start_from_async_marker():
     body = [
         ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
@@ -99,6 +121,45 @@ def test_resolve_save_paths_continuous_and_split(tmp_path, monkeypatch):
     )
     assert len(split) == 2
     assert "Reconn_S3_20260905_120000_01.csv" in split[0].replace("\\", "/")
+
+    # 分开录：文件名少于段数时按 segment_count 补齐，避免多轮覆盖同一文件
+    padded = resolve_dewetron_save_paths(
+        test_type="reconnection",
+        continuous=False,
+        file_names=["Reconn_S3"],
+        stamp="20260905_120000",
+        base_dir=str(tmp_path / "dew"),
+        segment_count=3,
+    )
+    assert len(padded) == 3
+    assert len(set(padded)) == 3
+
+    empty_split = resolve_dewetron_save_paths(
+        test_type="reconnection",
+        continuous=False,
+        file_names=[],
+        stamp="20260905_120000",
+        base_dir=str(tmp_path / "dew"),
+        segment_count=2,
+    )
+    assert len(empty_split) == 2
+    assert empty_split[0] != empty_split[1]
+
+
+def test_ensure_dewetron_path_at_does_not_reuse(tmp_path, monkeypatch):
+    from utils.dewetron_recording import ensure_dewetron_path_at
+
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    base = str(tmp_path / "dew")
+    paths, p0 = ensure_dewetron_path_at(
+        [], 0, test_type="ovuf", base_dir=base, stamp="20260905_120000"
+    )
+    assert p0.endswith("_01.csv")
+    paths2, p1 = ensure_dewetron_path_at(
+        paths, 1, test_type="ovuf", base_dir=base, stamp="20260905_120000"
+    )
+    assert p1 != p0
+    assert len(paths2) >= 2
 
 
 def test_trim_leading_all_nan_and_rebase_time():

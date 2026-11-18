@@ -21,6 +21,17 @@ from utils.wt_recording_mode import MODE_CONTINUOUS, MODE_SPLIT
 _MIN_MEASURE_WAIT_01S = 20
 
 
+def command_queue_has_dewetron(rows: Optional[Sequence[Sequence[Any]]] = None) -> bool:
+    """True when the plan already contains DEWETRON START/STOP rows."""
+    for row in rows or ():
+        try:
+            if str(row[0] or "").strip().upper() == DEWETRON_DEVICE:
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _wait_01s(row: Sequence[Any]) -> int:
     if len(row) <= 9:
         return 0
@@ -70,6 +81,48 @@ def _is_dew_stop_row(row: Sequence[Any]) -> bool:
     return DEWETRON_STOP_COMMAND.upper() in cmd or cmd.endswith("ACQUISITION:STOP")
 
 
+def _outp_on_count_before(rows: Sequence[Sequence[Any]], end_idx: int) -> int:
+    n = 0
+    for i in range(max(0, int(end_idx))):
+        try:
+            if "OUTP ON" in str(rows[i][2] or "").upper():
+                n += 1
+        except Exception:
+            continue
+    return n
+
+
+def _insert_continuous_start_after_startup(
+    source: Sequence[Sequence[Any]],
+    start_row: Sequence[Any],
+    *,
+    min_measure_01s: int = _MIN_MEASURE_WAIT_01S,
+) -> List[List[Any]]:
+    """连续录缺 START 时的兜底：不要插到整队最前（否则启机也在狂采）。
+
+    - 已有 AC/DC OUTP ON，且后面还有 ≥2 段长等待：把首段长等待当启机，
+      START 插在其后（与 WT ASYNC_START 对齐）。
+    - 否则 START 插在首段长等待前；没有长等待则退回队首。
+    """
+    body = [list(r) for r in source]
+    if not body:
+        return [list(start_row)]
+    long_idxs = [
+        i
+        for i, row in enumerate(body)
+        if _wait_01s(row) >= int(min_measure_01s)
+    ]
+    if not long_idxs:
+        return [list(start_row), *body]
+    first = long_idxs[0]
+    if len(long_idxs) >= 2 and _outp_on_count_before(body, first) >= 1:
+        insert_at = first + 1
+    else:
+        insert_at = first
+    out = body[:insert_at] + [list(start_row)] + body[insert_at:]
+    return out
+
+
 def ensure_dewetron_acq_boundaries(
     rows: Sequence[Sequence[Any]],
     *,
@@ -81,7 +134,7 @@ def ensure_dewetron_acq_boundaries(
     has_start = any(_is_dew_start_row(r) for r in out)
     has_stop = any(_is_dew_stop_row(r) for r in out)
     if force_start and not has_start:
-        out.insert(0, make_acq_start_row())
+        out = _insert_continuous_start_after_startup(out, make_acq_start_row())
         has_start = True
     if force_stop and not has_stop:
         out.append(make_acq_stop_row())
@@ -97,7 +150,7 @@ def apply_dewetron_recording_boundaries(
     """Insert DEWETRON START/STOP according to continuous vs split recording.
 
     - continuous: prefer existing START/STOP (from ASYNC_START/WAIT_END 对齐);
-      otherwise one START at head and one STOP at tail.
+      otherwise START after 启机等待（勿整队最前），STOP at tail.
     - split: START/STOP around each measure wait row; if none found, fall back
       to continuous wrapping so the segment still records.
     """
@@ -112,7 +165,12 @@ def apply_dewetron_recording_boundaries(
             if not has_stop:
                 out.append(list(stop_row))
             return out
-        return [start_row, *source, stop_row]
+        out = _insert_continuous_start_after_startup(
+            source, start_row, min_measure_01s=min_measure_01s
+        )
+        if not has_stop:
+            out.append(list(stop_row))
+        return out
 
     out: List[List[Any]] = []
     wrapped = 0
@@ -125,7 +183,11 @@ def apply_dewetron_recording_boundaries(
         else:
             out.append(row)
     if wrapped == 0:
-        return [start_row, *source, stop_row]
+        out = _insert_continuous_start_after_startup(
+            source, start_row, min_measure_01s=min_measure_01s
+        )
+        out.append(list(stop_row))
+        return out
     return out
 
 
@@ -195,8 +257,14 @@ def resolve_dewetron_save_paths(
     file_names: Optional[Sequence[str]] = None,
     stamp: Optional[str] = None,
     base_dir: Optional[str] = None,
+    segment_count: Optional[int] = None,
 ) -> List[str]:
-    """Build CSV paths under the configured DEWETRON save directory."""
+    """Build CSV paths under the configured DEWETRON save directory.
+
+    Split mode always returns one unique path per segment so rounds cannot
+    overwrite the same CSV/.dmd pair.  ``segment_count`` pads when the
+    filename list is shorter than the number of START/STOP pairs.
+    """
     import os
     import time
 
@@ -205,14 +273,61 @@ def resolve_dewetron_save_paths(
     stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
     base = ensure_dewetron_save_dir(base_dir)
     names = [str(n).strip() for n in (file_names or []) if str(n).strip()]
-    if continuous or not names:
-        safe = (names[0] if names else test_type or "dewetron").replace("/", "_")
+    type_safe = str(test_type or "dewetron").replace("/", "_") or "dewetron"
+    if continuous:
+        safe = (names[0] if names else type_safe).replace("/", "_")
         return [os.path.join(base, f"{safe}_{stamp}.csv")]
+
+    want = max(1, int(segment_count or 0) or len(names) or 1)
+    while len(names) < want:
+        names.append(f"{type_safe}_{len(names) + 1:02d}")
     paths = []
-    for idx, name in enumerate(names, start=1):
-        safe = name.replace("/", "_")
+    for idx, name in enumerate(names[:want], start=1):
+        safe = name.replace("/", "_") or f"{type_safe}_{idx:02d}"
         paths.append(os.path.join(base, f"{safe}_{stamp}_{idx:02d}.csv"))
     return paths
+
+
+def ensure_dewetron_path_at(
+    paths: Optional[Sequence[str]],
+    index: int,
+    *,
+    test_type: str = "dewetron",
+    base_dir: Optional[str] = None,
+    stamp: Optional[str] = None,
+) -> Tuple[List[str], str]:
+    """Return ``(paths, path_at_index)`` without reusing an earlier round's file."""
+    import os
+    import time
+
+    out = [str(p) for p in (paths or []) if str(p or "").strip()]
+    idx = max(0, int(index or 0))
+    if idx < len(out):
+        return out, out[idx]
+    stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
+    extras = resolve_dewetron_save_paths(
+        test_type=test_type,
+        continuous=False,
+        file_names=[],
+        stamp=stamp,
+        base_dir=base_dir,
+        segment_count=idx + 1,
+    )
+    # Keep existing unique paths; only append missing tail entries.
+    while len(out) < len(extras):
+        out.append(extras[len(out)])
+    # Last-resort unique name if stamp collision somehow reused.
+    if idx >= len(out):
+        from utils.wt_save_path import ensure_dewetron_save_dir
+
+        base = ensure_dewetron_save_dir(base_dir)
+        out.append(
+            os.path.join(
+                base,
+                f"{str(test_type or 'dewetron').replace('/', '_')}_{stamp}_{idx + 1:02d}.csv",
+            )
+        )
+    return out, out[idx]
 
 
 def normalize_record_mode(mode: Any) -> str:

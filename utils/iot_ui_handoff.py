@@ -409,7 +409,10 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
                     # IOT 常下发 min|sec|ms；Dialog 选项是 分钟|秒|毫秒（job110 因此回读失败）
                     if idx < 0 and (
                         key.endswith("_TIME")
-                        or key in ("comboBox_ovuf_grid_wait",)
+                        or key in (
+                            "comboBox_ovuf_grid_wait",
+                            "comboBox_lvrt_grid_wait",
+                        )
                         or "TIME" in key
                     ):
                         try:

@@ -822,7 +822,19 @@ def apply_csv_widget_value(ui: Any, name: str, value: Any) -> None:
         try:
             widget.setCurrentIndex(int(text))
         except (TypeError, ValueError):
-            index = widget.findText(text)
+            candidates = [text]
+            if "grid_wait" in str(name) or str(name).endswith("_TIME"):
+                try:
+                    from utils.iot_ovuf_apply import time_unit_aliases
+
+                    candidates = time_unit_aliases(text) or candidates
+                except Exception:
+                    pass
+            index = -1
+            for cand in candidates:
+                index = widget.findText(str(cand))
+                if index >= 0:
+                    break
             if index >= 0:
                 widget.setCurrentIndex(index)
     elif isinstance(widget, QTextEdit):
