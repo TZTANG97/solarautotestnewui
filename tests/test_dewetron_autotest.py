@@ -270,6 +270,125 @@ def test_command_normalization_rejects_ambiguous_or_combined_input():
     )[0][:3] == ["AC", "query", "*IDN?"]
 
 
+def test_power_group_tree_sorts_phases_and_categories():
+    from components.dewetron_autotest_panel import sort_power_group_tree
+
+    tree = sort_power_group_tree({
+        "Energy (W)": {"Total": ["W12_t", "W_t", "W2_t", "W1_t"]},
+        "Voltage (U)": {
+            "Fundamental": ["U12_fundRMS", "U_fundRMS", "U2_fundRMS", "U1_fundRMS"],
+            "Total RMS": ["U3_tRMS", "U1_tRMS", "U12_tRMS"],
+        },
+    })
+    assert list(tree) == ["Voltage (U)", "Energy (W)"]
+    assert list(tree["Voltage (U)"]) == ["Total RMS", "Fundamental"]
+    assert tree["Voltage (U)"]["Total RMS"] == ["U1_tRMS", "U3_tRMS", "U12_tRMS"]
+    assert tree["Voltage (U)"]["Fundamental"] == [
+        "U_fundRMS",
+        "U1_fundRMS",
+        "U2_fundRMS",
+        "U12_fundRMS",
+    ]
+    assert tree["Energy (W)"]["Total"] == ["W_t", "W1_t", "W2_t", "W12_t"]
+
+
+def _power_channel(short_id, used="True", active="True"):
+    return (
+        '<Channel id="1"><Property name="Used"><BooleanValue>%s</BooleanValue></Property>'
+        '<Property name="ShortId"><StringValue>"%s"</StringValue></Property>'
+        '<Property name="Neon/Active"><BooleanValue>%s</BooleanValue></Property></Channel>'
+        % (used, short_id, active)
+    )
+
+
+def test_optional_channels_hide_when_features_are_off():
+    from DewetronTestPage import apply_optional_feature_channels, optional_power_feature
+
+    assert optional_power_feature("U1_tRMS") is None
+    assert optional_power_feature("U1_fundRMS") is None
+    assert optional_power_feature("U1_fluc_Pst") == "flicker"
+    assert optional_power_feature("U1_h1RMS") == "harmonics"
+    assert optional_power_feature("U1_THD") == "harmonics"
+    assert optional_power_feature("U1_tRMS_rc") == "rolling"
+
+    xml = "".join(
+        _power_channel(name)
+        for name in ("U1_tRMS", "U1_fluc_Pst", "U1_h1RMS", "U1_THD", "P1_t_rc")
+    )
+    updated, changed = apply_optional_feature_channels(
+        xml, flicker=False, harmonics=False, rolling=False
+    )
+    assert "U1_tRMS" in updated
+    assert updated.count("<BooleanValue>False</BooleanValue>") == 8
+    assert any("U1_fluc_Pst" in label for label in changed)
+    assert 'StringValue>"U1_tRMS"' in updated
+    # 基本量仍是 True；四个可选通道的 Used 和 Neon 都关掉
+    basic = updated.split("</Channel>", 1)[0]
+    assert basic.count("<BooleanValue>True</BooleanValue>") == 2
+    assert "<BooleanValue>True</BooleanValue>" not in updated.split("</Channel>", 1)[1]
+
+
+def test_checked_feature_keeps_its_channels():
+    from DewetronTestPage import apply_optional_feature_channels
+
+    xml = _power_channel("U1_h1RMS", used="False", active="False") + _power_channel(
+        "U1_fluc_Pst"
+    )
+    updated, _changed = apply_optional_feature_channels(
+        xml, flicker=False, harmonics=True, rolling=False
+    )
+    harmonic, flicker = updated.split("</Channel>", 1)
+    assert harmonic.count("<BooleanValue>True</BooleanValue>") == 2
+    assert flicker.count("<BooleanValue>False</BooleanValue>") == 2
+
+
+def test_set_power_features_follows_checkboxes():
+    from DewetronTestPage import set_power_features
+
+    xml = (
+        '<Property name="POWER/Features/Flicker"><BooleanValue>False</BooleanValue></Property>'
+        '<Property name="POWER/Features/Harmonics"><BooleanValue>True</BooleanValue></Property>'
+        '<Property name="POWER/Features/Rolling"><BooleanValue>False</BooleanValue></Property>'
+    )
+    updated, changed = set_power_features(xml, flicker=True, harmonics=False, rolling=False)
+    assert changed == ["POWER/Features/Flicker", "POWER/Features/Harmonics"]
+    assert "Flicker\"><BooleanValue>True" in updated
+    assert "Harmonics\"><BooleanValue>False" in updated
+    assert "Rolling\"><BooleanValue>False" in updated
+
+
+def test_build_page_turns_off_flicker_harmonics_and_rolling():
+    from DewetronTestPage import disable_heavy_power_features
+
+    xml = (
+        '<Property name="POWER/Features/Flicker"><BooleanValue>True</BooleanValue></Property>'
+        '<Property name="POWER/Features/Harmonics"><BooleanValue>True</BooleanValue></Property>'
+        '<Property name="POWER/Features/Rolling"><BooleanValue>True</BooleanValue></Property>'
+        '<Property name="POWER/Features/MechanicalPower"><BooleanValue>True</BooleanValue></Property>'
+    )
+    updated, turned_off = disable_heavy_power_features(xml)
+    assert turned_off == [
+        "POWER/Features/Flicker",
+        "POWER/Features/Harmonics",
+        "POWER/Features/Rolling",
+    ]
+    assert "Flicker\"><BooleanValue>False" in updated
+    assert "Harmonics\"><BooleanValue>False" in updated
+    assert "Rolling\"><BooleanValue>False" in updated
+    assert "MechanicalPower\"><BooleanValue>True" in updated
+    again, still = disable_heavy_power_features(updated)
+    assert still == []
+    assert "MechanicalPower\"><BooleanValue>True" in again
+
+    doubled = xml.replace(
+        'name="POWER/Features/Flicker"><BooleanValue>True',
+        'name="POWER/Features/Flicker"><BooleanValue>True',
+    ) + '<Property name="POWER/Features/Flicker"><BooleanValue>True</BooleanValue></Property>'
+    both, names = disable_heavy_power_features(doubled)
+    assert names.count("POWER/Features/Flicker") == 2
+    assert "Flicker\"><BooleanValue>True" not in both
+
+
 def test_power_group_parser_does_not_depend_on_flicker_dialog():
     tree = parse_power_group_tree(POWER_GROUP_XML)
     assert tree == {

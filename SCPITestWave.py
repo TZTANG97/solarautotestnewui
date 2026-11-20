@@ -193,19 +193,11 @@ def _append_return_message_ui(msg):
 
 
 def _apply_soft_panel_ac_setpoint_ui(kind, value):
-    """主线程：把 VOLT/FREQ 写回 Soft Panel 文本框。"""
-    try:
-        ui_ac = globals().get("uiACSetting")
-        if ui_ac is None:
-            return
-        k = str(kind or "").strip().lower()
-        v = str(value or "").strip()
-        if k == "freq" and hasattr(ui_ac, "textEdit_AC_FR"):
-            ui_ac.textEdit_AC_FR.setPlainText(v)
-        elif k == "volt" and hasattr(ui_ac, "textEdit_AC_VOLT"):
-            ui_ac.textEdit_AC_VOLT.setPlainText(v)
-    except Exception:
-        pass
+    """试验里的 VOLT/FREQ 不得写回交流配置页。
+
+    配置页只保留人工填的电压/频率。真机当前值走 status.json，不改文本框。
+    """
+    return
 
 
 def _append_return_message(msg):
@@ -567,28 +559,125 @@ def _format_dc_cmd_for_log(cmd, limit: int = 96) -> str:
     return format_dc_cmd_for_log(cmd, limit=limit)
 
 
+_extra_dc_controllers = {}
+
+
+def _dc_write_token(token):
+    from utils.dc_channels import parse_dc_token
+
+    return parse_dc_token(token) > 0
+
+
+def _dc_controller_for(channel):
+    """按路号取直流控制器。1～4 仍走原来的全局变量，更多路放扩展表。"""
+    n = int(channel)
+    if n == 1:
+        return dc1_controller
+    if n == 2:
+        return dc2_controller
+    if n == 3:
+        return dc3_controller
+    if n == 4:
+        return dc4_controller
+    return _extra_dc_controllers.get(n)
+
+
+def toggle_extra_dc_connection(channel, page):
+    """左侧菜单里第 5 路及以后的配置页：连接或断开这一路主机。"""
+    channel = int(channel)
+    name = "pushButton_ConnectEQUDC%d" % channel
+    btn = getattr(ui, name, None)
+    if btn is not None and btn.text() == "取消连接":
+        _disconnect_extra_dc(channel, page)
+        return
+    _connect_extra_dc(channel, page)
+
+
+def _extra_dc_address(channel):
+    combo = getattr(ui, "comboBox_DC%d" % int(channel), None)
+    if combo is None:
+        return ""
+    return _normalize_equ_resource_text(combo.currentText())
+
+
+def _connect_extra_dc(channel, page):
+    addr = _extra_dc_address(channel)
+    if not addr or addr in (_default_equ_placeholder(), "---"):
+        _show_connect_message("请先选择这一路的接口", page)
+        return
+    controller = _dc_controller_for(channel)
+    if controller is None:
+        controller = DCController(
+            logger,
+            _show_connect_message,
+            now_to_datenow,
+            ui_setting=page,
+            rm=rm,
+            configure_scpi_resource=_configure_scpi_resource,
+        )
+        _store_dc_controller(channel, controller)
+    label = "直流电源%d" % channel
+    endpoint = addr
+    parsed = _split_ipv4_tcp_endpoint(addr)
+    if parsed is not None or is_ipv4_stdlib(addr):
+        endpoint = "TCPIP0::%s::INSTR" % addr
+    controller.connect_scpi(endpoint, page)
+    if not getattr(controller, "connected", False):
+        _show_connect_message("%s 连接失败" % label, page)
+        return
+    if getattr(controller, "handle", None) is not None:
+        _set_dc_factor_from_idn(channel - 1, controller.handle, fallback="Chroma")
+    _remove_equ_from_combo_boxes(addr)
+    _set_equ_combo_locked("comboBox_DC%d" % channel, True)
+    _toggle_connection_button("pushButton_ConnectEQUDC%d" % channel, True)
+    _save_device_status(label, True, addr)
+    try:
+        _sync_array_dc_curr_from_device(channel - 1)
+    except Exception:
+        pass
+    _show_connect_message("%s 已连接" % label, page)
+
+
+def _disconnect_extra_dc(channel, page):
+    addr = _extra_dc_address(channel)
+    controller = _dc_controller_for(channel)
+    if controller is not None:
+        controller.disconnect(_safe_close_handle)
+    if addr and addr not in (_default_equ_placeholder(), "---"):
+        _restore_equ_to_combo_boxes(addr)
+    _set_equ_combo_locked("comboBox_DC%d" % channel, False)
+    _toggle_connection_button("pushButton_ConnectEQUDC%d" % channel, False)
+    _save_device_status("直流电源%d" % channel, False)
+    _show_connect_message("直流电源%d 已断开" % channel, page)
+
+
+def _store_dc_controller(channel, controller):
+    global dc1_controller, dc2_controller, dc3_controller, dc4_controller
+    n = int(channel)
+    if n == 1:
+        dc1_controller = controller
+    elif n == 2:
+        dc2_controller = controller
+    elif n == 3:
+        dc3_controller = controller
+    elif n == 4:
+        dc4_controller = controller
+    else:
+        _extra_dc_controllers[n] = controller
+
+
 def _send_dc_iv_curve(ui_setting, selected_dc, silent=False):
     """从指定直流设置页读取 IV 四点并下发到对应 DC 通道。"""
-    global dc1_controller, dc2_controller, dc3_controller, dc4_controller
+    from utils.dc_channels import parse_dc_token
 
-    controller_map = {
-        "DC1": ("0", 0),
-        "DC2": ("1", 1),
-        "DC3": ("2", 2),
-        "DC4": ("3", 3),
-    }
-
-    if selected_dc not in controller_map:
-        _show_connect_message("请选择有效的直流电源（DC1~DC4）", ui_setting)
+    channel = parse_dc_token(selected_dc)
+    if channel <= 0:
+        _show_connect_message("请选择有效的直流电源", ui_setting)
         return []
 
-    dc_key, dc_index = controller_map[selected_dc]
-    controller = {
-        "DC1": dc1_controller,
-        "DC2": dc2_controller,
-        "DC3": dc3_controller,
-        "DC4": dc4_controller,
-    }[selected_dc]
+    dc_index = channel - 1
+    dc_key = str(dc_index)
+    controller = _dc_controller_for(channel)
     if controller is None:
         controller = DCController(
             logger,
@@ -598,14 +687,7 @@ def _send_dc_iv_curve(ui_setting, selected_dc, silent=False):
             rm=rm,
             configure_scpi_resource=_configure_scpi_resource,
         )
-        if selected_dc == "DC1":
-            dc1_controller = controller
-        elif selected_dc == "DC2":
-            dc2_controller = controller
-        elif selected_dc == "DC3":
-            dc3_controller = controller
-        else:
-            dc4_controller = controller
+        _store_dc_controller(channel, controller)
 
     if controller.handle is None:
         _show_connect_message(f"{selected_dc}未连接，请先连接{selected_dc}设备", ui_setting)
@@ -897,10 +979,27 @@ def SaveDEWETRONConfig(silent=False):
             _log(f"  {slot_name} <- (未选择)")
 
     # 4. 修改 XML（使用设备原始 InputChannels 映射）
+    from DewetronTestPage import apply_optional_feature_channels, feature_flags_from_ui
+
+    feature_flags = feature_flags_from_ui(uiDewetronSetting)
+    _log(
+        "计算功能 - 闪变:{flicker} 谐波:{harmonics} 滚动计算:{rolling}".format(
+            **{k: "开" if v else "关" for k, v in feature_flags.items()}
+        )
+    )
     modified_xml = DewetronController.modify_xml(xml_string, wiring_type, channel_map, channel_id_map, input_channels,
                                                  acquisition_rate=acquisition_rate, downsampling=downsampling,
                                                  frequency_channel=frequency_channel,
-                                                 channel_scale_factors=scale_factors or None)
+                                                 channel_scale_factors=scale_factors or None,
+                                                 flicker_enabled=feature_flags["flicker"],
+                                                 harmonic_enabled=feature_flags["harmonics"],
+                                                 rolling_enabled=feature_flags["rolling"])
+    modified_xml, _feature_channels = apply_optional_feature_channels(
+        modified_xml,
+        flicker=feature_flags["flicker"],
+        harmonics=feature_flags["harmonics"],
+        rolling=feature_flags["rolling"],
+    )
     _log(f"XML已修改: {len(modified_xml)} 字符")
 
     # 4. 保存到本机德威创目录（按小时命名）
@@ -955,7 +1054,7 @@ def BuildDEWETRONTestPage(silent=False):
     silent=True：IOT 下发路径，不弹窗，返回 bool。
     """
     global dewetron_controller
-    from DewetronTestPage import build_test_page_from_device
+    from DewetronTestPage import build_test_page_from_device, feature_flags_from_ui
     from PyQt5.QtWidgets import QMessageBox
     import time
 
@@ -975,7 +1074,11 @@ def BuildDEWETRONTestPage(silent=False):
             print(f"[BuildTestPage] 等待 {wait_time} 秒后重试...")
             time.sleep(wait_time)
 
-        if build_test_page_from_device(dewetron_controller, log_fn=log_fn):
+        if build_test_page_from_device(
+            dewetron_controller,
+            log_fn=log_fn,
+            features=feature_flags_from_ui(uiDewetronSetting),
+        ):
             if not silent:
                 QMessageBox.information(None, "构造完成", "测试界面已构造")
             return True
@@ -1469,15 +1572,10 @@ def _refresh_dc_curr_max_status(dc_index=None):
 def _sync_array_dc_curr_from_device(dc_index: int) -> None:
     """从已连直流源读回 OCP/电流上限，写入 ArrayfDCCurrValue（覆盖默认 15.75）。"""
     global ArrayfDCCurrValue
-    if not (0 <= int(dc_index) < 4):
+    dc_index = int(dc_index)
+    if dc_index < 0:
         return
-    ctrls = (
-        globals().get("dc1_controller"),
-        globals().get("dc2_controller"),
-        globals().get("dc3_controller"),
-        globals().get("dc4_controller"),
-    )
-    ctrl = ctrls[int(dc_index)]
+    ctrl = _dc_controller_for(dc_index + 1)
     if ctrl is None:
         return
     brand = None
@@ -1512,6 +1610,9 @@ def _sync_array_dc_curr_from_device(dc_index: int) -> None:
             print(f"[DC上限] DC{int(dc_index) + 1} 主从缩放跳过: {_mst_exc}", flush=True)
         if not isinstance(ArrayfDCCurrValue, list) or len(ArrayfDCCurrValue) < 4:
             ArrayfDCCurrValue = [15.75, 15.75, 15.75, 15.75]
+        from utils.dc_channels import ensure_slot
+
+        ensure_slot(ArrayfDCCurrValue, int(dc_index), 15.75)
         ArrayfDCCurrValue[int(dc_index)] = val
         try:
             from utils.app_context import get_app_context
@@ -2250,47 +2351,44 @@ def _emit_run_progress(persist=True, **kwargs):
 
 
 def _parse_progress_file_names():
-    """从 config_dict / Upper_WT_Config 行提取轮次文件名列表。
+    """从命令队列里每一段 Upper_WT_Config 拼轮次文件名。
 
-    OVUF 等项目把 FileNameList 写在命令队列的 Upper_WT_Config 里，
-    开跑时全局 config_dict 往往还是空的，不能只读全局，否则会退化成「轮次1..N」。
+    不能只取第一段或全局 config_dict：跨项时后者往往只剩最后一项，
+    前者会让进度和导出一直停在过欠压。同项合并过的名单由
+    collect_progress_file_names 折成一份，不会把同一轮数两遍。
     """
-    names = []
     try:
-        cfg = globals().get("config_dict") or {}
-        raw = ""
-        if isinstance(cfg, dict):
-            raw = cfg.get("textEdit_FileNameList") or cfg.get("FileNameList") or ""
-        if not raw:
-            for row in globals().get("strArrayTest") or []:
-                if not row or len(row) < 5:
-                    continue
-                if row[0] != "Upper_WT_Config":
-                    continue
-                payload = row[4]
-                if isinstance(payload, dict):
-                    raw = payload.get("textEdit_FileNameList") or payload.get("FileNameList") or ""
-                    if raw:
-                        break
-        if raw:
-            names = [x.strip() for x in re.split(r",|，", str(raw)) if x.strip()]
+        from utils.wt_recording_mode import collect_progress_file_names
+
+        return collect_progress_file_names(
+            globals().get("strArrayTest"),
+            globals().get("config_dict"),
+        )
     except Exception:
-        names = []
-    return names
+        return []
 
 
 def _finalize_recording_file_names(file_names, *, run_tag=None, merge_previous=True):
-    """本轮录波文件名加时分秒后缀；追加时拼上已有列表，避免多轮同名覆盖。"""
+    """本轮录波文件名加时分秒后缀。仅同项追加才拼上一份名单。
+
+    跨项（project_change=1）若仍拼接，第二段 Upper_WT_Config 的名单会以
+    上一项 basename 开头。开跑时每段都会把序号清零，固定 PF 的数据就会
+    写进过欠压文件。
+    """
     try:
-        from utils.wt_recording_mode import finalize_append_file_names
+        from utils.wt_recording_mode import (
+            finalize_append_file_names,
+            should_merge_append_filenames,
+        )
     except Exception:
         return list(file_names or [])
     flag = str(globals().get("strAddTestFlag") or "0").strip()
-    existing = globals().get("strArrayTest") if merge_previous else None
+    change = str(globals().get("project_change") or "0").strip()
+    merge = bool(merge_previous) and should_merge_append_filenames(flag, change)
     return finalize_append_file_names(
         file_names,
-        existing,
-        is_append=(flag == "1"),
+        globals().get("strArrayTest") if merge else None,
+        is_append=merge,
         run_tag=run_tag,
     )
 
@@ -2728,6 +2826,7 @@ def _refresh_all_equ_combo_boxes(resources, connected_resources):
         "comboBox_DL850",
         "comboBox_WT3000",
     ]
+    combo_names.extend(list(getattr(ui, "_extra_dc_combo_names", []) or []))
     for name in combo_names:
         combo = getattr(ui, name, None)
         current = _normalize_equ_resource_text(combo.currentText()) if combo is not None else None
@@ -4034,10 +4133,8 @@ def ConnectEQUWT3000():
         ip_text = ip_edit.text().strip()
         if ip_text:
             port_text = port_edit.text().strip() if port_edit else ''
-            if port_text:
-                tcp_addr = f"{ip_text}:{port_text}"
-            else:
-                tcp_addr = ip_text
+            # 不改用户填的口：5025 走裸 SCPI，10001 走旧协议登录。空端口两个都试。
+            tcp_addr = f"{ip_text}:{port_text}" if port_text else ip_text
 
     # 如果 IP 输入框为空，使用 comboBox 中的资源
     if not tcp_addr:
@@ -4052,6 +4149,24 @@ def ConnectEQUWT3000():
         logger.warning("WT3000 未输入连接地址")
         print("WT3000 未输入连接地址")
         return
+
+    try:
+        from utils.device_discovery import parse_host_port
+        from utils.iot_auto_connect import explain_wt_port_mismatch
+
+        _wt_host, _wt_port = parse_host_port(tcp_addr)
+        _wt_mismatch = explain_wt_port_mismatch(port=_wt_port)
+        if _wt_mismatch and _wt_host:
+            tcp_addr = f"{_wt_host}:5025"
+            if port_edit is not None:
+                port_edit.setText("5025")
+            try:
+                ui.textEdit_ReturnMessage.append(f"[WT3000] {_wt_mismatch}；已改用 5025")
+            except Exception:
+                pass
+            print(f"[WT3000] {_wt_mismatch}；已改用 5025")
+    except Exception as _wt_port_exc:
+        print(f"[WT3000] 端口预检失败: {_wt_port_exc}")
 
     if wt3000_controller is None:
         wt3000_controller = WT3000Controller(logger, _show_connect_message, rm, WT3000_baud_rate)
@@ -4087,21 +4202,27 @@ def ConnectEQUWT3000():
             )
         except Exception:
             pass
-        # 记住 IP + 槽位，下次启动/开测自动连不要把 10001 误分成德威创后跳过
+        # 按实际连上的口记忆，避免误填 502 却写成 wt.port=502
         try:
-            from utils.device_discovery import remember_found_resource
+            from utils.device_discovery import parse_host_port, remember_found_resource
             from utils.ui_field_helpers import remember_value
 
-            remember_found_resource(tcp_addr if ":" in tcp_addr else f"{tcp_addr}:5025")
-            host_only = tcp_addr.split(":", 1)[0].strip()
-            if host_only.count(".") == 3:
-                remember_value("wt.ip", host_only)
-                port_part = tcp_addr.split(":", 1)[1].strip() if ":" in tcp_addr else "5025"
-                if port_part.isdigit():
-                    remember_value("wt.port", port_part)
+            mem_host, mem_port = parse_host_port(str(saved_addr or ""))
+            if not mem_host:
+                mem_host, mem_port = parse_host_port(tcp_addr)
+            mem_port = int(mem_port or 5025)
+            mem_addr = f"{mem_host}:{mem_port}" if mem_host else (
+                tcp_addr if ":" in tcp_addr else f"{tcp_addr}:5025"
+            )
+            remember_found_resource(mem_addr)
+            if mem_host and mem_host.count(".") == 3:
+                remember_value("wt.ip", mem_host)
+                remember_value("wt.port", str(mem_port))
+                if port_edit is not None:
+                    port_edit.setText(str(mem_port))
             _remember_manual_device_slot(
                 "wt",
-                saved_addr if ":" in str(saved_addr) else (tcp_addr if ":" in tcp_addr else f"{tcp_addr}:5025"),
+                mem_addr,
                 kind_hint="wt",
                 brand_hint="yokogawa",
             )
@@ -4398,20 +4519,41 @@ def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
 
     target = str((plan or {}).get("target") or "")
     addr = combo_text_for_plan(plan) or ""
+    # WT：connect_plan 已把 502/2101/8080 改成 5025，记忆必须用修正后的 addr
+    remember_res = addr if (target == "wt" and addr) else (getattr(dev, "resource", "") or addr)
     try:
-        remember_found_resource(getattr(dev, "resource", "") or addr)
+        remember_found_resource(remember_res)
     except Exception:
         pass
 
     try:
         from utils.iot_auto_connect import remember_slot_for_resource
 
-        remember_slot_for_resource(getattr(dev, "resource", "") or addr, slot)
+        remember_slot_for_resource(remember_res, slot)
     except Exception:
         pass
 
     try:
-        remember_successful_device(slot, dev)
+        if target == "wt" and addr:
+            from utils.device_discovery import FoundDevice, parse_host_port
+
+            host, port = parse_host_port(addr)
+            remember_successful_device(
+                slot,
+                FoundDevice(
+                    resource=addr,
+                    host=host or getattr(dev, "host", "") or "",
+                    port=port if port is not None else getattr(dev, "port", None),
+                    idn=getattr(dev, "idn", "") or "",
+                    kind_hint=getattr(dev, "kind_hint", "") or "wt",
+                    brand_hint=getattr(dev, "brand_hint", "") or "yokogawa",
+                    source=getattr(dev, "source", "") or "",
+                    protocol=getattr(dev, "protocol", "") or "",
+                    extra=dict(getattr(dev, "extra", {}) or {}),
+                ),
+            )
+        else:
+            remember_successful_device(slot, dev)
     except Exception:
         pass
 
@@ -4520,8 +4662,8 @@ def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
             port_edit = extras.get("lineEdit_WT3000_Port")
             if ip_edit is not None and host:
                 ip_edit.setText(host)
-            if port_edit is not None and port:
-                port_edit.setText(str(port))
+            if port_edit is not None:
+                port_edit.setText(str(port or 5025))
         except Exception:
             pass
         if addr:
@@ -4766,6 +4908,9 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
         channel_id_map, xml_string = _read_dewetron_xml_with_retry()
         if not xml_string:
             return {"ok": False, "stage": "read"}
+        from DewetronTestPage import apply_optional_feature_channels, feature_flags_from_ui
+
+        feature_flags = feature_flags_from_ui(globals().get("uiDewetronSetting"))
         xml_string = dewetron_controller.modify_xml(
             xml_string,
             wiring_type=None,
@@ -4775,6 +4920,15 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
             export_fields=config.export_fields,
             decimal_places=config.decimal_places,
             realtime_waveform=config.realtime_waveform,
+            flicker_enabled=feature_flags["flicker"],
+            harmonic_enabled=feature_flags["harmonics"],
+            rolling_enabled=feature_flags["rolling"],
+        )
+        xml_string, _feature_channels = apply_optional_feature_channels(
+            xml_string,
+            flicker=feature_flags["flicker"],
+            harmonics=feature_flags["harmonics"],
+            rolling=feature_flags["rolling"],
         )
         if not dewetron_controller.send_apply_config(xml_string):
             return {"ok": False, "stage": "apply"}
@@ -5092,8 +5246,11 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
                 clean[column] = ''
         normalized.append(clean)
         if trigger_waits:
-            # Preserve the configured dwell without invoking WTViewer automation.
-            normalized.append(make_wait_row(max(trigger_waits)))
+            # 测量驻留，不是项目切换。空命令会被跑环当成「切下一项」提前 pop。
+            dwell = make_wait_row(max(trigger_waits))
+            if len(dwell) > 2 and not str(dwell[2] or "").strip():
+                dwell[2] = "IDN_NOP"
+            normalized.append(dwell)
 
     project_ui = _dewetron_project_ui(project_name)
     from utils.matrix_recording_commands import get_record_mode
@@ -5105,14 +5262,22 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
 
     continuous = True
     file_names = []
+    names_already_final = False
     try:
         continuous = get_record_mode(project_ui) == MODE_CONTINUOUS
     except Exception:
         continuous = True
     try:
-        file_names = _parse_progress_file_names()
+        from utils.wt_recording_mode import previous_wt_filename_list
+
+        segment_rows = (strArrayTest or [])[snapshot["segment_start"] :]
+        file_names = previous_wt_filename_list(segment_rows)
+        # 本段 WT 配置在 Send 里已经加过时分秒后缀。再扫整条队列会命中
+        # 上一项（例如过欠压），德威创就会把本项数据写成那个文件名。
+        names_already_final = bool(file_names)
     except Exception:
         file_names = []
+        names_already_final = False
     if project_name == "重连" and project_ui is not None:
         try:
             from utils.reconnect_commands import recommended_reconnect_names
@@ -5122,6 +5287,31 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             recommended = recommended_reconnect_names(project_ui, mode)
             if recommended:
                 file_names = list(recommended)
+                names_already_final = False
+        except Exception:
+            pass
+    if project_name == "固定PF=1" and project_ui is not None and not file_names:
+        try:
+            from utils.wt_recording_mode import (
+                MODE_SPLIT as _MODE_SPLIT,
+                fixed_pf_recommended_filenames,
+            )
+
+            percents = []
+            for step in range(4, 9):
+                box = getattr(project_ui, "checkBox_S%d" % step, None)
+                if box is None or not box.isChecked():
+                    continue
+                raw = getattr(project_ui, "textEdit_S1_DC1_PF_%d" % step).toPlainText()
+                try:
+                    percents.append(float(str(raw).strip()))
+                except (TypeError, ValueError):
+                    continue
+            mode = MODE_CONTINUOUS if continuous else _MODE_SPLIT
+            recommended = fixed_pf_recommended_filenames(percents, mode)
+            if recommended:
+                file_names = list(recommended)
+                names_already_final = False
         except Exception:
             pass
     if project_name == "谐波电流" and project_ui is not None:
@@ -5138,6 +5328,7 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             )
             if recommended:
                 file_names = list(recommended)
+                names_already_final = False
         except Exception:
             pass
     if not file_names and continuous:
@@ -5147,12 +5338,16 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             single = resolve_continuous_filename(project_ui)
             if single:
                 file_names = [single]
+                names_already_final = False
         except Exception:
             pass
 
     normalized = apply_dewetron_recording_boundaries(
         normalized, continuous=continuous
     )
+    from utils.dewetron_recording import stamp_dewetron_project
+
+    normalized = stamp_dewetron_project(normalized, project_name)
     # 兜底：规范化后仍缺启停则强制补齐（防止空 CSV）
     from utils.dewetron_recording import ensure_dewetron_acq_boundaries
 
@@ -5164,7 +5359,8 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
         )
     spec = get_project_spec(project_name)
     test_type = spec.test_type if spec else project_name
-    file_names = _finalize_recording_file_names(file_names)
+    if not names_already_final:
+        file_names = _finalize_recording_file_names(file_names)
     dew_save_dir = ""
     try:
         dew_save_dir = str(getattr(config, "save_dir", "") or "").strip()
@@ -5603,7 +5799,10 @@ def chooseDetailDialog():
     currentProject = ui.comboBox_P.currentText()
     currentSecond = ui.comboBox_PS.currentText()
     project_change = '0'
-    project_now = currentSecond
+    # 不要在这里把 project_now 改成当前下拉。开「固定PF」页若改写它，
+    # 下一次追加会被判成同项覆盖，把已经追加的过欠压队列清掉。
+    from utils.append_mode import keep_append_session_when_opening_dialog
+    keep_append_session_when_opening_dialog(globals())
     wt_config_nums = 0
 
     Mppt_step1, Mppt_step2, Mppt_step_end = {}, {}, {}
@@ -6042,7 +6241,6 @@ def addtestDialog():
 
         logger.info(f'测试项目--{currentProject}--{currentSecond}')
         print(f'测试项目--{currentProject}--{currentSecond}')
-        project_now = ui.comboBox_PS.currentText()
 
     else:
         logger.info("请选择选项")
@@ -10902,10 +11100,9 @@ def thaifixedpfSend():
 
     if strAddTestFlag == '1' and project_change == '1':
         strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
         strArraySingle[0] = "AC"
         strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
+        strArraySingle[2] = "PROJECT_GAP"
         strArraySingle[9] = 20
         strArrayTest.append(strArraySingle)
         wt_config_nums = _bump_wt_config_nums()
@@ -21660,11 +21857,13 @@ def thaiguoqianya_pinSend():
     wt_on = bool(uiThaiGuoQianYa_Pin.checkBox_S2.isChecked() and (not _dew))
     wt_continuous = get_record_mode(uiThaiGuoQianYa_Pin) == MODE_CONTINUOUS
     _ovuf_names = recommended_ovuf_names(uiThaiGuoQianYa_Pin, get_record_mode(uiThaiGuoQianYa_Pin))
+    # 德威创同样要按扫段插 ASYNC_START/WAIT_END，规范化时变成 START/STOP。
+    # 不标记的话，兜底会在启机前开录，并在第一次降压前停录，跨项也会提前切到下一项。
     _ovuf_file_inc = apply_ovuf_recording_mode(
         strArrayTest,
         uiThaiGuoQianYa_Pin,
         continuous=wt_continuous,
-        wt_on=wt_on,
+        wt_on=bool(wt_on or _dew),
     )
     # 连续录：按扫段总驻留写入 WT StopTime。
     # 分开录：StopTime 必须等于扫点驻留（与谐波一致），禁止沿用 Soft Panel 默认 5 分钟，
@@ -21712,7 +21911,7 @@ def thaiguoqianya_pinSend():
         except Exception as _e:
             _append_debug_log(f"[过欠压_过欠频] StopTime recalc failed: {_e}")
             _ovuf_stop_str = ""
-    if _ovuf_file_inc > 0:
+    if _ovuf_file_inc > 0 and wt_on:
         if wt_continuous:
             ui.textEdit_ReturnMessage.append(
                 "[过欠压_过欠频] 一条线连续录，单文件 %s，StopTime %s"
@@ -21723,6 +21922,11 @@ def thaiguoqianya_pinSend():
                 "[过欠压_过欠频] 分开录，共 %d 个文件：%s，StopTime %s"
                 % (len(_ovuf_names), ",".join(_ovuf_names), _ovuf_stop_str or "-")
             )
+    elif _ovuf_file_inc > 0 and _dew:
+        ui.textEdit_ReturnMessage.append(
+            "[过欠压_过欠频] 德威创在启机结束后开始录波，并覆盖全部扫压/扫频"
+        )
+    if _ovuf_file_inc > 0:
         # 进度轮次表依赖 config_dict.FileNameList；IOT 开跑时若只写在 WT 配置行会退化成「轮次1..N」
         try:
             if not isinstance(config_dict, dict):
@@ -24980,6 +25184,8 @@ def _devices_used_in_command_queue(commands=None):
     """从命令队列抽出实际用到的设备键（AC/DC1…/WT3000…）。"""
     from utils.wt_acquire_mode import is_scpi_mode
 
+    from utils.dc_channels import parse_dc_token
+
     known = {"AC", "DC1", "DC2", "DC3", "DC4", "DEWETRON", "WT3000", "DL850"}
     used = set()
     scpi_wt_needed = False
@@ -24987,7 +25193,10 @@ def _devices_used_in_command_queue(commands=None):
         if not cmd:
             continue
         key = cmd[0]
-        if key in known:
+        token = parse_dc_token(key)
+        if token:
+            used.add("DC%d" % token)
+        elif key in known:
             used.add(key)
         if key == "Upper_WT_Config":
             cfg = cmd[4] if len(cmd) > 4 else None
@@ -25022,9 +25231,15 @@ def _check_device_connections():
     }
     used_devices = _devices_used_in_command_queue(strArrayTest)
 
+    from utils.dc_channels import parse_dc_token
+
     disconnected = []
     for device_key in sorted(used_devices):
-        name, controller = device_map.get(device_key, (device_key, None))
+        token = parse_dc_token(device_key)
+        if token and device_key not in device_map:
+            name, controller = ("直流电源%d" % token, _dc_controller_for(token))
+        else:
+            name, controller = device_map.get(device_key, (device_key, None))
         if controller is None or not getattr(controller, "connected", False):
             disconnected.append(name)
 
@@ -25055,6 +25270,32 @@ def _get_dewetron_section(project_name=None):
         return dewetron_coordinator.section(name)
     except Exception:
         return None
+
+
+def _dewetron_section_for_row(row):
+    """Section that owns this DEWETRON row, not whatever the dropdown shows.
+
+    Returns (section, test_type). Dropdown is only a fallback when the row
+    was not stamped at normalize time.
+    """
+    from utils.dewetron_recording import dewetron_row_project
+
+    owner = dewetron_row_project(row)
+    section = _get_dewetron_section(owner) if owner else None
+    if section is None:
+        try:
+            owner = ui.comboBox_PS.currentText()
+        except Exception:
+            owner = ""
+        section = _get_dewetron_section(owner) if owner else None
+    test_type = owner or "dewetron"
+    try:
+        spec = get_project_spec(owner) if owner else None
+        if spec is not None and getattr(spec, "test_type", ""):
+            test_type = spec.test_type
+    except Exception:
+        pass
+    return section, str(test_type or "dewetron")
 
 
 def _is_dewetron_project_mode(project_name=None):
@@ -25679,6 +25920,10 @@ def EndProjectPush(*, force=False, silent_if_idle=False, off_reason="manual"):
             strtimenow = now_to_datenow()
             logger.info(strtimenow + "    结束试验!")
             print(strtimenow + "    结束试验!")
+            try:
+                _recover_ac_nominal_before_stop(reason=off_reason or "结束试验")
+            except Exception:
+                pass
             _abort_wt_side_effects(off_reason)
             _force_hardware_safe_off(off_reason)
             currentSecond = ui.comboBox_PS.currentText()
@@ -25833,59 +26078,19 @@ def _note_live_supply_command(device_name, command) -> None:
 
 
 def _sync_soft_panel_ac_setpoint_from_scpi(command) -> None:
-    """把成功下发的 VOLT/FREQ 写回 Soft Panel 显示，避免爱科面板仍停在过频末点。
-
-    必须线程安全：RunProject 在 Timer/工作线程里跑，直接改 Soft Panel 文本框会触发
-    QTextDocument 跨线程建子对象 → 0xC0000005 闪退（重连 VOLT 230 即此路径）。
-    """
-    try:
-        raw = str(command or "").strip()
-        up = raw.upper()
-        kind = ""
-        value = ""
-        if up.startswith("FREQ ") or up.startswith("FREQUENCY "):
-            parts = raw.split(None, 1)
-            if len(parts) >= 2:
-                kind, value = "freq", str(parts[1]).strip()
-        elif up.startswith("VOLT ") or up.startswith("VOLTAGE "):
-            parts = raw.split(None, 1)
-            if len(parts) >= 2:
-                kind, value = "volt", str(parts[1]).strip()
-        if not kind:
-            return
-        app = QApplication.instance()
-        try:
-            on_ui = app is None or QThread.currentThread() == app.thread()
-        except Exception:
-            on_ui = True
-        if on_ui:
-            _apply_soft_panel_ac_setpoint_ui(kind, value)
-            return
-        bridge = _device_io_bridge
-        if bridge is None:
-            return
-        bridge.ac_setpoint.emit(kind, value)
-    except Exception:
-        pass
+    """保留调用点。试验命令不再改交流配置页。"""
+    return
 
 
 def _recover_ac_nominal_before_stop(*, reason: str = "") -> None:
-    """中止/远程停机前尽量回 230V/50Hz，避免爱科 Soft Panel 卡在过频末点（如 51.7）。"""
+    """结束试验时把交流源设回配置页上的电压/频率，不改配置页文本框。"""
     try:
-        volt, freq = "230", "50"
-        # 优先用过欠压 Dialog 的 S1 额定；没有则 Soft Panel；再退回 230/50
-        try:
-            ui_ovuf = globals().get("uiThaiGuoQianYa_Pin")
-            if ui_ovuf is not None:
-                v = str(ui_ovuf.textEdit_S1_AC_VOLT.toPlainText() or "").strip()
-                f = str(ui_ovuf.textEdit_S1_AC_FR.toPlainText() or "").strip()
-                if v:
-                    volt = v
-                if f:
-                    freq = f
-        except Exception:
-            pass
-        msg = f"[AC] 停机前回额定 VOLT {volt} FREQ {freq}"
+        volt, freq, _phase = _get_active_ac_setpoints()
+        if not str(volt or "").strip():
+            volt = "230"
+        if not str(freq or "").strip():
+            freq = "50"
+        msg = f"[AC] 停机时按配置页回 VOLT {volt} FREQ {freq}"
         if reason:
             msg += f"（{reason}）"
         _append_return_message(msg)
@@ -27303,6 +27508,7 @@ def RunProject():
                         reason_u.startswith("OVUF_")
                         or reason_u.startswith("LVRT_")
                         or reason_u == "IDN_NOP"
+                        or reason_u == "PROJECT_GAP"
                     ):
                         pass
                     elif strArrayTest[i][9] != '' or strArrayTest[i][8] != '':
@@ -27479,161 +27685,27 @@ def RunProject():
                                 pass
                 if strTestStatusFlag == "结束":
                     break
-            # ---------------- DC1 分支 ----------------
-            elif strArrayTest[i][0] == "DC1":
+            # ---------------- 直流路（路号不写死） ----------------
+            elif _dc_write_token(strArrayTest[i][0]):
+                _dc_label = str(strArrayTest[i][0]).strip().upper()
+                _dc_ch = int(_dc_label[2:])
+                _dc_ctrl = _dc_controller_for(_dc_ch)
                 if strArrayTest[i][1] == "write":
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        if dc1_controller is None:
-                            raise RuntimeError("DC1控制器未初始化，跳过该命令")
-                        if dc1_controller.handle is None:
-                            raise RuntimeError("DC1未连接，跳过该命令")
-                        dc1_controller.write_command(strArrayTest[i][2], label="DC1")
-                        _note_live_supply_command("直流电源1", strArrayTest[i][2])
+                        if _dc_ctrl is None or getattr(_dc_ctrl, "handle", None) is None:
+                            raise RuntimeError("%s未连接，跳过该命令" % _dc_label)
+                        _dc_ctrl.write_command(strArrayTest[i][2], label=_dc_label)
+                        _note_live_supply_command("直流电源%d" % _dc_ch, strArrayTest[i][2])
                         strtimenow = now_to_datenow()
                         _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
-                        logger.info(strtimenow + "DC1 " + _dc_log)
-                        print(strtimenow + "DC1 " + _dc_log)
+                        logger.info(strtimenow + _dc_label + " " + _dc_log)
+                        print(strtimenow + _dc_label + " " + _dc_log)
                     except Exception as e:
                         print(e)
                     else:
-                        if not _hook_output_on_health_check("DC1", strArrayTest[i][2]):
-                            break
-                        if strArrayTest[i][9] != '':
-                            fTestTime = strArrayTest[i][9]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)
-                        if strArrayTest[i][8] != '':
-                            fTestTime = strArrayTest[i][8]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)
-            # ---------------- DC2 分支 ----------------
-            elif strArrayTest[i][0] == "DC2":
-                if strArrayTest[i][1] == "write":
-                    try:
-                        if strTestStatusFlag == "结束":
-                            break
-                        if dc2_controller is None:
-                            raise RuntimeError("DC2控制器未初始化，跳过该命令")
-                        if dc2_controller.handle is None:
-                            raise RuntimeError("DC2未连接，跳过该命令")
-                        dc2_controller.write_command(strArrayTest[i][2], label="DC2")
-                        _note_live_supply_command("直流电源2", strArrayTest[i][2])
-                        strtimenow = now_to_datenow()
-                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
-                        logger.info(strtimenow + "DC2 " + _dc_log)
-                        print(strtimenow + "DC2 " + _dc_log)
-                    except Exception as e:
-                        print(e)
-                    else:
-                        if not _hook_output_on_health_check("DC2", strArrayTest[i][2]):
-                            break
-                        if strArrayTest[i][9] != '':
-                            fTestTime = strArrayTest[i][9]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)
-                        if strArrayTest[i][8] != '':
-                            fTestTime = strArrayTest[i][8]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)
-            # ---------------- DC3 分支 ----------------
-            elif strArrayTest[i][0] == "DC3":
-                if strArrayTest[i][1] == "write":
-                    try:
-                        if strTestStatusFlag == "结束":
-                            break
-                        if dc3_controller is None:
-                            raise RuntimeError("DC3控制器未初始化，跳过该命令")
-                        if dc3_controller.handle is None:
-                            raise RuntimeError("DC3未连接，跳过该命令")
-                        dc3_controller.write_command(strArrayTest[i][2], label="DC3")
-                        _note_live_supply_command("直流电源3", strArrayTest[i][2])
-                        strtimenow = now_to_datenow()
-                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
-                        logger.info(strtimenow + "DC3 " + _dc_log)
-                        print(strtimenow + "DC3 " + _dc_log)
-                    except Exception as e:
-                        print(e)
-                    else:
-                        if not _hook_output_on_health_check("DC3", strArrayTest[i][2]):
-                            break
-                        if strArrayTest[i][9] != '':
-                            fTestTime = strArrayTest[i][9]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)
-                        if strArrayTest[i][8] != '':
-                            fTestTime = strArrayTest[i][8]
-                            iTestTime = int(fTestTime)
-                            for x in range(iTestTime):
-                                while True:
-                                    if strTestStatusFlag == "暂停":
-                                        time.sleep(0.01)
-                                    else:
-                                        break
-                                if strTestStatusFlag == "结束":
-                                    break
-                                time.sleep(0.1)
-            # ---------------- DC4 分支 ----------------
-            elif strArrayTest[i][0] == "DC4":
-                if strArrayTest[i][1] == "write":
-                    try:
-                        if strTestStatusFlag == "结束":
-                            break
-                        if dc4_controller is None:
-                            raise RuntimeError("DC4控制器未初始化，跳过该命令")
-                        if dc4_controller.handle is None:
-                            raise RuntimeError("DC4未连接，跳过该命令")
-                        dc4_controller.write_command(strArrayTest[i][2], label="DC4")
-                        _note_live_supply_command("直流电源4", strArrayTest[i][2])
-                        strtimenow = now_to_datenow()
-                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
-                        logger.info(strtimenow + "DC4 " + _dc_log)
-                        print(strtimenow + "DC4 " + _dc_log)
-                    except Exception as e:
-                        print(e)
-                    else:
-                        if not _hook_output_on_health_check("DC4", strArrayTest[i][2]):
+                        if not _hook_output_on_health_check(_dc_label, strArrayTest[i][2]):
                             break
                         if strArrayTest[i][9] != '':
                             fTestTime = strArrayTest[i][9]
@@ -27722,11 +27794,7 @@ def RunProject():
 
                         if DEWETRON_START_COMMAND in cmd_upper:
                             print(f"[RunProject] 第{i+1}条命令: START前配置NUMERIC")
-                            try:
-                                project_now = ui.comboBox_PS.currentText()
-                            except Exception:
-                                project_now = ""
-                            section = _get_dewetron_section(project_now) if project_now else None
+                            section, dew_test_type = _dewetron_section_for_row(strArrayTest[i])
                             paths = list(getattr(section, "_dew_save_paths", None) or [])
                             idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
                             if section is not None:
@@ -27743,7 +27811,7 @@ def RunProject():
                                 paths, path = ensure_dewetron_path_at(
                                     paths,
                                     idx,
-                                    test_type=str(project_now or "dewetron"),
+                                    test_type=dew_test_type,
                                     base_dir=dew_base or None,
                                 )
                                 section._dew_save_paths = list(paths)
@@ -27778,11 +27846,7 @@ def RunProject():
                             _append_return_message("[DEWETRON] 采集已开始")
                         elif DEWETRON_STOP_COMMAND in cmd_upper or ':STORE:STOP' in cmd_upper:
                             if str(globals().get("flicker_is_test") or "") == "1":
-                                try:
-                                    project_now = ui.comboBox_PS.currentText()
-                                except Exception:
-                                    project_now = ""
-                                section = _get_dewetron_section(project_now) if project_now else None
+                                section, dew_test_type = _dewetron_section_for_row(strArrayTest[i])
                                 paths = list(getattr(section, "_dew_save_paths", None) or [])
                                 idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
                                 beside = ""
@@ -27792,7 +27856,7 @@ def RunProject():
                                     paths, beside = ensure_dewetron_path_at(
                                         paths,
                                         idx,
-                                        test_type=str(project_now or "flicker"),
+                                        test_type=dew_test_type,
                                     )
                                     section._dew_save_paths = list(paths)
                                 try:
@@ -27808,11 +27872,7 @@ def RunProject():
                             sent = dewetron_controller.stop_acquisition()
                             if not sent:
                                 raise RuntimeError("DEWETRON STOP发送失败")
-                            try:
-                                project_now = ui.comboBox_PS.currentText()
-                            except Exception:
-                                project_now = ""
-                            section = _get_dewetron_section(project_now) if project_now else None
+                            section, dew_test_type = _dewetron_section_for_row(strArrayTest[i])
                             paths = list(getattr(section, "_dew_save_paths", None) or [])
                             idx = int(getattr(section, "_dew_save_index", 0) or 0) if section else 0
                             export_path = None
@@ -27830,7 +27890,7 @@ def RunProject():
                                 paths, export_path = ensure_dewetron_path_at(
                                     paths,
                                     idx,
-                                    test_type=str(project_now or "dewetron"),
+                                    test_type=dew_test_type,
                                     base_dir=dew_base or None,
                                 )
                                 section._dew_save_paths = list(paths)
@@ -29096,9 +29156,6 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
 
     if dc_type and dc_type == "Chroma":
         print(f"dc_type--{dc_type}")
-        DCParArray = ["" for ii in range(128)]
-        DCArray = [["" for ii in range(128)] for jj in range(2)]
-        strDCArray = [["" for ii in range(128)] for jj in range(2)]
         strArrayIVValue = []
         try:
             fDCVmp = float(strVmp)
@@ -29122,39 +29179,11 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
                 return bad
 
             try:
-                fParC2 = (fDCVmp / fDCVoc - 1) / math.log(1 - fDCImp / fDCIsc)  # chroma公式
-                fParC1 = (1 - fDCImp / fDCIsc) * math.exp(-1 * fDCVmp / (fParC2 * fDCVoc))
-                print(1)
-                fFF = (fDCVmp * fDCImp) / (fDCVoc * fDCIsc)
-                for i in range(128):
-                    DCParArray[i] = 0 + i * (1 / 127)
+                from utils.dc_iv_curve import sas_iv_table
 
-                for j in range(128):
-                    DCArray[0][j] = round((1 - DCParArray[j]) * fDCIsc, 3)
-                    strDCArray[0][j] = '%.3f' % DCArray[0][j]
-
-                for k in range(128):
-                    # 末端点 I≈Isc 时 (1-I/Isc)/C1 可能数值不稳，做保护
-                    ratio = 1.0 - (DCArray[0][k] / fDCIsc)
-                    inner = (ratio / fParC1) + 1.0
-                    if abs(inner) < 1e-15:
-                        inner = 1e-15
-                    DCArray[1][k] = round(math.fabs(math.log(math.fabs(inner)) * fParC2 * fDCVoc), 3)
-                    strDCArray[1][k] = '%.3f' % DCArray[1][k]
-
-                str1 = "IVC:IT "
-                str2 = "IVC:VT "
-                for i in range(len(strDCArray[0])):
-                    if i == 0:
-                        str1 = str1 + strDCArray[0][i]
-                    else:
-                        str1 = str1 + "," + strDCArray[0][i]
-
-                for i in range(len(strDCArray[1])):
-                    if i == 0:
-                        str2 = str2 + strDCArray[1][i]
-                    else:
-                        str2 = str2 + "," + strDCArray[1][i]
+                currents, voltages = sas_iv_table(fDCVmp, fDCImp, fDCVoc, fDCIsc, 128)
+                str1 = "IVC:IT " + ",".join(currents)
+                str2 = "IVC:VT " + ",".join(voltages)
                 print(str1)
                 strArrayIVValue.append(str1)
                 print(str2)
@@ -29171,9 +29200,6 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
         # E4360 SAS:TABL 允许 3～1024 点。1024 点约 9KB 一次 viWrite 会打掉 HiSLIP/Soft Panel
         # 导致工况机闪退；与致茂同公式改用 128 点（约 1KB）。
         _ks_n = 128
-        DCParArray = ["" for ii in range(_ks_n)]
-        DCArray = [["" for ii in range(_ks_n)] for jj in range(2)]
-        strDCArray = [["" for ii in range(_ks_n)] for jj in range(2)]
         strArrayIVValue = []
         try:
             fDCVmp = float(strVmp)
@@ -29194,41 +29220,14 @@ def DCGetIVValueFunction(strVmp,strImp,strVoc,strIsc,strPF,DCNumber):
                 return bad
 
             try:
-                fParC2 = (fDCVmp / fDCVoc - 1) / math.log(1 - fDCImp / fDCIsc)
+                from utils.dc_iv_curve import sas_iv_table
 
-                fParC1 = (1 - fDCImp / fDCIsc) * math.exp(-1 * fDCVmp / (fParC2 * fDCVoc))
-                fFF = (fDCVmp * fDCImp) / (fDCVoc * fDCIsc)
-                _den = float(_ks_n - 1) if _ks_n > 1 else 1.0
-                for i in range(_ks_n):
-                    DCParArray[i] = 0 + i * (1 / _den)
-
-                for j in range(_ks_n):
-                    DCArray[0][j] = round((1 - DCParArray[j]) * fDCIsc, 3)
-                    strDCArray[0][j] = '%.3f' % DCArray[0][j]
-
-                for k in range(_ks_n):
-                    ratio = 1.0 - (DCArray[0][k] / fDCIsc)
-                    inner = (ratio / fParC1) + 1.0
-                    if abs(inner) < 1e-15:
-                        inner = 1e-15
-                    DCArray[1][k] = round(math.fabs(math.log(math.fabs(inner)) * fParC2 * fDCVoc), 3)
-                    strDCArray[1][k] = '%.3f' % DCArray[1][k]
-
-                str1 = "SAS:TABL1:CURR "
-                str2 = "SAS:TABL1:VOLT "
-                for i in range(len(strDCArray[0])):
-                    if i == 0:
-                        str1 = str1 + strDCArray[0][i]
-                    else:
-                        str1 = str1 + "," + strDCArray[0][i]
-
-                for i in range(len(strDCArray[1])):
-                    if i == 0:
-                        str2 = str2 + strDCArray[1][i]
-                    else:
-                        str2 = str2 + "," + strDCArray[1][i]
+                currents, voltages = sas_iv_table(fDCVmp, fDCImp, fDCVoc, fDCIsc, _ks_n)
+                f_ff = (fDCVmp * fDCImp) / (fDCVoc * fDCIsc)
+                str1 = "SAS:TABL1:CURR " + ",".join(currents)
+                str2 = "SAS:TABL1:VOLT " + ",".join(voltages)
                 print(
-                    f"[Keysight IV] DC{DCNumber} FF={fFF:.4f} "
+                    f"[Keysight IV] DC{DCNumber} FF={f_ff:.4f} "
                     f"volt_cmd={len(str2)}B curr_cmd={len(str1)}B pts={_ks_n}",
                     flush=True,
                 )
@@ -29868,7 +29867,7 @@ def auto_config():
                     "WTViewer 点击「开始在线连接」后 20 秒按钮未变化。"
                     "请先在 WTViewer 手动连上仪表（按钮应变为「停止在线连接」），"
                     "关掉残留的「数值详细设置」，再点开始。"
-                    "若 AutoTest 已占用 WT 的 10001 端口，请先在 Viewer 连上仪表，或确认 Viewer 已在线后再开始。"
+                    "若 AutoTest 已占用 WT 的 5025 端口，请先在 Viewer 连上仪表，或确认 Viewer 已在线后再开始。"
                 )
                 logger.info(f"[auto_config][error] {msg}")
                 _append_debug_log(f"[auto_config][error] {msg}")
@@ -32423,25 +32422,31 @@ def _run_startup_connect_jobs_stepwise(jobs, devices) -> None:
             _apply_device_finder_plan(slot, plan, dev)
             if _iot_slot_session_ok(slot):
                 try:
+                    from utils.device_finder_connect import remember_text_for_plan
                     from utils.iot_auto_connect import remember_slot_for_resource
 
-                    remember_slot_for_resource(getattr(dev, "resource", "") or "", slot)
+                    mem = remember_text_for_plan(plan, dev)
+                    remember_slot_for_resource(mem, slot)
                 except Exception:
-                    pass
-                state["connected"].append(f"{slot}:{getattr(dev, 'resource', '')}")
-                _log(f"自动连接 {slot} -> {getattr(dev, 'resource', '')}")
+                    mem = getattr(dev, "resource", "") or ""
+                state["connected"].append(f"{slot}:{mem}")
+                _log(f"自动连接 {slot} -> {mem}")
             else:
+                from utils.device_finder_connect import remember_text_for_plan
+
                 target = str((plan or {}).get("target") or "")
-                resource = str(getattr(dev, "resource", "") or "")
-                host = str(getattr(dev, "host", "") or "")
-                port = getattr(dev, "port", None)
-                res_u = resource.upper()
-                if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
-                    where = resource
-                elif host and port is not None:
-                    where = f"{host}:{port}"
-                else:
-                    where = resource or host
+                where = remember_text_for_plan(plan, dev)
+                if not where:
+                    resource = str(getattr(dev, "resource", "") or "")
+                    host = str(getattr(dev, "host", "") or "")
+                    port = getattr(dev, "port", None)
+                    res_u = resource.upper()
+                    if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
+                        where = resource
+                    elif host and port is not None:
+                        where = f"{host}:{port}"
+                    else:
+                        where = resource or host
                 hint = f"{target}@{where}" if target else where
                 err = f"{slot}: 桌面连接失败（会话未建立；{hint}）"
                 state["errors"].append(err)
@@ -33210,7 +33215,7 @@ if __name__ == "__main__":
 
             _wt3000_port_edit = QtWidgets.QLineEdit()
             _wt3000_port_edit.setObjectName("lineEdit_WT3000_Port")
-            _wt3000_port_edit.setPlaceholderText("端口 (默认5025)")
+            _wt3000_port_edit.setPlaceholderText("端口 (5025 或 10001)")
             _wt3000_port_edit.setMinimumWidth(100)
 
             # WT3000 切换闪变页面按钮
@@ -36413,11 +36418,6 @@ if __name__ == "__main__":
                         "[IOT交接] 远程停机按关电源规则（直流先关→交流）",
                         flush=True,
                     )
-                    # 过频扫段中被中止时，先回 230/50 再关电源，否则爱科 Soft Panel 会停在 51.7
-                    try:
-                        _recover_ac_nominal_before_stop(reason="远程停机")
-                    except Exception:
-                        pass
                     EndProjectPush(force=True, silent_if_idle=True)
 
                 global _iot_ui_handoff_svc

@@ -44,13 +44,62 @@ def _wait_01s(row: Sequence[Any]) -> int:
         return 0
 
 
+# 跨项目追加在 Send 里写成这条命令。不能靠「空命令 + 正好 2 秒」去猜：
+# 静态 QU 等试验的测量驻留也可以是 2 秒，猜错就会漏录。
+PROJECT_GAP_COMMAND = "PROJECT_GAP"
+
+
+def is_project_gap_wait(row: Sequence[Any]) -> bool:
+    """True only for an explicitly marked inter-project pause."""
+    if not row or len(row) < 2:
+        return False
+    if str(row[1]).strip().lower() != WAIT_ACTION:
+        return False
+    reason = str(row[2] if len(row) > 2 else "").strip().upper()
+    return reason == PROJECT_GAP_COMMAND
+
+
 def is_measure_wait_row(row: Sequence[Any], *, min_01s: int = _MIN_MEASURE_WAIT_01S) -> bool:
     """True for executor wait rows that represent a measurement dwell."""
     if not row:
         return False
     if str(row[1]).strip().lower() != WAIT_ACTION:
         return False
+    if is_project_gap_wait(row):
+        return False
     return _wait_01s(row) >= int(min_01s)
+
+
+def stamp_dewetron_project(rows: Sequence[Sequence[Any]], project_name: str) -> List[List[Any]]:
+    """Write the owning project onto DEWETRON rows.
+
+    Run-time save paths must follow this name. The project dropdown often
+    still shows the last appended test, which previously saved 过欠压 into
+    the 固定PF file list.
+    """
+    name = str(project_name or "").strip()
+    out: List[List[Any]] = []
+    for row in rows or ():
+        item = list(row)
+        if name and str(item[0] if item else "").strip().upper() == DEWETRON_DEVICE:
+            if len(item) < 5:
+                item.extend([""] * (5 - len(item)))
+            if not str(item[4] or "").strip():
+                item[4] = name
+        out.append(item)
+    return out
+
+
+def dewetron_row_project(row: Sequence[Any]) -> str:
+    """Project stamped on a DEWETRON command, or empty."""
+    if not row or len(row) < 5:
+        return ""
+    if str(row[0] or "").strip().upper() != DEWETRON_DEVICE:
+        return ""
+    owner = row[4]
+    if not isinstance(owner, str):
+        return ""
+    return owner.strip()
 
 
 def make_acq_start_row() -> List[Any]:
@@ -107,10 +156,14 @@ def _insert_continuous_start_after_startup(
     body = [list(r) for r in source]
     if not body:
         return [list(start_row)]
+    for i, row in enumerate(body):
+        if len(row) > 2 and str(row[2] or "").strip().upper() == "OVUF_BOOT":
+            # 过欠压启机必须录在等待结束之后，不能落在 OUTP ON 后面。
+            return body[: i + 1] + [list(start_row)] + body[i + 1 :]
     long_idxs = [
         i
         for i, row in enumerate(body)
-        if _wait_01s(row) >= int(min_measure_01s)
+        if _wait_01s(row) >= int(min_measure_01s) and not is_project_gap_wait(row)
     ]
     if not long_idxs:
         return [list(start_row), *body]
@@ -149,22 +202,24 @@ def apply_dewetron_recording_boundaries(
 ) -> List[List[Any]]:
     """Insert DEWETRON START/STOP according to continuous vs split recording.
 
-    - continuous: prefer existing START/STOP (from ASYNC_START/WAIT_END 对齐);
-      otherwise START after 启机等待（勿整队最前），STOP at tail.
+    - 已有 START（ASYNC_START 转来的）时，连续录和分开录都保留，不再按长等待重包。
+    - continuous: otherwise START after 启机等待（勿整队最前），STOP at tail.
     - split: START/STOP around each measure wait row; if none found, fall back
       to continuous wrapping so the segment still records.
     """
     source = [list(row) for row in rows]
     start_row = make_acq_start_row()
     stop_row = make_acq_stop_row()
+    has_start = any(_is_dew_start_row(r) for r in source)
+    has_stop = any(_is_dew_stop_row(r) for r in source)
+    # 过欠压等已经用 ASYNC_START/WAIT_END 标好扫段。分开录若再按每段长等待
+    # 包一层，会把 OVUF_BOOT 包进去：启机还没完就开始录，一降压就 STOP。
+    if has_start:
+        out = list(source)
+        if not has_stop:
+            out.append(list(stop_row))
+        return out
     if continuous or not source:
-        has_start = any(_is_dew_start_row(r) for r in source)
-        has_stop = any(_is_dew_stop_row(r) for r in source)
-        if has_start:
-            out = list(source)
-            if not has_stop:
-                out.append(list(stop_row))
-            return out
         out = _insert_continuous_start_after_startup(
             source, start_row, min_measure_01s=min_measure_01s
         )
@@ -175,7 +230,10 @@ def apply_dewetron_recording_boundaries(
     out: List[List[Any]] = []
     wrapped = 0
     for row in source:
-        if is_measure_wait_row(row, min_01s=min_measure_01s):
+        if (
+            is_measure_wait_row(row, min_01s=min_measure_01s)
+            and str(row[2] if len(row) > 2 else "").strip().upper() != "OVUF_BOOT"
+        ):
             out.append(list(start_row))
             out.append(row)
             out.append(list(stop_row))
