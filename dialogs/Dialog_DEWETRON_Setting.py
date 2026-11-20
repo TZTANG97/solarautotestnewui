@@ -518,6 +518,49 @@ class Ui_Dialog_DEWETRON_Setting(object):
 
         right_side.addWidget(params_group)
 
+        feature_group = QtWidgets.QGroupBox("计算功能")
+        feature_group.setToolTip(
+            "默认关闭。勾选后，点「保存」或「测试界面构造」才会在设备上打开对应功能。"
+            "不勾选则生效时保持关闭，避免拖慢刷新。"
+        )
+        feature_layout = QtWidgets.QVBoxLayout(feature_group)
+        feature_layout.setContentsMargins(8, 12, 8, 8)
+        feature_layout.setSpacing(4)
+        self.checkBox_DEW_EnableFlicker = QtWidgets.QCheckBox("开启闪变")
+        self.checkBox_DEW_EnableFlicker.setObjectName("checkBox_DEW_EnableFlicker")
+        self.checkBox_DEW_EnableFlicker.setChecked(False)
+        self.checkBox_DEW_EnableHarmonics = QtWidgets.QCheckBox("开启谐波")
+        self.checkBox_DEW_EnableHarmonics.setObjectName("checkBox_DEW_EnableHarmonics")
+        self.checkBox_DEW_EnableHarmonics.setChecked(False)
+        self.checkBox_DEW_EnableRolling = QtWidgets.QCheckBox("开启滚动计算")
+        self.checkBox_DEW_EnableRolling.setObjectName("checkBox_DEW_EnableRolling")
+        self.checkBox_DEW_EnableRolling.setChecked(False)
+        feature_layout.addWidget(self.checkBox_DEW_EnableFlicker)
+        feature_layout.addWidget(self.checkBox_DEW_EnableHarmonics)
+        feature_layout.addWidget(self.checkBox_DEW_EnableRolling)
+        right_side.addWidget(feature_group)
+
+        lead_group = QtWidgets.QGroupBox("录制时机（所有试验统一）")
+        lead_group.setToolTip(
+            "开录比试验动作提前的秒数，从启机时间尾部切出；不能超过启机时间。"
+        )
+        lead_layout = QtWidgets.QHBoxLayout(lead_group)
+        lead_layout.setContentsMargins(8, 12, 8, 8)
+        lead_layout.addWidget(QtWidgets.QLabel("提前录制:"))
+        self.spinBox_DEW_RecordLead = QtWidgets.QSpinBox()
+        self.spinBox_DEW_RecordLead.setObjectName("spinBox_DEW_RecordLead")
+        self.spinBox_DEW_RecordLead.setRange(0, 3600)
+        self.spinBox_DEW_RecordLead.setSuffix(" 秒")
+        try:
+            from utils.dewetron_channel_scale import load_saved_record_lead_s
+
+            self.spinBox_DEW_RecordLead.setValue(int(round(load_saved_record_lead_s())))
+        except Exception:
+            self.spinBox_DEW_RecordLead.setValue(0)
+        lead_layout.addWidget(self.spinBox_DEW_RecordLead)
+        lead_layout.addStretch(1)
+        right_side.addWidget(lead_group)
+
         scale_group = QtWidgets.QGroupBox("比例系数")
         scale_group.setToolTip("保存时写入对应模拟通道的 Neon/PhysicalScaleFactor。1 表示不缩放。")
         scale_grid = QtWidgets.QGridLayout(scale_group)
@@ -531,6 +574,15 @@ class Ui_Dialog_DEWETRON_Setting(object):
             self._add_scale_row(scale_grid, row, 0, name)
         for row, name in enumerate(current_names):
             self._add_scale_row(scale_grid, row, 2, name)
+        # 回填本机上次填写的比例（勿每次打开都回到默认 1）
+        try:
+            from utils.dewetron_channel_scale import load_saved_dew_scales
+
+            saved = load_saved_dew_scales()
+            if saved:
+                self.set_channel_scale_factors(saved)
+        except Exception:
+            pass
         right_side.addWidget(scale_group)
 
         # -- 加载配置按钮 --
@@ -1055,13 +1107,17 @@ class Ui_Dialog_DEWETRON_Setting(object):
                 self.comboBox_downsampling.setCurrentIndex(idx)
                 self.log(f"  通道二次采样: {ds_ui}")
 
-        from utils.dewetron_channel_scale import read_physical_scale_factors
+        from utils.dewetron_channel_scale import (
+            merge_device_and_saved_scales,
+            read_physical_scale_factors,
+        )
         found_scales = read_physical_scale_factors(xml)
-        if found_scales:
-            self.set_channel_scale_factors(found_scales)
+        merged_scales = merge_device_and_saved_scales(found_scales)
+        if merged_scales:
+            self.set_channel_scale_factors(merged_scales)
             shown = ", ".join(
                 f"{name.split('/')[-1].replace('l', 'I')}={value}"
-                for name, value in found_scales.items()
+                for name, value in merged_scales.items()
             )
             self.log(f"  比例系数: {shown}")
 

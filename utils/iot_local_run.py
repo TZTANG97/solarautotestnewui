@@ -466,6 +466,29 @@ def detach_previous_job_for_fresh_start(*, keep_job_id: int = 0) -> Optional[int
     return old_i if old_i > 0 else None
 
 
+def _local_run_title(test_name: str) -> str:
+    """跨项目队列用「A + B」作标题，避免只显示下拉框最后一项。"""
+    fallback = (test_name or "").strip() or "本地实验"
+    try:
+        sw = _scpi_mod()
+        state = getattr(sw, "_run_progress_state", None) if sw is not None else None
+        queue = (state or {}).get("queue") if isinstance(state, dict) else None
+        names = []
+        for item in queue or []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            if name and name not in names:
+                names.append(name)
+        if len(names) >= 2:
+            return " + ".join(names)[:120]
+        if len(names) == 1:
+            return names[0][:120]
+    except Exception:
+        pass
+    return fallback[:120]
+
+
 def notify_local_run_started(
     test_name: str,
     widgets: Optional[Dict[str, Any]] = None,
@@ -482,8 +505,41 @@ def notify_local_run_started(
     if handoff_start_in_progress():
         logger.info("[iot_local_run] handoff 正在开测，跳过本地登记")
         return
-    # 云端正在等本局结束：本局归属该云任务。若此时再 local_run_start，
-    # 会把云单按「本机已另行开测」秒成功，并再新建一条 local_ui（job100/101 双单）。
+    # 中途追加后再点开始：命令已在同一 RunProject 队列里继续跑，
+    # 绝不能再 local_run_start，否则服务端会把还在跑的上一单结掉。
+    if desktop_run_in_progress():
+        jid = current_local_job_id() or _job_id_from_status_json()
+        logger.info(
+            "[iot_local_run] 本机仍在执行中，跳过新开任务（保持 job #%s）",
+            jid or "?",
+        )
+        _ui_log(
+            f"[IOT] 试验仍在执行中，追加项并入当前任务"
+            f"{f' #{jid}' if jid else ''}，不新开一单"
+        )
+        return
+    # 本机空闲：先结案挂着的上一云任务，再决定是否还要沿用。
+    # 旧逻辑先判 _awaiting 再 release，跨项目本机开测会被残留云交接挡住，IOT 无记录。
+    try:
+        release_previous_cloud_job_for_new_round()
+    except Exception:
+        logger.debug("开测前结案上一云任务跳过", exc_info=True)
+    try:
+        from utils.status_json_devices import project_status_is_live_local_run
+
+        sw_live = _scpi_mod()
+        live = project_status_is_live_local_run(
+            getattr(sw_live, "_run_progress_state", None) if sw_live else None,
+            _local_run_flag(),
+        )
+    except Exception:
+        live = False
+    if not live:
+        try:
+            detach_previous_job_for_fresh_start()
+        except Exception:
+            logger.debug("新开试验前摘掉上一单失败", exc_info=True)
+    # 云端仍在等本局结束：本局归属该云任务，勿再 local_run_start。
     if handoff_has_awaiting_job():
         jid = None
         try:
@@ -501,42 +557,7 @@ def notify_local_run_started(
             f"{f' #{jid}' if jid else ''}，不另建本机任务"
         )
         return
-    if not desktop_run_in_progress():
-        # 进度已经写成进行中时，RunProject 里已经摘过上一单。
-        # 这里再摘会把刚绑定的任务号清掉，心跳又读到终态。
-        try:
-            from utils.status_json_devices import project_status_is_live_local_run
-
-            live = project_status_is_live_local_run(
-                getattr(__import__("SCPITestWave"), "_run_progress_state", None),
-                _local_run_flag(),
-            )
-        except Exception:
-            live = False
-        if not live:
-            try:
-                detach_previous_job_for_fresh_start()
-            except Exception:
-                logger.debug("新开试验前摘掉上一单失败", exc_info=True)
-    # 中途追加后再点开始：命令已在同一 RunProject 队列里继续跑，
-    # 绝不能再 local_run_start，否则服务端会把还在跑的上一单结掉。
-    if desktop_run_in_progress():
-        jid = current_local_job_id() or _job_id_from_status_json()
-        logger.info(
-            "[iot_local_run] 本机仍在执行中，跳过新开任务（保持 job #%s）",
-            jid or "?",
-        )
-        _ui_log(
-            f"[IOT] 试验仍在执行中，追加项并入当前任务"
-            f"{f' #{jid}' if jid else ''}，不新开一单"
-        )
-        return
-    # 只剩上一单的等待结案：先结掉，这次开始才是新任务
-    try:
-        release_previous_cloud_job_for_new_round()
-    except Exception:
-        logger.debug("开测前结案上一云任务跳过", exc_info=True)
-    name = (test_name or "").strip() or "本地实验"
+    name = _local_run_title(test_name)
     try:
         from utils.iot_run_upload import enrich_widgets_for_upload
 

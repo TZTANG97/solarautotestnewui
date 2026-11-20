@@ -65,12 +65,13 @@ def test_modify_xml_writes_scale_factor():
     assert u1.count("<DoubleValue>8</DoubleValue>") == 1
 
 
-def test_setting_page_edits_roundtrip_scale_factors():
+def test_setting_page_edits_roundtrip_scale_factors(monkeypatch, tmp_path):
     pytest.importorskip("PyQt5")
     from PyQt5.QtWidgets import QApplication, QDialog
 
     from dialogs.Dialog_DEWETRON_Setting import Ui_Dialog_DEWETRON_Setting
 
+    monkeypatch.setenv("SOLARAUTOTEST_DEW_SCALE", str(tmp_path / "dew_scale.ini"))
     app = QApplication.instance() or QApplication([])
     assert app is not None
     dialog = QDialog()
@@ -86,3 +87,57 @@ def test_setting_page_edits_roundtrip_scale_factors():
     assert again["AI 1/U3"] == "3"
     assert again["AI 1/U1"] == "1"
     dialog.deleteLater()
+
+
+def test_scales_worth_applying_skips_all_ones():
+    from utils.dewetron_channel_scale import scales_worth_applying
+
+    assert scales_worth_applying({}) == {}
+    assert scales_worth_applying({"AI 1/U1": "1", "AI 1/l1": "1.0"}) == {}
+    got = scales_worth_applying({"AI 1/U1": "1", "AI 1/l1": "1000"})
+    assert got["AI 1/l1"] == "1000"
+    assert got["AI 1/U1"] == "1"
+
+
+def test_saved_dew_scales_roundtrip(monkeypatch, tmp_path):
+    from utils.dewetron_channel_scale import load_saved_dew_scales, save_saved_dew_scales
+
+    monkeypatch.setenv("SOLARAUTOTEST_DEW_SCALE", str(tmp_path / "dew_scale.ini"))
+    save_saved_dew_scales({"AI 1/l1": "1000", "AI 1/l2": "1000", "AI 1/U1": "1"})
+    loaded = load_saved_dew_scales()
+    assert loaded["AI 1/l1"] == "1000"
+    assert loaded["AI 1/l2"] == "1000"
+    assert loaded["AI 1/U1"] == "1"
+
+
+def test_merge_prefers_saved_over_device_ones(monkeypatch, tmp_path):
+    from utils.dewetron_channel_scale import (
+        merge_device_and_saved_scales,
+        save_saved_dew_scales,
+    )
+
+    monkeypatch.setenv("SOLARAUTOTEST_DEW_SCALE", str(tmp_path / "dew_scale.ini"))
+    save_saved_dew_scales({"AI 1/l1": "1000", "AI 1/U1": "230"})
+    merged = merge_device_and_saved_scales(
+        {"AI 1/l1": "1", "AI 1/U1": "1", "AI 1/l2": "5"}
+    )
+    assert merged["AI 1/l1"] == "1000"
+    assert merged["AI 1/U1"] == "230"
+    assert merged["AI 1/l2"] == "5"
+
+
+def test_record_lead_roundtrip_keeps_scales(monkeypatch, tmp_path):
+    from utils.dewetron_channel_scale import (
+        load_saved_dew_scales,
+        load_saved_record_lead_s,
+        save_saved_dew_scales,
+        save_saved_record_lead_s,
+    )
+
+    monkeypatch.setenv("SOLARAUTOTEST_DEW_SCALE", str(tmp_path / "dew_scale.ini"))
+    save_saved_dew_scales({"AI 1/l1": "1000"})
+    assert save_saved_record_lead_s(30) == 30
+    assert load_saved_record_lead_s() == 30
+    assert load_saved_dew_scales()["AI 1/l1"] == "1000"
+    save_saved_dew_scales({"AI 1/l1": "500"})
+    assert load_saved_record_lead_s() == 30

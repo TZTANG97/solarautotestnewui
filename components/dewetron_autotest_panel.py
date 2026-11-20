@@ -586,7 +586,16 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.spinBox_DEW_RecordLead.setToolTip(
             "开录比试验动作提前的秒数，用来录下逆变器已经并网的一段时间。"
             "不能大于本试验的启机时间，超出时按启机时间提前，不会早于启机开始。"
+            "也可在设备管理→德威创页统一设置。"
         )
+        try:
+            from utils.dewetron_channel_scale import load_saved_record_lead_s
+
+            self.spinBox_DEW_RecordLead.setValue(
+                int(round(load_saved_record_lead_s()))
+            )
+        except Exception:
+            self.spinBox_DEW_RecordLead.setValue(0)
         form.addRow("提前录制:", self.spinBox_DEW_RecordLead)
 
         self.checkBox_DEW_RealtimeWaveform = QtWidgets.QCheckBox(

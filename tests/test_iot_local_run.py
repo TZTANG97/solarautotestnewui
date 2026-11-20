@@ -46,9 +46,14 @@ def test_handoff_visible_when_running_as_main(monkeypatch):
     assert handoff_has_awaiting_job() is True
 
     called = []
+    released = []
     monkeypatch.setattr(mod, "_do_start", lambda *_a, **_k: called.append(1))
-    monkeypatch.setattr(mod, "release_previous_cloud_job_for_new_round", lambda: called.append("rel"))
+    monkeypatch.setattr(
+        mod, "release_previous_cloud_job_for_new_round", lambda: released.append(42) or 42
+    )
+    # 本机空闲时先尝试结案上一云任务；若 awaiting 仍在则仍不新开本地单
     notify_local_run_started("过欠压_过欠频")
+    assert released == [42]
     assert called == []
 
     called = []
@@ -58,7 +63,7 @@ def test_handoff_visible_when_running_as_main(monkeypatch):
         mod, "release_previous_cloud_job_for_new_round", lambda: released.append(42) or 42
     )
     notify_local_run_started("过载能力测试")
-    assert released == []
+    assert released == [42]
     assert called == []
 
 

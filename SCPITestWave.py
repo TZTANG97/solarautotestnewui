@@ -585,12 +585,13 @@ def _dc_controller_for(channel):
 def toggle_extra_dc_connection(channel, page):
     """左侧菜单里第 5 路及以后的配置页：连接或断开这一路主机。"""
     channel = int(channel)
+    setting = getattr(ui, "uiDC%dSetting" % channel, None) or page
     name = "pushButton_ConnectEQUDC%d" % channel
     btn = getattr(ui, name, None)
     if btn is not None and btn.text() == "取消连接":
-        _disconnect_extra_dc(channel, page)
+        _disconnect_extra_dc(channel, setting)
         return
-    _connect_extra_dc(channel, page)
+    _connect_extra_dc(channel, setting)
 
 
 def _extra_dc_address(channel):
@@ -845,6 +846,31 @@ def SaveDEWETRONConfigWithLoading():
         btn.setText("保存")
 
 
+def _sync_record_lead_to_panels(lead_s: float) -> None:
+    """设备页保存的提前录制，同步到各试验德威创面板。"""
+    value = max(0, min(3600, int(round(float(lead_s or 0)))))
+    for name in ELIGIBLE_PROJECT_NAMES:
+        section = _get_dewetron_section(name)
+        if section is None:
+            continue
+        panel = getattr(section, "dewetron_panel", None)
+        if panel is None:
+            continue
+        spin = getattr(panel, "spinBox_DEW_RecordLead", None)
+        if spin is not None:
+            spin.blockSignals(True)
+            try:
+                spin.setValue(value)
+            finally:
+                spin.blockSignals(False)
+        try:
+            cfg = panel.get_config()
+            cfg.record_lead_s = float(value)
+            panel.set_config(cfg)
+        except Exception:
+            pass
+
+
 def SaveDEWETRONConfig(silent=False):
     """从设备读取当前配置，根据 UI 设置修改，再通过 :SETUP:APPLY 上传到设备。
 
@@ -1012,6 +1038,24 @@ def SaveDEWETRONConfig(silent=False):
     with open(save_path, 'w', encoding='utf-8') as f:
         f.write(modified_xml)
     _log(f"已保存: {filename}")
+    try:
+        from utils.dewetron_channel_scale import (
+            save_saved_dew_scales,
+            save_saved_record_lead_s,
+        )
+
+        save_saved_dew_scales(scale_factors)
+        _log("比例系数已写入本机记忆档")
+        lead_widget = getattr(uiDewetronSetting, "spinBox_DEW_RecordLead", None)
+        if lead_widget is not None:
+            lead_s = save_saved_record_lead_s(lead_widget.value())
+            _log(f"提前录制已写入本机记忆档: {lead_s:g}s")
+            try:
+                _sync_record_lead_to_panels(lead_s)
+            except Exception as sync_exc:
+                _log(f"同步试验页提前录制失败: {sync_exc}")
+    except Exception as scale_exc:
+        _log(f"比例系数本机记忆失败: {scale_exc}")
 
     # 5. 发送 :SETUP:APPLY
     if dewetron_controller.send_apply_config(modified_xml):
@@ -4911,6 +4955,20 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
         from DewetronTestPage import apply_optional_feature_channels, feature_flags_from_ui
 
         feature_flags = feature_flags_from_ui(globals().get("uiDewetronSetting"))
+        scale_factors = {}
+        dew_ui = globals().get("uiDewetronSetting")
+        if dew_ui is not None and hasattr(dew_ui, "channel_scale_factors"):
+            try:
+                scale_factors = dict(dew_ui.channel_scale_factors() or {})
+            except Exception:
+                scale_factors = {}
+        if not scale_factors:
+            try:
+                from utils.dewetron_channel_scale import load_saved_dew_scales
+
+                scale_factors = load_saved_dew_scales()
+            except Exception:
+                scale_factors = {}
         xml_string = dewetron_controller.modify_xml(
             xml_string,
             wiring_type=None,
@@ -4920,6 +4978,7 @@ def _apply_shared_dewetron_config(project_name, show_dialogs=True):
             export_fields=config.export_fields,
             decimal_places=config.decimal_places,
             realtime_waveform=config.realtime_waveform,
+            channel_scale_factors=scale_factors or None,
             flicker_enabled=feature_flags["flicker"],
             harmonic_enabled=feature_flags["harmonics"],
             rolling_enabled=feature_flags["rolling"],
@@ -5359,6 +5418,21 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             f"[{project_name}] DEWETRON 已补齐缺失的 START/STOP 边界"
         )
     lead_s = getattr(config, "record_lead_s", 0) or 0
+    if not lead_s:
+        try:
+            dew_ui = globals().get("uiDewetronSetting")
+            spin = getattr(dew_ui, "spinBox_DEW_RecordLead", None) if dew_ui else None
+            if spin is not None:
+                lead_s = float(spin.value())
+        except Exception:
+            lead_s = lead_s or 0
+    if not lead_s:
+        try:
+            from utils.dewetron_channel_scale import load_saved_record_lead_s
+
+            lead_s = load_saved_record_lead_s()
+        except Exception:
+            lead_s = 0
     normalized, lead_note = apply_recording_lead(normalized, lead_s)
     if lead_note:
         ui.textEdit_ReturnMessage.append(f"[{project_name}] {lead_note}")
@@ -25602,12 +25676,19 @@ def RunProjectPush():
 
         # 云端 handoff 占用本台架时拦截本机开测（双开测并存互斥）。
         # 注意：云任务自己调用 start_test 时 _job_ctx 仍在，必须放行，否则会自锁。
+        # 先结案挂着的上一云任务，再判占用；否则残留 _awaiting 会把跨项目本机开测直接拦死。
         try:
             from utils.iot_local_run import (
                 handoff_has_awaiting_job,
                 handoff_start_in_progress,
+                release_previous_cloud_job_for_new_round,
             )
 
+            if not handoff_start_in_progress():
+                try:
+                    release_previous_cloud_job_for_new_round()
+                except Exception as _rel_exc:
+                    print(f"[RunProject] 结案上一云任务跳过: {_rel_exc}", flush=True)
             if handoff_has_awaiting_job() and not handoff_start_in_progress():
                 msg = "云端任务占用本台架，请先结束/中止云端任务后再本机开测"
                 ui.textEdit_ReturnMessage.append("[开始试验] " + msg)

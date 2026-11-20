@@ -216,9 +216,15 @@ class Ui_Dialog(object):
         _scrollLayout.addWidget(_sec_dev)
 
         _dev_container, _dev_layout = _make_container()
+        self._dev_menu_layout = _dev_layout
+        self.make_nav_item = _make_item
+        self._dl850_nav_item = None
         for i, name in enumerate(["交流电源", "直流电源1", "直流电源2", "直流电源3",
                                     "直流电源4", "DL850", "WT3000", "DEWETRON"]):
-            _dev_layout.addWidget(_make_item(name, i + 1, key=name))
+            item = _make_item(name, i + 1, key=name)
+            if name == "DL850":
+                self._dl850_nav_item = item
+            _dev_layout.addWidget(item)
         _dev_layout.addWidget(_make_item("数据测量", 13, key="数据测量"))
         _scrollLayout.addWidget(_dev_container)
         _bind_toggle(_sec_dev, _dev_container, "设备管理")
@@ -1240,6 +1246,12 @@ class Ui_Dialog(object):
 
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
+        try:
+            from components.extra_dc_pages import install_extra_dc_pages
+
+            install_extra_dc_pages(self)
+        except Exception as exc:
+            print("[直流路] 左侧菜单页安装失败: %s" % exc, flush=True)
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate

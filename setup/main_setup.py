@@ -113,6 +113,12 @@ class LazyDialog:
             self._real_ui = self._ui_cls()
             self._real_ui.setupUi(self._real_dialog)
             try:
+                from components.dc_channel_rows import ensure_dc_channels
+
+                ensure_dc_channels(self._real_ui)
+            except Exception as exc:
+                print(f"[WARN] dc_channels({self._name}): {exc}", flush=True)
+            try:
                 from components.pause_after_test import install_pause_after_checkbox
 
                 install_pause_after_checkbox(self._real_ui)
@@ -166,6 +172,12 @@ class MainSetup(BaseSetup):
             container = QDialog()
         ui = ui_cls()
         ui.setupUi(container)
+        try:
+            from components.dc_channel_rows import ensure_dc_channels
+
+            ensure_dc_channels(ui)
+        except Exception as exc:
+            print(f"[WARN] dc_channels: {exc}", flush=True)
         return container, ui
 
     @staticmethod
