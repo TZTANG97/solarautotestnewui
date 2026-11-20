@@ -445,6 +445,14 @@ def parse_dewetron_config(
             "checkBox_DEW_KeepOxygenDmd",
             default=fallback.keep_oxygen_dmd,
         )
+        record_lead = _mapping_value(
+            value,
+            "record_lead_s",
+            "record_lead",
+            "lead_s",
+            "spinBox_DEW_RecordLead",
+            default=fallback.record_lead_s,
+        )
         try:
             precision_value = int(precision)
         except (TypeError, ValueError):
@@ -456,6 +464,7 @@ def parse_dewetron_config(
             export_fields=_parse_fields(fields),
             export_abs_time=_parse_bool(abs_time, fallback.export_abs_time),
             keep_oxygen_dmd=_parse_bool(keep_dmd, fallback.keep_oxygen_dmd),
+            record_lead_s=record_lead,
         )
 
     if isinstance(value, (list, tuple)):

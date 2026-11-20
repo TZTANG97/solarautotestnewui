@@ -47,6 +47,8 @@ def _wait_01s(row: Sequence[Any]) -> int:
 # 跨项目追加在 Send 里写成这条命令。不能靠「空命令 + 正好 2 秒」去猜：
 # 静态 QU 等试验的测量驻留也可以是 2 秒，猜错就会漏录。
 PROJECT_GAP_COMMAND = "PROJECT_GAP"
+# 提前开录切出来的那段启机尾部。它要被录进去，但不是测量段，也不能切 WT。
+RECORD_LEAD_COMMAND = "RECORD_LEAD"
 
 
 def is_project_gap_wait(row: Sequence[Any]) -> bool:
@@ -59,13 +61,23 @@ def is_project_gap_wait(row: Sequence[Any]) -> bool:
     return reason == PROJECT_GAP_COMMAND
 
 
+def is_record_lead_wait(row: Sequence[Any]) -> bool:
+    """True for the grid-tied pre-roll carved out of 启机."""
+    if not row or len(row) < 2:
+        return False
+    if str(row[1]).strip().lower() != WAIT_ACTION:
+        return False
+    reason = str(row[2] if len(row) > 2 else "").strip().upper()
+    return reason == RECORD_LEAD_COMMAND
+
+
 def is_measure_wait_row(row: Sequence[Any], *, min_01s: int = _MIN_MEASURE_WAIT_01S) -> bool:
     """True for executor wait rows that represent a measurement dwell."""
     if not row:
         return False
     if str(row[1]).strip().lower() != WAIT_ACTION:
         return False
-    if is_project_gap_wait(row):
+    if is_project_gap_wait(row) or is_record_lead_wait(row):
         return False
     return _wait_01s(row) >= int(min_01s)
 
@@ -249,6 +261,143 @@ def apply_dewetron_recording_boundaries(
     return out
 
 
+def _command_text(row: Sequence[Any]) -> str:
+    return str(row[2] if row and len(row) > 2 else "").strip().upper()
+
+
+def _is_boot_command(command: str) -> bool:
+    text = str(command or "").strip().upper()
+    return text == "OVUF_BOOT" or text.endswith("_BOOT")
+
+
+def _numeric_ticks(value: Any) -> Optional[int]:
+    if value in ("", None):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _wait_slot(row: Sequence[Any]) -> Optional[int]:
+    """Column that holds this row's dwell, matching ``_wait_01s``."""
+    if len(row) > 9 and _numeric_ticks(row[9]) is not None:
+        return 9
+    if len(row) > 8 and _numeric_ticks(row[8]) is not None:
+        return 8
+    return None
+
+
+def _startup_candidate(row: Sequence[Any]) -> bool:
+    if not row or str(row[0] if row else "").strip().upper() != "AC":
+        return False
+    command = _command_text(row)
+    if not command or "OUTP" in command:
+        return False
+    if command in {PROJECT_GAP_COMMAND, RECORD_LEAD_COMMAND}:
+        return False
+    return _wait_01s(row) > 0
+
+
+def _startup_index(rows: Sequence[Sequence[Any]], start_i: int) -> Optional[int]:
+    """启机等待：明确的 *_BOOT 优先，否则取第一个开录点之前最长的 AC 驻留。"""
+    boots_before = [
+        i for i in range(start_i) if _is_boot_command(_command_text(rows[i]))
+    ]
+    if boots_before:
+        return boots_before[-1]
+    boots_after = [
+        i
+        for i in range(start_i, len(rows))
+        if _is_boot_command(_command_text(rows[i]))
+    ]
+    if boots_after:
+        return boots_after[0]
+    best: Optional[int] = None
+    best_ticks = 0
+    for i in range(start_i):
+        if not _startup_candidate(rows[i]):
+            continue
+        ticks = _wait_01s(rows[i])
+        if ticks >= best_ticks:
+            best = i
+            best_ticks = ticks
+    if best is None or best_ticks < _MIN_MEASURE_WAIT_01S:
+        return None
+    return best
+
+
+def apply_recording_lead(
+    rows: Sequence[Sequence[Any]],
+    lead_s: Any,
+) -> Tuple[List[List[Any]], str]:
+    """Start the first recording ``lead_s`` seconds before the test action.
+
+    The lead is taken from the tail of 启机, so the file includes the inverter
+    already grid-tied. It never starts before 启机 begins: a larger request is
+    clamped to the startup dwell. Later split segments are left alone.
+    """
+    body = [list(row) for row in rows or ()]
+    try:
+        lead = float(lead_s or 0)
+    except (TypeError, ValueError):
+        lead = 0.0
+    if lead < 0:
+        lead = 0.0
+    lead_01s = int(round(lead * 10.0))
+    start_i = next((i for i, row in enumerate(body) if _is_dew_start_row(row)), None)
+    if start_i is None:
+        if lead_01s > 0:
+            return body, "未找到录波起点，提前录制未生效"
+        return body, ""
+    if start_i + 1 < len(body) and is_record_lead_wait(body[start_i + 1]):
+        return body, ""
+    boot_i = _startup_index(body, start_i)
+    if boot_i is None:
+        if lead_01s > 0:
+            return body, "没有启机等待，提前录制未生效"
+        return body, ""
+    startup_01s = _wait_01s(body[boot_i])
+    slot = _wait_slot(body[boot_i])
+    if slot is None or startup_01s <= 0:
+        if lead_01s > 0:
+            return body, "启机等待没有时长，提前录制未生效"
+        return body, ""
+    start_too_early = start_i < boot_i
+    if lead_01s <= 0 and not start_too_early:
+        return body, ""
+    used = min(lead_01s, startup_01s)
+    if lead_01s > startup_01s:
+        note = (
+            f"提前录制 {lead_01s / 10:g}s 超过启机 {startup_01s / 10:g}s，"
+            f"已按启机时间 {used / 10:g}s 提前"
+        )
+    elif used > 0:
+        note = (
+            f"提前 {used / 10:g}s 开录"
+            f"（启机 {startup_01s / 10:g}s，录下已经并网的一段时间）"
+        )
+    else:
+        note = "开录已挪到启机结束之后"
+    boot = list(body[boot_i])
+    boot[slot] = startup_01s - used
+    body[boot_i] = boot
+    start_row = body.pop(start_i)
+    if start_i < boot_i:
+        boot_i -= 1
+    insert_at = boot_i + 1
+    body.insert(insert_at, start_row)
+    if used > 0:
+        body.insert(
+            insert_at + 1,
+            make_command_row(
+                "AC",
+                WAIT_ACTION,
+                RECORD_LEAD_COMMAND,
+                wait_01s=used,
+            ),
+        )
+    return body, note
 
 
 def _is_nan_number(value: Any) -> bool:

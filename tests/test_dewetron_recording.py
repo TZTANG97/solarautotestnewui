@@ -6,10 +6,12 @@ from __future__ import annotations
 from dewetron_autotest import DEWETRON_START_COMMAND, DEWETRON_STOP_COMMAND, make_wait_row
 from utils.dewetron_recording import (
     apply_dewetron_recording_boundaries,
+    apply_recording_lead,
     dewetron_row_project,
     ensure_dewetron_acq_boundaries,
     is_measure_wait_row,
     is_project_gap_wait,
+    is_record_lead_wait,
     make_acq_start_row,
     make_acq_stop_row,
     resolve_dewetron_save_paths,
@@ -314,3 +316,148 @@ def test_trim_no_drop_keeps_absolute_time():
     got = trim_leading_all_nan_samples(rows, rebase_time=True)
     assert abs(got[0][0] - 1.0) < 1e-9
     assert abs(got[1][0] - 2.0) < 1e-9
+
+
+def _rows_after_boot(body, lead_s):
+    bounded = apply_dewetron_recording_boundaries(body, continuous=True)
+    return apply_recording_lead(bounded, lead_s)
+
+
+def test_zero_lead_keeps_start_immediately_after_boot():
+    """提前 0 秒时，开录仍紧跟整段启机，和过欠压现在的窗口一致。"""
+    body = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 1200],
+        ["AC", "write", "VOLT 207", "", "", "", "", "", "", ""],
+        ["AC", "wait", "IDN_NOP", "", "", "", "", "", "", 300],
+    ]
+    rows, note = _rows_after_boot(body, 0)
+    start = next(i for i, r in enumerate(rows) if r[2] == DEWETRON_START_COMMAND)
+    boot = next(i for i, r in enumerate(rows) if r[2] == "OVUF_BOOT")
+    assert note == ""
+    assert start == boot + 1
+    assert rows[boot][9] == 1200
+    assert not any(is_record_lead_wait(r) for r in rows)
+
+
+def test_lead_is_carved_from_the_end_of_startup():
+    """提前 30 秒：启机少 30 秒，开录后先录这 30 秒并网，再进入试验动作。"""
+    body = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "query", "*IDN?", "", "", "", "", "", "", 1000],
+        ["AC", "write", "VOLT 207", "", "", "", "", "", "", ""],
+        ["AC", "wait", "IDN_NOP", "", "", "", "", "", "", 300],
+    ]
+    rows, note = _rows_after_boot(body, 30)
+    start = next(i for i, r in enumerate(rows) if r[2] == DEWETRON_START_COMMAND)
+    boot = next(i for i, r in enumerate(rows) if r[2] == "*IDN?")
+    assert "提前 30s 开录" in note
+    assert rows[boot][9] == 700
+    assert start == boot + 1
+    assert is_record_lead_wait(rows[start + 1])
+    assert rows[start + 1][9] == 300
+    assert rows[start + 2][2] == "VOLT 207"
+    assert rows[boot][9] + rows[start + 1][9] == 1000
+    assert not is_measure_wait_row(rows[start + 1])
+    assert not is_project_gap_wait(rows[start + 1])
+
+
+def test_lead_longer_than_startup_is_clamped_to_startup():
+    body = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 100],
+        ["AC", "write", "VOLT 207", "", "", "", "", "", "", ""],
+    ]
+    rows, note = _rows_after_boot(body, 30)
+    boot = next(i for i, r in enumerate(rows) if r[2] == "OVUF_BOOT")
+    start = next(i for i, r in enumerate(rows) if r[2] == DEWETRON_START_COMMAND)
+    assert "超过启机" in note
+    assert rows[boot][9] == 0
+    assert start == boot + 1
+    assert rows[start + 1][9] == 100
+    assert rows[0][2] == "OUTP ON"
+
+
+def test_lead_without_startup_does_not_move_start():
+    body = [
+        ["AC", "write", "VOLT 230", "", "", "", "", "", "", ""],
+        ["AC", "wait", "IDN_NOP", "", "", "", "", "", "", 50],
+    ]
+    rows, note = _rows_after_boot(body, 10)
+    start = next(i for i, r in enumerate(rows) if r[2] == DEWETRON_START_COMMAND)
+    assert note == "没有启机等待，提前录制未生效"
+    assert rows[start + 1][9] == 50
+    assert not any(is_record_lead_wait(r) for r in rows)
+
+
+def test_split_lead_only_shifts_the_first_file():
+    boot = ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 600]
+    body = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        boot,
+        ["AC", "write", "VOLT 230", "", "", "", "", "", "", ""],
+        ["DEWETRON", "write", DEWETRON_START_COMMAND, "", "", "", "", "", "", ""],
+        ["AC", "wait", "IDN_NOP", "", "", "", "", "", "", 50],
+        ["DEWETRON", "write", DEWETRON_STOP_COMMAND, "", "", "", "", "", "", ""],
+        ["AC", "write", "VOLT 200", "", "", "", "", "", "", ""],
+        ["DEWETRON", "write", DEWETRON_START_COMMAND, "", "", "", "", "", "", ""],
+        ["AC", "wait", "IDN_NOP", "", "", "", "", "", "", 50],
+        ["DEWETRON", "write", DEWETRON_STOP_COMMAND, "", "", "", "", "", "", ""],
+    ]
+    rows, note = apply_recording_lead(
+        apply_dewetron_recording_boundaries(body, continuous=False),
+        10,
+    )
+    starts = [i for i, r in enumerate(rows) if r[2] == DEWETRON_START_COMMAND]
+    assert len(starts) == 2
+    assert "提前 10s 开录" in note
+    assert rows[1][2] == "OVUF_BOOT"
+    assert rows[1][9] == 500
+    assert starts[0] == 2
+    assert is_record_lead_wait(rows[3])
+    assert rows[3][9] == 100
+    assert rows[starts[1] - 1][2] == "VOLT 200"
+    assert rows[starts[1] + 1][2] == "IDN_NOP"
+
+
+def test_start_before_boot_moves_to_after_startup_even_without_lead():
+    body = [
+        ["DEWETRON", "write", DEWETRON_START_COMMAND, "", "", "", "", "", "", ""],
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 800],
+        ["AC", "write", "VOLT 220", "", "", "", "", "", "", ""],
+        ["DEWETRON", "write", DEWETRON_STOP_COMMAND, "", "", "", "", "", "", ""],
+    ]
+    rows, note = apply_recording_lead(body, 0)
+    start = next(i for i, r in enumerate(rows) if r[2] == DEWETRON_START_COMMAND)
+    boot = next(i for i, r in enumerate(rows) if r[2] == "OVUF_BOOT")
+    assert note == "开录已挪到启机结束之后"
+    assert start == boot + 1
+    assert rows[boot][9] == 800
+    assert not any(is_record_lead_wait(r) for r in rows)
+
+
+def test_recording_lead_is_not_applied_twice():
+    body = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 600],
+        ["AC", "write", "VOLT 230", "", "", "", "", "", "", ""],
+    ]
+    once, _note = _rows_after_boot(body, 20)
+    twice, note = apply_recording_lead(once, 20)
+    assert note == ""
+    assert twice == once
+
+
+def test_record_lead_round_trips_in_dewetron_config():
+    from dewetron_autotest import parse_dewetron_config, serialize_dewetron_config
+    from components.dewetron_autotest_panel import DewetronUiConfig
+
+    config = DewetronUiConfig("20", 3, False, ["U1_tRMS"], record_lead_s=15)
+    restored = parse_dewetron_config(serialize_dewetron_config(config))
+    assert restored.record_lead_s == 15
+    assert restored == config
+    assert DewetronUiConfig("20", 3, False, ["U1_tRMS"]).record_lead_s == 0
+    assert "提前录制秒数不能为负数" in DewetronUiConfig(
+        record_lead_s=-1
+    ).validation_errors(require_export_fields=False)

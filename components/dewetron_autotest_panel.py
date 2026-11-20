@@ -45,6 +45,19 @@ def _normalise_fields(fields: Optional[Iterable[Any]]) -> List[str]:
     return result
 
 
+def _coerce_lead_seconds(value: Any) -> float:
+    """Seconds to start recording before the test action. Negative stays negative."""
+    if isinstance(value, bool) or value in ("", None):
+        return 0.0
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if number != number or number in (float("inf"), float("-inf")):
+        return 0.0
+    return number
+
+
 @dataclass(init=False)
 class DewetronUiConfig:
     """Device-independent values exposed by :class:`DewetronAutoTestPanel`.
@@ -61,6 +74,7 @@ class DewetronUiConfig:
     save_dir: str
     export_abs_time: bool
     keep_oxygen_dmd: bool
+    record_lead_s: float
 
     def __init__(
         self,
@@ -71,6 +85,7 @@ class DewetronUiConfig:
         save_dir: str = "",
         export_abs_time: bool = False,
         keep_oxygen_dmd: bool = False,
+        record_lead_s: float = 0.0,
         **aliases: Any,
     ) -> None:
         if "rate" in aliases:
@@ -87,6 +102,10 @@ class DewetronUiConfig:
             export_abs_time = aliases.pop("abs_time")
         if "keep_dmd" in aliases:
             keep_oxygen_dmd = aliases.pop("keep_dmd")
+        if "record_lead" in aliases:
+            record_lead_s = aliases.pop("record_lead")
+        if "lead_s" in aliases:
+            record_lead_s = aliases.pop("lead_s")
         if aliases:
             unknown = ", ".join(sorted(aliases))
             raise TypeError(f"Unknown DewetronUiConfig arguments: {unknown}")
@@ -98,6 +117,12 @@ class DewetronUiConfig:
         self.save_dir = str(save_dir or "").strip()
         self.export_abs_time = bool(export_abs_time)
         self.keep_oxygen_dmd = bool(keep_oxygen_dmd)
+        self.record_lead_s = _coerce_lead_seconds(record_lead_s)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DewetronUiConfig):
+            return NotImplemented
+        return self.to_dict() == other.to_dict()
 
     @property
     def rate(self) -> str:
@@ -140,6 +165,7 @@ class DewetronUiConfig:
             "save_dir": self.save_dir,
             "export_abs_time": bool(self.export_abs_time),
             "keep_oxygen_dmd": bool(self.keep_oxygen_dmd),
+            "record_lead_s": self.record_lead_s,
         }
 
     @classmethod
@@ -163,6 +189,9 @@ class DewetronUiConfig:
             ),
             keep_oxygen_dmd=data.get(
                 "keep_oxygen_dmd", data.get("keep_dmd", False)
+            ),
+            record_lead_s=data.get(
+                "record_lead_s", data.get("record_lead", data.get("lead_s", 0))
             ),
         )
 
@@ -195,6 +224,9 @@ class DewetronUiConfig:
             errors.append("保留小数位数必须是整数")
         elif not 0 <= self.decimal_places <= 6:
             errors.append("保留小数位数必须在 0 到 6 之间")
+
+        if self.record_lead_s < 0:
+            errors.append("提前录制秒数不能为负数")
 
         if require_export_fields and not _normalise_fields(self.export_fields):
             errors.append("至少选择一个 DEWETRON 导出字段")
@@ -308,6 +340,61 @@ def _is_frequency_channel(name: str) -> bool:
     return False
 
 
+_CATEGORY_ORDER = (
+    "Voltage (U)",
+    "Current (I)",
+    "Active Power (P)",
+    "Reactive Power (Q)",
+    "Apparent Power (S)",
+    "Power Factor (PF)",
+    "Energy (W)",
+    "Frequency (F)",
+    "Capacity",
+)
+_SUBCATEGORY_ORDER = (
+    "Total RMS",
+    "Fundamental",
+    "Total",
+    "Average / PP",
+    "Symmetrical Components",
+    "_default_",
+    "其他",
+)
+
+
+def _order_rank(name: str, order: Sequence[str]) -> tuple:
+    text = str(name or "")
+    try:
+        return (order.index(text), text.casefold())
+    except ValueError:
+        return (len(order), text.casefold())
+
+
+def _field_sort_key(name: str) -> tuple:
+    """U_、U1、U2、U3、U12，同一相再按后缀排。避免 U12 插在 U1 和 U2 中间。"""
+    text = str(name or "")
+    match = re.match(r"^([A-Za-z]+)(\d*)(.*)$", text)
+    if not match:
+        return (text.casefold(), 0, "")
+    letters, digits, rest = match.group(1), match.group(2), match.group(3)
+    number = int(digits) if digits else -1
+    return (letters.casefold(), number, rest.casefold())
+
+
+def sort_power_group_tree(tree: Optional[PowerGroupTree]) -> Optional[PowerGroupTree]:
+    """测量勾选树：类别、子类、通道都按固定顺序，不再沿用设备 XML 的乱序。"""
+    if not tree:
+        return tree
+    ordered: PowerGroupTree = {}
+    for category in sorted(tree, key=lambda name: _order_rank(name, _CATEGORY_ORDER)):
+        subs = tree[category] or {}
+        ordered[category] = {
+            sub: sorted(list(subs[sub] or []), key=_field_sort_key)
+            for sub in sorted(subs, key=lambda name: _order_rank(name, _SUBCATEGORY_ORDER))
+        }
+    return ordered
+
+
 def parse_power_group_tree(xml_string: str) -> Optional[PowerGroupTree]:
     """Parse DEWETRON ``Power Groups`` XML into category/subcategory leaves.
 
@@ -406,7 +493,7 @@ def parse_power_group_tree(xml_string: str) -> Optional[PowerGroupTree]:
             if name not in bucket:
                 bucket.append(name)
 
-    return result or None
+    return sort_power_group_tree(result) or None
 
 
 # Descriptive alias for callers that do not need compatibility with the old
@@ -491,6 +578,16 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         )
         self.spinBox_DEW_DecimalPlaces.setRange(0, 6)
         form.addRow("保留小数位数:", self.spinBox_DEW_DecimalPlaces)
+
+        self.spinBox_DEW_RecordLead = QtWidgets.QSpinBox()
+        self.spinBox_DEW_RecordLead.setObjectName("spinBox_DEW_RecordLead")
+        self.spinBox_DEW_RecordLead.setRange(0, 3600)
+        self.spinBox_DEW_RecordLead.setSuffix(" 秒")
+        self.spinBox_DEW_RecordLead.setToolTip(
+            "开录比试验动作提前的秒数，用来录下逆变器已经并网的一段时间。"
+            "不能大于本试验的启机时间，超出时按启机时间提前，不会早于启机开始。"
+        )
+        form.addRow("提前录制:", self.spinBox_DEW_RecordLead)
 
         self.checkBox_DEW_RealtimeWaveform = QtWidgets.QCheckBox(
             "启用实时波形显示"
@@ -649,6 +746,7 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
         self.spinBox_DEW_DecimalPlaces.valueChanged.connect(
             self._emit_config_changed
         )
+        self.spinBox_DEW_RecordLead.valueChanged.connect(self._emit_config_changed)
         self.checkBox_DEW_RealtimeWaveform.toggled.connect(
             self._emit_config_changed
         )
@@ -871,6 +969,7 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
                 else self._desired_export_fields
             )
             desired_set = set(desired) if desired is not None else None
+            tree_data = sort_power_group_tree(tree_data) or {}
 
             for category, subcategories in tree_data.items():
                 category_item = QtWidgets.QTreeWidgetItem(tree, [str(category)])
@@ -1048,6 +1147,7 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
             save_dir=(self.lineEdit_DEW_SaveDir.text() or "").strip(),
             export_abs_time=self.checkBox_DEW_ExportAbsTime.isChecked(),
             keep_oxygen_dmd=self.checkBox_DEW_KeepOxygenDmd.isChecked(),
+            record_lead_s=self.spinBox_DEW_RecordLead.value(),
         )
 
     # Common short aliases used by coordinator and persistence helpers.
@@ -1062,6 +1162,9 @@ class DewetronAutoTestPanel(QtWidgets.QWidget):
             self.comboBox_DEW_MaxRefreshRate.addItem(rate)
         self.comboBox_DEW_MaxRefreshRate.setCurrentText(rate)
         self.spinBox_DEW_DecimalPlaces.setValue(value.decimal_places)
+        self.spinBox_DEW_RecordLead.setValue(
+            max(0, min(3600, int(round(value.record_lead_s))))
+        )
         self.checkBox_DEW_RealtimeWaveform.setChecked(value.realtime_waveform)
         self.checkBox_DEW_ExportAbsTime.setChecked(bool(value.export_abs_time))
         self.checkBox_DEW_KeepOxygenDmd.setChecked(bool(value.keep_oxygen_dmd))

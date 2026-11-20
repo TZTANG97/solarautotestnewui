@@ -5345,11 +5345,12 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
     normalized = apply_dewetron_recording_boundaries(
         normalized, continuous=continuous
     )
-    from utils.dewetron_recording import stamp_dewetron_project
-
-    normalized = stamp_dewetron_project(normalized, project_name)
     # 兜底：规范化后仍缺启停则强制补齐（防止空 CSV）
-    from utils.dewetron_recording import ensure_dewetron_acq_boundaries
+    from utils.dewetron_recording import (
+        apply_recording_lead,
+        ensure_dewetron_acq_boundaries,
+        stamp_dewetron_project,
+    )
 
     before_n = len(normalized)
     normalized = ensure_dewetron_acq_boundaries(normalized)
@@ -5357,6 +5358,11 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
         ui.textEdit_ReturnMessage.append(
             f"[{project_name}] DEWETRON 已补齐缺失的 START/STOP 边界"
         )
+    lead_s = getattr(config, "record_lead_s", 0) or 0
+    normalized, lead_note = apply_recording_lead(normalized, lead_s)
+    if lead_note:
+        ui.textEdit_ReturnMessage.append(f"[{project_name}] {lead_note}")
+    normalized = stamp_dewetron_project(normalized, project_name)
     spec = get_project_spec(project_name)
     test_type = spec.test_type if spec else project_name
     if not names_already_final:
@@ -27483,6 +27489,7 @@ def RunProject():
                             "OVUF_BOOT",
                             "LVRT_GRID_RECOVERY",
                             "IDN_NOP",
+                            "RECORD_LEAD",
                         )
                         or reason_u.endswith("_GRID_RECOVERY")
                     )
@@ -27509,6 +27516,7 @@ def RunProject():
                         or reason_u.startswith("LVRT_")
                         or reason_u == "IDN_NOP"
                         or reason_u == "PROJECT_GAP"
+                        or reason_u == "RECORD_LEAD"
                     ):
                         pass
                     elif strArrayTest[i][9] != '' or strArrayTest[i][8] != '':
