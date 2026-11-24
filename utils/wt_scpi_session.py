@@ -81,6 +81,12 @@ def request_stop(reason: str = ""):
     print(f"[wt_scpi_session] stop requested: {reason or '-'}")
 
 
+def clear_stop_request() -> None:
+    """新一段录波开始前清掉上一轮 WAIT_END 残留的停采标志。"""
+    global _stop_requested
+    _stop_requested = False
+
+
 def _get_controller():
     """取当前已连接的 WT 控制器。
 
@@ -335,6 +341,8 @@ def run_measure_blocking(
             exported_ok = False
         else:
             exported_ok = True
+        # 本轮已消费停采请求：必须清零，否则下一段/下一项进门 0.00s 秒退采到 0 行
+        _stop_requested = False
         _active = False
     return exported_ok
 

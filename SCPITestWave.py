@@ -26577,12 +26577,18 @@ def _wt_async_start_measure(cmd_no):
         _wt_measure_flow_entered = False
         return
 
-    test_status = '1'
-    WT_auto_messure_status = '1'
+    try:
+        from utils import wt_scpi_session as _wt_scpi_sess
+
+        _wt_scpi_sess.clear_stop_request()
+    except Exception:
+        pass
     _wt_async_session_active = True
     _wt_async_stop_requested = False
     _wt_measure_flow_entered = False
     _wt_measure_started = False
+    test_status = '1'
+    WT_auto_messure_status = '1'
     # 含 ASYNC 后等待 messure_testing 点开始的约 5s
     if stop_sec_for_deadline is not None and stop_sec_for_deadline > 0:
         _wt_async_deadline_ts = time.time() + float(stop_sec_for_deadline) + 5.0
@@ -27660,6 +27666,7 @@ def RunProject():
                             pass
                     ok, err = (False, "no session")
                     if wt_scpi_session is not None:
+                        wt_scpi_session.clear_stop_request()
                         ok, err = wt_scpi_session.prepare_from_config(
                             config_dict, logger=logger
                         )
