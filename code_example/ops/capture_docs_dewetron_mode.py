@@ -7,7 +7,7 @@ import sys
 import traceback
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from PyQt5.QtCore import QTimer
@@ -44,6 +44,7 @@ TESTS = [
     ("volt10min", "Dialog_thaivoltprotect10min", "Ui_Dialog_thaivoltprotect10min", 1),
     ("immun", "Dialog_thaiguoqianpin_immun", "Ui_Dialog_thaiguoqianpin_immun", 1),
     ("static-mppt", "Dialog_thaistaticmppttest", "Ui_Dialog_thaistaticmppttest", 1),
+    ("antibackflow", "Dialog_thaantibackflow", "Ui_Dialog_thaantibackflow", 1),
 ]
 
 
@@ -89,7 +90,7 @@ def main() -> int:
     for slug, module, cls_name, step_idx in TESTS:
         print("====", slug)
         try:
-            mod = importlib.import_module(module)
+            mod = importlib.import_module(f"dialogs.{module}")
             ui_cls = getattr(mod, cls_name)
             dlg = QDialog()
             ui = ui_cls()

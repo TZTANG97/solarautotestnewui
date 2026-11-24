@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from utils.dc_channels import s1_dc_slots
+
 from utils.dynamic_qu_commands import parse_voltage_ladder
 from utils.time_helpers import SetTimeFunction
 
@@ -30,12 +32,7 @@ def _row_device_write(device, cmd):
 def _append_dc_power_rows(ui, power_pct, dc_iv_resolver, dc_errors, *, full_chain):
     """按功率%重下已勾选直流。后续档跳过 MODE/SELECT。"""
     point_rows = []
-    for ch, device, dc_num, label in (
-        (1, "DC1", 0, "DC电源1"),
-        (2, "DC2", 1, "DC电源2"),
-        (3, "DC3", 2, "DC电源3"),
-        (4, "DC4", 3, "DC电源4"),
-    ):
+    for ch, device, dc_num, label in s1_dc_slots(ui):
         box = getattr(ui, "checkBox_S1_DC%d" % ch, None)
         if box is None or not box.isChecked():
             continue

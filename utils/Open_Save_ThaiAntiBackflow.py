@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from utils.dc_channels import extend_setting_headers
 """防逆流测试：读取/保存 CSV 设定。"""
 
 import csv
@@ -22,12 +23,12 @@ _DEWETRON_SPEC = PROJECT_SPECS["防逆流测试"]
 FILE_TAG = "ThaiAntiBackflow"
 
 
-def _append_dewetron_tail(values, ui):
+def _append_dewetron_tail(headers, values, ui):
     """Append or update this project's named DEWETRON persistence tail."""
     section = getattr(ui, "analyzerModeSection", None)
     source = section if section is not None else ui
     return append_dewetron_tail_columns(
-        arrayRow1,
+        headers,
         values,
         extract_ui_config(source),
         mode=extract_ui_mode(source),
@@ -79,7 +80,7 @@ def _build_headers():
         "checkBox_S_END_DC3", "comboBox_S_END_DC3",
         "checkBox_S_END_DC4", "comboBox_S_END_DC4",
     ]
-    return h
+    return extend_setting_headers(h)
 
 
 HEADERS = _build_headers()
@@ -119,8 +120,9 @@ def Save_File_ThaiAntiBackflow(kwargs):
     path = QFileDialog.getSaveFileName(None, "单个文件保存", "./", "Text Files(*.csv)")
     if not path[0]:
         return
+    headers = _build_headers()
     values = [FILE_TAG]
-    for name in HEADERS[1:]:
+    for name in headers[1:]:
         if name == "checkBox_S2_WT3000":
             values.append("1" if ui.radioButton_S2_WT3000.isChecked() else "0")
         elif name == "checkBox_S2_WT1800":
@@ -131,10 +133,10 @@ def Save_File_ThaiAntiBackflow(kwargs):
             values.append("1" if ui.radioButton_S2_WT5000.isChecked() else "0")
         else:
             values.append(_widget_to_csv(ui, name))
-    _append_dewetron_tail(values, ui)
+    headers, values = _append_dewetron_tail(headers, values, ui)
     with open(path[0], "w", newline="", encoding="utf-8-sig") as fp:
         w = csv.writer(fp)
-        w.writerow(arrayRow1)
+        w.writerow(headers)
         w.writerow(values)
     finder = _PageWidgetFinder(ui._wtStacked)
     if ui.radioButton_S2_WT3000.isChecked():

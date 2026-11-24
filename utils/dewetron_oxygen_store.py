@@ -278,8 +278,16 @@ def preserve_oxygen_dmd_beside_csv(
         src_abs = os.path.abspath(src)
         dest_abs = os.path.abspath(dest)
         if src_abs.casefold() == dest_abs.casefold():
-            return True, dest_abs
-        shutil.copy2(src_abs, dest_abs)
-        return True, dest_abs
+            kept = dest_abs
+        else:
+            shutil.copy2(src_abs, dest_abs)
+            kept = dest_abs
+        try:
+            from utils.last_dew_export import remember_dew_dmd
+
+            remember_dew_dmd(kept)
+        except Exception:
+            pass
+        return True, kept
     except OSError as exc:
         return False, f"复制 .dmd 失败: {exc}"

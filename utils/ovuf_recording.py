@@ -564,9 +564,20 @@ def _numeric_slot(val):
 
 
 def find_ovuf_sweep_measure_indices(commands):
-    """扫点测量锚点下标：旧扫段 *IDN?，或工况列表 OVUF_COND_DWELL。"""
+    """扫点测量锚点下标：旧扫段 *IDN?，或工况列表 OVUF_COND_DWELL。
+
+    启机前的间隙 *IDN?（OUTP ON 之后、OVUF_BOOT 之前）不是扫点。
+    途哲2号任务 146 把这几条当成首点，德威创在 5 分钟启机前就 START。
+    """
+    boot_at = -1
+    for i, row in enumerate(commands or []):
+        if row and len(row) > 2 and str(row[2] or "").strip().upper() == "OVUF_BOOT":
+            boot_at = i
+            break
     out = []
     for i, row in enumerate(commands):
+        if boot_at >= 0 and i <= boot_at:
+            continue
         if _is_ovuf_cond_dwell(row):
             _ensure_row10(row)
             out.append(i)
@@ -574,13 +585,18 @@ def find_ovuf_sweep_measure_indices(commands):
         if i == 0 or not _is_idn_query(row):
             continue
         if not _is_volt_or_freq_write(commands[i - 1]):
-            # 分相 EDIT EACH 末尾可能是 INST:EDIT ALL；向前找最近 VOLT/FREQ
+            # 分相 EDIT EACH 末尾可能是 INST:EDIT ALL；向前找最近 VOLT/FREQ。
+            # 不能穿过 OUTP：启机设定电压在 OUTP ON 之前，间隙 *IDN? 会误判成扫点。
             prev_ok = False
             for j in range(i - 1, max(-1, i - 12), -1):
                 if _is_volt_or_freq_write(commands[j]):
                     prev_ok = True
                     break
-                if commands[j] and commands[j][0] == "AC" and commands[j][1] == "wait":
+                if not commands[j] or len(commands[j]) < 3:
+                    break
+                if commands[j][0] == "AC" and str(commands[j][1] or "").strip().lower() == "wait":
+                    break
+                if str(commands[j][2] or "").strip().upper().startswith("OUTP"):
                     break
             if not prev_ok:
                 continue
@@ -665,12 +681,23 @@ def apply_ovuf_recording_mode(commands, ui, *, continuous: bool, wt_on: bool) ->
         for idx in measures:
             _move_wait_to_col9(commands[idx])
         if not measures:
-            return 1
-        first = measures[0]
+            return 0
+        # 与无功能力范围相同：启机等待整段结束后再开录，开录在第一个扫点动作之前；
+        # 停录在最后一个扫点驻留之后、恢复/关机之前。
+        boot_at = -1
+        for i, row in enumerate(commands):
+            if row and len(row) > 2 and str(row[2] or "").strip().upper() == "OVUF_BOOT":
+                boot_at = i
+                break
         last = measures[-1]
-        commands.insert(first, row_wt_async_marker("ASYNC_START"))
-        # WAIT_END 插在 last+1（因 insert 使 last 右移 1）
-        commands.insert(last + 2, row_wt_async_marker("WAIT_END"))
+        if 0 <= boot_at < measures[0]:
+            insert_at = boot_at + 1
+        else:
+            insert_at = measures[0]
+        commands.insert(insert_at, row_wt_async_marker("ASYNC_START"))
+        if insert_at <= last:
+            last += 1
+        commands.insert(last + 1, row_wt_async_marker("WAIT_END"))
         return 1
 
     # 分开录：每一段单独一条连续录（段首 ASYNC_START，段尾 WAIT_END）。

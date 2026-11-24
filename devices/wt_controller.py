@@ -1,4 +1,7 @@
+import time
+
 from devices.scpi_common import _configure_scpi_resource
+from devices.wt3000_legacy_ethernet import parse_socket_resource, try_idn_over_legacy
 from devices.wt_scpi_rate import (
     is_serial_resource,
     parse_rate_ms,
@@ -11,6 +14,45 @@ from devices.wt_scpi_rate import (
 
 # 502/2101/8080 是电源口。写一串 ASCII 也能“成功”，不能当成 WT 已连接。
 _WT_POWER_PORTS = frozenset({502, 2101, 8080})
+# 裸 SCPI 探测要短：WT3000 网口同时只允许 1 个连接，探 10 秒会把后续旧协议顶成「积极拒绝」。
+_WT_SOCKET_IDN_TIMEOUT_MS = 2000
+
+
+def _is_timeout_error(exc) -> bool:
+    text = str(exc or "").upper()
+    return "TMO" in text or "TIMEOUT" in text or "TIMED OUT" in text
+
+
+def _is_connection_refused(exc) -> bool:
+    text = str(exc or "")
+    upper = text.upper()
+    return (
+        "10061" in text
+        or "积极拒绝" in text
+        or "ACTIVELY REFUSED" in upper
+        or "CONNECTION REFUSED" in upper
+        or "WSAECONNREFUSED" in upper
+    )
+
+
+def _is_rsrc_nfound(exc) -> bool:
+    text = str(exc or "")
+    return "RSRC_NFOUND" in text.upper() or "-1073807343" in text
+
+
+def choose_wt_connect_error(last_error, socket_timeout_error=None, opened_idn_error=None):
+    """后面的 INSTR 资源找不到时，保留已经打开的网口上的 *IDN? 结果。"""
+    if socket_timeout_error is not None and (
+        last_error is None or _is_rsrc_nfound(last_error)
+    ):
+        return socket_timeout_error
+    if opened_idn_error and (last_error is None or _is_rsrc_nfound(last_error)):
+        if isinstance(opened_idn_error, BaseException):
+            return opened_idn_error
+        return Exception(str(opened_idn_error))
+    if last_error is not None:
+        return last_error
+    return Exception("WT3000连接失败")
 
 
 class WT3000Controller:
@@ -55,9 +97,11 @@ class WT3000Controller:
 
         if ip:
             ports = []
+            # 用户写了哪个命令口就先试哪个。5025 是裸 SCPI，10001 是带登录的旧协议。
+            # 不按型号改口；另一个口只放在后面，前面失败再试。
             if port and port.isdigit() and int(port) not in _WT_POWER_PORTS:
                 ports.append(port)
-            for p in ("5025", "10001", "5024"):
+            for p in ("5025", "5024", "10001"):
                 if p not in ports:
                     ports.append(p)
             # SOCKET 优先（纯 TCP，NI-VISA/pyvisa-py 都较稳）
@@ -87,6 +131,9 @@ class WT3000Controller:
         handle = rm.open_resource(resource_string)
         _configure_scpi_resource(handle)
         handle.timeout = 10000
+        # 网口会话写波特率会让随后的 *IDN? 一直超时。只对串口设置。
+        if not is_serial_resource(resource_string):
+            return handle
         try:
             handle.baud_rate = int(self.baud_rate)
             handle.data_bits = 8
@@ -106,19 +153,9 @@ class WT3000Controller:
         except Exception:
             pass
 
-    def _idn_is_wt(self, handle) -> bool:
+    def _idn_text_is_wt(self, idn: str) -> bool:
         """电源口会接受 TCP 写入。必须读到横河功率分析仪 IDN 才算连上。"""
-        try:
-            handle.timeout = 2000
-        except Exception:
-            pass
-        try:
-            idn = str(handle.query("*IDN?")).strip()
-        except Exception as exc:
-            self.logger.info(f"WT3000 *IDN? 失败: {exc}")
-            print(f"WT3000 *IDN? 失败: {exc}")
-            return False
-        upper = idn.upper()
+        upper = str(idn or "").upper()
         if "WT" in upper or "YOKOGAWA" in upper:
             self.logger.info(f"WT3000 IDN: {idn}")
             print(f"WT3000 IDN: {idn}")
@@ -126,59 +163,258 @@ class WT3000Controller:
         print(f"WT3000 拒绝非功率分析仪: {idn}")
         return False
 
-    def connect(self, tcp_addr):
-        """连接 WT3000，并应用串口参数。"""
-        last_error = None
-        handle = None
-        used_resource = ""
-        managers = [self.rm]
-        # NI-VISA 对未登记的 SOCKET 常直接 RSRC_NFOUND；再试 pyvisa-py
+    def _open_identified(self, rm, resource_string):
+        """打开资源并读 *IDN?。
+
+        网口先用 LF，超时后换一次新连接再用 CR+LF。
+        返回 (handle, None) 表示已确认是 WT。
+        返回 (None, 说明) 表示口已打开但身份不是功率分析仪。
+        打不开或两次身份查询都超时则抛出异常。
+        """
+        is_socket = str(resource_string).upper().endswith("::SOCKET")
+        # 网口裸 SCPI 只试 LF；WT3000 无应答时由 connect() 改走横河旧协议，避免再空等一轮 CRLF。
+        terms = ("\n",) if is_socket else ("\n",)
+        timeout_ms = _WT_SOCKET_IDN_TIMEOUT_MS if is_socket else 4000
+        for term in terms:
+            handle = None
+            try:
+                handle = self._try_open(rm, resource_string)
+                handle.timeout = timeout_ms
+                handle.write_termination = term
+                handle.read_termination = "\n"
+                idn = str(handle.query("*IDN?")).strip()
+            except Exception as exc:
+                self._close_quiet(handle)
+                self.logger.info(f"WT3000 *IDN? 失败({term!r}): {exc}")
+                print(f"WT3000 *IDN? 失败({term!r}): {exc}")
+                if _is_timeout_error(exc) and term != terms[-1]:
+                    continue
+                raise
+            if self._idn_text_is_wt(idn):
+                return handle, None
+            self._close_quiet(handle)
+            return None, f"端口已打开，但 *IDN? 不是功率分析仪: {idn}"
+        raise Exception("WT3000 *IDN? 失败")
+
+    def _is_legacy_socket(self, resource_string) -> bool:
+        """10001 是横河旧协议口，不看型号。5025/5024 仍走裸 SCPI。"""
+        if not str(resource_string).upper().endswith("::SOCKET"):
+            return False
+        _host, port = parse_socket_resource(resource_string)
+        return int(port) == 10001
+
+    def _try_legacy_ethernet(self, resource_string, tried_keys: set):
+        """10001：anonymous 登录 + 组帧后再 *IDN?。其它口不走这里。"""
+        if not self._is_legacy_socket(resource_string):
+            return None
+        host, port = parse_socket_resource(resource_string)
+        if not host:
+            return None
+        key = (host, int(port))
+        if key in tried_keys:
+            return None
+        tried_keys.add(key)
+        self.logger.info(f"WT3000尝试横河旧协议: {host}:{port}")
+        print(f"WT3000尝试横河旧协议: {host}:{port}")
+        handle, idn_or_err = try_idn_over_legacy(host, port, timeout_s=10.0)
+        if handle is None:
+            self.logger.info(f"WT3000 旧协议失败: {idn_or_err}")
+            print(f"WT3000 旧协议失败: {idn_or_err}")
+            raise TimeoutError(f"WT3000 legacy ethernet failed: {idn_or_err}")
+        if not self._idn_text_is_wt(idn_or_err):
+            self._close_quiet(handle)
+            return None, f"旧协议已登录，但 *IDN? 不是功率分析仪: {idn_or_err}"
+        return handle, None
+
+    def _legacy_first_resource(self, tcp_addr):
+        """地址写明 10001 时，第一候选就是旧协议口。裸 IP / 5025 不提前占 10001。"""
+        text = str(tcp_addr or "").strip()
+        upper = text.upper()
+        if ":5025" in text or "::5025::" in upper or "::5024::" in upper or ":5024" in text:
+            return ""
+        if not (":" in text or upper.startswith("TCPIP")):
+            return ""
+        host, port = parse_socket_resource(text)
+        if not host or host.count(".") != 3:
+            return ""
+        if int(port) != 10001:
+            return ""
+        return f"TCPIP0::{host}::10001::SOCKET"
+
+    def _visa_managers(self):
+        managers = []
+        if self.rm is not None:
+            managers.append(self.rm)
         try:
             import pyvisa as visa
 
             py_rm = visa.ResourceManager("@py")
-            if py_rm is not self.rm:
+            if all(py_rm is not item for item in managers):
                 managers.append(py_rm)
         except Exception as py_exc:
             self.logger.info(f"WT3000 pyvisa-py 不可用: {py_exc}")
+        return managers
 
-        for rm in managers:
+    def _open_socket_identified(self, resource_string):
+        """同一个口先 NI-VISA，资源找不到再试 pyvisa-py。
+
+        口已经打开却超时，说明仪器会话还在，不能换后端再连一次。
+        """
+        last = None
+        for rm in self._visa_managers():
             backend = getattr(rm, "visalib", None)
             backend_name = type(backend).__name__ if backend is not None else "default"
-            for resource_string in self._candidate_resources(tcp_addr):
+            self.logger.info(f"WT3000尝试连接[{backend_name}]: {resource_string}")
+            print(f"WT3000尝试连接[{backend_name}]: {resource_string}")
+            try:
+                return self._open_identified(rm, resource_string)
+            except Exception as exc:
+                last = exc
+                if _is_rsrc_nfound(exc):
+                    continue
+                raise
+        if last is not None:
+            raise last
+        raise Exception("WT3000连接失败")
+
+    def _accept_found(self, found, idn_error, resource_string):
+        if found is not None:
+            return found, resource_string, None, False
+        if idn_error:
+            return None, "", Exception(idn_error), True
+        return None, "", None, False
+
+    def connect(self, tcp_addr):
+        """连接 WT3000，并应用串口参数。"""
+        last_error = None
+        socket_timeout_error = None
+        opened_idn_error = None
+        handle = None
+        used_resource = ""
+        legacy_tried = set()
+        # 10001 一旦接通就只剩这一个名额。登录没完成时再开 5025 / VXI-11，
+        # 仪器屏幕会弹出「忙碌」。拒绝连接（口上没人听）才可以试下一个口。
+        session_held = False
+        candidates = self._candidate_resources(tcp_addr)
+        socket_resources = [
+            item for item in candidates if str(item).upper().endswith("::SOCKET")
+        ]
+        instr_resources = [
+            item for item in candidates if "::INSTR" in str(item).upper()
+        ]
+
+        for resource_string in socket_resources:
+            if self._is_legacy_socket(resource_string):
                 try:
-                    self.logger.info(f"WT3000尝试连接[{backend_name}]: {resource_string}")
-                    print(f"WT3000尝试连接[{backend_name}]: {resource_string}")
-                    handle = self._try_open(rm, resource_string)
-                    if not self._idn_is_wt(handle):
-                        self._close_quiet(handle)
-                        handle = None
-                        last_error = Exception(
-                            f"端口不是功率分析仪（502/2101 是电源口）: {resource_string}"
-                        )
-                        continue
-                    used_resource = resource_string
-                    break
-                except Exception as e:
-                    last_error = e
-                    self.logger.info(f"WT3000 connect error {e}")
-                    print(f"WT3000 connect error {e}")
+                    legacy = self._try_legacy_ethernet(resource_string, legacy_tried)
+                except Exception as legacy_exc:
+                    last_error = legacy_exc
+                    socket_timeout_error = legacy_exc
+                    self.logger.info(f"WT3000 connect error {legacy_exc}")
+                    print(f"WT3000 connect error {legacy_exc}")
                     handle = None
-            if handle is not None:
+                    if not _is_connection_refused(legacy_exc):
+                        session_held = True
+                        break
+                    continue
+                if legacy is None:
+                    continue
+                found, idn_error = legacy
+                got, used, err, held = self._accept_found(
+                    found, idn_error, resource_string
+                )
+                if got is not None:
+                    handle = got
+                    used_resource = used
+                    break
+                if err is not None:
+                    opened_idn_error = str(err)
+                    last_error = err
+                if held:
+                    session_held = True
+                    break
+                handle = None
+                continue
+            try:
+                found, idn_error = self._open_socket_identified(resource_string)
+            except Exception as exc:
+                last_error = exc
+                self.logger.info(f"WT3000 connect error {exc}")
+                print(f"WT3000 connect error {exc}")
+                handle = None
+                if _is_timeout_error(exc):
+                    socket_timeout_error = exc
+                    session_held = True
+                    break
+                continue
+            got, used, err, held = self._accept_found(
+                found, idn_error, resource_string
+            )
+            if got is not None:
+                handle = got
+                used_resource = used
                 break
+            if err is not None:
+                opened_idn_error = str(err)
+                last_error = err
+            if held:
+                session_held = True
+                break
+            handle = None
+
+        if handle is None and not session_held:
+            for resource_string in instr_resources:
+                try:
+                    found, idn_error = self._open_socket_identified(resource_string)
+                except Exception as exc:
+                    last_error = exc
+                    self.logger.info(f"WT3000 connect error {exc}")
+                    print(f"WT3000 connect error {exc}")
+                    if _is_timeout_error(exc):
+                        socket_timeout_error = exc
+                        session_held = True
+                        break
+                    continue
+                got, used, err, held = self._accept_found(
+                    found, idn_error, resource_string
+                )
+                if got is not None:
+                    handle = got
+                    used_resource = used
+                    break
+                if err is not None:
+                    opened_idn_error = str(err)
+                    last_error = err
+                if held:
+                    session_held = True
+                    break
         if handle is None:
             try:
-                raise last_error if last_error is not None else Exception("WT3000连接失败")
+                raise choose_wt_connect_error(
+                    last_error, socket_timeout_error, opened_idn_error
+                )
             except Exception as e:
                 self.logger.info(f"WT3000 connect error {e}")
                 print(f"WT3000 connect error {e}")
                 hint = ""
-                err_s = str(e)
-                if "RSRC_NFOUND" in err_s or "-1073807343" in err_s:
+                if _is_rsrc_nfound(e):
                     hint = (
-                        "\n提示：资源未找到。请确认 IP/端口（横河常用 5025），"
-                        "或先在「扫描并连接设备」里用「指定 IP」探测后再连。"
+                        "\n提示：资源未找到。命令口填 5025 或 10001，"
+                        "不要填 502/2101/8080。"
                     )
+                elif _is_connection_refused(e):
+                    hint = (
+                        "\n仪器拒绝了这次 TCP。请先退出 WT 上位机"
+                        "（网口同时只允许 1 个连接）。命令口是 5025 或 10001。"
+                    )
+                elif _is_timeout_error(e):
+                    hint = (
+                        "\n仪器屏幕上的「忙碌」就是这次连接还占着唯一的网口。"
+                        "请先关掉 WT 上位机，等忙碌消失后再连，不要连续点。"
+                        "10001 会先用 anonymous、空密码登录。"
+                    )
+                if session_held:
+                    time.sleep(0.8)
                 self.show_message(f"WT3000连接失败：{e}{hint}", None)
                 self.connected = False
                 self.handle = None

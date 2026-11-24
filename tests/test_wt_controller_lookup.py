@@ -73,10 +73,18 @@ def test_job_wants_dewetron_respects_wt_mode():
         )
         is False
     )
+    # 页内 WT 型号默认勾选不能盖掉显式德威创
+    assert (
+        job_wants_dewetron(
+            widgets={"radio_dewetron": True, "radioButton_S2_WT3000": True}
+        )
+        is True
+    )
+    # 未勾德威创、仅型号页勾选：按仪器表判定（仅 dew → True，与无 widgets 一致）
     assert (
         job_wants_dewetron(
             widgets={"radioButton_S2_WT3000": True},
             instruments=[{"slot": "dew"}],
         )
-        is False
+        is True
     )

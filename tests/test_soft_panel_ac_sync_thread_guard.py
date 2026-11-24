@@ -19,11 +19,16 @@ def _fn_body_source(path: Path, name: str) -> str:
     raise AssertionError(f"missing {name}")
 
 
-def test_sync_soft_panel_uses_bridge_not_direct_setplaintext():
+def test_experiment_commands_do_not_rewrite_ac_config_page():
     src = Path(__file__).resolve().parents[1] / "SCPITestWave.py"
-    body = _fn_body_source(src, "_sync_soft_panel_ac_setpoint_from_scpi")
-    assert "setPlainText" not in body
-    assert "ac_setpoint.emit" in body or "_apply_soft_panel_ac_setpoint_ui" in body
+    sync_body = _fn_body_source(src, "_sync_soft_panel_ac_setpoint_from_scpi")
+    apply_body = _fn_body_source(src, "_apply_soft_panel_ac_setpoint_ui")
+    recover_body = _fn_body_source(src, "_recover_ac_nominal_before_stop")
+    assert "setPlainText" not in sync_body
+    assert "setPlainText" not in apply_body
+    assert "ac_setpoint.emit" not in sync_body
+    assert "textEdit_S1_AC_VOLT" not in recover_body
+    assert "_get_active_ac_setpoints" in recover_body
 
 
 def test_device_io_bridge_log_uses_queued_connection():

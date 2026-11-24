@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from utils.dc_channels import channel_numbers, s1_dc_slots
+
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from utils.ac_scpi_commands import append_ac_startup_from_ui
@@ -108,7 +110,7 @@ def _plain(ui, name: str, default: str = "") -> str:
 
 
 def _band_enabled_on_any_dc(ui, band: str) -> bool:
-    for ch in range(1, 5):
+    for ch in channel_numbers():
         cb = getattr(ui, "checkBox_S1_DC%d_%s" % (ch, band), None)
         dc = getattr(ui, "checkBox_S1_DC%d" % ch, None)
         if dc is not None and dc.isChecked() and cb is not None and cb.isChecked():
@@ -236,12 +238,7 @@ def build_static_mppt_bluesight_plan(
             dc_errors.append("请至少勾选一个电压点（建议 Vnom）")
         else:
             vmp, imp, voc, isc = _read_band_iv(ui, startup_band)
-            for ch, device, dc_num, label in (
-                (1, "DC1", 0, "DC电源1"),
-                (2, "DC2", 1, "DC电源2"),
-                (3, "DC3", 2, "DC电源3"),
-                (4, "DC4", 3, "DC电源4"),
-            ):
+            for ch, device, dc_num, label in s1_dc_slots(ui):
                 if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
                     continue
                 code, iv_cmds = dc_iv_resolver(vmp, imp, voc, isc, 100.0, dc_num)
@@ -363,12 +360,7 @@ def build_static_mppt_bluesight_plan(
                 wt_is_checked=wt_is_checked,
                 point_index=point_index,
             )
-            for ch, device, dc_num, label in (
-                (1, "DC1", 0, "DC电源1"),
-                (2, "DC2", 1, "DC电源2"),
-                (3, "DC3", 2, "DC电源3"),
-                (4, "DC4", 3, "DC电源4"),
-            ):
+            for ch, device, dc_num, label in s1_dc_slots(ui):
                 if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
                     continue
                 band_cb = getattr(ui, "checkBox_S1_DC%d_%s" % (ch, band), None)
@@ -423,8 +415,9 @@ def build_static_mppt_bluesight_plan(
                     except Exception:
                         want_off = True
                 if want_off:
-                    for ch in range(1, 5):
-                        if getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
+                    for ch in channel_numbers():
+                        box = getattr(ui, "checkBox_S1_DC%d" % ch, None)
+                        if box is not None and box.isChecked():
                             dc_channels.append(ch)
         if dc_channels:
             for row in build_forced_shutdown_rows(

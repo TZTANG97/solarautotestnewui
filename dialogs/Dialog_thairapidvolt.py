@@ -270,7 +270,7 @@ class Ui_Dialog_thairapidvolt(object):
         acG.setSpacing(8)
         acG.setContentsMargins(12, 20, 12, 12)
 
-        # Row 0: checkBox_S1 + 交流电源
+        # Row 0: step1 + 交流电源开关 + 相模式（开关勿塞进电压行）
         self.checkBox_S1 = QtWidgets.QCheckBox("step1")
         self.checkBox_S1.setChecked(True)
         self.checkBox_S1.setObjectName("checkBox_S1")
@@ -280,27 +280,36 @@ class Ui_Dialog_thairapidvolt(object):
         self.label_3.setObjectName("label_3")
         acG.addWidget(self.label_3, 0, 1)
 
-        # 交流电压1
-        self.label_4 = QtWidgets.QLabel("交流电压1")
-        self.label_4.setObjectName("label_4")
-        acG.addWidget(self.label_4, 1, 0)
-
         self.comboBox_S1_AC = QtWidgets.QComboBox()
         self.comboBox_S1_AC.setObjectName("comboBox_S1_AC")
         self.comboBox_S1_AC.addItems(["开启", "关闭"])
         self.comboBox_S1_AC.setFixedWidth(100)
-        acG.addWidget(self.comboBox_S1_AC, 1, 1)
+        acG.addWidget(self.comboBox_S1_AC, 0, 2)
+
+        self.label_phase = QtWidgets.QLabel("相模式")
+        self.label_phase.setObjectName("label_phase")
+        acG.addWidget(self.label_phase, 0, 4)
+
+        self.comboBox_S1_AC_2 = QtWidgets.QComboBox()
+        self.comboBox_S1_AC_2.setObjectName("comboBox_S1_AC_2")
+        self.comboBox_S1_AC_2.addItems(["单相", "三相"])
+        self.comboBox_S1_AC_2.setFixedWidth(100)
+        acG.addWidget(self.comboBox_S1_AC_2, 0, 5)
+
+        # Row 1: 交流电压1 + 交流电压2
+        self.label_4 = QtWidgets.QLabel("交流电压1")
+        self.label_4.setObjectName("label_4")
+        acG.addWidget(self.label_4, 1, 0)
 
         self.textEdit_S1_AC_VOLT = QtWidgets.QTextEdit()
         self.textEdit_S1_AC_VOLT.setObjectName("textEdit_S1_AC_VOLT")
         self.textEdit_S1_AC_VOLT.setFixedSize(80, 28)
-        acG.addWidget(self.textEdit_S1_AC_VOLT, 1, 2)
+        acG.addWidget(self.textEdit_S1_AC_VOLT, 1, 1)
 
         self.label_5 = QtWidgets.QLabel("V")
         self.label_5.setObjectName("label_5")
-        acG.addWidget(self.label_5, 1, 3)
+        acG.addWidget(self.label_5, 1, 2)
 
-        # 交流电压2
         self.label_113 = QtWidgets.QLabel("交流电压2")
         self.label_113.setObjectName("label_113")
         acG.addWidget(self.label_113, 1, 4)
@@ -314,7 +323,7 @@ class Ui_Dialog_thairapidvolt(object):
         self.label_107.setObjectName("label_107")
         acG.addWidget(self.label_107, 1, 6)
 
-        # 交流电压3
+        # Row 2: 交流电压3 + 频率
         self.label_123 = QtWidgets.QLabel("交流电压3")
         self.label_123.setObjectName("label_123")
         acG.addWidget(self.label_123, 2, 0)
@@ -328,7 +337,6 @@ class Ui_Dialog_thairapidvolt(object):
         self.label_102.setObjectName("label_102")
         acG.addWidget(self.label_102, 2, 2)
 
-        # 频率
         self.label_19 = QtWidgets.QLabel("频率")
         self.label_19.setObjectName("label_19")
         acG.addWidget(self.label_19, 2, 4)
@@ -341,13 +349,6 @@ class Ui_Dialog_thairapidvolt(object):
         self.label_18 = QtWidgets.QLabel("Hz")
         self.label_18.setObjectName("label_18")
         acG.addWidget(self.label_18, 2, 6)
-
-        # 单相/三相
-        self.comboBox_S1_AC_2 = QtWidgets.QComboBox()
-        self.comboBox_S1_AC_2.setObjectName("comboBox_S1_AC_2")
-        self.comboBox_S1_AC_2.addItems(["单相", "三相"])
-        self.comboBox_S1_AC_2.setFixedWidth(100)
-        acG.addWidget(self.comboBox_S1_AC_2, 3, 1)
 
         layout.addWidget(self.groupBox)
 

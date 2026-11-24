@@ -253,7 +253,17 @@ def apply_device_connection(
         for key, value in extra.items():
             if value is None:
                 continue
-            found[str(key)] = value
+            # measures 合并：避免连接纠偏把刚下发的 VOLT/Vmp 整表盖掉
+            if key == "measures" and isinstance(value, dict):
+                merged = (
+                    dict(found.get("measures") or {})
+                    if isinstance(found.get("measures"), dict)
+                    else {}
+                )
+                merged.update({str(k): v for k, v in value.items() if v is not None})
+                found["measures"] = merged
+            else:
+                found[str(key)] = value
     return payload
 
 
@@ -508,12 +518,13 @@ def ac_connection_extra(
 
 
 
+# 爱科 VOLT 230；致茂 61800 VOLT:AC 230 / VOLT:AC1 230；偶发 SOUR:VOLT:AC
 _VOLT_RE = re.compile(
-    r"(?:^|[;:])(?:SOUR(?:CE)?:)?VOLT(?:AGE)?(?:[:\s]+)([+-]?\d+(?:\.\d+)?)",
+    r"(?:^|[;:\s])(?:SOUR(?:CE)?:)?VOLT(?:AGE)?(?::AC(?:\d)?)?(?:[:\s]+)([+-]?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 _FREQ_RE = re.compile(
-    r"(?:^|[;:])(?:SOUR(?:CE)?:)?FREQ(?:UENCY)?(?:[:\s]+)([+-]?\d+(?:\.\d+)?)",
+    r"(?:^|[;:\s])(?:SOUR(?:CE)?:)?FREQ(?:UENCY)?(?::AC(?:\d)?)?(?:[:\s]+)([+-]?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 _OUTP_RE = re.compile(

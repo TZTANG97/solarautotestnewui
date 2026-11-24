@@ -93,9 +93,13 @@ def enabled_shutdown_dc_channels(
     *,
     s1_fmt: str = "checkBox_S1_DC%d",
     end_fmt: str = "checkBox_S_End_DC%d",
-    channels: Iterable[int] = range(1, 5),
+    channels: Iterable[int] = None,
 ) -> list[int]:
     """按严格 S1∧End 规则返回可关断的 1 基 DC 通道号。"""
+    if channels is None:
+        from utils.dc_channels import channel_numbers
+
+        channels = channel_numbers()
     enabled: list[int] = []
     for channel in channels:
         channel_i = int(channel)
@@ -224,18 +228,13 @@ def append_ui_forced_shutdown_step(
     返回实际关断的 1 基 DC 通道列表。
     """
     if not respect_keep_on:
-        force_end_combos_off(
-            ui,
-            (
-                "comboBox_S_End_AC",
-                "comboBox_S_End_DC1",
-                "comboBox_S_End_DC2",
-                "comboBox_S_End_DC3",
-                "comboBox_S_End_DC4",
-            ),
-            log=log,
-            tag=tag,
-        )
+        from utils.dc_channels import channel_numbers
+
+        combo_names = ["comboBox_S_End_AC", "comboBox_S_END_AC"]
+        for n in channel_numbers():
+            combo_names.append("comboBox_S_End_DC%d" % n)
+            combo_names.append("comboBox_S_END_DC%d" % n)
+        force_end_combos_off(ui, combo_names, log=log, tag=tag)
 
     dc_channels = enabled_shutdown_dc_channels(ui)
     if respect_keep_on:

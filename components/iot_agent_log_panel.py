@@ -296,6 +296,12 @@ def wire_iot_agent_log_page(
         try:
             if page.isVisible():
                 page.refresh_from_agent()
+        except KeyboardInterrupt:
+            # Ctrl+C / 关进程时定时器回调会被打断；停表即可，勿刷 traceback
+            try:
+                timer.stop()
+            except Exception:
+                pass
         except Exception:
             pass
 

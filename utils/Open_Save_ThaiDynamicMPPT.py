@@ -39,8 +39,9 @@ def _en50530_panel(ui):
 
 
 def _settings_row_from_ui(ui):
+    headers = build_settings_headers()
     values = []
-    for header in arrayRow1:
+    for header in headers:
         if header == "Style":
             values.append(FILE_TAG)
         elif header == TIMING_PROFILE_JSON_COLUMN:
@@ -48,19 +49,19 @@ def _settings_row_from_ui(ui):
             values.append(panel.get_bundle_json() if panel is not None else "")
         else:
             values.append(widget_to_csv(ui, str(header)))
-    append_dewetron_settings_tail(arrayRow1, values, ui, test_type=TEST_TYPE)
-    return values
+    append_dewetron_settings_tail(headers, values, ui, test_type=TEST_TYPE)
+    return headers, values
 
 
 def save_settings_to_path(ui: Any, path: Union[str, Path], *, show_message: bool = False) -> Path:
     """Write settings CSV (no file dialog). Used by UI Save and automated tests."""
 
     target = Path(path)
-    values = _settings_row_from_ui(ui)
+    headers, values = _settings_row_from_ui(ui)
     wt_rows = _save_wt_rows(ui)
     with target.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.writer(handle)
-        writer.writerow(list(arrayRow1))
+        writer.writerow(list(headers))
         writer.writerow(values)
         writer.writerows(wt_rows)
     if show_message:

@@ -18,6 +18,7 @@ from utils.ovuf_recording import (
     apply_ovuf_recording_mode,
     build_ovuf_sweep_points,
     enabled_ovuf_segments,
+    find_ovuf_sweep_measure_indices,
     make_ovuf_boot_wait_row,
     ovuf_split_collect_sec,
     ovuf_sweep_project,
@@ -120,6 +121,79 @@ def test_ovuf_sweep_points_and_segments(ovuf_ui):
     assert segs[0]["step"] == 3
     assert segs[0]["points"] == [230.0, 240.0]
     assert recommended_ovuf_names(ovuf_ui, MODE_SPLIT) == ["OVUF_S3_V230_240"]
+
+
+def test_job146_startup_idn_does_not_open_recording_before_boot(ovuf_ui):
+    """途哲2号任务146：OUTP 后的间隙 *IDN? 不能在 OVUF_BOOT 之前开录。"""
+    for step_no in (4, 5, 6, 7, 8):
+        getattr(ovuf_ui, "checkBox_S%d" % step_no).setChecked(False)
+    ovuf_ui.checkBox_S3.setChecked(True)
+    ovuf_ui.textEdit_S3_AC_VOLT_Start.setPlainText("230")
+    ovuf_ui.textEdit_S3_AC_VOLT_End.setPlainText("220")
+    ovuf_ui.textEdit_S3_Step_Size.setPlainText("10")
+
+    cmds = [
+        ["AC", "write", "VOLT 230", "", "", "", "", "", "", ""],
+        ["AC", "write", "FREQ 50", "", "", "", "", "", "", ""],
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", 30],
+        ["AC", "query", "*IDN?", "", "", "", "", "", 2, 10],
+        ["DC1", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "query", "*IDN?", "", "", "", "", "", 2, 10],
+        make_ovuf_boot_wait_row(3000),
+    ]
+    for volt in ("230", "220"):
+        cmds.append(["AC", "write", "VOLT " + volt, "", "", "", "", "", "", ""])
+        cmds.append(["AC", "query", "*IDN?", "", "", "", "", "", "", 15])
+    cmds.append(["AC", "write", "VOLT 230", "", "", "", "", "", "", ""])
+
+    measures = find_ovuf_sweep_measure_indices([list(r) for r in cmds])
+    boot_i = next(i for i, r in enumerate(cmds) if r[2] == "OVUF_BOOT")
+    assert measures
+    assert all(i > boot_i for i in measures)
+    assert len(measures) == 2
+
+    assert apply_ovuf_recording_mode(cmds, ovuf_ui, continuous=True, wt_on=True) == 1
+    start_i = next(i for i, r in enumerate(cmds) if r[6] == "ASYNC_START")
+    end_i = next(i for i, r in enumerate(cmds) if r[6] == "WAIT_END")
+    boot_i = next(i for i, r in enumerate(cmds) if r[2] == "OVUF_BOOT")
+    assert start_i == boot_i + 1
+    assert end_i > start_i
+    assert cmds[end_i - 1][2] == "*IDN?"
+    assert str(cmds[end_i + 1][2]).startswith("VOLT")
+
+
+def test_ovuf_markers_follow_boot_and_cover_later_voltage_steps(ovuf_ui):
+    """与无功能力范围相同：ASYNC_START 紧跟启机等待，扫点都在窗口内，恢复在窗口外。"""
+    for step_no in (4, 5, 6, 7, 8):
+        getattr(ovuf_ui, "checkBox_S%d" % step_no).setChecked(False)
+    ovuf_ui.checkBox_S3.setChecked(True)
+    ovuf_ui.textEdit_S3_AC_VOLT_Start.setPlainText("230")
+    ovuf_ui.textEdit_S3_AC_VOLT_End.setPlainText("220")
+    ovuf_ui.textEdit_S3_Step_Size.setPlainText("10")
+
+    cmds = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        make_ovuf_boot_wait_row(600),
+    ]
+    for i, volt in enumerate(("230", "220")):
+        cmds.append(["AC", "write", "VOLT " + volt, "", "", "", "", "", "", ""])
+        row = ["AC", "query", "*IDN?", "", "", "", "", "", "", ""]
+        if i == 0:
+            row[6] = 30
+        else:
+            row[9] = 30
+        cmds.append(row)
+    cmds.append(["AC", "write", "VOLT 230", "", "", "", "", "", "", ""])
+
+    assert apply_ovuf_recording_mode(cmds, ovuf_ui, continuous=True, wt_on=True) == 1
+    boot_i = next(i for i, r in enumerate(cmds) if r[2] == "OVUF_BOOT")
+    start_i = next(i for i, r in enumerate(cmds) if r[6] == "ASYNC_START")
+    end_i = next(i for i, r in enumerate(cmds) if r[6] == "WAIT_END")
+    volt_idxs = [i for i, r in enumerate(cmds) if str(r[2]).startswith("VOLT ")]
+    assert start_i == boot_i + 1
+    assert end_i > start_i
+    assert start_i < volt_idxs[0] < volt_idxs[1] < end_i
+    assert end_i < volt_idxs[2]
 
 
 def test_ovuf_apply_recording_continuous_vs_split(ovuf_ui):

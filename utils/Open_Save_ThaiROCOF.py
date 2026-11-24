@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from utils.dc_channels import extend_setting_headers
 """ROCOF保护：读取/保存 CSV 设定。"""
 
 import csv
@@ -28,11 +29,11 @@ _DEWETRON_SPEC = PROJECT_SPECS["ROCOF保护"]
 FILE_TAG = "ThaiROCOF"
 
 
-def _append_dewetron_tail(values, ui):
+def _append_dewetron_tail(headers, values, ui):
     section = getattr(ui, "analyzerModeSection", None)
     source = section if section is not None else ui
     return append_dewetron_tail_columns(
-        arrayRow1,
+        headers,
         values,
         extract_ui_config(source),
         mode=extract_ui_mode(source),
@@ -92,7 +93,7 @@ def _build_headers():
         "checkBox_S_End_DC3", "comboBox_S_End_DC3",
         "checkBox_S_End_DC4", "comboBox_S_End_DC4",
     ]
-    return h
+    return extend_setting_headers(h)
 
 
 HEADERS = _build_headers()
@@ -156,12 +157,11 @@ def Save_File_ThaiROCOF(kwargs):
     directory = QFileDialog.getSaveFileName(None, "保存设定", "./", "Text Files(*.csv)")
     if not directory[0]:
         return
+    headers = _build_headers()
     row = [FILE_TAG]
-    for col in HEADERS[1:]:
+    for col in headers[1:]:
         row.append(_widget_to_csv(ui, col))
-    headers = list(arrayRow1)
-    _append_dewetron_tail(row, ui)
-    headers = list(arrayRow1)
+    headers, row = _append_dewetron_tail(headers, row, ui)
     result = save_embedded_wt_config(ui)
     with open(directory[0], "w", newline="", encoding="utf-8-sig") as fp:
         writer = csv.writer(fp)
@@ -197,7 +197,7 @@ def Open_File_ThaiROCOF(kwargs):
         if len(h_wt) > len(d_wt):
             d_wt.extend([""] * (len(h_wt) - len(d_wt)))
         wt_config_dict = dict(zip(h_wt, d_wt))
-    for col in HEADERS[1:]:
+    for col in _build_headers()[1:]:
         if col in config:
             _apply_csv_value(ui, col, config[col])
     open_embedded_wt_config(ui, wt_config_dict)

@@ -201,15 +201,36 @@ RATE_MAP = {
 }
 
 
-def parse_rate_ms(rate_text):
+def _looks_like_rate_reply(rate_text: str) -> bool:
+    """True when text is a rate, not a leftover :NUM:ITEMS / channel list."""
+    text = str(rate_text or "").strip()
+    if not text:
+        return False
+    upper = text.upper()
+    # 常见串包：:RATE? 读到上一包 NUMERIC ITEMs 回显
+    if "ITEMS" in upper or "@POWER" in upper or "ABS-TIME" in upper:
+        return False
+    if text.count(",") >= 2 and '"' in text:
+        return False
+    return True
+
+
+def parse_rate_ms(rate_text, *, default_ms=100, allow_default=True):
     """将 MaxUpdateRate 文本转换为毫秒数。
 
     UI 侧多为 ``Default`` / ``100`` / ``100ms``（毫秒）。
     设备 ``:RATE?`` 常回 ``1.0E-1`` / ``0.1``（秒）。勿对科学计数法只取首段数字，
     否则 ``1.0E-1`` 会被误判成 1ms。
+
+    若回包像通道列表（NUM ITEMs），返回 ``None``（``allow_default=False``）或 ``default_ms``，
+    禁止再从 ``U3_tRMS`` 里抠出 ``3`` 当成 3ms。
     """
     rate_text = str(rate_text or '').strip()
     rate_text = re.sub(r'^:RATE\s*', '', rate_text, flags=re.IGNORECASE).strip().strip('"')
+    if not _looks_like_rate_reply(rate_text):
+        preview = rate_text[:80].replace("\n", " ")
+        print(f"[parse_rate_ms] 拒绝非刷新率回包: '{preview}...'")
+        return int(default_ms) if allow_default else None
     if rate_text in RATE_MAP:
         result = RATE_MAP[rate_text]
         print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (from RATE_MAP)")
@@ -250,13 +271,9 @@ def parse_rate_ms(rate_text):
             print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (parsed as ms)")
         return result
 
-    m = re.search(r'(\d+)', rate_text)
-    if m:
-        result = int(m.group(1))
-        print(f"[parse_rate_ms] '{rate_text}' -> {result}ms (extracted from regex)")
-        return result
-    print(f"[parse_rate_ms] '{rate_text}' -> 100ms (default)")
-    return 100
+    # 不再从任意字符串抠数字：会把 U3_tRMS 误判成 3ms
+    print(f"[parse_rate_ms] '{rate_text}' 无法解析")
+    return int(default_ms) if allow_default else None
 
 
 def scpi_poll_interval_s(rate_ms):
@@ -394,6 +411,11 @@ class DewetronDataCollector:
         'Q2_fund': ('Q2_fund [var]',),
         'Q3_fund': ('Q3_fund [var]',),
         'Q_fund':  ('Q_fund [var]',),
+        # 试验页常勾 Q_t（总无功），与 Q_fund 并存
+        'Q_t':     ('Q_t [var]',),
+        'Q1_t':    ('Q1_t [var]',),
+        'Q2_t':    ('Q2_t [var]',),
+        'Q3_t':    ('Q3_t [var]',),
         'S1_t':    ('S1_t [VA]',),
         'S2_t':    ('S2_t [VA]',),
         'S3_t':    ('S3_t [VA]',),
@@ -726,34 +748,63 @@ class DewetronDataCollector:
 
     def _setup_rate(self):
         """Set and verify the device numeric update rate."""
+        target_ms = int(self._rate_ms or 100)
         if not self._send_controller(
-            f":RATE {self._rate_ms}ms",
-            f"设置采集间隔 {self._rate_ms}ms",
+            f":RATE {target_ms}ms",
+            f"设置采集间隔 {target_ms}ms",
             "RATE",
         ):
             return False
-        rate_val = self._query_controller(":RATE?")
-        if not rate_val:
-            return False
-        actual_ms = parse_rate_ms(str(rate_val).replace(':RATE', '').strip())
+        # NUMERIC 刚配完时 :RATE? 偶发读到 ITEMs 残包；最多再问一次
+        rate_val = None
+        actual_ms = None
+        for attempt in range(2):
+            rate_val = self._query_controller(":RATE?")
+            if not rate_val:
+                continue
+            raw = str(rate_val).replace(":RATE", "").strip()
+            actual_ms = parse_rate_ms(raw, default_ms=target_ms, allow_default=False)
+            if actual_ms is not None and actual_ms > 0:
+                break
+            print(
+                f"[Collector][start_gathering] :RATE? 回包不可用 "
+                f"(attempt={attempt + 1}): {str(rate_val)[:120]!r}"
+            )
+            actual_ms = None
+            time.sleep(0.15)
+        if actual_ms is None:
+            # 保留 prepare 的 UI 刷新率，切勿把 U3 抠成 3ms 狂抽
+            self._rate_ms = target_ms
+            self._emit_ui(
+                f"[DEWETRON] :RATE? 回包异常，继续按设定 {target_ms}ms 抽点"
+                f"（勿信通道列表残包）"
+            )
+            return True
         print(
             f"[Collector][start_gathering] RATE 验证: "
-            f"设置={self._rate_ms}ms, 实际={rate_val} (解析={actual_ms}ms)"
+            f"设置={target_ms}ms, 实际={rate_val!r} (解析={actual_ms}ms)"
         )
-        if rates_match_ms(self._rate_ms, actual_ms, tolerance_ms=5):
+        if rates_match_ms(target_ms, actual_ms, tolerance_ms=5):
+            self._rate_ms = target_ms
             return True
-        # 设备可能把 200ms 量化到邻近档；按实读取样，避免硬失败或软件节拍与设备不一致
-        if actual_ms > 0:
+        # 设备可能把 200ms 量化到邻近档；仅在合理范围内跟设备，且不得比目标快一个数量级
+        if actual_ms > 0 and actual_ms >= max(10, int(target_ms * 0.2)):
             print(
                 f"[Collector][start_gathering] RATE 不完全匹配，"
-                f"改用设备回报 {actual_ms}ms 作为采样节拍（目标 {self._rate_ms}ms）"
+                f"改用设备回报 {actual_ms}ms 作为采样节拍（目标 {target_ms}ms）"
             )
             self._rate_ms = int(actual_ms)
             self._emit_ui(
-                f"[DEWETRON] 刷新率设备回报为 {actual_ms}ms（设定 {rate_val}），已按实际值采样"
+                f"[DEWETRON] 刷新率设备回报为 {actual_ms}ms"
+                f"（目标 {target_ms}ms，回包 {str(rate_val)[:40]}），已按实际值采样"
             )
             return True
-        return False
+        self._rate_ms = target_ms
+        self._emit_ui(
+            f"[DEWETRON] 设备回报刷新率 {actual_ms}ms 异常偏快"
+            f"（目标 {target_ms}ms），仍按设定抽点"
+        )
+        return True
     def start_gathering(self):
         """配置采集并创建当前 run；成功返回 True。
 
@@ -763,8 +814,18 @@ class DewetronDataCollector:
         """
         print("[Collector][start_gathering] === 开始采集准备 ===")
         self._last_gather_error = ""
-        if not self._controller_connected() or not self._conn or not self._fields:
-            self._last_gather_error = "未连接或未 prepare 字段"
+        if not self._controller_connected():
+            self._last_gather_error = "DEWETRON未连接"
+            self._ready_to_gather = False
+            return False
+        if not self._fields:
+            self._last_gather_error = (
+                "未 prepare 采集字段（开跑前未完成德威创预处理，与 WT Soft Panel 无关）"
+            )
+            self._ready_to_gather = False
+            return False
+        if not self._conn:
+            self._last_gather_error = "采集库未就绪（prepare 未建立本地库）"
             self._ready_to_gather = False
             return False
         run_exists = self._run_id is not None
@@ -1003,8 +1064,15 @@ class DewetronDataCollector:
         """官方整段录波前置：Continuous + 关闭「录后自动停」。
 
         台架 Oxygen 常默认 Eventbased + SAFTer≈0.5s，不改就会只录半秒。
+        必须用 MODE Continuous 并回读确认；仅发 CONTinuous 偶发不切模式。
         """
-        # 文档：:STORe:WAVEform:CONTinuous / :STORe:WAVEform:MODE Continuous
+        # 文档：:STORe:WAVEform:MODE Continuous / :STORe:WAVEform:CONTinuous
+        self._send_controller(
+            ":STORE:WAVEFORM:MODE Continuous",
+            "Oxygen 录波 MODE=Continuous",
+            "STORE WAVEFORM MODE",
+            timeout_ms=5000,
+        )
         self._send_controller(
             ":STORE:WAVEFORM:CONTINUOUS",
             "Oxygen 录波改为 Continuous",
@@ -1017,6 +1085,13 @@ class DewetronDataCollector:
             "STORE SAFER OFF",
             timeout_ms=5000,
         )
+        # 再写一遍数值，避免 OFF 被忽略后仍按 0.5s 停
+        self._send_controller(
+            ":STORE:SAFTer OFF,0",
+            "录后自动停止时长清零",
+            "STORE SAFER OFF,0",
+            timeout_ms=5000,
+        )
         # 避免 STORE 自己再踢一脚 ACQUISITION
         self._send_controller(
             ":STORE:RACQuisition OFF",
@@ -1024,6 +1099,19 @@ class DewetronDataCollector:
             "STORE RACQ OFF",
             timeout_ms=3000,
         )
+        mode_raw = self._query_controller(":STORE:WAVEFORM:MODE?", timeout_ms=3000)
+        mode = str(mode_raw or "").strip()
+        safer_raw = self._query_controller(":STORE:SAFTer?", timeout_ms=3000)
+        self._emit_ui(
+            f"[DEWETRON] Oxygen 录波模式确认 MODE={mode or '?'} SAFTer={safer_raw or '?'}"
+        )
+        mode_l = mode.casefold()
+        if "continuous" not in mode_l:
+            self._emit_ui(
+                "[DEWETRON] 警告：Oxygen 未切到 Continuous，.dmd 可能只有事件窗（约 0.5s）"
+            )
+            return False
+        return True
 
     def _start_oxygen_store(self):
         """启动 Oxygen :STORE 录波（失败只告警，不阻断 NUMERIC）。
@@ -1050,8 +1138,9 @@ class DewetronDataCollector:
         # 先停掉可能残留的 STORE，并等到真正 Stopped
         self._send_controller(":STORE:STOP", "停止残留 STORE", "STORE STOP", timeout_ms=5000)
         self._wait_store_stopped(timeout_s=6.0, poll_s=0.3)
+        mode_ok = False
         try:
-            self._prepare_oxygen_store_mode()
+            mode_ok = bool(self._prepare_oxygen_store_mode())
         except Exception as exc:
             self._emit_ui(f"[DEWETRON] Oxygen 录波模式准备告警: {exc}")
 
@@ -1061,6 +1150,12 @@ class DewetronDataCollector:
         last_err = ""
         for path in candidates:
             last_path = path
+            # 每个候选再钉一次 Continuous，避免路径切换后模式被面板盖回 Eventbased
+            if not mode_ok:
+                try:
+                    mode_ok = bool(self._prepare_oxygen_store_mode())
+                except Exception:
+                    pass
             name_cmd = scpi_store_file_name(path)
             if not self._send_controller(
                 name_cmd, f"设置 Oxygen 录波路径 {path}", "STORE FILE NAME", timeout_ms=5000
@@ -1070,10 +1165,29 @@ class DewetronDataCollector:
                 ":STORE:START", "启动 Oxygen 录波", "STORE START", timeout_ms=5000
             ):
                 continue
-            time.sleep(0.5)
+            # Eventbased+SAFTer≈0.5s 会在半秒后自停；多等一会儿确认仍在录
+            time.sleep(0.35)
             state_raw = self._query_controller(":STORE:STATE?", timeout_ms=5000)
             state = parse_store_state_response(state_raw)
             last_state = state
+            if store_state_is_active(state):
+                time.sleep(0.9)
+                state_raw2 = self._query_controller(":STORE:STATE?", timeout_ms=5000)
+                state2 = parse_store_state_response(state_raw2)
+                last_state = state2 or state
+                if not store_state_is_active(state2):
+                    last_err = (
+                        f"START 后约 1s 已停（MODE 可能仍是 Eventbased，"
+                        f"STATE={state}->{state2}）"
+                    )
+                    self._emit_ui(f"[DEWETRON] Oxygen 录波过早停止: {last_err}")
+                    self._send_controller(
+                        ":STORE:STOP", "停止过早结束的 STORE", "STORE STOP", timeout_ms=3000
+                    )
+                    self._wait_store_stopped(timeout_s=4.0, poll_s=0.25)
+                    mode_ok = False
+                    continue
+                state = state2
             if not store_state_is_active(state):
                 err = self._query_controller(":SYSTEM:ERROR:ALL?", timeout_ms=3000)
                 if err:

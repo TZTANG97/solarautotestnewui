@@ -1327,37 +1327,49 @@ def _toggle_connection_button(connected_button_name, connected):
 
 
 def _save_device_status(device_name, connected, resource="", extra=None):
-    """更新 status.json 中的设备连接状态，刷新首页显示。"""
+    """更新 status.json 中的设备连接状态，刷新首页显示。
+
+    试验运行/暂停时：不要用配置页电压/IV 盖掉刚下发的实际设定
+    （台架卡片应跟 note_supply_command 的实时值走）。
+    """
     import json
     import os
-    from utils.status_json_devices import apply_device_connection, empty_status_payload
+    from utils.status_json_devices import (
+        apply_device_connection,
+        empty_status_payload,
+        status_json_lock,
+    )
 
     _status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "status.json")
-    try:
-        with open(_status_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        data = empty_status_payload()
-    if not isinstance(extra, dict):
+    _running_now = str(globals().get("strTestStatusFlag") or "") in ("运行", "暂停")
+    _auto_extra = not isinstance(extra, dict)
+    if _auto_extra:
         try:
             dn = str(device_name or "").strip()
             if dn in ("交流电源", "交流源"):
-                extra = _ac_status_extra()
+                # 运行中保留已下发 VOLT/FREQ，只更新连接态
+                extra = None if _running_now else _ac_status_extra()
             elif dn.startswith("直流电源") or dn.startswith("直流源"):
-                extra = _dc_status_extra(dn)
+                extra = None if _running_now else _dc_status_extra(dn)
             elif dn == "DEWETRON":
                 extra = _dewetron_status_extra()
         except Exception:
             extra = None
-    data = apply_device_connection(
-        data,
-        device_name=device_name,
-        connected=bool(connected),
-        resource=resource or "",
-        extra=extra if isinstance(extra, dict) else None,
-    )
-    with open(_status_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    with status_json_lock(_status_file):
+        try:
+            with open(_status_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = empty_status_payload()
+        data = apply_device_connection(
+            data,
+            device_name=device_name,
+            connected=bool(connected),
+            resource=resource or "",
+            extra=extra if isinstance(extra, dict) else None,
+        )
+        with open(_status_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
     # 刷新首页（任意线程：由 _reload_home_status 投递到 UI，勿在此碰 QWidget）
     if hasattr(ui, '_home_dots') and hasattr(ui, 'stackedWidget'):
         _reload_home_status(data)
@@ -1601,6 +1613,7 @@ def _refresh_dc_curr_max_status(dc_index=None):
         globals().get("dc4_controller"),
     )
     idxs = range(4) if dc_index is None else (int(dc_index),)
+    _running_now = str(globals().get("strTestStatusFlag") or "") in ("运行", "暂停")
     for i in idxs:
         if i < 0 or i >= 4:
             continue
@@ -1608,7 +1621,18 @@ def _refresh_dc_curr_max_status(dc_index=None):
         if ctrl is None or not getattr(ctrl, "connected", False):
             continue
         try:
-            _save_device_status(names[i], True, "", extra=_dc_status_extra(names[i]))
+            if _running_now:
+                # 运行中只补电流上限，勿用配置页 IV 盖掉已下发的 Vmp/Imp
+                arr = globals().get("ArrayfDCCurrValue") or []
+                lim = float(arr[i]) if i < len(arr) else 0.0
+                extra = (
+                    {"curr_max": lim, "measures": {"curr_max": lim}}
+                    if lim > 0
+                    else None
+                )
+            else:
+                extra = _dc_status_extra(names[i])
+            _save_device_status(names[i], True, "", extra=extra)
         except Exception as exc:
             print(f"[DC上限] 刷新 status 失败 DC{i + 1}: {exc}", flush=True)
 
@@ -27783,16 +27807,34 @@ def RunProject():
                     try:
                         if strTestStatusFlag == "结束":
                             break
-                        if _dc_ctrl is None or getattr(_dc_ctrl, "handle", None) is None:
+                        if _dc_ctrl is None:
                             raise RuntimeError("%s未连接，跳过该命令" % _dc_label)
-                        _dc_ctrl.write_command(strArrayTest[i][2], label=_dc_label)
-                        _note_live_supply_command("直流电源%d" % _dc_ch, strArrayTest[i][2])
+                        if getattr(_dc_ctrl, "handle", None) is None:
+                            # 通宵半开：句柄丢了但 resource 还在 → 静默重连一次
+                            _re_ok = False
+                            try:
+                                _re_ok = bool(_dc_ctrl.try_reconnect(_dc_label))
+                            except Exception as _re_exc:
+                                print(_re_exc)
+                            if not _re_ok or getattr(_dc_ctrl, "handle", None) is None:
+                                raise RuntimeError("%s未连接，跳过该命令" % _dc_label)
+                        _dc_cmd = strArrayTest[i][2]
+                        if not _dc_ctrl.write_command(_dc_cmd, label=_dc_label):
+                            raise RuntimeError(
+                                "%s写失败（已尝试重连）: %s"
+                                % (_dc_label, _format_dc_cmd_for_log(_dc_cmd))
+                            )
+                        _note_live_supply_command("直流电源%d" % _dc_ch, _dc_cmd)
                         strtimenow = now_to_datenow()
-                        _dc_log = _format_dc_cmd_for_log(strArrayTest[i][2])
+                        _dc_log = _format_dc_cmd_for_log(_dc_cmd)
                         logger.info(strtimenow + _dc_label + " " + _dc_log)
                         print(strtimenow + _dc_label + " " + _dc_log)
                     except Exception as e:
                         print(e)
+                        try:
+                            logger.error("%s %s" % (_dc_label, e))
+                        except Exception:
+                            pass
                     else:
                         if not _hook_output_on_health_check(_dc_label, strArrayTest[i][2]):
                             break
@@ -32780,6 +32822,7 @@ if __name__ == "__main__":
 
     print("[DEBUG_STARTUP] 2/9 准备创建 MacroManager / 日志系统", flush=True)
     manager = MacroManager(repeat=1, path=PATH_RECORDINGS["WT3000"], smooth_move=True) #默认3000
+    print("[DEBUG_STARTUP]    MacroManager 就绪", flush=True)
 
     local_file_path = "./local_file"
     command_save_file_path = "./command_save_files"
@@ -32797,6 +32840,7 @@ if __name__ == "__main__":
     logger = setup_logging(os.path.dirname(os.path.abspath(__file__)))
     original_stdout, original_stderr = install_stream_logging(logger)
     install_exception_hook(logger, original_stderr)
+    print("[DEBUG_STARTUP]    日志系统就绪", flush=True)
     try:
         from utils.iot_error_journal import install_error_journal
 
@@ -33191,6 +33235,18 @@ if __name__ == "__main__":
             uiThaiDynamicMPPT = setup_windows["uiThaiDynamicMPPT"]
 
             print("[DEBUG_STARTUP] 8/9 开始设备嵌入 + 信号连接 (长段)", flush=True)
+
+            def _startup_pump(tag=""):
+                """长段初始化里偶尔泵一下事件循环，减轻「窗口假死」感。"""
+                try:
+                    app = QtWidgets.QApplication.instance()
+                    if app is not None:
+                        app.processEvents()
+                        if tag:
+                            print("[DEBUG_STARTUP]    pump %s" % tag, flush=True)
+                except Exception:
+                    pass
+
             # ── 将设备设置对话框内容嵌入到对映的设备页面中（替代弹窗） ──
             from setup.main_setup import MainSetup as _MS
 
@@ -35160,6 +35216,7 @@ if __name__ == "__main__":
                 _when_ui_ready(obj, _connect)
 
             print("[DEBUG_STARTUP]    信号连接段 德国重连...(延迟登记)", flush=True)
+            _startup_pump("after-embed")
             #德国重连
             _when_ui_ready(uithaichonglian, lambda u: u.pushButton_Send.clicked.connect(thaichonglianSend))
 
@@ -35923,6 +35980,7 @@ if __name__ == "__main__":
             uiDewetronSetting.pushButton_LoadLastConfig.clicked.connect(uiDewetronSetting.show_config_list)
 
             print("[DEBUG_STARTUP]    信号连接段 AC...", flush=True)
+            _startup_pump("before-ac-signals")
             # 打开ACSetting对话框
             ui.pushButton_SetACOptions.clicked.connect(ShowACSetting)
             #AC交流源控制部分

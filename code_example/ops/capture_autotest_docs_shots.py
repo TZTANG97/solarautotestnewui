@@ -7,7 +7,7 @@ import sys
 import traceback
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from PyQt5.QtCore import QTimer
@@ -44,6 +44,7 @@ TESTS = [
     ("volt10min", "Dialog_thaivoltprotect10min", "Ui_Dialog_thaivoltprotect10min", None),
     ("immun", "Dialog_thaiguoqianpin_immun", "Ui_Dialog_thaiguoqianpin_immun", None),
     ("static-mppt", "Dialog_thaistaticmppttest", "Ui_Dialog_thaistaticmppttest", None),
+    ("antibackflow", "Dialog_thaantibackflow", "Ui_Dialog_thaantibackflow", None),
 ]
 
 
@@ -67,7 +68,7 @@ def settle(app: QApplication, ms: int = 120) -> None:
 
 def capture_one(app: QApplication, slug: str, module: str, cls_name: str, max_steps) -> None:
     print(f"==== {slug}")
-    mod = importlib.import_module(module)
+    mod = importlib.import_module(f"dialogs.{module}")
     ui_cls = getattr(mod, cls_name)
     dlg = QDialog()
     dlg.setWindowTitle(f"docs shot · {slug}")

@@ -310,6 +310,20 @@ def should_merge_append_filenames(str_add_flag, project_change="0") -> bool:
     )
 
 
+def _recording_family(name: str) -> str:
+    """文件名项目族：去掉末尾时分秒后取第一段。OVUF_BR_111111 → OVUF。"""
+    import re
+
+    stem = re.sub(r"_\d{6}$", "", str(name or "").strip())
+    return stem.split("_", 1)[0].upper()
+
+
+def _same_recording_family(left, right) -> bool:
+    a = _recording_family(left)
+    b = _recording_family(right)
+    return bool(a) and a == b
+
+
 def finalize_append_file_names(
     new_names,
     existing_commands=None,
@@ -322,7 +336,7 @@ def finalize_append_file_names(
     tagged = apply_run_tag(list(new_names or []), tag)
     if is_append:
         prev = previous_wt_filename_list(existing_commands)
-        if prev:
+        if prev and tagged and _same_recording_family(prev[-1], tagged[0]):
             return list(prev) + list(tagged)
     return tagged
 
@@ -387,7 +401,15 @@ def collect_progress_file_names(commands=None, config_dict=None) -> list:
         ).strip()
         if not raw:
             continue
-        names.extend(p.strip() for p in re.split(r"[,，]", raw) if p.strip())
+        part = [p.strip() for p in re.split(r"[,，]", raw) if p.strip()]
+        if not part:
+            continue
+        # 同项追加会把上一份名单原样接到本段前面。进度表只保留加长后的那份，
+        # 避免 A 与「A,B」被数成两轮 A。跨项名单前缀不同，仍然逐段接上。
+        if names and len(part) >= len(names) and part[: len(names)] == names:
+            names = part
+        else:
+            names.extend(part)
     if names:
         return names
     if isinstance(config_dict, dict):

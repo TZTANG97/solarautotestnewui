@@ -110,3 +110,53 @@ def test_wt_slot_pref_does_not_bind_same_host_power_port(monkeypatch):
     jobs = dict(suggest_auto_jobs(devices))
     assert jobs["wt"].port == 5025
     assert jobs["wt"].resource.endswith(":5025")
+
+
+def test_explain_wt_port_mismatch_covers_power_ports():
+    from utils.iot_auto_connect import explain_wt_port_mismatch
+
+    for port in (502, 2101, 8080):
+        msg = explain_wt_port_mismatch(port=port)
+        assert msg
+        assert str(port) in msg
+    assert explain_wt_port_mismatch(port=10001) == ""
+    assert explain_wt_port_mismatch(port=5025) == ""
+
+
+def test_remember_text_for_plan_uses_corrected_wt_port():
+    from utils.device_discovery import FoundDevice, connect_plan
+    from utils.device_finder_connect import remember_text_for_plan
+    from utils.iot_auto_connect import apply_prepared_connect_jobs
+
+    dev = FoundDevice(
+        resource="192.168.40.100:502",
+        host="192.168.40.100",
+        port=502,
+        kind_hint="wt",
+    )
+    plan = connect_plan("wt", dev)
+    assert remember_text_for_plan(plan, dev) == "192.168.40.100:5025"
+
+    remembered = {}
+
+    def _fake_remember(resource, slot):
+        remembered[slot] = resource
+
+    def _apply(slot, plan, device):
+        return None
+
+    import utils.iot_auto_connect as iac
+
+    orig = iac.remember_slot_for_resource
+    iac.remember_slot_for_resource = _fake_remember
+    try:
+        summary = apply_prepared_connect_jobs(
+            [("wt", plan, dev)],
+            apply_plan=_apply,
+            session_ok=lambda slot: True,
+        )
+    finally:
+        iac.remember_slot_for_resource = orig
+
+    assert remembered["wt"] == "192.168.40.100:5025"
+    assert summary["connected"] == ["wt:192.168.40.100:5025"]

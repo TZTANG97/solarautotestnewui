@@ -73,11 +73,33 @@ def test_remove_channel_hides_extra_page(monkeypatch, tmp_path):
     dl850._nav_base_style = ""
     lay.addWidget(dl850)
     ui._dl850_nav_item = dl850
-    ui.make_nav_item = lambda text, page_index, key=None: QtWidgets.QPushButton(text)
+    ui._nav_buttons = []
+    ui._nav_by_key = {}
+
+    def make_nav_item(text, page_index, key=None):
+        btn = QtWidgets.QPushButton(text)
+        btn.setProperty("page", page_index)
+        ui._nav_buttons.append(btn)
+        if key:
+            ui._nav_by_key[key] = btn
+        return btn
+
+    def unregister_nav(btn=None, key=None):
+        target = btn
+        if key:
+            target = ui._nav_by_key.pop(key, target)
+        ui._nav_buttons = [b for b in ui._nav_buttons if b is not target]
+        for k, v in list(ui._nav_by_key.items()):
+            if v is target:
+                ui._nav_by_key.pop(k, None)
+
+    ui.make_nav_item = make_nav_item
+    ui.unregister_nav = unregister_nav
     ui.set_nav_active_by_key = lambda key: None
     install_extra_dc_pages(ui)
     ui._extra_dc_add_btn.click()
     assert 5 in ui._extra_dc_pages
+    assert "直流电源5" in ui._nav_by_key
     from components.extra_dc_pages import _remove_page
     from utils.dc_channels import channel_numbers
 
@@ -89,4 +111,25 @@ def test_remove_channel_hides_extra_page(monkeypatch, tmp_path):
     _remove_page(ui, 5)
     assert 5 not in channel_numbers()
     assert 5 not in ui._extra_dc_pages
+    assert "直流电源5" not in ui._nav_by_key
+    assert app is not None
+
+
+def test_set_nav_active_skips_deleted_button():
+    """删页后侧栏表若残留死引用，选中态不得再崩。"""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from ui_files.SCPI_Test import Ui_Dialog
+
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    win = QtWidgets.QMainWindow()
+    ui = Ui_Dialog()
+    ui.setupUi(win)
+    dead = QtWidgets.QPushButton("dead")
+    ui._nav_buttons.append(dead)
+    ui._nav_by_key["dead"] = dead
+    dead.deleteLater()
+    app.processEvents()
+    # C++ 对象销毁后仍可能留在 Python 列表里
+    ui.set_nav_active_by_key("首页")
+    ui.set_nav_active(None)
     assert app is not None

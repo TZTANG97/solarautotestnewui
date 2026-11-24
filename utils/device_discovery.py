@@ -1025,8 +1025,8 @@ def connect_plan(slot: str, dev: FoundDevice) -> Dict[str, object]:
         if visa_like and not host:
             return {"target": "ac_visa", "resource": resource}
         return {"target": "ac_chroma_ip", "host": host, "port": port}
-    if slot in ("dc1", "dc2", "dc3", "dc4"):
-        n = int(slot[-1])
+    if slot.startswith("dc") and slot[2:].isdigit():
+        n = int(slot[2:])
         if brand == "itech" or (dev.port == 8080):
             return {
                 "target": "dc_itech",
@@ -1060,7 +1060,7 @@ def connect_plan(slot: str, dev: FoundDevice) -> Dict[str, object]:
         return {"target": "scope", "resource": addr}
     if slot == "wt":
         wt_port = int(port or 5025) if host else None
-        # 同 IP 上的 502 是电源 Modbus，不能拿来连横河。
+        # 同 IP 上的 502/2101/8080 是电源口，不能拿来连横河。
         if wt_port in (502, 2101, 8080):
             wt_port = 5025
         return {"target": "wt", "host": host, "port": wt_port, "resource": resource}

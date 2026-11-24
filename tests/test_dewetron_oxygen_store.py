@@ -61,6 +61,10 @@ class FakeController:
             return "100ms"
         if command == ":STORE:STATE?":
             return f":STOR:STAT {self.store_state}"
+        if command == ":STORE:WAVEFORM:MODE?":
+            return getattr(self, "waveform_mode", "Continuous")
+        if command == ":STORE:SAFTer?":
+            return "OFF,0"
         if command == ":STORE:FILE:NAME?":
             if self.store_state == "Stopped" or not self.store_file:
                 return ":STOR:FILE NONE"
@@ -82,9 +86,12 @@ class FakeController:
                 self.store_file = command.split('"', 2)[1]
         if command in (
             ":STORE:WAVEFORM:CONTINUOUS",
+            ":STORE:WAVEFORM:MODE Continuous",
             ":STORE:SAFTer OFF",
+            ":STORE:SAFTer OFF,0",
             ":STORE:RACQuisition OFF",
         ):
+            self.waveform_mode = "Continuous"
             return True
         if command == ":STORE:START":
             if self.store_file:
@@ -215,6 +222,7 @@ def test_collector_starts_oxygen_store_when_keep_dmd(tmp_path):
         assert collector.on_acquisition_started()
     assert any(c == ":STORE:START" for c in ctrl.sent)
     assert any(c == ":STORE:WAVEFORM:CONTINUOUS" for c in ctrl.sent)
+    assert any(c == ":STORE:WAVEFORM:MODE Continuous" for c in ctrl.sent)
     assert any(c == ":STORE:SAFTer OFF" for c in ctrl.sent)
     assert collector._oxygen_store_active
     # 路径应优先落在 CSV 同目录，而不是仅文件名

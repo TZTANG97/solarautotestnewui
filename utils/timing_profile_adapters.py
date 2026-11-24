@@ -18,6 +18,8 @@ from PyQt5.QtWidgets import (
     QTextEdit,
 )
 
+from utils.dc_channels import channel_numbers, extend_setting_headers
+
 from dewetron_autotest import (
     DEWETRON_CONFIG_COLUMN,
     MODE_DEWETRON,
@@ -274,7 +276,7 @@ def baseline_dc_values(ui: Any, channel: int) -> Dict[str, float]:
 
 def selected_profile_dc_channels(ui: Any) -> List[int]:
     selected: List[int] = []
-    for channel in range(1, 5):
+    for channel in channel_numbers():
         if _checked(ui, "checkBox_S1_DC%d" % channel) and _checked(
             ui, "checkBox_S3_DC%d" % channel
         ):
@@ -387,7 +389,7 @@ def prepare_plan_context(
         commands.append(row)
         step_rows.append(row)
 
-        for channel in range(1, 5):
+        for channel in channel_numbers():
             if not _checked(ui, "checkBox_S1_DC%d" % channel):
                 continue
             label = "DC电源%d" % channel
@@ -486,7 +488,7 @@ def _fallback_safe_shutdown(ui: Any, out_rows: MutableSequence[List[Any]]) -> No
 
     if not _checked(ui, "checkBox_S_End", True):
         return
-    for channel in range(1, 5):
+    for channel in channel_numbers():
         if not (
             _checked(ui, "checkBox_S1_DC%d" % channel)
             and _checked(ui, "checkBox_S_End_DC%d" % channel)
@@ -773,7 +775,7 @@ COMMON_SETTINGS_HEADERS: Tuple[str, ...] = (
 
 
 def build_settings_headers() -> List[str]:
-    return list(COMMON_SETTINGS_HEADERS)
+    return extend_setting_headers(COMMON_SETTINGS_HEADERS)
 
 
 def _resolve_widget(ui: Any, name: str) -> Any:

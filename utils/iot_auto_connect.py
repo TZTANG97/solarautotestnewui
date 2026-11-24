@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from utils.dc_channels import channel_numbers
 from utils.device_discovery import (
     FoundDevice,
     devices_from_last_resources,
@@ -211,7 +212,7 @@ def suggest_auto_jobs(devices: Sequence[FoundDevice]) -> List[Tuple[str, FoundDe
             # 多台直流无记忆槽位时不强行占槽，避免 USB/网口错位
             if len(remain) == 1:
                 free = next(
-                    (f"dc{i}" for i in range(1, 5) if f"dc{i}" not in used_slots),
+                    ("dc%d" % i for i in channel_numbers() if "dc%d" % i not in used_slots),
                     None,
                 )
                 if free:
@@ -384,10 +385,10 @@ def explain_wt_port_mismatch(*, port: Optional[int] = None) -> str:
         port_i = int(port)
     except (TypeError, ValueError):
         return ""
-    if port_i in (502, 2101):
+    if port_i in (502, 2101, 8080):
         return (
-            f"WT 端口 {port_i} 不对：502/2101 是电源口；"
-            "横河 WT 请改成 5025（常见）或 10001"
+            f"WT 端口 {port_i} 不对：502/2101/8080 是电源口；"
+            "横河命令口请用 5025。旧款 WT3000 若 5025 无应答，再试 10001"
         )
     return ""
 
@@ -472,23 +473,7 @@ def job_wants_dewetron(
     def _truthy(v: Any) -> bool:
         return v in (True, "1", 1, "true", "True", "yes", "YES")
 
-    # 明示 WT → 不要德威创
-    if any(
-        _truthy(w.get(k))
-        for k in (
-            "radio_wt",
-            "radio_wt3000",
-            "radioButton_WT",
-            "radioButton_WT3000",
-            "radio_S2_WT3000",
-            "radioButton_S2_WT3000",
-            "radioButton_S2_WT1800",
-            "radioButton_S2_WT1806E",
-            "radioButton_S2_WT5000",
-        )
-    ):
-        return False
-    # 必须显式勾德威创 / analyzerMode=dew，才自动连
+    # 先认德威创。页内 radioButton_S2_WT* 是型号默认勾选，不能盖掉 radio_dewetron。
     if any(
         _truthy(w.get(k))
         for k in (
@@ -504,6 +489,17 @@ def job_wants_dewetron(
     ).strip().lower()
     if mode in ("dewetron", "dew"):
         return True
+    # 明示分析仪模式为 WT → 不要德威创（不含 S2 型号页默认勾选）
+    if any(
+        _truthy(w.get(k))
+        for k in (
+            "radio_wt",
+            "radio_wt3000",
+            "radioButton_WT",
+            "radioButton_WT3000",
+        )
+    ):
+        return False
     if mode in ("wt", "wt3000", "wt1800", "wt5000"):
         return False
     # 云端仪器表残留 dew：仅「整表只有 dew、且无 AC/DC 试验槽」才视为德威创专项。
@@ -617,26 +613,31 @@ def apply_prepared_connect_jobs(
     for slot, plan, dev in jobs or []:
         try:
             apply_plan(slot, plan, dev)
+            from utils.device_finder_connect import remember_text_for_plan
+
+            mem = remember_text_for_plan(plan, dev)
             if session_ok is not None and not session_ok(slot):
                 target = str((plan or {}).get("target") or "")
-                resource = str(getattr(dev, "resource", "") or "")
-                host = str(getattr(dev, "host", "") or "")
-                port = getattr(dev, "port", None)
-                # USB/ASRL 等优先展示真实 VISA，避免 host 被误拆后变成 …::0
-                res_u = resource.upper()
-                if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
-                    where = resource
-                elif host and port is not None:
-                    where = f"{host}:{port}"
-                else:
-                    where = resource or host
+                where = mem
+                if not where:
+                    resource = str(getattr(dev, "resource", "") or "")
+                    host = str(getattr(dev, "host", "") or "")
+                    port = getattr(dev, "port", None)
+                    # USB/ASRL 等优先展示真实 VISA，避免 host 被误拆后变成 …::0
+                    res_u = resource.upper()
+                    if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
+                        where = resource
+                    elif host and port is not None:
+                        where = f"{host}:{port}"
+                    else:
+                        where = resource or host
                 hint = f"{target}@{where}" if target else where
                 errors.append(f"{slot}: 桌面连接失败（会话未建立；{hint}）")
                 _log(f"自动连接失败 {slot}: 会话未建立 {hint}")
                 continue
-            remember_slot_for_resource(getattr(dev, "resource", "") or "", slot)
-            connected.append(f"{slot}:{getattr(dev, 'resource', '')}")
-            _log(f"自动连接 {slot} -> {getattr(dev, 'resource', '')}")
+            remember_slot_for_resource(mem, slot)
+            connected.append(f"{slot}:{mem}")
+            _log(f"自动连接 {slot} -> {mem}")
         except Exception as exc:
             errors.append(f"{slot}: {exc}")
             _log(f"自动连接失败 {slot}: {exc}")

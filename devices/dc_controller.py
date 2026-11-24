@@ -20,6 +20,9 @@ class DCController:
         self.client = None
         self.connected = False
         self.resource = ''
+        # "scpi" | "modbus"：长跑写失败静默重连时沿用上次传输方式
+        self._transport = ''
+        self._reconnecting = False
 
     def _set_handle(self, handle):
         self.handle = handle
@@ -60,9 +63,20 @@ class DCController:
     def _output_dc(self, label, ui_setting, logger, is_on, *, silent_if_disconnected=False):
         """开/关直流输出。返回 True/False，供 IOT bool 判定（勿 void→None）。"""
         command = 'OUTP ON' if is_on else 'OUTP OFF'
+        # 会话已丢但地址还在：先静默重连（通宵闪变常见）
+        if self.handle is None and self.client is None and self.resource and not self._reconnecting:
+            if self.try_reconnect(label):
+                return self._output_dc(
+                    label, ui_setting, logger, is_on, silent_if_disconnected=silent_if_disconnected
+                )
         mb_ok = self._write_modbus_output_register(label, logger, is_on)
         # Modbus 路径（ModbusVISA 无 SCPI write）：仅寄存器控制，禁止走 handle.write
         if self.client is not None:
+            if not mb_ok and not self._reconnecting:
+                self.logger.warning(f'{label} Modbus {command} 失败，尝试重连后重发')
+                print(f'{label} Modbus {command} 失败，尝试重连后重发')
+                if self.try_reconnect(label):
+                    mb_ok = self._write_modbus_output_register(label, logger, is_on)
             strtimenow = self.now_to_datenow()
             logger.info(f'{label} {command} (Modbus)')
             print(strtimenow + f'{label} {command} (Modbus)')
@@ -72,8 +86,20 @@ class DCController:
                 self.handle.write(command)
             except Exception as e:
                 print(e)
-                self.show_message(f'{label}输出{"开启" if is_on else "关闭"}失败：{e}', ui_setting)
-                return False
+                if not self._reconnecting and self.try_reconnect(label):
+                    try:
+                        self.handle.write(command)
+                    except Exception as e2:
+                        print(e2)
+                        self.show_message(
+                            f'{label}输出{"开启" if is_on else "关闭"}失败：{e2}', ui_setting
+                        )
+                        return False
+                else:
+                    self.show_message(
+                        f'{label}输出{"开启" if is_on else "关闭"}失败：{e}', ui_setting
+                    )
+                    return False
             strtimenow = self.now_to_datenow()
             logger.info(f'{label} {command}')
             print(strtimenow + f'{label} {command}')
@@ -164,6 +190,7 @@ class DCController:
                 self.client = client
                 self._set_handle(client.inst or client)
                 self.resource = tcp_addr
+                self._transport = 'modbus'
                 return self.client, self.handle, '1'
             self.logger.error('连接失败')
             self.show_message(f'{fail_label}连接失败，请检查IP和端口', ui)
@@ -224,6 +251,7 @@ class DCController:
         print("直流电源连接成功")
         self._set_handle(handle)
         self.resource = addr
+        self._transport = 'scpi'
         return self.handle, "1"
 
     def disconnect(self, safe_close_handle):
@@ -232,10 +260,138 @@ class DCController:
         self.client = None
         self.connected = False
         self.resource = ''
+        self._transport = ''
         return None, None, '0'
 
-    def write_command(self, command, label="DC"):
-        """发送命令；Modbus 路径自动翻译 BLUESIGHT:STC 为曲线块写入。"""
+    @staticmethod
+    def _is_permanent_write_reject(command: str) -> bool:
+        """业务拒绝（非链路故障）勿触发重连。"""
+        u = str(command or "").strip().upper()
+        if u.startswith("IVC:") or u.startswith("IVCURVE:") or "OUTP:MODE TABLE" in u:
+            return True
+        if u.startswith("BLUESIGHT:STC"):
+            parts = u.split()
+            if len(parts) == 4:
+                try:
+                    float(parts[1])
+                    float(parts[2])
+                    float(parts[3])
+                except ValueError:
+                    return True
+        return False
+
+    def try_reconnect(self, label="DC"):
+        """用上次成功地址静默重建会话（无弹窗）。成功返回 True。"""
+        if self._reconnecting:
+            return False
+        addr = (self.resource or "").strip()
+        transport = self._transport or ("modbus" if self.client is not None else "scpi")
+        if not addr:
+            self.logger.warning(f"{label} 重连失败：无上次连接地址")
+            print(f"{label} 重连失败：无上次连接地址")
+            return False
+        self._reconnecting = True
+        try:
+            old_client = self.client
+            old_handle = self.handle
+            self.client = None
+            self._set_handle(None)
+            if old_client is not None and old_client is not old_handle:
+                try:
+                    disconnect_fn = getattr(old_client, "disconnect", None)
+                    if callable(disconnect_fn):
+                        try:
+                            disconnect_fn(quiet=True)
+                        except TypeError:
+                            disconnect_fn()
+                except Exception as exc:
+                    self.logger.warning(f"{label} 关闭旧 Modbus 会话: {exc}")
+            release_resource_handle(old_handle)
+            time.sleep(0.15)
+            if transport == "modbus":
+                ok = self._reconnect_modbus(addr, label)
+            else:
+                ok = self._reconnect_scpi(addr, label)
+            if ok:
+                self.logger.info(f"{label}---reconnect---{self.resource}")
+                print(f"{label}---reconnect---{self.resource}")
+            else:
+                self.logger.error(f"{label} 重连失败: {addr} ({transport})")
+                print(f"{label} 重连失败: {addr} ({transport})")
+            return ok
+        finally:
+            self._reconnecting = False
+
+    def _reconnect_modbus(self, tcp_addr, label):
+        try:
+            host, port = tcp_addr, 502
+            if ":" in str(tcp_addr):
+                parts = str(tcp_addr).rsplit(":", 1)
+                if len(parts) == 2 and parts[1].isdigit():
+                    host, port = parts[0], int(parts[1])
+            client = ModbusVISA(
+                host,
+                port=port,
+                on_session_renewed=self._set_handle,
+                use_plain_socket=True,
+            )
+            client.connect()
+            if not client.is_connected():
+                return False
+            self.client = client
+            self._set_handle(client.inst or client)
+            self.resource = tcp_addr
+            self._transport = "modbus"
+            return True
+        except Exception as exc:
+            self.logger.error(f"{label} Modbus 重连异常: {exc}")
+            print(f"{label} Modbus 重连异常: {exc}")
+            self.client = None
+            self._set_handle(None)
+            return False
+
+    def _reconnect_scpi(self, tcp_addr, label):
+        if self.rm is None:
+            self.logger.error(f"{label} SCPI 重连失败：VISA 资源管理器未初始化")
+            return False
+        addr = self._normalize_visa_resource(tcp_addr)
+        try:
+            handle = self.rm.open_resource(addr)
+        except Exception as exc:
+            self.logger.error(f"{label} SCPI 重连 open_resource 失败: {exc}")
+            print(f"{label} SCPI 重连 open_resource 失败: {exc}")
+            self._set_handle(None)
+            return False
+        try:
+            if self.configure_scpi_resource is not None:
+                self.configure_scpi_resource(handle)
+        except Exception as exc:
+            self.logger.error(f"{label} SCPI 重连配置失败: {exc}")
+            print(f"{label} SCPI 重连配置失败: {exc}")
+            release_resource_handle(handle)
+            self._set_handle(None)
+            return False
+        self._set_handle(handle)
+        self.resource = addr
+        self._transport = "scpi"
+        return True
+
+    def write_command(self, command, label="DC", *, auto_reconnect=True):
+        """发送命令；写失败时静默重连并重试一次（通宵闪变防链路半开）。"""
+        ok = self._write_command_once(command, label)
+        if ok or not auto_reconnect or self._is_permanent_write_reject(command):
+            return ok
+        preview = str(command or "")
+        if len(preview) > 80:
+            preview = preview[:80] + "…"
+        self.logger.warning(f"{label} 写失败，尝试重连后重发: {preview}")
+        print(f"{label} 写失败，尝试重连后重发: {preview}")
+        if not self.try_reconnect(label):
+            return False
+        return self._write_command_once(command, label)
+
+    def _write_command_once(self, command, label="DC"):
+        """单次写命令；Modbus 路径自动翻译 BLUESIGHT:STC 为曲线块写入。"""
         if self.client is not None and hasattr(self.client, 'is_connected'):
             cmd = command.strip()
             if cmd.upper().startswith("BLUESIGHT:STC"):

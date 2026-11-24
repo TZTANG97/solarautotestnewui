@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from utils.dc_channels import s1_dc_slots
+
 import re
 
 from utils.safe_shutdown import (
@@ -174,12 +176,7 @@ def build_dynamic_cosphi_plan(
         commands.append(row)
         step_rows.append(row)
 
-        for ch, device, dc_num, label in (
-            (1, "DC1", 0, "DC电源1"),
-            (2, "DC2", 1, "DC电源2"),
-            (3, "DC3", 2, "DC电源3"),
-            (4, "DC4", 3, "DC电源4"),
-        ):
+        for ch, device, dc_num, label in s1_dc_slots(ui):
             if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
                 continue
             vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()
@@ -283,12 +280,7 @@ def build_dynamic_cosphi_plan(
         for idx, pct in enumerate(power_levels):
             point_pf = pct * base_pf / 100.0
             point_rows = []
-            for ch, device, dc_num, label in (
-                (1, "DC1", 0, "DC电源1"),
-                (2, "DC2", 1, "DC电源2"),
-                (3, "DC3", 2, "DC电源3"),
-                (4, "DC4", 3, "DC电源4"),
-            ):
+            for ch, device, dc_num, label in s1_dc_slots(ui):
                 s1_on = getattr(ui, "checkBox_S1_DC%d" % ch).isChecked()
                 s3_on = getattr(ui, "checkBox_S3_DC%d" % ch).isChecked()
                 if not (s1_on and s3_on):

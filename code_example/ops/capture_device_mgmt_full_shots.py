@@ -5,7 +5,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
+UTOO = Path(r"E:\utoo\utoo-pydjango\utoo-web-front\public\autotest-docs\media")
+DC_BRANDS = ["Chroma", "Bluesight", "爱科(Itech)", "是德(Keysight)"]
 sys.path.insert(0, str(ROOT))
 
 from PyQt5.QtCore import Qt, QTimer
@@ -44,138 +46,133 @@ def grab(widget: QWidget, path: Path) -> None:
         raise RuntimeError(f"empty grab {path}")
     if not pix.save(str(path), "PNG"):
         raise RuntimeError(f"save failed {path}")
+    UTOO.mkdir(parents=True, exist_ok=True)
+    pix.save(str(UTOO / path.name), "PNG")
     print(f"saved {path.name} ({pix.width()}x{pix.height()})")
 
 
 def _shell(title: str) -> tuple[QWidget, QVBoxLayout]:
     w = QWidget()
     w.setWindowTitle(title)
-    w.resize(1180, 860)
+    w.resize(1180, 980)
     w.setStyleSheet("background:#f8fafc;")
     lay = QVBoxLayout(w)
     lay.setContentsMargins(16, 12, 16, 12)
     lay.setSpacing(8)
     head = QLabel(title)
     head.setStyleSheet("font-size:16px;font-weight:700;color:#0f172a;")
-    tip = QLabel("主界面 → 左侧设备页（与软件实际布局一致的操作示意截图）")
+    tip = QLabel("主界面左侧 → 设备管理")
     tip.setStyleSheet("font-size:12px;color:#64748b;")
     lay.addWidget(head)
     lay.addWidget(tip)
     return w, lay
 
 
-def build_ac_chroma(comm_mode: str = "串口") -> QWidget:
-    """Chroma AC: 串口(SCPI资源) 或 IP(TCP SCPI)."""
-    timeline = TimelineWidget()
+def _empty_log() -> QTextEdit:
+    log = QTextEdit()
+    log.setReadOnly(True)
+    log.setStyleSheet(_LOG_QSS)
+    log.setMinimumHeight(72)
+    return log
 
+
+def _output_row(*buttons: QPushButton) -> QWidget:
+    out = QWidget()
+    ol = QHBoxLayout(out)
+    ol.setContentsMargins(0, 0, 0, 0)
+    ol.setSpacing(10)
+    for button in buttons:
+        ol.addWidget(button)
+    ol.addStretch(1)
+    return out
+
+
+def build_ac_chroma(comm_mode: str = "串口") -> QWidget:
+    """致茂交流：方式=串口或 IP，后面仍是相位、电压、输出、下发。"""
+    timeline = TimelineWidget()
     mode = QComboBox()
     mode.addItems(["串口", "IP"])
     mode.setCurrentText(comm_mode)
     mode.setStyleSheet(_INPUT_QSS)
-    mode.setFixedWidth(90)
-
+    mode.setFixedWidth(88)
     serial = QComboBox()
-    serial.addItems(
-        [
-            "ASRL3::INSTR",
-            "USB0::0x0AAD::0x01D6::INSTR",
-            "TCPIP0::192.168.1.10::INSTR",
-        ]
-    )
+    serial.addItems(["ASRL3::INSTR", "USB0::…::INSTR", "TCPIP0::192.168.1.10::INSTR"])
     serial.setStyleSheet(_INPUT_QSS)
     serial.setMinimumWidth(280)
-
-    ip = QLineEdit("192.168.1.100")
+    ip = QLineEdit()
     ip.setPlaceholderText("如 192.168.1.100")
     ip.setStyleSheet(_INPUT_QSS)
-    ip.setMinimumWidth(160)
-    port = QLineEdit("")
-    port.setPlaceholderText("留空自动探测")
+    ip.setMinimumWidth(180)
+    port = QLineEdit()
+    port.setPlaceholderText("留空自动")
     port.setStyleSheet(_INPUT_QSS)
     port.setMinimumWidth(100)
-
-    ip_lab = QLabel("IP:")
+    use_ip = comm_mode == "IP"
+    serial.setVisible(not use_ip)
+    iface = QLabel("接口")
+    iface.setStyleSheet(_LABEL_QSS)
+    iface.setVisible(not use_ip)
+    ip_lab = QLabel("IP")
     ip_lab.setStyleSheet(_LABEL_QSS)
-    port_lab = QLabel("端口:")
+    port_lab = QLabel("端口")
     port_lab.setStyleSheet(_LABEL_QSS)
+    ip_lab.setVisible(use_ip)
+    port_lab.setVisible(use_ip)
+    ip.setVisible(use_ip)
+    port.setVisible(use_ip)
     btn = QPushButton("连接设备")
     btn.setStyleSheet(_CONNECT_BTN_QSS)
     btn.setFixedWidth(120)
-
-    use_ip = comm_mode == "IP"
-    serial.setVisible(not use_ip)
-    ip.setVisible(use_ip)
-    port.setVisible(use_ip)
-    ip_lab.setVisible(use_ip)
-    port_lab.setVisible(use_ip)
-
     row = QWidget()
     hl = QHBoxLayout(row)
     hl.setContentsMargins(0, 0, 0, 0)
     hl.setSpacing(8)
-    hl.addWidget(QLabel("通信:"))
+    way = QLabel("方式")
+    way.setStyleSheet(_LABEL_QSS)
+    hl.addWidget(way)
     hl.addWidget(mode)
+    hl.addWidget(iface)
     hl.addWidget(serial, 1)
     hl.addWidget(ip_lab)
     hl.addWidget(ip)
     hl.addWidget(port_lab)
     hl.addWidget(port)
     hl.addWidget(btn)
-    timeline.addStep("设备连接（Chroma）", row)
+    timeline.addStep("设备连接", row)
 
     phase = QComboBox()
     phase.addItems(["单相", "三相"])
     phase.setStyleSheet(_INPUT_QSS)
-    timeline.addStep("相位选择", param_row([("相位:", phase)]))
+    timeline.addStep("相位选择（单相/三相）", phase)
 
     volt = QTextEdit()
-    volt.setPlainText("230")
+    volt.setPlainText("220")
     volt.setStyleSheet(_INPUT_QSS)
     volt.setMaximumHeight(36)
     freq = QTextEdit()
     freq.setPlainText("50")
     freq.setStyleSheet(_INPUT_QSS)
     freq.setMaximumHeight(36)
-    timeline.addStep(
-        "电压/频率设置",
-        param_row([("电压:", volt, "V"), ("频率:", freq, "Hz")]),
-    )
+    timeline.addStep("电压/频率设置", param_row([("电压", volt, "V"), ("频率", freq, "Hz")]))
 
     on = QPushButton("打开交流电源输出")
     off = QPushButton("关闭交流电源输出")
     apply_button_style(on, ButtonStyle.SUCCESS)
     apply_button_style(off, ButtonStyle.DANGER)
-    out = QWidget()
-    ol = QHBoxLayout(out)
-    ol.setContentsMargins(0, 0, 0, 0)
-    ol.addWidget(on)
-    ol.addWidget(off)
-    ol.addStretch(1)
-    timeline.addStep("输出控制", out)
+    timeline.addStep("输出控制", _output_row(on, off))
 
-    log = QTextEdit()
-    log.setReadOnly(True)
-    log.setStyleSheet(_LOG_QSS)
-    if use_ip:
-        log.setPlainText(
-            "通信=IP → 走 TCP/SCPI（Chroma 网口）\n"
-            "填写设备 IP；端口可留空由软件自动探测\n"
-            "连接成功后设置电压/频率，再开输出"
-        )
-    else:
-        log.setPlainText(
-            "通信=串口 → 走 VISA/SCPI 资源名\n"
-            "在下拉框选择 ASRL/USB/TCPIP0::…::INSTR\n"
-            "连接成功后设置电压/频率，再开输出"
-        )
-    timeline.addStep("操作说明", log, stretch=True)
+    send = QPushButton("单条命令发送")
+    apply_button_style(send, ButtonStyle.PRIMARY)
+    timeline.addStep("下发参数（已连接可反复下发）", _output_row(send))
+    timeline.addStep("操作日志", _empty_log(), stretch=True)
     timeline.finalize()
     return timeline
 
 
 def build_ac_itech() -> QWidget:
     timeline = TimelineWidget()
-    ip = QLineEdit("192.168.1.88")
+    ip = QLineEdit()
+    ip.setPlaceholderText("如 192.168.1.100")
     ip.setStyleSheet(_INPUT_QSS)
     port = QLineEdit("502")
     port.setStyleSheet(_INPUT_QSS)
@@ -187,7 +184,7 @@ def build_ac_itech() -> QWidget:
     cl.setContentsMargins(0, 0, 0, 0)
     cl.addWidget(param_row([("IP:", ip), ("端口:", port)]), 1)
     cl.addWidget(btn)
-    timeline.addStep("设备连接（爱科 Itech · Modbus TCP）", connect)
+    timeline.addStep("设备连接", connect)
 
     phase = QComboBox()
     phase.addItems(["单相", "三相"])
@@ -202,32 +199,18 @@ def build_ac_itech() -> QWidget:
     freq.setPlainText("50")
     freq.setStyleSheet(_INPUT_QSS)
     freq.setMaximumHeight(36)
-    timeline.addStep(
-        "电压/频率设置",
-        param_row([("电压:", volt, "V"), ("频率:", freq, "Hz")]),
-    )
+    timeline.addStep("电压/频率设置", param_row([("电压:", volt, "V"), ("频率:", freq, "Hz")]))
 
     on = QPushButton("打开交流电源输出")
     off = QPushButton("关闭交流电源输出")
     apply_button_style(on, ButtonStyle.SUCCESS)
     apply_button_style(off, ButtonStyle.DANGER)
-    out = QWidget()
-    ol = QHBoxLayout(out)
-    ol.setContentsMargins(0, 0, 0, 0)
-    ol.addWidget(on)
-    ol.addWidget(off)
-    ol.addStretch(1)
-    timeline.addStep("输出控制", out)
+    timeline.addStep("输出控制", _output_row(on, off))
 
-    log = QTextEdit()
-    log.setReadOnly(True)
-    log.setStyleSheet(_LOG_QSS)
-    log.setPlainText(
-        "爱科(Itech) 交流源：顶部选「爱科(Itech)」\n"
-        "必须填 IP + 端口（默认 502，Modbus TCP）\n"
-        "不要用串口下拉的 SCPI 资源名"
-    )
-    timeline.addStep("操作说明", log, stretch=True)
+    send = QPushButton("单条命令发送")
+    apply_button_style(send, ButtonStyle.PRIMARY)
+    timeline.addStep("单条命令测试", _output_row(send))
+    timeline.addStep("操作日志", _empty_log(), stretch=True)
     timeline.finalize()
     return timeline
 
@@ -248,57 +231,127 @@ def build_ac_page(brand: str, chroma_mode: str = "串口") -> QWidget:
     return w
 
 
+def _iv_row(vmp: str = "220", voc: str = "220", imp: str = "", isc: str = "") -> QWidget:
+    from PyQt5.QtWidgets import QGridLayout
+
+    box = QWidget()
+    grid = QGridLayout(box)
+    grid.setContentsMargins(0, 0, 0, 0)
+    grid.setSpacing(6)
+    fields = (("Vmp:", vmp, 0, 0), ("Voc:", voc, 0, 2), ("Imp:", imp, 1, 0), ("Isc:", isc, 1, 2))
+    for label, value, row, col in fields:
+        lab = QLabel(label)
+        lab.setStyleSheet(_LABEL_QSS)
+        edit = QTextEdit()
+        edit.setPlainText(value)
+        edit.setStyleSheet(_INPUT_QSS)
+        edit.setMaximumHeight(36)
+        grid.addWidget(lab, row, col)
+        grid.addWidget(edit, row, col + 1)
+    return box
+
+
 def build_dc_chroma() -> QWidget:
-    w, lay = _shell("设备管理 · 直流电源（Chroma · SCPI）")
-    crumb = BreadcrumbWidget(["Chroma", "蓝电(Bluesight)", "爱科(Itech)"])
+    """致茂直流：接口下拉，没有「方式」。是德停在第四项时用的就是这一页。"""
+    w, lay = _shell("设备管理 · 直流电源1")
+    crumb = BreadcrumbWidget(DC_BRANDS)
     timeline = TimelineWidget()
 
-    mode = QComboBox()
-    mode.addItems(["串口", "IP"])
-    mode.setCurrentText("串口")
-    mode.setStyleSheet(_INPUT_QSS)
     serial = QComboBox()
+    serial.setEditable(True)
     serial.addItems(["ASRL4::INSTR", "USB0::…::INSTR", "TCPIP0::192.168.1.20::INSTR"])
     serial.setStyleSheet(_INPUT_QSS)
+    serial.setMinimumWidth(280)
     btn = QPushButton("连接设备")
     btn.setStyleSheet(_CONNECT_BTN_QSS)
     row = QWidget()
     hl = QHBoxLayout(row)
     hl.setContentsMargins(0, 0, 0, 0)
-    hl.addWidget(QLabel("通信:"))
-    hl.addWidget(mode)
+    hl.setSpacing(8)
+    iface = QLabel("接口")
+    iface.setStyleSheet(_LABEL_QSS)
+    hl.addWidget(iface)
     hl.addWidget(serial, 1)
     hl.addWidget(btn)
     timeline.addStep("设备连接", row)
+    timeline.addStep("参数设置（IV 四点）", _iv_row())
 
-    for name, val in (("Vmp", "220"), ("Voc", "250"), ("Imp", "10"), ("Isc", "12")):
-        te = QTextEdit()
-        te.setPlainText(val)
-        te.setStyleSheet(_INPUT_QSS)
-        te.setMaximumHeight(34)
-        timeline.addStep(f"参数 {name}", param_row([(f"{name}:", te)]))
+    power = QTextEdit()
+    power.setPlainText("100")
+    power.setStyleSheet(_INPUT_QSS)
+    power.setMaximumHeight(36)
+    timeline.addStep("功率设置（功率%）", param_row([("功率%:", power, "%")]))
+
+    on = QPushButton("打开直流电源1输出")
+    off = QPushButton("关闭直流电源1输出")
+    apply_button_style(on, ButtonStyle.SUCCESS)
+    apply_button_style(off, ButtonStyle.DANGER)
+    timeline.addStep("输出控制", _output_row(on, off))
+
+    which = QComboBox()
+    which.addItems(["DC1", "DC2", "DC3", "DC4"])
+    which.setStyleSheet(_INPUT_QSS)
+    send = QPushButton("直流源设置")
+    apply_button_style(send, ButtonStyle.PRIMARY)
+    timeline.addStep("下发 IV 曲线（已连接可反复下发）", _output_row(which, send))
+
+    query = QLineEdit()
+    query.setPlaceholderText("输入SCPI…")
+    query.setStyleSheet(_INPUT_QSS)
+    query_btn = QPushButton("单条命令发送query")
+    timeline.addStep("单条命令查询", _output_row(query, query_btn))
+    timeline.addStep("操作日志", _empty_log(), stretch=True)
+    timeline.finalize()
+    lay.addWidget(crumb)
+    lay.addWidget(timeline, 1)
+    return w
+
+
+def build_dc_itech() -> QWidget:
+    """爱科直流是独立一页：串口/IP 切换，再填 IV，按钮是「下发 IV 参数」。"""
+    w, lay = _shell("设备管理 · 直流电源1")
+    crumb = BreadcrumbWidget(DC_BRANDS)
+    crumb.setIndex(2)
+    timeline = TimelineWidget()
+
+    mode = QComboBox()
+    mode.addItems(["串口", "IP"])
+    mode.setCurrentText("IP")
+    mode.setStyleSheet(_INPUT_QSS)
+    mode.setFixedWidth(100)
+    ip = QLineEdit()
+    ip.setPlaceholderText("如 192.168.1.100")
+    ip.setStyleSheet(_INPUT_QSS)
+    port = QLineEdit()
+    port.setPlaceholderText("502")
+    port.setStyleSheet(_INPUT_QSS)
+    btn = QPushButton("连接")
+    btn.setStyleSheet(_CONNECT_BTN_QSS)
+    btn.setFixedWidth(120)
+    row = QWidget()
+    hl = QHBoxLayout(row)
+    hl.setContentsMargins(0, 0, 0, 0)
+    hl.setSpacing(8)
+    hl.addWidget(mode)
+    hl.addWidget(QLabel("IP:"))
+    hl.addWidget(ip)
+    hl.addWidget(QLabel("端口:"))
+    hl.addWidget(port)
+    hl.addWidget(btn)
+    hl.addStretch(1)
+    timeline.addStep("设备连接", row)
+    timeline.addStep("参数设置（IV 四点）", _iv_row(voc="220"))
+
+    send = QPushButton("下发 IV 参数（已连接可反复下发）")
+    apply_button_style(send, ButtonStyle.PRIMARY)
+    timeline.addStep("下发 IV 参数", _output_row(send))
 
     on = QPushButton("打开输出")
     off = QPushButton("关闭输出")
     apply_button_style(on, ButtonStyle.SUCCESS)
     apply_button_style(off, ButtonStyle.DANGER)
-    out = QWidget()
-    ol = QHBoxLayout(out)
-    ol.setContentsMargins(0, 0, 0, 0)
-    ol.addWidget(on)
-    ol.addWidget(off)
-    ol.addStretch(1)
-    timeline.addStep("输出控制", out)
-
-    log = QTextEdit()
-    log.setReadOnly(True)
-    log.setStyleSheet(_LOG_QSS)
-    log.setPlainText(
-        "Chroma 直流：通信选串口 → SCPI 资源名；选 IP → 填 IP（按厂家走 SCPI/Modbus）\n"
-        "蓝电：顶部切「蓝电」→ 填 IP（Modbus）\n"
-        "爱科直流：顶部切「爱科」→ 按页内提示连接"
-    )
-    timeline.addStep("操作说明", log, stretch=True)
+    timeline.addStep("输出控制", _output_row(on, off))
+    timeline.addStep("操作日志", _empty_log(), stretch=True)
     timeline.finalize()
     lay.addWidget(crumb)
     lay.addWidget(timeline, 1)
@@ -311,7 +364,7 @@ def build_dc_bluesight(mode: str = "SAS") -> QWidget:
     from PyQt5.QtWidgets import QDoubleSpinBox, QGridLayout
 
     w, lay = _shell(f"设备管理 · 直流电源（蓝电 Bluesight · {mode}）")
-    crumb = BreadcrumbWidget(["Chroma", "蓝电(Bluesight)", "爱科(Itech)"])
+    crumb = BreadcrumbWidget(DC_BRANDS)
     crumb.setIndex(1)
     timeline = TimelineWidget()
 
@@ -452,7 +505,7 @@ def build_dc_bluesight(mode: str = "SAS") -> QWidget:
     log.setStyleSheet(_LOG_QSS)
     log.setPlainText(
         "蓝电操作顺序（与软件一致）：\n"
-        "1) 顶栏选「蓝电(Bluesight)」\n"
+        "1) 顶栏选第二项「Bluesight」\n"
         "2) 填 IP + 端口(常见502) → 连接\n"
         "3) 工作模式：原始负载 / SAS / 电池模拟器 →「应用模式」\n"
         "4) SAS：填 Pmpp_stc / Umpp_stc / 填充因子 →「发送参数到设备（曲线）」\n"
@@ -467,10 +520,24 @@ def build_dc_bluesight(mode: str = "SAS") -> QWidget:
     return w
 
 
+def build_dc_keysight() -> QWidget:
+    """是德与致茂共用同一套填写，面包屑必须停在第四项。"""
+    w = build_dc_chroma()
+    w.setWindowTitle("设备管理 · 直流电源1")
+    title = w.findChild(QLabel)
+    if title is not None:
+        title.setText("设备管理 · 直流电源1")
+    crumb = w.findChild(BreadcrumbWidget)
+    if crumb is not None:
+        crumb.setIndex(3)
+    return w
+
+
 def build_dl850() -> QWidget:
-    w, lay = _shell("设备管理 · 示波器 DL850")
+    w, lay = _shell("设备管理 · DL850 示波器")
     timeline = TimelineWidget()
     serial = QComboBox()
+    serial.setEditable(True)
     serial.addItems(["USB0::…::INSTR", "TCPIP0::192.168.1.30::INSTR", "ASRL5::INSTR"])
     serial.setStyleSheet(_INPUT_QSS)
     btn = QPushButton("连接设备")
@@ -478,32 +545,35 @@ def build_dl850() -> QWidget:
     row = QWidget()
     hl = QHBoxLayout(row)
     hl.setContentsMargins(0, 0, 0, 0)
-    hl.addWidget(QLabel("VISA/SCPI 资源:"))
+    hl.setSpacing(8)
+    iface = QLabel("接口")
+    iface.setStyleSheet(_LABEL_QSS)
+    hl.addWidget(iface)
     hl.addWidget(serial, 1)
     hl.addWidget(btn)
     timeline.addStep("设备连接", row)
 
     start = QPushButton("START")
     stop = QPushButton("STOP")
+    save = QPushButton("Save Picture")
     apply_button_style(start, ButtonStyle.SUCCESS)
     apply_button_style(stop, ButtonStyle.DANGER)
-    out = QWidget()
-    ol = QHBoxLayout(out)
-    ol.setContentsMargins(0, 0, 0, 0)
-    ol.addWidget(start)
-    ol.addWidget(stop)
-    ol.addStretch(1)
-    timeline.addStep("采集控制", out)
+    timeline.addStep("采集控制", _output_row(start, stop, save))
 
-    log = QTextEdit()
-    log.setReadOnly(True)
-    log.setStyleSheet(_LOG_QSS)
-    log.setPlainText(
-        "DL850：在设备列表选 VISA 资源后连接（多为 USB/LAN SCPI）\n"
-        "连接成功可用 START/STOP 试采；需要时再发单条命令\n"
-        "每个试验开跑前建议确认示波器已连接（若本试验用到录波/触发）"
-    )
-    timeline.addStep("操作说明", log, stretch=True)
+    query = QTextEdit()
+    query.setPlainText("220")
+    query.setStyleSheet(_INPUT_QSS)
+    query.setMaximumHeight(36)
+    query_btn = QPushButton("单条命令发送query")
+    timeline.addStep("命令查询", _output_row(query, query_btn))
+
+    write = QTextEdit()
+    write.setPlainText("220")
+    write.setStyleSheet(_INPUT_QSS)
+    write.setMaximumHeight(36)
+    write_btn = QPushButton("单条命令发送write")
+    timeline.addStep("命令发送", _output_row(write, write_btn))
+    timeline.addStep("操作日志", _empty_log(), stretch=True)
     timeline.finalize()
     lay.addWidget(timeline, 1)
     return w
@@ -516,6 +586,8 @@ def main() -> int:
         ("D11_ac_chroma_ip.png", build_ac_page("Chroma · IP/SCPI", "IP")),
         ("D12_ac_itech_ip.png", build_ac_page("爱科(Itech) · IP/Modbus", "串口")),
         ("D13_dc_chroma.png", build_dc_chroma()),
+        ("D17_dc_itech.png", build_dc_itech()),
+        ("D16_dc_keysight.png", build_dc_keysight()),
         ("D14_dc_bluesight_sas.png", build_dc_bluesight("SAS")),
         ("D14b_dc_bluesight_orig.png", build_dc_bluesight("原始负载")),
         ("D15_dl850.png", build_dl850()),

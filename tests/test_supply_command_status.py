@@ -9,12 +9,19 @@ from utils.status_json_devices import measures_from_supply_command, note_supply_
 def test_parse_volt_freq_and_output():
     assert measures_from_supply_command("VOLT 230.5")["voltage"] == "230.5"
     assert measures_from_supply_command("FREQ 50")["frequency"] == "50"
+    # 致茂 61800：VOLT:AC / FREQ:AC 也要跟台架卡片
+    assert measures_from_supply_command("VOLT:AC 184")["voltage"] == "184"
+    assert measures_from_supply_command("VOLT:AC1 230.0")["voltage"] == "230.0"
+    assert measures_from_supply_command("FREQ:AC 50")["frequency"] == "50"
+    assert measures_from_supply_command("SOUR:VOLT:AC 253")["voltage"] == "253"
     assert measures_from_supply_command("OUTP OFF")["output"] == "off"
     assert measures_from_supply_command("OUTP ON")["output"] == "on"
     assert measures_from_supply_command("*IDN?") == {}
     assert measures_from_supply_command("INST:PHAS THREE")["phase"] == "三相"
     assert measures_from_supply_command("INST:PHASE SINGLE")["phase"] == "单相"
     assert measures_from_supply_command("VMP 400")["vmp"] == "400"
+    assert measures_from_supply_command("SOL:USER:VMP 650")["vmp"] == "650"
+    assert measures_from_supply_command("SOL:USER:IMP 12.5")["imp"] == "12.5"
     assert measures_from_supply_command("BLUESIGHT:STC 7 650 0.8")["vmp"] == "650"
 
 

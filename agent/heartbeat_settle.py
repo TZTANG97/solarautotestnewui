@@ -219,13 +219,17 @@ def _file_meta(paths: List[Path]) -> List[Dict[str, str]]:
 
 
 def _is_substantive_report(path: Path) -> bool:
-    """status.json / job_*.json / *commands*.csv 不算正式试验产物。"""
+    """status.json / job_*.json / *commands*.csv / 配置 XML / sidecar 不算正式试验产物。"""
     name = path.name.lower()
-    if name == "status.json":
+    if name in {"status.json", "headless_result.json", ".last_dew_export.json", "sim_plan.json"}:
         return False
     if name.startswith("job_") and name.endswith(".json"):
         return False
     if name.endswith(".csv") and "commands" in name:
+        return False
+    if name.endswith(".xml") and name.startswith("dewetron_"):
+        return False
+    if name.endswith(".json") and ("last_dew" in name or name.startswith(".")):
         return False
     return True
 

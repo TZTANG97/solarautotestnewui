@@ -30,6 +30,53 @@ def test_collect_includes_result_and_listed(tmp_path: Path) -> None:
     assert "status.json" in names
 
 
+def test_collect_drops_dew_config_xml_and_sidecar(tmp_path: Path) -> None:
+    """德威创配置 XML / sidecar / headless_result 不得进实验报告上传。"""
+    job_id = 139
+    dew = tmp_path / "dewetron_save"
+    dew.mkdir()
+    (dew / "dewetron_20261111_19.xml").write_bytes(b"<xml/>" * 100)
+    (dew / ".last_dew_export.json").write_text('{"csv":"x"}', encoding="utf-8")
+    (dew / "reactive-qcap_ok.csv").write_text("t,p\n0,1\n1,2\n", encoding="utf-8")
+    (dew / "keep.dmd").write_bytes(b"dmd" * 100)
+    ana = tmp_path / "command_save_files" / "analysis_reports" / f"job_{job_id}_1"
+    ana.mkdir(parents=True)
+    (ana / "headless_result.json").write_text('{"success":true}', encoding="utf-8")
+    (ana / "无功能力范围.xlsx").write_bytes(b"PK\x03\x04fake")
+    write_result(
+        tmp_path,
+        job_id,
+        {"status": "success", "result_summary": {"elapsed_sec": 60}},
+    )
+    files = collect_report_files(
+        tmp_path,
+        job_id,
+        {
+            "result_summary": {
+                "elapsed_sec": 60,
+                "testType": "reactiveqcap",
+                "analysis_input_dir": str(dew),
+                "widgets": {"lineEdit_DEW_SaveDir": str(dew)},
+                "report_files": [
+                    str(dew / "reactive-qcap_ok.csv"),
+                    str(dew / "keep.dmd"),
+                    str(ana / "无功能力范围.xlsx"),
+                    str(dew / "dewetron_20261111_19.xml"),
+                    str(dew / ".last_dew_export.json"),
+                    str(ana / "headless_result.json"),
+                ],
+            }
+        },
+    )
+    names = {p.name for p in files}
+    assert "reactive-qcap_ok.csv" in names
+    assert "keep.dmd" in names
+    assert "无功能力范围.xlsx" in names
+    assert "dewetron_20261111_19.xml" not in names
+    assert ".last_dew_export.json" not in names
+    assert "headless_result.json" not in names
+
+
 def test_collect_includes_recent_csv(tmp_path: Path) -> None:
     job_id = 7
     write_result(

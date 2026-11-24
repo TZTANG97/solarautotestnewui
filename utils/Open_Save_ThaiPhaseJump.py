@@ -48,7 +48,7 @@ def Save_File_ThaiPhaseJump(kwargs):
         result = write_settings_csv(
             directory[0],
             ui,
-            arrayRow1,
+            build_settings_headers(),
             file_tag=FILE_TAG,
             schema=PHASE_JUMP_SCHEMA,
             test_type=TEST_TYPE,

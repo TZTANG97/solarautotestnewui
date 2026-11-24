@@ -153,12 +153,20 @@ def test_connect_plan_routes_without_auto_slot():
     dc = FoundDevice(resource="192.168.40.12:502", host="192.168.40.12", port=502, protocol="modbus")
     plan = connect_plan("dc2", dc)
     assert plan["target"] == "dc_modbus" and plan["n"] == 2
+    plan = connect_plan("dc10", dc)
+    assert plan["target"] == "dc_modbus" and plan["n"] == 10
     scope = FoundDevice(resource="USB0::0x0B21::DL850::INSTR")
     assert connect_plan("scope", scope)["target"] == "scope"
     wt = FoundDevice(resource="192.168.40.100:502", host="192.168.40.100", port=502)
     wt_plan = connect_plan("wt", wt)
     assert wt_plan["target"] == "wt"
     assert wt_plan["port"] == 5025
+    wt8080 = FoundDevice(resource="192.168.40.100:8080", host="192.168.40.100", port=8080)
+    assert connect_plan("wt", wt8080)["port"] == 5025
+    wt2101 = FoundDevice(resource="192.168.40.100:2101", host="192.168.40.100", port=2101)
+    assert connect_plan("wt", wt2101)["port"] == 5025
+    wt5025 = FoundDevice(resource="192.168.40.100:5025", host="192.168.40.100", port=5025)
+    assert connect_plan("wt", wt5025)["port"] == 5025
 
 
 def test_list_visa_skips_asrl_by_default():

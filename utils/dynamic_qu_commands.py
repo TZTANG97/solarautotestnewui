@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 
+from utils.dc_channels import s1_dc_slots
 from utils.safe_shutdown import (
     build_forced_shutdown_rows,
     enabled_shutdown_dc_channels,
@@ -108,14 +109,9 @@ def default_dc_iv_resolver(vmp, imp, voc, isc, pf, dc_num):
 
 
 def checked_s1_dc_channels(ui):
-    """返回步骤①已勾选的直流通道 (ch, device, dc_num, label)。"""
+    """返回步骤①已勾选的直流通道 (ch, device, dc_num, label)。路数来自台架配置。"""
     out = []
-    for ch, device, dc_num, label in (
-        (1, "DC1", 0, "DC电源1"),
-        (2, "DC2", 1, "DC电源2"),
-        (3, "DC3", 2, "DC电源3"),
-        (4, "DC4", 3, "DC电源4"),
-    ):
+    for ch, device, dc_num, label in s1_dc_slots(ui):
         cb = getattr(ui, "checkBox_S1_DC%d" % ch, None)
         if cb is None or not hasattr(cb, "isChecked") or not cb.isChecked():
             continue
@@ -279,12 +275,7 @@ def build_dynamic_qu_plan(
         commands.append(row)
         step_rows.append(row)
 
-        for ch, device, dc_num, label in (
-            (1, "DC1", 0, "DC电源1"),
-            (2, "DC2", 1, "DC电源2"),
-            (3, "DC3", 2, "DC电源3"),
-            (4, "DC4", 3, "DC电源4"),
-        ):
+        for ch, device, dc_num, label in s1_dc_slots(ui):
             if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
                 continue
             vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()

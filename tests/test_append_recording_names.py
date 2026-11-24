@@ -64,3 +64,43 @@ def test_collect_progress_prefers_all_queue_segments_over_config_dict():
 
 def test_collect_progress_falls_back_to_config_when_queue_empty():
     assert collect_progress_file_names([], {"textEdit_FileNameList": "A,B"}) == ["A", "B"]
+
+
+def test_misclassified_same_project_still_does_not_merge_other_family():
+    """project_change 被误判成 0 时，过欠压名单也不能接到固定 PF 前面。"""
+    cmds = [[
+        "Upper_WT_Config", "", "", "",
+        {"textEdit_FileNameList": "OVUF_BR_111111"},
+    ]]
+    out = finalize_append_file_names(
+        ["FixedPF_BR"], cmds, is_append=True, run_tag="222222"
+    )
+    assert out == ["FixedPF_BR_222222"]
+
+
+def test_cross_project_append_does_not_prepend_previous_names():
+    """过欠压后再追加固定 PF：第二段名单不能以过欠压文件名开头。"""
+    cmds = [[
+        "Upper_WT_Config", "", "", "",
+        {"textEdit_FileNameList": "OVUF_BR_111111"},
+    ]]
+    merge = should_merge_append_filenames("1", "1")
+    out = finalize_append_file_names(
+        ["FixedPF_BR"], cmds, is_append=merge, run_tag="222222"
+    )
+    assert merge is False
+    assert out == ["FixedPF_BR_222222"]
+    assert not any(name.startswith("OVUF") for name in out)
+
+
+def test_collect_progress_collapses_same_project_merged_list():
+    cmds = [
+        ["Upper_WT_Config", "", "", "", {"textEdit_FileNameList": "OVUF_BR_111111"}],
+        ["Upper_WT_Config", "", "", "", {
+            "textEdit_FileNameList": "OVUF_BR_111111,OVUF_BR_222222",
+        }],
+    ]
+    assert collect_progress_file_names(cmds, None) == [
+        "OVUF_BR_111111",
+        "OVUF_BR_222222",
+    ]

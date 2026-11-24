@@ -95,23 +95,54 @@ class Ui_Dialog(object):
         self._nav_by_key = {}
         self._auto_test_categories = {}
 
-        def _set_nav_active(btn):
+        def _nav_alive(btn):
+            """删除额外直流页后按钮会 deleteLater，必须先判活再碰属性。"""
             if btn is None:
+                return False
+            try:
+                import sip
+
+                if sip.isdeleted(btn):
+                    return False
+            except Exception:
+                pass
+            try:
+                btn.objectName()
+                return True
+            except RuntimeError:
+                return False
+
+        def _prune_dead_nav():
+            self._nav_buttons = [b for b in self._nav_buttons if _nav_alive(b)]
+            for key, btn in list(self._nav_by_key.items()):
+                if not _nav_alive(btn):
+                    self._nav_by_key.pop(key, None)
+
+        def _set_nav_active(btn):
+            _prune_dead_nav()
+            if btn is None or not _nav_alive(btn):
                 return
-            for b in self._nav_buttons:
-                kind = b.property("navKind") or "item"
-                if b is btn:
-                    b.setStyleSheet(
-                        theme.NESTED_ITEM_ACTIVE_STYLE
-                        if kind == "nested"
-                        else theme.ITEM_ACTIVE_STYLE
-                    )
-                    b.setProperty("navActive", True)
-                else:
-                    b.setStyleSheet(
-                        theme.NESTED_ITEM_STYLE if kind == "nested" else theme.ITEM_STYLE
-                    )
-                    b.setProperty("navActive", False)
+            for b in list(self._nav_buttons):
+                if not _nav_alive(b):
+                    continue
+                try:
+                    kind = b.property("navKind") or "item"
+                    if b is btn:
+                        b.setStyleSheet(
+                            theme.NESTED_ITEM_ACTIVE_STYLE
+                            if kind == "nested"
+                            else theme.ITEM_ACTIVE_STYLE
+                        )
+                        b.setProperty("navActive", True)
+                    else:
+                        b.setStyleSheet(
+                            theme.NESTED_ITEM_STYLE
+                            if kind == "nested"
+                            else theme.ITEM_STYLE
+                        )
+                        b.setProperty("navActive", False)
+                except RuntimeError:
+                    continue
 
         def _register_nav(btn, key=None, base_style=None, active_style=None, *, kind="item"):
             btn.setProperty("navKind", kind)
@@ -128,8 +159,26 @@ class Ui_Dialog(object):
                 self._nav_by_key[key] = btn
             return btn
 
+        def _unregister_nav(btn=None, key=None):
+            """额外直流页删除时注销，避免再遍历已销毁的 QPushButton。"""
+            target = btn
+            if key:
+                target = self._nav_by_key.pop(key, target)
+            if target is None and key:
+                return
+            self._nav_buttons = [b for b in self._nav_buttons if b is not target]
+            for k, v in list(self._nav_by_key.items()):
+                if v is target:
+                    self._nav_by_key.pop(k, None)
+
+        def _set_nav_active_by_key(key):
+            _prune_dead_nav()
+            _set_nav_active(self._nav_by_key.get(key))
+
         self.set_nav_active = _set_nav_active
-        self.set_nav_active_by_key = lambda key: _set_nav_active(self._nav_by_key.get(key))
+        self.set_nav_active_by_key = _set_nav_active_by_key
+        self.unregister_nav = _unregister_nav
+        self.prune_dead_nav = _prune_dead_nav
 
         # ── 辅助函数 ──
         def _make_header(text, icon_name=None):
@@ -150,6 +199,8 @@ class Ui_Dialog(object):
             _register_nav(btn, key=key or text, kind="item")
 
             def _on_click(_checked=False, idx=page_index, b=btn):
+                if not _nav_alive(b):
+                    return
                 self.stackedWidget.setCurrentIndex(idx)
                 _set_nav_active(b)
 
@@ -275,6 +326,8 @@ class Ui_Dialog(object):
             _register_nav(item, key=text, kind=kind)
 
             def _on_click(_checked=False, b=item, proj=text, sk=setting_key, idx=page_index):
+                if not _nav_alive(b):
+                    return
                 self.stackedWidget.setCurrentIndex(idx)
                 idx_p = self.comboBox_P.findText("Auto_Test")
                 if idx_p >= 0:
@@ -386,15 +439,23 @@ class Ui_Dialog(object):
                 _brand_title.setText("S")
                 _brand_sub.setVisible(False)
                 _brand_lay.setContentsMargins(8, 12, 8, 8)
-                for btn in self._nav_buttons:
-                    tip = btn.toolTip() or (btn.property("_nav_full_text") or btn.text() or "").strip()
-                    if tip:
-                        btn.setToolTip(str(tip).lstrip("▾▸ "))
-                    t = (btn.text() or "").strip()
-                    if t:
-                        btn.setProperty("_nav_full_text", t)
-                    btn.setText("")
-                    btn.setFixedHeight(theme.px(40))
+                prune = getattr(self, "prune_dead_nav", None)
+                if callable(prune):
+                    prune()
+                for btn in list(self._nav_buttons):
+                    try:
+                        tip = btn.toolTip() or (
+                            btn.property("_nav_full_text") or btn.text() or ""
+                        ).strip()
+                        if tip:
+                            btn.setToolTip(str(tip).lstrip("▾▸ "))
+                        t = (btn.text() or "").strip()
+                        if t:
+                            btn.setProperty("_nav_full_text", t)
+                        btn.setText("")
+                        btn.setFixedHeight(theme.px(40))
+                    except RuntimeError:
+                        continue
                 for header in sidebar.findChildren(QtWidgets.QPushButton):
                     role = header.property("navRole")
                     if role in ("header", "subheader"):

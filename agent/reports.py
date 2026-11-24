@@ -9,6 +9,8 @@ from typing import Any, Dict, Iterable, List
 from agent.job_inbox import result_path
 
 _MAX_BYTES = 20 * 1024 * 1024
+# Oxygen 原始录波常远超 20MB，单独放宽
+_MAX_DMD_BYTES = 512 * 1024 * 1024
 _MAX_FILES = 48
 _RECENT_GLOBS = (
     "command_save_files/command_data/**/*.*",
@@ -26,8 +28,35 @@ _RECENT_SUFFIXES = {
     ".pdf",
     ".txt",
     ".log",
-    ".json",
+    ".dmd",
 } | _IMAGE_SUFFIXES
+def _is_config_snapshot(path: Path) -> bool:
+    """任务/状态快照、命令队列：可上传到「参数配置」，不要当实验报告去扫目录。"""
+    name = path.name.lower()
+    if name in {"status.json"}:
+        return True
+    if name.startswith("job_") and name.endswith(".json"):
+        return True
+    if name.endswith(".csv") and "commands" in name:
+        return True
+    return False
+
+
+def _is_junk_upload(path: Path) -> bool:
+    """仪器配置 XML、结案 sidecar、无头元数据：根本不上传。"""
+    name = path.name.lower()
+    if name in {"headless_result.json", ".last_dew_export.json", "sim_plan.json"}:
+        return True
+    # Oxygen/德威创通道配置快照（dewetron_20261111_19.xml），不是试验报告
+    if name.endswith(".xml") and name.startswith("dewetron_"):
+        return True
+    if name.endswith(".json") and (
+        name.startswith(".")
+        or "last_dew" in name
+        or name == "headless_result.json"
+    ):
+        return True
+    return False
 
 
 def _job_scoped_globs(job_id: int) -> tuple[str, ...]:
@@ -83,7 +112,10 @@ def _job_time_window(result: Dict[str, Any], result_file: Path) -> tuple[float, 
 def _match_recent_file(path: Path, since_ts: float, until_ts: float) -> bool:
     if not path.is_file():
         return False
-    if path.suffix.lower() not in _RECENT_SUFFIXES and "dewetron" not in str(path).lower():
+    if _is_junk_upload(path) or _is_config_snapshot(path):
+        return False
+    # 只按后缀收；勿因路径含 dewetron 就把配置 XML 一并收进来
+    if path.suffix.lower() not in _RECENT_SUFFIXES:
         return False
     try:
         mtime = path.stat().st_mtime
@@ -129,8 +161,20 @@ def _recent_output_files(
 
 
 def _widget_save_dirs(result: Dict[str, Any] | None) -> List[Path]:
-    """从结案摘要 widgets 取 textEdit_SavePath（台架常存 D:\\xiebodianliu_test 等盘符）。"""
+    """从结案摘要 widgets 取 WT SavePath / 德威创保存目录。"""
     out: List[Path] = []
+    seen = set()
+
+    def _add(path: Path) -> None:
+        try:
+            key = str(path.resolve())
+        except OSError:
+            key = str(path)
+        if key in seen:
+            return
+        seen.add(key)
+        out.append(path)
+
     if not isinstance(result, dict):
         return out
     summary = result.get("result_summary") or result.get("resultSummary") or {}
@@ -138,18 +182,33 @@ def _widget_save_dirs(result: Dict[str, Any] | None) -> List[Path]:
         summary = {}
     widgets = summary.get("widgets") or result.get("widgets") or {}
     if not isinstance(widgets, dict):
-        return out
-    raw = widgets.get("textEdit_SavePath") or widgets.get("SavePath") or ""
-    text = str(raw or "").strip()
-    if not text:
-        return out
+        widgets = {}
+    for key in (
+        "textEdit_SavePath",
+        "SavePath",
+        "lineEdit_DEW_SaveDir",
+        "lineEdit_DEW_SavePath",
+    ):
+        text = str(widgets.get(key) or "").strip()
+        if not text:
+            continue
+        try:
+            p = Path(text)
+            if p.is_dir():
+                _add(p)
+            elif p.parent.is_dir():
+                _add(p.parent)
+        except OSError:
+            pass
+    # 德威创默认落 LOCALAPPDATA\\SolarAutoTest\\dewetron_save（中途停机 CSV 常在这）
     try:
-        p = Path(text)
-        if p.is_dir():
-            out.append(p)
-        elif p.parent.is_dir():
-            out.append(p.parent)
-    except OSError:
+        from utils.wt_save_path import default_dewetron_save_dir, default_wt_save_path
+
+        for raw in (default_dewetron_save_dir(), default_wt_save_path()):
+            p = Path(str(raw or ""))
+            if p.is_dir():
+                _add(p)
+    except Exception:
         pass
     return out
 
@@ -243,6 +302,9 @@ def recording_token_for_test(test_name: str) -> str:
             return "qu_dyn_curve"
         if low in {"静态qu", "staticqu"}:
             return "qu_curve"
+        # 德威创无功能力常写成 reactive-qcap_*.csv
+        if "qcap" in low or low in {"无功能力范围", "无功能力"}:
+            return "qcap"
         return ""
     name = str(continuous_filename_for_test(raw) or "").strip().lower()
     if not name or name == "record_br":
@@ -250,6 +312,9 @@ def recording_token_for_test(test_name: str) -> str:
     # 实际文件是 OVUF_Volt_BR / OVUF_Freq_BR / OVUF_S3_…，整词 ovuf_br 对不上。
     if name == "ovuf_br" or name.startswith("ovuf"):
         return "ovuf"
+    # QCap_BR / reactive-qcap 都能被 "qcap" 命中
+    if "qcap" in name.replace("_", "").replace("-", ""):
+        return "qcap"
     return name
 
 
@@ -281,7 +346,7 @@ def window_output_files_by_token(
         for path in folder.glob("**/*"):
             if not path.is_file() or not _named(path):
                 continue
-            if path.suffix.lower() not in _RECENT_SUFFIXES and "dewetron" not in str(path).lower():
+            if path.suffix.lower() not in _RECENT_SUFFIXES:
                 continue
             if _match_recent_file(path, since_ts, until_ts):
                 found.append(path)
@@ -413,6 +478,8 @@ def collect_report_files(
     drop_overload = tt in ("harmonic", "harmonics", "harmonic_current", "谐波", "谐波电流", "谐波电流测试")
 
     def _keep(path: Path) -> bool:
+        if _is_junk_upload(path):
+            return False
         name_l = path.name.lower()
         if drop_overload and (
             name_l.startswith("sample_overload") or name_l == "sim_plan.json"
@@ -422,17 +489,26 @@ def collect_report_files(
             size = path.stat().st_size
         except OSError:
             return False
-        return 0 < size <= _MAX_BYTES
+        if size <= 0:
+            return False
+        limit = _MAX_DMD_BYTES if path.suffix.lower() == ".dmd" else _MAX_BYTES
+        return size <= limit
 
     def _priority(path: Path) -> tuple:
         name_l = path.name.lower()
-        if token and token in name_l:
+        suf = path.suffix.lower()
+        if _is_config_snapshot(path):
+            return (9, name_l)
+        # 数据处理报告 / 录波优先
+        if suf in {".xlsx", ".xls", ".docx", ".pdf"}:
             return (0, name_l)
-        if path.suffix.lower() in {".csv", ".xlsx", ".xls", ".docx", ".pdf"}:
+        if token and token in name_l:
             return (1, name_l)
-        if name_l == "status.json" or (name_l.startswith("job_") and name_l.endswith(".json")):
+        if suf in {".csv", ".dmd"}:
+            return (2, name_l)
+        if suf in _IMAGE_SUFFIXES:
             return (3, name_l)
-        return (2, name_l)
+        return (4, name_l)
 
     resolved_list: List[Path] = []
     seen = set()

@@ -409,7 +409,8 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
                     # IOT 常下发 min|sec|ms；Dialog 选项是 分钟|秒|毫秒（job110 因此回读失败）
                     if idx < 0 and (
                         key.endswith("_TIME")
-                        or key in (
+                        or key
+                        in (
                             "comboBox_ovuf_grid_wait",
                             "comboBox_lvrt_grid_wait",
                         )
@@ -869,6 +870,8 @@ class IotUiHandoffService(QObject):
         self.device_discover_lan = None
         # 交接写完 Dialog 后：把 S1 AC/DC 同步到 Soft Panel 并尽量下发真机
         self.device_sync_boot_params = None
+        # 德威创开测：把开测页比例系数/刷新率等写到桌面设置页
+        self.device_apply_dew_widgets = None
 
     def start(self) -> None:
         watched = " ; ".join(str(d / "pending") for d in self._inbox_dirs())
@@ -1489,12 +1492,29 @@ class IotUiHandoffService(QObject):
         for root in self._write_roots_for(pending):
             write_result(root, job_id, result)
         paths = collect_report_files(self.repo_root, job_id, result)
+        # 合并而非覆盖：保留 last_dew / 先前注入的 dewetron_csv
+        existing = list(summary.get("report_files") or [])
+        seen = set()
         listed = []
+
+        def _push(item) -> None:
+            if isinstance(item, dict):
+                raw = str(item.get("path") or item.get("file") or "")
+            else:
+                raw = str(item or "")
+            key = raw.replace("\\", "/").lower()
+            if not raw or key in seen:
+                return
+            seen.add(key)
+            listed.append(item if isinstance(item, dict) else raw)
+
+        for item in existing:
+            _push(item)
         for p in paths:
             try:
-                listed.append(str(p.resolve()))
+                _push(str(p.resolve()))
             except OSError:
-                listed.append(str(p))
+                _push(str(p))
         if listed:
             summary["report_files"] = listed
             result["result_summary"] = summary
@@ -1577,11 +1597,55 @@ class IotUiHandoffService(QObject):
         result: Dict[str, Any],
         release_ui: bool = True,
     ) -> None:
+        jid = int(job_id)
+        finishing = getattr(self, "_finishing_job_ids", None)
+        if finishing is None:
+            finishing = set()
+            self._finishing_job_ids = finishing
+        if jid in finishing:
+            self._log(f"任务 {jid} 结案重入已忽略")
+            return
+        finishing.add(jid)
+
+        # 结案含同步跑数据处理，耗时长。必须立刻摘掉 _awaiting，
+        # 否则定时器 / desktop_finished / 「本机另行追加」会再进一次，
+        # 两个 headless 同秒写同一 headless_result.json → Extra data。
+        aw = self._awaiting if isinstance(self._awaiting, dict) else {}
+        try:
+            aw_job = int(aw.get("job_id") or 0)
+        except (TypeError, ValueError):
+            aw_job = 0
+        if isinstance(aw, dict):
+            aw["_finishing"] = True
+        if aw_job and aw_job == jid:
+            self._awaiting = None
+        elif self._awaiting is not None and aw_job == 0:
+            self._awaiting = None
+
+        try:
+            self._finish_job_body(
+                job_id=jid,
+                pending_path=pending_path,
+                result=result,
+                release_ui=release_ui,
+                aw=aw,
+            )
+        finally:
+            finishing.discard(jid)
+
+    def _finish_job_body(
+        self,
+        *,
+        job_id: int,
+        pending_path: Optional[Path],
+        result: Dict[str, Any],
+        release_ui: bool,
+        aw: Dict[str, Any],
+    ) -> None:
         from agent.job_inbox import write_result
         from agent.ui_mutex import ui_release
 
         # 先写入 testType，再收集报告：aborted 也要按 OVUF 等 token 扫 wt_save
-        aw = self._awaiting if isinstance(self._awaiting, dict) else {}
         summary = result.get("result_summary") if isinstance(result.get("result_summary"), dict) else {}
         if aw.get("test_type") and not summary.get("testType"):
             summary["testType"] = aw.get("test_type")
@@ -1591,6 +1655,119 @@ class IotUiHandoffService(QObject):
             summary["widgets"] = aw.get("widgets")
         result["result_summary"] = summary
 
+        # 德威创刚写出的 CSV：进度状态 / 内存 / sidecar 三路交叉验证
+        try:
+            from pathlib import Path as _P
+
+            from utils.last_dew_export import (
+                last_dew_csv,
+                last_dew_dir,
+                last_dew_dmd,
+                read_sidecar_full,
+            )
+
+            candidates = []
+            if self.get_run_progress:
+                try:
+                    snap = self.get_run_progress() or {}
+                    if isinstance(snap, dict):
+                        candidates.append(snap.get("last_dew_csv"))
+                        if snap.get("analysis_input_dir") and not summary.get(
+                            "analysis_input_dir"
+                        ):
+                            summary["analysis_input_dir"] = str(
+                                snap.get("analysis_input_dir")
+                            )
+                except Exception:
+                    pass
+            candidates.append(last_dew_csv())
+            side_csv, side_dir, side_dmd = read_sidecar_full()
+            candidates.append(side_csv)
+            if side_dir and not summary.get("analysis_input_dir"):
+                summary["analysis_input_dir"] = side_dir
+            mem_dir = last_dew_dir()
+            if mem_dir and not summary.get("analysis_input_dir"):
+                summary["analysis_input_dir"] = mem_dir
+
+            last_dew = ""
+            for raw in candidates:
+                text = str(raw or "").strip()
+                if not text:
+                    continue
+                p = _P(text)
+                if p.is_file() or p.is_dir():
+                    last_dew = text
+                    break
+                # 文件刚写出偶发 is_file 失败时仍记下路径
+                if text.lower().endswith(".csv"):
+                    last_dew = text
+                    break
+            listed = list(summary.get("report_files") or [])
+            if last_dew:
+                p = _P(str(last_dew))
+                d = p if p.is_dir() else p.parent
+                if str(d):
+                    summary["analysis_input_dir"] = str(d)
+                    summary["last_dew_csv"] = str(last_dew)
+                if p.suffix.lower() == ".csv":
+                    listed.append(
+                        {"path": str(p), "name": p.name, "kind": "dewetron_csv"}
+                    )
+            dmd = last_dew_dmd() or side_dmd
+
+            def _dmd_belongs_to_csv(dmd_path: _P, csv_path: _P) -> bool:
+                """禁止把目录里几天前的旧 .dmd（如 dewetron_20261109_*.dmd）当成本轮报告。"""
+                try:
+                    if not dmd_path.is_file() or dmd_path.suffix.lower() != ".dmd":
+                        return False
+                    name = dmd_path.name.lower()
+                    stem = csv_path.stem.lower() if csv_path.suffix.lower() == ".csv" else ""
+                    if stem and (stem in name or stem.replace("-", "_") in name):
+                        return True
+                    if csv_path.is_file():
+                        dt = abs(dmd_path.stat().st_mtime - csv_path.stat().st_mtime)
+                        # 同一次试验落盘通常紧挨着；放宽到 2 小时防时钟偏差
+                        if dt <= 2 * 3600:
+                            return True
+                except OSError:
+                    return False
+                return False
+
+            csv_for_dmd = _P(str(last_dew)) if last_dew else None
+            if dmd and csv_for_dmd is not None and csv_for_dmd.suffix.lower() == ".csv":
+                if not _dmd_belongs_to_csv(_P(str(dmd)), csv_for_dmd):
+                    self._log(
+                        f"忽略与本轮 CSV 无关的旧 .dmd: {dmd}（csv={csv_for_dmd.name}）"
+                    )
+                    dmd = ""
+            if not dmd and csv_for_dmd is not None and csv_for_dmd.suffix.lower() == ".csv":
+                # STORE 偶发未 remember：仅收与本轮 CSV 同名/同时段的 .dmd
+                try:
+                    folder = csv_for_dmd.parent
+                    if folder.is_dir():
+                        siblings = sorted(
+                            folder.glob("*.dmd"),
+                            key=lambda p: p.stat().st_mtime,
+                            reverse=True,
+                        )
+                        for sib in siblings:
+                            if _dmd_belongs_to_csv(sib, csv_for_dmd):
+                                dmd = str(sib)
+                                break
+                except Exception:
+                    pass
+            if dmd:
+                dp = _P(str(dmd))
+                if dp.suffix.lower() == ".dmd" and dp.is_file():
+                    summary["last_dew_dmd"] = str(dp)
+                    listed.append(
+                        {"path": str(dp), "name": dp.name, "kind": "dewetron_dmd"}
+                    )
+            if listed:
+                summary["report_files"] = listed
+            result["result_summary"] = summary
+        except Exception:
+            pass
         try:
             self._attach_report_files(result, job_id)
         except Exception:
@@ -1598,7 +1775,11 @@ class IotUiHandoffService(QObject):
         try:
             from utils.iot_data_analysis_bridge import remember_analysis_input_dir
 
-            remember_analysis_input_dir(result, self.repo_root)
+            remembered = remember_analysis_input_dir(result, self.repo_root)
+            if remembered is None:
+                self._log(
+                    "结案未定位到 CSV 目录（已扫 last_dew/sidecar/LOCALAPPDATA/dewetron_save）"
+                )
         except Exception:
             pass
         # 结案自动数据处理（台架本机）；失败不阻断写回
@@ -1664,7 +1845,16 @@ class IotUiHandoffService(QObject):
                     ):
                         continue
                     if not name.endswith(
-                        (".csv", ".xlsx", ".xls", ".docx", ".pdf", ".png", ".jpg")
+                        (
+                            ".csv",
+                            ".xlsx",
+                            ".xls",
+                            ".docx",
+                            ".pdf",
+                            ".png",
+                            ".jpg",
+                            ".dmd",
+                        )
                     ):
                         continue
                     paths.append(raw)
@@ -1698,6 +1888,9 @@ class IotUiHandoffService(QObject):
     def _check_awaiting_finish(self) -> None:
         aw = self._awaiting
         if not aw:
+            return
+        # 结案中（含数据处理）禁止重入，避免双开 headless 写坏 result-json
+        if aw.get("_finishing"):
             return
         job_id = int(aw["job_id"])
         pending_path = aw.get("pending_path")
@@ -2962,11 +3155,16 @@ class IotUiHandoffService(QObject):
             except Exception as _wt_apply_exc:
                 self._log(f"WT 保存设置写入跳过: {_wt_apply_exc}")
 
-            # 重连等试验：Dialog 写完后同步 Soft Panel 交流相数/直流 IV（用户看到的主界面）
+            # 重连等试验：Dialog 写完后同步 Soft Panel 交流相数/直流 IV（仅界面）。
+            # 开测交接禁止在此下真机：后面 Append 的 S1 会发同一套 VOLT/FREQ/IV，
+            # 否则日志里会出现开头 AC/DC 命令打两遍。
             try:
                 sync_fn = getattr(self, "device_sync_boot_params", None)
                 if callable(sync_fn) and isinstance(widgets_for_ui, dict) and widgets_for_ui:
-                    sync_fn(widgets_for_ui)
+                    try:
+                        sync_fn(widgets_for_ui, apply_to_device=False)
+                    except TypeError:
+                        sync_fn(widgets_for_ui)
             except Exception as sync_exc:
                 self._log(f"Soft Panel 启机参数同步跳过: {sync_exc}")
 
@@ -3335,6 +3533,32 @@ class IotUiHandoffService(QObject):
                             radio.click()
                         except Exception:
                             pass
+                    # IOT 开测勾选 ↔ 桌面试验页同名控件：刷新率/小数位/波形/绝对时间/原始录波/路径
+                    try:
+                        from utils.dewetron_widget_apply import apply_dewetron_panel_widgets
+
+                        applied = apply_dewetron_panel_widgets(real_ui, widgets)
+                        ok = [k for k, v in (applied or {}).items() if v]
+                        if ok:
+                            self._log("德威创试验面板已同步: " + ",".join(ok))
+                    except Exception as exc:
+                        self._log(f"德威创试验面板同步跳过: {exc}")
+                    # 比例系数等到设置页（试验页无比例输入框）
+                    apply_dew = getattr(self, "device_apply_dew_widgets", None)
+                    if callable(apply_dew) and (
+                        isinstance(widgets.get("dew_channel_scales"), dict)
+                        or widgets.get("comboBox_DEW_MaxRefreshRate")
+                        or widgets.get("comboBox_maxRefreshRate")
+                        or widgets.get("lineEdit_DEW_SaveDir") is not None
+                        or widgets.get("checkBox_DEW_ExportAbsTime") is not None
+                        or widgets.get("checkBox_DEW_KeepOxygenDmd") is not None
+                    ):
+                        try:
+                            apply_dew(widgets)
+                            self._log("德威创设置页/比例已按开测勾选同步")
+                        except Exception as exc:
+                            self._log(f"德威创设置页同步跳过: {exc}")
+
                 elif (handler.get("key") or "") in (
                     "flicker",
                     "harmonic",
@@ -3501,7 +3725,10 @@ class IotUiHandoffService(QObject):
                             if str(item.get("slot") or "").strip().lower() == "wt":
                                 want_wt = True
                                 break
-                        if not want_wt and isinstance(widgets, dict):
+                        # 德威创试验的 checkBox_S2 只是步骤开关，不能据此去补扫 WT
+                        if want_dew:
+                            want_wt = False
+                        elif isinstance(widgets, dict):
                             if widgets.get("checkBox_S2") in (True, "1", 1, "true", "True"):
                                 want_wt = True
                             if widgets.get("radio_wt") in (True, "1", 1, "true", "True") or widgets.get(
@@ -3706,12 +3933,16 @@ class IotUiHandoffService(QObject):
             widgets = dict(raw_w) if isinstance(raw_w, dict) else {}
 
         try:
-            # 自动连接后再同步 Soft Panel AC/DC（开输出/下发 IV 才有效）
+            # 自动连接后再同步 Soft Panel AC/DC 界面；真机由试验队列 S1 下发，
+            # 避免「交接 live 下发 + RunProject」把 VOLT/FREQ/SAS 打两遍。
             try:
                 sync_fn = getattr(self, "device_sync_boot_params", None)
                 if callable(sync_fn) and isinstance(widgets, dict) and widgets:
-                    sync_fn(widgets)
-                    self._log("连接后已同步 Soft Panel 交流相数/直流 IV")
+                    try:
+                        sync_fn(widgets, apply_to_device=False)
+                    except TypeError:
+                        sync_fn(widgets)
+                    self._log("连接后已同步 Soft Panel 交流相数/直流 IV（仅界面）")
             except Exception as sync_exc:
                 self._log(f"连接后 Soft Panel 同步跳过: {sync_exc}")
 
@@ -3948,6 +4179,12 @@ class IotUiHandoffService(QObject):
                         "joined_running_queue": True,
                         "max_cmd_index": 0,
                         "max_cmd_total": 0,
+                        "test_type": test_type,
+                        "handler": {
+                            "project_name": str((handler or {}).get("project_name") or ""),
+                            "key": str((handler or {}).get("key") or test_type),
+                            "label": str((handler or {}).get("label") or ""),
+                        },
                     }
                     self._log("本机正在执行，IOT 追加已并入当前队列，等待本机跑完再结案")
                     self._emit_progress(job_id, force=True)
@@ -4014,6 +4251,13 @@ class IotUiHandoffService(QObject):
                         return
                 except Exception as _q_exc:
                     self._log(f"开跑前队列检查跳过: {_q_exc}")
+                # 开跑前再钉一次分项名，避免 comboBox_PS 被清空后 prepare project=
+                try:
+                    pname = str((handler or {}).get("project_name") or "").strip()
+                    if pname and self.ensure_project:
+                        self.ensure_project(pname)
+                except Exception as _ens_exc:
+                    self._log(f"开跑前切换项目跳过: {_ens_exc}")
                 self.start_test()
                 self._log("已调用开始试验")
 
@@ -4047,6 +4291,12 @@ class IotUiHandoffService(QObject):
                     "max_cmd_total": 0,
                     "test_type": test_type,
                     "handler_key": str((handler or {}).get("key") or test_type),
+                    # START 补 prepare / 空 comboBox_PS 时解析试验名用
+                    "handler": {
+                        "project_name": str((handler or {}).get("project_name") or ""),
+                        "key": str((handler or {}).get("key") or test_type),
+                        "label": str((handler or {}).get("label") or ""),
+                    },
                     "widgets": dict(widgets) if isinstance(widgets, dict) else {},
                     "params": dict(params) if isinstance(params, dict) else {},
                 }

@@ -50,3 +50,15 @@ def combo_text_for_plan(plan: Dict[str, Any]) -> Optional[str]:
             return f"{host}:{port}"
         return None
     return str(plan.get("resource") or "") or None
+
+
+def remember_text_for_plan(plan: Optional[Dict[str, Any]], dev: Any) -> str:
+    """连接成功后写入历史/槽位偏好的地址。
+
+    WT 的 ``connect_plan`` 会把 502/2101/8080 改成 5025；必须记修正后的口，
+    不能写回扫描到的电源口 ``dev.resource``。
+    """
+    text = combo_text_for_plan(plan or {}) or ""
+    if text:
+        return text
+    return str(getattr(dev, "resource", "") or "")

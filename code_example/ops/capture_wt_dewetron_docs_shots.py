@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from PyQt5.QtCore import Qt, QTimer
@@ -71,8 +71,9 @@ def build_wt3000_device_page() -> QWidget:
     timeline = TimelineWidget()
 
     tips = QLabel(
-        "提示: 网口连接请填写IP地址，点击连接; "
-        "串口连接请保持IP为空，从下拉框选择串口后点击连接"
+        "提示: 网口填 IP 后连接；串口则 IP 留空、从下拉框选口。"
+        "连接不会自动改变比。填写 VT/CT 后点蓝色「下发并保存」才会写配置档并下发到仪器；"
+        "通电后可再点「开始试读」核对。"
     )
     tips.setWordWrap(True)
     tips.setStyleSheet(
@@ -138,6 +139,26 @@ def build_wt3000_device_page() -> QWidget:
     ch.addWidget(set_btn)
     timeline.addStep("设备连接", conn)
 
+    from components.wt_scale_group import add_wt_scale_group
+
+    apply_scale = QPushButton("下发并保存")
+    apply_button_style(apply_scale, ButtonStyle.PRIMARY)
+    probe = QPushButton("开始试读")
+    apply_button_style(probe, ButtonStyle.INFO)
+    scale_btns = QWidget()
+    sh = QHBoxLayout(scale_btns)
+    sh.setContentsMargins(0, 0, 0, 0)
+    sh.addWidget(apply_scale)
+    sh.addWidget(probe)
+    sh.addStretch(1)
+    timeline.addStep("比例系数下发", scale_btns)
+
+    scale_host = QWidget()
+    scale_lay = QVBoxLayout(scale_host)
+    scale_lay.setContentsMargins(0, 0, 0, 0)
+    add_wt_scale_group(scale_host, scale_lay, 7)
+    timeline.addStep("比例系数 VT/CT", scale_host)
+
     flicker = QPushButton("切换闪变页面")
     apply_button_style(flicker, ButtonStyle.PRIMARY)
     flicker.setFixedWidth(140)
@@ -156,8 +177,9 @@ def build_wt3000_device_page() -> QWidget:
         "1) 左侧菜单进入「WT3000」设备页\n"
         "2) 网口：填 IP（常见 192.168.x.x）+ 端口（常见 5025）→「连接设备」\n"
         "3) 串口：IP 留空，在接口下拉框选串口资源 →「连接设备」；波特率按设备设定\n"
-        "4) 连接成功后按钮变为「取消连接」；需要时可点「设定WT3000」改波特率\n"
-        "说明：本页只管「连上仪器」。试验里的测量项目/保存路径在各自试验对话框的「功率分析仪」步骤配置，不是本页。"
+        "4) 比例系数默认 1。改过 VT/CT 后必须点蓝色「下发并保存」。只连接不会改变比\n"
+        "5) 「开始试读」只核对读数，不下发变比\n"
+        "说明：测量勾选和保存路径在各试验的功率分析仪步骤里，不在本页。"
     )
     timeline.addStep("操作说明", log, stretch=True)
     timeline.finalize()

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from utils.dc_channels import s1_dc_slots
+
 from utils.matrix_recording_commands import (
     append_matrix_dwell,
     get_record_mode,
@@ -160,12 +162,7 @@ def antibackflow_recommended_filenames(ui, mode: str = MODE_CONTINUOUS):
 
 
 def _apply_dc_pct(ui, commands, point_rows, dc_pct, dc_iv_resolver, point_index, dc_errors, tag):
-    for ch, device, dc_num, label in (
-        (1, "DC1", 0, "DC电源1"),
-        (2, "DC2", 1, "DC电源2"),
-        (3, "DC3", 2, "DC电源3"),
-        (4, "DC4", 3, "DC电源4"),
-    ):
+    for ch, device, dc_num, label in s1_dc_slots(ui):
         s1_on = getattr(ui, "checkBox_S1_DC%d" % ch).isChecked()
         s3_on = getattr(ui, "checkBox_S3_DC%d" % ch).isChecked()
         if not (s1_on and s3_on):
@@ -271,12 +268,7 @@ def build_antibackflow_plan(
         commands.append(row)
         step_rows.append(row)
 
-        for ch, device, dc_num, label in (
-            (1, "DC1", 0, "DC电源1"),
-            (2, "DC2", 1, "DC电源2"),
-            (3, "DC3", 2, "DC电源3"),
-            (4, "DC4", 3, "DC电源4"),
-        ):
+        for ch, device, dc_num, label in s1_dc_slots(ui):
             if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
                 continue
             vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()

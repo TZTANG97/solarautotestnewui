@@ -1,3 +1,4 @@
+from utils.dc_channels import s1_dc_slots
 # -*- coding: utf-8 -*-
 """ROCOF保护：按设定 Hz/s 扫频（df/dt），连续录。"""
 
@@ -246,12 +247,7 @@ def build_rocof_plan(
         commands.append(row)
         step_rows.append(row)
 
-        for ch, device, dc_num, label in (
-            (1, "DC1", 0, "DC电源1"),
-            (2, "DC2", 1, "DC电源2"),
-            (3, "DC3", 2, "DC电源3"),
-            (4, "DC4", 3, "DC电源4"),
-        ):
+        for ch, device, dc_num, label in s1_dc_slots(ui):
             if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
                 continue
             vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()

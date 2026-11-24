@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from utils.dc_channels import s1_dc_slots
+
 import re
 
 from utils.wt_recording_mode import (
@@ -158,7 +160,16 @@ def build_reactive_qcap_plan(
     file_names = []
     dwell_01s = 0
 
-    need_wt = True  # 同项目追加也刷新 WT 文件名，避免多轮覆盖
+    # 德威创模式不生成 Upper_WT_Config。页内 radioButton_S2_WT3000 默认勾着，
+    # 只表示 WT 型号页，不能据此去连 Soft Panel。
+    dew_mode = False
+    try:
+        from utils.iot_device_ready import analyzer_slot_required
+
+        dew_mode = analyzer_slot_required(ui) == "dew"
+    except Exception:
+        dew_mode = False
+    need_wt = not dew_mode
     if need_wt:
         row = _empty_row()
         row[0] = "Upper_WT_Config"
@@ -209,12 +220,7 @@ def build_reactive_qcap_plan(
         commands.append(row)
         step_rows.append(row)
 
-        for ch, device, dc_num, label in (
-            (1, "DC1", 0, "DC电源1"),
-            (2, "DC2", 1, "DC电源2"),
-            (3, "DC3", 2, "DC电源3"),
-            (4, "DC4", 3, "DC电源4"),
-        ):
+        for ch, device, dc_num, label in s1_dc_slots(ui):
             if not getattr(ui, "checkBox_S1_DC%d" % ch).isChecked():
                 continue
             vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()
@@ -263,6 +269,14 @@ def build_reactive_qcap_plan(
                 wt_type = "WT5000"
             if wt_type:
                 test_program.append(["12", wt_type])
+    # 德威创单选也算已启用分析仪录波（与 checkBox_S2 一致），保证连续录有 ASYNC_START
+    try:
+        from utils.iot_device_ready import analyzer_slot_required
+
+        if analyzer_slot_required(ui) == "dew":
+            wt_is_checked = "1"
+    except Exception:
+        pass
 
     if ui.checkBox_S3.isChecked():
         power_levels = parse_power_ladder(ui.textEdit_PowerLadder.toPlainText())
@@ -334,12 +348,7 @@ def build_reactive_qcap_plan(
                     commands.append(row)
                     point_rows.append(row)
 
-                for ch, device, dc_num, label in (
-                    (1, "DC1", 0, "DC电源1"),
-                    (2, "DC2", 1, "DC电源2"),
-                    (3, "DC3", 2, "DC电源3"),
-                    (4, "DC4", 3, "DC电源4"),
-                ):
+                for ch, device, dc_num, label in s1_dc_slots(ui):
                     s1_on = getattr(ui, "checkBox_S1_DC%d" % ch).isChecked()
                     s3_on = getattr(ui, "checkBox_S3_DC%d" % ch).isChecked()
                     if not (s1_on and s3_on):

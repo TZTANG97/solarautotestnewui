@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from utils.dc_channels import extend_setting_headers
 """动态 Cosφ(P) 对话框：读取/保存 CSV 设定。"""
 
 import csv
@@ -110,7 +111,7 @@ def _build_headers():
         "checkBox_S_END_DC4",
         "comboBox_S_END_DC4",
     ]
-    return h
+    return extend_setting_headers(h)
 
 
 HEADERS = _build_headers()
@@ -151,7 +152,7 @@ def Save_File_ThaiDynamicCosPhi(kwargs):
         print("请选择一个文件")
         return
     values = [FILE_TAG]
-    for name in HEADERS[1:]:
+    for name in _build_headers()[1:]:
         # radio WT：兼容 checkBox_S2_WTxxx 列名
         if name == "checkBox_S2_WT3000":
             values.append("1" if ui.radioButton_S2_WT3000.isChecked() else "0")
@@ -163,7 +164,7 @@ def Save_File_ThaiDynamicCosPhi(kwargs):
             values.append("1" if ui.radioButton_S2_WT5000.isChecked() else "0")
         else:
             values.append(_widget_to_csv(ui, name))
-    headers = list(HEADERS)
+    headers = _build_headers()
     headers, values = _append_dewetron_tail(headers, values, ui)
     with open(path[0], "w", newline="", encoding="utf-8-sig") as fp:
         writer = csv.writer(fp)

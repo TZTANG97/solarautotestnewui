@@ -74,6 +74,13 @@ def _remove_page(ui, channel: int) -> None:
         item = info.get("item")
         page = info.get("page")
         layout = getattr(ui, "_dev_menu_layout", None)
+        # 先从侧栏导航表注销，再 deleteLater，避免选中态遍历已销毁按钮
+        unreg = getattr(ui, "unregister_nav", None)
+        if callable(unreg):
+            try:
+                unreg(btn=item, key="直流电源%d" % channel)
+            except Exception:
+                pass
         if layout is not None and item is not None:
             layout.removeWidget(item)
             item.hide()
@@ -98,8 +105,8 @@ def _remove_page(ui, channel: int) -> None:
             if nav is not None:
                 try:
                     nav.setProperty("page", new_idx)
-                except Exception:
-                    pass
+                except RuntimeError:
+                    continue
                 # 重新绑定点击到新索引（旧闭包仍指向删除前的 page_index）
                 try:
                     nav.clicked.disconnect()
@@ -107,15 +114,21 @@ def _remove_page(ui, channel: int) -> None:
                     pass
                 try:
                     key = "直流电源%d" % n
-                    nav.clicked.connect(
-                        lambda _c=False, idx=new_idx, k=key, host=ui: (
-                            host.stackedWidget.setCurrentIndex(idx),
-                            host.set_nav_active_by_key(k)
-                            if callable(getattr(host, "set_nav_active_by_key", None))
-                            else None,
-                        )
-                    )
-                except Exception:
+
+                    def _on_nav(_c=False, idx=new_idx, k=key, host=ui):
+                        try:
+                            host.stackedWidget.setCurrentIndex(idx)
+                        except Exception:
+                            return
+                        activate_fn = getattr(host, "set_nav_active_by_key", None)
+                        if callable(activate_fn):
+                            try:
+                                activate_fn(k)
+                            except RuntimeError:
+                                pass
+
+                    nav.clicked.connect(_on_nav)
+                except RuntimeError:
                     pass
     for attr in (
         "comboBox_DC%d" % channel,
@@ -138,8 +151,11 @@ def _remove_page(ui, channel: int) -> None:
         print("[直流路] 删除后刷新试验页失败: %s" % exc, flush=True)
     activate = getattr(ui, "set_nav_active_by_key", None)
     if callable(activate):
-        activate("直流电源4")
-    elif hasattr(ui, "stackedWidget"):
+        try:
+            activate("直流电源4")
+        except RuntimeError:
+            pass
+    if hasattr(ui, "stackedWidget"):
         # 直流电源4 在固定页索引 5（0=首页，1=AC，2~5=DC1~4）
         try:
             ui.stackedWidget.setCurrentIndex(5)
