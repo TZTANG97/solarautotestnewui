@@ -5299,9 +5299,11 @@ def _normalize_generated_dewetron_rows(project_name, snapshot):
             if trigger_waits:
                 normalized.append(make_wait_row(max(trigger_waits)))
             continue
-        if device == 'AC' and str(row[1]).strip().lower() == 'wait' and row[9] == 3000:
-            # This row exists only to switch WTViewer projects between appends.
-            continue
+        if device == 'AC' and str(row[1]).strip().lower() == 'wait':
+            reason = str(row[2] if len(row) > 2 else "").strip().upper()
+            # 跨项目衔接只给 Soft Panel / 队列切项用，德威创段不执行
+            if reason == "PROJECT_GAP" or row[9] == 3000:
+                continue
         clean = list(row)
         marker = ""
         if len(clean) > 6 and clean[6] not in ('', None):
@@ -8723,13 +8725,8 @@ def thaichonglianSend():
         strArrayTest.append(strArraySingle)
 
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
@@ -9393,13 +9390,8 @@ def thaixiebodianliuSend():
             f"[谐波] 德威创模式：启动采集（NUMERIC 配置由 collector 执行）")
 
     if strAddTestFlag == '1' and project_change == '1' and not is_dewetron:
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
         
     strArrayTestStep = []
@@ -11203,12 +11195,8 @@ def thaifixedpfSend():
         strArrayTest.append(strArraySingle)
 
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = "PROJECT_GAP"
-        strArraySingle[9] = 20
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     if uiThaiFixedPF.checkBox_S2.isChecked() and (not _fixedpf_dew_mode):
@@ -11832,14 +11820,12 @@ def thaireactiveQcapSend():
             if stop_sec < 20:
                 stop_sec = 20
             stop_str = _seconds_to_stoptime_str(stop_sec)
-        for cfg_row in strArrayTest:
-            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                if stop_str:
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                    cfg_row[4]["comboBox_AutoSave"] = 1
-                break
+        from utils.wt_recording_mode import patch_last_upper_wt_config
+        patch_last_upper_wt_config(
+            strArrayTest,
+            file_list_text=file_list_text,
+            stop_time=stop_str or None,
+        )
         try:
             for page_idx in range(uiThaiReactiveQCap._wtStacked.count()):
                 page = uiThaiReactiveQCap._wtStacked.widget(page_idx)
@@ -12039,14 +12025,12 @@ def thaifixedQSend():
                 if stop_sec < 20:
                     stop_sec = 20
                 stop_str = _seconds_to_stoptime_str(stop_sec)
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    if stop_str:
-                        cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str or None,
+            )
             try:
                 for page_idx in range(uiThaiFixedQ._wtStacked.count()):
                     page = uiThaiFixedQ._wtStacked.widget(page_idx)
@@ -12246,14 +12230,12 @@ def thaireactiveQaccSend():
                 if stop_sec < 20:
                     stop_sec = 20
                 stop_str = _seconds_to_stoptime_str(stop_sec)
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    if stop_str:
-                        cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str or None,
+            )
             try:
                 for page_idx in range(uiThaiReactiveQacc._wtStacked.count()):
                     page = uiThaiReactiveQacc._wtStacked.widget(page_idx)
@@ -12453,14 +12435,12 @@ def thaireactiveQinSend():
                 if stop_sec < 20:
                     stop_sec = 20
                 stop_str = _seconds_to_stoptime_str(stop_sec)
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    if stop_str:
-                        cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str or None,
+            )
             try:
                 for page_idx in range(uiThaiReactiveQin._wtStacked.count()):
                     page = uiThaiReactiveQin._wtStacked.widget(page_idx)
@@ -12657,14 +12637,12 @@ def thaiactivePSend():
                 if stop_sec < 20:
                     stop_sec = 20
                 stop_str = _seconds_to_stoptime_str(stop_sec)
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    if stop_str:
-                        cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str or None,
+            )
             try:
                 for page_idx in range(uiThaiActiveP._wtStacked.count()):
                     page = uiThaiActiveP._wtStacked.widget(page_idx)
@@ -12859,14 +12837,12 @@ def thaiantibackflowSend():
                 if stop_sec < 20:
                     stop_sec = 20
                 stop_str = _seconds_to_stoptime_str(stop_sec)
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    if stop_str:
-                        cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str or None,
+            )
             try:
                 for page_idx in range(uiThaiAntiBackflow._wtStacked.count()):
                     page = uiThaiAntiBackflow._wtStacked.widget(page_idx)
@@ -13048,13 +13024,8 @@ def thaioverloadsSend():
         strArrayTest.append(strArraySingle)
 
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
         
     strArrayTestStep = []
@@ -13665,13 +13636,8 @@ def thaizhiliufenliangSend():
         strArrayTest.append(strArraySingle)
 
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     strArrayTestStep = []
@@ -14454,13 +14420,8 @@ def thaistaticQUSend():
 
 
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 50
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
         ui.textEdit_ReturnMessage.append("[静态QU] 跨项间隔 5 秒后继续")
 
@@ -14830,13 +14791,12 @@ def thaistaticQUSend():
                 stop_sec = 10
             stop_str = _seconds_to_stoptime_str(stop_sec)
             file_list_text = ",".join(staticqu_file_names) if staticqu_file_names else "QU_curve"
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str,
+            )
             try:
                 for page_idx in range(uiThaiStaticQU._wtStacked.count()):
                     page = uiThaiStaticQU._wtStacked.widget(page_idx)
@@ -15509,13 +15469,8 @@ def thaistaticcosPhiSend():
         strArrayTest.append(strArraySingle)
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     strArrayTestStep = []
@@ -16206,15 +16161,8 @@ def thaidynamiccosPhiSend():
         # 动态 Cosφ(P)：连续录 1 条 CosPhiP_curve
         wt_rounds = int(plan.get("wt_rounds") or 0)
         if plan.get("wt_is_checked") == "1" and wt_rounds > 0:
-            existing_names = []
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    existing_names = [
-                        p.strip()
-                        for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                        if p.strip()
-                    ]
-                    break
+            from utils.wt_recording_mode import previous_wt_filename_list
+            existing_names = previous_wt_filename_list(strArrayTest)
             if not existing_names:
                 try:
                     for page_idx in range(uiThaiDynamicCosPhi._wtStacked.count()):
@@ -16237,13 +16185,12 @@ def thaidynamiccosPhiSend():
             hh, rem = divmod(stop_sec, 3600)
             mm, ss = divmod(rem, 60)
             stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str,
+            )
             try:
                 for page_idx in range(uiThaiDynamicCosPhi._wtStacked.count()):
                     page = uiThaiDynamicCosPhi._wtStacked.widget(page_idx)
@@ -16396,13 +16343,8 @@ def thaicosPhiBrazilSend():
         _append_debug_log("[cosPhiBrazil] WT config via Upper_WT_Config (no macro replay file in this project)")
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     strArrayTestStep = []
@@ -17260,13 +17202,12 @@ def thaicosPhiBrazilSend():
         measure_names = _finalize_recording_file_names(measure_names)
         file_list_text = ",".join(measure_names)
 
-        for cfg_row in strArrayTest:
-            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                cfg_row[4]["textEdit_StopTime"] = stop_str
-                if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                    cfg_row[4]["comboBox_AutoSave"] = 1
-                break
+        from utils.wt_recording_mode import patch_last_upper_wt_config
+        patch_last_upper_wt_config(
+            strArrayTest,
+            file_list_text=file_list_text,
+            stop_time=stop_str,
+        )
         try:
             for page_idx in range(uiThaiCosPhiBrazil._wtStacked.count()):
                 page = uiThaiCosPhiBrazil._wtStacked.widget(page_idx)
@@ -17416,13 +17357,8 @@ def thaivoltprotect10minSend():
         strArrayTest.append(strArraySingle)
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
@@ -17814,15 +17750,8 @@ def thaivoltprotect10minSend():
         total_save_file = total_save_file + 1
         # 连续录只有 1 轮：保留用户在「文件名列表」里填的单个名字；
         # 空 / 多文件默认列表才回退 OV_10min_curve（避免追加时把自定义名冲掉）
-        existing_names = []
-        for cfg_row in strArrayTest:
-            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                existing_names = [
-                    p.strip()
-                    for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                    if p.strip()
-                ]
-                break
+        from utils.wt_recording_mode import previous_wt_filename_list
+        existing_names = previous_wt_filename_list(strArrayTest)
         if not existing_names:
             try:
                 for page_idx in range(uiThaiVoltProtect10min._wtStacked.count()):
@@ -17849,13 +17778,12 @@ def thaivoltprotect10minSend():
         hh, rem = divmod(stop_sec, 3600)
         mm, ss = divmod(rem, 60)
         stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-        for cfg_row in strArrayTest:
-            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                cfg_row[4]["textEdit_StopTime"] = stop_str
-                if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                    cfg_row[4]["comboBox_AutoSave"] = 1
-                break
+        from utils.wt_recording_mode import patch_last_upper_wt_config
+        patch_last_upper_wt_config(
+            strArrayTest,
+            file_list_text=file_list_text,
+            stop_time=stop_str,
+        )
         try:
             for page_idx in range(uiThaiVoltProtect10min._wtStacked.count()):
                 page = uiThaiVoltProtect10min._wtStacked.widget(page_idx)
@@ -18042,13 +17970,8 @@ def thaiguopinjiangzaiSend():
         strArrayTest.append(strArraySingle)
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
@@ -18491,13 +18414,8 @@ def thaiqianpinshengzaiSend():
         strArrayTest.append(strArraySingle)
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
@@ -18945,13 +18863,8 @@ def thaitestPUSend():
         strArrayTest.append(strArraySingle)
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
@@ -19919,13 +19832,8 @@ def thaiguoqianya_pinSend():
         strArrayTest.append(strArraySingle)
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
@@ -22198,13 +22106,8 @@ def thaiguoqianpin_immunSend():
         strArrayTest.append(strArraySingle)
     
     if strAddTestFlag == '1' and project_change == '1':
-        strArraySingle = ["" for _ in range(10)]
-        S1Command = ""
-        strArraySingle[0] = "AC"
-        strArraySingle[1] = "wait"
-        strArraySingle[2] = S1Command
-        strArraySingle[9] = 3000
-        strArrayTest.append(strArraySingle)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        strArrayTest[:] = insert_project_gap_before_last_wt_config(strArrayTest)
         wt_config_nums = _bump_wt_config_nums()
 
     # if strAddTestFlag == '1':
@@ -23377,14 +23280,12 @@ def thaistaticMPPTtestSend():
                 if stop_sec < 20:
                     stop_sec = 20
                 stop_str = _seconds_to_stoptime_str(stop_sec)
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    if stop_str:
-                        cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str or None,
+            )
             try:
                 stacked = getattr(uiThaiStaticMPPTTest, "_wtStacked", None)
                 if stacked is not None:
@@ -23979,15 +23880,8 @@ def thaifrequencyadaptabilitySend():
         band_metas = plan.get("band_metas") or []
         wt_rounds = int(plan.get("wt_rounds") or 0)
         if plan.get("wt_is_checked") == "1" and wt_rounds > 0 and band_metas:
-            existing_names = []
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    existing_names = [
-                        p.strip()
-                        for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                        if p.strip()
-                    ]
-                    break
+            from utils.wt_recording_mode import previous_wt_filename_list
+            existing_names = previous_wt_filename_list(strArrayTest)
             if not existing_names:
                 try:
                     for page_idx in range(uiThaiFrequencyAdaptability._wtStacked.count()):
@@ -24013,13 +23907,12 @@ def thaifrequencyadaptabilitySend():
             hh, rem = divmod(stop_sec, 3600)
             mm, ss = divmod(rem, 60)
             stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str,
+            )
             try:
                 for page_idx in range(uiThaiFrequencyAdaptability._wtStacked.count()):
                     page = uiThaiFrequencyAdaptability._wtStacked.widget(page_idx)
@@ -24211,15 +24104,8 @@ def thaivoltageadaptabilitySend():
         band_metas = plan.get("band_metas") or []
         wt_rounds = int(plan.get("wt_rounds") or 0)
         if plan.get("wt_is_checked") == "1" and wt_rounds > 0 and band_metas:
-            existing_names = []
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    existing_names = [
-                        p.strip()
-                        for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                        if p.strip()
-                    ]
-                    break
+            from utils.wt_recording_mode import previous_wt_filename_list
+            existing_names = previous_wt_filename_list(strArrayTest)
             if not existing_names:
                 try:
                     for page_idx in range(uiThaiVoltageAdaptability._wtStacked.count()):
@@ -24258,13 +24144,12 @@ def thaivoltageadaptabilitySend():
             hh, rem = divmod(stop_sec, 3600)
             mm, ss = divmod(rem, 60)
             stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str,
+            )
             try:
                 for page_idx in range(uiThaiVoltageAdaptability._wtStacked.count()):
                     page = uiThaiVoltageAdaptability._wtStacked.widget(page_idx)
@@ -24469,15 +24354,8 @@ def thairocofSend():
         band_metas = plan.get("band_metas") or []
         wt_rounds = int(plan.get("wt_rounds") or 0)
         if plan.get("wt_is_checked") == "1" and wt_rounds > 0 and band_metas:
-            existing_names = []
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    existing_names = [
-                        p.strip()
-                        for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                        if p.strip()
-                    ]
-                    break
+            from utils.wt_recording_mode import previous_wt_filename_list
+            existing_names = previous_wt_filename_list(strArrayTest)
             if not existing_names:
                 try:
                     for page_idx in range(uiThaiROCOF._wtStacked.count()):
@@ -24507,13 +24385,12 @@ def thairocofSend():
             stop_str, stop_sec = stoptime_str_from_wall_01s(
                 wall_01s, margin_sec=margin_sec, min_sec=20, n_volt=0
             )
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str,
+            )
             try:
                 for page_idx in range(uiThaiROCOF._wtStacked.count()):
                     page = uiThaiROCOF._wtStacked.widget(page_idx)
@@ -24701,15 +24578,8 @@ def thairapidvoltSend():
         band_metas = plan.get("band_metas") or []
         wt_rounds = int(plan.get("wt_rounds") or 0)
         if plan.get("wt_is_checked") == "1" and wt_rounds > 0 and band_metas:
-            existing_names = []
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    existing_names = [
-                        p.strip()
-                        for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                        if p.strip()
-                    ]
-                    break
+            from utils.wt_recording_mode import previous_wt_filename_list
+            existing_names = previous_wt_filename_list(strArrayTest)
             if not existing_names:
                 try:
                     for page_idx in range(uiThaiRapidVolt._wtStacked.count()):
@@ -24737,13 +24607,12 @@ def thairapidvoltSend():
             hh, rem = divmod(stop_sec, 3600)
             mm, ss = divmod(rem, 60)
             stop_str = f"{hh:02d}:{mm:02d}:{ss:02d}"
-            for cfg_row in strArrayTest:
-                if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                    cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                    if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                        cfg_row[4]["comboBox_AutoSave"] = 1
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+            patch_last_upper_wt_config(
+                strArrayTest,
+                file_list_text=file_list_text,
+                stop_time=stop_str,
+            )
             try:
                 for page_idx in range(uiThaiRapidVolt._wtStacked.count()):
                     page = uiThaiRapidVolt._wtStacked.widget(page_idx)
@@ -24931,14 +24800,12 @@ def thailvrtSend():
             if stop_sec < 20:
                 stop_sec = 20
             stop_str = _seconds_to_stoptime_str(stop_sec)
-        for cfg_row in strArrayTest:
-            if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-                cfg_row[4]["textEdit_FileNameList"] = file_list_text
-                if stop_str:
-                    cfg_row[4]["textEdit_StopTime"] = stop_str
-                if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                    cfg_row[4]["comboBox_AutoSave"] = 1
-                break
+        from utils.wt_recording_mode import patch_last_upper_wt_config
+        patch_last_upper_wt_config(
+            strArrayTest,
+            file_list_text=file_list_text,
+            stop_time=stop_str or None,
+        )
         try:
             for page_idx in range(uiThaiLVRT._wtStacked.count()):
                 page = uiThaiLVRT._wtStacked.widget(page_idx)
@@ -26450,15 +26317,8 @@ def _enable_freq_step_continuous_record(
     str_array_test.append(wait_row)
 
     # 3) 单文件名 + StopTime 覆盖整段台阶
-    existing_names = []
-    for cfg_row in str_array_test:
-        if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-            existing_names = [
-                p.strip()
-                for p in re.split(r"[,，]", str(cfg_row[4].get("textEdit_FileNameList") or ""))
-                if p.strip()
-            ]
-            break
+    from utils.wt_recording_mode import previous_wt_filename_list
+    existing_names = previous_wt_filename_list(str_array_test)
     if not existing_names:
         try:
             stacked = getattr(ui_dialog, "_wtStacked", None)
@@ -26481,13 +26341,12 @@ def _enable_freq_step_continuous_record(
     if stop_sec < 20:
         stop_sec = 20
     stop_str = _seconds_to_stoptime_str(stop_sec)
-    for cfg_row in str_array_test:
-        if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-            cfg_row[4]["textEdit_FileNameList"] = file_list_text
-            cfg_row[4]["textEdit_StopTime"] = stop_str
-            if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                cfg_row[4]["comboBox_AutoSave"] = 1
-            break
+    from utils.wt_recording_mode import patch_last_upper_wt_config
+    patch_last_upper_wt_config(
+        str_array_test,
+        file_list_text=file_list_text,
+        stop_time=stop_str,
+    )
     try:
         stacked = getattr(ui_dialog, "_wtStacked", None)
         if stacked is not None:
@@ -27614,16 +27473,41 @@ def RunProject():
                             log_tag=f"wait,{reason_u or 'col8'}",
                             force_full_dwell=_wait_force_full,
                         )
-                    # OVUF/LVRT/IDN_NOP：纯驻留，禁止误切 WT 工程 / pop test_program
-                    # （旧逻辑在闪变 IDN_NOP 驻留后也会 wt_is_check，打乱进行中的 FLICKER:COUNT）
+                    # OVUF/LVRT/IDN_NOP/RECORD_LEAD：纯驻留，禁止误切 WT 工程。
+                    # PROJECT_GAP：只结束上一项（pop + 清空门闩）。下一项 Upper_WT_Config
+                    # 会像单独开测一样重新 wt_is_check，不要在这里抢先配 Soft Panel。
                     if (
                         reason_u.startswith("OVUF_")
                         or reason_u.startswith("LVRT_")
                         or reason_u == "IDN_NOP"
-                        or reason_u == "PROJECT_GAP"
                         or reason_u == "RECORD_LEAD"
                     ):
                         pass
+                    elif reason_u == "PROJECT_GAP":
+                        if len(test_program) != 0 and flicker_is_test == "":
+                            from utils.wt_recording_mode import (
+                                advance_test_program_after_project_gap,
+                            )
+
+                            (
+                                test_program,
+                                now_save_file,
+                                total_save_file,
+                                advanced,
+                            ) = advance_test_program_after_project_gap(
+                                test_program,
+                                now_save_file=now_save_file,
+                                total_save_file=total_save_file,
+                            )
+                            if advanced:
+                                first_test = ""
+                                setting_status = ""
+                                messure_status = ""
+                                messsure_deatil_cofig = ""
+                                messure_project_cofig = ""
+                                _append_debug_log(
+                                    "[run_loop] PROJECT_GAP → 上一项结束，下一项将重新配置"
+                                )
                     elif strArrayTest[i][9] != '' or strArrayTest[i][8] != '':
                         if len(test_program) != 0 and flicker_is_test == '1':
                             total_save_file = total_save_file
@@ -27699,12 +27583,13 @@ def RunProject():
                             config_dict = {}
                     else:
                         config_dict = {}
-                # 每一段配置都是一份新的录波名单。沿用上一段的序号时，
-                # 本段会被 testing_stop 当成已经录完，第二个 CSV 不会出现。
-                # first_test=='1' 表示同一局里 WT 宏已经配过，本段只改文件名。
+                # 每一段配置都是一份新的录波名单。跨项后 PROJECT_GAP 已 pop 上一项并清空门闩，
+                # 这里应像「单独开测」一样完整配 Soft Panel；同项续跑才只改文件名。
                 now_save_file = 0
                 save_file_name = ''
-                if first_test == '1':
+                _wt_gates_ok = _wt_gates_ready_for_measure()
+                _need_full_wt_setup = (first_test == '') or (not _wt_gates_ok)
+                if (not _need_full_wt_setup) and first_test == '1':
                     messsure_deatil_cofig = '0'
                 if isinstance(config_dict, dict):
                     try:
@@ -27773,7 +27658,7 @@ def RunProject():
                         break
                     i += 1
                     continue
-                if first_test == '':
+                if _need_full_wt_setup:
                     try:
                         wt_is_check()
                     except Exception as e:
@@ -31099,7 +30984,7 @@ def _merge_wt_round_csv_if_needed(round_label):
 def testing_stop(test_count, count_now):
     global save_file_name, messsure_deatil_cofig, test_status, total_save_file
     global setting_status, messure_status, messsure_deatil_cofig, messure_project_cofig
-    global integral_status
+    global integral_status, first_test
     _append_debug_log(f"[testing_stop] enter count_now={count_now}, total_save_file={total_save_file}, file_list={test_count}")
 
     if messsure_deatil_cofig == '0' and auto_save_file == '0':
@@ -31293,6 +31178,8 @@ def testing_stop(test_count, count_now):
             messure_status = ''
             messsure_deatil_cofig = ''
             messure_project_cofig = ''
+            # 跨项后必须允许下一段 Upper_WT_Config / PROJECT_GAP 重新走 Soft Panel
+            first_test = ''
 
         # 3) 当前项目未结束：进入下一轮文件名
         else:

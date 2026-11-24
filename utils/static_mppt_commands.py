@@ -186,12 +186,8 @@ def build_static_mppt_bluesight_plan(
         commands.append(row)
 
     if str_add_flag == "1" and project_change == "1":
-        row = _empty_row()
-        row[0] = "AC"
-        row[1] = "wait"
-        row[2] = ""
-        row[9] = 3000
-        commands.append(row)
+        from utils.wt_recording_mode import insert_project_gap_before_last_wt_config
+        commands[:] = insert_project_gap_before_last_wt_config(commands)
 
     if ui.checkBox_S1.isChecked():
         step_rows = []

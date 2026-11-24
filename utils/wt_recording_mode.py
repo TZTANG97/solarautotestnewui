@@ -363,22 +363,131 @@ def harmonic_recommended_filenames(
     return apply_run_tag(names, run_tag)
 
 
+def last_upper_wt_config_row(commands):
+    """返回命令队列里最后一条 Upper_WT_Config 行，没有则 None。
+
+    跨项目追加后队列里会有多段 Upper_WT_Config。回写 FileNameList / StopTime
+    必须改「本段刚追加」的那一条（最后一条），不能从队头 break 改到上一项。
+    """
+    last = None
+    for row in commands or []:
+        if not row or len(row) < 5:
+            continue
+        if row[0] != "Upper_WT_Config":
+            continue
+        if isinstance(row[4], dict):
+            last = row
+    return last
+
+
+def patch_last_upper_wt_config(
+    commands,
+    *,
+    file_list_text=None,
+    stop_time=None,
+    auto_save_on: bool = True,
+):
+    """就地更新最后一条 Upper_WT_Config 的录波字段；成功返回该 dict。"""
+    row = last_upper_wt_config_row(commands)
+    if row is None:
+        return None
+    cfg = row[4]
+    if file_list_text is not None:
+        cfg["textEdit_FileNameList"] = str(file_list_text)
+    if stop_time is not None and str(stop_time).strip() != "":
+        cfg["textEdit_StopTime"] = str(stop_time)
+    if auto_save_on and cfg.get("comboBox_AutoSave", 0) == 0:
+        cfg["comboBox_AutoSave"] = 1
+    return cfg
+
+
 def previous_wt_filename_list(commands) -> list:
     """从已追加命令里取出最近一次 Upper_WT_Config 的文件名列表。"""
     import re
 
-    last = []
-    for row in commands or []:
-        if not row or row[0] != "Upper_WT_Config":
-            continue
-        cfg = row[4] if len(row) > 4 else None
-        if not isinstance(cfg, dict):
-            continue
-        raw = str(cfg.get("textEdit_FileNameList") or "").strip()
-        if not raw:
-            continue
-        last = [p.strip() for p in re.split(r"[,，]", raw) if p.strip()]
-    return last
+    cfg_row = last_upper_wt_config_row(commands)
+    if cfg_row is None:
+        return []
+    raw = str(cfg_row[4].get("textEdit_FileNameList") or "").strip()
+    if not raw:
+        return []
+    return [p.strip() for p in re.split(r"[,，]", raw) if p.strip()]
+
+
+def make_project_gap_row(dwell_01s: int = 20) -> list:
+    """跨项目衔接：上一项结束标记。下一项 Upper_WT_Config 再像单独开测一样重配。"""
+    row = ["" for _ in range(10)]
+    row[0] = "AC"
+    row[1] = "wait"
+    row[2] = "PROJECT_GAP"
+    try:
+        row[9] = max(1, int(dwell_01s))
+    except (TypeError, ValueError):
+        row[9] = 20
+    return row
+
+
+def append_cross_project_gap(commands, dwell_01s: int = 20) -> list:
+    """跨项追加时先写 PROJECT_GAP，再写本项 Upper_WT_Config / 启机。"""
+    out = list(commands or [])
+    out.append(make_project_gap_row(dwell_01s))
+    return out
+
+
+def insert_project_gap_before_last_wt_config(commands, dwell_01s: int = 20) -> list:
+    """若本项 Upper_WT_Config 已入队，把 PROJECT_GAP 插到它前面。
+
+    运行顺序必须是：上一项结束(GAP) → 下一项像单独开测一样 Upper_WT_Config。
+    """
+    out = list(commands or [])
+    gap = make_project_gap_row(dwell_01s)
+    idx = None
+    for i in range(len(out) - 1, -1, -1):
+        row = out[i]
+        if row and str(row[0] or "").strip() == "Upper_WT_Config":
+            idx = i
+            break
+    if idx is None:
+        out.append(gap)
+        return out
+    if idx > 0:
+        prev = out[idx - 1]
+        if (
+            prev
+            and str(prev[0] or "").strip().upper() == "AC"
+            and str(prev[1] or "").strip().lower() == "wait"
+            and str(prev[2] or "").strip().upper() == "PROJECT_GAP"
+        ):
+            return out
+    out.insert(idx, gap)
+    return out
+
+
+def advance_test_program_after_project_gap(
+    test_program,
+    *,
+    now_save_file=0,
+    total_save_file=0,
+):
+    """PROJECT_GAP：只结束上一项（pop），不在这里配 Soft Panel。
+
+    下一项的 Upper_WT_Config 会像单独开测一样走 wt_is_check。
+    返回 (program, now_save, total_save, did_advance)。
+    """
+    prog = list(test_program or [])
+    try:
+        now_i = int(now_save_file or 0)
+    except (TypeError, ValueError):
+        now_i = 0
+    try:
+        total_i = int(total_save_file or 0)
+    except (TypeError, ValueError):
+        total_i = 0
+    if not prog:
+        return prog, 0, total_i, False
+    prog.pop(0)
+    total_i = max(0, total_i - max(0, now_i))
+    return prog, 0, total_i, True
 
 
 def collect_progress_file_names(commands=None, config_dict=None) -> list:
