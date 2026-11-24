@@ -667,6 +667,34 @@ def ovuf_split_collect_sec(commands) -> int:
     return max(1, int(round(max_01s / 10.0)))
 
 
+def _is_segment_action_row(row) -> bool:
+    """扫点动作行：改电压/频率/分相指令，开录必须在这些指令之前。"""
+    if not row or len(row) < 3:
+        return False
+    if row[0] != "AC" or str(row[1] or "").strip().lower() != "write":
+        return False
+    cmd = str(row[2] or "").strip().upper()
+    return (
+        cmd.startswith("VOLT ")
+        or cmd.startswith("VOLT:AC ")
+        or cmd.startswith("SOUR:VOLT")
+        or cmd.startswith("FREQ ")
+        or cmd.startswith("SOUR:FREQ")
+        or cmd.startswith("INST:EDIT")
+        or cmd.startswith("INST:NSEL")
+    )
+
+
+def _segment_action_start(commands, measure_idx: int) -> int:
+    """回溯到本段第一条降压/变频指令之前，避免先降压再开录。"""
+    pos = max(0, int(measure_idx))
+    j = pos - 1
+    while j >= 0 and _is_segment_action_row(commands[j]):
+        pos = j
+        j -= 1
+    return pos
+
+
 def apply_ovuf_recording_mode(commands, ui, *, continuous: bool, wt_on: bool) -> int:
     """按录波方式改写扫点测量触发。返回应累加的 total_save_file 增量。"""
     segs = enabled_ovuf_segments(ui)
@@ -676,34 +704,30 @@ def apply_ovuf_recording_mode(commands, ui, *, continuous: bool, wt_on: bool) ->
         return 0
 
     measures = find_ovuf_sweep_measure_indices(commands)
-    expected = sum(len(s["points"]) for s in segs)
     if continuous:
         for idx in measures:
             _move_wait_to_col9(commands[idx])
         if not measures:
             return 0
-        # 与无功能力范围相同：启机等待整段结束后再开录，开录在第一个扫点动作之前；
+        # 启机等待整段结束后再开录，开录在第一个扫点动作之前；
         # 停录在最后一个扫点驻留之后、恢复/关机之前。
         boot_at = -1
         for i, row in enumerate(commands):
             if row and len(row) > 2 and str(row[2] or "").strip().upper() == "OVUF_BOOT":
                 boot_at = i
-                break
         last = measures[-1]
         if 0 <= boot_at < measures[0]:
             insert_at = boot_at + 1
         else:
-            insert_at = measures[0]
+            insert_at = _segment_action_start(commands, measures[0])
         commands.insert(insert_at, row_wt_async_marker("ASYNC_START"))
         if insert_at <= last:
             last += 1
         commands.insert(last + 1, row_wt_async_marker("WAIT_END"))
         return 1
 
-    # 分开录：每一段单独一条连续录（段首 ASYNC_START，段尾 WAIT_END）。
+    # 分开录：每一段单独一条连续录（段首首条降压/变频前 ASYNC_START，段尾 WAIT_END）。
     # 扫点驻留留在 col9，电压在录波过程中继续变。
-    # 禁止段首 col6 = 单点驻留：StopTime 会被收成 2 秒，第 16 条报
-    # 「WT未启动录波，已跳过等待」，整段 CSV 不会出现（job114）。
     if not measures:
         return len(segs)
 
@@ -723,8 +747,9 @@ def apply_ovuf_recording_mode(commands, ui, *, continuous: bool, wt_on: bool) ->
         cursor += 1
 
     for first_i, last_i in reversed(ranges):
+        start_at = _segment_action_start(commands, first_i)
         commands.insert(last_i + 1, row_wt_async_marker("WAIT_END"))
-        commands.insert(first_i, row_wt_async_marker("ASYNC_START"))
+        commands.insert(start_at, row_wt_async_marker("ASYNC_START"))
     return len(ranges)
 
 

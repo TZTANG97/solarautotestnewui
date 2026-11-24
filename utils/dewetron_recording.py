@@ -327,12 +327,24 @@ def _startup_index(rows: Sequence[Sequence[Any]], start_i: int) -> Optional[int]
     return best
 
 
+def _is_wt_async_start_row(row: Sequence[Any]) -> bool:
+    if not row or len(row) <= 6:
+        return False
+    marker = str(row[6] or "").strip().upper()
+    return marker in ("ASYNC_START", "WT_ASYNC_START")
+
+
+def _is_record_start_row(row: Sequence[Any]) -> bool:
+    return _is_dew_start_row(row) or _is_wt_async_start_row(row)
+
+
 def apply_recording_lead(
     rows: Sequence[Sequence[Any]],
     lead_s: Any,
 ) -> Tuple[List[List[Any]], str]:
     """Start the first recording ``lead_s`` seconds before the test action.
 
+    Works for both DEWETRON (:ACQUISITION:START) and WT (ASYNC_START).
     The lead is taken from the tail of 启机, so the file includes the inverter
     already grid-tied. It never starts before 启机 begins: a larger request is
     clamped to the startup dwell. Later split segments are left alone.
@@ -345,7 +357,7 @@ def apply_recording_lead(
     if lead < 0:
         lead = 0.0
     lead_01s = int(round(lead * 10.0))
-    start_i = next((i for i, row in enumerate(body) if _is_dew_start_row(row)), None)
+    start_i = next((i for i, row in enumerate(body) if _is_record_start_row(row)), None)
     if start_i is None:
         if lead_01s > 0:
             return body, "未找到录波起点，提前录制未生效"
@@ -398,6 +410,28 @@ def apply_recording_lead(
             ),
         )
     return body, note
+
+
+def apply_recording_lead_to_last_segment(
+    rows: Sequence[Sequence[Any]],
+    lead_s: Any,
+) -> Tuple[List[List[Any]], str]:
+    """只对队列最后一段（最近一次 Upper_WT_Config / PROJECT_GAP 之后）应用提前录制。
+
+    跨项目追加时不能动上一项的启机或录波起点。
+    """
+    body = [list(row) for row in rows or ()]
+    seg_start = 0
+    for i in range(len(body) - 1, -1, -1):
+        row = body[i]
+        if not row:
+            continue
+        head = str(row[0] or "").strip()
+        if head == "Upper_WT_Config" or is_project_gap_wait(row):
+            seg_start = i
+            break
+    tail, note = apply_recording_lead(body[seg_start:], lead_s)
+    return body[:seg_start] + tail, note
 
 
 def _is_nan_number(value: Any) -> bool:

@@ -319,3 +319,55 @@ def test_ovuf_split_collect_sec_from_point_dwell():
     ]
     assert ovuf_split_collect_sec(rows) == 3
     assert ovuf_split_collect_sec([]) == 2
+
+
+def test_ovuf_split_async_start_is_before_first_volt_drop(ovuf_ui):
+    """分开录 ASYNC_START 必须在第一条 VOLT 降压命令之前，不能先降压再开录。"""
+    ovuf_ui.checkBox_S3.setChecked(True)
+    ovuf_ui.textEdit_S3_AC_VOLT_Start.setPlainText("207")
+    ovuf_ui.textEdit_S3_AC_VOLT_End.setPlainText("200")
+    ovuf_ui.textEdit_S3_Step_Size.setPlainText("7")
+
+    cmds = [
+        ["AC", "write", "OUTP ON", "", "", "", "", "", "", ""],
+        ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 600],
+        ["AC", "write", "INST:EDIT ALL", "", "", "", "", "", "", ""],
+        ["AC", "write", "VOLT 207", "", "", "", "", "", "", ""],
+        ["AC", "query", "*IDN?", "", "", "", 20, "", "", ""],
+        ["AC", "write", "VOLT 200", "", "", "", "", "", "", ""],
+        ["AC", "query", "*IDN?", "", "", "", "", "", "", 20],
+    ]
+    inc = apply_ovuf_recording_mode(cmds, ovuf_ui, continuous=False, wt_on=True)
+    assert inc == 1
+    start_i = next(i for i, r in enumerate(cmds) if r[6] == "ASYNC_START")
+    edit_i = next(i for i, r in enumerate(cmds) if r[2] == "INST:EDIT ALL")
+    volt_i = next(i for i, r in enumerate(cmds) if r[2] == "VOLT 207")
+    assert start_i < edit_i < volt_i
+
+
+def test_wt_apply_recording_lead_carves_from_ovuf_boot_only_last_segment():
+    """WT 模式提前录制：从本段 OVUF_BOOT 尾部切出 RECORD_LEAD，不碰上一项。"""
+    from utils.dewetron_recording import (
+        RECORD_LEAD_COMMAND,
+        apply_recording_lead_to_last_segment,
+    )
+
+    cmds = [
+        ["Upper_WT_Config", "", "", "", {"textEdit_FileNameList": "Prev_1"}],
+        ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 300],
+        ["AC", "query", "*IDN?", "", "", "", "ASYNC_START", "", "", ""],
+        ["AC", "wait", "PROJECT_GAP", "", "", "", "", "", "", 20],
+        ["Upper_WT_Config", "", "", "", {"textEdit_FileNameList": "OVUF_BR"}],
+        ["AC", "wait", "OVUF_BOOT", "", "", "", "", "", "", 600],
+        ["AC", "query", "*IDN?", "", "", "", "ASYNC_START", "", "", ""],
+        ["AC", "write", "VOLT 207", "", "", "", "", "", "", ""],
+    ]
+    out, note = apply_recording_lead_to_last_segment(cmds, 10)
+    assert "提前 10s 开录" in note
+    # 上一项不动
+    assert out[1][9] == 300
+    # 本段 OVUF_BOOT 从 60s 缩到 50s，随后 ASYNC_START -> RECORD_LEAD 10s -> VOLT 207
+    assert out[5][2] == "OVUF_BOOT" and out[5][9] == 500
+    assert out[6][6] == "ASYNC_START"
+    assert out[7][2] == RECORD_LEAD_COMMAND and out[7][9] == 100
+    assert out[8][2] == "VOLT 207"

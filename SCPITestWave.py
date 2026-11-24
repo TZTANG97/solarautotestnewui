@@ -21879,6 +21879,36 @@ def thaiguoqianya_pinSend():
         continuous=wt_continuous,
         wt_on=bool(wt_on or _dew),
     )
+    # WT 模式同样生效「提前录制(秒)」：从本段 OVUF_BOOT 启机尾部切出并网预录段
+    if wt_on and _ovuf_file_inc > 0:
+        try:
+            _wt_lead_s = 0.0
+            _stacked = getattr(uiThaiGuoQianYa_Pin, "_wtStacked", None)
+            if _stacked is not None:
+                _cur_page = _stacked.currentWidget()
+                _sp = (
+                    _cur_page.findChild(QtWidgets.QSpinBox, "spinBox_WT_RecordLead")
+                    if _cur_page is not None
+                    else None
+                )
+                if _sp is not None:
+                    _wt_lead_s = float(_sp.value())
+            if _wt_lead_s <= 0:
+                from utils.dewetron_channel_scale import load_saved_record_lead_s
+
+                _wt_lead_s = float(load_saved_record_lead_s() or 0)
+            if _wt_lead_s > 0:
+                from utils.dewetron_recording import (
+                    apply_recording_lead_to_last_segment,
+                )
+
+                strArrayTest[:], _lead_note = apply_recording_lead_to_last_segment(
+                    strArrayTest, _wt_lead_s
+                )
+                if _lead_note:
+                    ui.textEdit_ReturnMessage.append(f"[过欠压_过欠频] {_lead_note}")
+        except Exception as _lead_exc:
+            _append_debug_log(f"[过欠压_过欠频] apply WT record lead skipped: {_lead_exc}")
     # 连续录：按扫段总驻留写入 WT StopTime。
     # 分开录：StopTime 必须等于扫点驻留（与谐波一致），禁止沿用 Soft Panel 默认 5 分钟，
     # 否则首点 col6 会卡在「第16条 [AC] query *IDN?」空等整段 StopTime（job112）。
@@ -26384,6 +26414,8 @@ _wt_async_stop_requested = False
 _wt_async_deadline_ts = 0.0
 # messure_testing 是否已真正进入本轮采集（ASYNC 后必须变 True，否则只是空挂 test_status）
 _wt_measure_flow_entered = False
+# WT 真正点完「开始」/进入采集后置 True；ASYNC_START 必须等到此时才放行降压等后续命令
+_wt_measure_started = False
 # Soft Panel 开录墙钟（unix），CSV Abs Time = 开录时刻 + Time[s]（对齐德威创）
 _wt_gather_start_wall = 0.0
 
@@ -26452,7 +26484,7 @@ def _wt_async_start_measure(cmd_no):
     """触发一轮 WT 测量但不阻塞；供扫压期间连续录波。"""
     global now_save_file, save_file_name, WT_auto_messure_status, test_status, strTestStatusFlag
     global config_dict, strArrayTest, _wt_async_session_active
-    global _wt_async_stop_requested, _wt_async_deadline_ts, _wt_measure_flow_entered
+    global _wt_async_stop_requested, _wt_async_deadline_ts, _wt_measure_flow_entered, _wt_measure_started
     prev_index = now_save_file
     if not (now_save_file == 0 and save_file_name == ''):
         now_save_file = now_save_file + 1
@@ -26550,6 +26582,7 @@ def _wt_async_start_measure(cmd_no):
     _wt_async_session_active = True
     _wt_async_stop_requested = False
     _wt_measure_flow_entered = False
+    _wt_measure_started = False
     # 含 ASYNC 后等待 messure_testing 点开始的约 5s
     if stop_sec_for_deadline is not None and stop_sec_for_deadline > 0:
         _wt_async_deadline_ts = time.time() + float(stop_sec_for_deadline) + 5.0
@@ -26559,18 +26592,22 @@ def _wt_async_start_measure(cmd_no):
         f"[run_loop] WT ASYNC_START at command#{cmd_no}, index {prev_index}->{now_save_file}, "
         f"save_file_name={save_file_name}, deadline_in={stop_sec_for_deadline}s"
     )
-    # 等 messure_testing 真正进门；空等满 8s 仍未进入则清掉僵尸 test_status
-    entered = False
-    for _ in range(80):
+    # 必须等到 WT 真正点完「开始」开始录波（_wt_measure_started），再放行后续降压/变频；
+    # 否则 Soft Panel 切窗口点开始耗时 2~6s，AC 已经降压完才开始录。
+    started = False
+    for _ in range(200):
         if strTestStatusFlag == "结束":
             return
-        if bool(globals().get("_wt_measure_flow_entered")):
-            entered = True
+        if bool(globals().get("_wt_measure_started")):
+            started = True
+            break
+        if bool(globals().get("_wt_measure_flow_entered")) and str(globals().get("test_status") or "") == "0":
             break
         time.sleep(0.1)
-    if not entered:
+    if not started:
         _append_debug_log(
-            f"[run_loop] ASYNC_START: messure_testing 未在 8s 内进入采集 cmd#{cmd_no}"
+            f"[run_loop] ASYNC_START: WT 未在 20s 内真正开始录波 cmd#{cmd_no} "
+            f"(entered={bool(globals().get('_wt_measure_flow_entered'))})"
         )
         try:
             ui_obj = globals().get("ui")
@@ -30626,7 +30663,7 @@ def messure_testing():
     global now_save_file, total_save_file, volt_fz_first_status, per_test_time_list, test_program
     global test_status, save_file_name, strTestStatusFlag
     global _wt_async_stop_requested, _wt_async_deadline_ts, _wt_async_session_active
-    global _wt_measure_flow_entered, _wt_gather_start_wall
+    global _wt_measure_flow_entered, _wt_measure_started, _wt_gather_start_wall
 
     # 仅在关键状态变化时记录日志，避免定时器每 0.5 秒刷屏
     current_state = (setting_status, messure_status, WT_auto_messure_status, now_save_file, total_save_file)
@@ -30683,6 +30720,7 @@ def messure_testing():
                     )
 
                 if wt_scpi_session is not None:
+                    _wt_measure_started = True
                     ok = wt_scpi_session.run_measure_blocking(
                         config_dict if isinstance(config_dict, dict) else {},
                         file_index=max(0, int(now_save_file or 0)),
@@ -30825,6 +30863,7 @@ def messure_testing():
                     test_status = '0'
 
                 if status == '1':
+                    _wt_measure_started = True
                     current_name = test_count[now_save_file] if now_save_file < len(test_count) else f"INDEX_{now_save_file}"
                     _append_debug_log(f"[messure_testing] testing_start success, current_file={current_name}, index={now_save_file}")
                     # Soft Panel 点开始成功：绝对时间锚点

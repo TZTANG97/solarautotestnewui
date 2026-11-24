@@ -128,6 +128,36 @@ def _make_lbl(text):
     return lbl
 
 
+def _add_record_lead_row(parent, grid: QtWidgets.QGridLayout, row: int = 2) -> None:
+    """提前录制(秒)：与德威创共用同一本机记忆档，从启机尾部切出并网预录段。"""
+    grid.addWidget(_make_lbl("提前录制:"), row, 0)
+    spin = QtWidgets.QSpinBox()
+    spin.setObjectName("spinBox_WT_RecordLead")
+    spin.setRange(0, 3600)
+    spin.setSuffix(" 秒")
+    spin.setMinimumWidth(_px(140))
+    spin.setToolTip("在首次动作（如降压/变频）前提前 N 秒开录，从启机等待尾部切出")
+    try:
+        from utils.dewetron_channel_scale import (
+            load_saved_record_lead_s,
+            save_saved_record_lead_s,
+        )
+
+        spin.setValue(max(0, min(3600, int(round(load_saved_record_lead_s())))))
+
+        def _on_lead_changed(val):
+            try:
+                save_saved_record_lead_s(val)
+            except Exception:
+                pass
+
+        spin.valueChanged.connect(_on_lead_changed)
+    except Exception:
+        spin.setValue(0)
+    setattr(parent, "spinBox_WT_RecordLead", spin)
+    grid.addWidget(spin, row, 1)
+
+
 def _default_save_path_text() -> str:
     try:
         from utils.wt_save_path import default_wt_save_path, ensure_wt_save_dir
@@ -409,6 +439,7 @@ def build_wt3000_content(parent):
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
     _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
+    _add_record_lead_row(parent, g6l, row=2)
     sg.addWidget(g6, 0, 0)
 
     # 保存路径
@@ -700,6 +731,7 @@ def build_wt1800_content(parent):
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
     _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
+    _add_record_lead_row(parent, g6l, row=2)
     sg.addWidget(g6, 0, 0)
 
     g15 = QtWidgets.QGroupBox("")
@@ -995,6 +1027,7 @@ def build_wt1806e_content(parent):
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
     _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
+    _add_record_lead_row(parent, g6l, row=2)
     sg.addWidget(g6, 0, 0)
 
     g15 = QtWidgets.QGroupBox("")
@@ -1279,6 +1312,7 @@ def build_wt5000_content(parent):
     g6l.addWidget(_make_lbl("停机时间:"), 1, 0)
     _make_te(parent, "textEdit_StopTime", plain_text="00:05:00", max_h=44, min_w=140)
     g6l.addWidget(parent.textEdit_StopTime, 1, 1)
+    _add_record_lead_row(parent, g6l, row=2)
     sg.addWidget(g6, 0, 0)
 
     g15 = QtWidgets.QGroupBox("")
