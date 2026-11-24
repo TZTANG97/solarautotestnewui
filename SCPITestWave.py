@@ -9636,9 +9636,11 @@ def thaixiebodianliuSend():
     if not is_dewetron:
         collect_sec = max(1, int(round(float(fS3SetTime) / 10.0)))
         stop_str = _seconds_to_stoptime_str(collect_sec)
-        for row in strArrayTest:
-            if row and row[0] == "Upper_WT_Config" and isinstance(row[4], dict):
-                row[4]["textEdit_StopTime"] = stop_str
+        from utils.wt_recording_mode import patch_last_upper_wt_config
+
+        patch_last_upper_wt_config(
+            strArrayTest, stop_time=stop_str, auto_save_on=False
+        )
         try:
             stacked = getattr(uiThaiXieBoDianLiu, "_wtStacked", None)
             if stacked is not None:
@@ -21904,14 +21906,11 @@ def thaiguoqianya_pinSend():
 
                 _ovuf_stop_sec = ovuf_split_collect_sec(strArrayTest)
                 _ovuf_stop_str = _seconds_to_stoptime_str(_ovuf_stop_sec)
-            for _cfg_row in strArrayTest:
-                if (
-                    _cfg_row
-                    and _cfg_row[0] == "Upper_WT_Config"
-                    and isinstance(_cfg_row[4], dict)
-                ):
-                    _cfg_row[4]["textEdit_StopTime"] = _ovuf_stop_str
-                    break
+            from utils.wt_recording_mode import patch_last_upper_wt_config
+
+            patch_last_upper_wt_config(
+                strArrayTest, stop_time=_ovuf_stop_str, auto_save_on=False
+            )
             try:
                 for _pi in range(uiThaiGuoQianYa_Pin._wtStacked.count()):
                     _page = uiThaiGuoQianYa_Pin._wtStacked.widget(_pi)
@@ -27035,7 +27034,7 @@ def RunProject():
     global total_save_file, now_save_file, save_file_name
     global test_program, flicker_is_test
     global Mppt_step1, Mppt_step2, Mppt_step_end
-    global WT_is_checked, flicker_is_test, config_dict, first_test
+    global WT_is_checked, flicker_is_test, config_dict, first_test, volt_fz_first_status
     global manager
 
     # 只有点击"开始测试"后，strTestFlag 才会被置为 "1"。
@@ -27505,6 +27504,7 @@ def RunProject():
                                 messure_status = ""
                                 messsure_deatil_cofig = ""
                                 messure_project_cofig = ""
+                                volt_fz_first_status = 0
                                 _append_debug_log(
                                     "[run_loop] PROJECT_GAP → 上一项结束，下一项将重新配置"
                                 )

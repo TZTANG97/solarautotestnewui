@@ -139,13 +139,13 @@ def apply_send_wt_metadata(plan: dict, *, margin_s: int = 30, min_stop_s: int = 
     hh, rem = divmod(stop_sec, 3600)
     mm, ss = divmod(rem, 60)
     stop_str = "%02d:%02d:%02d" % (hh, mm, ss)
-    for cfg_row in plan.get("commands") or []:
-        if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-            cfg_row[4]["textEdit_FileNameList"] = file_list_text
-            cfg_row[4]["textEdit_StopTime"] = stop_str
-            if cfg_row[4].get("comboBox_AutoSave", 0) == 0:
-                cfg_row[4]["comboBox_AutoSave"] = 1
-            break
+    from utils.wt_recording_mode import patch_last_upper_wt_config
+
+    patch_last_upper_wt_config(
+        plan.get("commands") or [],
+        file_list_text=file_list_text,
+        stop_time=stop_str,
+    )
     return stop_str
 
 

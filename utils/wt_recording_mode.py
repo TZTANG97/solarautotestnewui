@@ -427,13 +427,6 @@ def make_project_gap_row(dwell_01s: int = 20) -> list:
     return row
 
 
-def append_cross_project_gap(commands, dwell_01s: int = 20) -> list:
-    """跨项追加时先写 PROJECT_GAP，再写本项 Upper_WT_Config / 启机。"""
-    out = list(commands or [])
-    out.append(make_project_gap_row(dwell_01s))
-    return out
-
-
 def insert_project_gap_before_last_wt_config(commands, dwell_01s: int = 20) -> list:
     """若本项 Upper_WT_Config 已入队，把 PROJECT_GAP 插到它前面。
 

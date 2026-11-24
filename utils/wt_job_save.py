@@ -184,12 +184,16 @@ def apply_split_freq_filenames(str_array_test, ui_dialog, *, file_default: str, 
     elif ladder is not None and hasattr(ladder, "text"):
         raw = ladder.text() or ""
     points = [p.strip() for p in str(raw).replace("，", ",").split(",") if p.strip()]
+    from utils.wt_recording_mode import (
+        last_upper_wt_config_row,
+        patch_last_upper_wt_config,
+    )
+
     existing = ""
     rows = str_array_test or []
-    for cfg_row in rows:
-        if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-            existing = str(cfg_row[4].get("textEdit_FileNameList") or "")
-            break
+    last_cfg = last_upper_wt_config_row(rows)
+    if last_cfg is not None:
+        existing = str(last_cfg[4].get("textEdit_FileNameList") or "")
     if not existing and ui_dialog is not None:
         stacked = getattr(ui_dialog, "_wtStacked", None)
         try:
@@ -204,12 +208,9 @@ def apply_split_freq_filenames(str_array_test, ui_dialog, *, file_default: str, 
         except Exception:
             existing = existing or ""
     text = split_freq_filenames(points, file_default, existing)
-    for cfg_row in rows:
-        if cfg_row and cfg_row[0] == "Upper_WT_Config" and isinstance(cfg_row[4], dict):
-            cfg_row[4]["textEdit_FileNameList"] = text
-            if str(cfg_row[4].get("comboBox_AutoSave") or "") in ("", "0", "OFF"):
-                cfg_row[4]["comboBox_AutoSave"] = 1
-            break
+    patch_last_upper_wt_config(rows, file_list_text=text, auto_save_on=True)
+    if last_cfg is not None and str(last_cfg[4].get("comboBox_AutoSave") or "") in ("", "0", "OFF"):
+        last_cfg[4]["comboBox_AutoSave"] = 1
     try:
         from PyQt5 import QtWidgets
 
