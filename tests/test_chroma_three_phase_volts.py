@@ -17,8 +17,27 @@ from utils.voltage_adaptability_commands import append_chroma_three_phase_setpoi
 
 def test_is_chroma_61800_idn():
     assert _is_chroma_61800_idn("Chroma,61800-100,0,1.0")
+    assert _is_chroma_61800_idn("Chroma ATE,61830,00001,1.0")
+    assert _is_chroma_61800_idn("Chroma ATE,61845,00001,1.0")
+    assert not _is_chroma_61800_idn("Chroma,62050H,0,1.0")
     assert not _is_chroma_61800_idn("ITECH,IT7322,0,1.0")
     assert not _is_chroma_61800_idn("")
+
+
+def test_resolve_chroma_61800_reads_main_module(monkeypatch):
+    import types
+    from utils.ac_scpi_commands import resolve_chroma_61800
+
+    class _FakeAC:
+        connected = True
+
+        def is_chroma_61800(self):
+            return True
+
+    fake_main = types.SimpleNamespace(ac_controller=_FakeAC())
+    monkeypatch.setitem(sys.modules, "__main__", fake_main)
+    monkeypatch.delitem(sys.modules, "SCPITestWave", raising=False)
+    assert resolve_chroma_61800() is True
 
 
 def test_generic_scpi_three_phase_uses_edit_all_not_balance():

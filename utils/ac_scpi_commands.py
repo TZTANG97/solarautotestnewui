@@ -31,18 +31,33 @@ _VOLT_STEP = 0.1
 
 
 def resolve_chroma_61800(ac_controller=None) -> bool:
-    """已连接 AC 且 *IDN? 为 Chroma 61800 时返回 True；未连接则 False。"""
+    """已连接 AC 且 *IDN? 为 Chroma 61800 系列时返回 True；未连接则 False。"""
     if ac_controller is not None:
         try:
             return bool(ac_controller.connected and ac_controller.is_chroma_61800())
         except Exception:
             return False
-    try:
-        import SCPITestWave as sw
+    import sys
 
-        ctrl = getattr(sw, "ac_controller", None)
+    # 桌面端通过 `python SCPITestWave.py` 启动时运行态在 `__main__`，
+    # 直接 `import SCPITestWave` 会拿到空壳（ac_controller=None）导致恒返回 False。
+    for mod_name in ("__main__", "SCPITestWave"):
+        mod = sys.modules.get(mod_name)
+        if mod is None:
+            continue
+        ctrl = getattr(mod, "ac_controller", None)
         if ctrl is not None and getattr(ctrl, "connected", False):
-            return ctrl.is_chroma_61800()
+            try:
+                return bool(ctrl.is_chroma_61800())
+            except Exception:
+                pass
+    try:
+        from app.context import get_app_context
+
+        ctx = get_app_context()
+        ctrl = getattr(ctx, "ac_controller", None)
+        if ctrl is not None and getattr(ctrl, "connected", False):
+            return bool(ctrl.is_chroma_61800())
     except Exception:
         pass
     return False

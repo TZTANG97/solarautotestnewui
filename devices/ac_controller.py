@@ -69,9 +69,11 @@ def _resolve_three_phase_volts(volt_a, volt_b=None, volt_c=None):
 
 
 def _is_chroma_61800_idn(idn):
-    """仅 Chroma 61800 系列走 BALANCE / 0.1V 量化等真机验证路径。"""
+    """Chroma 61800 系列（61800/61815/61830/61845/61860 等）走 0.1V 量化与 VOLT:AC 路径。"""
     s = (idn or "").upper()
-    return "CHROMA" in s and "61800" in s
+    if "CHROMA" not in s:
+        return False
+    return bool(re.search(r"618\d{2}", s))
 
 
 def _generic_scpi_three_phase_command_list(volt_a, freq, volt_b=None, volt_c=None):
