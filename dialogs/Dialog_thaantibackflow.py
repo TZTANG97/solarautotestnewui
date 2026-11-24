@@ -510,14 +510,6 @@ class Ui_Dialog_thaantibackflow(object):
         self.checkBox_S3.setStyleSheet("font-size: 13px; font-weight: bold; padding: 4px;")
         layout.addWidget(self.checkBox_S3)
 
-        # 兼容 Open_Save / 旧字段：稳态 DC 档位写在 PowerLadder
-        from components.comma_segment_edit import CommaSegmentEdit
-        self.textEdit_PowerLadder = CommaSegmentEdit(value_header="功率", unit="%")
-        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
-        self.textEdit_PowerLadder.setVisible(False)
-        self.textEdit_PowerLadder.setText("100,70,20,0")
-        layout.addWidget(self.textEdit_PowerLadder)
-
         scen_grp = QtWidgets.QGroupBox("UNE 217001 试验段（上位机：AC/DC + 录波；负荷由试验员切换）")
         scen_grp.setStyleSheet(
             "QGroupBox { border: 1px solid #e2e8f0; border-radius: 6px; "
@@ -528,11 +520,21 @@ class Ui_Dialog_thaantibackflow(object):
         scen_layout.setContentsMargins(12, 20, 12, 12)
 
         self.checkBox_S5_1 = QtWidgets.QCheckBox(
-            "5.1 稳态耐受：DC 按 100/70/20/0 %Pn，每档驻留（默认 2 min）"
+            "5.1 稳态耐受：DC 按功率档，每档驻留（默认 2 min）"
         )
         self.checkBox_S5_1.setObjectName("checkBox_S5_1")
         self.checkBox_S5_1.setChecked(True)
         scen_layout.addWidget(self.checkBox_S5_1)
+
+        # 与 IOT 开测页同步：5.1 稳态 DC 档可编辑（随国家标准模板切换）
+        from components.comma_segment_edit import CommaSegmentEdit
+        ladder_lab = QtWidgets.QLabel("5.1 稳态 DC 档(%)")
+        ladder_lab.setStyleSheet("font-weight: normal; color: #334155;")
+        scen_layout.addWidget(ladder_lab)
+        self.textEdit_PowerLadder = CommaSegmentEdit(value_header="功率", unit="%")
+        self.textEdit_PowerLadder.setObjectName("textEdit_PowerLadder")
+        self.textEdit_PowerLadder.setText("100,70,20,0")
+        scen_layout.addWidget(self.textEdit_PowerLadder)
 
         self.checkBox_S5_2 = QtWidgets.QCheckBox(
             "5.2 切负荷响应：6 档（90→60/30/0，60→30/0，30→0）；前后各驻留 + 人工切负荷等待"
