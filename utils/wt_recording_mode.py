@@ -259,7 +259,99 @@ def active_p_recommended_filenames(power_levels, mode: str = MODE_CONTINUOUS):
 def fixed_pf_recommended_filenames(power_levels, mode: str = MODE_CONTINUOUS):
     if mode == MODE_CONTINUOUS:
         return ["FixedPF_BR"]
-    return ["FixedPF_P%s" % _format_setpoint_tag(p) for p in power_levels]
+    names = []
+    seen = {}
+    for p in power_levels:
+        base = "FixedPF_P%s" % _format_setpoint_tag(p)
+        n = seen.get(base, 0) + 1
+        seen[base] = n
+        names.append(base if n == 1 else "%s_%s" % (base, n))
+    if not names:
+        names = ["FixedPF_P100"]
+    return names
+
+
+def fixed_pf_stop_seconds(collect_01s, wait_01s, n_points, *, continuous: bool) -> int:
+    """分开录：停止时间 = 数据采集。连续录：各档等待+采集之和。
+
+    单位入参是 0.1 秒。禁止再沿用面板默认 00:05:00，否则 2 分钟采集
+    会在停表前再空等约 180 秒。
+    """
+    def _ticks(value) -> int:
+        try:
+            return max(0, int(float(value)))
+        except (TypeError, ValueError):
+            return 0
+
+    n = _ticks(n_points)
+    collect = _ticks(collect_01s)
+    wait = _ticks(wait_01s)
+    ticks = n * (collect + wait) if continuous else collect
+    if ticks <= 0:
+        return 1
+    return max(1, int(round(ticks / 10.0)))
+
+
+def stoptime_str_from_seconds(sec) -> str:
+    sec = max(0, int(round(float(sec))))
+    hh, rem = divmod(sec, 3600)
+    mm, ss = divmod(rem, 60)
+    return f"{hh:02d}:{mm:02d}:{ss:02d}"
+
+
+def align_fixed_pf_recording(
+    commands, power_levels, record_mode, collect_01s, wait_01s, n_points=None
+):
+    """按本段录波方式回写最后一条 WT 配置的文件名和停止时间。
+
+    文件名已带本轮时分秒且功率档一致时只改 StopTime，避免再拼一份名单。
+    """
+    import re
+
+    continuous = str(record_mode or "").strip().lower() in (
+        MODE_CONTINUOUS,
+        "0",
+        "async",
+    )
+    mode = MODE_CONTINUOUS if continuous else MODE_SPLIT
+    bases = fixed_pf_recommended_filenames(power_levels, mode)
+    row = last_upper_wt_config_row(commands)
+    existing = []
+    if row is not None and isinstance(row[4], dict):
+        raw = str(row[4].get("textEdit_FileNameList") or "")
+        existing = [p.strip() for p in re.split(r"[,，]", raw) if p.strip()]
+    existing_bases = [re.sub(r"_\d{6}$", "", name) for name in existing]
+    if existing and existing_bases == bases:
+        file_names = existing
+    else:
+        tag = ""
+        if existing:
+            matched = re.search(r"_(\d{6})$", existing[0])
+            if matched:
+                tag = matched.group(1)
+        if not tag:
+            tag = make_recording_run_tag()
+        file_names = apply_run_tag(bases, tag)
+    try:
+        point_count = int(n_points if n_points is not None else len(power_levels or []))
+    except (TypeError, ValueError):
+        point_count = len(power_levels or [])
+    stop_str = stoptime_str_from_seconds(
+        fixed_pf_stop_seconds(
+            collect_01s,
+            wait_01s,
+            point_count,
+            continuous=continuous,
+        )
+    )
+    text = ",".join(file_names)
+    patch_last_upper_wt_config(
+        commands,
+        file_list_text=text,
+        stop_time=stop_str,
+        auto_save_on=True,
+    )
+    return text, stop_str
 
 
 def make_recording_run_tag() -> str:

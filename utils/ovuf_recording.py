@@ -292,8 +292,230 @@ def append_ovuf_sweep_volt(
 
 
 def read_ovuf_condition_rows(ui) -> List[dict]:
-    """工况列表已从过欠压 Dialog 移除；恒返回 []，始终走 S3–S8 扫段。"""
+    """旧的整页工况列表已不挂 Dialog；恒返回 []，避免盖住四段扫段。"""
     return []
+
+
+SCAN_LIST_COLUMN = "OVUF_SCAN_LIST_JSON"
+_SCAN_STEPS = (3, 4, 5, 6)
+
+
+def read_ovuf_scan_rows(ui, step_no: int) -> List[dict]:
+    """某一扫描步的可增删表。无表或没有启用行时返回 []，调用方走起止+步长。"""
+    widget = getattr(ui, "ovufScanListS%d" % int(step_no), None)
+    if widget is None or not hasattr(widget, "get_rows"):
+        return []
+    try:
+        rows = list(widget.get_rows() or [])
+    except Exception:
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def dump_ovuf_scan_lists(ui) -> str:
+    import json
+
+    payload = {}
+    for step_no in _SCAN_STEPS:
+        widget = getattr(ui, "ovufScanListS%d" % step_no, None)
+        if widget is None or not hasattr(widget, "get_rows"):
+            continue
+        try:
+            payload[str(step_no)] = list(widget.get_rows(include_disabled=True) or [])
+        except Exception:
+            payload[str(step_no)] = []
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def load_ovuf_scan_lists(ui, raw) -> None:
+    import json
+
+    if isinstance(raw, dict):
+        payload = raw
+    else:
+        text = str(raw or "").strip()
+        if not text:
+            return
+        try:
+            payload = json.loads(text)
+        except (TypeError, ValueError):
+            return
+    if not isinstance(payload, dict):
+        return
+    for step_no in _SCAN_STEPS:
+        rows = payload.get(str(step_no), payload.get(step_no))
+        widget = getattr(ui, "ovufScanListS%d" % step_no, None)
+        if widget is None or not isinstance(rows, list) or not hasattr(widget, "set_rows"):
+            continue
+        try:
+            widget.set_rows(rows)
+        except Exception:
+            continue
+
+
+def attach_ovuf_scan_list_column(headers, values, ui):
+    """按列名追加扫描表 JSON，不挪动已有 CSV 列。"""
+    payload = dump_ovuf_scan_lists(ui)
+    if SCAN_LIST_COLUMN in headers:
+        values[list(headers).index(SCAN_LIST_COLUMN)] = payload
+        return headers, values
+    headers.append(SCAN_LIST_COLUMN)
+    values.append(payload)
+    return headers, values
+
+
+def normalize_ovuf_scan_row(row: dict, kind: str) -> dict:
+    """把列表行收成一段扫描。旧的单点 ``value`` 视为起止相同。"""
+    kind_code = "F" if str(kind).strip().upper() == "F" else "V"
+    src = dict(row or {})
+    has_range = any(
+        key in src for key in ("volt_start", "volt_end", "freq_start", "freq_end", "step")
+    )
+    if not has_range:
+        value = str(src.get("value", "")).strip() or ("50" if kind_code == "F" else "230")
+        if kind_code == "F":
+            src.setdefault("freq_start", value)
+            src.setdefault("freq_end", value)
+            src.setdefault("volt_start", "230")
+            src.setdefault("volt_end", "230")
+        else:
+            src.setdefault("volt_start", value)
+            src.setdefault("volt_end", value)
+            src.setdefault("freq_start", "50")
+            src.setdefault("freq_end", "50")
+        src.setdefault("step", "0")
+    volt_start = str(src.get("volt_start", "230")).strip() or "230"
+    volt_end = str(src.get("volt_end", volt_start)).strip() or volt_start
+    freq_start = str(src.get("freq_start", "50")).strip() or "50"
+    freq_end = str(src.get("freq_end", freq_start)).strip() or freq_start
+    step = str(src.get("step", "5")).strip() or "5"
+    out = dict(src)
+    out.update(
+        {
+            "kind": kind_code,
+            "volt_start": volt_start,
+            "volt_end": volt_end,
+            "freq_start": freq_start,
+            "freq_end": freq_end,
+            "step": step,
+            "dwell": str(src.get("dwell", "3")).strip() or "3",
+            "unit": str(src.get("unit", "秒")).strip() or "秒",
+            "value": freq_end if kind_code == "F" else volt_end,
+        }
+    )
+    return out
+
+
+def scan_row_points(row: dict, kind: str) -> List[float]:
+    """这一段要扫的点。过压/欠压走电压区间，过频/欠频走频率区间。"""
+    norm = normalize_ovuf_scan_row(row, kind)
+    if norm["kind"] == "F":
+        return build_ovuf_sweep_points(norm["freq_start"], norm["freq_end"], norm["step"])
+    return build_ovuf_sweep_points(norm["volt_start"], norm["volt_end"], norm["step"])
+
+
+def append_ovuf_scan_list(
+    commands,
+    step_batches,
+    ui,
+    phase_mode: str,
+    step_no: int,
+    rows: Sequence[dict],
+    *,
+    chroma_61800=None,
+) -> float:
+    """按该扫描步的列表逐段下发。每行是一段起止+步长，可有多段。
+
+    过压/欠压按电压区间走，可分相；过频/欠频按频率区间整机改频。
+    另一轴起止相同时，这一段开始先把该轴设到起点。
+    驻留行与旧扫段一样用 ``*IDN?``（整段首点 col6、后续 col9），录波锚点不变。
+    返回本步增加的秒数（含段末回到额定的并网等待）。
+    """
+    from utils.ac_scpi_commands import append_freq_set, resolve_chroma_61800
+    from utils.time_helpers import SetTimeFunction
+
+    if chroma_61800 is None:
+        chroma_61800 = resolve_chroma_61800()
+    rated = read_ovuf_rated_phase_volts(ui)
+    kind = "F" if int(step_no) not in (3, 4) else "V"
+    enabled = [r for r in rows if isinstance(r, dict) and r.get("enabled", True)]
+    total_sec = 0.0
+    first_dwell = True
+    for row in enabled:
+        norm = normalize_ovuf_scan_row(row, kind)
+        try:
+            dwell_raw = float(norm["dwell"])
+        except (TypeError, ValueError):
+            dwell_raw = 3.0
+        dwell_01s = int(SetTimeFunction(dwell_raw, norm["unit"]))
+        if dwell_01s <= 0:
+            dwell_01s = 1
+        flags = _phase_flags_from_row(row)
+        if kind == "V":
+            points = build_ovuf_sweep_points(norm["volt_start"], norm["volt_end"], norm["step"])
+            if norm["freq_start"] == norm["freq_end"] and points:
+                append_freq_set(
+                    commands, phase_mode, norm["freq_start"], chroma_61800=chroma_61800
+                )
+        else:
+            points = build_ovuf_sweep_points(norm["freq_start"], norm["freq_end"], norm["step"])
+            if norm["volt_start"] == norm["volt_end"] and points:
+                append_ovuf_sweep_volt(
+                    commands,
+                    phase_mode,
+                    norm["volt_start"],
+                    ["T", "T", "T"],
+                    rated,
+                    chroma_61800=chroma_61800,
+                )
+        for point in points:
+            batch: List[Any] = []
+            _bs = len(commands)
+            text = str(point)
+            if kind == "F":
+                append_freq_set(commands, phase_mode, text, chroma_61800=chroma_61800)
+            else:
+                append_ovuf_sweep_volt(
+                    commands,
+                    phase_mode,
+                    text,
+                    flags,
+                    rated,
+                    chroma_61800=chroma_61800,
+                )
+            batch.extend(commands[_bs:])
+            dwell_row = ["" for _ in range(10)]
+            dwell_row[0] = "AC"
+            dwell_row[1] = "query"
+            dwell_row[2] = "*IDN?"
+            if first_dwell:
+                dwell_row[6] = dwell_01s
+                first_dwell = False
+            else:
+                dwell_row[9] = dwell_01s
+            commands.append(dwell_row)
+            batch.append(dwell_row)
+            if step_batches is not None:
+                step_batches.append(batch)
+            total_sec += dwell_01s / 10.0
+
+    if first_dwell:
+        return 0.0
+
+    rec_rows: List[Any] = []
+    wait = append_ovuf_segment_recovery(
+        commands,
+        rec_rows,
+        ui,
+        phase_mode,
+        after_step=int(step_no),
+        just_kind=kind,
+    )
+    if wait:
+        total_sec += wait / 10.0
+    if step_batches is not None and rec_rows:
+        step_batches.append(rec_rows)
+    return total_sec
 
 
 def _phase_flags_from_row(row: dict) -> list:
@@ -430,6 +652,26 @@ def enabled_ovuf_segments(ui):
     for step_no in (3, 4, 5, 6, 7, 8):
         cb = getattr(ui, "checkBox_S%d" % step_no, None)
         if cb is None or not cb.isChecked():
+            continue
+        scan_rows = read_ovuf_scan_rows(ui, step_no) if step_no in _SCAN_STEPS else []
+        if step_no in _SCAN_STEPS:
+            # 第 3～6 步只认列表。删空或全部取消启用时不下发，也不再套用隐藏的旧起止。
+            if not scan_rows:
+                continue
+            kind = "V" if step_no in (3, 4) else "F"
+            points = []
+            for row in scan_rows:
+                points.extend(scan_row_points(row, kind))
+            segs.append(
+                {
+                    "step": step_no,
+                    "kind": kind,
+                    "start": points[0] if points else 0.0,
+                    "end": points[-1] if points else 0.0,
+                    "points": points,
+                    "from_scan_list": True,
+                }
+            )
             continue
         if ovuf_sweep_project(step_no) == "过欠压":
             start = _plain(ui, "textEdit_S%d_AC_VOLT_Start" % step_no, "230")

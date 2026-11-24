@@ -183,6 +183,33 @@ def rate_text_from_config(config: Optional[Mapping]) -> str:
     return "100ms"
 
 
+def filename_list_from_config(config: Optional[Mapping]) -> list:
+    if not isinstance(config, Mapping):
+        return []
+    names_raw = str(config.get("textEdit_FileNameList") or "").strip()
+    return [n.strip() for n in names_raw.replace("，", ",").split(",") if n.strip()]
+
+
+def scpi_file_slot(config: Optional[Mapping], now_save_file) -> tuple:
+    """本轮 SCPI 应写入的文件名下标和名字。
+
+    调用方必须把名字记到 save_file_name。SCPI 路径原先不记，
+    下一档仍看到「序号 0 且文件名为空」，分开录每一档都写进同一个 CSV。
+    """
+    names = filename_list_from_config(config)
+    try:
+        idx = int(now_save_file or 0)
+    except (TypeError, ValueError):
+        idx = 0
+    if idx < 0:
+        idx = 0
+    if not names:
+        return idx, ""
+    if idx >= len(names):
+        idx = len(names) - 1
+    return idx, names[idx]
+
+
 def resolve_csv_path(config: Optional[Mapping], file_index: int = 0) -> str:
     """Build CSV output path from SavePath + FileNameList[+index]."""
     import os
@@ -200,8 +227,7 @@ def resolve_csv_path(config: Optional[Mapping], file_index: int = 0) -> str:
                 os.makedirs(folder, exist_ok=True)
             except Exception:
                 pass
-    names_raw = str(config.get("textEdit_FileNameList") or "").strip()
-    names = [n.strip() for n in names_raw.replace("，", ",").split(",") if n.strip()]
+    names = filename_list_from_config(config)
     if not names:
         names = ["WT_SCPI"]
     idx = max(0, min(int(file_index), len(names) - 1))

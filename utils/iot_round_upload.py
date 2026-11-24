@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+# 分开录在本轮结束时上传。超过这段时间还没改过的 CSV 是目录里的旧文件，不能传给本单。
+_ROUND_CSV_MAX_AGE_S = 20 * 60
+_STAMPED_TAIL_RE = re.compile(r"_(\d{6})$", re.IGNORECASE)
 
 
 def _resolve_job_id() -> Optional[int]:
@@ -59,13 +65,57 @@ def _save_path_from_config(config_dict: Optional[Dict[str, Any]]) -> str:
     ).strip()
 
 
+def _file_age_s(path: str) -> float:
+    try:
+        return max(0.0, time.time() - os.path.getmtime(path))
+    except OSError:
+        return 1e9
+
+
+def _newest_stamped_csv(stem: str, dirs) -> Optional[str]:
+    """WT 常把 Pdisp_BR 存成 Pdisp_BR_161912.csv。只认多出来的这一段时刻。"""
+    prefix = stem.lower() + "_"
+    best = None
+    best_mtime = -1.0
+    for folder in dirs:
+        if not folder or not os.path.isdir(folder):
+            continue
+        try:
+            names = os.listdir(folder)
+        except OSError:
+            continue
+        for name in names:
+            if not name.lower().endswith(".csv"):
+                continue
+            body = name[:-4]
+            if not body.lower().startswith(prefix):
+                continue
+            if _STAMPED_TAIL_RE.fullmatch(body[len(stem) :]) is None:
+                continue
+            fp = os.path.join(folder, name)
+            try:
+                if not os.path.isfile(fp) or os.path.getsize(fp) <= 0:
+                    continue
+                mtime = os.path.getmtime(fp)
+            except OSError:
+                continue
+            if mtime >= best_mtime:
+                best = fp
+                best_mtime = mtime
+    return best
+
+
 def find_round_csv(
     file_label: str,
     *,
     config_dict: Optional[Dict[str, Any]] = None,
     wait_s: float = 3.0,
 ) -> Optional[str]:
-    """按轮次文件名在 SavePath / 工作目录查找刚落盘的 CSV。"""
+    """按轮次文件名在 SavePath / 工作目录查找刚落盘的 CSV。
+
+    同名旧文件（Pdisp_BR.csv）留在目录里时，改传本轮带时刻的那一份。
+    两份都不是刚写的，就返回空，避免把上一次试验传上去。
+    """
     label = (file_label or "").strip()
     if not label:
         return None
@@ -77,7 +127,18 @@ def find_round_csv(
         _save_path_from_config(config_dict),
         extra=[str(Path.cwd()), str(Path(__file__).resolve().parent.parent)],
     )
-    return find_wt_csv(label, dirs, wait_s=wait_s)
+    exact = find_wt_csv(label, dirs, wait_s=wait_s)
+    stem = label[:-4] if label.lower().endswith(".csv") else label
+    stamped = _newest_stamped_csv(stem, dirs)
+    exact_fresh = bool(exact) and _file_age_s(exact) <= _ROUND_CSV_MAX_AGE_S
+    stamped_fresh = bool(stamped) and _file_age_s(stamped) <= _ROUND_CSV_MAX_AGE_S
+    if stamped_fresh and (
+        not exact_fresh or _file_age_s(stamped) <= _file_age_s(exact)
+    ):
+        return stamped
+    if exact_fresh:
+        return exact
+    return None
 
 
 def upload_round_csv_now(
@@ -151,7 +212,7 @@ def schedule_round_csv_upload(
         label = (file_label or "").strip()
         known = str(csv_path or "").strip()
         if known and Path(known).is_file() and Path(known).stat().st_size > 0:
-            csv_path_hit = known
+            csv_path_hit = known if _file_age_s(known) <= _ROUND_CSV_MAX_AGE_S else None
         else:
             csv_path_hit = find_round_csv(label, config_dict=config_dict, wait_s=wait_s) if label else None
         if not csv_path_hit:

@@ -102,7 +102,7 @@ $xd = @(
 $xf = @(
     "/XF", "*.pyc", "*.pyo", "*.log", "log.txt", "*.zip", "*.7z",
     "solar_agent.json", "solar_agent.sim.json", "solar_machine_id", "iot_bootstrap.json",
-    "db.sqlite", "uv.exe"
+    "db.sqlite", "uv.exe", "发版OSS.bat"
 )
 $rcArgs = @($repoRoot, $appDest, "/E", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP", "/R:1", "/W:1") + $xd + $xf
 & robocopy @rcArgs | Out-Null

@@ -171,7 +171,11 @@ def existing_settle_files(
     run_snapshot: Dict[str, Any],
 ) -> List[Path]:
     """收集这单已经存在的结果/录波，供结案元数据和 upload_report 使用。"""
-    from agent.reports import collect_report_files, window_output_files_by_token
+    from agent.reports import (
+        _only_this_run_files,
+        collect_report_files,
+        window_output_files_by_token,
+    )
 
     root = Path(repo_root)
     result = _load_inbox_result(root, job_id)
@@ -185,6 +189,12 @@ def existing_settle_files(
         elapsed = 0.0
     if elapsed > 0 and not summary.get("elapsed_sec"):
         summary["elapsed_sec"] = elapsed
+    try:
+        started = float(run_snapshot.get("started_at") or 0)
+    except (TypeError, ValueError):
+        started = 0.0
+    if started > 1_000_000_000 and not summary.get("started_at"):
+        summary["started_at"] = started
     test_name = str(
         run_snapshot.get("current_test")
         or run_snapshot.get("project")
@@ -197,6 +207,8 @@ def existing_settle_files(
     if elapsed > 0:
         until = time.time() + 60.0
         since = until - elapsed - 120.0
+        if started > 1_000_000_000:
+            since = min(since, started - 120.0)
         files = _merge_paths(
             files,
             window_output_files_by_token(
@@ -206,6 +218,7 @@ def existing_settle_files(
                 name_token=_recording_token(test_name),
             ),
         )
+        files = _only_this_run_files(files, since, until, set())
     else:
         files = _merge_paths(files, [])
     return files

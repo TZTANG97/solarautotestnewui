@@ -95,11 +95,24 @@ class OvufConditionList(QtWidgets.QWidget):
         parent=None,
         *,
         voltage_only: bool = False,
+        locked_kind: Optional[str] = None,
         tip_text: Optional[str] = None,
+        value_header: Optional[str] = None,
+        default_value: str = "230",
+        show_template: bool = True,
+        show_phases: bool = True,
+        scan_range: bool = False,
         object_name: str = "ovufConditionList",
     ):
         super().__init__(parent)
+        self._scan_range = bool(scan_range)
         self._voltage_only = bool(voltage_only)
+        kind_lock = str(locked_kind or "").strip().upper()
+        self._locked_kind = kind_lock if kind_lock in ("V", "F") else ""
+        if self._locked_kind == "V":
+            self._voltage_only = True
+        self._default_value = str(default_value or ("50" if self._locked_kind == "F" else "230"))
+        self._show_phases = bool(show_phases)
         self.setObjectName(object_name)
         root = QtWidgets.QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -127,11 +140,27 @@ class OvufConditionList(QtWidgets.QWidget):
         tip.setStyleSheet("color: #334155; font-size: 13px;")
         root.addWidget(tip)
 
-        self.table = QtWidgets.QTableWidget(0, 8)
+        if self._scan_range:
+            self.table = QtWidgets.QTableWidget(0, 11)
+            headers = [
+                "启用",
+                "电压起(V)",
+                "电压止(V)",
+                "频率起(Hz)",
+                "频率止(Hz)",
+                "步长",
+                "L1",
+                "L2",
+                "L3",
+                "每点驻留",
+                "单位",
+            ]
+        else:
+            self.table = QtWidgets.QTableWidget(0, 8)
+            value_title = value_header or ("电压(V)" if self._locked_kind == "V" else "频率(Hz)" if self._locked_kind == "F" else "设定值")
+            headers = ["启用", "类型", value_title, "L1", "L2", "L3", "保持", "单位"]
         self.table.setObjectName("tableWidget_ovuf_conditions")
-        self.table.setHorizontalHeaderLabels(
-            ["启用", "类型", "设定值", "L1", "L2", "L3", "保持", "单位"]
-        )
+        self.table.setHorizontalHeaderLabels(headers)
         self.table.setMinimumHeight(220)
         self.table.setStyleSheet(
             "QTableWidget { background: #ffffff; color: #0f172a; gridline-color: #cbd5e1; "
@@ -141,10 +170,30 @@ class OvufConditionList(QtWidgets.QWidget):
             "QTableWidget::item { color: #0f172a; padding: 4px; }"
             "QTableWidget::item:selected { background: #bfdbfe; color: #0f172a; }"
         )
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        header.setMinimumSectionSize(36)
+        self.table.verticalHeader().setDefaultSectionSize(36)
+        if self._scan_range:
+            # 启用、相别、单位不要跟数字列一起平分。单位列太窄时，下拉框会画出格子。
+            header.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
+            self.table.setColumnWidth(0, 56)
+            for col, width in ((6, 44), (7, 44), (8, 44), (10, 108)):
+                header.setSectionResizeMode(col, QtWidgets.QHeaderView.Fixed)
+                self.table.setColumnWidth(col, width)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        if self._scan_range:
+            if not self._show_phases:
+                for col in (6, 7, 8):
+                    self.table.setColumnHidden(col, True)
+        else:
+            if self._locked_kind:
+                self.table.setColumnHidden(COL_KIND, True)
+            if not self._show_phases:
+                for col in (COL_L1, COL_L2, COL_L3):
+                    self.table.setColumnHidden(col, True)
         self.table.itemChanged.connect(lambda *_: self._emit())
         root.addWidget(self.table, 1)
 
@@ -161,7 +210,12 @@ class OvufConditionList(QtWidgets.QWidget):
             "QPushButton:hover { background: #cbd5e1; }"
             "QPushButton:pressed { background: #94a3b8; }"
         )
-        for b in (self.btn_add, self.btn_del, self.btn_up, self.btn_down, self.btn_pea):
+        buttons = [self.btn_add, self.btn_del, self.btn_up, self.btn_down]
+        if show_template:
+            buttons.append(self.btn_pea)
+        else:
+            self.btn_pea.hide()
+        for b in buttons:
             b.setStyleSheet(_btn_ss)
             btn_row.addWidget(b)
         btn_row.addStretch()
@@ -180,6 +234,33 @@ class OvufConditionList(QtWidgets.QWidget):
 
     def _emit(self) -> None:
         self.rows_changed.emit()
+
+    def _make_unit_combo(self, unit_txt: str) -> QtWidgets.QWidget:
+        """单位下拉放进带边距的格子，避免按理想宽度画出单元格。"""
+        unit = QtWidgets.QComboBox()
+        unit.addItems(list(UNITS))
+        if unit_txt not in UNITS:
+            unit_txt = "秒"
+        unit.setCurrentText(unit_txt)
+        unit.setMinimumWidth(0)
+        unit.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        unit.setStyleSheet("QComboBox { min-width: 0px; padding: 0 4px; margin: 0; }")
+        unit.currentIndexChanged.connect(lambda *_: self._emit())
+        host = QtWidgets.QWidget()
+        lay = QtWidgets.QHBoxLayout(host)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(0)
+        lay.addWidget(unit)
+        host._unit = unit  # type: ignore[attr-defined]
+        return host
+
+    def _unit_text(self, widget) -> str:
+        combo = widget
+        if widget is not None and not isinstance(widget, QtWidgets.QComboBox):
+            combo = getattr(widget, "_unit", None)
+        if isinstance(combo, QtWidgets.QComboBox):
+            return combo.currentText() or "秒"
+        return "秒"
 
     def _make_check(self, checked: bool = True) -> QtWidgets.QWidget:
         w = QtWidgets.QWidget()
@@ -201,6 +282,9 @@ class OvufConditionList(QtWidgets.QWidget):
 
     def _append_row(self, data: Optional[Dict[str, Any]] = None) -> None:
         d = data or {}
+        if self._scan_range:
+            self._append_scan_row(d)
+            return
         r = self.table.rowCount()
         self.table.insertRow(r)
 
@@ -208,7 +292,12 @@ class OvufConditionList(QtWidgets.QWidget):
         self.table.setCellWidget(r, COL_ENABLED, en)
 
         kind = QtWidgets.QComboBox()
-        if self._voltage_only:
+        if self._locked_kind:
+            label = _kind_label(self._locked_kind)
+            kind.addItems([label])
+            kind.setCurrentText(label)
+            kind.setEnabled(False)
+        elif self._voltage_only:
             kind.addItems([KIND_V])
             kind.setCurrentText(KIND_V)
             kind.setEnabled(False)
@@ -218,7 +307,7 @@ class OvufConditionList(QtWidgets.QWidget):
         kind.currentIndexChanged.connect(lambda *_: self._emit())
         self.table.setCellWidget(r, COL_KIND, kind)
 
-        val = QtWidgets.QTableWidgetItem(str(d.get("value", "230")))
+        val = QtWidgets.QTableWidgetItem(str(d.get("value", self._default_value)))
         self.table.setItem(r, COL_VALUE, val)
 
         self.table.setCellWidget(r, COL_L1, self._make_check(d.get("l1", True)))
@@ -228,14 +317,49 @@ class OvufConditionList(QtWidgets.QWidget):
         dwell = QtWidgets.QTableWidgetItem(str(d.get("dwell", "3")))
         self.table.setItem(r, COL_DWELL, dwell)
 
-        unit = QtWidgets.QComboBox()
-        unit.addItems(list(UNITS))
-        unit_txt = str(d.get("unit", "秒")).strip() or "秒"
-        if unit_txt not in UNITS:
-            unit_txt = "秒"
-        unit.setCurrentText(unit_txt)
-        unit.currentIndexChanged.connect(lambda *_: self._emit())
-        self.table.setCellWidget(r, COL_UNIT, unit)
+        self.table.setCellWidget(r, COL_UNIT, self._make_unit_combo(str(d.get("unit", "秒")).strip() or "秒"))
+
+    def _cell_text(self, row: dict, *keys: str, default: str) -> str:
+        for key in keys:
+            if key in row and str(row.get(key) or "").strip():
+                return str(row.get(key)).strip()
+        return default
+
+    def _append_scan_row(self, d: Dict[str, Any]) -> None:
+        """一行一段扫描：电压区间、频率区间、步长、每点驻留。旧的单点 value 仍能读入。"""
+        kind = self._locked_kind or "V"
+        if "volt_start" in d or "freq_start" in d or "step" in d:
+            volt_start = self._cell_text(d, "volt_start", default="230")
+            volt_end = self._cell_text(d, "volt_end", default=volt_start)
+            freq_start = self._cell_text(d, "freq_start", default="50")
+            freq_end = self._cell_text(d, "freq_end", default=freq_start)
+            step = self._cell_text(d, "step", default="5")
+        else:
+            value = self._cell_text(d, "value", default=self._default_value)
+            if kind == "F":
+                freq_start = freq_end = value
+                volt_start = volt_end = "230"
+            else:
+                volt_start = volt_end = value
+                freq_start = freq_end = "50"
+            step = self._cell_text(d, "step", default="0")
+        r = self.table.rowCount()
+        self.table.insertRow(r)
+        self.table.setCellWidget(r, 0, self._make_check(d.get("enabled", True)))
+        for col, text in (
+            (1, volt_start),
+            (2, volt_end),
+            (3, freq_start),
+            (4, freq_end),
+            (5, step),
+        ):
+            self.table.setItem(r, col, QtWidgets.QTableWidgetItem(text))
+        self.table.setCellWidget(r, 6, self._make_check(d.get("l1", True)))
+        self.table.setCellWidget(r, 7, self._make_check(d.get("l2", True)))
+        self.table.setCellWidget(r, 8, self._make_check(d.get("l3", True)))
+        self.table.setItem(r, 9, QtWidgets.QTableWidgetItem(self._cell_text(d, "dwell", default="3")))
+        unit = self._make_unit_combo(str(d.get("unit", "秒")).strip() or "秒")
+        self.table.setCellWidget(r, 10, unit)
 
     def _on_add(self) -> None:
         self._append_row()
@@ -271,7 +395,14 @@ class OvufConditionList(QtWidgets.QWidget):
         self.set_rows(pea_vfrt_template_rows(un))
         self._emit()
 
+    def _item_text(self, row: int, col: int, default: str) -> str:
+        item = self.table.item(row, col)
+        text = item.text().strip() if item is not None else ""
+        return text or default
+
     def get_rows(self, *, include_disabled: bool = False) -> List[Dict[str, Any]]:
+        if self._scan_range:
+            return self._scan_rows(include_disabled=include_disabled)
         out: List[Dict[str, Any]] = []
         for r in range(self.table.rowCount()):
             en_cb = self._checkbox_at(r, COL_ENABLED)
@@ -282,20 +413,55 @@ class OvufConditionList(QtWidgets.QWidget):
             kind_txt = kind_w.currentText() if isinstance(kind_w, QtWidgets.QComboBox) else KIND_V
             val_item = self.table.item(r, COL_VALUE)
             dwell_item = self.table.item(r, COL_DWELL)
-            unit_w = self.table.cellWidget(r, COL_UNIT)
-            unit_txt = unit_w.currentText() if isinstance(unit_w, QtWidgets.QComboBox) else "秒"
+            unit_txt = self._unit_text(self.table.cellWidget(r, COL_UNIT))
             l1 = self._checkbox_at(r, COL_L1)
             l2 = self._checkbox_at(r, COL_L2)
             l3 = self._checkbox_at(r, COL_L3)
             out.append(
                 {
                     "enabled": enabled,
-                    "kind": _kind_code(kind_txt),
-                    "value": (val_item.text().strip() if val_item else "") or "230",
+                    "kind": self._locked_kind or _kind_code(kind_txt),
+                    "value": (val_item.text().strip() if val_item else "") or self._default_value,
                     "l1": bool(l1.isChecked()) if l1 else True,
                     "l2": bool(l2.isChecked()) if l2 else True,
                     "l3": bool(l3.isChecked()) if l3 else True,
                     "dwell": (dwell_item.text().strip() if dwell_item else "") or "3",
+                    "unit": unit_txt or "秒",
+                }
+            )
+        return out
+
+    def _scan_rows(self, *, include_disabled: bool = False) -> List[Dict[str, Any]]:
+        kind = self._locked_kind or "V"
+        out: List[Dict[str, Any]] = []
+        for r in range(self.table.rowCount()):
+            en_cb = self._checkbox_at(r, 0)
+            enabled = bool(en_cb.isChecked()) if en_cb is not None else True
+            if not include_disabled and not enabled:
+                continue
+            volt_start = self._item_text(r, 1, "230")
+            volt_end = self._item_text(r, 2, volt_start)
+            freq_start = self._item_text(r, 3, "50")
+            freq_end = self._item_text(r, 4, freq_start)
+            l1 = self._checkbox_at(r, 6)
+            l2 = self._checkbox_at(r, 7)
+            l3 = self._checkbox_at(r, 8)
+            unit_txt = self._unit_text(self.table.cellWidget(r, 10))
+            primary_end = freq_end if kind == "F" else volt_end
+            out.append(
+                {
+                    "enabled": enabled,
+                    "kind": kind,
+                    "volt_start": volt_start,
+                    "volt_end": volt_end,
+                    "freq_start": freq_start,
+                    "freq_end": freq_end,
+                    "step": self._item_text(r, 5, "5"),
+                    "value": primary_end,
+                    "l1": bool(l1.isChecked()) if l1 else True,
+                    "l2": bool(l2.isChecked()) if l2 else True,
+                    "l3": bool(l3.isChecked()) if l3 else True,
+                    "dwell": self._item_text(r, 9, "3"),
                     "unit": unit_txt or "秒",
                 }
             )

@@ -356,6 +356,15 @@ def apply_widget_values(root_widget, values: Dict[str, Any]) -> list:
                 continue
             missing.append(key)
             continue
+        if key in ("OVUF_SCAN_LIST_JSON", "ovuf_scan_list_json"):
+            try:
+                from utils.ovuf_recording import load_ovuf_scan_lists
+
+                if val is not None and str(val).strip() not in ("", "{}"):
+                    load_ovuf_scan_lists(root_widget, val)
+            except Exception:
+                missing.append(key)
+            continue
         w = _find(name)
         if w is None:
             missing.append(str(name))
@@ -1653,6 +1662,12 @@ class IotUiHandoffService(QObject):
             summary["handler_key"] = aw.get("handler_key")
         if aw.get("widgets") and not summary.get("widgets"):
             summary["widgets"] = aw.get("widgets")
+        try:
+            started = float(aw.get("started_at") or 0)
+        except (TypeError, ValueError):
+            started = 0.0
+        if started > 1_000_000_000 and not summary.get("started_at"):
+            summary["started_at"] = started
         result["result_summary"] = summary
 
         # 德威创刚写出的 CSV：进度状态 / 内存 / sidecar 三路交叉验证

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""有功调度：P 指令阶梯（%Pn）+ DC 固定功率头寸，数字 col6 逐点存盘。"""
+"""有功调度：P 指令阶梯（%Pn）逐档改写直流曲线，数字 col6 逐点存盘。"""
 
 from __future__ import annotations
 
@@ -63,6 +63,32 @@ def parse_ladder(text):
         except ValueError:
             continue
     return vals
+
+
+def _skip_mode_on_later_point(cmd):
+    """后续功率档不再重发「进入表格模式」，但必须重发曲线生效命令。
+
+    致茂改完 IVC:IT / IVC:VT 后若不重发 IVCurve:SELect，输出口仍停在上一档。
+    """
+    text = str(cmd or "").upper()
+    if "SELECT" in text:
+        return False
+    return "MODE" in text
+
+
+def _dc_percent_for_step(ladder_pct, headroom_pct):
+    """本档直流功率% = P 指令% × 头寸%。头寸 100 时与 P 指令相同。"""
+    try:
+        ladder = float(ladder_pct)
+    except (TypeError, ValueError):
+        ladder = 0.0
+    try:
+        headroom = float(headroom_pct)
+    except (TypeError, ValueError):
+        headroom = 100.0
+    if headroom < 0:
+        headroom = 0.0
+    return ladder * headroom / 100.0
 
 
 def format_setpoint_tag(value):
@@ -285,12 +311,18 @@ def build_active_p_plan(
                 s3_on = getattr(ui, "checkBox_S3_DC%d" % ch).isChecked()
                 if not (s1_on and s3_on):
                     continue
+                step_pct = _dc_percent_for_step(pct, dc_pct)
+                if step_pct <= 0:
+                    # 0% 电流做不出合法 IV 曲线，直接关输出，否则直流会停在上一档。
+                    row = _row_device_write(device, "OUTP OFF")
+                    commands.append(row)
+                    point_rows.append(row)
+                    continue
                 vmp = getattr(ui, "textEdit_S1_DC%d_VOLT" % ch).toPlainText()
                 imp = getattr(ui, "textEdit_S1_DC%d_CURR" % ch).toPlainText()
                 voc = getattr(ui, "textEdit_S1_DC%d_Voc" % ch).toPlainText()
                 isc = getattr(ui, "textEdit_S1_DC%d_Isc" % ch).toPlainText()
-                # DC 用固定头寸；P 指令由试验员在机侧设定
-                code, iv_cmds = dc_iv_resolver(vmp, imp, voc, isc, dc_pct, dc_num)
+                code, iv_cmds = dc_iv_resolver(vmp, imp, voc, isc, step_pct, dc_num)
                 if code == "err1":
                     dc_errors.append("%s@Pcmd%.0f%%赋值错误" % (label, pct))
                 elif code == "err2":
@@ -298,10 +330,11 @@ def build_active_p_plan(
                 elif code == "err_brand":
                     dc_errors.append("%sDC命令与厂家不匹配（已拦截致茂IVC混用）" % label)
                 elif code == "ok" and iv_cmds:
+                    row = _row_device_write(device, "OUTP ON")
+                    commands.append(row)
+                    point_rows.append(row)
                     for cmd in iv_cmds:
-                        if point_index > 0 and (
-                            "MODE" in cmd or "SELect" in cmd or "SAS:MODE" in cmd
-                        ):
+                        if point_index > 0 and _skip_mode_on_later_point(cmd):
                             continue
                         row = _row_device_write(device, cmd)
                         commands.append(row)

@@ -2089,6 +2089,7 @@ def _persist_run_progress_locked(_status_file, state):
     data["project"]["cmd_total"] = int(state.get("cmd_total") or 0)
     data["project"]["planned_seconds"] = float(state.get("planned_seconds") or 0.0)
     data["project"]["elapsed_s"] = float(state.get("elapsed_s") or 0.0)
+    data["project"]["started_at"] = float(state.get("started_at") or 0.0)
     data["project"]["remain_s"] = float(state.get("remain_s") or 0.0)
     data["project"]["eta_total_s"] = float(state.get("eta_total_s") or 0.0)
     if state.get("remain_text"):
@@ -11488,6 +11489,59 @@ def thaifixedpfSend():
         row[0], row[1], row[2], row[6] = "AC", "query", "*IDN?", "WAIT_END"
         strArrayTest.append(row)
 
+    if wt_on and enabled_steps:
+        # 停止时间对齐数据采集：2 分钟就录 2 分钟，不再沿用 00:05:00 再空等 180 秒。
+        # 分开录文件名按功率档各一份，避免每一档都写进第一个 CSV。
+        try:
+            from utils.wt_recording_mode import (
+                align_fixed_pf_recording,
+                apply_filename_list_to_wt_pages,
+            )
+
+            _pf_levels = []
+            for _s in enabled_steps:
+                _raw = getattr(uiThaiFixedPF, f"textEdit_S1_DC1_PF_{_s}").toPlainText().strip()
+                try:
+                    _pf_levels.append(float(_raw))
+                except ValueError:
+                    _pf_levels.append(float(_s))
+            _file_list_text, _stop_str = align_fixed_pf_recording(
+                strArrayTest,
+                _pf_levels,
+                record_mode,
+                f_collect,
+                f_wait,
+                n_points=len(_pf_levels),
+            )
+            apply_filename_list_to_wt_pages(uiThaiFixedPF._wtStacked, _file_list_text.split(","))
+            try:
+                from PyQt5 import QtWidgets
+
+                for _pi in range(uiThaiFixedPF._wtStacked.count()):
+                    _page = uiThaiFixedPF._wtStacked.widget(_pi)
+                    _st = _page.findChild(QtWidgets.QTextEdit, "textEdit_StopTime") if _page is not None else None
+                    if _st is not None:
+                        _st.setPlainText(_stop_str)
+            except Exception as _ui_exc:
+                _append_debug_log(f"[fixedPF] update WT StopTime widget failed: {_ui_exc}")
+            try:
+                if ui is not None:
+                    _mode_label = "一条线连续录" if wt_continuous else "分开录"
+                    ui.textEdit_ReturnMessage.append(
+                        "[固定PF=1] %s，数据采集 %.0fs，等待 %.0fs，StopTime %s，文件 %s"
+                        % (
+                            _mode_label,
+                            f_collect / 10.0,
+                            f_wait / 10.0,
+                            _stop_str,
+                            _file_list_text,
+                        )
+                    )
+            except Exception:
+                pass
+        except Exception as _align_exc:
+            _append_debug_log(f"[fixedPF] align recording failed: {_align_exc}")
+
     # step14
 
 
@@ -20068,1074 +20122,30 @@ def thaiguoqianya_pinSend():
 
     # extend_step
     from utils.ovuf_recording import (
+        append_ovuf_scan_list,
         append_ovuf_sweep_volt,
         build_ovuf_phase_check_list,
         ovuf_sweep_project,
         read_ovuf_rated_phase_volts,
+        read_ovuf_scan_rows,
     )
 
     phase_check_list = build_ovuf_phase_check_list(uiThaiGuoQianYa_Pin)
     ovuf_rated_volts = read_ovuf_rated_phase_volts(uiThaiGuoQianYa_Pin)
 
-    # step3 过压：固定扫电压
-    extend_test_project = ovuf_sweep_project(3)
-    if uiThaiGuoQianYa_Pin.checkBox_S3.isChecked():
-        strArrayTestStepSingle = []
-        S3_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S3_TIME.toPlainText()
-        S3_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S3_TIME.currentText()
-        fS3SetTime = float(S3_TIME_VALUE)
-        fS3SetTime = SetTimeFunction(fS3SetTime, S3_TIME_UNIT)
-        # 步长
-        S3_step_size = uiThaiGuoQianYa_Pin.textEdit_S3_Step_Size.toPlainText()
-        fS3StepSize = float(S3_step_size)
-
-        S3ACVOLT_start = uiThaiGuoQianYa_Pin.textEdit_S3_AC_VOLT_Start.toPlainText()
-        S3ACVOLT_end = uiThaiGuoQianYa_Pin.textEdit_S3_AC_VOLT_End.toPlainText()
-        S3ACFR_start = uiThaiGuoQianYa_Pin.textEdit_S3_AC_FR_Start.toPlainText()
-        S3ACFR_end = uiThaiGuoQianYa_Pin.textEdit_S3_AC_FR_End.toPlainText()
-
-        if extend_test_project == "过欠压":
-            S3VOLT_loop = True
-            fS3ACVOLT_start = float(S3ACVOLT_start)
-            fS3ACVOLT_end = float(S3ACVOLT_end)
-            S3_test_step_list = []
-            if fS3ACVOLT_end > fS3ACVOLT_start:
-                while S3VOLT_loop:
-                    if fS3ACVOLT_start < fS3ACVOLT_end:
-                        S3_test_step_list.append(str(round(fS3ACVOLT_start,2)))
-                        fS3ACVOLT_start = fS3ACVOLT_start + fS3StepSize
-                    else:
-                        S3_test_step_list.append(str(round(fS3ACVOLT_end,2)))
-                        S3VOLT_loop = False
-            else:
-                while S3VOLT_loop:
-                    if fS3ACVOLT_end < fS3ACVOLT_start:
-                        S3_test_step_list.append(str(round(fS3ACVOLT_start,2)))
-                        fS3ACVOLT_start = fS3ACVOLT_start - fS3StepSize
-                    else:
-                        S3_test_step_list.append(str(round(fS3ACVOLT_end,2)))
-                        S3VOLT_loop = False
-        elif extend_test_project == "过欠频":
-            S3FR_loop = True
-            fS3ACFR_start = float(S3ACFR_start)
-            fS3ACFR_end = float(S3ACFR_end)
-            S3_test_step_list = []
-            if fS3ACFR_end > fS3ACFR_start:
-                while S3FR_loop:
-                    if fS3ACFR_start < fS3ACFR_end:
-                        S3_test_step_list.append(str(round(fS3ACFR_start,2)))
-                        fS3ACFR_start = fS3ACFR_start + fS3StepSize
-                    else:
-                        S3_test_step_list.append(str(round(fS3ACFR_end,2)))
-                        S3FR_loop = False
-            else:
-                while S3FR_loop:
-                    if fS3ACFR_end < fS3ACFR_start:
-                        S3_test_step_list.append(str(round(fS3ACFR_start,2)))
-                        fS3ACFR_start = fS3ACFR_start - fS3StepSize
-                    else:
-                        S3_test_step_list.append(str(round(fS3ACFR_end,2)))
-                        S3FR_loop = False
-
-        if S1ACEACHStatus == "单相":
-
-            if extend_test_project == "过欠压":
-                for i in range(len(S3_test_step_list)):
-                    step = S3_test_step_list[i]
-                    _bs = len(strArrayTest)
-                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S3Command
-                    if i == 0:
-                        strArraySingle[6] = int(fS3SetTime)
-                    else:
-                        strArraySingle[9] = int(fS3SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-            elif extend_test_project == "过欠频":
-                for i in range(len(S3_test_step_list)):
-                    step = S3_test_step_list[i]
-                    _bs = len(strArrayTest)
-                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S3Command
-                    if i == 0:
-                        strArraySingle[6] = int(fS3SetTime)
-                    else:
-                        strArraySingle[9] = int(fS3SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-                
-        elif S1ACEACHStatus == "三相":
-            if extend_test_project == "过欠压":
-                for i in range(len(S3_test_step_list)):
-                    step = S3_test_step_list[i]
-                    _bs = len(strArrayTest)
-                    append_ovuf_sweep_volt(
-                        strArrayTest, S1ACEACHStatus, step, phase_check_list, ovuf_rated_volts
-                    )
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S3Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S3Command
-                    if i == 0:
-                        strArraySingle[6] = int(fS3SetTime)
-                    else:
-                        strArraySingle[9] = int(fS3SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-            elif extend_test_project == "过欠频":
-                if '' not in phase_check_list:
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for i in range(len(S3_test_step_list)):
-                        step = S3_test_step_list[i]
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S3Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S3Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S3Command
-                        if i == 0:
-                            strArraySingle[6] = int(fS3SetTime)
-                        else:
-                            strArraySingle[9] = int(fS3SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-        total_test_time = total_test_time + (len(S3_test_step_list) * (fS3SetTime / 10))
-        from utils.ovuf_recording import append_ovuf_segment_recovery
-
-        _rec_rows = []
-        _rec_wait = append_ovuf_segment_recovery(
+    # step3-6：列表里每一行是一段扫描（电压区间、频率区间、步长、每点驻留）
+    for _scan_step in (3, 4, 5, 6):
+        _scan_cb = getattr(uiThaiGuoQianYa_Pin, 'checkBox_S%d' % _scan_step, None)
+        if _scan_cb is None or not _scan_cb.isChecked():
+            continue
+        total_test_time = total_test_time + append_ovuf_scan_list(
             strArrayTest,
-            _rec_rows,
+            strArrayTestStep,
             uiThaiGuoQianYa_Pin,
             S1ACEACHStatus,
-            after_step=3,
+            _scan_step,
+            read_ovuf_scan_rows(uiThaiGuoQianYa_Pin, _scan_step),
         )
-        if _rec_wait:
-            total_test_time = total_test_time + (_rec_wait / 10.0)
-            strArrayTestStep.append(_rec_rows)
-
-    # step4 欠压：固定扫电压
-    extend_test_project = ovuf_sweep_project(4)
-    if uiThaiGuoQianYa_Pin.checkBox_S4.isChecked():
-        strArrayTestStepSingle = []
-        S4_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S4_TIME.toPlainText()
-        S4_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S4_TIME.currentText()
-        fS4SetTime = float(S4_TIME_VALUE)
-        fS4SetTime = SetTimeFunction(fS4SetTime, S4_TIME_UNIT)
-        # 步长
-        S4_step_size = uiThaiGuoQianYa_Pin.textEdit_S4_Step_Size.toPlainText()
-        fS4StepSize = float(S4_step_size)
-
-        S4ACVOLT_start = uiThaiGuoQianYa_Pin.textEdit_S4_AC_VOLT_Start.toPlainText()
-        S4ACVOLT_end = uiThaiGuoQianYa_Pin.textEdit_S4_AC_VOLT_End.toPlainText()
-        S4ACFR_start = uiThaiGuoQianYa_Pin.textEdit_S4_AC_FR_Start.toPlainText()
-        S4ACFR_end = uiThaiGuoQianYa_Pin.textEdit_S4_AC_FR_End.toPlainText()
-
-        if extend_test_project == "过欠压":
-            S4VOLT_loop = True
-            fS4ACVOLT_start = float(S4ACVOLT_start)
-            fS4ACVOLT_end = float(S4ACVOLT_end)
-            S4_test_step_list = []
-            if fS4ACVOLT_end > fS4ACVOLT_start:
-                while S4VOLT_loop:
-                    if fS4ACVOLT_start < fS4ACVOLT_end:
-                        S4_test_step_list.append(str(round(fS4ACVOLT_start,2)))
-                        fS4ACVOLT_start = fS4ACVOLT_start + fS4StepSize
-                    else:
-                        S4_test_step_list.append(str(round(fS4ACVOLT_end,2)))
-                        S4VOLT_loop = False
-            else:
-                while S4VOLT_loop:
-                    if fS4ACVOLT_end < fS4ACVOLT_start:
-                        S4_test_step_list.append(str(round(fS4ACVOLT_start,2)))
-                        fS4ACVOLT_start = fS4ACVOLT_start - fS4StepSize
-                    else:
-                        S4_test_step_list.append(str(round(fS4ACVOLT_end,2)))
-                        S4VOLT_loop = False
-        elif extend_test_project == "过欠频":   
-            S4FR_loop = True
-            fS4ACFR_start = float(S4ACFR_start)
-            fS4ACFR_end = float(S4ACFR_end)
-            S4_test_step_list = []
-            if fS4ACFR_end > fS4ACFR_start:
-                while S4FR_loop:
-                    if fS4ACFR_start < fS4ACFR_end:
-                        S4_test_step_list.append(str(round(fS4ACFR_start,2)))
-                        fS4ACFR_start = fS4ACFR_start + fS4StepSize
-                    else:
-                        S4_test_step_list.append(str(round(fS4ACFR_end,2)))
-                        S4FR_loop = False
-            else:
-                while S4FR_loop:
-                    if fS4ACFR_end < fS4ACFR_start:
-                        S4_test_step_list.append(str(round(fS4ACFR_start,2)))
-                        fS4ACFR_start = fS4ACFR_start - fS4StepSize
-                    else:
-                        S4_test_step_list.append(str(round(fS4ACFR_end,2)))
-                        S4FR_loop = False
-
-        if S1ACEACHStatus == "单相":
-
-            if extend_test_project == "过欠压":
-                for step in S4_test_step_list:
-                    _bs = len(strArrayTest)
-                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S4Command
-                    strArraySingle[9] = int(fS4SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-            elif extend_test_project == "过欠频":
-                for step in S4_test_step_list:
-                    _bs = len(strArrayTest)
-                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S4Command
-                    strArraySingle[9] = int(fS4SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-                
-        elif S1ACEACHStatus == "三相":
-            if extend_test_project == "过欠压":
-                for step in S4_test_step_list:
-                    _bs = len(strArrayTest)
-                    append_ovuf_sweep_volt(
-                        strArrayTest, S1ACEACHStatus, step, phase_check_list, ovuf_rated_volts
-                    )
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S4Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S4Command
-                    strArraySingle[9] = int(fS4SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-            elif extend_test_project == "过欠频":
-                if '' not in phase_check_list:
-                    for step in S4_test_step_list:
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for step in S4_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S4Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S4Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S4Command
-                        strArraySingle[9] = int(fS4SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-        total_test_time = total_test_time + (len(S4_test_step_list) * (fS4SetTime / 10))
-        from utils.ovuf_recording import append_ovuf_segment_recovery
-
-        _rec_rows = []
-        _rec_wait = append_ovuf_segment_recovery(
-            strArrayTest,
-            _rec_rows,
-            uiThaiGuoQianYa_Pin,
-            S1ACEACHStatus,
-            after_step=4,
-        )
-        if _rec_wait:
-            total_test_time = total_test_time + (_rec_wait / 10.0)
-            strArrayTestStep.append(_rec_rows)
-
-    # step5 过频：固定扫频率
-    extend_test_project = ovuf_sweep_project(5)
-    if uiThaiGuoQianYa_Pin.checkBox_S5.isChecked():
-        strArrayTestStepSingle = []
-        S5_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S5_TIME.toPlainText()
-        S5_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S5_TIME.currentText()
-        fS5SetTime = float(S5_TIME_VALUE)
-        fS5SetTime = SetTimeFunction(fS5SetTime, S5_TIME_UNIT)
-        # 步长
-        S5_step_size = uiThaiGuoQianYa_Pin.textEdit_S5_Step_Size.toPlainText()
-        fS5StepSize = float(S5_step_size)
-
-        S5ACVOLT_start = uiThaiGuoQianYa_Pin.textEdit_S5_AC_VOLT_Start.toPlainText()
-        S5ACVOLT_end = uiThaiGuoQianYa_Pin.textEdit_S5_AC_VOLT_End.toPlainText()
-        S5ACFR_start = uiThaiGuoQianYa_Pin.textEdit_S5_AC_FR_Start.toPlainText()
-        S5ACFR_end = uiThaiGuoQianYa_Pin.textEdit_S5_AC_FR_End.toPlainText()
-
-        if extend_test_project == "过欠压":
-            S5VOLT_loop = True
-            fS5ACVOLT_start = float(S5ACVOLT_start)
-            fS5ACVOLT_end = float(S5ACVOLT_end)
-            S5_test_step_list = []
-            if fS5ACVOLT_end > fS5ACVOLT_start:
-                while S5VOLT_loop:
-                    if fS5ACVOLT_start < fS5ACVOLT_end:
-                        S5_test_step_list.append(str(round(fS5ACVOLT_start,2)))
-                        fS5ACVOLT_start = fS5ACVOLT_start + fS5StepSize
-                    else:
-                        S5_test_step_list.append(str(round(fS5ACVOLT_end,2)))
-                        S5VOLT_loop = False
-            else:
-                while S5VOLT_loop:
-                    if fS5ACVOLT_end < fS5ACVOLT_start:
-                        S5_test_step_list.append(str(round(fS5ACVOLT_start,2)))
-                        fS5ACVOLT_start = fS5ACVOLT_start - fS5StepSize
-                    else:
-                        S5_test_step_list.append(str(round(fS5ACVOLT_end,2)))
-                        S5VOLT_loop = False
-        elif extend_test_project == "过欠频":   
-            S5FR_loop = True
-            fS5ACFR_start = float(S5ACFR_start)
-            fS5ACFR_end = float(S5ACFR_end)
-            S5_test_step_list = []
-            if fS5ACFR_end > fS5ACFR_start:
-                while S5FR_loop:
-                    if fS5ACFR_start < fS5ACFR_end:
-                        S5_test_step_list.append(str(round(fS5ACFR_start,2)))
-                        fS5ACFR_start = fS5ACFR_start + fS5StepSize
-                    else:
-                        S5_test_step_list.append(str(round(fS5ACFR_end,2)))
-                        S5FR_loop = False
-            else:
-                while S5FR_loop:
-                    if fS5ACFR_end < fS5ACFR_start:
-                        S5_test_step_list.append(str(round(fS5ACFR_start,2)))
-                        fS5ACFR_start = fS5ACFR_start - fS5StepSize
-                    else:
-                        S5_test_step_list.append(str(round(fS5ACFR_end,2)))
-                        S5FR_loop = False
-
-        if S1ACEACHStatus == "单相":
-
-            if extend_test_project == "过欠压":
-                for step in S5_test_step_list:
-                    _bs = len(strArrayTest)
-                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S5Command
-                    strArraySingle[9] = int(fS5SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-            elif extend_test_project == "过欠频":
-                for step in S5_test_step_list:
-                    _bs = len(strArrayTest)
-                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S5Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S5Command
-                    strArraySingle[9] = int(fS5SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-                
-        elif S1ACEACHStatus == "三相":
-            if extend_test_project == "过欠压":
-                if '' not in phase_check_list:
-                    for step in S5_test_step_list:
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-            elif extend_test_project == "过欠频":
-                if '' not in phase_check_list:
-                    for step in S5_test_step_list:
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for step in S5_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S5Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S5Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S5Command
-                        strArraySingle[9] = int(fS5SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-        total_test_time = total_test_time + (len(S5_test_step_list) * (fS5SetTime / 10))
-        from utils.ovuf_recording import append_ovuf_segment_recovery
-
-        _rec_rows = []
-        _rec_wait = append_ovuf_segment_recovery(
-            strArrayTest,
-            _rec_rows,
-            uiThaiGuoQianYa_Pin,
-            S1ACEACHStatus,
-            after_step=5,
-        )
-        if _rec_wait:
-            total_test_time = total_test_time + (_rec_wait / 10.0)
-            strArrayTestStep.append(_rec_rows)
-
-    # step6 欠频：固定扫频率
-    extend_test_project = ovuf_sweep_project(6)
-    if uiThaiGuoQianYa_Pin.checkBox_S6.isChecked():
-        strArrayTestStepSingle = []
-        S6_TIME_VALUE = uiThaiGuoQianYa_Pin.textEdit_S6_TIME.toPlainText()
-        S6_TIME_UNIT = uiThaiGuoQianYa_Pin.comboBox_S6_TIME.currentText()
-        fS6SetTime = float(S6_TIME_VALUE)
-        fS6SetTime = SetTimeFunction(fS6SetTime, S6_TIME_UNIT)
-        # 步长
-        S6_step_size = uiThaiGuoQianYa_Pin.textEdit_S6_Step_Size.toPlainText()
-        fS6StepSize = float(S6_step_size)
-
-        S6ACVOLT_start = uiThaiGuoQianYa_Pin.textEdit_S6_AC_VOLT_Start.toPlainText()
-        S6ACVOLT_end = uiThaiGuoQianYa_Pin.textEdit_S6_AC_VOLT_End.toPlainText()
-        S6ACFR_start = uiThaiGuoQianYa_Pin.textEdit_S6_AC_FR_Start.toPlainText()
-        S6ACFR_end = uiThaiGuoQianYa_Pin.textEdit_S6_AC_FR_End.toPlainText()
-
-        if extend_test_project == "过欠压":
-            S6VOLT_loop = True
-            fS6ACVOLT_start = float(S6ACVOLT_start)
-            fS6ACVOLT_end = float(S6ACVOLT_end)
-            S6_test_step_list = []
-            if fS6ACVOLT_end > fS6ACVOLT_start:
-                while S6VOLT_loop:
-                    if fS6ACVOLT_start < fS6ACVOLT_end:
-                        S6_test_step_list.append(str(round(fS6ACVOLT_start,2)))
-                        fS6ACVOLT_start = fS6ACVOLT_start + fS6StepSize
-                    else:
-                        S6_test_step_list.append(str(round(fS6ACVOLT_end,2)))
-                        S6VOLT_loop = False
-            else:
-                while S6VOLT_loop:
-                    if fS6ACVOLT_end < fS6ACVOLT_start:
-                        S6_test_step_list.append(str(round(fS6ACVOLT_start,2)))
-                        fS6ACVOLT_start = fS6ACVOLT_start - fS6StepSize
-                    else:
-                        S6_test_step_list.append(str(round(fS6ACVOLT_end,2)))
-                        S6VOLT_loop = False
-        elif extend_test_project == "过欠频":   
-            S6FR_loop = True
-            fS6ACFR_start = float(S6ACFR_start)
-            fS6ACFR_end = float(S6ACFR_end)
-            S6_test_step_list = []
-            if fS6ACFR_end > fS6ACFR_start:
-                while S6FR_loop:
-                    if fS6ACFR_start < fS6ACFR_end:
-                        S6_test_step_list.append(str(round(fS6ACFR_start,2)))
-                        fS6ACFR_start = fS6ACFR_start + fS6StepSize
-                    else:
-                        S6_test_step_list.append(str(round(fS6ACFR_end,2)))
-                        S6FR_loop = False
-            else:
-                while S6FR_loop:
-                    if fS6ACFR_end < fS6ACFR_start:
-                        S6_test_step_list.append(str(round(fS6ACFR_start,2)))
-                        fS6ACFR_start = fS6ACFR_start - fS6StepSize
-                    else:
-                        S6_test_step_list.append(str(round(fS6ACFR_end,2)))
-                        S6FR_loop = False
-
-        if S1ACEACHStatus == "单相":
-
-            if extend_test_project == "过欠压":
-                for step in S6_test_step_list:
-                    _bs = len(strArrayTest)
-                    append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S6Command
-                    strArraySingle[9] = int(fS6SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-            elif extend_test_project == "过欠频":
-                for step in S6_test_step_list:
-                    _bs = len(strArrayTest)
-                    append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                    strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                    strArrayTestStep.append(strArrayTestStepSingle)
-
-                    strArraySingle = ["" for _ in range(10)]
-                    S6Command = "*IDN?"
-                    strArraySingle[0] = "AC"
-                    strArraySingle[1] = "query"
-                    strArraySingle[2] = S6Command
-                    strArraySingle[9] = int(fS6SetTime)
-                    strArrayTest.append(strArraySingle)
-                    strArrayTestStepSingle.append(strArraySingle)
-                    strArrayTestStep.append(strArrayTestStepSingle)
-                
-        elif S1ACEACHStatus == "三相":
-            if extend_test_project == "过欠压":
-                if '' not in phase_check_list:
-                    for step in S6_test_step_list:
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_volt_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-            elif extend_test_project == "过欠频":
-                if '' not in phase_check_list:
-                    for step in S6_test_step_list:
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[0] == 'T':
-                    for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 1"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[1] == 'T':
-                    for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 2"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                elif '' in phase_check_list and phase_check_list[2] == 'T':
-                    for step in S6_test_step_list:
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "INST:NSEL 3"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "write"
-                        strArraySingle[2] = S6Command
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-
-                        _bs = len(strArrayTest)
-                        append_freq_set(strArrayTest, S1ACEACHStatus, step)
-                        strArrayTestStepSingle.extend(strArrayTest[_bs:])
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-                        strArraySingle = ["" for _ in range(10)]
-                        S6Command = "*IDN?"
-                        strArraySingle[0] = "AC"
-                        strArraySingle[1] = "query"
-                        strArraySingle[2] = S6Command
-                        strArraySingle[9] = int(fS6SetTime)
-                        strArrayTest.append(strArraySingle)
-                        strArrayTestStepSingle.append(strArraySingle)
-                        strArrayTestStep.append(strArrayTestStepSingle)
-
-        total_test_time = total_test_time + (len(S6_test_step_list) * (fS6SetTime / 10))
-        from utils.ovuf_recording import append_ovuf_segment_recovery
-
-        _rec_rows = []
-        _rec_wait = append_ovuf_segment_recovery(
-            strArrayTest,
-            _rec_rows,
-            uiThaiGuoQianYa_Pin,
-            S1ACEACHStatus,
-            after_step=6,
-        )
-        if _rec_wait:
-            total_test_time = total_test_time + (_rec_wait / 10.0)
-            strArrayTestStep.append(_rec_rows)
 
     # step7 相位页附加过频：固定扫频率
     extend_test_project = ovuf_sweep_project(7)
@@ -30727,10 +29737,22 @@ def messure_testing():
                     )
 
                 if wt_scpi_session is not None:
+                    from utils.wt_acquire_mode import scpi_file_slot
+
+                    _slot_idx, _slot_name = scpi_file_slot(
+                        config_dict if isinstance(config_dict, dict) else {},
+                        now_save_file,
+                    )
+                    if _slot_name:
+                        now_save_file = _slot_idx
+                        save_file_name = _slot_name
+                        _append_debug_log(
+                            f"[messure_testing] SCPI file slot index={_slot_idx} name={_slot_name}"
+                        )
                     _wt_measure_started = True
                     ok = wt_scpi_session.run_measure_blocking(
                         config_dict if isinstance(config_dict, dict) else {},
-                        file_index=max(0, int(now_save_file or 0)),
+                        file_index=_slot_idx,
                         stop_event_check=lambda: globals().get("strTestStatusFlag") == "结束",
                         async_stop_check=lambda: bool(
                             globals().get("_wt_async_stop_requested")

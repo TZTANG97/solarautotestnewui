@@ -135,10 +135,16 @@ def main() -> int:
         ep = "https://" + ep
 
     auth = oss2.Auth(ak, sk)
-    bucket = oss2.Bucket(auth, ep, bucket_name)
+    # 默认读超时 60s，约 50MB 的安装包经常在传完前被掐断，通道会只更新 latest.json。
+    # 本机 HTTP 代理会把分片 PUT 掐断，OSS 直连，不走代理。
+    bucket = oss2.Bucket(auth, ep, bucket_name, connect_timeout=60)
+    bucket.timeout = 600
+    try:
+        bucket.session.session.trust_env = False
+    except Exception:
+        pass
 
     uploads: list[tuple[str, Path, bool]] = [
-        (f"{prefix}/latest.json", json_path, False),
         (f"{prefix}/{zip_path.name}", zip_path, False),
     ]
     # Fixed first-install URL: always overwrite SolarAutoTest-Setup-latest.zip
@@ -175,6 +181,9 @@ def main() -> int:
                 continue
             uploads.append((f"{prefix}/blobs/{blob.name}", blob, True))
 
+    # 清单最后传：压缩包没传完时不要把通道切到还不存在的版本。
+    uploads.append((f"{prefix}/latest.json", json_path, False))
+
     headers = {}
     if args.public_read:
         headers["x-oss-object-acl"] = "public-read"
@@ -189,8 +198,31 @@ def main() -> int:
             except Exception:
                 pass
             blob_uploads += 1
-        print(f"PUT oss://{bucket_name}/{key}  <-  {path}  ({path.stat().st_size} bytes)")
-        bucket.put_object_from_file(key, str(path), headers=headers or None)
+        size = path.stat().st_size
+        print(f"PUT oss://{bucket_name}/{key}  <-  {path}  ({size} bytes)", flush=True)
+        last_exc: Exception | None = None
+        for attempt in range(1, 4):
+            try:
+                if size >= 5 * 1024 * 1024:
+                    oss2.resumable_upload(
+                        bucket,
+                        key,
+                        str(path),
+                        store=oss2.ResumableStore(root=str(channel_dir / ".oss-resume")),
+                        multipart_threshold=5 * 1024 * 1024,
+                        part_size=1024 * 1024,
+                        num_threads=1,
+                        headers=headers or None,
+                    )
+                else:
+                    bucket.put_object_from_file(key, str(path), headers=headers or None)
+                last_exc = None
+                break
+            except Exception as exc:
+                last_exc = exc
+                print(f"  retry {attempt}/3 failed: {exc}", flush=True)
+        if last_exc is not None:
+            raise last_exc
 
     public_base = f"https://{bucket_name}.{endpoint.replace('https://', '').replace('http://', '')}/{prefix}"
     print("")

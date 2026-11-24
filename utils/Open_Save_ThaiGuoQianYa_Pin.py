@@ -498,6 +498,9 @@ def Save_File_ThaiGuoQianYa_Pin(kwargs):
         arrayRow2.append(checkBox_S2_WT5000)
 
         _append_dewetron_tail(arrayRow2, uithaiGuoQianYa_Pin)
+        from utils.ovuf_recording import attach_ovuf_scan_list_column
+
+        attach_ovuf_scan_list_column(arrayRow1, arrayRow2, uithaiGuoQianYa_Pin)
 
         if uithaiGuoQianYa_Pin.radioButton_S2_WT3000.isChecked():
             result = Save_File_ThaiWT3000_Config(_PageWidgetFinder(uithaiGuoQianYa_Pin._wtStacked.widget(0)))
@@ -1415,6 +1418,11 @@ def Open_File_ThaiGuoQianYa_Pin(kwargs):
                         strFlag = 1
 
                     _restore_dewetron_tail(result_list[0], result_list[1], uithaiGuoQianYa_Pin)
+                    from utils.ovuf_recording import SCAN_LIST_COLUMN, load_ovuf_scan_lists
+
+                    load_ovuf_scan_lists(
+                        uithaiGuoQianYa_Pin, config_dict.get(SCAN_LIST_COLUMN, "")
+                    )
                 else:
                     print("no")
                     strFlag = "1"

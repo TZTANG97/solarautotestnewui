@@ -526,7 +526,8 @@ class Ui_Dialog_thaiguoqianya_pin(object):
                           fr_end_obj, fr_end_val,
                           step_size_obj, step_size_val,
                           time_obj, time_val,
-                          time_combo_obj, time_combo_items):
+                          time_combo_obj, time_combo_items,
+                          step_no, scan_kind):
         page = QtWidgets.QWidget()
         page.setStyleSheet("background-color: white;")
         layout = QtWidgets.QVBoxLayout(page)
@@ -547,9 +548,14 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         setattr(self, checkbox_objname, cb)
         gLayout.addWidget(cb, 0, 0)
 
-        # 电压变动区间
-        gLayout.addWidget(self._make_label("交流电压变动区间"), 1, 0, 1, 2)
-        gLayout.addWidget(self._make_label("频率变动区间"), 2, 0, 1, 2)
+        # 电压/频率区间、步长、驻留仍保留控件，供旧 CSV 和 IOT 文本键写入。
+        # 界面上不再摆这一组：第 3～6 步改由下方列表逐段填写。
+        legacy = []
+        lab_v = self._make_label("交流电压变动区间")
+        lab_f = self._make_label("频率变动区间")
+        gLayout.addWidget(lab_v, 1, 0, 1, 2)
+        gLayout.addWidget(lab_f, 2, 0, 1, 2)
+        legacy.extend((lab_v, lab_f))
 
         te_vs = QtWidgets.QTextEdit()
         te_vs.setObjectName(volt_start_obj)
@@ -558,14 +564,18 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         te_vs.setPlainText(str(volt_start_val))
         setattr(self, volt_start_obj, te_vs)
         gLayout.addWidget(te_vs, 1, 2)
-        gLayout.addWidget(self._make_label("~"), 1, 3)
+        lab_tilde_v = self._make_label("~")
+        gLayout.addWidget(lab_tilde_v, 1, 3)
+        legacy.append(lab_tilde_v)
         te_ve = QtWidgets.QTextEdit()
         te_ve.setObjectName(volt_end_obj)
         te_ve.setMaximumHeight(31)
         te_ve.setPlainText(str(volt_end_val))
         setattr(self, volt_end_obj, te_ve)
         gLayout.addWidget(te_ve, 1, 4)
-        gLayout.addWidget(self._make_label("V"), 1, 5)
+        lab_v_unit = self._make_label("V")
+        gLayout.addWidget(lab_v_unit, 1, 5)
+        legacy.append(lab_v_unit)
 
         te_fs = QtWidgets.QTextEdit()
         te_fs.setObjectName(fr_start_obj)
@@ -573,27 +583,37 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         te_fs.setPlainText(str(fr_start_val))
         setattr(self, fr_start_obj, te_fs)
         gLayout.addWidget(te_fs, 2, 2)
-        gLayout.addWidget(self._make_label("~"), 2, 3)
+        lab_tilde_f = self._make_label("~")
+        gLayout.addWidget(lab_tilde_f, 2, 3)
+        legacy.append(lab_tilde_f)
         te_fe = QtWidgets.QTextEdit()
         te_fe.setObjectName(fr_end_obj)
         te_fe.setMaximumHeight(31)
         te_fe.setPlainText(str(fr_end_val))
         setattr(self, fr_end_obj, te_fe)
         gLayout.addWidget(te_fe, 2, 4)
-        gLayout.addWidget(self._make_label("Hz"), 2, 5)
+        lab_hz = self._make_label("Hz")
+        gLayout.addWidget(lab_hz, 2, 5)
+        legacy.append(lab_hz)
 
-        gLayout.addWidget(self._make_label("步长"), 3, 0)
+        lab_step = self._make_label("步长")
+        gLayout.addWidget(lab_step, 3, 0)
+        legacy.append(lab_step)
         te_ss = QtWidgets.QTextEdit()
         te_ss.setObjectName(step_size_obj)
         te_ss.setMaximumHeight(31)
         te_ss.setPlainText(str(step_size_val))
         setattr(self, step_size_obj, te_ss)
         gLayout.addWidget(te_ss, 3, 2)
-        gLayout.addWidget(self._make_label("V|Hz"), 3, 3)
+        lab_step_unit = self._make_label("V|Hz")
+        gLayout.addWidget(lab_step_unit, 3, 3)
+        legacy.append(lab_step_unit)
 
         # 每点驻留：扫到该电压/频率点后保持多久；Soft Panel 停表总时长 =
         # 区间÷步长×驻留 + 开销，由 Append/ASYNC 自动填，勿与停表混淆。
-        gLayout.addWidget(self._make_label("每点驻留"), 4, 0)
+        lab_dwell = self._make_label("每点驻留")
+        gLayout.addWidget(lab_dwell, 4, 0)
+        legacy.append(lab_dwell)
         te_time = QtWidgets.QTextEdit()
         te_time.setObjectName(time_obj)
         te_time.setMaximumHeight(31)
@@ -605,10 +625,149 @@ class Ui_Dialog_thaiguoqianya_pin(object):
         cmb_time.addItems(time_combo_items)
         setattr(self, time_combo_obj, cmb_time)
         gLayout.addWidget(cmb_time, 4, 3)
+        legacy.extend((te_vs, te_ve, te_fs, te_fe, te_ss, te_time, cmb_time))
+        for widget in legacy:
+            widget.hide()
 
         layout.addWidget(gb)
+        self._mount_scan_list(layout, step_no, scan_kind)
         layout.addStretch()
         self.stackedWidget.addWidget(page)
+
+    def _mount_scan_list(self, layout, step_no, scan_kind):
+        """过压/欠压/过频/欠频各自一张可增删表。每一行是一段扫描。"""
+        from components.ovuf_condition_list import OvufConditionList
+
+        kind = "F" if str(scan_kind).upper() == "F" else "V"
+        if kind == "F":
+            tip = (
+                "每一行是一段扫描，点「添加行 / 删除行」可以做多段，按从上到下执行。"
+                "本页按频率区间和步长改整机频率，每点驻留是扫到每个点后停留的时间。"
+                "电压区间起止相同时，这一段电压保持在起点。"
+                "哪几相改电压，在过压、欠压表里勾 L1/L2/L3。"
+            )
+            default_value = "50"
+        else:
+            tip = (
+                "每一行是一段扫描，点「添加行 / 删除行」可以做多段，按从上到下执行。"
+                "本页按电压区间和步长改电压，每点驻留是扫到每个点后停留的时间。"
+                "三相：勾选的相跟该段电压，没勾的相保持步骤①额定。"
+                "例如只勾 L1、L2，这两相变化，L3 保持 230V（或步骤①该相额定）。"
+                "频率区间起止相同时，这一段频率保持在起点。"
+            )
+            default_value = "230"
+        widget = OvufConditionList(
+            locked_kind=kind,
+            tip_text=tip,
+            default_value=default_value,
+            show_template=False,
+            show_phases=(kind == "V"),
+            scan_range=True,
+            object_name="ovufScanListS%d" % int(step_no),
+        )
+        setattr(self, "ovufScanListS%d" % int(step_no), widget)
+        self._bind_scan_list_and_legacy(widget, int(step_no))
+        widget.set_rows([self._legacy_scan_row(int(step_no))])
+        layout.addWidget(widget, 1)
+
+    def _legacy_scan_row(self, step_no):
+        kind = "F" if int(step_no) in (5, 6) else "V"
+
+        def _text(name, default):
+            widget = getattr(self, name, None)
+            if widget is None:
+                return default
+            if hasattr(widget, "toPlainText"):
+                text = widget.toPlainText().strip()
+                return text or default
+            if hasattr(widget, "currentText"):
+                text = str(widget.currentText() or "").strip()
+                return text or default
+            return default
+
+        return {
+            "enabled": True,
+            "kind": kind,
+            "volt_start": _text("textEdit_S%d_AC_VOLT_Start" % step_no, "230"),
+            "volt_end": _text("textEdit_S%d_AC_VOLT_End" % step_no, "230"),
+            "freq_start": _text("textEdit_S%d_AC_FR_Start" % step_no, "50"),
+            "freq_end": _text("textEdit_S%d_AC_FR_End" % step_no, "50"),
+            "step": _text("textEdit_S%d_Step_Size" % step_no, "5"),
+            "l1": True,
+            "l2": True,
+            "l3": True,
+            "dwell": _text("textEdit_S%d_TIME" % step_no, "3"),
+            "unit": _text("comboBox_S%d_TIME" % step_no, "秒"),
+        }
+
+    def _bind_scan_list_and_legacy(self, widget, step_no):
+        """只有一行时，旧文本键和这一行互相同步，IOT/旧 CSV 仍能改到这段扫描。"""
+
+        def _pull(*_args):
+            if getattr(widget, "_scan_pushing", False):
+                return
+            if widget.table.rowCount() > 1:
+                return
+            row = self._legacy_scan_row(step_no)
+            existing = widget.get_rows(include_disabled=True)
+            if existing:
+                row["enabled"] = existing[0].get("enabled", True)
+                row["l1"] = existing[0].get("l1", True)
+                row["l2"] = existing[0].get("l2", True)
+                row["l3"] = existing[0].get("l3", True)
+            widget._scan_pulling = True
+            try:
+                widget.set_rows([row])
+            finally:
+                widget._scan_pulling = False
+
+        names = (
+            "textEdit_S%d_AC_VOLT_Start" % step_no,
+            "textEdit_S%d_AC_VOLT_End" % step_no,
+            "textEdit_S%d_AC_FR_Start" % step_no,
+            "textEdit_S%d_AC_FR_End" % step_no,
+            "textEdit_S%d_Step_Size" % step_no,
+            "textEdit_S%d_TIME" % step_no,
+            "comboBox_S%d_TIME" % step_no,
+        )
+        for name in names:
+            editor = getattr(self, name, None)
+            if editor is None:
+                continue
+            if hasattr(editor, "textChanged"):
+                editor.textChanged.connect(_pull)
+            elif hasattr(editor, "currentTextChanged"):
+                editor.currentTextChanged.connect(_pull)
+
+        def _push(*_args):
+            if getattr(widget, "_scan_pulling", False):
+                return
+            rows = widget.get_rows(include_disabled=True)
+            if len(rows) != 1:
+                return
+            row = rows[0]
+            widget._scan_pushing = True
+            try:
+                mapping = (
+                    ("textEdit_S%d_AC_VOLT_Start" % step_no, row.get("volt_start", "")),
+                    ("textEdit_S%d_AC_VOLT_End" % step_no, row.get("volt_end", "")),
+                    ("textEdit_S%d_AC_FR_Start" % step_no, row.get("freq_start", "")),
+                    ("textEdit_S%d_AC_FR_End" % step_no, row.get("freq_end", "")),
+                    ("textEdit_S%d_Step_Size" % step_no, row.get("step", "")),
+                    ("textEdit_S%d_TIME" % step_no, row.get("dwell", "")),
+                )
+                for name, value in mapping:
+                    editor = getattr(self, name, None)
+                    if editor is not None and hasattr(editor, "setPlainText"):
+                        if editor.toPlainText() != str(value):
+                            editor.setPlainText(str(value))
+                unit = getattr(self, "comboBox_S%d_TIME" % step_no, None)
+                if unit is not None and hasattr(unit, "setCurrentText"):
+                    unit.setCurrentText(str(row.get("unit") or "秒"))
+            finally:
+                widget._scan_pushing = False
+
+        widget.rows_changed.connect(_push)
 
     # ══════════════════════════════════════
     # Step 3: 过压扫描（起止+步长）
@@ -623,6 +782,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S3_Step_Size", 5,
             "textEdit_S3_TIME", 3,
             "comboBox_S3_TIME", ["秒", "毫秒", "分钟"],
+            3, "V",
         )
 
     # ══════════════════════════════════════
@@ -638,6 +798,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S4_Step_Size", 5,
             "textEdit_S4_TIME", 3,
             "comboBox_S4_TIME", ["秒", "毫秒", "分钟"],
+            4, "V",
         )
 
     # ══════════════════════════════════════
@@ -653,6 +814,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S5_Step_Size", 5,
             "textEdit_S5_TIME", 3,
             "comboBox_S5_TIME", ["秒", "毫秒", "分钟"],
+            5, "F",
         )
 
     # ══════════════════════════════════════
@@ -668,6 +830,7 @@ class Ui_Dialog_thaiguoqianya_pin(object):
             "textEdit_S6_Step_Size", 5,
             "textEdit_S6_TIME", 3,
             "comboBox_S6_TIME", ["秒", "毫秒", "分钟"],
+            6, "F",
         )
 
     # ══════════════════════════════════════

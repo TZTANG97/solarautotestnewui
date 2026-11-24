@@ -526,7 +526,7 @@ class Ui_Dialog_thaiactiveP(object):
         self.textEdit_DcPowerPct.setFixedSize(80, 28)
         self.textEdit_DcPowerPct.setText("100")
         ladder_layout.addWidget(self.textEdit_DcPowerPct, 1, 1)
-        tip_dc = QtWidgets.QLabel("（各 P 点共用；通常保持满功率，保证机侧限功率有头寸）")
+        tip_dc = QtWidgets.QLabel("（本档直流% = P指令% × 头寸%；100 表示直流跟着 P 指令走）")
         tip_dc.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")
         ladder_layout.addWidget(tip_dc, 1, 2, 1, 2)
 
@@ -550,7 +550,7 @@ class Ui_Dialog_thaiactiveP(object):
         tip = QtWidgets.QLabel(
             "巴西 Ordinance 5.4.23 / EN Active power reduction / 泰 PEA 有功控制："
             "连续录为单文件 ASYNC；分开录为每点 col6 存盘。"
-            "请在驻留前将逆变器有功限制/调度设定到对应 %Pn（软件不改机侧 P 指令）。"
+            "每一档按 P 指令百分比重写直流曲线并重新加载，0% 关闭该路直流。"
         )
         tip.setWordWrap(True)
         tip.setStyleSheet("color: #64748b; font-weight: normal; font-size: 11px;")

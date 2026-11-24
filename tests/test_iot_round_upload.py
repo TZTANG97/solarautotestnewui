@@ -21,6 +21,39 @@ def test_find_round_csv_by_label(tmp_path: Path):
     assert Path(hit).name.lower().startswith("ovuf_s3")
 
 
+def test_find_round_csv_prefers_fresh_stamp_over_old_exact(tmp_path: Path):
+    import os
+    from datetime import datetime
+
+    old = tmp_path / "Pdisp_BR.csv"
+    old.write_text("t,p\n0,1\n", encoding="utf-8")
+    os.utime(old, (time.time() - 7200, time.time() - 7200))
+    fresh_name = "Pdisp_BR_" + datetime.now().strftime("%H%M%S") + ".csv"
+    fresh = tmp_path / fresh_name
+    fresh.write_text("t,p\n0,2\n", encoding="utf-8")
+    hit = find_round_csv(
+        "Pdisp_BR",
+        config_dict={"textEdit_SavePath": str(tmp_path)},
+        wait_s=0.1,
+    )
+    assert hit is not None
+    assert Path(hit).name == fresh_name
+
+
+def test_find_round_csv_skips_stale_leftover(tmp_path: Path):
+    import os
+
+    old = tmp_path / "Pdisp_BR.csv"
+    old.write_text("t,p\n0,1\n", encoding="utf-8")
+    os.utime(old, (time.time() - 7200, time.time() - 7200))
+    hit = find_round_csv(
+        "Pdisp_BR",
+        config_dict={"textEdit_SavePath": str(tmp_path)},
+        wait_s=0.1,
+    )
+    assert hit is None
+
+
 def test_finalize_recording_round_marks_done_and_keeps_path(tmp_path: Path):
     from utils.recording_round import finalize_recording_round
 

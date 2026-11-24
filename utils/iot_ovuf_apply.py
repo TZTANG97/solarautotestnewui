@@ -219,6 +219,7 @@ def apply_ovuf_critical_widgets(
         return ["__no_root__"]
     # widgets 有内容却抽不出任何关键键：禁止当成成功（否则会用 Dialog 旧 181.7/11 进命令）
     if not payload:
+        _apply_scan_list(root, widgets)
         if isinstance(widgets, dict) and widgets:
             return ["__empty_critical__"]
         return []
@@ -236,10 +237,26 @@ def apply_ovuf_critical_widgets(
         )
         if not bad:
             pin_ovuf_field_memory(payload)
+            _apply_scan_list(root, widgets)
             return []
         _log("过欠压回读不一致#%d: %s" % (i + 1, bad))
         # 只重写仍错的键
         payload = {k: payload[k] for k in bad if k in payload}
         last_bad = bad
     pin_ovuf_field_memory(widgets)
+    _apply_scan_list(root, widgets)
     return last_bad
+
+
+def _apply_scan_list(root: Any, widgets: Optional[Dict[str, Any]]) -> None:
+    """IOT 工况表写入 Dialog。空表或没有该键时不改桌面列表，起止+步长仍有效。"""
+    if root is None or not isinstance(widgets, dict):
+        return
+    raw = widgets.get("OVUF_SCAN_LIST_JSON")
+    if raw is None:
+        raw = widgets.get("ovuf_scan_list_json")
+    if raw is None or raw == "" or raw == {}:
+        return
+    from utils.ovuf_recording import load_ovuf_scan_lists
+
+    load_ovuf_scan_lists(root, raw)

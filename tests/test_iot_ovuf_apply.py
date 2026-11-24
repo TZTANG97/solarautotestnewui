@@ -65,6 +65,42 @@ def test_apply_overwrites_stale_end_and_dwell(ovuf_ui):
     assert read_named_widget(ovuf_ui, "textEdit_S6_AC_FR_End") == "47.2"
 
 
+def test_apply_scan_list_writes_partial_phase_row(ovuf_ui):
+    """IOT 工况表要写进桌面对话框：只勾 L1/L2 时 L3 不跟扫点。"""
+    from utils.iot_ovuf_apply import apply_ovuf_critical_widgets
+
+    bad = apply_ovuf_critical_widgets(
+        ovuf_ui,
+        {
+            "textEdit_S3_AC_VOLT_End": "253",
+            "textEdit_S3_TIME": "3",
+            "comboBox_S3_TIME": "秒",
+            "OVUF_SCAN_LIST_JSON": {
+                "3": [
+                    {
+                        "enabled": True,
+                        "kind": "V",
+                        "value": "253",
+                        "l1": True,
+                        "l2": True,
+                        "l3": False,
+                        "dwell": "1",
+                        "unit": "秒",
+                    }
+                ]
+            },
+        },
+    )
+    assert bad == []
+    rows = ovuf_ui.ovufScanListS3.get_rows()
+    assert len(rows) == 1
+    assert rows[0]["value"] == "253"
+    assert rows[0]["volt_start"] == "253" and rows[0]["volt_end"] == "253"
+    assert rows[0]["l1"] is True and rows[0]["l2"] is True and rows[0]["l3"] is False
+    # 没下发第 5 步列表时，保留这一页原来的一段
+    assert len(ovuf_ui.ovufScanListS5.get_rows()) == 1
+
+
 def test_uv_ladder_keeps_user_end_182():
     """扫压列表必须包含用户终点 182，不能只停在步长对齐点 181.7。"""
     start, end, step = 230.0, 182.0, 1.15

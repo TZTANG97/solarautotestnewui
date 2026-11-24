@@ -159,6 +159,52 @@ def test_collect_keeps_only_latest_qcap_csv(tmp_path: Path) -> None:
     assert "QCap_BR_193903.csv" not in names
 
 
+def test_collect_skips_older_recordings_in_shared_save(tmp_path: Path) -> None:
+    """保存目录里上一次的 CSV 即使刚被改过时间，也不能算进本单。"""
+    import os
+    import time
+    from datetime import datetime, timedelta
+
+    job_id = 154
+    save = tmp_path / "wt_save"
+    save.mkdir()
+    now = datetime.now().replace(microsecond=0)
+    fresh = now.strftime("%H%M%S")
+    old_clock = (now - timedelta(hours=3)).strftime("%H%M%S")
+    if old_clock == fresh:
+        old_clock = "000000" if fresh != "000000" else "030000"
+    body = "Time [s],Urms-1,P-SIGMA\n0,230,1000\n"
+    fresh_p = save / f"Pdisp_BR_{fresh}.csv"
+    bare = save / "Pdisp_BR.csv"
+    fresh_pf = save / f"FixedPF_P100_{fresh}.csv"
+    old_pf = save / f"FixedPF_P100_{old_clock}.csv"
+    for path in (fresh_p, bare, fresh_pf, old_pf):
+        path.write_text(body, encoding="utf-8")
+    os.utime(bare, None)
+    os.utime(old_pf, None)
+    write_result(
+        tmp_path,
+        job_id,
+        {"status": "success", "result_summary": {"elapsed_sec": 120}},
+    )
+    files = collect_report_files(
+        tmp_path,
+        job_id,
+        {
+            "result_summary": {
+                "elapsed_sec": 120,
+                "started_at": time.time() - 60,
+                "widgets": {"textEdit_SavePath": str(save)},
+            }
+        },
+    )
+    names = {p.name for p in files}
+    assert fresh_p.name in names
+    assert fresh_pf.name in names
+    assert bare.name not in names
+    assert old_pf.name not in names
+
+
 def test_collect_includes_recent_flicker_image(tmp_path: Path) -> None:
     import os
     import time

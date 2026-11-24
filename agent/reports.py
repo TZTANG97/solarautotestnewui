@@ -2,9 +2,11 @@
 """结案后要回传到 IOT 的本机文件。"""
 from __future__ import annotations
 
+import re
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from agent.job_inbox import result_path
 
@@ -87,8 +89,18 @@ def _as_paths(items: Iterable[Any], repo_root: Path) -> List[Path]:
     return out
 
 
+def _unix_ts(value: Any) -> float:
+    try:
+        ts = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if ts > 1_000_000_000:
+        return ts
+    return 0.0
+
+
 def _job_time_window(result: Dict[str, Any], result_file: Path) -> tuple[float, float]:
-    """返回 (since_ts, until_ts)。优先用结果里的耗时；否则默认最近 2 小时。"""
+    """返回 (since_ts, until_ts)。优先用本单开始时刻，其次耗时，否则最近 2 小时。"""
     until = time.time()
     try:
         until = max(until, result_file.stat().st_mtime)
@@ -97,16 +109,96 @@ def _job_time_window(result: Dict[str, Any], result_file: Path) -> tuple[float, 
     summary = result.get("result_summary") or result.get("resultSummary") or {}
     if not isinstance(summary, dict):
         summary = {}
+    started = _unix_ts(summary.get("started_at") or summary.get("startedAt"))
     elapsed = summary.get("elapsed_sec")
     try:
         elapsed_f = float(elapsed)
     except (TypeError, ValueError):
         elapsed_f = 0.0
-    if elapsed_f > 0:
+    if started > 0:
+        since = started - 120.0
+    elif elapsed_f > 0:
         since = until - elapsed_f - 120.0  # 前后各留 2 分钟余量
     else:
         since = until - 2 * 3600.0
     return since, until + 60.0
+
+
+# 录波名尾部的 _HHMMSS，例如 Pdisp_BR_161912、FixedPF_P100_150316
+_NAME_CLOCK_RE = re.compile(r"_(\d{6})$")
+
+
+def _name_clock_in_window(path: Path, since_ts: float, until_ts: float) -> Optional[bool]:
+    """文件名带时刻时，判断该时刻是否落在本单时间窗。没有时刻返回 None。"""
+    match = _NAME_CLOCK_RE.search(path.stem)
+    if match is None:
+        return None
+    hhmmss = match.group(1)
+    hh, mm, ss = int(hhmmss[:2]), int(hhmmss[2:4]), int(hhmmss[4:6])
+    if hh > 23 or mm > 59 or ss > 59:
+        return None
+    start_day = datetime.fromtimestamp(since_ts).date()
+    end_day = datetime.fromtimestamp(until_ts).date()
+    day = start_day
+    while day <= end_day:
+        clock = datetime.combine(day, datetime.min.time()) + timedelta(
+            hours=hh, minutes=mm, seconds=ss
+        )
+        if since_ts <= clock.timestamp() <= until_ts:
+            return True
+        day += timedelta(days=1)
+    return False
+
+
+def _recording_family(path: Path) -> str:
+    """去掉尾部 _HHMMSS，用来认出 Pdisp_BR.csv 和 Pdisp_BR_161912.csv 是同一路录波。"""
+    match = _NAME_CLOCK_RE.search(path.stem)
+    if match is None:
+        return path.stem.lower()
+    return path.stem[: match.start()].lower()
+
+
+def _only_this_run_files(
+    paths: List[Path],
+    since_ts: float,
+    until_ts: float,
+    listed: Set[Path],
+) -> List[Path]:
+    """共享保存目录里，只留下本单时间窗内生成的录波。
+
+    文件名自带 15:03 这类时刻、却被改过修改时间的旧 CSV，不能跟着本单一起上传。
+    已经有 Pdisp_BR_161912.csv 时，不再带上没有时刻的 Pdisp_BR.csv。
+    调用方点名的路径（结案清单）保持原样。
+    """
+    kept: List[Path] = []
+    for path in paths:
+        if path in listed or _is_config_snapshot(path):
+            kept.append(path)
+            continue
+        if path.suffix.lower() in {".csv", ".dmd"}:
+            in_window = _name_clock_in_window(path, since_ts, until_ts)
+            if in_window is False:
+                continue
+        kept.append(path)
+    families_with_clock = set()
+    for path in kept:
+        if path.suffix.lower() != ".csv":
+            continue
+        if _NAME_CLOCK_RE.search(path.stem):
+            families_with_clock.add(_recording_family(path))
+    if not families_with_clock:
+        return kept
+    narrowed: List[Path] = []
+    for path in kept:
+        if (
+            path not in listed
+            and path.suffix.lower() == ".csv"
+            and _NAME_CLOCK_RE.search(path.stem) is None
+            and _recording_family(path) in families_with_clock
+        ):
+            continue
+        narrowed.append(path)
+    return narrowed
 
 
 def _match_recent_file(path: Path, since_ts: float, until_ts: float) -> bool:
@@ -121,7 +213,13 @@ def _match_recent_file(path: Path, since_ts: float, until_ts: float) -> bool:
         mtime = path.stat().st_mtime
     except OSError:
         return False
-    return since_ts <= mtime <= until_ts
+    if since_ts > mtime or mtime > until_ts:
+        return False
+    if path.suffix.lower() in {".csv", ".dmd"}:
+        named = _name_clock_in_window(path, since_ts, until_ts)
+        if named is False:
+            return False
+    return True
 
 
 def _recent_output_files(
@@ -403,7 +501,14 @@ def collect_report_files(
         val = summary.get(key) or result.get(key)
         if isinstance(val, list):
             listed.extend(val)
-    candidates.extend(_as_paths(listed, root))
+    listed_paths = _as_paths(listed, root)
+    candidates.extend(listed_paths)
+    listed_resolved: Set[Path] = set()
+    for path in listed_paths:
+        try:
+            listed_resolved.add(path.resolve())
+        except OSError:
+            continue
 
     since_ts, until_ts = _job_time_window(result, rp if rp.is_file() else root)
     prefer_raw = summary.get("analysis_input_dir") or summary.get("analysisInputDir")
@@ -521,6 +626,9 @@ def collect_report_files(
             continue
         seen.add(resolved)
         resolved_list.append(resolved)
+    resolved_list = _only_this_run_files(
+        resolved_list, since_ts, until_ts, listed_resolved
+    )
     resolved_list = _keep_latest_token_csv(resolved_list, token)
     resolved_list.sort(key=_priority)
     return resolved_list[:_MAX_FILES]
