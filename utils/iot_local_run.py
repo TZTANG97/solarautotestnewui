@@ -161,6 +161,7 @@ def _do_start(
     run_commands: Optional[list] = None,
     blockly_code: str = "",
     blockly_xml: str = "",
+    conditions_by_test: Optional[list] = None,
 ) -> None:
     try:
         client = _build_client()
@@ -168,6 +169,7 @@ def _do_start(
             test_type=test_name,
             title=test_name,
             widgets=widgets,
+            conditions_by_test=conditions_by_test,
             run_commands=run_commands,
             blockly_code=blockly_code,
             blockly_xml=blockly_xml,
@@ -466,6 +468,22 @@ def detach_previous_job_for_fresh_start(*, keep_job_id: int = 0) -> Optional[int
     return old_i if old_i > 0 else None
 
 
+def _bounded_joined_title(names, limit: int = 240) -> str:
+    """按试验名截断。在「+」中间掐断后，最后一段对不上，IOT 会把整句当成单一试验。"""
+    kept = []
+    for raw in names or []:
+        name = str(raw or "").strip()
+        if not name:
+            continue
+        trial = " + ".join(kept + [name])
+        if kept and len(trial) > int(limit):
+            break
+        kept.append(name)
+    if len(kept) >= 2:
+        return " + ".join(kept)
+    return (kept[0] if kept else "")[: int(limit)]
+
+
 def _local_run_title(test_name: str) -> str:
     """跨项目队列用「A + B」作标题，避免只显示下拉框最后一项。"""
     fallback = (test_name or "").strip() or "本地实验"
@@ -481,12 +499,12 @@ def _local_run_title(test_name: str) -> str:
             if name and name not in names:
                 names.append(name)
         if len(names) >= 2:
-            return " + ".join(names)[:120]
+            return _bounded_joined_title(names)
         if len(names) == 1:
-            return names[0][:120]
+            return names[0][:240]
     except Exception:
         pass
-    return fallback[:120]
+    return fallback[:240]
 
 
 def notify_local_run_started(
@@ -496,6 +514,7 @@ def notify_local_run_started(
     run_commands: Optional[list] = None,
     blockly_code: str = "",
     blockly_xml: str = "",
+    conditions_by_test: Optional[list] = None,
 ) -> None:
     """UI 线程调用：后台登记；handoff 占用时跳过。
 
@@ -569,7 +588,7 @@ def notify_local_run_started(
     xml = (blockly_xml or "").strip()
     threading.Thread(
         target=_do_start,
-        args=(name, w, cmds, code, xml),
+        args=(name, w, cmds, code, xml, conditions_by_test),
         daemon=True,
         name="iot-local-run-start",
     ).start()
