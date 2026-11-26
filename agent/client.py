@@ -177,6 +177,7 @@ class IotSolarClient:
         test_type: str,
         title: str = "",
         widgets: Optional[dict] = None,
+        conditions_by_test: Optional[list] = None,
         run_commands: Optional[list] = None,
         blockly_code: str = "",
         blockly_xml: str = "",
@@ -194,6 +195,8 @@ class IotSolarClient:
         }
         if isinstance(widgets, dict) and widgets:
             body["widgets"] = widgets
+        if isinstance(conditions_by_test, list) and conditions_by_test:
+            body["conditionsByTest"] = conditions_by_test
         if isinstance(run_commands, list) and run_commands:
             body["runCommands"] = run_commands
         if (blockly_code or "").strip():

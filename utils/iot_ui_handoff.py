@@ -1675,6 +1675,7 @@ class IotUiHandoffService(QObject):
             from pathlib import Path as _P
 
             from utils.last_dew_export import (
+                dew_export_csvs,
                 last_dew_csv,
                 last_dew_dir,
                 last_dew_dmd,
@@ -1718,16 +1719,26 @@ class IotUiHandoffService(QObject):
                     last_dew = text
                     break
             listed = list(summary.get("report_files") or [])
+            export_csvs = []
+            for raw in dew_export_csvs():
+                text = str(raw or "").strip()
+                if text and text not in export_csvs:
+                    export_csvs.append(text)
+            if last_dew and str(last_dew) not in export_csvs:
+                export_csvs.append(str(last_dew))
             if last_dew:
                 p = _P(str(last_dew))
                 d = p if p.is_dir() else p.parent
                 if str(d):
                     summary["analysis_input_dir"] = str(d)
                     summary["last_dew_csv"] = str(last_dew)
-                if p.suffix.lower() == ".csv":
-                    listed.append(
-                        {"path": str(p), "name": p.name, "kind": "dewetron_csv"}
-                    )
+            for text in export_csvs:
+                p = _P(text)
+                if p.suffix.lower() != ".csv":
+                    continue
+                listed.append(
+                    {"path": str(p), "name": p.name, "kind": "dewetron_csv"}
+                )
             dmd = last_dew_dmd() or side_dmd
 
             def _dmd_belongs_to_csv(dmd_path: _P, csv_path: _P) -> bool:

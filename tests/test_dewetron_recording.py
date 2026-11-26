@@ -201,6 +201,22 @@ def test_split_falls_back_without_measure_waits():
     assert rows[-1][2] == DEWETRON_STOP_COMMAND
 
 
+def test_restamp_recording_path_uses_the_moment_recording_starts():
+    from utils.dewetron_recording import restamp_recording_path
+
+    updated = restamp_recording_path(
+        r"D:\save\OVUF_BR_20261125_181022.csv",
+        stamp="20261125_201812",
+    )
+    assert updated.endswith(r"OVUF_BR_20261125_201812.csv")
+    assert "181022" not in updated
+    split = restamp_recording_path(
+        r"D:\save\FixedPF_P100_20261125_181022_01.csv",
+        stamp="20261125_201812",
+    )
+    assert split.endswith(r"FixedPF_P100_20261125_201812_01.csv")
+
+
 def test_resolve_save_paths_continuous_and_split(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     cont = resolve_dewetron_save_paths(

@@ -38,6 +38,30 @@ def test_pick_input_dir_finds_localappdata_dewetron(tmp_path, monkeypatch):
     assert Path(picked) == dew
 
 
+def test_export_list_keeps_the_first_recording(tmp_path, monkeypatch):
+    dew = tmp_path / "SolarAutoTest" / "dewetron_save"
+    dew.mkdir(parents=True)
+    first = dew / "OVUF_BR_20261125_201812.csv"
+    second = dew / "FixedPF_P100_20261125_203010.csv"
+    first.write_text("t\n0\n", encoding="utf-8")
+    second.write_text("t\n0\n", encoding="utf-8")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(
+        "utils.wt_save_path.default_dewetron_save_dir",
+        lambda: str(dew),
+    )
+    import utils.last_dew_export as mod
+
+    mod.reset_dew_exports()
+    mod.remember_dew_export(str(first))
+    mod.remember_dew_export(str(second))
+    assert mod.dew_export_csvs() == [str(first), str(second)]
+    assert mod.last_dew_csv() == str(second)
+    mod._CSV_LIST = []
+    mod._LAST_CSV = ""
+    assert mod.dew_export_csvs() == [str(first), str(second)]
+
+
 def test_remember_sidecar_survives_cleared_memory(tmp_path, monkeypatch):
     dew = tmp_path / "SolarAutoTest" / "dewetron_save"
     dew.mkdir(parents=True)

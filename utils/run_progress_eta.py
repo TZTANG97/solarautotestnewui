@@ -74,8 +74,10 @@ def _row_planned_seconds(row: Sequence[Any]) -> float:
     dev = str(row[0] or "")
     if dev.strip().upper() == "QUEUE":
         return 0.0
+    # col6 是首轮测量/数据采集等待，col7/8/9 是后续驻留，都是 0.1 秒单位
     wait_tenths = (
-        _cell_wait_tenths(row, 7)
+        _cell_wait_tenths(row, 6)
+        + _cell_wait_tenths(row, 7)
         + _cell_wait_tenths(row, 8)
         + _cell_wait_tenths(row, 9)
     )
@@ -96,7 +98,7 @@ def estimate_planned_seconds(
 ) -> float:
     """按命令表估算计划时长（秒）。
 
-    约定：col 7/8/9 为 0.1 秒单位等待（与 RunProject 一致）。
+    约定：col 6/7/8/9 为 0.1 秒单位等待（与 RunProject 一致）。
     Upper_WT_Config / WT / DEWETRON 另加经验时长。
     start_index：从该 0-based 下标起累加（用于未执行剩余）。
     """
@@ -123,15 +125,19 @@ def compute_eta(
     cmd_total: int = 0,
     commands: Optional[Sequence[Sequence[Any]]] = None,
     freeze_remain: bool = False,
+    cmd_waited_s: float = 0.0,
 ) -> Dict[str, Any]:
-    """综合「未执行计划等待」与「已用时/进度」估算剩余与预计总时长。
+    """按命令表的计划时长估算剩余，并给出时间进度。
 
-    - commands + cmd_index(1-based 已执行条数)：剩余按未执行行累加，而非线性比例。
-    - 有可靠计划时以计划剩余为主；进度外推仅在进度≥20% 且偏差>25% 时最多修正 20%。
-    - freeze_remain=True（人工暂停）：只用计划剩余，不做进度外推。
+    ``cmd_index`` 是正在执行的命令（1-based）。这条命令里已经等过的秒数
+    用 ``cmd_waited_s`` 扣掉，后面的命令整段计入剩余。
+    录波轮次或命令条数比例不再把剩余清零：进行中的驻留和后续试验都要留下。
+
+    进度外推只在比计划更慢、且偏差超过 25% 时，把剩余最多上调 20%。
+    ``freeze_remain=True``（人工暂停）不做这步上调。
 
     返回字段：
-    - planned_total_s / elapsed_s / remain_s / eta_total_s
+    - planned_total_s / elapsed_s / remain_s / eta_total_s / progress_from_plan
     - planned_text / elapsed_text / remain_text / eta_total_text
     """
     elapsed = max(0.0, float(elapsed_s or 0.0))
@@ -146,12 +152,29 @@ def compute_eta(
     except (TypeError, ValueError):
         total_cmds = 0
 
-    # 计划剩余：优先未执行命令等待和
+    # 计划剩余：当前这条未等完的驻留 + 它后面的全部命令。
+    # cmd_index 是正在执行的 1-based 序号，不能把它整条当成已经做完。
     remain_by_plan = None
     if commands is not None:
-        remain_by_plan = max(0.0, estimate_planned_seconds(commands, start_index=idx))
-        if planned <= 0:
-            planned = max(0.0, estimate_planned_seconds(commands, start_index=0))
+        # 命令表是准的：中途追加下一项时，不能沿用开跑时偏小的计划
+        from_cmds = estimate_planned_seconds(commands, start_index=0)
+        if from_cmds > 0:
+            planned = from_cmds
+        elif planned <= 0:
+            planned = 0.0
+        if idx <= 0:
+            remain_by_plan = max(0.0, estimate_planned_seconds(commands, start_index=0))
+        elif idx - 1 >= len(commands):
+            remain_by_plan = 0.0
+        else:
+            after = estimate_planned_seconds(commands, start_index=idx)
+            current_plan = _row_planned_seconds(commands[idx - 1])
+            try:
+                waited = max(0.0, float(cmd_waited_s or 0.0))
+            except (TypeError, ValueError):
+                waited = 0.0
+            left = max(0.0, current_plan - waited)
+            remain_by_plan = max(0.0, after + left)
     elif planned > 0 and total_cmds > 0 and idx >= 0:
         frac_done = min(1.0, max(0.0, float(idx) / float(total_cmds)))
         remain_by_plan = max(0.0, planned * (1.0 - frac_done))
@@ -183,8 +206,13 @@ def compute_eta(
         else:
             remain = plan_r
 
-    if pct >= 100:
-        remain = 0.0
+    # 进度条按计划时长走，不用录波轮次。当前驻留和后续试验还在时不会到 100。
+    plan_left = float(remain_by_plan) if remain_by_plan is not None else float(remain)
+    if planned > 0:
+        progress_from_plan = int(round(100.0 * max(0.0, planned - plan_left) / planned))
+        progress_from_plan = max(0, min(100, progress_from_plan))
+    else:
+        progress_from_plan = pct
 
     eta_total = elapsed + remain
     if planned > 0 and pct < 30:
@@ -196,6 +224,7 @@ def compute_eta(
         "elapsed_s": elapsed,
         "remain_s": remain,
         "eta_total_s": eta_total,
+        "progress_from_plan": progress_from_plan,
         "planned_text": format_duration(planned) if planned > 0 else "约 —",
         "elapsed_text": format_duration(elapsed),
         "remain_text": format_duration(remain),

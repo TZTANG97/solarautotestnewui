@@ -302,11 +302,28 @@ def _device_ui_busy(reason="device_io"):
                 _device_ui_busy_reason = ""
 
 
+def _device_io_is_busy_result(ok) -> bool:
+    """``_run_device_io`` 返回 None 表示占用/进行中，不能当成连接失败弹窗。"""
+    return ok is None
+
+
+def _log_device_io_busy(label: str) -> None:
+    try:
+        ui.textEdit_ReturnMessage.append(
+            f"[{label}] 连接进行中或其它设备占用，请稍候再点"
+        )
+    except Exception:
+        print(f"[{label}] 连接进行中或其它设备占用，请稍候再点", flush=True)
+
+
 def _run_device_io(job_id, work_fn):
     """在后台线程执行 work_fn，主线程用 QEventLoop 等待（界面可刷新）。
 
     调用方语义仍同步：返回后 work 已结束，便于 Itech/Bluesight 连接后立刻读 connected。
     work_fn 内勿直接操作 Qt 控件（日志/弹窗请走 _show_connect_message 或返回后由主线程更新）。
+
+    同一时刻只允许一个设备 I/O：否则嵌套 QEventLoop + 模态提示会把工控机界面卡死，
+    第二次点连接还会把 None 误判成「连接失败」。忙时返回 None（不是 False）。
     """
     app = QApplication.instance()
     if app is None:
@@ -318,9 +335,15 @@ def _run_device_io(job_id, work_fn):
     if not on_ui:
         return work_fn()
 
-    if job_id in _device_io_active:
+    if _device_io_active:
+        active = ", ".join(sorted(str(x) for x in _device_io_active))
         try:
-            ui.textEdit_ReturnMessage.append(f"[设备] {job_id} 进行中，请稍候")
+            if job_id in _device_io_active:
+                ui.textEdit_ReturnMessage.append(f"[设备] {job_id} 进行中，请稍候")
+            else:
+                ui.textEdit_ReturnMessage.append(
+                    f"[设备] 其它连接进行中（{active}），请稍候再试 {job_id}"
+                )
         except Exception:
             pass
         return None
@@ -1118,10 +1141,24 @@ def BuildDEWETRONTestPage(silent=False):
             print(f"[BuildTestPage] 等待 {wait_time} 秒后重试...")
             time.sleep(wait_time)
 
+        channel_map = {}
+        wiring_type = 0
+        if uiDewetronSetting is not None:
+            for type_id, btn in getattr(uiDewetronSetting, "_wiring_buttons", []) or []:
+                try:
+                    if btn.isChecked():
+                        wiring_type = int(type_id)
+                        break
+                except Exception:
+                    pass
+            for slot_name, le in (getattr(uiDewetronSetting, "_slot_input_widgets", {}) or {}).items():
+                channel_map[slot_name] = getattr(le, "_channel", "") or ""
         if build_test_page_from_device(
             dewetron_controller,
             log_fn=log_fn,
             features=feature_flags_from_ui(uiDewetronSetting),
+            channel_map=channel_map,
+            wiring_type=wiring_type,
         ):
             if not silent:
                 QMessageBox.information(None, "构造完成", "测试界面已构造")
@@ -2326,11 +2363,18 @@ def _emit_run_progress(persist=True, **kwargs):
     """更新进度状态并投递到 UI（任意线程可调用）。"""
     state = _run_progress_state
     now_ts = time.time()
+    prev_cmd = int(state.get("cmd_index") or 0)
     if "operator_pause" in kwargs and kwargs.get("operator_pause") is not None:
         _sync_operator_pause_clock(state, now_ts=now_ts, next_pause=kwargs.get("operator_pause"))
     for key, value in kwargs.items():
         if value is not None:
             state[key] = value
+    # 换命令时清掉上一条的驻留，并记下本条开始时刻（跨 col6/8/9 累加已等时间）
+    new_cmd = int(state.get("cmd_index") or 0)
+    if new_cmd != prev_cmd:
+        state["cmd_started_at"] = now_ts
+        if "cmd_waited_s" not in kwargs:
+            state["cmd_waited_s"] = 0.0
     if "progress" not in kwargs or kwargs.get("progress") is None:
         state["progress"] = _compute_run_progress_percent(state)
 
@@ -2356,7 +2400,25 @@ def _emit_run_progress(persist=True, **kwargs):
             cmd_total=int(state.get("cmd_total") or 0),
             commands=cmds,
             freeze_remain=freeze,
+            cmd_waited_s=max(
+                float(state.get("cmd_waited_s") or 0.0),
+                max(0.0, now_ts - float(state.get("cmd_started_at") or now_ts))
+                if int(state.get("cmd_index") or 0) > 0
+                else 0.0,
+            ),
         )
+        if float(eta.get("planned_total_s") or 0) > 0:
+            state["planned_seconds"] = float(eta["planned_total_s"])
+        # 有命令计划时，进度条跟计划时长走。进行中最高 99，结束时才写 100。
+        if (
+            "progress" not in kwargs
+            and float(eta.get("planned_total_s") or 0) > 1.0
+            and state.get("status") in ("进行中", "暂停", "待开始")
+        ):
+            pct = int(eta.get("progress_from_plan") or 0)
+            if state.get("status") == "进行中":
+                pct = min(99, max(0, pct))
+            state["progress"] = pct
         est_end = format_estimated_end_time(
             float(eta.get("remain_s") or 0.0),
             status=str(state.get("status") or ""),
@@ -2367,6 +2429,7 @@ def _emit_run_progress(persist=True, **kwargs):
             "elapsed_s": elapsed,
             "remain_s": 0.0,
             "eta_total_s": 0.0,
+            "progress_from_plan": int(state.get("progress") or 0),
             "planned_text": "约 —",
             "elapsed_text": "约 —",
             "remain_text": "约 —",
@@ -2470,6 +2533,14 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
             from utils.iot_local_run import release_previous_cloud_job_for_new_round
 
             release_previous_cloud_job_for_new_round()
+            globals()["_dew_record_ordinal"] = 0
+            globals()["_dew_active_ordinal"] = None
+            try:
+                from utils.last_dew_export import reset_dew_exports
+
+                reset_dew_exports()
+            except Exception:
+                pass
     except Exception as _rel_exc:
         print(f"[进度] 结案上一云任务跳过: {_rel_exc}", flush=True)
     try:
@@ -2477,25 +2548,42 @@ def _init_run_progress_plan(project_name=None, status="待开始"):
     except Exception:
         project = project_name or ""
     names = _parse_progress_file_names()
-    # DEWETRON append stores the planned file list on the section.
+    # 多项追加时下拉框停在最后一项。德威创名单要按队列把每一项都算上，
+    # 否则进度和导出只剩固定 PF，第一次过欠压没有录波。
     try:
-        if project and _is_dewetron_project_mode(project):
-            section = _get_dewetron_section(project)
-            dew_names = getattr(section, "_dew_file_names", None) if section else None
-            if dew_names:
-                names = list(dew_names)
-            dew_paths = getattr(section, "_dew_save_paths", None) if section else None
-            if dew_paths and (
-                getattr(section, "_dew_record_continuous", True)
-                or len(dew_paths) == 1
+        dew_projects = []
+        try:
+            from utils.test_queue_markers import parse_queue_segments
+
+            for seg in parse_queue_segments(
+                globals().get("strArrayTest") or [], fallback_name=project
             ):
-                # Continuous / single-file: one progress round even if filename
-                # list still has multiple legacy names.
-                total_override = 1
-            elif dew_paths:
-                total_override = len(dew_paths)
-            else:
-                total_override = None
+                seg_name = str(seg.get("name") or "").strip()
+                if seg_name and seg_name not in dew_projects and _is_dewetron_project_mode(seg_name):
+                    dew_projects.append(seg_name)
+        except Exception:
+            dew_projects = []
+        if not dew_projects and project and _is_dewetron_project_mode(project):
+            dew_projects = [project]
+        if dew_projects:
+            names = []
+            total_override = 0
+            for seg_name in dew_projects:
+                section = _get_dewetron_section(seg_name)
+                dew_names = list(getattr(section, "_dew_file_names", None) or []) if section else []
+                dew_paths = list(getattr(section, "_dew_save_paths", None) or []) if section else []
+                continuous = True
+                if section is not None:
+                    continuous = bool(getattr(section, "_dew_record_continuous", True))
+                if dew_paths and (continuous or len(dew_paths) == 1):
+                    names.append(dew_names[0] if dew_names else seg_name)
+                    total_override += 1
+                elif dew_paths:
+                    names.extend(dew_names or [seg_name])
+                    total_override += len(dew_paths)
+                elif dew_names:
+                    names.extend(dew_names)
+                    total_override += len(dew_names)
         else:
             total_override = None
     except Exception:
@@ -3388,9 +3476,13 @@ def ConnectEQUAC():
         return bool(ac_controller.connected)
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[AC] 正在连接 ({ac_device_key}) {tcp_addr} …")
         ok = _run_device_io("ConnectEQUAC", _work)
     except Exception as exc:
         ui.textEdit_ReturnMessage.append(f"[AC] 连接异常 ({ac_device_key}) {tcp_addr}: {exc}")
+        return
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("AC")
         return
 
     if ok:
@@ -3642,9 +3734,13 @@ def ConnectEQUDC1():
         return bool(dc1_controller.connected)
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[DC1] 正在连接 ({device_type}) {tcp_addr} …")
         ok = _run_device_io("ConnectEQUDC1", _work)
     except Exception as exc:
         ui.textEdit_ReturnMessage.append(f"[DC1] 连接异常 ({device_type}) {tcp_addr}: {exc}")
+        return
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("DC1")
         return
 
     if ok:
@@ -3745,9 +3841,13 @@ def ConnectEQUDC2():
         return bool(dc2_controller.connected)
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[DC2] 正在连接 ({device_type}) {tcp_addr} …")
         ok = _run_device_io("ConnectEQUDC2", _work)
     except Exception as exc:
         print(f"[DC2] 连接异常: {exc}")
+        return
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("DC2")
         return
 
     if ok:
@@ -3812,9 +3912,13 @@ def ConnectEQUDC3():
         return bool(dc3_controller.connected)
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[DC3] 正在连接 ({device_type}) {tcp_addr} …")
         ok = _run_device_io("ConnectEQUDC3", _work)
     except Exception as exc:
         print(f"[DC3] 连接异常: {exc}")
+        return
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("DC3")
         return
 
     if ok:
@@ -3879,9 +3983,13 @@ def ConnectEQUDC4():
         return bool(dc4_controller.connected)
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[DC4] 正在连接 ({device_type}) {tcp_addr} …")
         ok = _run_device_io("ConnectEQUDC4", _work)
     except Exception as exc:
         print(f"[DC4] 连接异常: {exc}")
+        return
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("DC4")
         return
 
     if ok:
@@ -3921,9 +4029,13 @@ def ConnectEQUDL850():
         return bool(dl850_controller.connected)
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[DL850] 正在连接 {tcp_addr} …")
         ok = _run_device_io("ConnectEQUDL850", _work)
     except Exception as exc:
         print(f"[DL850] 连接异常: {exc}")
+        return
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("DL850")
         return
 
     if ok:
@@ -4128,10 +4240,14 @@ def ConnectEQUDEWETRON():
         return _probe()
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[DEWETRON] 正在连接 {tcp_addr} …")
         ok = _run_device_io("ConnectEQUDEWETRON", _work)
     except Exception as exc:
         print(f"[DEWETRON] 连接异常: {exc}")
         ok = False
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("DEWETRON")
+        return
 
     if ok:
         _remove_equ_from_combo_boxes(tcp_addr)
@@ -4247,9 +4363,13 @@ def ConnectEQUWT3000():
         return bool(wt3000_controller.connected)
 
     try:
+        ui.textEdit_ReturnMessage.append(f"[WT3000] 正在连接 {tcp_addr} …")
         ok = _run_device_io("ConnectEQUWT3000", _work)
     except Exception as exc:
         print(f"[WT3000] 连接异常: {exc}")
+        return
+    if _device_io_is_busy_result(ok):
+        _log_device_io_busy("WT3000")
         return
 
     if ok:
@@ -4585,6 +4705,14 @@ def _apply_device_finder_plan(slot: str, plan: dict, dev) -> None:
     global _dc1_device_type, _dc2_device_type, _dc3_device_type, _dc4_device_type
     from utils.device_discovery import remember_found_resource, remember_successful_device
     from utils.device_finder_connect import combo_text_for_plan
+
+    # 已连上再调 Connect* 会因按钮文案「取消连接」反而断开，然后被当成连接失败。
+    if _iot_slot_session_ok(slot):
+        try:
+            ui.textEdit_ReturnMessage.append(f"[设备发现] {slot} 已连接，跳过重复连接")
+        except Exception:
+            pass
+        return
 
     target = str((plan or {}).get("target") or "")
     addr = combo_text_for_plan(plan) or ""
@@ -24724,23 +24852,44 @@ def RunProjectPush():
         strTestFlag = "1"
         _local_widgets = None
         _local_run_cmds = None
+        _local_conditions = None
         try:
-            # 全实验类型：采集当前 Dialog → prefs + 本地开测登记 Blockly
+            # 多项追加时按队列里每一项试验页采集，不能拿「A + B」去套一份模板默认值
             from utils.iot_ui_handoff import (
                 collect_widgets_for_project,
                 persist_current_project_prefs,
             )
             from utils.iot_run_upload import snapshot_run_commands
+            from utils.start_conditions import compact_start_condition
 
             _svc = globals().get("_iot_ui_handoff_svc")
-            n_w = persist_current_project_prefs(currentSecond, handoff_svc=_svc)
-            _local_widgets = collect_widgets_for_project(currentSecond, handoff_svc=_svc) or None
+            _cond_names = []
+            for _q in (_run_progress_state.get("queue") or []):
+                _qn = str((_q or {}).get("name") or "").strip()
+                if _qn and _qn not in _cond_names:
+                    _cond_names.append(_qn)
+            if not _cond_names and currentSecond:
+                _cond_names = [str(currentSecond).strip()]
+            _n_w = 0
+            _local_conditions = []
+            for _qn in _cond_names:
+                _n_w += int(persist_current_project_prefs(_qn, handoff_svc=_svc) or 0)
+                _w = collect_widgets_for_project(_qn, handoff_svc=_svc) or {}
+                if _w and _local_widgets is None:
+                    _local_widgets = _w
+                _item = compact_start_condition(_qn, _w)
+                if _item.get("items"):
+                    _local_conditions.append(_item)
+            if not _local_conditions:
+                _local_conditions = None
             try:
                 _local_run_cmds = snapshot_run_commands(globals().get("strArrayTest") or [])
             except Exception:
                 _local_run_cmds = None
-            if n_w:
-                print(f"[RunProject] 已上报实验参数 {n_w} 项 → IOT", flush=True)
+            if _n_w:
+                print(f"[RunProject] 已上报实验参数 {_n_w} 项 → IOT", flush=True)
+            if _local_conditions:
+                print(f"[RunProject] 工况按 {len(_local_conditions)} 项试验分别上报", flush=True)
             if _local_run_cmds:
                 print(f"[RunProject] 本局实际步骤 {len(_local_run_cmds)} 条一并上报", flush=True)
         except Exception as _prefs_exc:
@@ -24752,6 +24901,7 @@ def RunProjectPush():
                 currentSecond,
                 widgets=_local_widgets,
                 run_commands=_local_run_cmds,
+                conditions_by_test=_local_conditions,
             )
         except Exception as _iot_reg_exc:
             print(f"[RunProject] IOT 本地登记跳过: {_iot_reg_exc}", flush=True)
@@ -25816,18 +25966,19 @@ def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9", force_full_dwe
                 f"{x}/{ticks} (0.1s)"
             )
             return
-        if x % 100 == 0 and ticks > 100:
+        if x % 10 == 0 and ticks >= 10:
             waited_sec = round(x * 0.1, 1)
             total_sec = round(ticks * 0.1, 1)
-            if _log is not None:
+            if x % 100 == 0 and ticks > 100 and _log is not None:
                 _log.info(f"第{cmd_no}条命令等待中: {waited_sec}/{total_sec}s")
-            try:
-                from utils.iot_run_snapshot import touch_project_activity
+            if x % 100 == 0 and ticks > 100:
+                try:
+                    from utils.iot_run_snapshot import touch_project_activity
 
-                touch_project_activity()
-            except Exception:
-                pass
-            # 长驻留刷新进度文案，避免一直显示上一条 *IDN? 像“卡死”
+                    touch_project_activity()
+                except Exception:
+                    pass
+            # 驻留按已等秒数推进进度，避免条数走完就显示 100%、剩余 0
             try:
                 tag_u = str(log_tag or "").upper()
                 if "OVUF_BOOT" in tag_u:
@@ -25839,6 +25990,7 @@ def _wait_command_dwell_01s(cmd_no, dwell_01s, *, log_tag="col9", force_full_dwe
                 _emit_run_progress(
                     status="进行中",
                     cmd_index=int(cmd_no),
+                    cmd_waited_s=waited_sec,
                     current_detail=f"{label} {waited_sec:.0f}/{total_sec:.0f}s",
                     persist=True,
                 )
@@ -25888,6 +26040,7 @@ def _wait_measure_trigger_done(cmd_no, dwell_01s, *, log_tag="col6"):
             _emit_run_progress(
                 status="进行中",
                 cmd_index=int(cmd_no),
+                cmd_waited_s=float(waited_s),
                 current_detail=detail,
                 persist=True,
             )
@@ -26178,19 +26331,24 @@ def RunProject():
             try:
                 _detail = f"[{_dev}] {_op} {str(_scpi)[:80]}".strip()
                 _sync_queue_for_cmd(i + 1)
-                _cr = (
-                    (int(now_save_file) + 1)
-                    if int(globals().get("total_save_file") or 0) > 0
-                    else int(_run_progress_state.get("current_round") or 0)
-                )
-                # 进入某一轮时把该行标成进行中，避免 IOT 一直显示「等待」
-                try:
-                    _rounds = _run_progress_state.get("rounds") or []
-                    if _cr > 0 and _rounds and 0 <= (_cr - 1) < len(_rounds):
-                        if str(_rounds[_cr - 1].get("status") or "") == "等待":
-                            _set_run_progress_round(_cr - 1, "进行中", note="执行中")
-                except Exception:
-                    pass
+                # 德威创轮次由 START/STOP 的序号维护。这里再用 WT 的 now_save_file
+                # 会把「第 2 段」刷回第 1 段。
+                if int(globals().get("_dew_record_ordinal") or 0) > 0:
+                    _cr = int(_run_progress_state.get("current_round") or 0)
+                else:
+                    _cr = (
+                        (int(now_save_file) + 1)
+                        if int(globals().get("total_save_file") or 0) > 0
+                        else int(_run_progress_state.get("current_round") or 0)
+                    )
+                    # 进入某一轮时把该行标成进行中，避免 IOT 一直显示「等待」
+                    try:
+                        _rounds = _run_progress_state.get("rounds") or []
+                        if _cr > 0 and _rounds and 0 <= (_cr - 1) < len(_rounds):
+                            if str(_rounds[_cr - 1].get("status") or "") == "等待":
+                                _set_run_progress_round(_cr - 1, "进行中", note="执行中")
+                    except Exception:
+                        pass
                 _emit_run_progress(
                     status="进行中",
                     cmd_index=i + 1,
@@ -26884,6 +27042,11 @@ def RunProject():
                                     test_type=dew_test_type,
                                     base_dir=dew_base or None,
                                 )
+                                from utils.dewetron_recording import restamp_recording_path
+
+                                path = restamp_recording_path(path)
+                                if idx < len(paths):
+                                    paths[idx] = path
                                 section._dew_save_paths = list(paths)
                                 set_path = getattr(dewetron_collector, "set_save_path", None)
                                 if callable(set_path):
@@ -26892,9 +27055,12 @@ def RunProject():
                                     dewetron_collector._save_path = path
                                 names = list(getattr(section, "_dew_file_names", None) or [])
                                 label = names[idx] if idx < len(names) else f"轮次{idx + 1}"
+                                ordinal = int(globals().get("_dew_record_ordinal") or 0)
+                                globals()["_dew_active_ordinal"] = ordinal
+                                globals()["_dew_record_ordinal"] = ordinal + 1
                                 try:
                                     _set_run_progress_round(
-                                        idx, "进行中", note=f"DEWETRON采集: {label}"
+                                        ordinal, "进行中", note=f"DEWETRON采集: {label}"
                                     )
                                 except Exception:
                                     pass
@@ -26966,13 +27132,22 @@ def RunProject():
                                 section._dew_save_paths = list(paths)
                             csv_path = dewetron_collector.export_to_csv(export_path)
                             if csv_path:
+                                try:
+                                    from utils.last_dew_export import remember_dew_export
+
+                                    remember_dew_export(str(csv_path))
+                                except Exception:
+                                    pass
                                 _append_return_message(f"[DEWETRON] 数据已导出: {csv_path}")
                             if section is not None:
                                 names = list(getattr(section, "_dew_file_names", None) or [])
                                 label = names[idx] if idx < len(names) else f"轮次{idx + 1}"
+                                ordinal = globals().get("_dew_active_ordinal")
+                                if ordinal is None:
+                                    ordinal = idx
                                 try:
                                     _set_run_progress_round(
-                                        idx, "完成", note=f"已导出: {label}"
+                                        int(ordinal), "完成", note=f"已导出: {label}"
                                     )
                                 except Exception:
                                     pass
@@ -31505,38 +31680,54 @@ def _run_startup_connect_jobs_stepwise(jobs, devices) -> None:
         slot, plan, dev = jobs_local[i]
         state["i"] = i + 1
         try:
-            _apply_device_finder_plan(slot, plan, dev)
             if _iot_slot_session_ok(slot):
                 try:
                     from utils.device_finder_connect import remember_text_for_plan
-                    from utils.iot_auto_connect import remember_slot_for_resource
 
-                    mem = remember_text_for_plan(plan, dev)
-                    remember_slot_for_resource(mem, slot)
+                    mem = remember_text_for_plan(plan, dev) or (
+                        getattr(dev, "resource", "") or ""
+                    )
                 except Exception:
                     mem = getattr(dev, "resource", "") or ""
                 state["connected"].append(f"{slot}:{mem}")
-                _log(f"自动连接 {slot} -> {mem}")
+                _log(f"已连接，跳过 {slot} -> {mem}")
             else:
-                from utils.device_finder_connect import remember_text_for_plan
+                # 启动自动连禁止模态框：失败只写操作日志，避免「直流已连又弹失败」卡死主界面
+                from utils.iot_remote_ui import silent_remote_connect
 
-                target = str((plan or {}).get("target") or "")
-                where = remember_text_for_plan(plan, dev)
-                if not where:
-                    resource = str(getattr(dev, "resource", "") or "")
-                    host = str(getattr(dev, "host", "") or "")
-                    port = getattr(dev, "port", None)
-                    res_u = resource.upper()
-                    if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
-                        where = resource
-                    elif host and port is not None:
-                        where = f"{host}:{port}"
-                    else:
-                        where = resource or host
-                hint = f"{target}@{where}" if target else where
-                err = f"{slot}: 桌面连接失败（会话未建立；{hint}）"
-                state["errors"].append(err)
-                _log(f"自动连接失败 {slot}: 会话未建立 {hint}")
+                with silent_remote_connect():
+                    _apply_device_finder_plan(slot, plan, dev)
+                if _iot_slot_session_ok(slot):
+                    try:
+                        from utils.device_finder_connect import remember_text_for_plan
+                        from utils.iot_auto_connect import remember_slot_for_resource
+
+                        mem = remember_text_for_plan(plan, dev)
+                        remember_slot_for_resource(mem, slot)
+                    except Exception:
+                        mem = getattr(dev, "resource", "") or ""
+                    state["connected"].append(f"{slot}:{mem}")
+                    _log(f"自动连接 {slot} -> {mem}")
+                else:
+                    from utils.device_finder_connect import remember_text_for_plan
+
+                    target = str((plan or {}).get("target") or "")
+                    where = remember_text_for_plan(plan, dev)
+                    if not where:
+                        resource = str(getattr(dev, "resource", "") or "")
+                        host = str(getattr(dev, "host", "") or "")
+                        port = getattr(dev, "port", None)
+                        res_u = resource.upper()
+                        if res_u.startswith(("USB", "ASRL", "GPIB", "COM", "TCPIP")):
+                            where = resource
+                        elif host and port is not None:
+                            where = f"{host}:{port}"
+                        else:
+                            where = resource or host
+                    hint = f"{target}@{where}" if target else where
+                    err = f"{slot}: 桌面连接失败（会话未建立；{hint}）"
+                    state["errors"].append(err)
+                    _log(f"自动连接失败 {slot}: 会话未建立 {hint}")
         except Exception as exc:
             state["errors"].append(f"{slot}: {exc}")
             _log(f"自动连接失败 {slot}: {exc}")

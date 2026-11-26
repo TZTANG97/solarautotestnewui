@@ -89,10 +89,31 @@ def test_compute_eta_freeze_remain_skips_progress_blend():
         commands=cmds,
         freeze_remain=True,
     )
-    plan_remain = estimate_planned_seconds(cmds, start_index=5)
+    # cmd_index=5 表示第 5 条正在执行，剩余含本条整段加后面 5 条
+    plan_remain = estimate_planned_seconds(cmds, start_index=4)
     assert abs(eta_pause["remain_s"] - plan_remain) < 0.01
     # 暂停冻结后不应被超大 elapsed/进度外推拉飞
     assert eta_pause["remain_s"] <= eta_run["remain_s"] + 1.0
+
+
+def test_current_dwell_and_later_tests_stay_in_remain():
+    """命令等待 20/100 秒时，不能因为条数或轮次已经走完就把剩余清成 0。"""
+    cmds = [
+        ["AC", "wait", "OVUF", "", "", "", "", "", "", 1000],  # 100s
+        ["AC", "wait", "PF", "", "", "", "", "", "", 600],  # 60s，下一项
+    ]
+    eta = compute_eta(
+        elapsed_s=276,
+        progress_pct=100,
+        planned_total_s=estimate_planned_seconds(cmds),
+        cmd_index=1,
+        cmd_total=2,
+        commands=cmds,
+        cmd_waited_s=20,
+    )
+    assert eta["remain_s"] > 130
+    assert eta["progress_from_plan"] < 30
+    assert eta["remain_text"] != "约 0 秒"
 
 
 def test_format_estimated_end_time():

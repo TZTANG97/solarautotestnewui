@@ -15,6 +15,7 @@ from typing import Optional, Tuple
 _LAST_CSV = ""
 _LAST_DIR = ""
 _LAST_DMD = ""
+_CSV_LIST: list = []
 
 _SIDECAR_NAME = ".last_dew_export.json"
 
@@ -55,8 +56,18 @@ def _sidecar_candidates(csv_path: str = "") -> list:
 
 
 def _write_sidecar(csv_path: str, csv_dir: str, dmd_path: str = "") -> None:
+    merged: list = []
+    try:
+        prior, _prior_dir, _prior_dmd = _read_sidecar_csvs()
+    except Exception:
+        prior = []
+    for item in list(prior) + list(_CSV_LIST) + [str(csv_path or "").strip()]:
+        text = str(item or "").strip()
+        if text and text not in merged:
+            merged.append(text)
     payload = {
         "csv": str(csv_path or ""),
+        "csvs": merged,
         "dir": str(csv_dir or ""),
         "dmd": str(dmd_path or _LAST_DMD or ""),
         "ts": time.time(),
@@ -70,14 +81,42 @@ def _write_sidecar(csv_path: str, csv_dir: str, dmd_path: str = "") -> None:
             continue
 
 
+def reset_dew_exports() -> None:
+    """新的一单开始前清掉上一单的导出名单，避免结案把旧录波再挂上来。"""
+    global _LAST_CSV, _LAST_DIR, _LAST_DMD, _CSV_LIST
+
+    prev = _LAST_CSV
+    _LAST_CSV = ""
+    _LAST_DIR = ""
+    _LAST_DMD = ""
+    _CSV_LIST = []
+    for side in _sidecar_candidates(prev):
+        try:
+            if side.is_file():
+                side.unlink()
+        except OSError:
+            continue
+
+
 def remember_dew_export(csv_path: str) -> None:
-    global _LAST_CSV, _LAST_DIR
+    global _LAST_CSV, _LAST_DIR, _CSV_LIST
 
     text = str(csv_path or "").strip()
     _LAST_CSV = text
     _LAST_DIR = os.path.dirname(text) if text else ""
+    if text and text not in _CSV_LIST:
+        _CSV_LIST.append(text)
     if text:
         _write_sidecar(text, _LAST_DIR, _LAST_DMD)
+
+
+def dew_export_csvs() -> list:
+    """本单已经导出的全部 CSV。内存空了就从 sidecar 的名单恢复，不能只剩最后一份。"""
+    mem = [str(item).strip() for item in _CSV_LIST if str(item or "").strip()]
+    if mem:
+        return list(mem)
+    csvs, _d, _dmd = _read_sidecar_csvs()
+    return csvs
 
 
 def remember_dew_dmd(dmd_path: str) -> None:
@@ -138,6 +177,37 @@ def read_sidecar_full() -> Tuple[str, str, str]:
             continue
     if best is None:
         return "", "", ""
+    return best[1], best[2], best[3]
+
+
+def _read_sidecar_csvs() -> Tuple[list, str, str]:
+    """最新 sidecar 里的全部 CSV。旧文件没有名单时退回单个 csv。"""
+    best = None
+    for side in _sidecar_candidates():
+        try:
+            if not side.is_file():
+                continue
+            mtime = side.stat().st_mtime
+            data = json.loads(side.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                continue
+            raw = data.get("csvs")
+            csvs = []
+            if isinstance(raw, list):
+                csvs = [str(item).strip() for item in raw if str(item or "").strip()]
+            one = str(data.get("csv") or "").strip()
+            if not csvs and one:
+                csvs = [one]
+            d = str(data.get("dir") or "").strip()
+            dmd = str(data.get("dmd") or "").strip()
+            if not csvs and not d and not dmd:
+                continue
+            if best is None or mtime >= best[0]:
+                best = (mtime, csvs, d, dmd)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+    if best is None:
+        return [], "", ""
     return best[1], best[2], best[3]
 
 

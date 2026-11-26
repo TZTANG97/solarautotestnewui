@@ -301,6 +301,241 @@ def _power_channel(short_id, used="True", active="True"):
     )
 
 
+def test_power_screen_stays_on_its_own_page_and_becomes_active():
+    from DewetronTestPage import inject_power_group_screen
+
+    other = '<MeasurementScreen><InstrumentGrid type="oxy::analog"></InstrumentGrid></MeasurementScreen>'
+    power = (
+        '<MeasurementScreen><InstrumentGrid type="oxy::power_group" columns="1">'
+        '<InstrumentChannel channel_id="1"/></InstrumentGrid></MeasurementScreen>'
+    )
+    xml = '<MeasurementScreens active_screen="0">' + other + power + "</MeasurementScreens>"
+    updated, changed, _msg = inject_power_group_screen(xml, "77")
+    assert changed
+    assert 'active_screen="1"' in updated
+    assert updated.index("oxy::analog") < updated.index("oxy::power_group")
+    assert 'channel_id="77"' in updated
+    assert 'channel_id="1"' not in updated
+
+
+def test_new_power_screen_is_the_screen_oxygen_opens():
+    from DewetronTestPage import inject_power_group_screen
+
+    other = '<MeasurementScreen><InstrumentGrid type="oxy::recorder"></InstrumentGrid></MeasurementScreen>'
+    xml = '<MeasurementScreens active_screen="0">' + other + "</MeasurementScreens>"
+    updated, changed, _msg = inject_power_group_screen(xml, "77")
+    assert changed
+    assert 'active_screen="0"' in updated
+    assert updated.index("oxy::power_group") < updated.index("oxy::recorder")
+
+
+def test_used_flag_after_the_name_is_the_one_oxygen_reads():
+    from DewetronTestPage import activate_analog_channels, clamp_power_channels, enable_power_group_channels
+
+    basic = (
+        '<Channel id="2"><Property name="ShortId"><StringValue>"U1_tRMS"</StringValue></Property>'
+        '<Property name="Used"><BooleanValue>False</BooleanValue></Property></Channel>'
+    )
+    enabled, count = enable_power_group_channels(basic, phases={1})
+    assert count >= 1
+    assert "<BooleanValue>True</BooleanValue>" in enabled
+
+    optional = (
+        '<Channel id="3"><Property name="ShortId"><StringValue>"U2_fluc_Pst"</StringValue></Property>'
+        '<Property name="Used"><BooleanValue>True</BooleanValue></Property></Channel>'
+    )
+    clamped, _labels = clamp_power_channels(optional, {1}, {"flicker": False, "harmonics": False, "rolling": False})
+    assert "<BooleanValue>True</BooleanValue>" not in clamped
+
+    sleeping = (
+        '<Channel id="9"><DataFormat frequency="NEVER" sample_format="sint24"/>'
+        '<Property name="ShortId"><StringValue>"AI 1/U1"</StringValue></Property>'
+        '<Property name="Used"><BooleanValue>False</BooleanValue></Property></Channel>'
+    )
+    awake, opened = activate_analog_channels(sleeping, ["AI 1/U1"])
+    assert opened == ["AI 1/U1"]
+    assert 'frequency="SYNC"' in awake
+    assert "<BooleanValue>True</BooleanValue>" in awake
+
+
+def test_board_mode_pairs_voltage_and_current_when_names_do_not():
+    from DewetronTestPage import default_power_inputs, phases_from_xml
+
+    xml = (
+        '<Channel id="11">'
+        '<Property name="ID:TRION/BoardId"><UnsignedValue>1</UnsignedValue></Property>'
+        '<Property name="ID:TRION/ChannelIndex"><UnsignedValue>0</UnsignedValue></Property>'
+        '<Property name="ShortId"><StringValue>"AI 1/1"</StringValue></Property>'
+        '<Property name="Mode"><StringValue>"Current"</StringValue></Property>'
+        "</Channel>"
+        '<Channel id="12">'
+        '<Property name="ID:TRION/BoardId"><UnsignedValue>1</UnsignedValue></Property>'
+        '<Property name="ID:TRION/ChannelIndex"><UnsignedValue>4</UnsignedValue></Property>'
+        '<Property name="ShortId"><StringValue>"AI 1/5"</StringValue></Property>'
+        '<Property name="Mode"><StringValue>"Voltage"</StringValue></Property>'
+        "</Channel>"
+        '<Property name="POWER/InputChannels/U1"><ChannelID>11</ChannelID></Property>'
+        '<Property name="POWER/InputChannels/I1"><ChannelID>99</ChannelID></Property>'
+    )
+    assert default_power_inputs(0, {"AI 1/1": "11", "AI 1/5": "12"}, xml) == {
+        "U1": "AI 1/5",
+        "I1": "AI 1/1",
+    }
+    assert phases_from_xml(xml, {"11", "12"}) == set()
+
+
+def _mode_channel(cid, name, mode, index, board):
+    return (
+        '<Channel id="%s">'
+        '<Property name="ID:TRION/BoardId"><UnsignedValue>%s</UnsignedValue></Property>'
+        '<Property name="ID:TRION/ChannelIndex"><UnsignedValue>%s</UnsignedValue></Property>'
+        '<Property name="ShortId"><StringValue>"%s"</StringValue></Property>'
+        '<Property name="Mode"><StringValue>"%s"</StringValue></Property>'
+        "</Channel>" % (cid, board, index, name, mode)
+    )
+
+
+def test_named_channels_keep_their_phase_when_board_index_differs():
+    from DewetronTestPage import default_power_inputs
+
+    xml = "".join((
+        _mode_channel("1", "AI 1/U1", "Voltage", 9, 1),
+        _mode_channel("2", "AI 1/U2", "Voltage", 1, 1),
+        _mode_channel("3", "AI 1/U3", "Voltage", 2, 1),
+        _mode_channel("4", "AI 1/I1", "Current", 8, 1),
+        _mode_channel("5", "AI 1/I2", "Current", 3, 1),
+        _mode_channel("6", "AI 1/I3", "Current", 4, 1),
+    ))
+    slots = default_power_inputs(3, {
+        "AI 1/U1": "1", "AI 1/U2": "2", "AI 1/U3": "3",
+        "AI 1/I1": "4", "AI 1/I2": "5", "AI 1/I3": "6",
+    }, xml)
+    assert slots["U1"] == "AI 1/U1"
+    assert slots["U2"] == "AI 1/U2"
+    assert slots["I1"] == "AI 1/I1"
+
+
+def test_voltage_and_current_are_not_paired_across_boards():
+    from DewetronTestPage import discover_from_modes
+
+    xml = (
+        _mode_channel("1", "AI 1/1", "Voltage", 1, 1)
+        + _mode_channel("2", "AI 2/1", "Current", 1, 2)
+        + _mode_channel("3", "AI 2/2", "Voltage", 2, 2)
+        + _mode_channel("4", "AI 2/3", "Current", 3, 2)
+    )
+    found = discover_from_modes(xml)
+    assert found == {"U1": "AI 2/2", "I1": "AI 2/1"}
+    assert "AI 1/1" not in found.values()
+
+
+def test_totals_stay_off_until_every_required_phase_is_wired():
+    from DewetronTestPage import clamp_power_channels, totals_ready
+
+    assert totals_ready({1}, 3) is False
+    assert totals_ready({1, 2, 3}, 3) is True
+    xml = (
+        '<Channel id="2"><Property name="Used"><BooleanValue>True</BooleanValue></Property>'
+        '<Property name="ShortId"><StringValue>"U1_tRMS"</StringValue></Property></Channel>'
+        '<Channel id="3"><Property name="Used"><BooleanValue>True</BooleanValue></Property>'
+        '<Property name="ShortId"><StringValue>"U_tRMS"</StringValue></Property></Channel>'
+    )
+    clamped, _labels = clamp_power_channels(
+        xml, {1}, {"flicker": False, "harmonics": False, "rolling": False}, totals=False
+    )
+    assert 'StringValue>"U1_tRMS"' in clamped
+    total = clamped[clamped.index('StringValue>"U_tRMS"') - 80:clamped.index('StringValue>"U_tRMS"')]
+    assert "True" not in total
+    phase = clamped[clamped.index('StringValue>"U1_tRMS"') - 80:clamped.index('StringValue>"U1_tRMS"')]
+    assert "True" in phase
+
+
+def test_numbered_analog_channels_pair_voltage_then_current():
+    from DewetronTestPage import default_power_inputs
+
+    slots = default_power_inputs(0, {"AI 1/1": "1", "AI 1/2": "2"})
+    assert slots == {"U1": "AI 1/1", "I1": "AI 1/2"}
+
+
+def test_voltage_alone_is_not_a_power_phase():
+    from DewetronTestPage import default_power_inputs, phases_from_slots
+
+    assert phases_from_slots({"U1": "AI 1/U1"}) == set()
+    assert phases_from_slots({"U1": "AI 1/U1", "I1": "AI 1/I1"}) == {1}
+    assert default_power_inputs(0, {"AI 1/U1": "11"}) == {}
+    assert default_power_inputs(0, {"AI 1/U1": "11", "AI 1/I1": "12"}) == {
+        "U1": "AI 1/U1",
+        "I1": "AI 1/I1",
+    }
+
+
+def test_empty_power_group_gets_phase_one_and_drops_unwired_channels():
+    from DewetronTestPage import apply_power_input_channels, clamp_power_channels, map_short_ids
+
+    xml = (
+        '<Property name="POWER/InputChannels/U1"><ChannelID>18446744073709551615</ChannelID></Property>'
+        '<Property name="POWER/InputChannels/I1"><ChannelID>18446744073709551615</ChannelID></Property>'
+        '<Channel id="11"><Property name="Used"><BooleanValue>False</BooleanValue></Property>'
+        '<Property name="ShortId"><StringValue>"AI 1/U1"</StringValue></Property></Channel>'
+        '<Channel id="12"><Property name="Used"><BooleanValue>False</BooleanValue></Property>'
+        '<Property name="ShortId"><StringValue>"AI 1/I1"</StringValue></Property></Channel>'
+        + _power_channel("U1_tRMS", "False", "False")
+        + _power_channel("U2_tRMS", "True", "True")
+        + _power_channel("U2_fluc_Pst", "True", "True")
+        + _power_channel("U2_hPHI", "True", "True")
+    )
+    ids = map_short_ids(xml)
+    updated, notes = apply_power_input_channels(xml, {"U1": "AI 1/U1", "I1": "AI 1/I1"}, ids)
+    assert "U1 <- AI 1/U1" in notes
+    assert "<ChannelID>11</ChannelID>" in updated
+    assert "<ChannelID>12</ChannelID>" in updated
+    clamped, _labels = clamp_power_channels(updated, {1}, {"flicker": False, "harmonics": False, "rolling": False})
+
+    def _body(text, short_id):
+        token = 'StringValue>"%s"' % short_id
+        start = text.index(token)
+        channel = text.rfind("<Channel id=", 0, start)
+        end = text.index("</Channel>", start)
+        return text[channel:end]
+
+    assert _body(clamped, "U1_tRMS").count("True") == 2
+    assert "True" not in _body(clamped, "U2_tRMS")
+    assert "True" not in _body(clamped, "U2_fluc_Pst")
+    assert "True" not in _body(clamped, "U2_hPHI")
+
+
+def test_power_group_id_is_the_outer_channel_when_the_body_is_long():
+    from DewetronTestPage import find_power_group_channel_id
+
+    inner = '<Channel id="99">' + ("x" * 20000) + "</Channel>"
+    xml = (
+        '<Channel id="7">'
+        + inner
+        + '<Property name="ShortId"><StringValue>"PowerGroup"</StringValue></Property>'
+        + "</Channel>"
+    )
+    assert find_power_group_channel_id(xml) == "7"
+
+
+def test_enable_does_not_flip_the_previous_channel_across_a_long_gap():
+    from DewetronTestPage import enable_power_group_channels
+
+    far = "y" * 8000
+    xml = (
+        '<Channel id="1"><Property name="Used"><BooleanValue>False</BooleanValue></Property>'
+        '<Property name="ShortId"><StringValue>"Other"</StringValue></Property></Channel>'
+        '<Channel id="2"><Property name="Used"><BooleanValue>False</BooleanValue></Property>'
+        + far
+        + '<Property name="ShortId"><StringValue>"U1_tRMS"</StringValue></Property>'
+        '<Property name="Neon/Active"><BooleanValue>False</BooleanValue></Property></Channel>'
+    )
+    updated, count = enable_power_group_channels(xml)
+    first, second = updated.split("</Channel>", 1)
+    assert "False" in first
+    assert "True" in second
+    assert count >= 1
+
+
 def test_optional_channels_hide_when_features_are_off():
     from DewetronTestPage import apply_optional_feature_channels, optional_power_feature
 
@@ -308,6 +543,8 @@ def test_optional_channels_hide_when_features_are_off():
     assert optional_power_feature("U1_fundRMS") is None
     assert optional_power_feature("U1_fluc_Pst") == "flicker"
     assert optional_power_feature("U1_h1RMS") == "harmonics"
+    assert optional_power_feature("U2_hPHI") == "harmonics"
+    assert optional_power_feature("I_fundUNBAL0") == "harmonics"
     assert optional_power_feature("U1_THD") == "harmonics"
     assert optional_power_feature("U1_tRMS_rc") == "rolling"
 

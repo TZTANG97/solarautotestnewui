@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, List, Optional, Sequence, Tuple
 
 from dewetron_autotest import (
@@ -489,6 +490,35 @@ def trim_leading_all_nan_samples(
                 nums.append(float("nan"))
         out.append((tt, nums))
     return out
+
+
+def restamp_recording_path(path: str, stamp: Optional[str] = None) -> str:
+    """开录时重写文件名时刻。
+
+    追加时写下的时分秒往往早于任务开始，结案会把这份录波当成旧文件丢掉。
+    和功率分析仪一样，以这一段真正开录的时刻作为文件名后缀。
+    """
+    import os
+    import time
+
+    text = str(path or "").strip()
+    if not text:
+        return text
+    stamp = stamp or time.strftime("%Y%m%d_%H%M%S")
+    folder, name = os.path.split(text)
+    stem, ext = os.path.splitext(name)
+    if not stem:
+        return text
+    # 分开录末尾是 _01，时间戳在它前面，换戳时把序号留在最后。
+    split = re.match(r"^(.*)_20\d{6}_\d{6}(_\d{2})$", stem)
+    if split:
+        stem = "%s_%s%s" % (split.group(1), stamp, split.group(2))
+    else:
+        stem = re.sub(r"_20\d{6}_\d{6}$", "", stem)
+        stem = re.sub(r"_\d{6}$", "", stem)
+        stem = "%s_%s" % (stem, stamp)
+    new_name = stem + (ext or ".csv")
+    return os.path.join(folder, new_name) if folder else new_name
 
 
 def resolve_dewetron_save_paths(
